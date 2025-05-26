@@ -4,15 +4,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Heart, Sparkles, Gamepad2, Users } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-pink-50">
+    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-end mb-8">
+        <div className="flex justify-end mb-8 gap-2">
+          <ThemeToggle />
           <LoginArea />
         </div>
         

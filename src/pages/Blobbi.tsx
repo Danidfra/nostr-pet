@@ -3,6 +3,7 @@ import { DailyCheckIn } from '@/components/blobbi/DailyCheckIn';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbi } from '@/hooks/useBlobbi';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function Blobbi() {
   const { user } = useCurrentUser();
@@ -12,7 +13,10 @@ export default function Blobbi() {
     <div className="container mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold">Blobbi</h1>
-        <LoginArea />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <LoginArea />
+        </div>
       </div>
       
       <div className="grid lg:grid-cols-4 gap-4">

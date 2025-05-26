@@ -7,6 +7,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NostrLoginProvider } from '@nostrify/react/login';
+import { ThemeProvider } from "@/components/theme-provider";
 import AppRouter from './AppRouter';
 
 // DO NOT MODIFY THIS LIST UNLESS YOU ARE ABSOLUTELY CERTAIN EACH RELAY URL YOU ARE ADDING IS VALID AND THE RELAY IS CURRENTLY ONLINE AND CONFIRMED TO BE FULLY FUNCTIONAL AND WORKING.
@@ -26,17 +27,19 @@ const queryClient = new QueryClient({
 
 export function App() {
   return (
-    <NostrLoginProvider storageKey='nostr:login'>
-      <NostrProvider relays={defaultRelays}>
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <AppRouter />
-          </TooltipProvider>
-        </QueryClientProvider>
-      </NostrProvider>
-    </NostrLoginProvider>
+    <ThemeProvider defaultTheme="system" storageKey="blobbi-theme">
+      <NostrLoginProvider storageKey='nostr:login'>
+        <NostrProvider relays={defaultRelays}>
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <AppRouter />
+            </TooltipProvider>
+          </QueryClientProvider>
+        </NostrProvider>
+      </NostrLoginProvider>
+    </ThemeProvider>
   );
 }
 

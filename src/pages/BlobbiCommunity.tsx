@@ -3,6 +3,7 @@ import { LoginArea } from '@/components/auth/LoginArea';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { Home } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function BlobbiCommunity() {
   const navigate = useNavigate();
