@@ -81,7 +81,7 @@ npm run deploy
   "kind": 30078,
   "content": "{...blobbi data...}",
   "tags": [
-    ["d", "owner_pubkey"],
+    ["d", "blobbi"],
     ["title", "pet_name"],
     ["summary", "status_description"]
   ]

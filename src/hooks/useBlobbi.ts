@@ -36,7 +36,7 @@ export function useBlobbi(pubkey?: string) {
         { 
           kinds: [BLOBBI_KIND], 
           authors: [targetPubkey],
-          '#d': [targetPubkey],
+          '#d': ['blobbi'],
           limit: 1 
         }
       ], { signal });
@@ -69,7 +69,7 @@ export function useBlobbi(pubkey?: string) {
         kind: BLOBBI_KIND,
         content: serializeBlobbi(newBlobbi),
         tags: [
-          ['d', user.pubkey],
+          ['d', 'blobbi'],
           ['title', newBlobbi.name],
           ['summary', `${newBlobbi.name} was born!`],
         ],
@@ -96,7 +96,7 @@ export function useBlobbi(pubkey?: string) {
         kind: BLOBBI_KIND,
         content: serializeBlobbi(updatedBlobbi),
         tags: [
-          ['d', user.pubkey],
+          ['d', 'blobbi'],
           ['title', updatedBlobbi.name],
           ['summary', `${updatedBlobbi.name} - ${action}`],
         ],
@@ -129,7 +129,7 @@ export function useBlobbi(pubkey?: string) {
         kind: BLOBBI_KIND,
         content: serializeBlobbi(updatedBlobbi),
         tags: [
-          ['d', user.pubkey],
+          ['d', 'blobbi'],
           ['title', updatedBlobbi.name],
           ['summary', `${updatedBlobbi.name} got a makeover!`],
         ],
