@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Coins, Trophy, Calendar, Heart, ShoppingBag, Palette } from 'lucide-react';
+import { Coins, Trophy, Calendar, Heart, ShoppingBag, Palette, Sparkles } from 'lucide-react';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { BlobbiVisual } from './BlobbiVisual';
+import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { BlobbiStats } from './BlobbiStats';
 import { BlobbiActions } from './BlobbiActions';
 import { BlobbiShop } from './BlobbiShop';
@@ -185,16 +186,45 @@ export function BlobbiGame() {
           <Card>
             <CardContent className="p-8">
               <div className="flex justify-center">
-                <BlobbiVisual 
-                  blobbi={blobbi} 
-                  size="large"
-                  onClick={() => isOwner && performAction('play')}
-                />
+                {blobbi.evolutionForm ? (
+                  <BlobbiEvolvedVisual 
+                    blobbi={blobbi} 
+                    size="large"
+                    onClick={() => isOwner && performAction('play')}
+                  />
+                ) : (
+                  <BlobbiVisual 
+                    blobbi={blobbi} 
+                    size="large"
+                    onClick={() => isOwner && performAction('play')}
+                  />
+                )}
               </div>
               {blobbi.state === 'hibernating' && (
                 <p className="text-center text-sm text-muted-foreground mt-4">
                   Your Blobbi is hibernating. Interact with it to wake it up!
                 </p>
+              )}
+              {!blobbi.evolutionForm && (
+                <div className="text-center mt-4">
+                  <p className="text-sm text-muted-foreground animate-pulse">
+                    <Sparkles className="w-4 h-4 inline mr-1" />
+                    Ready to evolve! Care for your Blobbi to trigger evolution.
+                  </p>
+                </div>
+              )}
+              {blobbi.evolutionForm && (
+                <div className="text-center mt-4 space-y-1">
+                  <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
+                    <Sparkles className="w-4 h-4" />
+                    <span>Evolved into {blobbi.evolutionForm.charAt(0).toUpperCase() + blobbi.evolutionForm.slice(1)}</span>
+                  </div>
+                  {blobbi.evolutionTime && (
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(blobbi.evolutionTime, { addSuffix: true })}
+                    </p>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -245,6 +275,23 @@ export function BlobbiGame() {
                 <span className="text-muted-foreground">Last Care</span>
                 <span>{formatDistanceToNow(blobbi.lastInteraction, { addSuffix: true })}</span>
               </div>
+              {blobbi.evolutionForm && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Evolution</span>
+                  <Badge variant="default" className="gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    {blobbi.evolutionForm.charAt(0).toUpperCase() + blobbi.evolutionForm.slice(1)}
+                  </Badge>
+                </div>
+              )}
+              {!blobbi.evolutionForm && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Evolution</span>
+                  <span className="text-xs text-muted-foreground">
+                    After first care action
+                  </span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

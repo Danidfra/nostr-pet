@@ -9,6 +9,7 @@ export interface BlobbiStats {
 }
 
 export type BlobbiLifeStage = 'baby' | 'child' | 'teen' | 'adult';
+export type BlobbiEvolutionForm = 'blobbi' | 'pengui' | 'owli' | 'catti' | 'froggi';
 export type BlobbiMood = 'happy' | 'sad' | 'sleepy' | 'hungry' | 'dirty' | 'sick' | 'neutral';
 export type BlobbiState = 'active' | 'sleeping' | 'hibernating';
 
@@ -30,6 +31,8 @@ export interface Blobbi {
   customization: BlobbiCustomization;
   experience: number;   // Total XP earned
   coins: number;        // In-game currency
+  evolutionForm?: BlobbiEvolutionForm; // Evolution form after 10 days
+  evolutionTime?: number; // Unix timestamp when evolution occurred
 }
 
 // Nostr event structure for Blobbi data

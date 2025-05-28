@@ -1,0 +1,399 @@
+import { cn } from '@/lib/utils';
+import { Blobbi, BlobbiMood } from '@/types/blobbi';
+import { getBlobbiMood } from '@/lib/blobbi';
+
+interface BlobbiEvolvedVisualProps {
+  blobbi: Blobbi;
+  size?: 'small' | 'medium' | 'large';
+  className?: string;
+  onClick?: () => void;
+}
+
+export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClick }: BlobbiEvolvedVisualProps) {
+  const mood = getBlobbiMood(blobbi.stats, blobbi.state);
+  
+  const sizeClasses = {
+    small: 'w-24 h-24',
+    medium: 'w-48 h-48',
+    large: 'w-64 h-64',
+  };
+  
+  // Animation classes based on state
+  const animationClass = blobbi.state === 'sleeping' 
+    ? 'animate-pulse' 
+    : mood === 'happy' 
+    ? 'animate-bounce' 
+    : '';
+  
+  const renderBlobbi = () => (
+    <svg viewBox="0 0 200 200" className="w-full h-full">
+      {/* Base blob shape */}
+      <ellipse cx="100" cy="110" rx="60" ry="70" fill={blobbi.customization.color || "#e0e7ff"} />
+      
+      {/* Soft shading */}
+      <ellipse cx="100" cy="110" rx="60" ry="70" fill="url(#blobbiGradient)" opacity="0.3" />
+      
+      {/* Eyes based on mood */}
+      {blobbi.state === 'sleeping' ? (
+        <>
+          <line x1="70" y1="100" x2="90" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+          <line x1="110" y1="100" x2="130" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          <circle cx="80" cy="100" r="8" fill="#1e293b" />
+          <circle cx="120" cy="100" r="8" fill="#1e293b" />
+          <circle cx="82" cy="98" r="3" fill="white" />
+          <circle cx="122" cy="98" r="3" fill="white" />
+        </>
+      )}
+      
+      {/* Mouth based on mood */}
+      {mood === 'happy' && <path d="M 80 120 Q 100 135 120 120" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />}
+      {mood === 'sad' && <path d="M 80 130 Q 100 115 120 130" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />}
+      {(mood === 'neutral' || mood === 'sleepy') && <path d="M 90 120 Q 100 125 110 120" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />}
+      
+      {/* Accessories */}
+      {blobbi.customization.accessories.includes('hat') && (
+        <g>
+          <rect x="70" y="50" width="60" height="10" fill="#f59e0b" rx="2" />
+          <rect x="80" y="30" width="40" height="30" fill="#f59e0b" rx="5" />
+        </g>
+      )}
+      
+      {blobbi.customization.accessories.includes('glasses') && (
+        <g>
+          <circle cx="80" cy="100" r="12" fill="none" stroke="#1e293b" strokeWidth="2" />
+          <circle cx="120" cy="100" r="12" fill="none" stroke="#1e293b" strokeWidth="2" />
+          <line x1="92" y1="100" x2="108" y2="100" stroke="#1e293b" strokeWidth="2" />
+        </g>
+      )}
+      
+      <defs>
+        <radialGradient id="blobbiGradient">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#c7d2fe" />
+        </radialGradient>
+      </defs>
+    </svg>
+  );
+
+  const renderPengui = () => (
+    <svg viewBox="0 0 200 200" className="w-full h-full">
+      {/* Body - rounder, more egg-shaped */}
+      <ellipse cx="100" cy="115" rx="55" ry="65" fill="#374151" />
+      <ellipse cx="100" cy="115" rx="55" ry="65" fill="url(#penguiBodyGradient)" opacity="0.3" />
+      
+      {/* White belly - larger and rounder */}
+      <ellipse cx="100" cy="120" rx="40" ry="45" fill="#f9fafb" />
+      <ellipse cx="100" cy="120" rx="40" ry="45" fill="url(#penguiBellyGradient)" opacity="0.5" />
+      
+      {/* Wings - smaller and cuter */}
+      <ellipse cx="50" cy="115" rx="15" ry="25" fill="#374151" transform="rotate(-15 50 115)" />
+      <ellipse cx="150" cy="115" rx="15" ry="25" fill="#374151" transform="rotate(15 150 115)" />
+      
+      {/* Eyes based on mood/state - bigger and more expressive */}
+      {blobbi.state === 'sleeping' ? (
+        <>
+          <path d="M 75 85 Q 85 88 95 85" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />
+          <path d="M 105 85 Q 115 88 125 85" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          {/* Eye whites */}
+          <ellipse cx="85" cy="85" rx="12" ry="14" fill="#ffffff" />
+          <ellipse cx="115" cy="85" rx="12" ry="14" fill="#ffffff" />
+          {/* Pupils */}
+          <circle cx="85" cy="87" r="8" fill="#1e293b" />
+          <circle cx="115" cy="87" r="8" fill="#1e293b" />
+          {/* Eye shine */}
+          <circle cx="88" cy="84" r="3" fill="white" />
+          <circle cx="118" cy="84" r="3" fill="white" />
+          <circle cx="83" cy="89" r="1.5" fill="white" />
+          <circle cx="113" cy="89" r="1.5" fill="white" />
+        </>
+      )}
+      
+      {/* Beak - rounder and friendlier */}
+      <ellipse cx="100" cy="105" rx="8" ry="6" fill="#fb923c" />
+      <ellipse cx="100" cy="103" rx="6" ry="4" fill="#fed7aa" opacity="0.6" />
+      
+      {/* Rosy cheeks */}
+      <ellipse cx="60" cy="95" rx="10" ry="8" fill="#fbbf24" opacity="0.3" />
+      <ellipse cx="140" cy="95" rx="10" ry="8" fill="#fbbf24" opacity="0.3" />
+      
+      {/* Feet - more rounded */}
+      <ellipse cx="85" cy="175" rx="15" ry="8" fill="#fb923c" />
+      <ellipse cx="115" cy="175" rx="15" ry="8" fill="#fb923c" />
+      <ellipse cx="85" cy="173" rx="12" ry="5" fill="#fed7aa" opacity="0.5" />
+      <ellipse cx="115" cy="173" rx="12" ry="5" fill="#fed7aa" opacity="0.5" />
+      
+      {/* Mouth based on mood - positioned under beak */}
+      {mood === 'happy' && <path d="M 92 110 Q 100 115 108 110" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />}
+      {mood === 'sad' && <path d="M 92 115 Q 100 110 108 115" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />}
+      
+      {/* Accessories */}
+      {blobbi.customization.accessories.includes('scarf') && (
+        <g>
+          <path d="M 55 125 Q 100 130 145 125 L 145 140 Q 100 145 55 140 Z" fill="#ef4444" />
+          <path d="M 125 135 L 130 165 Q 125 170 120 165 L 115 140" fill="#ef4444" />
+          <rect x="120" y="160" width="10" height="5" fill="#dc2626" />
+        </g>
+      )}
+      
+      {blobbi.customization.accessories.includes('hat') && (
+        <g>
+          <ellipse cx="100" cy="45" rx="40" ry="30" fill="#60a5fa" />
+          <rect x="60" y="40" width="80" height="25" fill="#3b82f6" rx="3" />
+          <circle cx="100" cy="30" r="10" fill="#ffffff" />
+          <circle cx="100" cy="30" r="7" fill="#dbeafe" />
+        </g>
+      )}
+      
+      <defs>
+        <radialGradient id="penguiBodyGradient">
+          <stop offset="0%" stopColor="#6b7280" />
+          <stop offset="100%" stopColor="#1f2937" />
+        </radialGradient>
+        <radialGradient id="penguiBellyGradient">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#f3f4f6" />
+        </radialGradient>
+      </defs>
+    </svg>
+  );
+
+  const renderOwli = () => (
+    <svg viewBox="0 0 200 200" className="w-full h-full">
+      {/* Round body */}
+      <circle cx="100" cy="110" r="60" fill="#a8a29e" />
+      <circle cx="100" cy="110" r="60" fill="url(#owliGradient)" opacity="0.3" />
+      
+      {/* Triangle ears */}
+      <path d="M 60 70 L 70 50 L 80 70 Z" fill="#a8a29e" />
+      <path d="M 120 70 L 130 50 L 140 70 Z" fill="#a8a29e" />
+      
+      {/* Large circular eyes based on state */}
+      {blobbi.state === 'sleeping' ? (
+        <>
+          <line x1="60" y1="100" x2="100" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+          <line x1="100" y1="100" x2="140" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          <circle cx="80" cy="100" r="20" fill="#f5f5f4" />
+          <circle cx="120" cy="100" r="20" fill="#f5f5f4" />
+          <circle cx="80" cy="100" r="12" fill="#1e293b" />
+          <circle cx="120" cy="100" r="12" fill="#1e293b" />
+          <circle cx="83" cy="97" r="4" fill="white" />
+          <circle cx="123" cy="97" r="4" fill="white" />
+        </>
+      )}
+      
+      {/* Small beak */}
+      <path d="M 100 110 L 95 120 L 100 125 L 105 120 Z" fill="#f59e0b" />
+      
+      {/* Minimal wings */}
+      <ellipse cx="50" cy="110" rx="15" ry="30" fill="#78716c" transform="rotate(-20 50 110)" />
+      <ellipse cx="150" cy="110" rx="15" ry="30" fill="#78716c" transform="rotate(20 150 110)" />
+      
+      {/* Accessories */}
+      {blobbi.customization.accessories.includes('bow') && (
+        <g>
+          <path d="M 85 140 L 100 135 L 115 140 L 115 150 L 100 145 L 85 150 Z" fill="#dc2626" />
+          <rect x="95" y="135" width="10" height="15" fill="#991b1b" />
+        </g>
+      )}
+      
+      <defs>
+        <radialGradient id="owliGradient">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#78716c" />
+        </radialGradient>
+      </defs>
+    </svg>
+  );
+
+  const renderCatti = () => (
+    <svg viewBox="0 0 200 200" className="w-full h-full">
+      {/* Oval upright body */}
+      <ellipse cx="100" cy="120" rx="45" ry="60" fill="#f97316" />
+      <ellipse cx="100" cy="120" rx="45" ry="60" fill="url(#cattiGradient)" opacity="0.3" />
+      
+      {/* Triangle ears */}
+      <path d="M 70 70 L 60 50 L 80 60 Z" fill="#f97316" />
+      <path d="M 130 70 L 140 50 L 120 60 Z" fill="#f97316" />
+      <path d="M 70 60 L 65 52 L 75 57 Z" fill="#fb923c" />
+      <path d="M 130 60 L 135 52 L 125 57 Z" fill="#fb923c" />
+      
+      {/* Eyes based on state */}
+      {blobbi.state === 'sleeping' ? (
+        <>
+          <line x1="75" y1="100" x2="95" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+          <line x1="105" y1="100" x2="125" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          <ellipse cx="85" cy="100" rx="8" ry="12" fill="#1e293b" />
+          <ellipse cx="115" cy="100" rx="8" ry="12" fill="#1e293b" />
+          <ellipse cx="87" cy="98" rx="3" ry="4" fill="white" />
+          <ellipse cx="117" cy="98" rx="3" ry="4" fill="white" />
+        </>
+      )}
+      
+      {/* Cat nose and mouth */}
+      <path d="M 95 115 L 100 120 L 105 115 Z" fill="#1e293b" />
+      {mood === 'happy' && (
+        <>
+          <path d="M 100 120 Q 90 125 85 120" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M 100 120 Q 110 125 115 120" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />
+        </>
+      )}
+      {mood === 'sad' && (
+        <>
+          <path d="M 100 120 Q 90 115 85 120" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M 100 120 Q 110 115 115 120" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />
+        </>
+      )}
+      
+      {/* Curved tail */}
+      <path d="M 145 140 Q 160 120 155 100 Q 150 80 160 70" stroke="#f97316" strokeWidth="20" fill="none" strokeLinecap="round" />
+      
+      {/* Whiskers */}
+      <line x1="50" y1="110" x2="70" y2="108" stroke="#1e293b" strokeWidth="1.5" />
+      <line x1="50" y1="120" x2="70" y2="118" stroke="#1e293b" strokeWidth="1.5" />
+      <line x1="130" y1="108" x2="150" y2="110" stroke="#1e293b" strokeWidth="1.5" />
+      <line x1="130" y1="118" x2="150" y2="120" stroke="#1e293b" strokeWidth="1.5" />
+      
+      {/* Accessories */}
+      {blobbi.customization.accessories.includes('collar') && (
+        <g>
+          <rect x="55" y="145" width="90" height="8" fill="#dc2626" rx="4" />
+          <circle cx="100" cy="155" r="6" fill="#fbbf24" />
+          <line x1="100" y1="155" x2="100" y2="159" stroke="#1e293b" strokeWidth="1" />
+        </g>
+      )}
+      
+      <defs>
+        <radialGradient id="cattiGradient">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#ea580c" />
+        </radialGradient>
+      </defs>
+    </svg>
+  );
+
+  const renderFroggi = () => (
+    <svg viewBox="0 0 200 200" className="w-full h-full">
+      {/* Flattened oval body */}
+      <ellipse cx="100" cy="120" rx="70" ry="50" fill="#22c55e" />
+      <ellipse cx="100" cy="120" rx="70" ry="50" fill="url(#froggiGradient)" opacity="0.3" />
+      
+      {/* Big circular pop-out eyes */}
+      <circle cx="70" cy="80" r="25" fill="#22c55e" />
+      <circle cx="130" cy="80" r="25" fill="#22c55e" />
+      
+      {blobbi.state === 'sleeping' ? (
+        <>
+          <line x1="55" y1="80" x2="85" y2="80" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+          <line x1="115" y1="80" x2="145" y2="80" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          <circle cx="70" cy="80" r="20" fill="#f5f5f4" />
+          <circle cx="130" cy="80" r="20" fill="#f5f5f4" />
+          <circle cx="70" cy="80" r="15" fill="#1e293b" />
+          <circle cx="130" cy="80" r="15" fill="#1e293b" />
+          <circle cx="73" cy="77" r="5" fill="white" />
+          <circle cx="133" cy="77" r="5" fill="white" />
+        </>
+      )}
+      
+      {/* Mouth based on mood */}
+      {mood === 'happy' && <path d="M 50 120 Q 100 140 150 120" stroke="#1e293b" strokeWidth="4" fill="none" strokeLinecap="round" />}
+      {mood === 'sad' && <path d="M 50 130 Q 100 110 150 130" stroke="#1e293b" strokeWidth="4" fill="none" strokeLinecap="round" />}
+      {(mood === 'neutral' || mood === 'sleepy') && <path d="M 60 120 Q 100 125 140 120" stroke="#1e293b" strokeWidth="4" fill="none" strokeLinecap="round" />}
+      
+      {/* Nostrils */}
+      <ellipse cx="90" cy="110" rx="3" ry="5" fill="#16a34a" />
+      <ellipse cx="110" cy="110" rx="3" ry="5" fill="#16a34a" />
+      
+      {/* Little webbed feet */}
+      <ellipse cx="60" cy="160" rx="20" ry="10" fill="#22c55e" />
+      <ellipse cx="140" cy="160" rx="20" ry="10" fill="#22c55e" />
+      <path d="M 45 160 L 50 155 M 55 160 L 55 155 M 65 160 L 70 155" stroke="#16a34a" strokeWidth="2" />
+      <path d="M 125 160 L 130 155 M 135 160 L 135 155 M 145 160 L 150 155" stroke="#16a34a" strokeWidth="2" />
+      
+      {/* Accessories */}
+      {blobbi.customization.accessories.includes('crown') && (
+        <g>
+          <path d="M 80 50 L 85 40 L 90 50 L 100 40 L 110 50 L 115 40 L 120 50 L 120 60 L 80 60 Z" fill="#fbbf24" />
+          <circle cx="100" cy="45" r="3" fill="#dc2626" />
+        </g>
+      )}
+      
+      <defs>
+        <radialGradient id="froggiGradient">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#16a34a" />
+        </radialGradient>
+      </defs>
+    </svg>
+  );
+
+  const renderPet = () => {
+    switch (blobbi.evolutionForm) {
+      case 'pengui': return renderPengui();
+      case 'owli': return renderOwli();
+      case 'catti': return renderCatti();
+      case 'froggi': return renderFroggi();
+      default: return renderBlobbi();
+    }
+  };
+
+  // Z's for sleeping
+  const renderSleepingZ = () => (
+    blobbi.state === 'sleeping' && (
+      <text x="150" y="50" fontSize="20" fill="#666" className="animate-pulse">
+        Z
+      </text>
+    )
+  );
+
+  // Dirt spots for dirty state
+  const isDirty = blobbi.stats.cleanliness < 30;
+  const renderDirt = () => (
+    isDirty && (
+      <>
+        <circle cx="60" cy="120" r="6" fill="rgba(139,69,19,0.3)" />
+        <circle cx="130" cy="140" r="4" fill="rgba(139,69,19,0.3)" />
+        <circle cx="90" cy="150" r="5" fill="rgba(139,69,19,0.3)" />
+      </>
+    )
+  );
+
+  return (
+    <div 
+      className={cn(
+        'relative cursor-pointer transition-transform hover:scale-105',
+        sizeClasses[size],
+        animationClass,
+        className
+      )}
+      onClick={onClick}
+    >
+      <svg viewBox="0 0 200 200" className="w-full h-full">
+        {renderPet()}
+        {renderSleepingZ()}
+        {renderDirt()}
+      </svg>
+      
+      {/* Hibernation indicator */}
+      {blobbi.state === 'hibernating' && (
+        <div className="absolute inset-0 bg-gray-900/50 rounded-full flex items-center justify-center">
+          <span className="text-white text-xs font-bold">Hibernating</span>
+        </div>
+      )}
+    </div>
+  );
+}

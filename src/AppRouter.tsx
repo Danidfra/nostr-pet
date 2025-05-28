@@ -5,6 +5,7 @@ import NotFound from "./pages/NotFound";
 import Blobbi from "./pages/Blobbi";
 import BlobbiProfile from "./pages/BlobbiProfile";
 import BlobbiCommunity from "./pages/BlobbiCommunity";
+import BlobbiEvolution from "./pages/BlobbiEvolution";
 
 export function AppRouter() {
   return (
@@ -12,6 +13,7 @@ export function AppRouter() {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/blobbi" element={<Blobbi />} />
+        <Route path="/blobbi/evolution" element={<BlobbiEvolution />} />
         <Route path="/blobbi/community" element={<BlobbiCommunity />} />
         <Route path="/blobbi/:pubkey" element={<BlobbiProfile />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

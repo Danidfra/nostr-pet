@@ -1,4 +1,4 @@
-import { Blobbi, BlobbiStats, BlobbiLifeStage, BlobbiMood, BlobbiState, BlobbiAction } from '@/types/blobbi';
+import { Blobbi, BlobbiStats, BlobbiLifeStage, BlobbiMood, BlobbiState, BlobbiAction, BlobbiEvolutionForm } from '@/types/blobbi';
 
 // Constants for game mechanics
 const STAT_DECAY_RATES = {
@@ -114,6 +114,23 @@ export function shouldHibernate(blobbi: Blobbi, currentTime: number = Date.now()
   return daysSinceInteraction > 7 && blobbi.state !== 'hibernating';
 }
 
+// Get random evolution form with better randomization
+function getRandomEvolutionForm(): BlobbiEvolutionForm {
+  const forms: BlobbiEvolutionForm[] = ['pengui', 'owli', 'catti', 'froggi'];
+  
+  // Use multiple sources of randomness for better distribution
+  const timestamp = Date.now();
+  const random1 = Math.random();
+  const random2 = Math.random();
+  
+  // Combine multiple random factors
+  const seed = (timestamp % 1000) / 1000;
+  const finalRandom = (random1 + random2 + seed) / 3;
+  
+  const index = Math.floor(finalRandom * forms.length);
+  return forms[index];
+}
+
 // Apply an action to Blobbi
 export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: number = Date.now()): Blobbi {
   // First, calculate current stats with decay
@@ -152,6 +169,17 @@ export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: n
     coinReward = 10; // Bonus for keeping all stats high
   }
   
+  // Check for evolution - happens on first care action if not already evolved
+  let evolutionForm = blobbi.evolutionForm;
+  let evolutionTime = blobbi.evolutionTime;
+  
+  if (!blobbi.evolutionForm && ['feed', 'play', 'clean'].includes(action)) {
+    // Trigger evolution on first care action
+    evolutionForm = getRandomEvolutionForm();
+    evolutionTime = currentTime;
+    coinReward += 50; // Bonus coins for evolution!
+  }
+  
   return {
     ...blobbi,
     stats: newStats,
@@ -160,6 +188,8 @@ export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: n
     lastInteraction: currentTime,
     experience: blobbi.experience + expGain,
     coins: blobbi.coins + coinReward,
+    evolutionForm,
+    evolutionTime,
   };
 }
 

@@ -1,9 +1,12 @@
+import { Link } from 'react-router-dom';
 import { BlobbiGame } from '@/components/blobbi/BlobbiGame';
 import { DailyCheckIn } from '@/components/blobbi/DailyCheckIn';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
+import { Sparkles } from 'lucide-react';
 
 export default function Blobbi() {
   const { user } = useCurrentUser();
@@ -28,6 +31,13 @@ export default function Blobbi() {
         {user && blobbi && (
           <div className="space-y-4">
             <DailyCheckIn />
+            
+            <Link to="/blobbi/evolution">
+              <Button variant="outline" className="w-full gap-2">
+                <Sparkles className="w-4 h-4" />
+                Evolution Guide
+              </Button>
+            </Link>
           </div>
         )}
       </div>
