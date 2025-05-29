@@ -293,7 +293,8 @@ const BlobbiEvolution: React.FC = () => {
         <CardHeader>
           <CardTitle className="text-3xl">Blobbi Evolution System</CardTitle>
           <CardDescription>
-            After your first care action (feed, play, or clean), your Blobbi will randomly evolve into one of four adorable forms!
+            After 4 full days of consistent care, your Blobbi will evolve into one of four adorable forms! 
+            Care for your Blobbi at least 3 times per day to maintain your care streak.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -378,7 +379,8 @@ const BlobbiEvolution: React.FC = () => {
           <p>🎨 <strong>Simple geometric shapes</strong> for easy animation and recognition</p>
           <p>😊 <strong>Expressive personalities</strong> through facial features and body language</p>
           <p>🎩 <strong>Accessory support</strong> for customization (hats, glasses, collars, etc.)</p>
-          <p>🎲 <strong>Random evolution</strong> after first care action - each Blobbi's destiny is a surprise!</p>
+          <p>🎲 <strong>Evolution after 4 days</strong> of consistent care - each Blobbi's form is determined by your care patterns!</p>
+          <p>📅 <strong>Daily care requirement</strong> - perform at least 3 care actions per day to maintain your streak</p>
         </CardContent>
       </Card>
     </div>

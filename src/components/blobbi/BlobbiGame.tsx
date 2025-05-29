@@ -15,6 +15,7 @@ import { BlobbiShop } from './BlobbiShop';
 import { BlobbiStorage } from './BlobbiStorage';
 import { BlobbiCustomization } from './BlobbiCustomization';
 import { BlobbiGamesModal } from './BlobbiGamesModal';
+import { EvolutionProgress } from './EvolutionProgress';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { formatDistanceToNow } from 'date-fns';
@@ -218,14 +219,7 @@ export function BlobbiGame() {
                   Your Blobbi is hibernating. Interact with it to wake it up!
                 </p>
               )}
-              {!blobbi.evolutionForm && (
-                <div className="text-center mt-4">
-                  <p className="text-sm text-muted-foreground animate-pulse">
-                    <Sparkles className="w-4 h-4 inline mr-1" />
-                    Ready to evolve! Care for your Blobbi to trigger evolution.
-                  </p>
-                </div>
-              )}
+
               {blobbi.evolutionForm && (
                 <div className="text-center mt-4 space-y-1">
                   <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
@@ -243,6 +237,14 @@ export function BlobbiGame() {
           </Card>
           
           <BlobbiStats stats={blobbi.stats} />
+          
+          {/* Evolution Progress - show for owner only */}
+          {isOwner && (
+            <EvolutionProgress 
+              evolutionProgress={blobbi.evolutionProgress} 
+              hasEvolved={!!blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi'}
+            />
+          )}
         </div>
         
         {/* Right column - Actions and info */}
@@ -298,14 +300,7 @@ export function BlobbiGame() {
                   </Badge>
                 </div>
               )}
-              {!blobbi.evolutionForm && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Evolution</span>
-                  <span className="text-xs text-muted-foreground">
-                    After first care action
-                  </span>
-                </div>
-              )}
+
             </CardContent>
           </Card>
         </div>

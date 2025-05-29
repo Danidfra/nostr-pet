@@ -1,4 +1,10 @@
 import { Blobbi, BlobbiStats, BlobbiLifeStage, BlobbiMood, BlobbiState, BlobbiAction, BlobbiEvolutionForm, BlobbiItem } from '@/types/blobbi';
+import { 
+  initializeEvolutionProgress, 
+  updateEvolutionProgress, 
+  shouldTriggerEvolution,
+  determineEvolutionForm 
+} from './blobbi-evolution';
 
 // Constants for game mechanics
 const STAT_DECAY_RATES = {
@@ -58,6 +64,7 @@ export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blob
     experience: 0,
     coins: 100, // Starting coins
     inventory: [], // Empty inventory
+    evolutionProgress: initializeEvolutionProgress(), // Initialize evolution tracking
   };
 }
 
@@ -115,22 +122,7 @@ export function shouldHibernate(blobbi: Blobbi, currentTime: number = Date.now()
   return daysSinceInteraction > 7 && blobbi.state !== 'hibernating';
 }
 
-// Get random evolution form with better randomization
-function getRandomEvolutionForm(): BlobbiEvolutionForm {
-  const forms: BlobbiEvolutionForm[] = ['pengui', 'owli', 'catti', 'froggi'];
-  
-  // Use multiple sources of randomness for better distribution
-  const timestamp = Date.now();
-  const random1 = Math.random();
-  const random2 = Math.random();
-  
-  // Combine multiple random factors
-  const seed = (timestamp % 1000) / 1000;
-  const finalRandom = (random1 + random2 + seed) / 3;
-  
-  const index = Math.floor(finalRandom * forms.length);
-  return forms[index];
-}
+
 
 // Apply an action to Blobbi
 export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: number = Date.now(), itemEffects?: Partial<BlobbiStats>): Blobbi {
@@ -178,15 +170,18 @@ export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: n
     coinReward = 10; // Bonus for keeping all stats high
   }
   
-  // Check for evolution - happens on first care action if not already evolved
+  // Update evolution progress
+  const updatedEvolutionProgress = updateEvolutionProgress(blobbi, action, currentTime);
+  
+  // Check for evolution - only after 4 days of consistent care
   let evolutionForm = blobbi.evolutionForm;
   let evolutionTime = blobbi.evolutionTime;
   
-  if (!blobbi.evolutionForm && ['feed', 'play', 'clean'].includes(action)) {
-    // Trigger evolution on first care action
-    evolutionForm = getRandomEvolutionForm();
+  if (!blobbi.evolutionForm && shouldTriggerEvolution({ ...blobbi, evolutionProgress: updatedEvolutionProgress })) {
+    // Determine evolution form based on care patterns
+    evolutionForm = determineEvolutionForm({ ...blobbi, evolutionProgress: updatedEvolutionProgress });
     evolutionTime = currentTime;
-    coinReward += 50; // Bonus coins for evolution!
+    coinReward += 100; // Big bonus coins for evolution after 4 days of care!
   }
   
   return {
@@ -199,6 +194,7 @@ export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: n
     coins: blobbi.coins + coinReward,
     evolutionForm,
     evolutionTime,
+    evolutionProgress: updatedEvolutionProgress,
   };
 }
 
@@ -251,6 +247,20 @@ export function deserializeBlobbi(data: string): Blobbi | null {
     // Ensure pattern field exists (might be missing in older Blobbis)
     if (!blobbi.customization.pattern) {
       blobbi.customization.pattern = '';
+    }
+    // Ensure evolution progress exists for backward compatibility
+    if (!blobbi.evolutionProgress) {
+      blobbi.evolutionProgress = initializeEvolutionProgress();
+    }
+    // Ensure evolution progress has all required fields
+    if (!blobbi.evolutionProgress.careSessions) {
+      blobbi.evolutionProgress.careSessions = [];
+    }
+    if (blobbi.evolutionProgress.isEligibleForEvolution === undefined) {
+      blobbi.evolutionProgress.isEligibleForEvolution = false;
+    }
+    if (!blobbi.evolutionProgress.nextEvolutionCheck) {
+      blobbi.evolutionProgress.nextEvolutionCheck = Date.now() + 24 * 60 * 60 * 1000;
     }
     return blobbi;
   } catch {
