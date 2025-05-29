@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { Blobbi, BlobbiMood } from '@/types/blobbi';
 import { getBlobbiMood } from '@/lib/blobbi';
+import { useEffect, useState, useRef } from 'react';
 
 interface BlobbiEvolvedVisualProps {
   blobbi: Blobbi;
@@ -11,9 +12,59 @@ interface BlobbiEvolvedVisualProps {
 
 export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClick }: BlobbiEvolvedVisualProps) {
   const mood = getBlobbiMood(blobbi.stats, blobbi.state);
+  const svgRef = useRef<SVGSVGElement>(null);
   
   // Create unique IDs for patterns to avoid conflicts
   const patternIdPrefix = `blobbi-${blobbi.id}-`;
+  
+  // Mouse tracking state
+  const [pupilOffset, setPupilOffset] = useState({
+    left: { x: 0, y: 0 },
+    right: { x: 0, y: 0 }
+  });
+  
+  // Check if device has mouse (not touch-only)
+  const hasMouseSupport = typeof window !== 'undefined' && 
+    window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  
+  useEffect(() => {
+    if (!hasMouseSupport || blobbi.state === 'sleeping') return;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!svgRef.current) return;
+      
+      const rect = svgRef.current.getBoundingClientRect();
+      const svgCenterX = rect.left + rect.width / 2;
+      const svgCenterY = rect.top + rect.height / 2;
+      
+      // Calculate angle from SVG center to mouse
+      const angle = Math.atan2(e.clientY - svgCenterY, e.clientX - svgCenterX);
+      
+      // Calculate distance (capped for natural movement)
+      const distance = Math.min(
+        Math.sqrt(Math.pow(e.clientX - svgCenterX, 2) + Math.pow(e.clientY - svgCenterY, 2)),
+        300
+      ) / 300;
+      
+      // Maximum pupil movement (in SVG units)
+      const maxOffset = 5;
+      
+      // Calculate offsets
+      const offsetX = Math.cos(angle) * distance * maxOffset;
+      const offsetY = Math.sin(angle) * distance * maxOffset;
+      
+      setPupilOffset({
+        left: { x: offsetX, y: offsetY },
+        right: { x: offsetX, y: offsetY }
+      });
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [hasMouseSupport, blobbi.state]);
   
   const sizeClasses = {
     small: 'w-24 h-24',
@@ -36,7 +87,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       {/* Soft shading */}
       <ellipse cx="100" cy="110" rx="60" ry="70" fill="url(#blobbiGradient)" opacity="0.3" />
       
-      {/* Eyes based on mood */}
+      {/* Eyes with mouse tracking */}
       {blobbi.state === 'sleeping' ? (
         <>
           <line x1="70" y1="100" x2="90" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
@@ -44,10 +95,24 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
         </>
       ) : (
         <>
-          <circle cx="80" cy="100" r="8" fill="#1e293b" />
-          <circle cx="120" cy="100" r="8" fill="#1e293b" />
-          <circle cx="82" cy="98" r="3" fill="white" />
-          <circle cx="122" cy="98" r="3" fill="white" />
+          <g 
+            style={{
+              transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            <circle cx="80" cy="100" r="8" fill="#1e293b" />
+            <circle cx="82" cy="98" r="3" fill="white" />
+          </g>
+          <g 
+            style={{
+              transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            <circle cx="120" cy="100" r="8" fill="#1e293b" />
+            <circle cx="122" cy="98" r="3" fill="white" />
+          </g>
         </>
       )}
       
@@ -96,11 +161,11 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
         <ellipse cx="100" cy="115" rx="55" ry="65" fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`} opacity="0.3" />
       )}
       
-      {/* Wings - smaller and cuter */}
-      <ellipse cx="50" cy="115" rx="15" ry="25" fill={blobbi.customization.color || "#374151"} transform="rotate(-15 50 115)" />
-      <ellipse cx="150" cy="115" rx="15" ry="25" fill={blobbi.customization.color || "#374151"} transform="rotate(15 150 115)" />
+      {/* Wings - slightly reduced for better proportion */}
+      <ellipse cx="55" cy="115" rx="12" ry="22" fill={blobbi.customization.color || "#374151"} transform="rotate(-15 55 115)" />
+      <ellipse cx="145" cy="115" rx="12" ry="22" fill={blobbi.customization.color || "#374151"} transform="rotate(15 145 115)" />
       
-      {/* Eyes based on mood/state - bigger and more expressive */}
+      {/* Eyes with mouse tracking */}
       {blobbi.state === 'sleeping' ? (
         <>
           <path d="M 75 85 Q 85 88 95 85" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />
@@ -111,14 +176,25 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
           {/* Eye whites */}
           <ellipse cx="85" cy="85" rx="12" ry="14" fill="#ffffff" />
           <ellipse cx="115" cy="85" rx="12" ry="14" fill="#ffffff" />
-          {/* Pupils */}
-          <circle cx="85" cy="87" r="8" fill="#1e293b" />
-          <circle cx="115" cy="87" r="8" fill="#1e293b" />
-          {/* Eye shine */}
-          <circle cx="88" cy="84" r="3" fill="white" />
-          <circle cx="118" cy="84" r="3" fill="white" />
-          <circle cx="83" cy="89" r="1.5" fill="white" />
-          <circle cx="113" cy="89" r="1.5" fill="white" />
+          {/* Pupils with tracking */}
+          <g 
+            style={{
+              transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            <circle cx="85" cy="87" r="8" fill="#1e293b" />
+            <circle cx="88" cy="84" r="3" fill="white" />
+          </g>
+          <g 
+            style={{
+              transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            <circle cx="115" cy="87" r="8" fill="#1e293b" />
+            <circle cx="118" cy="84" r="3" fill="white" />
+          </g>
         </>
       )}
       
@@ -186,7 +262,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
         <circle cx="100" cy="110" r="60" fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`} opacity="0.3" />
       )}
       
-      {/* Large circular eyes based on state */}
+      {/* Large circular eyes with mouse tracking */}
       {blobbi.state === 'sleeping' ? (
         <>
           <line x1="60" y1="100" x2="100" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
@@ -194,12 +270,28 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
         </>
       ) : (
         <>
+          {/* Eye whites */}
           <circle cx="80" cy="100" r="20" fill="#f5f5f4" />
           <circle cx="120" cy="100" r="20" fill="#f5f5f4" />
-          <circle cx="80" cy="100" r="12" fill="#1e293b" />
-          <circle cx="120" cy="100" r="12" fill="#1e293b" />
-          <circle cx="83" cy="97" r="4" fill="white" />
-          <circle cx="123" cy="97" r="4" fill="white" />
+          {/* Pupils with tracking */}
+          <g 
+            style={{
+              transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            <circle cx="80" cy="100" r="12" fill="#1e293b" />
+            <circle cx="83" cy="97" r="4" fill="white" />
+          </g>
+          <g 
+            style={{
+              transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            <circle cx="120" cy="100" r="12" fill="#1e293b" />
+            <circle cx="123" cy="97" r="4" fill="white" />
+          </g>
         </>
       )}
       
@@ -244,7 +336,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
         <ellipse cx="100" cy="120" rx="45" ry="60" fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`} opacity="0.3" />
       )}
       
-      {/* Eyes based on state */}
+      {/* Eyes with mouse tracking - enhanced with bigger white area */}
       {blobbi.state === 'sleeping' ? (
         <>
           <line x1="75" y1="100" x2="95" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
@@ -252,10 +344,28 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
         </>
       ) : (
         <>
-          <ellipse cx="85" cy="100" rx="8" ry="12" fill="#1e293b" />
-          <ellipse cx="115" cy="100" rx="8" ry="12" fill="#1e293b" />
-          <ellipse cx="87" cy="98" rx="3" ry="4" fill="white" />
-          <ellipse cx="117" cy="98" rx="3" ry="4" fill="white" />
+          {/* Left eye */}
+          <ellipse cx="85" cy="100" rx="12" ry="16" fill="#f9fafb" />
+          <g 
+            style={{
+              transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            <ellipse cx="85" cy="100" rx="8" ry="12" fill="#1e293b" />
+            <ellipse cx="87" cy="98" rx="3" ry="4" fill="white" />
+          </g>
+          {/* Right eye */}
+          <ellipse cx="115" cy="100" rx="12" ry="16" fill="#f9fafb" />
+          <g 
+            style={{
+              transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            <ellipse cx="115" cy="100" rx="8" ry="12" fill="#1e293b" />
+            <ellipse cx="117" cy="98" rx="3" ry="4" fill="white" />
+          </g>
         </>
       )}
       
@@ -323,12 +433,28 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
         </>
       ) : (
         <>
+          {/* Eye whites */}
           <circle cx="70" cy="80" r="20" fill="#f5f5f4" />
           <circle cx="130" cy="80" r="20" fill="#f5f5f4" />
-          <circle cx="70" cy="80" r="15" fill="#1e293b" />
-          <circle cx="130" cy="80" r="15" fill="#1e293b" />
-          <circle cx="73" cy="77" r="5" fill="white" />
-          <circle cx="133" cy="77" r="5" fill="white" />
+          {/* Pupils with tracking */}
+          <g 
+            style={{
+              transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            <circle cx="70" cy="80" r="15" fill="#1e293b" />
+            <circle cx="73" cy="77" r="5" fill="white" />
+          </g>
+          <g 
+            style={{
+              transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            <circle cx="130" cy="80" r="15" fill="#1e293b" />
+            <circle cx="133" cy="77" r="5" fill="white" />
+          </g>
         </>
       )}
       
@@ -405,7 +531,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       )}
       onClick={onClick}
     >
-      <svg viewBox="0 0 200 200" className="w-full h-full">
+      <svg ref={svgRef} viewBox="0 0 200 200" className="w-full h-full">
         {renderPet()}
         {renderSleepingZ()}
         {renderDirt()}
