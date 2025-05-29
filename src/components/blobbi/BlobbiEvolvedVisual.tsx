@@ -76,7 +76,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
   const animationClass = blobbi.state === 'sleeping' 
     ? 'animate-pulse' 
     : mood === 'happy' 
-    ? 'animate-bounce' 
+    ? 'animate-blobbi-jump' 
     : '';
   
   const renderBlobbi = () => (
@@ -526,12 +526,30 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       className={cn(
         'relative cursor-pointer transition-transform hover:scale-105',
         sizeClasses[size],
-        animationClass,
         className
       )}
       onClick={onClick}
     >
-      <svg ref={svgRef} viewBox="0 0 200 200" className="w-full h-full">
+      {/* Fixed shadow that scales */}
+      <svg
+        viewBox="0 0 100 20"
+        className={cn(
+          "absolute bottom-0 left-0 w-full",
+          blobbi.state === 'sleeping' ? 'animate-pulse' : mood === 'happy' ? 'animate-blobbi-shadow' : ''
+        )}
+        style={{ transformOrigin: 'center bottom' }}
+      >
+        <ellipse
+          cx="50"
+          cy="10"
+          rx="25"
+          ry="3"
+          fill="currentColor"
+          className="text-black/25 dark:text-black/35"
+        />
+      </svg>
+      
+      <svg ref={svgRef} viewBox="0 0 200 200" className={cn("w-full h-full", animationClass)}>
         {renderPet()}
         {renderSleepingZ()}
         {renderDirt()}

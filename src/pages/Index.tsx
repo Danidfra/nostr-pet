@@ -52,20 +52,28 @@ const Index = () => {
 
           {/* Blobbi Preview */}
           <div className="flex justify-center">
-            <div className="relative">
+            <div className="relative w-64 h-64">
+              {/* Fixed shadow that scales */}
               <svg
-                viewBox="0 0 100 100"
-                className="w-64 h-64 animate-bounce"
+                viewBox="0 0 100 20"
+                className="absolute bottom-0 left-0 w-full animate-blobbi-shadow"
+                style={{ transformOrigin: 'center bottom' }}
               >
-                {/* Shadow */}
                 <ellipse
                   cx="50"
-                  cy="95"
+                  cy="10"
                   rx="25"
                   ry="3"
-                  fill="rgba(0,0,0,0.2)"
+                  fill="currentColor"
+                  className="text-black/25 dark:text-black/35"
                 />
-                
+              </svg>
+              
+              {/* Bouncing Blobbi */}
+              <svg
+                viewBox="0 0 100 100"
+                className="absolute inset-0 w-full h-full animate-blobbi-jump"
+              >
                 {/* Main body - cute water droplet shape */}
                 <path
                   d="M 50 15 Q 50 10 50 15 Q 72 25 75 55 Q 75 80 50 88 Q 25 80 25 55 Q 28 25 50 15"

@@ -107,7 +107,7 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
   const animationClass = blobbi.state === 'sleeping' 
     ? 'animate-pulse' 
     : mood === 'happy' 
-    ? 'animate-bounce' 
+    ? 'animate-blobbi-jump' 
     : '';
   
   // Dirt spots for dirty state
@@ -118,26 +118,35 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
       className={cn(
         'relative cursor-pointer transition-transform hover:scale-105',
         sizeClasses[size],
-        animationClass,
         className
       )}
       onClick={onClick}
     >
+      {/* Fixed shadow that scales */}
+      <svg
+        viewBox="0 0 100 20"
+        className={cn(
+          "absolute bottom-0 left-0 w-full",
+          blobbi.state === 'sleeping' ? 'animate-pulse' : mood === 'happy' ? 'animate-blobbi-shadow' : ''
+        )}
+        style={{ transformOrigin: 'center bottom' }}
+      >
+        <ellipse
+          cx="50"
+          cy="10"
+          rx="25"
+          ry="3"
+          fill="currentColor"
+          className="text-black/25 dark:text-black/35"
+        />
+      </svg>
+      
       <svg
         ref={svgRef}
         viewBox="0 0 100 100"
-        className="w-full h-full"
+        className={cn("w-full h-full", animationClass)}
         style={{ transform: `scale(${scale})` }}
       >
-        {/* Shadow */}
-        <ellipse
-          cx="50"
-          cy="95"
-          rx="25"
-          ry="3"
-          fill="rgba(0,0,0,0.2)"
-          className={blobbi.state === 'sleeping' ? 'animate-pulse' : ''}
-        />
         
         {/* Main body - cute water droplet shape */}
         <path
