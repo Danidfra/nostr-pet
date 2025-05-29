@@ -13,6 +13,7 @@ import { BlobbiStats } from './BlobbiStats';
 import { BlobbiActions } from './BlobbiActions';
 import { BlobbiShop } from './BlobbiShop';
 import { BlobbiCustomization } from './BlobbiCustomization';
+import { BlobbiGamesModal } from './BlobbiGamesModal';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { formatDistanceToNow } from 'date-fns';
@@ -33,6 +34,7 @@ export function BlobbiGame() {
   const [petName, setPetName] = useState('Blobbi');
   const [showShop, setShowShop] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
+  const [showGames, setShowGames] = useState(false);
   
   const handleCreateBlobbi = () => {
     createBlobbi(petName);
@@ -239,6 +241,7 @@ export function BlobbiGame() {
               blobbi={blobbi}
               onAction={performAction}
               isPerformingAction={isPerformingAction}
+              onGamesClick={() => setShowGames(true)}
             />
           ) : (
             <Card>
@@ -297,11 +300,16 @@ export function BlobbiGame() {
         </div>
       </div>
       
-      {/* Shop and Customization Dialogs */}
+      {/* Shop, Customization, and Games Dialogs */}
       {isOwner && (
         <>
           <BlobbiShop isOpen={showShop} onClose={() => setShowShop(false)} />
           <BlobbiCustomization isOpen={showCustomization} onClose={() => setShowCustomization(false)} />
+          <BlobbiGamesModal 
+            isOpen={showGames} 
+            onClose={() => setShowGames(false)} 
+            blobbiId={blobbi.id}
+          />
         </>
       )}
     </div>

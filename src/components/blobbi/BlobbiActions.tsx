@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BlobbiAction, Blobbi } from '@/types/blobbi';
-import { Utensils, Gamepad2, Bath, Moon, Sun, Pill } from 'lucide-react';
+import { Utensils, Gamepad2, Bath, Moon, Sun, Pill, Trophy } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { isActionAvailable } from '@/lib/blobbi';
 import { cn } from '@/lib/utils';
@@ -12,9 +12,10 @@ interface BlobbiActionsProps {
   onAction: (action: BlobbiAction) => void;
   isPerformingAction: boolean;
   className?: string;
+  onGamesClick?: () => void;
 }
 
-export function BlobbiActions({ blobbi, onAction, isPerformingAction, className }: BlobbiActionsProps) {
+export function BlobbiActions({ blobbi, onAction, isPerformingAction, className, onGamesClick }: BlobbiActionsProps) {
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<BlobbiAction | null>(null);
   const [lastActions, setLastActions] = useState<Record<BlobbiAction, number>>({
@@ -171,6 +172,21 @@ export function BlobbiActions({ blobbi, onAction, isPerformingAction, className 
                 </Button>
               );
             })}
+            
+            {/* Games Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onGamesClick}
+              disabled={isPerformingAction}
+              className={cn(
+                'flex flex-col gap-1 h-auto py-3 relative',
+                !isPerformingAction && 'hover:bg-purple-100'
+              )}
+            >
+              <Trophy className="w-5 h-5" />
+              <span className="text-xs">Games</span>
+            </Button>
           </div>
         </CardContent>
       </Card>

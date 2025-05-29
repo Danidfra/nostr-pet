@@ -6,6 +6,7 @@ import Blobbi from "./pages/Blobbi";
 import BlobbiProfile from "./pages/BlobbiProfile";
 import BlobbiCommunity from "./pages/BlobbiCommunity";
 import BlobbiEvolution from "./pages/BlobbiEvolution";
+import { BubblePopGame } from "./pages/games/BubblePopGame";
 
 export function AppRouter() {
   return (
@@ -16,6 +17,7 @@ export function AppRouter() {
         <Route path="/blobbi/evolution" element={<BlobbiEvolution />} />
         <Route path="/blobbi/community" element={<BlobbiCommunity />} />
         <Route path="/blobbi/:pubkey" element={<BlobbiProfile />} />
+        <Route path="/games/bubble-pop" element={<BubblePopGame />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

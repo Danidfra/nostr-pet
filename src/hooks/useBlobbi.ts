@@ -182,6 +182,36 @@ export function useBlobbi(pubkey?: string) {
     },
   });
   
+  // Add coins (for game rewards)
+  const addCoinsMutation = useMutation({
+    mutationFn: async (amount: number) => {
+      if (!user || !currentBlobbi) throw new Error('No Blobbi found');
+      if (currentBlobbi.ownerPubkey !== user.pubkey) {
+        throw new Error('You can only add coins to your own Blobbi');
+      }
+      
+      const updatedBlobbi = {
+        ...currentBlobbi,
+        coins: currentBlobbi.coins + amount,
+      };
+      
+      await publishEvent({
+        kind: BLOBBI_KIND,
+        content: serializeBlobbi(updatedBlobbi),
+        tags: [
+          ['d', 'blobbi'],
+          ['title', updatedBlobbi.name],
+          ['summary', `${updatedBlobbi.name} earned ${amount} coins!`],
+        ],
+      });
+      
+      return updatedBlobbi;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blobbi', user?.pubkey] });
+    },
+  });
+
   // Use item from inventory
   const useItemMutation = useMutation({
     mutationFn: async ({ itemId, action, itemEffect }: { itemId: string; action: BlobbiAction; itemEffect?: Partial<BlobbiStats> }) => {
@@ -229,11 +259,13 @@ export function useBlobbi(pubkey?: string) {
     updateCustomization: updateCustomizationMutation.mutate,
     purchaseItem: purchaseItemMutation.mutateAsync,
     applyItem: (itemId: string, action: BlobbiAction, itemEffect?: Partial<BlobbiStats>) => useItemMutation.mutateAsync({ itemId, action, itemEffect }),
+    addCoins: addCoinsMutation.mutateAsync,
     isCreating: createBlobbiMutation.isPending,
     isPerformingAction: performActionMutation.isPending,
     isUpdatingCustomization: updateCustomizationMutation.isPending,
     isPurchasing: purchaseItemMutation.isPending,
     isUsingItem: useItemMutation.isPending,
+    isAddingCoins: addCoinsMutation.isPending,
   };
 }
 

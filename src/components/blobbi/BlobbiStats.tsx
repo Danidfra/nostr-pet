@@ -14,7 +14,7 @@ export function BlobbiStats({ stats, className }: BlobbiStatsProps) {
       name: 'Hunger',
       value: stats.hunger,
       icon: Utensils,
-      color: 'bg-orange-500',
+      color: 'bg-orange-500/80',
       lowThreshold: 30,
       description: stats.hunger < 30 ? 'Very hungry!' : stats.hunger > 70 ? 'Well fed' : 'Getting hungry',
     },
@@ -22,7 +22,7 @@ export function BlobbiStats({ stats, className }: BlobbiStatsProps) {
       name: 'Happiness',
       value: stats.happiness,
       icon: Smile,
-      color: 'bg-yellow-500',
+      color: 'bg-yellow-500/80',
       lowThreshold: 30,
       description: stats.happiness < 30 ? 'Feeling sad' : stats.happiness > 70 ? 'Very happy!' : 'Content',
     },
@@ -30,7 +30,7 @@ export function BlobbiStats({ stats, className }: BlobbiStatsProps) {
       name: 'Energy',
       value: stats.energy,
       icon: Zap,
-      color: 'bg-blue-500',
+      color: 'bg-blue-500/80',
       lowThreshold: 30,
       description: stats.energy < 30 ? 'Very tired' : stats.energy > 70 ? 'Full of energy!' : 'Getting sleepy',
     },
@@ -38,7 +38,7 @@ export function BlobbiStats({ stats, className }: BlobbiStatsProps) {
       name: 'Cleanliness',
       value: stats.cleanliness,
       icon: Sparkles,
-      color: 'bg-purple-500',
+      color: 'bg-purple-500/80',
       lowThreshold: 30,
       description: stats.cleanliness < 30 ? 'Needs a bath!' : stats.cleanliness > 70 ? 'Squeaky clean' : 'Getting dirty',
     },
@@ -46,7 +46,7 @@ export function BlobbiStats({ stats, className }: BlobbiStatsProps) {
       name: 'Health',
       value: stats.health,
       icon: Heart,
-      color: 'bg-red-500',
+      color: 'bg-red-500/80',
       lowThreshold: 30,
       description: stats.health < 30 ? 'Feeling sick' : stats.health > 70 ? 'Very healthy!' : 'Doing okay',
     },
@@ -63,20 +63,21 @@ export function BlobbiStats({ stats, className }: BlobbiStatsProps) {
             <div key={stat.name} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
-                  <Icon className={`w-4 h-4 ${isLow ? 'text-red-500 animate-pulse' : ''}`} />
-                  <span className="font-medium">{stat.name}</span>
+                  <Icon className={`w-4 h-4 ${isLow ? 'text-red-500 animate-pulse' : 'text-foreground/70'}`} />
+                  <span className="font-medium text-foreground/80">{stat.name}</span>
+                  <span className="text-xs text-muted-foreground/70">
+                    {Math.round(stat.value)}/100
+                  </span>
                 </div>
                 <span className="text-xs text-muted-foreground">{stat.description}</span>
               </div>
               <div className="relative">
-                <Progress 
-                  value={stat.value} 
-                  className="h-2"
-                />
-                <div 
-                  className={`absolute top-0 left-0 h-full ${stat.color} transition-all duration-300`}
-                  style={{ width: `${stat.value}%`, opacity: 0.8 }}
-                />
+                <div className="w-full bg-secondary/50 rounded-full h-3 overflow-hidden">
+                  <div 
+                    className={`h-full ${stat.color} transition-all duration-300`}
+                    style={{ width: `${stat.value}%` }}
+                  />
+                </div>
               </div>
             </div>
           );
