@@ -234,6 +234,24 @@ export function deserializeBlobbi(data: string): Blobbi | null {
     if (!blobbi.inventory) {
       blobbi.inventory = [];
     }
+    // Ensure customization exists with default values for backward compatibility
+    if (!blobbi.customization) {
+      blobbi.customization = {
+        color: '#7C3AED',
+        accessories: [],
+      };
+    }
+    // Ensure customization has all required fields
+    if (!blobbi.customization.color) {
+      blobbi.customization.color = '#7C3AED';
+    }
+    if (!blobbi.customization.accessories) {
+      blobbi.customization.accessories = [];
+    }
+    // Ensure pattern field exists (might be missing in older Blobbis)
+    if (!blobbi.customization.pattern) {
+      blobbi.customization.pattern = '';
+    }
     return blobbi;
   } catch {
     return null;

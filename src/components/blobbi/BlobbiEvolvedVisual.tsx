@@ -12,6 +12,9 @@ interface BlobbiEvolvedVisualProps {
 export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClick }: BlobbiEvolvedVisualProps) {
   const mood = getBlobbiMood(blobbi.stats, blobbi.state);
   
+  // Create unique IDs for patterns to avoid conflicts
+  const patternIdPrefix = `blobbi-${blobbi.id}-`;
+  
   const sizeClasses = {
     small: 'w-24 h-24',
     medium: 'w-48 h-48',
@@ -81,16 +84,21 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
   const renderPengui = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
       {/* Body - rounder, more egg-shaped */}
-      <ellipse cx="100" cy="115" rx="55" ry="65" fill="#374151" />
+      <ellipse cx="100" cy="115" rx="55" ry="65" fill={blobbi.customization.color || "#374151"} />
       <ellipse cx="100" cy="115" rx="55" ry="65" fill="url(#penguiBodyGradient)" opacity="0.3" />
       
       {/* White belly - larger and rounder */}
       <ellipse cx="100" cy="120" rx="40" ry="45" fill="#f9fafb" />
       <ellipse cx="100" cy="120" rx="40" ry="45" fill="url(#penguiBellyGradient)" opacity="0.5" />
       
+      {/* Pattern overlay if customized */}
+      {blobbi.customization.pattern && (
+        <ellipse cx="100" cy="115" rx="55" ry="65" fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`} opacity="0.3" />
+      )}
+      
       {/* Wings - smaller and cuter */}
-      <ellipse cx="50" cy="115" rx="15" ry="25" fill="#374151" transform="rotate(-15 50 115)" />
-      <ellipse cx="150" cy="115" rx="15" ry="25" fill="#374151" transform="rotate(15 150 115)" />
+      <ellipse cx="50" cy="115" rx="15" ry="25" fill={blobbi.customization.color || "#374151"} transform="rotate(-15 50 115)" />
+      <ellipse cx="150" cy="115" rx="15" ry="25" fill={blobbi.customization.color || "#374151"} transform="rotate(15 150 115)" />
       
       {/* Eyes based on mood/state - bigger and more expressive */}
       {blobbi.state === 'sleeping' ? (
@@ -152,8 +160,8 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       
       <defs>
         <radialGradient id="penguiBodyGradient">
-          <stop offset="0%" stopColor="#6b7280" />
-          <stop offset="100%" stopColor="#1f2937" />
+          <stop offset="0%" stopColor={blobbi.customization.color || "#6b7280"} stopOpacity="0.8" />
+          <stop offset="100%" stopColor={blobbi.customization.color || "#1f2937"} stopOpacity="0.4" />
         </radialGradient>
         <radialGradient id="penguiBellyGradient">
           <stop offset="0%" stopColor="#ffffff" />
@@ -166,12 +174,17 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
   const renderOwli = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
       {/* Round body */}
-      <circle cx="100" cy="110" r="60" fill="#a8a29e" />
+      <circle cx="100" cy="110" r="60" fill={blobbi.customization.color || "#a8a29e"} />
       <circle cx="100" cy="110" r="60" fill="url(#owliGradient)" opacity="0.3" />
       
       {/* Triangle ears */}
-      <path d="M 60 70 L 70 50 L 80 70 Z" fill="#a8a29e" />
-      <path d="M 120 70 L 130 50 L 140 70 Z" fill="#a8a29e" />
+      <path d="M 60 70 L 70 50 L 80 70 Z" fill={blobbi.customization.color || "#a8a29e"} />
+      <path d="M 120 70 L 130 50 L 140 70 Z" fill={blobbi.customization.color || "#a8a29e"} />
+      
+      {/* Pattern overlay if customized */}
+      {blobbi.customization.pattern && (
+        <circle cx="100" cy="110" r="60" fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`} opacity="0.3" />
+      )}
       
       {/* Large circular eyes based on state */}
       {blobbi.state === 'sleeping' ? (
@@ -194,8 +207,8 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       <path d="M 100 110 L 95 120 L 100 125 L 105 120 Z" fill="#f59e0b" />
       
       {/* Minimal wings */}
-      <ellipse cx="50" cy="110" rx="15" ry="30" fill="#78716c" transform="rotate(-20 50 110)" />
-      <ellipse cx="150" cy="110" rx="15" ry="30" fill="#78716c" transform="rotate(20 150 110)" />
+      <ellipse cx="50" cy="110" rx="15" ry="30" fill={blobbi.customization.color || "#78716c"} transform="rotate(-20 50 110)" opacity="0.8" />
+      <ellipse cx="150" cy="110" rx="15" ry="30" fill={blobbi.customization.color || "#78716c"} transform="rotate(20 150 110)" opacity="0.8" />
       
       {/* Accessories */}
       {blobbi.customization.accessories.includes('bow') && (
@@ -207,8 +220,8 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       
       <defs>
         <radialGradient id="owliGradient">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#78716c" />
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+          <stop offset="100%" stopColor={blobbi.customization.color || "#78716c"} stopOpacity="0.4" />
         </radialGradient>
       </defs>
     </svg>
@@ -217,14 +230,19 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
   const renderCatti = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
       {/* Oval upright body */}
-      <ellipse cx="100" cy="120" rx="45" ry="60" fill="#f97316" />
+      <ellipse cx="100" cy="120" rx="45" ry="60" fill={blobbi.customization.color || "#f97316"} />
       <ellipse cx="100" cy="120" rx="45" ry="60" fill="url(#cattiGradient)" opacity="0.3" />
       
       {/* Triangle ears */}
-      <path d="M 70 70 L 60 50 L 80 60 Z" fill="#f97316" />
-      <path d="M 130 70 L 140 50 L 120 60 Z" fill="#f97316" />
-      <path d="M 70 60 L 65 52 L 75 57 Z" fill="#fb923c" />
-      <path d="M 130 60 L 135 52 L 125 57 Z" fill="#fb923c" />
+      <path d="M 70 70 L 60 50 L 80 60 Z" fill={blobbi.customization.color || "#f97316"} />
+      <path d="M 130 70 L 140 50 L 120 60 Z" fill={blobbi.customization.color || "#f97316"} />
+      <path d="M 70 60 L 65 52 L 75 57 Z" fill={blobbi.customization.color || "#fb923c"} opacity="0.8" />
+      <path d="M 130 60 L 135 52 L 125 57 Z" fill={blobbi.customization.color || "#fb923c"} opacity="0.8" />
+      
+      {/* Pattern overlay if customized */}
+      {blobbi.customization.pattern && (
+        <ellipse cx="100" cy="120" rx="45" ry="60" fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`} opacity="0.3" />
+      )}
       
       {/* Eyes based on state */}
       {blobbi.state === 'sleeping' ? (
@@ -257,7 +275,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       )}
       
       {/* Curved tail */}
-      <path d="M 145 140 Q 160 120 155 100 Q 150 80 160 70" stroke="#f97316" strokeWidth="20" fill="none" strokeLinecap="round" />
+      <path d="M 145 140 Q 160 120 155 100 Q 150 80 160 70" stroke={blobbi.customization.color || "#f97316"} strokeWidth="20" fill="none" strokeLinecap="round" />
       
       {/* Whiskers */}
       <line x1="50" y1="110" x2="70" y2="108" stroke="#1e293b" strokeWidth="1.5" />
@@ -276,8 +294,8 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       
       <defs>
         <radialGradient id="cattiGradient">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#ea580c" />
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+          <stop offset="100%" stopColor={blobbi.customization.color || "#ea580c"} stopOpacity="0.4" />
         </radialGradient>
       </defs>
     </svg>
@@ -286,12 +304,17 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
   const renderFroggi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
       {/* Flattened oval body */}
-      <ellipse cx="100" cy="120" rx="70" ry="50" fill="#22c55e" />
+      <ellipse cx="100" cy="120" rx="70" ry="50" fill={blobbi.customization.color || "#22c55e"} />
       <ellipse cx="100" cy="120" rx="70" ry="50" fill="url(#froggiGradient)" opacity="0.3" />
       
       {/* Big circular pop-out eyes */}
-      <circle cx="70" cy="80" r="25" fill="#22c55e" />
-      <circle cx="130" cy="80" r="25" fill="#22c55e" />
+      <circle cx="70" cy="80" r="25" fill={blobbi.customization.color || "#22c55e"} />
+      <circle cx="130" cy="80" r="25" fill={blobbi.customization.color || "#22c55e"} />
+      
+      {/* Pattern overlay if customized */}
+      {blobbi.customization.pattern && (
+        <ellipse cx="100" cy="120" rx="70" ry="50" fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`} opacity="0.3" />
+      )}
       
       {blobbi.state === 'sleeping' ? (
         <>
@@ -315,14 +338,14 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       {(mood === 'neutral' || mood === 'sleepy') && <path d="M 60 120 Q 100 125 140 120" stroke="#1e293b" strokeWidth="4" fill="none" strokeLinecap="round" />}
       
       {/* Nostrils */}
-      <ellipse cx="90" cy="110" rx="3" ry="5" fill="#16a34a" />
-      <ellipse cx="110" cy="110" rx="3" ry="5" fill="#16a34a" />
+      <ellipse cx="90" cy="110" rx="3" ry="5" fill={blobbi.customization.color || "#16a34a"} opacity="0.6" />
+      <ellipse cx="110" cy="110" rx="3" ry="5" fill={blobbi.customization.color || "#16a34a"} opacity="0.6" />
       
       {/* Little webbed feet */}
-      <ellipse cx="60" cy="160" rx="20" ry="10" fill="#22c55e" />
-      <ellipse cx="140" cy="160" rx="20" ry="10" fill="#22c55e" />
-      <path d="M 45 160 L 50 155 M 55 160 L 55 155 M 65 160 L 70 155" stroke="#16a34a" strokeWidth="2" />
-      <path d="M 125 160 L 130 155 M 135 160 L 135 155 M 145 160 L 150 155" stroke="#16a34a" strokeWidth="2" />
+      <ellipse cx="60" cy="160" rx="20" ry="10" fill={blobbi.customization.color || "#22c55e"} />
+      <ellipse cx="140" cy="160" rx="20" ry="10" fill={blobbi.customization.color || "#22c55e"} />
+      <path d="M 45 160 L 50 155 M 55 160 L 55 155 M 65 160 L 70 155" stroke={blobbi.customization.color || "#16a34a"} strokeWidth="2" opacity="0.6" />
+      <path d="M 125 160 L 130 155 M 135 160 L 135 155 M 145 160 L 150 155" stroke={blobbi.customization.color || "#16a34a"} strokeWidth="2" opacity="0.6" />
       
       {/* Accessories */}
       {blobbi.customization.accessories.includes('crown') && (
@@ -334,8 +357,8 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       
       <defs>
         <radialGradient id="froggiGradient">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#16a34a" />
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+          <stop offset="100%" stopColor={blobbi.customization.color || "#16a34a"} stopOpacity="0.4" />
         </radialGradient>
       </defs>
     </svg>
@@ -386,6 +409,16 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
         {renderPet()}
         {renderSleepingZ()}
         {renderDirt()}
+        
+        {/* Pattern definitions */}
+        <defs>
+          <pattern id={`${patternIdPrefix}stripes`} patternUnits="userSpaceOnUse" width="8" height="8">
+            <line x1="0" y1="0" x2="0" y2="8" stroke="#000" strokeWidth="1" opacity="0.2" />
+          </pattern>
+          <pattern id={`${patternIdPrefix}dots`} patternUnits="userSpaceOnUse" width="12" height="12">
+            <circle cx="6" cy="6" r="2" fill="#000" opacity="0.2" />
+          </pattern>
+        </defs>
       </svg>
       
       {/* Hibernation indicator */}

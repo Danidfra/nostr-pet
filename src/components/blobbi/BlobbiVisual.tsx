@@ -12,6 +12,9 @@ interface BlobbiVisualProps {
 export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: BlobbiVisualProps) {
   const mood = getBlobbiMood(blobbi.stats, blobbi.state);
   
+  // Create unique IDs for patterns to avoid conflicts
+  const patternIdPrefix = `blobbi-${blobbi.id}-`;
+  
   const sizeClasses = {
     small: 'w-24 h-24',
     medium: 'w-48 h-48',
@@ -97,7 +100,7 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
         {blobbi.customization.pattern && (
           <path
             d="M 50 10 Q 75 25 75 50 Q 75 80 50 90 Q 25 80 25 50 Q 25 25 50 10"
-            fill={`url(#${blobbi.customization.pattern})`}
+            fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`}
             opacity="0.3"
           />
         )}
@@ -171,11 +174,11 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
         
         {/* Pattern definitions */}
         <defs>
-          <pattern id="stripes" patternUnits="userSpaceOnUse" width="4" height="4">
-            <line x1="0" y1="0" x2="0" y2="4" stroke="#000" strokeWidth="0.5" opacity="0.3" />
+          <pattern id={`${patternIdPrefix}stripes`} patternUnits="userSpaceOnUse" width="8" height="8">
+            <line x1="0" y1="0" x2="0" y2="8" stroke="#000" strokeWidth="1" opacity="0.2" />
           </pattern>
-          <pattern id="dots" patternUnits="userSpaceOnUse" width="10" height="10">
-            <circle cx="5" cy="5" r="1" fill="#000" opacity="0.3" />
+          <pattern id={`${patternIdPrefix}dots`} patternUnits="userSpaceOnUse" width="12" height="12">
+            <circle cx="6" cy="6" r="2" fill="#000" opacity="0.2" />
           </pattern>
         </defs>
       </svg>

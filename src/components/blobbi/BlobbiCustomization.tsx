@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Palette, Sparkles } from 'lucide-react';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { BlobbiVisual } from './BlobbiVisual';
+import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { useToast } from '@/hooks/useToast';
 
 const COLORS = [
@@ -32,13 +33,50 @@ interface BlobbiCustomizationProps {
 }
 
 export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProps) {
-  const { blobbi, updateCustomization, isUpdatingCustomization } = useBlobbi();
+  const { blobbi, updateCustomization, isUpdatingCustomization, isLoading } = useBlobbi();
   const { toast } = useToast();
   
-  const [selectedColor, setSelectedColor] = useState(blobbi?.customization.color || '#7C3AED');
-  const [selectedPattern, setSelectedPattern] = useState(blobbi?.customization.pattern || '');
+  // Initialize state - will be set properly when dialog opens
+  const [selectedColor, setSelectedColor] = useState('#7C3AED');
+  const [selectedPattern, setSelectedPattern] = useState('');
   
-  if (!blobbi) return null;
+  // Reset state to current blobbi customization only when dialog opens
+  React.useEffect(() => {
+    if (isOpen && blobbi) {
+      setSelectedColor(blobbi.customization?.color || '#7C3AED');
+      setSelectedPattern(blobbi.customization?.pattern || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]); // Only reset when dialog opens/closes
+  
+  // Set initial values when blobbi first loads
+  React.useEffect(() => {
+    if (blobbi && !isOpen) {
+      setSelectedColor(blobbi.customization?.color || '#7C3AED');
+      setSelectedPattern(blobbi.customization?.pattern || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blobbi?.id]); // Only run when blobbi ID changes
+  
+  if (!isOpen) return null;
+  
+  if (isLoading || !blobbi) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Palette className="w-5 h-5" />
+              Customize Your Blobbi
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
   
   // Create a preview blobbi with the selected customizations
   const previewBlobbi = {
@@ -55,6 +93,7 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
       await updateCustomization({
         color: selectedColor,
         pattern: selectedPattern,
+        accessories: blobbi.customization.accessories || [], // Preserve existing accessories
       });
       
       toast({
@@ -64,6 +103,7 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
       
       onClose();
     } catch (error) {
+      console.error('Failed to save customization:', error);
       toast({
         title: "Error",
         description: "Failed to save customization. Please try again.",
@@ -73,8 +113,8 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
   };
   
   const hasChanges = 
-    selectedColor !== blobbi.customization.color || 
-    selectedPattern !== blobbi.customization.pattern;
+    selectedColor !== (blobbi.customization?.color || '#7C3AED') || 
+    selectedPattern !== (blobbi.customization?.pattern || '');
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -91,11 +131,30 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Preview</CardTitle>
+                <CardTitle className="text-sm">
+                  Preview
+                  {previewBlobbi.evolutionForm && (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      ({previewBlobbi.evolutionForm.charAt(0).toUpperCase() + previewBlobbi.evolutionForm.slice(1)})
+                    </span>
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex justify-center">
-                  <BlobbiVisual blobbi={previewBlobbi} size="medium" />
+                  {previewBlobbi.evolutionForm ? (
+                    <BlobbiEvolvedVisual 
+                      key={`${selectedColor}-${selectedPattern}`}
+                      blobbi={previewBlobbi} 
+                      size="medium" 
+                    />
+                  ) : (
+                    <BlobbiVisual 
+                      key={`${selectedColor}-${selectedPattern}`}
+                      blobbi={previewBlobbi} 
+                      size="medium" 
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -110,7 +169,9 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
                 {COLORS.map((color) => (
                   <button
                     key={color.value}
-                    onClick={() => setSelectedColor(color.value)}
+                    onClick={() => {
+                      setSelectedColor(color.value);
+                    }}
                     className={`
                       w-full h-12 rounded-md border-2 transition-all
                       ${selectedColor === color.value 
