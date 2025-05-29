@@ -57,6 +57,7 @@ const Index = () => {
                 viewBox="0 0 100 100"
                 className="w-64 h-64 animate-bounce"
               >
+                {/* Shadow */}
                 <ellipse
                   cx="50"
                   cy="95"
@@ -64,27 +65,50 @@ const Index = () => {
                   ry="3"
                   fill="rgba(0,0,0,0.2)"
                 />
+                
+                {/* Main body - cute water droplet shape */}
                 <path
-                  d="M 50 10 Q 75 25 75 50 Q 75 80 50 90 Q 25 80 25 50 Q 25 25 50 10"
+                  d="M 50 15 Q 50 10 50 15 Q 72 25 75 55 Q 75 80 50 88 Q 25 80 25 55 Q 28 25 50 15"
                   fill="#7C3AED"
-                  stroke="rgba(0,0,0,0.1)"
-                  strokeWidth="2"
+                  className="transition-colors duration-300"
                 />
-                <text x="35" y="45" fontSize="12" textAnchor="middle" fill="#000">
-                  ◉
-                </text>
-                <text x="65" y="45" fontSize="12" textAnchor="middle" fill="#000">
-                  ◉
-                </text>
-                <path
-                  d="M 35 60 Q 50 70 65 60"
-                  fill="none"
-                  stroke="#000"
-                  strokeWidth="2"
-                  strokeLinecap="round"
+                
+                {/* Subtle inner glow for softness */}
+                <ellipse
+                  cx="50"
+                  cy="45"
+                  rx="15"
+                  ry="20"
+                  fill="white"
+                  opacity="0.15"
                 />
-                <circle cx="25" cy="50" r="5" fill="rgba(255,182,193,0.5)" />
-                <circle cx="75" cy="50" r="5" fill="rgba(255,182,193,0.5)" />
+                
+                {/* Eyes - simple with single highlight */}
+                <g id="left-eye">
+                  <ellipse cx="38" cy="45" rx="8" ry="10" fill="white" />
+                  <circle cx="38" cy="46" r="6" fill="#1e293b" />
+                  {/* Single eye shine */}
+                  <circle cx="40" cy="44" r="2" fill="white" />
+                </g>
+                <g id="right-eye">
+                  <ellipse cx="62" cy="45" rx="8" ry="10" fill="white" />
+                  <circle cx="62" cy="46" r="6" fill="#1e293b" />
+                  {/* Single eye shine */}
+                  <circle cx="64" cy="44" r="2" fill="white" />
+                </g>
+                
+                {/* Happy mouth */}
+                <path 
+                  d="M 42 62 Q 50 68 58 62" 
+                  stroke="#1e293b" 
+                  strokeWidth="2.5" 
+                  fill="none" 
+                  strokeLinecap="round" 
+                />
+                
+                {/* Blush for cuteness */}
+                <ellipse cx="22" cy="55" rx="6" ry="4" fill="rgba(255,182,193,0.4)" />
+                <ellipse cx="78" cy="55" rx="6" ry="4" fill="rgba(255,182,193,0.4)" />
               </svg>
             </div>
           </div>

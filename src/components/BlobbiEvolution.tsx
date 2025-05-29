@@ -43,20 +43,58 @@ const BlobbiEvolution: React.FC = () => {
 
   const renderBlobbi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Base blob shape */}
-      <ellipse cx="100" cy="110" rx="60" ry="70" fill="#e0e7ff" />
+      {/* Shadow */}
+      <ellipse
+        cx="100"
+        cy="190"
+        rx="50"
+        ry="6"
+        fill="rgba(0,0,0,0.2)"
+      />
       
-      {/* Soft shading */}
-      <ellipse cx="100" cy="110" rx="60" ry="70" fill="url(#blobbiGradient)" opacity="0.3" />
+      {/* Main body - cute water droplet shape */}
+      <path
+        d="M 100 30 Q 100 20 100 30 Q 144 50 150 110 Q 150 160 100 176 Q 50 160 50 110 Q 56 50 100 30"
+        fill="#7C3AED"
+        className="transition-colors duration-300"
+      />
       
-      {/* Eyes */}
-      <circle cx="80" cy="100" r="8" fill="#1e293b" />
-      <circle cx="120" cy="100" r="8" fill="#1e293b" />
-      <circle cx="82" cy="98" r="3" fill="white" />
-      <circle cx="122" cy="98" r="3" fill="white" />
+      {/* Subtle inner glow for softness */}
+      <ellipse
+        cx="100"
+        cy="90"
+        rx="30"
+        ry="40"
+        fill="white"
+        opacity="0.15"
+      />
       
-      {/* Cute mouth */}
-      <path d="M 90 120 Q 100 130 110 120" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />
+      {/* Eyes - simple with single highlight */}
+      <g id="left-eye">
+        <ellipse cx="76" cy="90" rx="16" ry="20" fill="white" />
+        <circle cx="76" cy="92" r="12" fill="#1e293b" />
+        {/* Single eye shine */}
+        <circle cx="80" cy="88" r="4" fill="white" />
+      </g>
+      <g id="right-eye">
+        <ellipse cx="124" cy="90" rx="16" ry="20" fill="white" />
+        <circle cx="124" cy="92" r="12" fill="#1e293b" />
+        {/* Single eye shine */}
+        <circle cx="128" cy="88" r="4" fill="white" />
+      </g>
+      
+      {/* Happy mouth */}
+      <path 
+        d="M 84 124 Q 100 136 116 124" 
+        stroke="#1e293b" 
+        strokeWidth="5" 
+        fill="none" 
+        strokeLinecap="round" 
+      />
+      
+      {/* Blush for cuteness */}
+      <ellipse cx="44" cy="110" rx="12" ry="8" fill="rgba(255,182,193,0.4)" />
+      <ellipse cx="156" cy="110" rx="12" ry="8" fill="rgba(255,182,193,0.4)" />
       
       {/* Optional accessory - simple hat */}
       {showAccessory && (
@@ -65,13 +103,6 @@ const BlobbiEvolution: React.FC = () => {
           <rect x="80" y="30" width="40" height="30" fill="#f59e0b" rx="5" />
         </g>
       )}
-      
-      <defs>
-        <radialGradient id="blobbiGradient">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#c7d2fe" />
-        </radialGradient>
-      </defs>
     </svg>
   );
 
