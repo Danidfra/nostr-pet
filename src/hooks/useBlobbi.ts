@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { Blobbi, BlobbiAction } from '@/types/blobbi';
+import { Blobbi, BlobbiAction, BlobbiItem, BlobbiStats } from '@/types/blobbi';
 import { 
   createBlobbi, 
   calculateStatDecay, 
@@ -10,7 +10,9 @@ import {
   shouldHibernate,
   applyAction,
   serializeBlobbi,
-  deserializeBlobbi 
+  deserializeBlobbi,
+  addItemToInventory,
+  removeItemFromInventory
 } from '@/lib/blobbi';
 import { NostrEvent } from '@nostrify/nostrify';
 
@@ -142,6 +144,81 @@ export function useBlobbi(pubkey?: string) {
     },
   });
   
+  // Purchase item mutation
+  const purchaseItemMutation = useMutation({
+    mutationFn: async (item: BlobbiItem) => {
+      if (!user || !currentBlobbi) throw new Error('No Blobbi found');
+      if (currentBlobbi.ownerPubkey !== user.pubkey) {
+        throw new Error('You can only purchase items for your own Blobbi');
+      }
+      
+      if (currentBlobbi.coins < item.price) {
+        throw new Error('Insufficient coins');
+      }
+      
+      // Deduct coins and add item to inventory
+      const updatedBlobbi = addItemToInventory(
+        {
+          ...currentBlobbi,
+          coins: currentBlobbi.coins - item.price,
+        },
+        item.id
+      );
+      
+      await publishEvent({
+        kind: BLOBBI_KIND,
+        content: serializeBlobbi(updatedBlobbi),
+        tags: [
+          ['d', 'blobbi'],
+          ['title', updatedBlobbi.name],
+          ['summary', `${updatedBlobbi.name} bought ${item.name}!`],
+        ],
+      });
+      
+      return updatedBlobbi;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blobbi', user?.pubkey] });
+    },
+  });
+  
+  // Use item from inventory
+  const useItemMutation = useMutation({
+    mutationFn: async ({ itemId, action, itemEffect }: { itemId: string; action: BlobbiAction; itemEffect?: Partial<BlobbiStats> }) => {
+      if (!user || !currentBlobbi) throw new Error('No Blobbi found');
+      if (currentBlobbi.ownerPubkey !== user.pubkey) {
+        throw new Error('You can only use items on your own Blobbi');
+      }
+      
+      // Check if item exists in inventory
+      const inventoryItem = currentBlobbi.inventory.find(item => item.itemId === itemId);
+      if (!inventoryItem) {
+        throw new Error('Item not found in inventory');
+      }
+      
+      // Apply the action with the item (this will apply the item's effects)
+      let updatedBlobbi = applyAction(currentBlobbi, action, Date.now(), itemEffect);
+      
+      // Remove one item from inventory
+      updatedBlobbi = removeItemFromInventory(updatedBlobbi, itemId, 1);
+      
+      await publishEvent({
+        kind: BLOBBI_KIND,
+        content: serializeBlobbi(updatedBlobbi),
+        tags: [
+          ['d', 'blobbi'],
+          ['title', updatedBlobbi.name],
+          ['summary', `${updatedBlobbi.name} used an item!`],
+        ],
+      });
+      
+      return updatedBlobbi;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blobbi', user?.pubkey] });
+    },
+  });
+  
   return {
     blobbi: currentBlobbi,
     isLoading,
@@ -150,9 +227,13 @@ export function useBlobbi(pubkey?: string) {
     createBlobbi: createBlobbiMutation.mutate,
     performAction: performActionMutation.mutate,
     updateCustomization: updateCustomizationMutation.mutate,
+    purchaseItem: purchaseItemMutation.mutateAsync,
+    applyItem: (itemId: string, action: BlobbiAction, itemEffect?: Partial<BlobbiStats>) => useItemMutation.mutateAsync({ itemId, action, itemEffect }),
     isCreating: createBlobbiMutation.isPending,
     isPerformingAction: performActionMutation.isPending,
     isUpdatingCustomization: updateCustomizationMutation.isPending,
+    isPurchasing: purchaseItemMutation.isPending,
+    isUsingItem: useItemMutation.isPending,
   };
 }
 

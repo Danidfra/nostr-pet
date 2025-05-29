@@ -1,4 +1,4 @@
-import { Blobbi, BlobbiStats, BlobbiLifeStage, BlobbiMood, BlobbiState, BlobbiAction, BlobbiEvolutionForm } from '@/types/blobbi';
+import { Blobbi, BlobbiStats, BlobbiLifeStage, BlobbiMood, BlobbiState, BlobbiAction, BlobbiEvolutionForm, BlobbiItem } from '@/types/blobbi';
 
 // Constants for game mechanics
 const STAT_DECAY_RATES = {
@@ -57,6 +57,7 @@ export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blob
     },
     experience: 0,
     coins: 100, // Starting coins
+    inventory: [], // Empty inventory
   };
 }
 
@@ -132,7 +133,7 @@ function getRandomEvolutionForm(): BlobbiEvolutionForm {
 }
 
 // Apply an action to Blobbi
-export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: number = Date.now()): Blobbi {
+export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: number = Date.now(), itemEffects?: Partial<BlobbiStats>): Blobbi {
   // First, calculate current stats with decay
   const currentStats = calculateStatDecay(blobbi, currentTime);
   const currentLifeStage = getLifeStage(blobbi.birthTime, currentTime);
@@ -150,14 +151,22 @@ export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: n
     newState = 'active';
   }
   
-  // Apply action effects
-  const effects = ACTION_EFFECTS[action] || {};
+  // Apply action effects (combine base effects with item effects if provided)
+  const baseEffects = ACTION_EFFECTS[action] || {};
+  const combinedEffects = itemEffects ? {
+    hunger: (baseEffects.hunger || 0) + (itemEffects.hunger || 0),
+    happiness: (baseEffects.happiness || 0) + (itemEffects.happiness || 0),
+    energy: (baseEffects.energy || 0) + (itemEffects.energy || 0),
+    cleanliness: (baseEffects.cleanliness || 0) + (itemEffects.cleanliness || 0),
+    health: (baseEffects.health || 0) + (itemEffects.health || 0),
+  } : baseEffects;
+  
   const newStats: BlobbiStats = {
-    hunger: Math.max(0, Math.min(100, currentStats.hunger + (effects.hunger || 0))),
-    happiness: Math.max(0, Math.min(100, currentStats.happiness + (effects.happiness || 0))),
-    energy: Math.max(0, Math.min(100, currentStats.energy + (effects.energy || 0))),
-    cleanliness: Math.max(0, Math.min(100, currentStats.cleanliness + (effects.cleanliness || 0))),
-    health: Math.max(0, Math.min(100, currentStats.health + (effects.health || 0))),
+    hunger: Math.max(0, Math.min(100, currentStats.hunger + (combinedEffects.hunger || 0))),
+    happiness: Math.max(0, Math.min(100, currentStats.happiness + (combinedEffects.happiness || 0))),
+    energy: Math.max(0, Math.min(100, currentStats.energy + (combinedEffects.energy || 0))),
+    cleanliness: Math.max(0, Math.min(100, currentStats.cleanliness + (combinedEffects.cleanliness || 0))),
+    health: Math.max(0, Math.min(100, currentStats.health + (combinedEffects.health || 0))),
   };
   
   // Calculate experience gain
@@ -220,8 +229,77 @@ export function serializeBlobbi(blobbi: Blobbi): string {
 // Deserialize Blobbi from Nostr storage
 export function deserializeBlobbi(data: string): Blobbi | null {
   try {
-    return JSON.parse(data) as Blobbi;
+    const blobbi = JSON.parse(data) as Blobbi;
+    // Ensure inventory exists for backward compatibility
+    if (!blobbi.inventory) {
+      blobbi.inventory = [];
+    }
+    return blobbi;
   } catch {
     return null;
   }
+}
+
+// Add item to inventory
+export function addItemToInventory(blobbi: Blobbi, itemId: string, quantity: number = 1): Blobbi {
+  const existingItem = blobbi.inventory.find(item => item.itemId === itemId);
+  
+  if (existingItem) {
+    // Update quantity if item already exists
+    return {
+      ...blobbi,
+      inventory: blobbi.inventory.map(item =>
+        item.itemId === itemId
+          ? { ...item, quantity: item.quantity + quantity }
+          : item
+      ),
+    };
+  } else {
+    // Add new item to inventory
+    return {
+      ...blobbi,
+      inventory: [...blobbi.inventory, {
+        itemId,
+        quantity,
+        purchasedAt: Date.now(),
+      }],
+    };
+  }
+}
+
+// Remove item from inventory
+export function removeItemFromInventory(blobbi: Blobbi, itemId: string, quantity: number = 1): Blobbi {
+  const existingItem = blobbi.inventory.find(item => item.itemId === itemId);
+  
+  if (!existingItem) return blobbi;
+  
+  if (existingItem.quantity <= quantity) {
+    // Remove item completely
+    return {
+      ...blobbi,
+      inventory: blobbi.inventory.filter(item => item.itemId !== itemId),
+    };
+  } else {
+    // Reduce quantity
+    return {
+      ...blobbi,
+      inventory: blobbi.inventory.map(item =>
+        item.itemId === itemId
+          ? { ...item, quantity: item.quantity - quantity }
+          : item
+      ),
+    };
+  }
+}
+
+// Get items by type from inventory
+export function getInventoryItemsByType(blobbi: Blobbi, type: string, shopItems: BlobbiItem[]): (BlobbiItem & { quantity: number })[] {
+  return blobbi.inventory
+    .map(invItem => {
+      const shopItem = shopItems.find(item => item.id === invItem.itemId);
+      return shopItem && shopItem.type === type
+        ? { ...shopItem, quantity: invItem.quantity }
+        : null;
+    })
+    .filter((item): item is (BlobbiItem & { quantity: number }) => item !== null);
 }

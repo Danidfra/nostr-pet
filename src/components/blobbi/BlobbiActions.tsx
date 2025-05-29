@@ -5,6 +5,7 @@ import { Utensils, Gamepad2, Bath, Moon, Sun, Pill } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { isActionAvailable } from '@/lib/blobbi';
 import { cn } from '@/lib/utils';
+import { BlobbiInventoryModal } from './BlobbiInventoryModal';
 
 interface BlobbiActionsProps {
   blobbi: Blobbi;
@@ -14,6 +15,8 @@ interface BlobbiActionsProps {
 }
 
 export function BlobbiActions({ blobbi, onAction, isPerformingAction, className }: BlobbiActionsProps) {
+  const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<BlobbiAction | null>(null);
   const [lastActions, setLastActions] = useState<Record<BlobbiAction, number>>({
     feed: 0,
     play: 0,
@@ -63,8 +66,20 @@ export function BlobbiActions({ blobbi, onAction, isPerformingAction, className 
   }, [lastActions]);
   
   const handleAction = (action: BlobbiAction) => {
-    onAction(action);
-    setLastActions(prev => ({ ...prev, [action]: Date.now() }));
+    // For actions that can use items, open the inventory modal
+    if (['feed', 'play', 'clean', 'medicine'].includes(action)) {
+      setSelectedAction(action);
+      setInventoryModalOpen(true);
+    } else {
+      // For sleep/wake actions, perform directly
+      onAction(action);
+      setLastActions(prev => ({ ...prev, [action]: Date.now() }));
+    }
+  };
+  
+  const handleInventoryClose = () => {
+    setInventoryModalOpen(false);
+    setSelectedAction(null);
   };
   
   const formatCooldown = (seconds: number) => {
@@ -121,42 +136,52 @@ export function BlobbiActions({ blobbi, onAction, isPerformingAction, className 
   ];
   
   return (
-    <Card className={className}>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Actions</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-2">
-          {actions.map(({ action, icon: Icon, label, color, disabled, tooltip }) => {
-            const cooldown = cooldowns[action];
-            const isOnCooldown = cooldown > 0;
-            const isDisabled = disabled || isOnCooldown || isPerformingAction;
-            
-            return (
-              <Button
-                key={action}
-                variant="outline"
-                size="sm"
-                onClick={() => handleAction(action)}
-                disabled={isDisabled}
-                className={cn(
-                  'flex flex-col gap-1 h-auto py-3 relative',
-                  !isDisabled && color
-                )}
-                title={tooltip || (isOnCooldown ? `Cooldown: ${formatCooldown(cooldown)}` : '')}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="text-xs">{label}</span>
-                {isOnCooldown && (
-                  <span className="absolute -top-1 -right-1 text-[10px] bg-background px-1 rounded border">
-                    {formatCooldown(cooldown)}
-                  </span>
-                )}
-              </Button>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+    <>
+      <Card className={className}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-2">
+            {actions.map(({ action, icon: Icon, label, color, disabled, tooltip }) => {
+              const cooldown = cooldowns[action];
+              const isOnCooldown = cooldown > 0;
+              const isDisabled = disabled || isOnCooldown || isPerformingAction;
+              
+              return (
+                <Button
+                  key={action}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAction(action)}
+                  disabled={isDisabled}
+                  className={cn(
+                    'flex flex-col gap-1 h-auto py-3 relative',
+                    !isDisabled && color
+                  )}
+                  title={tooltip || (isOnCooldown ? `Cooldown: ${formatCooldown(cooldown)}` : '')}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-xs">{label}</span>
+                  {isOnCooldown && (
+                    <span className="absolute -top-1 -right-1 text-[10px] bg-background px-1 rounded border">
+                      {formatCooldown(cooldown)}
+                    </span>
+                  )}
+                </Button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+      
+      {selectedAction && (
+        <BlobbiInventoryModal
+          isOpen={inventoryModalOpen}
+          onClose={handleInventoryClose}
+          actionType={selectedAction}
+        />
+      )}
+    </>
   );
 }

@@ -8,27 +8,7 @@ import { Coins, Palette, Sparkles, Heart, Utensils, Gamepad2 } from 'lucide-reac
 import { BlobbiItem } from '@/types/blobbi';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { useToast } from '@/hooks/useToast';
-
-// Mock shop items - in a real implementation, these would come from Nostr events
-const SHOP_ITEMS: BlobbiItem[] = [
-  // Food items
-  { id: 'food_apple', name: 'Apple', type: 'food', price: 10, effect: { hunger: 15 }, icon: '🍎' },
-  { id: 'food_burger', name: 'Burger', type: 'food', price: 25, effect: { hunger: 40, happiness: 10 }, icon: '🍔' },
-  { id: 'food_cake', name: 'Cake', type: 'food', price: 50, effect: { hunger: 20, happiness: 30 }, icon: '🎂' },
-  
-  // Toys
-  { id: 'toy_ball', name: 'Ball', type: 'toy', price: 30, effect: { happiness: 25 }, icon: '⚽' },
-  { id: 'toy_teddy', name: 'Teddy Bear', type: 'toy', price: 60, effect: { happiness: 40 }, icon: '🧸' },
-  
-  // Medicine
-  { id: 'med_vitamins', name: 'Vitamins', type: 'medicine', price: 40, effect: { health: 20 }, icon: '💊' },
-  { id: 'med_super', name: 'Super Medicine', type: 'medicine', price: 100, effect: { health: 50, energy: 20 }, icon: '💉' },
-  
-  // Accessories (for future customization)
-  { id: 'acc_hat', name: 'Party Hat', type: 'accessory', price: 75, icon: '🎩' },
-  { id: 'acc_glasses', name: 'Cool Glasses', type: 'accessory', price: 60, icon: '🕶️' },
-  { id: 'acc_bow', name: 'Bow Tie', type: 'accessory', price: 50, icon: '🎀' },
-];
+import { SHOP_ITEMS, getShopItemsByType } from '@/lib/shop-items';
 
 interface BlobbiShopProps {
   isOpen: boolean;
@@ -36,7 +16,7 @@ interface BlobbiShopProps {
 }
 
 export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
-  const { blobbi, isOwner } = useBlobbi();
+  const { blobbi, isOwner, purchaseItem } = useBlobbi();
   const { toast } = useToast();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
@@ -57,21 +37,30 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
     setShowPurchaseDialog(true);
   };
   
-  const confirmPurchase = () => {
+  const confirmPurchase = async () => {
     if (!selectedItem) return;
     
-    // In a real implementation, this would update the Blobbi's inventory via Nostr
-    toast({
-      title: "Purchase Successful!",
-      description: `You bought ${selectedItem.name} for ${selectedItem.price} coins.`,
-    });
-    
-    setShowPurchaseDialog(false);
-    setSelectedItem(null);
+    try {
+      // Purchase the item (this will update coins and inventory)
+      await purchaseItem(selectedItem);
+      
+      toast({
+        title: "Purchase Successful!",
+        description: `You bought ${selectedItem.name} for ${selectedItem.price} coins.`,
+      });
+      
+      setShowPurchaseDialog(false);
+      setSelectedItem(null);
+    } catch (error) {
+      toast({
+        title: "Purchase Failed",
+        description: "Failed to complete the purchase. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
-  const getItemsByType = (type: BlobbiItem['type']) => 
-    SHOP_ITEMS.filter(item => item.type === type);
+
   
   return (
     <>
@@ -88,16 +77,17 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
           </DialogHeader>
           
           <Tabs defaultValue="food" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="food">Food</TabsTrigger>
               <TabsTrigger value="toys">Toys</TabsTrigger>
               <TabsTrigger value="medicine">Medicine</TabsTrigger>
+              <TabsTrigger value="hygiene">Hygiene</TabsTrigger>
               <TabsTrigger value="accessories">Accessories</TabsTrigger>
             </TabsList>
             
             <TabsContent value="food" className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
-                {getItemsByType('food').map(item => (
+                {getShopItemsByType('food').map(item => (
                   <ShopItemCard 
                     key={item.id} 
                     item={item} 
@@ -110,7 +100,7 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
             
             <TabsContent value="toys" className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
-                {getItemsByType('toy').map(item => (
+                {getShopItemsByType('toy').map(item => (
                   <ShopItemCard 
                     key={item.id} 
                     item={item} 
@@ -123,7 +113,20 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
             
             <TabsContent value="medicine" className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
-                {getItemsByType('medicine').map(item => (
+                {getShopItemsByType('medicine').map(item => (
+                  <ShopItemCard 
+                    key={item.id} 
+                    item={item} 
+                    canAfford={blobbi.coins >= item.price}
+                    onPurchase={handlePurchase}
+                  />
+                ))}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="hygiene" className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                {getShopItemsByType('hygiene').map(item => (
                   <ShopItemCard 
                     key={item.id} 
                     item={item} 
@@ -139,7 +142,7 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
                 Accessories coming soon! Customize your Blobbi's appearance.
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {getItemsByType('accessory').map(item => (
+                {getShopItemsByType('accessory').map(item => (
                   <ShopItemCard 
                     key={item.id} 
                     item={item} 

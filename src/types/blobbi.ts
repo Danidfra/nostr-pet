@@ -19,6 +19,12 @@ export interface BlobbiCustomization {
   accessories: string[];
 }
 
+export interface BlobbiInventoryItem {
+  itemId: string;       // Reference to the item definition
+  quantity: number;     // How many of this item
+  purchasedAt: number;  // Unix timestamp when purchased
+}
+
 export interface Blobbi {
   id: string;           // Unique ID (derived from owner's pubkey)
   ownerPubkey: string;  // Nostr pubkey of the owner
@@ -33,6 +39,7 @@ export interface Blobbi {
   coins: number;        // In-game currency
   evolutionForm?: BlobbiEvolutionForm; // Evolution form after 10 days
   evolutionTime?: number; // Unix timestamp when evolution occurred
+  inventory: BlobbiInventoryItem[]; // Items owned by the Blobbi
 }
 
 // Nostr event structure for Blobbi data
@@ -59,7 +66,7 @@ export type BlobbiAction =
 export interface BlobbiItem {
   id: string;
   name: string;
-  type: 'food' | 'toy' | 'accessory' | 'medicine' | 'decoration';
+  type: 'food' | 'toy' | 'accessory' | 'medicine' | 'decoration' | 'hygiene';
   price: number;
   effect?: Partial<BlobbiStats>;
   icon?: string;
