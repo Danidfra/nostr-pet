@@ -5,13 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Coins, Trophy, Calendar, Heart, ShoppingBag, Palette, Sparkles } from 'lucide-react';
+import { Coins, Trophy, Calendar, Heart, ShoppingBag, Palette, Sparkles, Package } from 'lucide-react';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { BlobbiStats } from './BlobbiStats';
 import { BlobbiActions } from './BlobbiActions';
 import { BlobbiShop } from './BlobbiShop';
+import { BlobbiStorage } from './BlobbiStorage';
 import { BlobbiCustomization } from './BlobbiCustomization';
 import { BlobbiGamesModal } from './BlobbiGamesModal';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -35,6 +36,7 @@ export function BlobbiGame() {
   const [showShop, setShowShop] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [showGames, setShowGames] = useState(false);
+  const [showStorage, setShowStorage] = useState(false);
   
   const handleCreateBlobbi = () => {
     createBlobbi(petName);
@@ -165,6 +167,15 @@ export function BlobbiGame() {
                   >
                     <ShoppingBag className="w-3 h-3" />
                     Shop
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowStorage(true)}
+                    className="gap-1"
+                  >
+                    <Package className="w-3 h-3" />
+                    Storage
                   </Button>
                   <Button
                     size="sm"
@@ -300,10 +311,11 @@ export function BlobbiGame() {
         </div>
       </div>
       
-      {/* Shop, Customization, and Games Dialogs */}
+      {/* Shop, Storage, Customization, and Games Dialogs */}
       {isOwner && (
         <>
           <BlobbiShop isOpen={showShop} onClose={() => setShowShop(false)} />
+          <BlobbiStorage isOpen={showStorage} onClose={() => setShowStorage(false)} />
           <BlobbiCustomization isOpen={showCustomization} onClose={() => setShowCustomization(false)} />
           <BlobbiGamesModal 
             isOpen={showGames} 
