@@ -4,89 +4,105 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Elegant Design System - Light Mode */
+    /* Converting hex colors to HSL for Tailwind compatibility */
+    
+    /* Backgrounds - Off-white base (#FFF8EC) */
+    --background: 45 67% 97%;           /* #FFF8EC - Off-white base */
+    --foreground: 32 33% 15%;           /* #2C2419 - Warm dark brown text */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 42 43% 95%;                 /* #F5F0E8 - Cards and elevated surfaces */
+    --card-foreground: 32 33% 15%;      /* #2C2419 - Card text */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 42 43% 95%;              /* #F5F0E8 - Popover background */
+    --popover-foreground: 32 33% 15%;   /* #2C2419 - Popover text */
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary colors - Rich brown */
+    --primary: 20 42% 39%;              /* #8B5A3C - Primary button background */
+    --primary-foreground: 45 67% 97%;   /* #FFF8EC - Primary button text */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary colors - Subtle contrast */
+    --secondary: 38 29% 84%;            /* #E5DDD0 - Secondary button background */
+    --secondary-foreground: 32 33% 15%; /* #2C2419 - Secondary button text */
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted colors */
+    --muted: 35 25% 87%;                /* #EDE6DB - Muted backgrounds */
+    --muted-foreground: 28 17% 37%;     /* #6B5D4F - Muted text */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent colors */
+    --accent: 35 25% 87%;               /* #EDE6DB - Accent background */
+    --accent-foreground: 32 33% 15%;    /* #2C2419 - Accent text */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Status colors */
+    --destructive: 20 42% 39%;          /* #A0522D - Error/destructive */
+    --destructive-foreground: 45 67% 97%; /* #FFF8EC - Error text */
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Borders and inputs */
+    --border: 38 29% 84%;               /* #E5DDD0 - Light borders */
+    --input: 38 29% 84%;                /* #E5DDD0 - Input borders */
+    --ring: 20 55% 40%;                 /* #A0522D - Focus rings */
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;                  /* 12px - Slightly more rounded */
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar colors */
+    --sidebar-background: 42 43% 95%;   /* #F5F0E8 - Sidebar background */
+    --sidebar-foreground: 32 33% 15%;   /* #2C2419 - Sidebar text */
+    --sidebar-primary: 20 42% 39%;      /* #8B5A3C - Sidebar primary */
+    --sidebar-primary-foreground: 45 67% 97%; /* #FFF8EC - Sidebar primary text */
+    --sidebar-accent: 35 25% 87%;       /* #EDE6DB - Sidebar accent */
+    --sidebar-accent-foreground: 32 33% 15%; /* #2C2419 - Sidebar accent text */
+    --sidebar-border: 38 29% 84%;       /* #E5DDD0 - Sidebar borders */
+    --sidebar-ring: 20 55% 40%;         /* #A0522D - Sidebar focus rings */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Elegant Design System - Dark Mode */
+    /* Warm dark colors instead of harsh blacks */
+    
+    /* Backgrounds - Warm dark base (#1C1814) */
+    --background: 30 13% 10%;           /* #1C1814 - Warm dark base */
+    --foreground: 42 43% 90%;           /* #F0E6D6 - Warm off-white text */
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 30 17% 14%;                 /* #252018 - Cards and elevated surfaces */
+    --card-foreground: 42 43% 90%;      /* #F0E6D6 - Card text */
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 30 17% 14%;              /* #252018 - Popover background */
+    --popover-foreground: 42 43% 90%;   /* #F0E6D6 - Popover text */
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Primary colors - Gold accent */
+    --primary: 43 91% 39%;              /* #B8860B - Gold primary */
+    --primary-foreground: 30 13% 10%;   /* #1C1814 - Primary button text */
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary colors */
+    --secondary: 28 17% 21%;            /* #3A332A - Secondary backgrounds */
+    --secondary-foreground: 42 43% 90%; /* #F0E6D6 - Secondary text */
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    /* Muted colors */
+    --muted: 28 17% 21%;                /* #3A332A - Muted backgrounds */
+    --muted-foreground: 32 17% 67%;     /* #A69B8A - Muted text */
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    /* Accent colors */
+    --accent: 28 17% 21%;               /* #3A332A - Accent background */
+    --accent-foreground: 42 43% 90%;    /* #F0E6D6 - Accent text */
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    /* Status colors - Adjusted for dark mode */
+    --destructive: 4 71% 57%;           /* #E74C3C - Error/destructive */
+    --destructive-foreground: 42 43% 90%; /* #F0E6D6 - Error text */
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Borders and inputs */
+    --border: 28 17% 21%;               /* #3A332A - Borders */
+    --input: 28 17% 21%;                /* #3A332A - Input borders */
+    --ring: 51 88% 67%;                 /* #DAA520 - Focus rings */
+
+    /* Sidebar colors */
+    --sidebar-background: 30 13% 10%;   /* #1C1814 - Sidebar background */
+    --sidebar-foreground: 42 43% 90%;   /* #F0E6D6 - Sidebar text */
+    --sidebar-primary: 43 91% 39%;      /* #B8860B - Sidebar primary */
+    --sidebar-primary-foreground: 30 13% 10%; /* #1C1814 - Sidebar primary text */
+    --sidebar-accent: 28 17% 21%;       /* #3A332A - Sidebar accent */
+    --sidebar-accent-foreground: 42 43% 90%; /* #F0E6D6 - Sidebar accent text */
+    --sidebar-border: 28 17% 21%;       /* #3A332A - Sidebar borders */
+    --sidebar-ring: 51 88% 67%;         /* #DAA520 - Sidebar focus rings */
   }
 }
 
@@ -97,6 +113,38 @@
 
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Enhanced shadows for elegant depth */
+  .shadow-elegant {
+    box-shadow: 
+      0 1px 3px 0 hsl(var(--foreground) / 0.1),
+      0 1px 2px -1px hsl(var(--foreground) / 0.1);
+  }
+
+  .shadow-elegant-lg {
+    box-shadow: 
+      0 4px 6px -1px hsl(var(--foreground) / 0.1),
+      0 2px 4px -2px hsl(var(--foreground) / 0.1);
+  }
+
+  .shadow-elegant-xl {
+    box-shadow: 
+      0 10px 15px -3px hsl(var(--foreground) / 0.1),
+      0 4px 6px -4px hsl(var(--foreground) / 0.1);
+  }
+
+  /* Warm glow effects */
+  .glow-warm {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+
+  .glow-warm-lg {
+    box-shadow: 0 0 40px hsl(var(--primary) / 0.4);
   }
 }
 

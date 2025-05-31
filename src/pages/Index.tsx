@@ -12,7 +12,7 @@ const Index = () => {
   const { user } = useCurrentUser();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-b from-background via-card to-secondary dark:from-background dark:via-card dark:to-secondary">
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-end mb-8 gap-2">
           <SettingsButton />
@@ -23,13 +23,13 @@ const Index = () => {
         <div className="max-w-4xl mx-auto space-y-12">
           {/* Hero Section */}
           <div className="text-center space-y-6">
-            <h1 className="text-6xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <h1 className="text-6xl font-bold bg-gradient-to-r from-primary via-ring to-destructive bg-clip-text text-transparent">
               Blobbi
             </h1>
-            <p className="text-2xl text-gray-700">
+            <p className="text-2xl text-foreground">
               Your Virtual Pet on the Nostr Network
             </p>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Adopt and care for your own unique digital companion that lives forever on the decentralized web. 
               Each Nostr account can have one special Blobbi pet!
             </p>
@@ -38,7 +38,7 @@ const Index = () => {
               <Button 
                 size="lg" 
                 onClick={() => navigate(user ? '/blobbi' : '/blobbi/adopt')}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                className="bg-gradient-to-r from-primary to-ring hover:from-primary/90 hover:to-ring/90"
               >
                 {user ? 'Visit Your Blobbi' : 'Adopt a Blobbi'}
               </Button>
@@ -79,7 +79,7 @@ const Index = () => {
                 {/* Main body - cute water droplet shape */}
                 <path
                   d="M 50 15 Q 50 10 50 15 Q 72 25 75 55 Q 75 80 50 88 Q 25 80 25 55 Q 28 25 50 15"
-                  fill="#7C3AED"
+                  fill="hsl(var(--primary))"
                   className="transition-colors duration-300"
                 />
                 

@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Elegant Design System - Light & Dark Mode</title>
+  <style>
+    /* Design System Color Palette */
+    :root {
+      /* Light Mode Colors */
+      --bg-primary: #FFF8EC;           /* Off-white base */
+      --bg-secondary: #F5F0E8;         /* Slightly darker for cards */
+      --bg-tertiary: #EDE6DB;          /* Subtle contrast areas */
+      
+      --text-primary: #2C2419;         /* Main text - warm dark brown */
+      --text-secondary: #4A3F32;       /* Secondary text */
+      --text-muted: #6B5D4F;           /* Muted text */
+      
+      --heading-primary: #1A1611;      /* H1, H2 - deeper brown */
+      --heading-secondary: #2C2419;    /* H3, H4 */
+      
+      --border-light: #E5DDD0;         /* Subtle borders */
+      --border-medium: #D4C7B8;        /* More defined borders */
+      --border-strong: #C4B5A3;        /* Strong borders */
+      
+      --primary-bg: #8B5A3C;           /* Primary button background */
+      --primary-hover: #7A4D33;        /* Primary button hover */
+      --primary-active: #6B4129;       /* Primary button active */
+      --primary-text: #FFF8EC;         /* Primary button text */
+      
+      --secondary-bg: #E5DDD0;         /* Secondary button background */
+      --secondary-hover: #D4C7B8;      /* Secondary button hover */
+      --secondary-active: #C4B5A3;     /* Secondary button active */
+      --secondary-text: #2C2419;       /* Secondary button text */
+      
+      --accent-primary: #A0522D;       /* Links and accents */
+      --accent-hover: #8B5A3C;         /* Link hover */
+      --accent-visited: #7A4D33;       /* Visited links */
+      
+      --success: #5D7C47;              /* Success states */
+      --warning: #B8860B;              /* Warning states */
+      --error: #A0522D;                /* Error states */
+      --info: #4682B4;                 /* Info states */
+      
+      --shadow-light: rgba(44, 36, 25, 0.08);
+      --shadow-medium: rgba(44, 36, 25, 0.12);
+      --shadow-strong: rgba(44, 36, 25, 0.16);
+    }
+
+    /* Dark Mode Colors */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1C1814;          /* Warm dark base */
+        --bg-secondary: #252018;        /* Cards and elevated surfaces */
+        --bg-tertiary: #2E281F;         /* Subtle contrast areas */
+        
+        --text-primary: #F0E6D6;        /* Main text - warm off-white */
+        --text-secondary: #D4C7B8;      /* Secondary text */
+        --text-muted: #A69B8A;          /* Muted text */
+        
+        --heading-primary: #F5F0E8;     /* H1, H2 - brightest */
+        --heading-secondary: #F0E6D6;   /* H3, H4 */
+        
+        --border-light: #3A332A;        /* Subtle borders */
+        --border-medium: #4A3F32;       /* More defined borders */
+        --border-strong: #5A4D3E;       /* Strong borders */
+        
+        --primary-bg: #B8860B;          /* Primary button - warmer gold */
+        --primary-hover: #DAA520;       /* Primary button hover */
+        --primary-active: #F4D03F;      /* Primary button active */
+        --primary-text: #1C1814;        /* Primary button text */
+        
+        --secondary-bg: #3A332A;        /* Secondary button background */
+        --secondary-hover: #4A3F32;     /* Secondary button hover */
+        --secondary-active: #5A4D3E;    /* Secondary button active */
+        --secondary-text: #F0E6D6;      /* Secondary button text */
+        
+        --accent-primary: #DAA520;      /* Links and accents - gold */
+        --accent-hover: #F4D03F;        /* Link hover */
+        --accent-visited: #B8860B;      /* Visited links */
+        
+        --success: #7FB069;             /* Success states */
+        --warning: #F39C12;             /* Warning states */
+        --error: #E74C3C;               /* Error states */
+        --info: #5DADE2;                /* Info states */
+        
+        --shadow-light: rgba(0, 0, 0, 0.15);
+        --shadow-medium: rgba(0, 0, 0, 0.25);
+        --shadow-strong: rgba(0, 0, 0, 0.35);
+      }
+    }
+
+    /* Manual theme override classes */
+    .theme-light {
+      --bg-primary: #FFF8EC;
+      --bg-secondary: #F5F0E8;
+      --bg-tertiary: #EDE6DB;
+      --text-primary: #2C2419;
+      --text-secondary: #4A3F32;
+      --text-muted: #6B5D4F;
+      --heading-primary: #1A1611;
+      --heading-secondary: #2C2419;
+      --border-light: #E5DDD0;
+      --border-medium: #D4C7B8;
+      --border-strong: #C4B5A3;
+      --primary-bg: #8B5A3C;
+      --primary-hover: #7A4D33;
+      --primary-active: #6B4129;
+      --primary-text: #FFF8EC;
+      --secondary-bg: #E5DDD0;
+      --secondary-hover: #D4C7B8;
+      --secondary-active: #C4B5A3;
+      --secondary-text: #2C2419;
+      --accent-primary: #A0522D;
+      --accent-hover: #8B5A3C;
+      --accent-visited: #7A4D33;
+      --success: #5D7C47;
+      --warning: #B8860B;
+      --error: #A0522D;
+      --info: #4682B4;
+      --shadow-light: rgba(44, 36, 25, 0.08);
+      --shadow-medium: rgba(44, 36, 25, 0.12);
+      --shadow-strong: rgba(44, 36, 25, 0.16);
+    }
+
+    .theme-dark {
+      --bg-primary: #1C1814;
+      --bg-secondary: #252018;
+      --bg-tertiary: #2E281F;
+      --text-primary: #F0E6D6;
+      --text-secondary: #D4C7B8;
+      --text-muted: #A69B8A;
+      --heading-primary: #F5F0E8;
+      --heading-secondary: #F0E6D6;
+      --border-light: #3A332A;
+      --border-medium: #4A3F32;
+      --border-strong: #5A4D3E;
+      --primary-bg: #B8860B;
+      --primary-hover: #DAA520;
+      --primary-active: #F4D03F;
+      --primary-text: #1C1814;
+      --secondary-bg: #3A332A;
+      --secondary-hover: #4A3F32;
+      --secondary-active: #5A4D3E;
+      --secondary-text: #F0E6D6;
+      --accent-primary: #DAA520;
+      --accent-hover: #F4D03F;
+      --accent-visited: #B8860B;
+      --success: #7FB069;
+      --warning: #F39C12;
+      --error: #E74C3C;
+      --info: #5DADE2;
+      --shadow-light: rgba(0, 0, 0, 0.15);
+      --shadow-medium: rgba(0, 0, 0, 0.25);
+      --shadow-strong: rgba(0, 0, 0, 0.35);
+    }
+
+    /* Base Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Roboto', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    /* Typography */
+    h1, h2, h3, h4, h5, h6 {
+      font-weight: 600;
+      line-height: 1.3;
+      margin-bottom: 0.75em;
+      letter-spacing: -0.02em;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      color: var(--heading-primary);
+      font-weight: 700;
+    }
+
+    h2 {
+      font-size: 2rem;
+      color: var(--heading-primary);
+    }
+
+    h3 {
+      font-size: 1.5rem;
+      color: var(--heading-secondary);
+    }
+
+    h4 {
+      font-size: 1.25rem;
+      color: var(--heading-secondary);
+    }
+
+    p {
+      margin-bottom: 1em;
+      color: var(--text-primary);
+    }
+
+    .text-secondary {
+      color: var(--text-secondary);
+    }
+
+    .text-muted {
+      color: var(--text-muted);
+    }
+
+    /* Links */
+    a {
+      color: var(--accent-primary);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    a:hover {
+      color: var(--accent-hover);
+      text-decoration: underline;
+    }
+
+    a:visited {
+      color: var(--accent-visited);
+    }
+
+    /* Layout */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: 2rem;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+
+    /* Cards */
+    .card {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px var(--shadow-light);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 16px var(--shadow-medium);
+      transform: translateY(-2px);
+    }
+
+    .card-elevated {
+      background-color: var(--bg-secondary);
+      box-shadow: 0 4px 16px var(--shadow-medium);
+    }
+
+    .card-elevated:hover {
+      box-shadow: 0 8px 24px var(--shadow-strong);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      font-weight: 500;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-bg);
+      color: var(--primary-text);
+      box-shadow: 0 2px 4px var(--shadow-light);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+      box-shadow: 0 4px 8px var(--shadow-medium);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      background-color: var(--primary-active);
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background-color: var(--secondary-bg);
+      color: var(--secondary-text);
+      border: 1px solid var(--border-medium);
+      box-shadow: 0 1px 3px var(--shadow-light);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--secondary-hover);
+      box-shadow: 0 2px 6px var(--shadow-medium);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary:active {
+      background-color: var(--secondary-active);
+      transform: translateY(0);
+    }
+
+    .btn-ghost {
+      background-color: transparent;
+      color: var(--text-primary);
+      border: 1px solid transparent;
+    }
+
+    .btn-ghost:hover {
+      background-color: var(--bg-tertiary);
+      border-color: var(--border-light);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* Header/Navigation */
+    .header {
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-light);
+      padding: 1rem 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 1px 3px var(--shadow-light);
+    }
+
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--accent-primary);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background-color: var(--bg-secondary);
+      border-right: 1px solid var(--border-light);
+      padding: 2rem;
+      min-height: 100vh;
+      width: 280px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      box-shadow: 2px 0 8px var(--shadow-light);
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border-medium);
+      border-radius: 8px;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(160, 82, 45, 0.1);
+    }
+
+    /* Status Colors */
+    .status-success {
+      color: var(--success);
+      background-color: color-mix(in srgb, var(--success) 10%, transparent);
+      border-color: var(--success);
+    }
+
+    .status-warning {
+      color: var(--warning);
+      background-color: color-mix(in srgb, var(--warning) 10%, transparent);
+      border-color: var(--warning);
+    }
+
+    .status-error {
+      color: var(--error);
+      background-color: color-mix(in srgb, var(--error) 10%, transparent);
+      border-color: var(--error);
+    }
+
+    .status-info {
+      color: var(--info);
+      background-color: color-mix(in srgb, var(--info) 10%, transparent);
+      border-color: var(--info);
+    }
+
+    /* Theme Toggle */
+    .theme-toggle {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-medium);
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.25rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px var(--shadow-light);
+    }
+
+    .theme-toggle:hover {
+      background-color: var(--bg-tertiary);
+      box-shadow: 0 4px 12px var(--shadow-medium);
+    }
+
+    /* Utility Classes */
+    .rounded-sm { border-radius: 6px; }
+    .rounded { border-radius: 8px; }
+    .rounded-lg { border-radius: 12px; }
+    .rounded-xl { border-radius: 16px; }
+
+    .shadow-sm { box-shadow: 0 1px 3px var(--shadow-light); }
+    .shadow { box-shadow: 0 2px 8px var(--shadow-light); }
+    .shadow-lg { box-shadow: 0 4px 16px var(--shadow-medium); }
+    .shadow-xl { box-shadow: 0 8px 24px var(--shadow-strong); }
+
+    .border { border: 1px solid var(--border-light); }
+    .border-medium { border: 1px solid var(--border-medium); }
+    .border-strong { border: 1px solid var(--border-strong); }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+      
+      .nav {
+        padding: 0 1rem;
+      }
+      
+      .nav-links {
+        gap: 1rem;
+      }
+      
+      h1 {
+        font-size: 2rem;
+      }
+      
+      h2 {
+        font-size: 1.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+    🌙
+  </button>
+
+  <header class="header">
+    <nav class="nav">
+      <div>
+        <h3 style="margin: 0; color: var(--heading-primary);">Elegant Design</h3>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#home">Home</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#services">Services</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="container">
+    <section style="margin-bottom: 3rem;">
+      <h1>Elegant Design System</h1>
+      <p class="text-secondary">A sophisticated color palette with warm tones, perfect readability, and seamless light/dark mode transitions.</p>
+    </section>
+
+    <div class="grid grid-2" style="margin-bottom: 3rem;">
+      <div class="card">
+        <h3>Color Philosophy</h3>
+        <p>This design system uses warm, earthy tones that feel sophisticated yet approachable. The off-white base (#FFF8EC) provides a soft, elegant foundation that's easier on the eyes than pure white.</p>
+        <p class="text-muted">The dark mode counterpart uses warm dark browns instead of harsh blacks, maintaining the same elegant feel while ensuring excellent readability.</p>
+      </div>
+
+      <div class="card card-elevated">
+        <h3>Typography & Spacing</h3>
+        <p>Headings use slightly rounded fonts with careful letter-spacing for a modern, readable appearance. The type scale ensures clear hierarchy while maintaining visual harmony.</p>
+        <ul style="margin-left: 1.5rem; color: var(--text-secondary);">
+          <li>Subtle border radius (8-16px)</li>
+          <li>Soft shadows for depth</li>
+          <li>Accessible contrast ratios</li>
+          <li>Smooth transitions</li>
+        </ul>
+      </div>
+    </div>
+
+    <section style="margin-bottom: 3rem;">
+      <h2>Interactive Elements</h2>
+      <div class="grid grid-3">
+        <div class="card">
+          <h4>Primary Actions</h4>
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+            <button class="btn btn-primary">Primary Button</button>
+            <button class="btn btn-primary" disabled>Disabled</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4>Secondary Actions</h4>
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+            <button class="btn btn-secondary">Secondary Button</button>
+            <button class="btn btn-ghost">Ghost Button</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4>Links & Navigation</h4>
+          <div style="margin-top: 1rem;">
+            <p><a href="#">Regular link</a> with hover effects</p>
+            <p><a href="#" style="color: var(--accent-visited);">Visited link</a> styling</p>
+            <p class="text-muted">Muted text for less important content</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-bottom: 3rem;">
+      <h2>Status Indicators</h2>
+      <div class="grid grid-2">
+        <div class="card status-success border">
+          <h4>Success State</h4>
+          <p>Operation completed successfully. All systems are functioning normally.</p>
+        </div>
+
+        <div class="card status-warning border">
+          <h4>Warning State</h4>
+          <p>Please review the following items before proceeding with your request.</p>
+        </div>
+
+        <div class="card status-error border">
+          <h4>Error State</h4>
+          <p>An error occurred while processing your request. Please try again.</p>
+        </div>
+
+        <div class="card status-info border">
+          <h4>Information</h4>
+          <p>Here's some helpful information about the current process or feature.</p>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-bottom: 3rem;">
+      <h2>Form Elements</h2>
+      <div class="card" style="max-width: 500px;">
+        <form>
+          <div class="form-group">
+            <label class="form-label" for="name">Full Name</label>
+            <input class="form-input" type="text" id="name" placeholder="Enter your full name">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="email">Email Address</label>
+            <input class="form-input" type="email" id="email" placeholder="your@email.com">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="message">Message</label>
+            <textarea class="form-input" id="message" rows="4" placeholder="Your message here..."></textarea>
+          </div>
+          
+          <div style="display: flex; gap: 1rem;">
+            <button type="submit" class="btn btn-primary">Send Message</button>
+            <button type="button" class="btn btn-secondary">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <h2>Design Principles</h2>
+      <div class="grid grid-2">
+        <div class="card">
+          <h4>🎨 Color Harmony</h4>
+          <p>Warm, earthy tones create a sophisticated and welcoming atmosphere. Colors are carefully chosen to work together in both light and dark modes.</p>
+        </div>
+
+        <div class="card">
+          <h4>👁️ Accessibility First</h4>
+          <p>All color combinations meet WCAG AA standards for contrast. Text remains highly readable in all lighting conditions.</p>
+        </div>
+
+        <div class="card">
+          <h4>✨ Subtle Interactions</h4>
+          <p>Hover states and transitions provide feedback without being distracting. Shadows and elevation create natural depth.</p>
+        </div>
+
+        <div class="card">
+          <h4>📱 Responsive Design</h4>
+          <p>The system adapts beautifully across devices while maintaining visual consistency and usability.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let currentTheme = 'auto';
+
+    function toggleTheme() {
+      const body = document.body;
+      const toggle = document.querySelector('.theme-toggle');
+      
+      if (currentTheme === 'auto') {
+        // Switch to light mode
+        body.classList.add('theme-light');
+        body.classList.remove('theme-dark');
+        toggle.textContent = '☀️';
+        currentTheme = 'light';
+      } else if (currentTheme === 'light') {
+        // Switch to dark mode
+        body.classList.add('theme-dark');
+        body.classList.remove('theme-light');
+        toggle.textContent = '🌙';
+        currentTheme = 'dark';
+      } else {
+        // Switch back to auto
+        body.classList.remove('theme-light', 'theme-dark');
+        toggle.textContent = '🔄';
+        currentTheme = 'auto';
+        
+        // Reset to system preference after a moment
+        setTimeout(() => {
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          toggle.textContent = prefersDark ? '🌙' : '☀️';
+        }, 500);
+      }
+      
+      // Save preference
+      localStorage.setItem('theme-preference', currentTheme);
+    }
+
+    // Initialize theme on page load
+    function initializeTheme() {
+      const saved = localStorage.getItem('theme-preference');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const toggle = document.querySelector('.theme-toggle');
+      
+      if (saved === 'light') {
+        document.body.classList.add('theme-light');
+        toggle.textContent = '☀️';
+        currentTheme = 'light';
+      } else if (saved === 'dark') {
+        document.body.classList.add('theme-dark');
+        toggle.textContent = '🌙';
+        currentTheme = 'dark';
+      } else {
+        toggle.textContent = prefersDark ? '🌙' : '☀️';
+        currentTheme = 'auto';
+      }
+    }
+
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      if (currentTheme === 'auto') {
+        const toggle = document.querySelector('.theme-toggle');
+        toggle.textContent = e.matches ? '🌙' : '☀️';
+      }
+    });
+
+    // Initialize on page load
+    initializeTheme();
+  </script>
+</body>
+</html>
