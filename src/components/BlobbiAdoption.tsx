@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,13 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbiAdoption } from '@/hooks/useBlobbiAdoption';
+import { useToast } from '@/hooks/useToast';
 import { Loader2, Heart, Sparkles } from 'lucide-react';
+import { Blobbi } from '@/types/blobbi';
 
 export function BlobbiAdoption() {
   const [petName, setPetName] = useState('');
   const [adoptionSuccess, setAdoptionSuccess] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [adoptedBlobbi, setAdoptedBlobbi] = useState<Blobbi | null>(null);
   
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const { user } = useCurrentUser();
   const { adoptBlobbi, isAdopting, error, reset, validatePetName } = useBlobbiAdoption();
   
@@ -30,11 +36,29 @@ export function BlobbiAdoption() {
     setValidationError(null);
     
     try {
-      await adoptBlobbi({ petName: petName.trim() });
+      const newBlobbi = await adoptBlobbi({ petName: petName.trim() });
+      setAdoptedBlobbi(newBlobbi);
       setAdoptionSuccess(true);
       setPetName('');
+      
+      // Show success toast
+      toast({
+        title: "Adoption Successful! 🎉",
+        description: `${newBlobbi.name} has been adopted and is ready for care!`,
+        duration: 3000,
+      });
+      
+      // Navigate to the new Blobbi's page after a short delay to show success message
+      setTimeout(() => {
+        navigate('/blobbi');
+      }, 2000);
     } catch (err) {
       console.error('Failed to adopt Blobbi:', err);
+      toast({
+        title: "Adoption Failed",
+        description: "There was an error adopting your Blobbi. Please try again.",
+        variant: "destructive",
+      });
     }
   };
   
@@ -46,7 +70,12 @@ export function BlobbiAdoption() {
   const handleReset = () => {
     setAdoptionSuccess(false);
     setValidationError(null);
+    setAdoptedBlobbi(null);
     reset();
+  };
+  
+  const handleGoToBlobbi = () => {
+    navigate('/blobbi');
   };
   
   if (!user) {
@@ -88,7 +117,7 @@ export function BlobbiAdoption() {
           <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border-2 border-dashed border-blue-200">
             <div className="text-6xl mb-2">🥚</div>
             <p className="text-sm text-gray-600">
-              Your Blobbi egg is incubating and will need daily care for 4 days before hatching!
+              {adoptedBlobbi?.name || 'Your Blobbi'} egg is incubating and will need daily care for 4 days before hatching!
             </p>
           </div>
           
@@ -96,7 +125,7 @@ export function BlobbiAdoption() {
             <AlertDescription>
               <strong>Care Instructions:</strong>
               <ul className="mt-2 space-y-1 text-sm">
-                <li>• Keep temperature above 70%</li>
+                <li>• Keep warmth above 70%</li>
                 <li>• Maintain cleanliness above 70%</li>
                 <li>• Provide emotional bonding daily</li>
                 <li>• Monitor health (keep above 50%)</li>
@@ -104,9 +133,24 @@ export function BlobbiAdoption() {
             </AlertDescription>
           </Alert>
           
-          <Button onClick={handleReset} className="w-full">
-            Adopt Another Blobbi
-          </Button>
+          <div className="space-y-2">
+            <Button onClick={handleGoToBlobbi} className="w-full" size="lg">
+              <Heart className="mr-2 h-4 w-4" />
+              Go to My Blobbi Now
+            </Button>
+            <Button onClick={handleReset} variant="outline" className="w-full">
+              Adopt Another Blobbi
+            </Button>
+          </div>
+          
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-1">
+              🎉 Welcome to Blobbi parenthood!
+            </p>
+            <p className="text-xs text-gray-500">
+              Automatically redirecting in a moment...
+            </p>
+          </div>
         </CardContent>
       </Card>
     );

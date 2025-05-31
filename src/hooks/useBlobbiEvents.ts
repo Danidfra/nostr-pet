@@ -358,10 +358,10 @@ export function useCreateBlobbi() {
         lifeStage: stage,
         state: 'active',
         stats: {
-          hunger: stage === 'egg' ? 0 : 80,
-          happiness: stage === 'egg' ? 0 : 80,
-          energy: stage === 'egg' ? 0 : 80,
-          hygiene: stage === 'egg' ? 0 : 80,
+          hunger: 100,
+          happiness: 100,
+          energy: 100,
+          hygiene: 100,
           health: 100,
         },
         customization: {
@@ -387,7 +387,7 @@ export function useCreateBlobbi() {
         ...(stage === 'egg' && {
           incubationTime: 4 * 24 * 60 * 60, // 4 days in seconds
           incubationProgress: 0,
-          eggTemperature: 'warm', // Start with warm temperature
+          eggTemperature: 75, // Start with warm temperature (0-100 scale)
           eggStatus: 'healthy',
           shellIntegrity: 100,
         }),

@@ -21,8 +21,7 @@ export function useNostrPublish() {
 
         // Add the client tag if it doesn't exist
         if (!tags.some((tag) => tag[0] === "client")) {
-          // FIXME: Replace "mkstack" with the actual client name
-          tags.push(["client", "mkstack"]);
+          tags.push(["client", "blobbi"]);
         }
 
         const event = await user.signer.signEvent({

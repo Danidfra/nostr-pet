@@ -195,7 +195,7 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
     // Egg-specific fields from the specification
     incubationTime: record.incubation_time,
     incubationProgress: record.incubation_progress,
-    eggTemperature: 'warm', // Convert number to string as expected by the type
+    eggTemperature: record.egg_temperature, // Use numeric value (0-100)
     eggStatus: record.egg_status,
     shellIntegrity: record.shell_integrity,
   };

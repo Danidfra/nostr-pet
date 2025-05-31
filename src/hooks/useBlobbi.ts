@@ -34,7 +34,7 @@ function calculateStatChange(
     clean: ['hygiene', Math.min(40, 100 - currentStats.hygiene)],
     rest: ['energy', Math.min(35, 100 - currentStats.energy)],
     medicine: ['health', Math.min(20, 100 - currentStats.health)],
-    warming: ['health', 5],
+    warming: ['health', 5], // Note: For eggs, this is handled specially in useBlobbiLifecycle
     checking: ['happiness', 3],
     singing: ['happiness', 8],
     talking: ['happiness', 6],

@@ -81,7 +81,7 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
           size={size}
           animated={blobbi.state === 'active'}
           cracking={!!(blobbi.incubationProgress && blobbi.incubationProgress > 80)}
-          warmth={blobbi.eggTemperature === 'warm' ? 75 : blobbi.eggTemperature === 'hot' ? 90 : 50}
+          warmth={blobbi.eggTemperature ?? 50}
         />
       </div>
     );

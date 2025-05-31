@@ -86,7 +86,7 @@ export function createBlobbiStateEvent(blobbi: Blobbi): Omit<BlobbiStateEvent, '
   if (blobbi.lifeStage === 'egg') {
     if (blobbi.incubationTime) tags.push(['incubation_time', blobbi.incubationTime.toString()]);
     if (blobbi.incubationProgress) tags.push(['incubation_progress', blobbi.incubationProgress.toString()]);
-    if (blobbi.eggTemperature) tags.push(['egg_temperature', blobbi.eggTemperature]);
+    if (blobbi.eggTemperature !== undefined) tags.push(['egg_temperature', blobbi.eggTemperature.toString()]);
     if (blobbi.eggStatus) tags.push(['egg_status', blobbi.eggStatus]);
     if (blobbi.shellIntegrity) tags.push(['shell_integrity', blobbi.shellIntegrity.toString()]);
   }
@@ -307,11 +307,11 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
     const generation = parseInt(getTagValue(tags, 'generation') || '1');
     
     const stats: BlobbiStats = {
-      hunger: parseInt(getTagValue(tags, 'hunger') || '50'),
-      happiness: parseInt(getTagValue(tags, 'happiness') || '50'),
+      hunger: parseInt(getTagValue(tags, 'hunger') || '100'),
+      happiness: parseInt(getTagValue(tags, 'happiness') || '100'),
       health: parseInt(getTagValue(tags, 'health') || '100'),
-      hygiene: parseInt(getTagValue(tags, 'hygiene') || '50'),
-      energy: parseInt(getTagValue(tags, 'energy') || '50'),
+      hygiene: parseInt(getTagValue(tags, 'hygiene') || '100'),
+      energy: parseInt(getTagValue(tags, 'energy') || '100'),
     };
 
     const experience = parseInt(getTagValue(tags, 'experience') || '0');
@@ -365,7 +365,7 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       // Egg-specific fields
       incubationTime: getTagValue(tags, 'incubation_time') ? parseInt(getTagValue(tags, 'incubation_time')!) : undefined,
       incubationProgress: getTagValue(tags, 'incubation_progress') ? parseInt(getTagValue(tags, 'incubation_progress')!) : undefined,
-      eggTemperature: getTagValue(tags, 'egg_temperature'),
+      eggTemperature: getTagValue(tags, 'egg_temperature') ? parseInt(getTagValue(tags, 'egg_temperature')!) : undefined,
       eggStatus: getTagValue(tags, 'egg_status'),
       shellIntegrity: getTagValue(tags, 'shell_integrity') ? parseInt(getTagValue(tags, 'shell_integrity')!) : undefined,
       // Behavior fields

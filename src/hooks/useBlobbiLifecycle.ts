@@ -144,7 +144,12 @@ export function useBlobbiLifecycle(blobbiId: string) {
             statChange = ['health', Math.min(20, 100 - degradedStats.health)];
             break;
           case 'warming':
-            statChange = ['health', 5];
+            if (blobbi.lifeStage === 'egg') {
+              // For eggs, warming affects eggTemperature instead of health
+              statChange = ['happiness', 2]; // Small happiness boost
+            } else {
+              statChange = ['health', 5];
+            }
             break;
           case 'checking':
             statChange = ['happiness', 3];
@@ -184,6 +189,16 @@ export function useBlobbiLifecycle(blobbiId: string) {
       // Update evolution progress
       const updatedProgress = updateEvolutionProgress(blobbi, action);
 
+      // Handle egg-specific warming action
+      let eggTemperatureUpdate = {};
+      if (action === 'warming' && blobbi.lifeStage === 'egg') {
+        const currentTemp = blobbi.eggTemperature || 50;
+        const tempIncrease = Math.min(10, 100 - currentTemp);
+        eggTemperatureUpdate = {
+          eggTemperature: clampStat(currentTemp + tempIncrease)
+        };
+      }
+
       // Create updated Blobbi
       const updatedBlobbi: Blobbi = {
         ...blobbi,
@@ -192,6 +207,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
         experience: blobbi.experience + experienceGained,
         evolutionProgress: updatedProgress,
         careStreak: Math.max(blobbi.careStreak, updatedProgress.currentStreak),
+        ...eggTemperatureUpdate,
       };
 
       // Create interaction record

@@ -85,7 +85,7 @@ export interface Blobbi {
   // Egg-specific
   incubationTime?: number;
   incubationProgress?: number;
-  eggTemperature?: string;
+  eggTemperature?: number; // 0-100 (0 = very cold, 100 = very warm)
   eggStatus?: string;
   shellIntegrity?: number;
   // Behavior

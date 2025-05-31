@@ -1,15 +1,49 @@
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
-import { BlobbiStats as Stats } from '@/types/blobbi';
-import { Heart, Utensils, Zap, Sparkles, Smile } from 'lucide-react';
+import { BlobbiStats as Stats, BlobbiLifeStage, Blobbi } from '@/types/blobbi';
+import { Heart, Utensils, Zap, Sparkles, Smile, Thermometer } from 'lucide-react';
 
 interface BlobbiStatsProps {
   stats: Stats;
+  lifeStage: BlobbiLifeStage;
+  blobbi?: Blobbi; // Optional blobbi object for egg-specific properties
   className?: string;
 }
 
-export function BlobbiStats({ stats, className }: BlobbiStatsProps) {
-  const statConfig = [
+export function BlobbiStats({ stats, lifeStage, blobbi, className }: BlobbiStatsProps) {
+  // Get egg temperature, default to 50 if not available
+  const eggTemperature = blobbi?.eggTemperature ?? 50;
+  
+  // Define stats for egg stage
+  const eggStatConfig = [
+    {
+      name: 'Warmth',
+      value: eggTemperature, // Use eggTemperature for warmth
+      icon: Thermometer,
+      color: 'bg-orange-500/80',
+      lowThreshold: 30,
+      description: eggTemperature < 30 ? 'Too cold!' : eggTemperature > 70 ? 'Nice and warm' : 'Getting chilly',
+    },
+    {
+      name: 'Cleanliness',
+      value: stats.hygiene,
+      icon: Sparkles,
+      color: 'bg-purple-500/80',
+      lowThreshold: 30,
+      description: stats.hygiene < 30 ? 'Shell needs cleaning!' : stats.hygiene > 70 ? 'Pristine shell' : 'Shell getting dusty',
+    },
+    {
+      name: 'Happiness',
+      value: stats.happiness,
+      icon: Smile,
+      color: 'bg-yellow-500/80',
+      lowThreshold: 30,
+      description: stats.happiness < 30 ? 'Feeling lonely' : stats.happiness > 70 ? 'Content and loved' : 'Needs attention',
+    },
+  ];
+
+  // Define stats for baby and adult stages
+  const normalStatConfig = [
     {
       name: 'Hunger',
       value: stats.hunger,
@@ -51,6 +85,9 @@ export function BlobbiStats({ stats, className }: BlobbiStatsProps) {
       description: stats.health < 30 ? 'Feeling sick' : stats.health > 70 ? 'Very healthy!' : 'Doing okay',
     },
   ];
+
+  // Choose the appropriate stat configuration based on life stage
+  const statConfig = lifeStage === 'egg' ? eggStatConfig : normalStatConfig;
 
   return (
     <Card className={className}>
