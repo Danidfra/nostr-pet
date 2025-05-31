@@ -45,6 +45,25 @@ function getTagValues(tags: string[][], tagName: string): string[] {
   return tags.filter(tag => tag[0] === tagName).map(tag => tag[1]).filter(Boolean);
 }
 
+// Create Kind 31124: Shell Integrity Penalty Event
+export function createShellIntegrityPenaltyEvent(
+  blobbi: Blobbi,
+  carePointsDeducted: number
+): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
+  const tags: Array<[string, string]> = [
+    ['d', blobbi.id],
+    ['penalty', 'shell_integrity_breach'],
+    ['value', (blobbi.shellIntegrity ?? 100).toString()],
+    ['care_points_deducted', carePointsDeducted.toString()],
+  ];
+
+  return {
+    kind: BLOBBI_EVENT_KINDS.STATE,
+    content: `${blobbi.name}'s shell integrity is critically low (${blobbi.shellIntegrity ?? 100}%). Care points deducted: ${carePointsDeducted}`,
+    tags,
+  };
+}
+
 // Create Kind 31124: Blobbi Current State Event
 export function createBlobbiStateEvent(blobbi: Blobbi): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
   const tags: Array<[string, string]> = [
@@ -754,13 +773,15 @@ export function clampStat(value: number): number {
 }
 
 // Helper function to calculate stat degradation over time
+// Note: This function is deprecated in favor of the comprehensive decay system in blobbi-decay.ts
+// It's kept for backward compatibility but should use applyDecay() for new implementations
 export function calculateStatDegradation(
   lastInteraction: number, 
   currentTime: number = Date.now()
 ): Partial<BlobbiStats> {
   const hoursPassed = (currentTime - lastInteraction) / (1000 * 60 * 60);
   
-  // Degradation rates per hour
+  // Degradation rates per hour (simplified version for compatibility)
   const degradationRates = {
     hunger: -5,
     happiness: -3,

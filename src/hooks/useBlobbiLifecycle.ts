@@ -108,19 +108,12 @@ export function useBlobbiLifecycle(blobbiId: string) {
       if (!user || !blobbi) throw new Error('Invalid state for care action');
 
       const { updateEvolutionProgress } = await import('@/lib/blobbi-evolution');
-      const { clampStat, calculateStatDegradation } = await import('@/lib/blobbi-events');
+      const { clampStat } = await import('@/lib/blobbi-events');
+      const { applyDecay } = await import('@/lib/blobbi-decay');
 
-      // Calculate stat degradation since last interaction
-      const degradation = calculateStatDegradation(blobbi.lastInteraction);
-      
-      // Apply degradation to current stats
-      const degradedStats: BlobbiStats = {
-        hunger: clampStat(blobbi.stats.hunger + (degradation.hunger || 0)),
-        happiness: clampStat(blobbi.stats.happiness + (degradation.happiness || 0)),
-        health: blobbi.stats.health, // Health doesn't degrade automatically
-        hygiene: clampStat(blobbi.stats.hygiene + (degradation.hygiene || 0)),
-        energy: clampStat(blobbi.stats.energy + (degradation.energy || 0)),
-      };
+      // Apply comprehensive decay system
+      const decayedBlobbi = applyDecay(blobbi);
+      const degradedStats = decayedBlobbi.stats;
 
       // Determine stat change based on action
       let statChange: [string, number];
@@ -192,16 +185,16 @@ export function useBlobbiLifecycle(blobbiId: string) {
       // Handle egg-specific warming action
       let eggTemperatureUpdate = {};
       if (action === 'warming' && blobbi.lifeStage === 'egg') {
-        const currentTemp = blobbi.eggTemperature || 50;
+        const currentTemp = decayedBlobbi.eggTemperature || 50;
         const tempIncrease = Math.min(10, 100 - currentTemp);
         eggTemperatureUpdate = {
           eggTemperature: clampStat(currentTemp + tempIncrease)
         };
       }
 
-      // Create updated Blobbi
+      // Create updated Blobbi with decay applied
       const updatedBlobbi: Blobbi = {
-        ...blobbi,
+        ...decayedBlobbi,
         lastInteraction: Date.now(),
         stats: newStats,
         experience: blobbi.experience + experienceGained,

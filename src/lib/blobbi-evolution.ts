@@ -351,13 +351,13 @@ export function checkEggHatchingReadiness(blobbi: Blobbi): {
   const distinctCareDays = blobbi.evolutionProgress.totalCareDays;
 
   const requirements = {
-    daysRequired: 4,
+    daysRequired: 7, // Updated to 7 days as per specification
     daysPassed,
-    carePointsRequired: 40,
+    carePointsRequired: 40, // Minimum care score of 40 as per specification
     carePointsEarned,
-    healthRequirement: 50,
+    healthRequirement: 50, // Keep existing health requirement
     currentHealth: blobbi.stats.health,
-    distinctCareDaysRequired: 4,
+    distinctCareDaysRequired: 4, // Keep existing care days requirement
     distinctCareDays,
   };
 
@@ -435,15 +435,15 @@ export function checkBabyEvolutionReadiness(blobbi: Blobbi): {
   const currentInteractions = blobbi.evolutionProgress.careSessions.reduce((total, session) => total + session.actions, 0);
 
   const requirements = {
-    ageRequired: 7,
+    ageRequired: 10, // Updated to 10 days as per specification
     currentAge: ageInDays,
-    careScoreRequired: 150,
+    careScoreRequired: 150, // Minimum care score of 150 as per specification
     currentCareScore,
-    interactionsRequired: 50,
+    interactionsRequired: 50, // At least 50 interaction events as per specification
     currentInteractions,
-    happinessRequired: 70,
+    happinessRequired: 70, // Happiness level ≥ 70% as per specification
     currentHappiness: blobbi.stats.happiness,
-    healthRequired: 80,
+    healthRequired: 80, // Health level ≥ 80% as per specification
     currentHealth: blobbi.stats.health,
   };
 

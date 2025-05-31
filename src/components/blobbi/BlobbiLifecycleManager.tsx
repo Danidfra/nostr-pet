@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { useBlobbiLifecycle } from '@/hooks/useBlobbiLifecycle';
+import { useBlobbiDecayManager, useBlobbiDecayInfo } from '@/hooks/useBlobbiDecayManager';
 import { BlobbiTimeline } from '@/components/blobbi/BlobbiTimeline';
 import { 
   Egg, 
@@ -46,6 +47,19 @@ export const BlobbiLifecycleManager: React.FC<BlobbiLifecycleManagerProps> = ({ 
     isEvolving,
     isCreatingMemory,
   } = useBlobbiLifecycle(blobbiId);
+
+  // Integrate decay management
+  const { isShellIntegrityCritical, shellIntegrityValue } = useBlobbiDecayManager({
+    blobbi,
+    updateBlobbi: async (updatedBlobbi) => {
+      // This would need to be connected to the actual update function
+      // For now, we'll just log the decay
+      console.log('Blobbi decay applied:', updatedBlobbi);
+    },
+    enabled: !!blobbi,
+  });
+
+  const decayInfo = useBlobbiDecayInfo(blobbi);
 
   const [selectedAction, setSelectedAction] = useState<string>('');
 
@@ -188,6 +202,28 @@ export const BlobbiLifecycleManager: React.FC<BlobbiLifecycleManagerProps> = ({ 
               <span className="text-sm">Care Streak: {blobbi.careStreak} days</span>
             </div>
           </div>
+
+          {/* Decay and Shell Integrity Warnings */}
+          {blobbi.lifeStage === 'egg' && isShellIntegrityCritical && (
+            <Alert className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                ⚠️ Shell integrity is critically low ({shellIntegrityValue}%)! Care points are being deducted every hour.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {decayInfo?.needsAttention && (
+            <Alert className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {decayInfo.isCritical 
+                  ? `🚨 Your Blobbi needs immediate attention! It's been ${Math.floor(decayInfo.hoursSinceLastInteraction)} hours since last care.`
+                  : `⏰ Your Blobbi could use some attention. It's been ${Math.floor(decayInfo.hoursSinceLastInteraction)} hours since last care.`
+                }
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 

@@ -1,7 +1,7 @@
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { BlobbiStats as Stats, BlobbiLifeStage, Blobbi } from '@/types/blobbi';
-import { Heart, Utensils, Zap, Sparkles, Smile, Thermometer } from 'lucide-react';
+import { Heart, Utensils, Zap, Sparkles, Smile, Thermometer, Shield } from 'lucide-react';
 
 interface BlobbiStatsProps {
   stats: Stats;
@@ -13,6 +13,8 @@ interface BlobbiStatsProps {
 export function BlobbiStats({ stats, lifeStage, blobbi, className }: BlobbiStatsProps) {
   // Get egg temperature, default to 50 if not available
   const eggTemperature = blobbi?.eggTemperature ?? 50;
+  // Get shell integrity, default to 100 if not available
+  const shellIntegrity = blobbi?.shellIntegrity ?? 100;
   
   // Define stats for egg stage
   const eggStatConfig = [
@@ -39,6 +41,14 @@ export function BlobbiStats({ stats, lifeStage, blobbi, className }: BlobbiStats
       color: 'bg-yellow-500/80',
       lowThreshold: 30,
       description: stats.happiness < 30 ? 'Feeling lonely' : stats.happiness > 70 ? 'Content and loved' : 'Needs attention',
+    },
+    {
+      name: 'Health',
+      value: shellIntegrity, // Use shellIntegrity for health in egg stage
+      icon: Shield,
+      color: 'bg-green-500/80',
+      lowThreshold: 30,
+      description: shellIntegrity < 30 ? 'Shell is weak!' : shellIntegrity > 70 ? 'Strong shell' : 'Shell showing wear',
     },
   ];
 
