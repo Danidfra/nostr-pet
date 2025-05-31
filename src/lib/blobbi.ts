@@ -11,23 +11,25 @@ const STAT_DECAY_RATES = {
   hunger: 0.5,      // Points lost per hour
   happiness: 0.3,   // Points lost per hour
   energy: 0.4,      // Points lost per hour
-  cleanliness: 0.2, // Points lost per hour
+  hygiene: 0.2,     // Points lost per hour (renamed from cleanliness)
   health: 0.1,      // Points lost per hour
 };
 
 const LIFE_STAGE_THRESHOLDS = {
-  baby: 0,
-  child: 3 * 24 * 60 * 60 * 1000,    // 3 days
-  teen: 7 * 24 * 60 * 60 * 1000,     // 7 days
-  adult: 14 * 24 * 60 * 60 * 1000,   // 14 days
+  egg: 0,
+  baby: 4 * 24 * 60 * 60 * 1000,     // 4 days (hatching)
+  adult: 14 * 24 * 60 * 60 * 1000,   // 14 days (evolution)
 };
 
 const ACTION_EFFECTS: Record<BlobbiAction, Partial<BlobbiStats>> = {
   feed: { hunger: 30, happiness: 5 },
-  play: { happiness: 25, energy: -15, cleanliness: -5 },
-  clean: { cleanliness: 40, happiness: 10 },
-  sleep: { energy: 50, happiness: 5 },
-  wake: { energy: -5 },
+  play: { happiness: 25, energy: -15, hygiene: -5 },
+  clean: { hygiene: 40, happiness: 10 },
+  rest: { energy: 50, happiness: 5 },
+  warming: { health: 5, happiness: 2 },
+  checking: { health: 2 },
+  singing: { happiness: 15, energy: -5 },
+  talking: { happiness: 10 },
   medicine: { health: 30, happiness: -5 },
 };
 
@@ -35,8 +37,11 @@ const ACTION_COOLDOWNS: Record<BlobbiAction, number> = {
   feed: 30 * 60 * 1000,      // 30 minutes
   play: 15 * 60 * 1000,      // 15 minutes
   clean: 60 * 60 * 1000,     // 1 hour
-  sleep: 4 * 60 * 60 * 1000, // 4 hours
-  wake: 0,                   // No cooldown
+  rest: 4 * 60 * 60 * 1000,  // 4 hours
+  warming: 10 * 60 * 1000,   // 10 minutes
+  checking: 5 * 60 * 1000,   // 5 minutes
+  singing: 20 * 60 * 1000,   // 20 minutes
+  talking: 10 * 60 * 1000,   // 10 minutes
   medicine: 2 * 60 * 60 * 1000, // 2 hours
 };
 
@@ -54,7 +59,7 @@ export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blob
       hunger: 80,
       happiness: 80,
       energy: 80,
-      cleanliness: 80,
+      hygiene: 80,
       health: 100,
     },
     customization: {
@@ -65,6 +70,9 @@ export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blob
     coins: 100, // Starting coins
     inventory: [], // Empty inventory
     evolutionProgress: initializeEvolutionProgress(), // Initialize evolution tracking
+    generation: 1,
+    breedingReady: false,
+    careStreak: 0,
   };
 }
 
@@ -81,12 +89,12 @@ export function calculateStatDecay(blobbi: Blobbi, currentTime: number = Date.no
     energy: blobbi.state === 'sleeping' 
       ? Math.min(100, blobbi.stats.energy + (STAT_DECAY_RATES.energy * hoursPassed * 2))
       : Math.max(0, blobbi.stats.energy - (STAT_DECAY_RATES.energy * hoursPassed)),
-    cleanliness: Math.max(0, blobbi.stats.cleanliness - (STAT_DECAY_RATES.cleanliness * hoursPassed * sleepMultiplier)),
+    hygiene: Math.max(0, blobbi.stats.hygiene - (STAT_DECAY_RATES.hygiene * hoursPassed * sleepMultiplier)),
     health: Math.max(0, blobbi.stats.health - (STAT_DECAY_RATES.health * hoursPassed * sleepMultiplier)),
   };
   
   // Health decreases faster if other stats are low
-  const avgStats = (newStats.hunger + newStats.happiness + newStats.energy + newStats.cleanliness) / 4;
+  const avgStats = (newStats.hunger + newStats.happiness + newStats.energy + newStats.hygiene) / 4;
   if (avgStats < 30) {
     newStats.health = Math.max(0, newStats.health - (hoursPassed * 0.5));
   }
@@ -99,9 +107,8 @@ export function getLifeStage(birthTime: number, currentTime: number = Date.now()
   const age = currentTime - birthTime;
   
   if (age >= LIFE_STAGE_THRESHOLDS.adult) return 'adult';
-  if (age >= LIFE_STAGE_THRESHOLDS.teen) return 'teen';
-  if (age >= LIFE_STAGE_THRESHOLDS.child) return 'child';
-  return 'baby';
+  if (age >= LIFE_STAGE_THRESHOLDS.baby) return 'baby';
+  return 'egg';
 }
 
 // Determine current mood based on stats
@@ -109,7 +116,7 @@ export function getBlobbiMood(stats: BlobbiStats, state: BlobbiState): BlobbiMoo
   if (state === 'sleeping') return 'sleepy';
   if (stats.health < 30) return 'sick';
   if (stats.hunger < 30) return 'hungry';
-  if (stats.cleanliness < 30) return 'dirty';
+  if (stats.hygiene < 30) return 'dirty';
   if (stats.energy < 30) return 'sleepy';
   if (stats.happiness < 30) return 'sad';
   if (stats.happiness > 70) return 'happy';
@@ -136,11 +143,9 @@ export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: n
     newState = 'active';
   }
   
-  // Handle sleep/wake actions
-  if (action === 'sleep' && blobbi.state !== 'sleeping') {
+  // Handle rest action
+  if (action === 'rest' && blobbi.state !== 'sleeping') {
     newState = 'sleeping';
-  } else if (action === 'wake' && blobbi.state === 'sleeping') {
-    newState = 'active';
   }
   
   // Apply action effects (combine base effects with item effects if provided)
@@ -149,7 +154,7 @@ export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: n
     hunger: (baseEffects.hunger || 0) + (itemEffects.hunger || 0),
     happiness: (baseEffects.happiness || 0) + (itemEffects.happiness || 0),
     energy: (baseEffects.energy || 0) + (itemEffects.energy || 0),
-    cleanliness: (baseEffects.cleanliness || 0) + (itemEffects.cleanliness || 0),
+    hygiene: (baseEffects.hygiene || 0) + (itemEffects.hygiene || 0),
     health: (baseEffects.health || 0) + (itemEffects.health || 0),
   } : baseEffects;
   
@@ -157,7 +162,7 @@ export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: n
     hunger: Math.max(0, Math.min(100, currentStats.hunger + (combinedEffects.hunger || 0))),
     happiness: Math.max(0, Math.min(100, currentStats.happiness + (combinedEffects.happiness || 0))),
     energy: Math.max(0, Math.min(100, currentStats.energy + (combinedEffects.energy || 0))),
-    cleanliness: Math.max(0, Math.min(100, currentStats.cleanliness + (combinedEffects.cleanliness || 0))),
+    hygiene: Math.max(0, Math.min(100, currentStats.hygiene + (combinedEffects.hygiene || 0))),
     health: Math.max(0, Math.min(100, currentStats.health + (combinedEffects.health || 0))),
   };
   

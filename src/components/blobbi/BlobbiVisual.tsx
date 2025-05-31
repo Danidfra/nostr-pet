@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils';
 import { Blobbi, BlobbiMood } from '@/types/blobbi';
 import { getBlobbiMood } from '@/lib/blobbi';
 import { useEffect, useState, useRef } from 'react';
+import { EggGraphic } from './EggGraphic';
 
 interface BlobbiVisualProps {
   blobbi: Blobbi;
@@ -28,7 +29,7 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
     window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   
   useEffect(() => {
-    if (!hasMouseSupport || blobbi.state === 'sleeping') return;
+    if (!hasMouseSupport || blobbi.state === 'sleeping' || blobbi.lifeStage === 'egg') return;
     
     const handleMouseMove = (e: MouseEvent) => {
       if (!svgRef.current) return;
@@ -64,7 +65,27 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [hasMouseSupport, blobbi.state]);
+  }, [hasMouseSupport, blobbi.state, blobbi.lifeStage]);
+
+  // If it's an egg, show the EggGraphic component
+  if (blobbi.lifeStage === 'egg') {
+    return (
+      <div 
+        className={cn(
+          'relative cursor-pointer transition-transform hover:scale-105',
+          className
+        )}
+        onClick={onClick}
+      >
+        <EggGraphic
+          size={size}
+          animated={blobbi.state === 'active'}
+          cracking={!!(blobbi.incubationProgress && blobbi.incubationProgress > 80)}
+          warmth={blobbi.eggTemperature === 'warm' ? 75 : blobbi.eggTemperature === 'hot' ? 90 : 50}
+        />
+      </div>
+    );
+  }
   
   const sizeClasses = {
     small: 'w-24 h-24',
@@ -111,7 +132,7 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
     : '';
   
   // Dirt spots for dirty state
-  const isDirty = blobbi.stats.cleanliness < 30;
+  const isDirty = blobbi.stats.hygiene < 30;
   
   return (
     <div 

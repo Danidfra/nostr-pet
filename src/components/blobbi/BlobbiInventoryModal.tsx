@@ -21,8 +21,11 @@ const ACTION_TYPE_MAP: Record<BlobbiAction, string> = {
   play: 'toy',
   medicine: 'medicine',
   clean: 'hygiene',
-  sleep: '',
-  wake: '',
+  rest: '',
+  warming: '',
+  checking: '',
+  singing: '',
+  talking: '',
 };
 
 const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: string }> | null> = {
@@ -30,12 +33,15 @@ const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: strin
   play: Gamepad2,
   medicine: Pill,
   clean: Bath,
-  sleep: null,
-  wake: null,
+  rest: null,
+  warming: null,
+  checking: null,
+  singing: null,
+  talking: null,
 };
 
 export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInventoryModalProps) {
-  const { blobbi, applyItem } = useBlobbi();
+  const { blobbi, performAction } = useBlobbi();
   const { toast } = useToast();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
   
@@ -51,7 +57,8 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInve
     if (!selectedItem) return;
     
     try {
-      await applyItem(selectedItem.id, actionType, selectedItem.effect);
+      // Use the performAction method with item effects
+      await performAction(actionType, selectedItem.effect);
       
       toast({
         title: "Item Used!",

@@ -129,3 +129,45 @@
     animation: blobbi-shadow 1.2s ease-in-out infinite;
   }
 }
+  /* Egg-specific animations */
+  @keyframes egg-gentle-sway {
+    0%, 100% {
+      transform: rotate(-1deg);
+    }
+    50% {
+      transform: rotate(1deg);
+    }
+  }
+
+  @keyframes egg-warmth-pulse {
+    0%, 100% {
+      filter: brightness(1) drop-shadow(0 0 10px rgba(251, 191, 36, 0.3));
+    }
+    50% {
+      filter: brightness(1.05) drop-shadow(0 0 20px rgba(251, 191, 36, 0.5));
+    }
+  }
+
+  @keyframes egg-crack-shake {
+    0%, 100% {
+      transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+      transform: translateX(-2px);
+    }
+    20%, 40%, 60%, 80% {
+      transform: translateX(2px);
+    }
+  }
+
+  .animate-egg-sway {
+    animation: egg-gentle-sway 3s ease-in-out infinite;
+  }
+
+  .animate-egg-warmth {
+    animation: egg-warmth-pulse 2s ease-in-out infinite;
+  }
+
+  .animate-egg-crack {
+    animation: egg-crack-shake 0.5s ease-in-out infinite;
+  }

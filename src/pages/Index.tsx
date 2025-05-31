@@ -35,10 +35,10 @@ const Index = () => {
             <div className="flex gap-4 justify-center">
               <Button 
                 size="lg" 
-                onClick={() => navigate('/blobbi')}
+                onClick={() => navigate(user ? '/blobbi' : '/blobbi/adopt')}
                 className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
               >
-                {user ? 'Visit Your Blobbi' : 'Start Playing'}
+                {user ? 'Visit Your Blobbi' : 'Adopt a Blobbi'}
               </Button>
               <Button 
                 size="lg" 

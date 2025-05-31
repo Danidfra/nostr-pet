@@ -3,7 +3,8 @@ import {
   BlobbiEvolutionProgress, 
   BlobbiCareSession, 
   BlobbiCareAction,
-  BlobbiEvolutionForm 
+  BlobbiEvolutionForm,
+  BlobbiLifeStage
 } from '@/types/blobbi';
 
 // Constants for evolution mechanics
@@ -246,6 +247,239 @@ export function getCareStreakStatus(progress: BlobbiEvolutionProgress): {
   return {
     streak: progress.currentStreak,
     isActive,
+    message,
+  };
+}
+
+// Handle evolution process with proper record creation
+export function processEvolution(
+  blobbi: Blobbi,
+  newStage: BlobbiLifeStage,
+  evolutionReason?: string,
+  currentTime: number = Date.now()
+): {
+  updatedBlobbi: Blobbi;
+  evolutionRecord: import('@/types/blobbi').BlobbiRecordData;
+} {
+  // Determine evolution form if evolving to adult
+  let evolutionForm: BlobbiEvolutionForm | undefined;
+  if (newStage === 'adult' && blobbi.lifeStage !== 'adult') {
+    evolutionForm = determineEvolutionForm(blobbi);
+  }
+
+  // Create updated Blobbi
+  const updatedBlobbi: Blobbi = {
+    ...blobbi,
+    lifeStage: newStage,
+    evolutionForm: evolutionForm || blobbi.evolutionForm,
+    evolutionTime: currentTime,
+    lastInteraction: currentTime,
+    // Reset some stats for new stage
+    stats: {
+      ...blobbi.stats,
+      happiness: Math.min(100, blobbi.stats.happiness + 20), // Evolution happiness boost
+      energy: Math.min(100, blobbi.stats.energy + 15),
+    },
+    // Update breeding readiness for adults
+    breedingReady: newStage === 'adult',
+    // Clear egg-specific fields if no longer an egg
+    ...(newStage !== 'egg' && {
+      incubationTime: undefined,
+      incubationProgress: undefined,
+      eggTemperature: undefined,
+      eggStatus: undefined,
+      shellIntegrity: undefined,
+    }),
+  };
+
+  // Create evolution record
+  const evolutionRecord: import('@/types/blobbi').BlobbiRecordData = {
+    recordType: newStage === 'baby' ? 'hatched' : 'evolution',
+    ...(newStage === 'baby' && {
+      hatchedAt: currentTime,
+      hatchedBy: blobbi.ownerPubkey,
+      eggType: 'standard',
+      incubationTime: blobbi.incubationTime ? `${blobbi.incubationTime}s` : undefined,
+    }),
+    ...(newStage === 'adult' && {
+      evolutionStage: evolutionForm || 'adult',
+      evolutionReason: evolutionReason || 'Care requirements met',
+      evolvedFrom: blobbi.id,
+    }),
+  };
+
+  return {
+    updatedBlobbi,
+    evolutionRecord,
+  };
+}
+
+// Check if egg is ready to hatch
+export function checkEggHatchingReadiness(blobbi: Blobbi): {
+  isReady: boolean;
+  requirements: {
+    daysRequired: number;
+    daysPassed: number;
+    carePointsRequired: number;
+    carePointsEarned: number;
+    healthRequirement: number;
+    currentHealth: number;
+    distinctCareDaysRequired: number;
+    distinctCareDays: number;
+  };
+  message: string;
+} {
+  if (blobbi.lifeStage !== 'egg') {
+    return {
+      isReady: false,
+      requirements: {
+        daysRequired: 0,
+        daysPassed: 0,
+        carePointsRequired: 0,
+        carePointsEarned: 0,
+        healthRequirement: 0,
+        currentHealth: 0,
+        distinctCareDaysRequired: 0,
+        distinctCareDays: 0,
+      },
+      message: 'Not an egg',
+    };
+  }
+
+  const daysPassed = Math.floor((Date.now() - blobbi.birthTime) / (1000 * 60 * 60 * 24));
+  const carePointsEarned = blobbi.experience; // Using experience as care points
+  const distinctCareDays = blobbi.evolutionProgress.totalCareDays;
+
+  const requirements = {
+    daysRequired: 4,
+    daysPassed,
+    carePointsRequired: 40,
+    carePointsEarned,
+    healthRequirement: 50,
+    currentHealth: blobbi.stats.health,
+    distinctCareDaysRequired: 4,
+    distinctCareDays,
+  };
+
+  const isReady = 
+    daysPassed >= requirements.daysRequired &&
+    carePointsEarned >= requirements.carePointsRequired &&
+    blobbi.stats.health >= requirements.healthRequirement &&
+    distinctCareDays >= requirements.distinctCareDaysRequired;
+
+  let message: string;
+  if (isReady) {
+    message = 'Your egg is ready to hatch! 🥚✨';
+  } else {
+    const missing: string[] = [];
+    if (daysPassed < requirements.daysRequired) {
+      missing.push(`${requirements.daysRequired - daysPassed} more days`);
+    }
+    if (carePointsEarned < requirements.carePointsRequired) {
+      missing.push(`${requirements.carePointsRequired - carePointsEarned} more care points`);
+    }
+    if (blobbi.stats.health < requirements.healthRequirement) {
+      missing.push(`health above ${requirements.healthRequirement}%`);
+    }
+    if (distinctCareDays < requirements.distinctCareDaysRequired) {
+      missing.push(`${requirements.distinctCareDaysRequired - distinctCareDays} more care days`);
+    }
+    message = `Needs: ${missing.join(', ')}`;
+  }
+
+  return {
+    isReady,
+    requirements,
+    message,
+  };
+}
+
+// Check if baby is ready to evolve to adult
+export function checkBabyEvolutionReadiness(blobbi: Blobbi): {
+  isReady: boolean;
+  requirements: {
+    ageRequired: number;
+    currentAge: number;
+    careScoreRequired: number;
+    currentCareScore: number;
+    interactionsRequired: number;
+    currentInteractions: number;
+    happinessRequired: number;
+    currentHappiness: number;
+    healthRequired: number;
+    currentHealth: number;
+  };
+  message: string;
+} {
+  if (blobbi.lifeStage !== 'baby') {
+    return {
+      isReady: false,
+      requirements: {
+        ageRequired: 0,
+        currentAge: 0,
+        careScoreRequired: 0,
+        currentCareScore: 0,
+        interactionsRequired: 0,
+        currentInteractions: 0,
+        happinessRequired: 0,
+        currentHappiness: 0,
+        healthRequired: 0,
+        currentHealth: 0,
+      },
+      message: 'Not a baby',
+    };
+  }
+
+  const ageInDays = Math.floor((Date.now() - blobbi.birthTime) / (1000 * 60 * 60 * 24));
+  const currentCareScore = blobbi.experience;
+  const currentInteractions = blobbi.evolutionProgress.careSessions.reduce((total, session) => total + session.actions, 0);
+
+  const requirements = {
+    ageRequired: 7,
+    currentAge: ageInDays,
+    careScoreRequired: 150,
+    currentCareScore,
+    interactionsRequired: 50,
+    currentInteractions,
+    happinessRequired: 70,
+    currentHappiness: blobbi.stats.happiness,
+    healthRequired: 80,
+    currentHealth: blobbi.stats.health,
+  };
+
+  const isReady = 
+    ageInDays >= requirements.ageRequired &&
+    currentCareScore >= requirements.careScoreRequired &&
+    currentInteractions >= requirements.interactionsRequired &&
+    blobbi.stats.happiness >= requirements.happinessRequired &&
+    blobbi.stats.health >= requirements.healthRequired;
+
+  let message: string;
+  if (isReady) {
+    message = 'Your baby Blobbi is ready to evolve to adult! 🌟';
+  } else {
+    const missing: string[] = [];
+    if (ageInDays < requirements.ageRequired) {
+      missing.push(`${requirements.ageRequired - ageInDays} more days`);
+    }
+    if (currentCareScore < requirements.careScoreRequired) {
+      missing.push(`${requirements.careScoreRequired - currentCareScore} more care points`);
+    }
+    if (currentInteractions < requirements.interactionsRequired) {
+      missing.push(`${requirements.interactionsRequired - currentInteractions} more interactions`);
+    }
+    if (blobbi.stats.happiness < requirements.happinessRequired) {
+      missing.push(`happiness above ${requirements.happinessRequired}%`);
+    }
+    if (blobbi.stats.health < requirements.healthRequired) {
+      missing.push(`health above ${requirements.healthRequired}%`);
+    }
+    message = `Needs: ${missing.join(', ')}`;
+  }
+
+  return {
+    isReady,
+    requirements,
     message,
   };
 }

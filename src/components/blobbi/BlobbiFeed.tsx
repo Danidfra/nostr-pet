@@ -59,7 +59,7 @@ export function BlobbiFeed() {
         {sortedBlobbis.map((blobbi, index) => {
           const mood = getBlobbiMood(blobbi.stats, blobbi.state);
           const overallHealth = Math.round(
-            (blobbi.stats.health + blobbi.stats.happiness + blobbi.stats.energy + blobbi.stats.cleanliness) / 4
+            (blobbi.stats.health + blobbi.stats.happiness + blobbi.stats.energy + blobbi.stats.hygiene) / 4
           );
           
           return (
@@ -132,7 +132,7 @@ export function BlobbiFeed() {
                   </div>
                   <div className="flex items-center gap-1" title="Cleanliness">
                     <Sparkles className="w-3 h-3" />
-                    <span className="text-xs">{Math.round(blobbi.stats.cleanliness)}</span>
+                    <span className="text-xs">{Math.round(blobbi.stats.hygiene)}</span>
                   </div>
                   <div className="flex items-center gap-1" title="Health">
                     <Heart className="w-3 h-3" />

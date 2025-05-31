@@ -4,14 +4,21 @@ export interface BlobbiStats {
   hunger: number;      // 0-100 (0 = starving, 100 = full)
   happiness: number;   // 0-100 (0 = sad, 100 = very happy)
   energy: number;      // 0-100 (0 = exhausted, 100 = energetic)
-  cleanliness: number; // 0-100 (0 = dirty, 100 = clean)
+  hygiene: number;     // 0-100 (0 = dirty, 100 = clean) - renamed from cleanliness
   health: number;      // 0-100 (0 = sick, 100 = healthy)
 }
 
-export type BlobbiLifeStage = 'baby' | 'child' | 'teen' | 'adult';
+// Updated lifecycle stages according to spec
+export type BlobbiLifeStage = 'egg' | 'baby' | 'adult';
 export type BlobbiEvolutionForm = 'blobbi' | 'pengui' | 'owli' | 'catti' | 'froggi';
-export type BlobbiMood = 'happy' | 'sad' | 'sleepy' | 'hungry' | 'dirty' | 'sick' | 'neutral';
+export type BlobbiMood = 'happy' | 'sad' | 'sleepy' | 'hungry' | 'dirty' | 'sick' | 'neutral' | 'playful';
 export type BlobbiState = 'active' | 'sleeping' | 'hibernating';
+
+// Record types for Kind 14921 events
+export type BlobbiRecordType = 'birth' | 'hatched' | 'evolution' | 'memory' | 'adoption';
+
+// Interaction types for Kind 14919 events
+export type BlobbiInteractionType = 'feed' | 'play' | 'clean' | 'rest' | 'warming' | 'checking' | 'singing' | 'talking' | 'medicine';
 
 export interface BlobbiCustomization {
   color: string;
@@ -42,7 +49,7 @@ export interface BlobbiEvolutionProgress {
 }
 
 export interface Blobbi {
-  id: string;           // Unique ID (derived from owner's pubkey)
+  id: string;           // Unique ID (blobbi-{blobbi_name})
   ownerPubkey: string;  // Nostr pubkey of the owner
   name: string;         // Pet's name
   birthTime: number;    // Unix timestamp of creation
@@ -53,34 +60,189 @@ export interface Blobbi {
   customization: BlobbiCustomization;
   experience: number;   // Total XP earned
   coins: number;        // In-game currency
-  evolutionForm?: BlobbiEvolutionForm; // Evolution form after 4 days of care
+  evolutionForm?: BlobbiEvolutionForm; // Evolution form after evolution
   evolutionTime?: number; // Unix timestamp when evolution occurred
   evolutionProgress: BlobbiEvolutionProgress; // Track evolution progress
   inventory: BlobbiInventoryItem[]; // Items owned by the Blobbi
+  generation: number;   // Generation number
+  breedingReady: boolean; // Whether ready to breed
+  careStreak: number;   // Consecutive care days
+  // Appearance
+  baseColor?: string;
+  secondaryColor?: string;
+  pattern?: string;
+  eyeColor?: string;
+  specialMark?: string;
+  // Personality
+  personality?: string[];
+  traits?: string[];
+  mood?: BlobbiMood;
+  favoriteFood?: string;
+  voiceType?: string;
+  size?: string;
+  title?: string;
+  skill?: string;
+  // Egg-specific
+  incubationTime?: number;
+  incubationProgress?: number;
+  eggTemperature?: string;
+  eggStatus?: string;
+  shellIntegrity?: number;
+  // Behavior
+  isSleeping?: boolean;
+  isDirty?: boolean;
+  hasBuff?: string;
+  hasDebuff?: string;
+  lastMeal?: number;
+  lastBath?: number;
+  // Social
+  adoptedBy?: string;
+  adoptedFrom?: string;
+  currentLocation?: string;
+  inParty?: boolean;
+  visibleToOthers?: boolean;
 }
 
-// Nostr event structure for Blobbi data
-export interface BlobbiNostrEvent {
-  kind: 30078; // Custom replaceable event kind for Blobbi
-  content: string; // JSON stringified Blobbi data
-  tags: [
-    ['d', string], // Unique identifier (owner's pubkey)
-    ['title', string], // Pet's name
-    ['summary', string], // Brief status description
-  ];
+// Kind 31124: Blobbi Current State (Addressable)
+export interface BlobbiStateEvent {
+  kind: 31124;
+  content: string; // Description of current state
+  tags: Array<[string, string]>; // All the tags defined in the spec
 }
 
-// Action types for interacting with Blobbi
+// Kind 14919: Blobbi Interactions (Regular)
+export interface BlobbiInteractionEvent {
+  kind: 14919;
+  content: string; // Description of the interaction
+  tags: Array<[string, string]>; // Interaction-specific tags
+}
+
+// Kind 14920: Blobbi Breeding Event (Regular)
+export interface BlobbiBreedingEvent {
+  kind: 14920;
+  content: string; // Description of breeding
+  tags: Array<[string, string]>; // Breeding-specific tags
+}
+
+// Kind 14921: Blobbi Records (Regular, Immutable)
+export interface BlobbiRecordEvent {
+  kind: 14921;
+  content: string; // Description of the record
+  tags: Array<[string, string]>; // Record-specific tags based on record_type
+}
+
+// Action types for interacting with Blobbi (updated to match spec)
 export type BlobbiAction = 
   | 'feed'
   | 'play'
   | 'clean'
-  | 'sleep'
-  | 'wake'
+  | 'rest'
+  | 'warming'
+  | 'checking'
+  | 'singing'
+  | 'talking'
   | 'medicine';
 
 // Care actions that count towards evolution
-export type BlobbiCareAction = 'feed' | 'play' | 'clean' | 'medicine';
+export type BlobbiCareAction = 'feed' | 'play' | 'clean' | 'rest' | 'warming' | 'checking' | 'singing' | 'talking' | 'medicine';
+
+// Interaction data structure for detailed tracking
+export interface BlobbiInteractionData {
+  action: BlobbiInteractionType;
+  actionCategory: string;
+  statChange: [string, string]; // [stat_name, change_value]
+  itemUsed?: string;
+  itemQuality?: string;
+  timeOfDay?: string;
+  blobbiMoodBefore?: string;
+  blobbiMoodAfter?: string;
+  animationPlayed?: string;
+  soundPlayed?: string;
+  bonusApplied?: string;
+  experienceGained?: number;
+  careStreak?: number;
+  carePoints?: number;
+  achievementProgress?: [string, string];
+  achievementUnlocked?: string;
+  specialEvent?: string;
+  memoryCreated?: string;
+  // Action-specific fields
+  gameType?: string;
+  toyUsed?: string;
+  playDuration?: number;
+  location?: string;
+  playPartner?: string;
+  skillImproved?: [string, string];
+  bondIncreased?: [string, string];
+  newMoveLearn?: string;
+  cleaningType?: string;
+  waterTemperature?: string;
+  soapUsed?: string;
+  groomingTool?: string;
+  specialEffect?: string;
+  scentApplied?: string;
+  moodBoost?: string;
+  restType?: string;
+  bedType?: string;
+  lullabyPlayed?: string;
+  sleepDuration?: number;
+  dreamType?: string;
+  growthBonus?: string;
+  dreamMemory?: string;
+  socialRole?: [string, string];
+  interactionQuality?: string;
+  emotionTriggered?: string;
+  sharedMemory?: string;
+  interactionContext?: string;
+}
+
+// Record data structures for different record types
+export interface BlobbiRecordData {
+  recordType: BlobbiRecordType;
+  // Common fields
+  generation?: number;
+  // Birth record fields
+  origin?: string;
+  birthLocation?: string;
+  weatherAtBirth?: string;
+  shellColor?: string;
+  shellPattern?: string;
+  initialTrait?: string[];
+  rarity?: string;
+  parent1?: string;
+  parent2?: string;
+  lineageDepth?: number;
+  geneticMarker?: string;
+  birthSeason?: string;
+  birthMoonPhase?: string;
+  creator?: string;
+  designUrl?: string;
+  adoptionFee?: number;
+  legacyTrait?: string[];
+  passiveTrait?: string[];
+  // Hatching record fields
+  hatchedAt?: number;
+  hatchedBy?: string;
+  eggType?: string;
+  incubationTime?: string;
+  // Adoption record fields
+  adoptedBy?: string;
+  adoptedOn?: number;
+  adoptionMethod?: string;
+  title?: string;
+  titleReason?: string;
+  // Evolution record fields
+  evolutionStage?: string;
+  evolutionReason?: string;
+  evolvedFrom?: string;
+  // Memory record fields
+  memoryTitle?: string;
+  memoryDescription?: string;
+  memoryDate?: string;
+  discoveredTrait?: string;
+  achievement?: string;
+  milestone?: string;
+}
 
 // Item types for the shop
 export interface BlobbiItem {

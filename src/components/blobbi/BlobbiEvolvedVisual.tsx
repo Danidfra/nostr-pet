@@ -510,7 +510,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
   );
 
   // Dirt spots for dirty state
-  const isDirty = blobbi.stats.cleanliness < 30;
+  const isDirty = blobbi.stats.hygiene < 30;
   const renderDirt = () => (
     isDirty && (
       <>

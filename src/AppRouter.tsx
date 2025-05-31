@@ -6,6 +6,7 @@ import Blobbi from "./pages/Blobbi";
 import BlobbiProfile from "./pages/BlobbiProfile";
 import BlobbiCommunity from "./pages/BlobbiCommunity";
 import BlobbiEvolution from "./pages/BlobbiEvolution";
+import { BlobbiAdoptionPage } from "./pages/BlobbiAdoptionPage";
 import { BubblePopGame } from "./pages/games/BubblePopGame";
 
 export function AppRouter() {
@@ -14,6 +15,7 @@ export function AppRouter() {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/blobbi" element={<Blobbi />} />
+        <Route path="/blobbi/adopt" element={<BlobbiAdoptionPage />} />
         <Route path="/blobbi/evolution" element={<BlobbiEvolution />} />
         <Route path="/blobbi/community" element={<BlobbiCommunity />} />
         <Route path="/blobbi/:pubkey" element={<BlobbiProfile />} />

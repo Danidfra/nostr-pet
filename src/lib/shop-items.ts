@@ -21,10 +21,10 @@ export const SHOP_ITEMS: BlobbiItem[] = [
   { id: 'med_elixir', name: 'Health Elixir', type: 'medicine', price: 150, effect: { health: 80, happiness: 20 }, icon: '🧪' },
   
   // Hygiene items (for cleaning)
-  { id: 'hyg_soap', name: 'Soap', type: 'hygiene', price: 15, effect: { cleanliness: 30 }, icon: '🧼' },
-  { id: 'hyg_shampoo', name: 'Shampoo', type: 'hygiene', price: 25, effect: { cleanliness: 50, happiness: 10 }, icon: '🧴' },
-  { id: 'hyg_bubble', name: 'Bubble Bath', type: 'hygiene', price: 40, effect: { cleanliness: 60, happiness: 20 }, icon: '🛁' },
-  { id: 'hyg_towel', name: 'Soft Towel', type: 'hygiene', price: 20, effect: { cleanliness: 25, happiness: 5 }, icon: '🏖️' },
+  { id: 'hyg_soap', name: 'Soap', type: 'hygiene', price: 15, effect: { hygiene: 30 }, icon: '🧼' },
+  { id: 'hyg_shampoo', name: 'Shampoo', type: 'hygiene', price: 25, effect: { hygiene: 50, happiness: 10 }, icon: '🧴' },
+  { id: 'hyg_bubble', name: 'Bubble Bath', type: 'hygiene', price: 40, effect: { hygiene: 60, happiness: 20 }, icon: '🛁' },
+  { id: 'hyg_towel', name: 'Soft Towel', type: 'hygiene', price: 20, effect: { hygiene: 25, happiness: 5 }, icon: '🏖️' },
   
   // Accessories (for future customization)
   { id: 'acc_hat', name: 'Party Hat', type: 'accessory', price: 75, icon: '🎩' },

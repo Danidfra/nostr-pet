@@ -33,6 +33,8 @@ export function useNostrPublish() {
         });
 
         await nostr.event(event, { signal: AbortSignal.timeout(5000) });
+        
+        return event; // Return the signed event
       } else {
         throw new Error("User is not logged in");
       }

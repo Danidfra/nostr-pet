@@ -35,12 +35,12 @@ export function BlobbiStats({ stats, className }: BlobbiStatsProps) {
       description: stats.energy < 30 ? 'Very tired' : stats.energy > 70 ? 'Full of energy!' : 'Getting sleepy',
     },
     {
-      name: 'Cleanliness',
-      value: stats.cleanliness,
+      name: 'Hygiene',
+      value: stats.hygiene,
       icon: Sparkles,
       color: 'bg-purple-500/80',
       lowThreshold: 30,
-      description: stats.cleanliness < 30 ? 'Needs a bath!' : stats.cleanliness > 70 ? 'Squeaky clean' : 'Getting dirty',
+      description: stats.hygiene < 30 ? 'Needs a bath!' : stats.hygiene > 70 ? 'Squeaky clean' : 'Getting dirty',
     },
     {
       name: 'Health',

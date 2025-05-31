@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { CreateBlobbiDialog } from '@/components/blobbi/CreateBlobbiDialog';
+import { useBlobbi } from '@/hooks/useBlobbi';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 interface PetForm {
   name: string;
@@ -40,6 +43,8 @@ const petForms: PetForm[] = [
 const BlobbiEvolution: React.FC = () => {
   const [selectedForm, setSelectedForm] = useState<number | null>(null);
   const [showAccessory, setShowAccessory] = useState(false);
+  const { user } = useCurrentUser();
+  const { blobbi } = useBlobbi();
 
   const renderBlobbi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
@@ -322,11 +327,20 @@ const BlobbiEvolution: React.FC = () => {
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-3xl">Blobbi Evolution System</CardTitle>
-          <CardDescription>
-            After 4 full days of consistent care, your Blobbi will evolve into one of four adorable forms! 
-            Care for your Blobbi at least 3 times per day to maintain your care streak.
-          </CardDescription>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="text-3xl">Blobbi Evolution System</CardTitle>
+              <CardDescription>
+                After 4 full days of consistent care, your Blobbi will evolve into one of four adorable forms! 
+                Care for your Blobbi at least 3 times per day to maintain your care streak.
+              </CardDescription>
+            </div>
+            {user && !blobbi && (
+              <CreateBlobbiDialog>
+                <Button>Create Your First Blobbi</Button>
+              </CreateBlobbiDialog>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-8">

@@ -1,9 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Coins, Trophy, Calendar, Heart, ShoppingBag, Palette, Sparkles, Package } from 'lucide-react';
 import { useBlobbi } from '@/hooks/useBlobbi';
@@ -16,33 +14,26 @@ import { BlobbiStorage } from './BlobbiStorage';
 import { BlobbiCustomization } from './BlobbiCustomization';
 import { BlobbiGamesModal } from './BlobbiGamesModal';
 import { EvolutionProgress } from './EvolutionProgress';
+import { EggGraphic } from './EggGraphic';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { formatDistanceToNow } from 'date-fns';
 
 export function BlobbiGame() {
+  const navigate = useNavigate();
   const { user } = useCurrentUser();
   const { 
     blobbi, 
     isLoading, 
-    createBlobbi, 
     performAction, 
-    isCreating, 
     isPerformingAction,
     isOwner 
   } = useBlobbi();
   
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [petName, setPetName] = useState('Blobbi');
   const [showShop, setShowShop] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [showGames, setShowGames] = useState(false);
   const [showStorage, setShowStorage] = useState(false);
-  
-  const handleCreateBlobbi = () => {
-    createBlobbi(petName);
-    setShowCreateDialog(false);
-  };
   
   if (!user) {
     return (
@@ -82,55 +73,33 @@ export function BlobbiGame() {
   
   if (!blobbi) {
     return (
-      <>
-        <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle>Welcome to Blobbi!</CardTitle>
-            <CardDescription>
-              You don't have a Blobbi yet. Adopt one to start your journey!
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-4">
-            <div className="w-48 h-48 bg-muted rounded-full flex items-center justify-center">
-              <span className="text-4xl">🥚</span>
-            </div>
-            <Button onClick={() => setShowCreateDialog(true)} size="lg">
-              Adopt a Blobbi
-            </Button>
-          </CardContent>
-        </Card>
-        
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Name Your Blobbi</DialogTitle>
-              <DialogDescription>
-                Choose a name for your new pet. This will be permanent!
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="pet-name">Pet Name</Label>
-                <Input
-                  id="pet-name"
-                  value={petName}
-                  onChange={(e) => setPetName(e.target.value)}
-                  placeholder="Enter a name..."
-                  maxLength={20}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateBlobbi} disabled={!petName.trim() || isCreating}>
-                {isCreating ? 'Creating...' : 'Adopt'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </>
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader>
+          <CardTitle>Welcome to Blobbi!</CardTitle>
+          <CardDescription>
+            You don't have a Blobbi yet. Adopt one to start your journey!
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center py-8">
+            <EggGraphic 
+              size="large" 
+              animated={true}
+              warmth={60}
+            />
+          </div>
+          <div className="text-center space-y-2">
+            <h3 className="text-lg font-semibold">Adopt Your Blobbi</h3>
+            <p className="text-sm text-muted-foreground">
+              This magical egg is waiting for someone to care for it. With love and attention, it will hatch into your unique Blobbi companion.
+            </p>
+          </div>
+          <Button onClick={() => navigate('/blobbi/adopt')} size="lg">
+            <Heart className="mr-2 h-4 w-4" />
+            Adopt a Blobbi
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
   
