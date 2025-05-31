@@ -12,7 +12,7 @@ import { SHOP_ITEMS } from '@/lib/shop-items';
 
 interface BlobbiInventoryModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose: (actionPerformed?: boolean, action?: BlobbiAction) => void;
   actionType: BlobbiAction;
 }
 
@@ -26,6 +26,7 @@ const ACTION_TYPE_MAP: Record<BlobbiAction, string> = {
   checking: '',
   singing: '',
   talking: '',
+  cruzar: '',
 };
 
 const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: string }> | null> = {
@@ -38,6 +39,7 @@ const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: strin
   checking: null,
   singing: null,
   talking: null,
+  cruzar: null,
 };
 
 export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInventoryModalProps) {
@@ -65,7 +67,8 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInve
         description: `${blobbi.name} used ${selectedItem.name}!`,
       });
       
-      onClose();
+      // Close with action performed flag
+      onClose(true, actionType);
     } catch (error) {
       toast({
         title: "Failed to use item",
@@ -91,7 +94,7 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInve
   };
   
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -105,7 +108,7 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInve
             <p className="text-muted-foreground mb-4">
               You don't have any {itemType} items in your inventory.
             </p>
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={() => onClose(false)}>
               Go to Shop
             </Button>
           </div>
@@ -143,7 +146,7 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInve
             </div>
             
             <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose} className="flex-1">
+              <Button variant="outline" onClick={() => onClose(false)} className="flex-1">
                 Cancel
               </Button>
               <Button 

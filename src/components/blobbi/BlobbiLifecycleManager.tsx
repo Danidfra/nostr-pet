@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { useBlobbiLifecycle } from '@/hooks/useBlobbiLifecycle';
 import { useBlobbiDecayManager, useBlobbiDecayInfo } from '@/hooks/useBlobbiDecayManager';
 import { BlobbiTimeline } from '@/components/blobbi/BlobbiTimeline';
+import { BlobbiAction } from '@/types/blobbi';
 import { 
   Egg, 
   Baby, 
@@ -94,8 +95,33 @@ export const BlobbiLifecycleManager: React.FC<BlobbiLifecycleManagerProps> = ({ 
   const handleCareAction = async (action: string) => {
     try {
       setSelectedAction(action);
+      
+      // Import logger and log the interaction attempt
+      const { logInteractionTriggered } = await import('@/lib/interaction-logger');
+      
       await performCare({ action });
+      
+      // Log successful interaction (performCare doesn't return stat changes, so we'll log basic info)
+      logInteractionTriggered(
+        action as BlobbiAction,
+        blobbi.id,
+        blobbi.lifeStage,
+        {
+          experienceGained: 5, // Default experience gain
+        }
+      );
     } catch (error) {
+      // Import logger and log the error
+      const { logInteractionError } = await import('@/lib/interaction-logger');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      logInteractionError(
+        action as BlobbiAction,
+        blobbi.id,
+        blobbi.lifeStage,
+        errorMessage
+      );
+      
       console.error('Care action failed:', error);
     } finally {
       setSelectedAction('');
@@ -155,6 +181,8 @@ export const BlobbiLifecycleManager: React.FC<BlobbiLifecycleManagerProps> = ({ 
     { id: 'checking', label: 'Check', icon: Eye, description: 'Check egg health' },
     { id: 'singing', label: 'Sing', icon: Music, description: 'Sing to egg' },
     { id: 'talking', label: 'Talk', icon: MessageCircle, description: 'Talk to egg' },
+    { id: 'medicine', label: 'Medicine', icon: Stethoscope, description: 'Apply medicine to strengthen egg' },
+    { id: 'clean', label: 'Clean', icon: Bath, description: 'Clean the egg shell' },
   ];
 
   const availableActions = blobbi.lifeStage === 'egg' ? eggActions : careActions;

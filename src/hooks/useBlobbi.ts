@@ -18,6 +18,7 @@ function mapActionToInteractionType(action: BlobbiAction): BlobbiInteractionType
     checking: 'checking',
     singing: 'singing',
     talking: 'talking',
+    cruzar: 'cruzar',
   };
   return actionMap[action] || 'feed';
 }
@@ -26,18 +27,24 @@ function mapActionToInteractionType(action: BlobbiAction): BlobbiInteractionType
 function calculateStatChange(
   action: BlobbiAction, 
   currentStats: BlobbiStats,
-  itemEffect?: Partial<BlobbiStats>
+  itemEffect?: Partial<BlobbiStats>,
+  lifeStage?: 'egg' | 'baby' | 'adult'
 ): [string, number] {
   const baseChanges: Record<BlobbiAction, [string, number]> = {
     feed: ['hunger', Math.min(30, 100 - currentStats.hunger)],
     play: ['happiness', Math.min(25, 100 - currentStats.happiness)],
-    clean: ['hygiene', Math.min(40, 100 - currentStats.hygiene)],
+    clean: lifeStage === 'egg' 
+      ? ['health', Math.min(15, 100 - currentStats.health)] // For eggs, cleaning improves shell health
+      : ['hygiene', Math.min(40, 100 - currentStats.hygiene)], // For baby/adult, normal hygiene
     rest: ['energy', Math.min(35, 100 - currentStats.energy)],
-    medicine: ['health', Math.min(20, 100 - currentStats.health)],
+    medicine: lifeStage === 'egg'
+      ? ['health', Math.min(25, 100 - currentStats.health)] // Stronger effect for eggs
+      : ['health', Math.min(20, 100 - currentStats.health)], // Normal effect for baby/adult
     warming: ['health', 5], // Note: For eggs, this is handled specially in useBlobbiLifecycle
     checking: ['happiness', 3],
     singing: ['happiness', 8],
     talking: ['happiness', 6],
+    cruzar: ['happiness', Math.min(20, 100 - currentStats.happiness)], // Special breeding action
   };
 
   const [stat, baseChange] = baseChanges[action] || ['happiness', 5];
@@ -137,15 +144,71 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       if (!user || !currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only interact with your own Blobbi');
       
-      const interactionType = mapActionToInteractionType(action);
-      const [statName, statChange] = calculateStatChange(action, currentBlobbi.stats, itemEffect);
+      // Import cooldown utilities and logger
+      const { cooldownStorage, isActionAvailableForStage } = await import('@/lib/cooldown-storage');
+      const { 
+        logInteractionTriggered, 
+        logInteractionBlockedByCooldown, 
+        logInteractionBlockedUnavailable, 
+        logInteractionError 
+      } = await import('@/lib/interaction-logger');
       
-      return await performCare({
-        action: interactionType,
-        customStatChange: [statName, statChange],
-        experienceGained: 5,
-        carePoints: action === 'feed' || action === 'play' ? 2 : 1,
-      });
+      // Store previous stats for logging
+      const previousStats = { ...currentBlobbi.stats };
+      
+      try {
+        // Check if action is available for this stage
+        if (!isActionAvailableForStage(action, currentBlobbi.lifeStage)) {
+          logInteractionBlockedUnavailable(action, currentBlobbi.id, currentBlobbi.lifeStage);
+          throw new Error(`Action "${action}" is not available for ${currentBlobbi.lifeStage} stage`);
+        }
+        
+        // Check cooldown
+        const isOnCooldown = await cooldownStorage.isOnCooldown(currentBlobbi.id, action, currentBlobbi.lifeStage);
+        if (isOnCooldown) {
+          const remaining = await cooldownStorage.getRemainingCooldown(currentBlobbi.id, action, currentBlobbi.lifeStage);
+          logInteractionBlockedByCooldown(action, currentBlobbi.id, currentBlobbi.lifeStage, remaining);
+          const { formatCooldownTime } = await import('@/lib/cooldown-storage');
+          throw new Error(`Action is on cooldown. Time remaining: ${formatCooldownTime(remaining)}`);
+        }
+        
+        const interactionType = mapActionToInteractionType(action);
+        const [statName, statChange] = calculateStatChange(action, currentBlobbi.stats, itemEffect, currentBlobbi.lifeStage);
+        
+        const result = await performCare({
+          action: interactionType,
+          customStatChange: [statName, statChange],
+          experienceGained: 5,
+          carePoints: action === 'feed' || action === 'play' ? 2 : 1,
+        });
+        
+        // Record cooldown after successful action
+        await cooldownStorage.setCooldown(currentBlobbi.id, action, Date.now(), currentBlobbi.lifeStage);
+        
+        // Calculate new stats for logging
+        const newStats = {
+          ...previousStats,
+          [statName]: Math.min(100, Math.max(0, previousStats[statName as keyof BlobbiStats] + statChange))
+        };
+        
+        // Log successful interaction
+        logInteractionTriggered(action, currentBlobbi.id, currentBlobbi.lifeStage, {
+          statChanges: { [statName]: statChange },
+          experienceGained: 5,
+          itemUsed: itemEffect ? 'custom_item' : undefined,
+          previousStats,
+          newStats
+        });
+        
+        return result;
+      } catch (error) {
+        // Log error if it's not already logged
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        if (!errorMessage.includes('not available for') && !errorMessage.includes('on cooldown')) {
+          logInteractionError(action, currentBlobbi.id, currentBlobbi.lifeStage, errorMessage);
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status'] });

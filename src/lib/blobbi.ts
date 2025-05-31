@@ -31,6 +31,7 @@ const ACTION_EFFECTS: Record<BlobbiAction, Partial<BlobbiStats>> = {
   singing: { happiness: 15, energy: -5 },
   talking: { happiness: 10 },
   medicine: { health: 30, happiness: -5 },
+  cruzar: { happiness: 20, energy: -10 }, // Special breeding action
 };
 
 const ACTION_COOLDOWNS: Record<BlobbiAction, number> = {
@@ -43,6 +44,7 @@ const ACTION_COOLDOWNS: Record<BlobbiAction, number> = {
   singing: 20 * 60 * 1000,   // 20 minutes
   talking: 10 * 60 * 1000,   // 10 minutes
   medicine: 2 * 60 * 60 * 1000, // 2 hours
+  cruzar: 24 * 60 * 60 * 1000, // 1 day
 };
 
 // Create a new Blobbi for a user

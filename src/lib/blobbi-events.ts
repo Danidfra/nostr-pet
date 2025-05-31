@@ -678,7 +678,7 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
         
         // Validate action type
         const action = getTagValue(event.tags, 'action');
-        const validActions = ['feed', 'play', 'clean', 'rest', 'warming', 'checking', 'singing', 'talking', 'medicine'];
+        const validActions = ['feed', 'play', 'clean', 'rest', 'warming', 'checking', 'singing', 'talking', 'medicine', 'cruzar'];
         if (action && !validActions.includes(action)) return false;
         
         break;

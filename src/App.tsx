@@ -1,6 +1,7 @@
 // NOTE: This file should normally not be modified unless you are adding a new provider.
 // To add new routes, edit the AppRouter.tsx file.
 
+import React from 'react';
 import NostrProvider from '@/components/NostrProvider'
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -26,6 +27,17 @@ const queryClient = new QueryClient({
 });
 
 export function App() {
+  // Initialize interaction logging system
+  React.useEffect(() => {
+    console.group('🎮 BLOBBI INTERACTION SYSTEM INITIALIZED');
+    console.log('⏰ Timestamp:', new Date().toLocaleString());
+    console.log('🔧 Logging: All interactions will be logged to console');
+    console.log('📊 Tracking: Action name, Blobbi ID, current stage, timestamp');
+    console.log('⏱️ Cooldowns: System ready to track and verify cooldown functionality');
+    console.log('🎯 Coverage: Triggered, blocked (cooldown), blocked (unavailable), and error interactions');
+    console.groupEnd();
+  }, []);
+
   return (
     <ThemeProvider defaultTheme="system" storageKey="blobbi-theme">
       <NostrLoginProvider storageKey='nostr:login'>
