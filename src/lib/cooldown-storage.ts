@@ -12,53 +12,53 @@ const DB_NAME = 'BlobbiCooldowns';
 const DB_VERSION = 1;
 const STORE_NAME = 'cooldowns';
 
-// Cooldown durations in milliseconds according to the specification
+// Cooldown durations in milliseconds - reduced for better user experience
 export const COOLDOWN_DURATIONS: Record<BlobbiLifeStage, Record<BlobbiAction, number>> = {
   egg: {
-    warming: 30 * 60 * 1000,    // 30 minutes
-    singing: 15 * 60 * 1000,    // 15 minutes
-    checking: 5 * 60 * 1000,    // 5 minutes
-    talking: 10 * 60 * 1000,    // 10 minutes
-    medicine: 45 * 60 * 1000,   // 45 minutes - for egg health care
-    clean: 20 * 60 * 1000,      // 20 minutes - for shell cleaning
+    warm: 5 * 60 * 1000,        // 5 minutes (reduced from 30)
+    sing: 3 * 60 * 1000,        // 3 minutes (reduced from 15)
+    check: 1 * 60 * 1000,       // 1 minute (reduced from 5)
+    talk: 2 * 60 * 1000,        // 2 minutes (reduced from 10)
+    medicine: 5 * 60 * 1000,    // 5 minutes (reduced from 45) - heal the egg if health is low
+    clean: 3 * 60 * 1000,       // 3 minutes (reduced from 20) - clean the egg shell
     // Actions not available in egg stage
     feed: 0,
     play: 0,
     rest: 0,
     cruzar: 0,
   },
-  baby: {
-    feed: 45 * 60 * 1000,       // 45 minutes
-    play: 30 * 60 * 1000,       // 30 minutes
-    clean: 60 * 60 * 1000,      // 60 minutes
-    rest: 90 * 60 * 1000,       // 90 minutes
-    medicine: 120 * 60 * 1000,  // 120 minutes
-    checking: 5 * 60 * 1000,    // 5 minutes
-    talking: 15 * 60 * 1000,    // 15 minutes
-    // Actions not available in baby stage
-    warming: 0,
-    singing: 0,
+  child: {
+    feed: 10 * 60 * 1000,       // 10 minutes (reduced from 45)
+    play: 8 * 60 * 1000,        // 8 minutes (reduced from 30)
+    clean: 10 * 60 * 1000,      // 10 minutes (reduced from 60)
+    rest: 15 * 60 * 1000,       // 15 minutes (reduced from 90)
+    medicine: 15 * 60 * 1000,   // 15 minutes (reduced from 120)
+    check: 1 * 60 * 1000,       // 1 minute (reduced from 5)
+    talk: 3 * 60 * 1000,        // 3 minutes (reduced from 15)
+    // Actions not available in child stage
+    warm: 0,
+    sing: 0,
     cruzar: 0,
   },
   adult: {
-    feed: 60 * 60 * 1000,       // 60 minutes
-    play: 45 * 60 * 1000,       // 45 minutes
-    clean: 90 * 60 * 1000,      // 90 minutes
-    rest: 120 * 60 * 1000,      // 120 minutes
-    medicine: 180 * 60 * 1000,  // 180 minutes
-    checking: 5 * 60 * 1000,    // 5 minutes
-    talking: 15 * 60 * 1000,    // 15 minutes
-    cruzar: 24 * 60 * 60 * 1000, // 1 day
+    feed: 15 * 60 * 1000,       // 15 minutes (reduced from 60)
+    play: 10 * 60 * 1000,       // 10 minutes (reduced from 45)
+    clean: 15 * 60 * 1000,      // 15 minutes (reduced from 90)
+    rest: 20 * 60 * 1000,       // 20 minutes (reduced from 120)
+    medicine: 20 * 60 * 1000,   // 20 minutes (reduced from 180)
+    check: 1 * 60 * 1000,       // 1 minute (reduced from 5)
+    talk: 3 * 60 * 1000,        // 3 minutes (reduced from 15)
+    cruzar: 2 * 60 * 60 * 1000, // 2 hours (reduced from 24 hours)
     // Actions not available in adult stage
-    warming: 0,
-    singing: 0,
+    warm: 0,
+    sing: 0,
   },
 };
 
 // Sync window durations according to the specification
 export const SYNC_WINDOWS: Record<BlobbiLifeStage, number> = {
   egg: 2 * 60 * 60 * 1000,     // 2 hours
-  baby: 2 * 60 * 60 * 1000,    // 2 hours (child stage)
+  child: 2 * 60 * 60 * 1000,   // 2 hours (child stage)
   adult: 24 * 60 * 60 * 1000,  // 24 hours (includes cruzar action)
 };
 

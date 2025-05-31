@@ -9,7 +9,27 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { ThemeProvider } from "@/components/theme-provider";
+import { RelayProvider, useRelayContext } from '@/contexts/RelayContext';
 import AppRouter from './AppRouter';
+
+// Component that connects relay context to NostrProvider
+function NostrProviderWithRelays({ children, fallbackRelays }: { children: React.ReactNode; fallbackRelays: string[] }) {
+  const { getEnabledRelayUrls } = useRelayContext();
+  const enabledRelays = getEnabledRelayUrls();
+  
+  // Use enabled relays if available, otherwise fallback
+  const relays = enabledRelays.length > 0 ? enabledRelays : fallbackRelays;
+
+  React.useEffect(() => {
+    console.log('🔗 Active relays updated:', relays);
+  }, [relays]);
+
+  return (
+    <NostrProvider relays={relays}>
+      {children}
+    </NostrProvider>
+  );
+}
 
 // DO NOT MODIFY THIS LIST UNLESS YOU ARE ABSOLUTELY CERTAIN EACH RELAY URL YOU ARE ADDING IS VALID AND THE RELAY IS CURRENTLY ONLINE AND CONFIRMED TO BE FULLY FUNCTIONAL AND WORKING.
 const defaultRelays = [
@@ -41,18 +61,19 @@ export function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="blobbi-theme">
       <NostrLoginProvider storageKey='nostr:login'>
-        <NostrProvider relays={defaultRelays}>
-          <QueryClientProvider client={queryClient}>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <AppRouter />
-            </TooltipProvider>
-          </QueryClientProvider>
-        </NostrProvider>
+        <RelayProvider>
+          <NostrProviderWithRelays fallbackRelays={defaultRelays}>
+            <QueryClientProvider client={queryClient}>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <AppRouter />
+              </TooltipProvider>
+            </QueryClientProvider>
+          </NostrProviderWithRelays>
+        </RelayProvider>
       </NostrLoginProvider>
     </ThemeProvider>
   );
 }
-
 export default App;

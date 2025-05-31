@@ -48,10 +48,10 @@ const getInteractionIcon = (action: string) => {
     case 'clean': return <Bath className="h-4 w-4" />;
     case 'rest': return <Bed className="h-4 w-4" />;
     case 'medicine': return <Stethoscope className="h-4 w-4" />;
-    case 'singing': return <Music className="h-4 w-4" />;
-    case 'talking': return <MessageCircle className="h-4 w-4" />;
-    case 'warming': return <Thermometer className="h-4 w-4" />;
-    case 'checking': return <Eye className="h-4 w-4" />;
+    case 'sing': return <Music className="h-4 w-4" />;
+    case 'talk': return <MessageCircle className="h-4 w-4" />;
+    case 'warm': return <Thermometer className="h-4 w-4" />;
+    case 'check': return <Eye className="h-4 w-4" />;
     default: return <Heart className="h-4 w-4" />;
   }
 };
@@ -180,18 +180,24 @@ const InteractionEventItem: React.FC<{ interaction: BlobbiInteractionData; times
       case 'play':
         return `Played ${interaction.gameType || 'a game'}`;
       case 'clean':
-        return `Cleaned with ${interaction.cleaningType || 'soap'}`;
+        return interaction.cleaningType
+          ? `Cleaned with ${interaction.cleaningType}`
+          : interaction.blobbiMoodBefore 
+          ? 'Cleaned up' 
+          : 'Shell cleaned and polished';
       case 'rest':
         return `Rested in ${interaction.bedType || 'bed'}`;
       case 'medicine':
-        return 'Received medical care';
-      case 'singing':
+        return interaction.blobbiMoodBefore 
+          ? 'Received medical care' 
+          : 'Shell strengthened with medicine';
+      case 'sing':
         return 'Enjoyed a lullaby';
-      case 'talking':
+      case 'talk':
         return 'Had a conversation';
-      case 'warming':
+      case 'warm':
         return 'Warmed up';
-      case 'checking':
+      case 'check':
         return 'Health check';
       default:
         return `${interaction.action} interaction`;

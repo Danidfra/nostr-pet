@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useBlobbonautProfile, useAddCoins, useCreateInitialProfile } from '@/hooks/useBlobbonautProfile';
 import { NostrEvent } from '@nostrify/nostrify';
 
 const DAILY_CHECK_IN_KIND = 30079; // Custom kind for daily check-ins
@@ -17,6 +18,9 @@ export function useDailyCheckIn() {
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
   const { mutateAsync: publishEvent } = useNostrPublish();
+  const { data: blobbonautProfile } = useBlobbonautProfile();
+  const { mutateAsync: addCoins } = useAddCoins();
+  const { mutateAsync: createInitialProfile } = useCreateInitialProfile();
   
   // Fetch check-in data
   const { data: checkInData, isLoading } = useQuery({
@@ -100,6 +104,20 @@ export function useDailyCheckIn() {
       let coinReward = 10; // Base reward
       if (newStreak >= 7) coinReward += 20; // Week streak bonus
       if (newStreak >= 30) coinReward += 50; // Month streak bonus
+      
+      // Update Blobbanaut Profile with coins
+      try {
+        if (!blobbonautProfile) {
+          // Create initial profile if it doesn't exist
+          await createInitialProfile({ coins: coinReward });
+        } else {
+          // Add coins to existing profile
+          await addCoins(coinReward);
+        }
+      } catch (error) {
+        console.error('Failed to update Blobbanaut Profile with coins:', error);
+        // Don't fail the check-in if profile update fails
+      }
       
       return { checkInData: newCheckInData, coinReward };
     },

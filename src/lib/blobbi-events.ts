@@ -5,6 +5,8 @@ import {
   BlobbiInteractionEvent, 
   BlobbiRecordEvent, 
   BlobbiBreedingEvent,
+  BlobbonautProfileEvent,
+  BlobbonautProfile,
   BlobbiRecordType,
   BlobbiInteractionType,
   BlobbiInteractionData,
@@ -20,6 +22,7 @@ export const BLOBBI_EVENT_KINDS = {
   INTERACTION: 14919, // Regular - individual interactions
   BREEDING: 14920,   // Regular - breeding events
   RECORD: 14921,     // Regular - immutable records
+  BLOBBANAUT_PROFILE: 31125, // Addressable - Blobbanaut (owner) profile
 } as const;
 
 // Validation schemas for required and optional tags
@@ -27,6 +30,7 @@ const REQUIRED_STATE_TAGS = ['d', 'stage', 'breeding_ready', 'generation', 'hung
 const REQUIRED_INTERACTION_TAGS = ['blobbi_id', 'action', 'action_category', 'stat_change'];
 const REQUIRED_RECORD_TAGS = ['blobbi_id', 'record_type'];
 const REQUIRED_BREEDING_TAGS = ['parent_a', 'parent_b', 'owner_a', 'owner_b', 'breed_time', 'success'];
+const REQUIRED_BLOBBANAUT_TAGS = ['d']; // Only 'd' tag is required for Blobbanaut Profile
 
 // Helper function to validate required tags
 function validateRequiredTags(tags: string[][], requiredTags: string[]): boolean {
@@ -308,6 +312,41 @@ export function createBlobbiBreedingEvent(
   return {
     kind: BLOBBI_EVENT_KINDS.BREEDING,
     content: success ? 'New life is forming ✨' : 'Breeding attempt was unsuccessful',
+    tags,
+  };
+}
+
+// Create Kind 31125: Blobbanaut Profile Event
+export function createBlobbonautProfileEvent(
+  profile: BlobbonautProfile
+): Omit<BlobbonautProfileEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
+  const tags: Array<[string, string]> = [
+    ['d', profile.id],
+  ];
+
+  // Add optional tags
+  if (profile.coins !== undefined) tags.push(['coins', profile.coins.toString()]);
+  if (profile.pettingLevel !== undefined) tags.push(['pettingLevel', profile.pettingLevel.toString()]);
+  if (profile.lifetimeBlobbis !== undefined) tags.push(['lifetimeBlobbis', profile.lifetimeBlobbis.toString()]);
+  if (profile.favoriteBlobbi) tags.push(['favoriteBlobbi', profile.favoriteBlobbi]);
+  if (profile.starterBlobbi) tags.push(['starterBlobbi', profile.starterBlobbi]);
+  if (profile.style) tags.push(['style', profile.style]);
+  if (profile.background) tags.push(['background', profile.background]);
+  if (profile.title) tags.push(['title', profile.title]);
+
+  // Add owned Blobbis (multiple 'has' tags)
+  profile.ownedBlobbis.forEach(blobbiId => {
+    tags.push(['has', blobbiId]);
+  });
+
+  // Add achievements (multiple 'achievements' tags)
+  profile.achievements.forEach(achievement => {
+    tags.push(['achievements', achievement]);
+  });
+
+  return {
+    kind: BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE,
+    content: '', // Content must be empty according to spec
     tags,
   };
 }
@@ -596,6 +635,39 @@ export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null
   }
 }
 
+// Parse Blobbanaut Profile from Kind 31125 event
+export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautProfile | null {
+  try {
+    if (event.kind !== BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE) return null;
+    
+    const tags = event.tags;
+    if (!validateRequiredTags(tags, REQUIRED_BLOBBANAUT_TAGS)) return null;
+
+    const id = getTagValue(tags, 'd');
+    if (!id) return null;
+
+    const profile: BlobbonautProfile = {
+      id,
+      ownerPubkey: event.pubkey,
+      coins: parseInt(getTagValue(tags, 'coins') || '0'),
+      ownedBlobbis: getTagValues(tags, 'has'),
+      pettingLevel: parseInt(getTagValue(tags, 'pettingLevel') || '0'),
+      lifetimeBlobbis: parseInt(getTagValue(tags, 'lifetimeBlobbis') || '0'),
+      achievements: getTagValues(tags, 'achievements'),
+      favoriteBlobbi: getTagValue(tags, 'favoriteBlobbi'),
+      starterBlobbi: getTagValue(tags, 'starterBlobbi'),
+      style: getTagValue(tags, 'style'),
+      background: getTagValue(tags, 'background'),
+      title: getTagValue(tags, 'title'),
+    };
+
+    return profile;
+  } catch (error) {
+    console.error('Error parsing Blobbanaut Profile from event:', error);
+    return null;
+  }
+}
+
 // Enhanced validation for specific record types
 function validateRecordTypeSpecificTags(tags: string[][], recordType: string): boolean {
   const tagNames = tags.map(tag => tag[0]).filter(Boolean);
@@ -664,7 +736,7 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
         
         // Validate stage is valid
         const stage = getTagValue(event.tags, 'stage');
-        if (stage && !['egg', 'baby', 'adult'].includes(stage)) return false;
+        if (stage && !['egg', 'child', 'adult'].includes(stage)) return false;
         
         break;
       }
@@ -678,7 +750,7 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
         
         // Validate action type
         const action = getTagValue(event.tags, 'action');
-        const validActions = ['feed', 'play', 'clean', 'rest', 'warming', 'checking', 'singing', 'talking', 'medicine', 'cruzar'];
+        const validActions = ['feed', 'play', 'clean', 'rest', 'warm', 'check', 'sing', 'talk', 'medicine', 'cruzar'];
         if (action && !validActions.includes(action)) return false;
         
         break;
@@ -711,6 +783,25 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
         // Validate success is boolean
         const success = getTagValue(event.tags, 'success');
         if (success && !['true', 'false'].includes(success)) return false;
+        
+        break;
+      }
+        
+      case BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE: {
+        if (!validateRequiredTags(event.tags, REQUIRED_BLOBBANAUT_TAGS)) return false;
+        
+        // Validate content is empty
+        if (event.content !== '') return false;
+        
+        // Validate numeric fields if present
+        const numericFields = ['coins', 'pettingLevel', 'lifetimeBlobbis'];
+        for (const field of numericFields) {
+          const value = getTagValue(event.tags, field);
+          if (value) {
+            const numValue = parseInt(value);
+            if (isNaN(numValue) || numValue < 0) return false;
+          }
+        }
         
         break;
       }

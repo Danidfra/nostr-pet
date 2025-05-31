@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { Home } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { SettingsButton } from '@/components/SettingsButton';
 
 export default function BlobbiCommunity() {
   const navigate = useNavigate();
@@ -21,7 +22,11 @@ export default function BlobbiCommunity() {
           </Button>
           <h1 className="text-4xl font-bold">Blobbi Community</h1>
         </div>
-        <LoginArea />
+        <div className="flex items-center gap-2">
+          <SettingsButton />
+          <ThemeToggle />
+          <LoginArea />
+        </div>
       </div>
       <BlobbiFeed />
     </div>

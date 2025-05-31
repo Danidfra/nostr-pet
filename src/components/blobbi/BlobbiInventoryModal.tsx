@@ -22,10 +22,10 @@ const ACTION_TYPE_MAP: Record<BlobbiAction, string> = {
   medicine: 'medicine',
   clean: 'hygiene',
   rest: '',
-  warming: '',
-  checking: '',
-  singing: '',
-  talking: '',
+  warm: '',
+  check: '',
+  sing: '',
+  talk: '',
   cruzar: '',
 };
 
@@ -35,10 +35,10 @@ const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: strin
   medicine: Pill,
   clean: Bath,
   rest: null,
-  warming: null,
-  checking: null,
-  singing: null,
-  talking: null,
+  warm: null,
+  check: null,
+  sing: null,
+  talk: null,
   cruzar: null,
 };
 
@@ -85,9 +85,9 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInve
       case 'play':
         return 'Play with Your Blobbi';
       case 'medicine':
-        return 'Heal Your Blobbi';
+        return blobbi.lifeStage === 'egg' ? 'Strengthen Your Egg' : 'Heal Your Blobbi';
       case 'clean':
-        return 'Clean Your Blobbi';
+        return blobbi.lifeStage === 'egg' ? 'Clean Your Egg Shell' : 'Clean Your Blobbi';
       default:
         return 'Use Item';
     }

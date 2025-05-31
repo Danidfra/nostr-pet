@@ -338,7 +338,7 @@ export function useCreateBlobbi() {
       birthData 
     }: { 
       name: string; 
-      stage?: 'egg' | 'baby' | 'adult';
+      stage?: 'egg' | 'child' | 'adult';
       birthData?: Partial<BlobbiRecordData>;
     }) => {
       if (!user) throw new Error('Must be logged in to create a Blobbi');
@@ -458,7 +458,7 @@ export function useBlobbiEvolution(blobbiId: string) {
       // Create evolution record first
       await createRecord({
         recordData: evolutionRecord,
-        content: newStage === 'baby' 
+        content: newStage === 'child' 
           ? `${blobbi.name} has hatched! 🐣` 
           : `${blobbi.name} has evolved to ${evolutionRecord.evolutionStage}! ✨`,
       });
@@ -551,7 +551,7 @@ export function useBlobbiCare(blobbiId: string) {
       const { 
         updateEvolutionProgress, 
         checkEggHatchingReadiness, 
-        checkBabyEvolutionReadiness 
+        checkChildEvolutionReadiness 
       } = await import('@/lib/blobbi-evolution');
 
       // Create interaction record
@@ -592,11 +592,11 @@ export function useBlobbiCare(blobbiId: string) {
       if (blobbi.lifeStage === 'egg') {
         const { isReady } = checkEggHatchingReadiness(updatedBlobbi);
         if (isReady) {
-          await evolveBlobbi({ newStage: 'baby', evolutionReason: 'Hatching requirements met' });
+          await evolveBlobbi({ newStage: 'child', evolutionReason: 'Hatching requirements met' });
           evolutionTriggered = true;
         }
-      } else if (blobbi.lifeStage === 'baby') {
-        const { isReady } = checkBabyEvolutionReadiness(updatedBlobbi);
+      } else if (blobbi.lifeStage === 'child') {
+        const { isReady } = checkChildEvolutionReadiness(updatedBlobbi);
         if (isReady) {
           await evolveBlobbi({ newStage: 'adult', evolutionReason: 'Evolution requirements met' });
           evolutionTriggered = true;

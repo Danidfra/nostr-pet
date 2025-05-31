@@ -94,7 +94,7 @@ export const CreateBlobbiDialog: React.FC<CreateBlobbiDialogProps> = ({ children
     switch (stage) {
       case 'egg':
         return 'Requires 4 days of consistent care to hatch. Perfect for learning the basics!';
-      case 'baby':
+      case 'child':
         return 'Already hatched and ready for immediate interaction. Great for experienced caretakers.';
       case 'adult':
         return 'Fully grown and capable of breeding. Ideal for advanced gameplay.';
@@ -169,7 +169,7 @@ export const CreateBlobbiDialog: React.FC<CreateBlobbiDialogProps> = ({ children
           <div className="space-y-3">
             <Label>Starting Life Stage</Label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {(['egg', 'baby', 'adult'] as BlobbiLifeStage[]).map((stageOption) => (
+              {(['egg', 'child', 'adult'] as BlobbiLifeStage[]).map((stageOption) => (
                 <Card 
                   key={stageOption}
                   className={`cursor-pointer transition-all ${
@@ -182,7 +182,7 @@ export const CreateBlobbiDialog: React.FC<CreateBlobbiDialogProps> = ({ children
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       {stageOption === 'egg' && <Egg className="h-4 w-4" />}
-                      {stageOption === 'baby' && <Baby className="h-4 w-4" />}
+                      {stageOption === 'child' && <Baby className="h-4 w-4" />}
                       {stageOption === 'adult' && <Crown className="h-4 w-4" />}
                       {stageOption.charAt(0).toUpperCase() + stageOption.slice(1)}
                     </CardTitle>

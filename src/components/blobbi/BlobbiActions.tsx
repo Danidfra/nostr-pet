@@ -107,7 +107,7 @@ export function BlobbiActions({
     if (blobbi.lifeStage === 'egg') {
       return [
         {
-          action: 'warming' as BlobbiAction,
+          action: 'warm' as BlobbiAction,
           icon: Thermometer,
           label: 'Warm',
           color: 'hover:bg-orange-100',
@@ -115,7 +115,7 @@ export function BlobbiActions({
           tooltip: 'Keep the egg warm',
         },
         {
-          action: 'checking' as BlobbiAction,
+          action: 'check' as BlobbiAction,
           icon: Eye,
           label: 'Check',
           color: 'hover:bg-blue-100',
@@ -123,7 +123,7 @@ export function BlobbiActions({
           tooltip: 'Check on the egg',
         },
         {
-          action: 'singing' as BlobbiAction,
+          action: 'sing' as BlobbiAction,
           icon: Music,
           label: 'Sing',
           color: 'hover:bg-purple-100',
@@ -131,7 +131,7 @@ export function BlobbiActions({
           tooltip: 'Sing to the egg',
         },
         {
-          action: 'talking' as BlobbiAction,
+          action: 'talk' as BlobbiAction,
           icon: MessageCircle,
           label: 'Talk',
           color: 'hover:bg-green-100',
@@ -143,7 +143,7 @@ export function BlobbiActions({
           icon: Pill,
           label: 'Medicine',
           color: 'hover:bg-red-100',
-          disabled: false,
+          disabled: false, // Always allow medicine for eggs
           tooltip: 'Apply medicine to strengthen the egg',
         },
         {
@@ -151,13 +151,14 @@ export function BlobbiActions({
           icon: Bath,
           label: 'Clean',
           color: 'hover:bg-cyan-100',
-          disabled: false,
+          disabled: false, // Always allow cleaning for eggs
           tooltip: 'Clean the egg shell',
         },
+
       ];
     }
     
-    // Baby and Adult actions
+    // Child and Adult actions
     const baseActions = [
       {
         action: 'feed' as BlobbiAction,
@@ -180,8 +181,8 @@ export function BlobbiActions({
         icon: Bath,
         label: 'Clean',
         color: 'hover:bg-purple-100',
-        disabled: blobbi.stats.hygiene > 90 || blobbi.state === 'sleeping',
-        tooltip: blobbi.stats.hygiene > 90 ? 'Already clean!' : blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : '',
+        disabled: blobbi.state === 'sleeping', // Only disable when sleeping
+        tooltip: blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : 'Clean your Blobbi',
       },
       {
         action: 'rest' as BlobbiAction,
@@ -196,8 +197,8 @@ export function BlobbiActions({
         icon: Pill,
         label: 'Medicine',
         color: 'hover:bg-red-100',
-        disabled: blobbi.stats.health > 70,
-        tooltip: blobbi.stats.health > 70 ? 'Already healthy!' : '',
+        disabled: false, // Always allow medicine
+        tooltip: 'Give medicine to your Blobbi',
       },
     ];
 
@@ -292,7 +293,7 @@ export function BlobbiActions({
               );
             })}
             
-            {/* Games Button - only for baby and adult */}
+            {/* Games Button - only for child and adult */}
             {blobbi.lifeStage !== 'egg' && (
               <Button
                 variant="outline"

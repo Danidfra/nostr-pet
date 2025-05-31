@@ -3,6 +3,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbiLifecycle } from '@/hooks/useBlobbiLifecycle';
 import { useBlobbiState, useBlobbiRecords, useCreateBlobbi } from '@/hooks/useBlobbiEvents';
 import { useUserBlobbi } from '@/hooks/useUserBlobbi';
+import { useBlobbonautProfile, useSpendCoins, useAddCoins } from '@/hooks/useBlobbonautProfile';
 import { Blobbi, BlobbiAction, BlobbiItem, BlobbiStats, BlobbiInteractionType } from '@/types/blobbi';
 import { calculateStatDegradation, clampStat } from '@/lib/blobbi-events';
 
@@ -14,10 +15,10 @@ function mapActionToInteractionType(action: BlobbiAction): BlobbiInteractionType
     clean: 'clean',
     rest: 'rest',
     medicine: 'medicine',
-    warming: 'warming',
-    checking: 'checking',
-    singing: 'singing',
-    talking: 'talking',
+    warm: 'warm',
+    check: 'check',
+    sing: 'sing',
+    talk: 'talk',
     cruzar: 'cruzar',
   };
   return actionMap[action] || 'feed';
@@ -28,22 +29,22 @@ function calculateStatChange(
   action: BlobbiAction, 
   currentStats: BlobbiStats,
   itemEffect?: Partial<BlobbiStats>,
-  lifeStage?: 'egg' | 'baby' | 'adult'
+  lifeStage?: 'egg' | 'child' | 'adult'
 ): [string, number] {
   const baseChanges: Record<BlobbiAction, [string, number]> = {
     feed: ['hunger', Math.min(30, 100 - currentStats.hunger)],
     play: ['happiness', Math.min(25, 100 - currentStats.happiness)],
     clean: lifeStage === 'egg' 
       ? ['health', Math.min(15, 100 - currentStats.health)] // For eggs, cleaning improves shell health
-      : ['hygiene', Math.min(40, 100 - currentStats.hygiene)], // For baby/adult, normal hygiene
+      : ['hygiene', Math.min(40, 100 - currentStats.hygiene)], // For child/adult, normal hygiene
     rest: ['energy', Math.min(35, 100 - currentStats.energy)],
     medicine: lifeStage === 'egg'
       ? ['health', Math.min(25, 100 - currentStats.health)] // Stronger effect for eggs
-      : ['health', Math.min(20, 100 - currentStats.health)], // Normal effect for baby/adult
-    warming: ['health', 5], // Note: For eggs, this is handled specially in useBlobbiLifecycle
-    checking: ['happiness', 3],
-    singing: ['happiness', 8],
-    talking: ['happiness', 6],
+      : ['health', Math.min(20, 100 - currentStats.health)], // Normal effect for child/adult
+    warm: ['health', 5], // Note: For eggs, this is handled specially in useBlobbiLifecycle
+    check: ['happiness', 3],
+    sing: ['happiness', 8],
+    talk: ['happiness', 6],
     cruzar: ['happiness', Math.min(20, 100 - currentStats.happiness)], // Special breeding action
   };
 
@@ -62,6 +63,9 @@ function calculateStatChange(
 export function useBlobbi(pubkey?: string, blobbiId?: string) {
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
+  const { data: blobbonautProfile } = useBlobbonautProfile();
+  const { mutateAsync: spendCoins } = useSpendCoins();
+  const { mutateAsync: addCoins } = useAddCoins();
   
   // Use provided pubkey or current user's pubkey
   const targetPubkey = pubkey || user?.pubkey;
@@ -111,7 +115,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
 
   // Create new Blobbi using new event system
   const createBlobbiMutation = useMutation({
-    mutationFn: async ({ name, stage = 'egg' }: { name: string; stage?: 'egg' | 'baby' | 'adult' }) => {
+    mutationFn: async ({ name, stage = 'egg' }: { name: string; stage?: 'egg' | 'child' | 'adult' }) => {
       if (!user) throw new Error('Must be logged in to create a Blobbi');
       
       return await createBlobbiFromEvents({
@@ -221,13 +225,13 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       if (!user || !currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only evolve your own Blobbi');
       
-      let newStage: 'baby' | 'adult';
+      let newStage: 'child' | 'adult';
       let reason: string;
       
       if (currentBlobbi.lifeStage === 'egg') {
-        newStage = 'baby';
+        newStage = 'child';
         reason = 'Manual hatching triggered';
-      } else if (currentBlobbi.lifeStage === 'baby') {
+      } else if (currentBlobbi.lifeStage === 'child') {
         newStage = 'adult';
         reason = 'Manual evolution triggered';
       } else {
@@ -288,31 +292,73 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
     },
   });
 
-  // Purchase item (simplified - would need shop integration)
+  // Purchase item with Blobbanaut Profile integration
   const purchaseItemMutation = useMutation({
     mutationFn: async (item: BlobbiItem) => {
       if (!user || !currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only purchase items for your own Blobbi');
+      if (!blobbonautProfile) throw new Error('Blobbanaut Profile not found');
       
-      // This would integrate with a shop system
-      throw new Error('Shop system not yet implemented with new event structure');
+      // Check if user has enough coins
+      if (blobbonautProfile.coins < item.price) {
+        throw new Error(`Insufficient coins. Need ${item.price}, have ${blobbonautProfile.coins}`);
+      }
+      
+      // Spend coins from Blobbanaut Profile
+      await spendCoins(item.price);
+      
+      // Add item to Blobbi's inventory (this would be handled by the state update)
+      const updatedBlobbi = {
+        ...currentBlobbi,
+        inventory: [
+          ...currentBlobbi.inventory,
+          {
+            itemId: item.id,
+            quantity: 1,
+            purchasedAt: Date.now(),
+          }
+        ],
+      };
+      
+      // Update Blobbi state
+      await updateState(updatedBlobbi);
+      
+      // Create a memory for the purchase
+      await createMemory({
+        memoryTitle: 'Item Purchase',
+        memoryDescription: `Purchased ${item.name} for ${item.price} coins`,
+        achievement: `purchased_${item.type}`,
+      });
+      
+      return { item, updatedBlobbi };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
+      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile'] });
     },
   });
 
-  // Add coins (for game rewards)
+  // Add coins (for game rewards) - now integrates with Blobbanaut Profile
   const addCoinsMutation = useMutation({
     mutationFn: async (amount: number) => {
-      if (!user || !currentBlobbi) throw new Error('No Blobbi found');
-      if (!isOwner) throw new Error('You can only add coins to your own Blobbi');
+      if (!user) throw new Error('Must be logged in');
       
-      // Create a memory for earning coins
-      await createMemory({
-        memoryTitle: 'Coins Earned',
-        achievement: `earned_${amount}_coins`,
-        memoryDescription: `Earned ${amount} coins through gameplay`,
-      });
+      // Add coins to Blobbanaut Profile
+      await addCoins(amount);
+      
+      // Create a memory for earning coins if we have a Blobbi
+      if (currentBlobbi && isOwner) {
+        await createMemory({
+          memoryTitle: 'Coins Earned',
+          achievement: `earned_${amount}_coins`,
+          memoryDescription: `Earned ${amount} coins through gameplay`,
+        });
+      }
       
       return amount;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile'] });
     },
   });
 

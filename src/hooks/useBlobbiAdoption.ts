@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCreateBlobbi } from '@/hooks/useBlobbiEvents';
+import { useBlobbonautProfile, useAddBlobbi, useCreateInitialProfile } from '@/hooks/useBlobbonautProfile';
 import { createBlobbiWithAdoption, validatePetName } from '@/lib/blobbi-adoption';
 import { Blobbi } from '@/types/blobbi';
 
@@ -12,6 +13,9 @@ export function useBlobbiAdoption() {
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
   const { createBlobbi } = useCreateBlobbi();
+  const { data: blobbonautProfile } = useBlobbonautProfile();
+  const { mutateAsync: addBlobbi } = useAddBlobbi();
+  const { mutateAsync: createInitialProfile } = useCreateInitialProfile();
 
   const adoptBlobbi = useMutation({
     mutationFn: async ({ petName }: AdoptBlobbiParams): Promise<Blobbi> => {
@@ -38,6 +42,24 @@ export function useBlobbiAdoption() {
         birthData: adoptionRecord
       });
       
+      // Update Blobbanaut Profile
+      try {
+        if (!blobbonautProfile) {
+          // Create initial profile if it doesn't exist
+          await createInitialProfile({
+            ownedBlobbis: [createdBlobbi.id],
+            lifetimeBlobbis: 1,
+            starterBlobbi: createdBlobbi.id,
+          });
+        } else {
+          // Add Blobbi to existing profile
+          await addBlobbi(createdBlobbi.id);
+        }
+      } catch (error) {
+        console.error('Failed to update Blobbanaut Profile after adoption:', error);
+        // Don't fail the adoption if profile update fails
+      }
+      
       return createdBlobbi;
     },
     onSuccess: (blobbi) => {
@@ -47,6 +69,7 @@ export function useBlobbiAdoption() {
       queryClient.invalidateQueries({ queryKey: ['user-blobbis'] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-records'] });
+      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile'] });
       
       // Invalidate specific Blobbi queries
       if (blobbi.id) {

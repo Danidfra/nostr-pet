@@ -26,7 +26,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
 
       const { 
         checkEggHatchingReadiness, 
-        checkBabyEvolutionReadiness,
+        checkChildEvolutionReadiness,
         getCareStreakStatus,
       } = await import('@/lib/blobbi-evolution');
 
@@ -35,8 +35,8 @@ export function useBlobbiLifecycle(blobbiId: string) {
       let evolutionStatus: { isReady: boolean; message: string; requirements?: Record<string, unknown> } | null = null;
       if (blobbi.lifeStage === 'egg') {
         evolutionStatus = checkEggHatchingReadiness(blobbi);
-      } else if (blobbi.lifeStage === 'baby') {
-        evolutionStatus = checkBabyEvolutionReadiness(blobbi);
+      } else if (blobbi.lifeStage === 'child') {
+        evolutionStatus = checkChildEvolutionReadiness(blobbi);
       }
 
       return {
@@ -73,7 +73,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
       // Create evolution record
       await createRecord({
         recordData: evolutionRecord,
-        content: newStage === 'baby' 
+        content: newStage === 'child' 
           ? `${blobbi.name} has hatched from their egg! 🐣✨` 
           : `${blobbi.name} has evolved to ${evolutionRecord.evolutionStage}! 🌟`,
       });
@@ -127,16 +127,10 @@ export function useBlobbiLifecycle(blobbiId: string) {
           case 'play':
             statChange = ['happiness', Math.min(25, 100 - degradedStats.happiness)];
             break;
-          case 'clean':
-            statChange = ['hygiene', Math.min(40, 100 - degradedStats.hygiene)];
-            break;
           case 'rest':
             statChange = ['energy', Math.min(35, 100 - degradedStats.energy)];
             break;
-          case 'medicine':
-            statChange = ['health', Math.min(20, 100 - degradedStats.health)];
-            break;
-          case 'warming':
+          case 'warm':
             if (blobbi.lifeStage === 'egg') {
               // For eggs, warming affects eggTemperature instead of health
               statChange = ['happiness', 2]; // Small happiness boost
@@ -144,14 +138,32 @@ export function useBlobbiLifecycle(blobbiId: string) {
               statChange = ['health', 5];
             }
             break;
-          case 'checking':
+          case 'check':
             statChange = ['happiness', 3];
             break;
-          case 'singing':
+          case 'sing':
             statChange = ['happiness', 8];
             break;
-          case 'talking':
+          case 'talk':
             statChange = ['happiness', 6];
+            break;
+          case 'medicine':
+            if (blobbi.lifeStage === 'egg') {
+              // For eggs, medicine strengthens shell health
+              statChange = ['health', Math.min(25, 100 - degradedStats.health)];
+            } else {
+              // For child/adult, normal health boost
+              statChange = ['health', Math.min(20, 100 - degradedStats.health)];
+            }
+            break;
+          case 'clean':
+            if (blobbi.lifeStage === 'egg') {
+              // For eggs, cleaning improves shell health
+              statChange = ['health', Math.min(15, 100 - degradedStats.health)];
+            } else {
+              // For child/adult, normal hygiene boost
+              statChange = ['hygiene', Math.min(40, 100 - degradedStats.hygiene)];
+            }
             break;
           default:
             statChange = ['happiness', 5];
@@ -184,7 +196,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
 
       // Handle egg-specific warming action
       let eggTemperatureUpdate = {};
-      if (action === 'warming' && blobbi.lifeStage === 'egg') {
+      if (action === 'warm' && blobbi.lifeStage === 'egg') {
         const currentTemp = decayedBlobbi.eggTemperature || 50;
         const tempIncrease = Math.min(10, 100 - currentTemp);
         eggTemperatureUpdate = {
@@ -214,10 +226,10 @@ export function useBlobbiLifecycle(blobbiId: string) {
       if (lifecycleStatus.data?.isEligibleForEvolution) {
         if (blobbi.lifeStage === 'egg') {
           autoEvolution = await evolveMutation.mutateAsync({ 
-            newStage: 'baby', 
+            newStage: 'child', 
             evolutionReason: 'Hatching requirements met through care' 
           });
-        } else if (blobbi.lifeStage === 'baby' && updatedProgress.isEligibleForEvolution) {
+        } else if (blobbi.lifeStage === 'child' && updatedProgress.isEligibleForEvolution) {
           autoEvolution = await evolveMutation.mutateAsync({ 
             newStage: 'adult', 
             evolutionReason: 'Evolution requirements met through consistent care' 
@@ -302,17 +314,15 @@ function getActionCategory(action: string): string {
       return 'nutrition';
     case 'play':
       return 'enrichment';
-    case 'clean':
-      return 'hygiene';
     case 'rest':
       return 'recovery';
+    case 'warm':
+    case 'check':
     case 'medicine':
-      return 'healthcare';
-    case 'warming':
-    case 'checking':
+    case 'clean':
       return 'care';
-    case 'singing':
-    case 'talking':
+    case 'sing':
+    case 'talk':
       return 'social';
     default:
       return 'general';

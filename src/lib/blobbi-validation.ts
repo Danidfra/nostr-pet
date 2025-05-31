@@ -126,8 +126,8 @@ function validateLifecycleProgression(
 
     if (previousStage) {
       const validTransitions: Record<BlobbiLifeStage, BlobbiLifeStage[]> = {
-        egg: ['baby'],
-        baby: ['adult'],
+        egg: ['child'],
+        child: ['adult'],
         adult: [], // Adults don't evolve further
       };
 
@@ -368,7 +368,7 @@ export function generateTestBlobbiEvents(blobbiId: string, ownerPubkey: string):
       kind: BLOBBI_EVENT_KINDS.INTERACTION,
       tags: [
         ['blobbi_id', blobbiId],
-        ['action', 'warming'],
+        ['action', 'warm'],
         ['action_category', 'care'],
         ['stat_change', 'health:+5'],
         ['care_points', '2'],

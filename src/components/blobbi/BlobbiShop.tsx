@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Coins, Palette, Sparkles, Heart, Utensils, Gamepad2 } from 'lucide-react';
 import { BlobbiItem } from '@/types/blobbi';
 import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useToast } from '@/hooks/useToast';
 import { SHOP_ITEMS, getShopItemsByType } from '@/lib/shop-items';
 
@@ -17,17 +18,18 @@ interface BlobbiShopProps {
 
 export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
   const { blobbi, isOwner, purchaseItem } = useBlobbi();
+  const { data: blobbonautProfile } = useBlobbonautProfile();
   const { toast } = useToast();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
   
-  if (!blobbi || !isOwner) return null;
+  if (!blobbi || !isOwner || !blobbonautProfile) return null;
   
   const handlePurchase = (item: BlobbiItem) => {
-    if (blobbi.coins < item.price) {
+    if (blobbonautProfile.coins < item.price) {
       toast({
         title: "Insufficient Coins",
-        description: `You need ${item.price - blobbi.coins} more coins to buy ${item.name}.`,
+        description: `You need ${item.price - blobbonautProfile.coins} more coins to buy ${item.name}.`,
         variant: "destructive",
       });
       return;
@@ -71,7 +73,7 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
               <span>Blobbi Shop</span>
               <div className="flex items-center gap-2">
                 <Coins className="w-4 h-4 text-yellow-600" />
-                <span className="font-semibold">{blobbi.coins}</span>
+                <span className="font-semibold">{blobbonautProfile.coins}</span>
               </div>
             </DialogTitle>
           </DialogHeader>
@@ -91,7 +93,7 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
                   <ShopItemCard 
                     key={item.id} 
                     item={item} 
-                    canAfford={blobbi.coins >= item.price}
+                    canAfford={blobbonautProfile.coins >= item.price}
                     onPurchase={handlePurchase}
                   />
                 ))}
@@ -104,7 +106,7 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
                   <ShopItemCard 
                     key={item.id} 
                     item={item} 
-                    canAfford={blobbi.coins >= item.price}
+                    canAfford={blobbonautProfile.coins >= item.price}
                     onPurchase={handlePurchase}
                   />
                 ))}
@@ -117,7 +119,7 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
                   <ShopItemCard 
                     key={item.id} 
                     item={item} 
-                    canAfford={blobbi.coins >= item.price}
+                    canAfford={blobbonautProfile.coins >= item.price}
                     onPurchase={handlePurchase}
                   />
                 ))}
@@ -130,7 +132,7 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
                   <ShopItemCard 
                     key={item.id} 
                     item={item} 
-                    canAfford={blobbi.coins >= item.price}
+                    canAfford={blobbonautProfile.coins >= item.price}
                     onPurchase={handlePurchase}
                   />
                 ))}
@@ -146,7 +148,7 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
                   <ShopItemCard 
                     key={item.id} 
                     item={item} 
-                    canAfford={blobbi.coins >= item.price}
+                    canAfford={blobbonautProfile.coins >= item.price}
                     onPurchase={handlePurchase}
                     disabled
                   />

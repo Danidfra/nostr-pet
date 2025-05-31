@@ -23,8 +23,8 @@ import {
 export function InteractionLogDemo() {
   const [verboseMode, setVerboseMode] = React.useState(InteractionLogger.isVerbose());
   
-  const demoActions: BlobbiAction[] = ['feed', 'play', 'clean', 'rest', 'warming', 'checking', 'singing', 'talking', 'medicine', 'cruzar'];
-  const demoStages: BlobbiLifeStage[] = ['egg', 'baby', 'adult'];
+  const demoActions: BlobbiAction[] = ['feed', 'play', 'clean', 'rest', 'warm', 'check', 'sing', 'talk', 'medicine', 'cruzar'];
+  const demoStages: BlobbiLifeStage[] = ['egg', 'child', 'adult'];
   const demoBlobbiId = 'demo-blobbi-12345';
 
   const handleToggleVerbose = () => {

@@ -17,33 +17,33 @@ const STAT_DECAY_RATES = {
 
 const LIFE_STAGE_THRESHOLDS = {
   egg: 0,
-  baby: 4 * 24 * 60 * 60 * 1000,     // 4 days (hatching)
+  child: 4 * 24 * 60 * 60 * 1000,    // 4 days (hatching)
   adult: 14 * 24 * 60 * 60 * 1000,   // 14 days (evolution)
 };
 
 const ACTION_EFFECTS: Record<BlobbiAction, Partial<BlobbiStats>> = {
   feed: { hunger: 30, happiness: 5 },
   play: { happiness: 25, energy: -15, hygiene: -5 },
-  clean: { hygiene: 40, happiness: 10 },
+  clean: { hygiene: 40, happiness: 10 }, // For child/adult: hygiene boost; For eggs: shell health boost
   rest: { energy: 50, happiness: 5 },
-  warming: { health: 5, happiness: 2 },
-  checking: { health: 2 },
-  singing: { happiness: 15, energy: -5 },
-  talking: { happiness: 10 },
-  medicine: { health: 30, happiness: -5 },
+  warm: { health: 5, happiness: 2 },
+  check: { health: 2 },
+  sing: { happiness: 15, energy: -5 },
+  talk: { happiness: 10 },
+  medicine: { health: 30, happiness: -5 }, // For eggs: stronger shell health; For child/adult: general health
   cruzar: { happiness: 20, energy: -10 }, // Special breeding action
 };
 
 const ACTION_COOLDOWNS: Record<BlobbiAction, number> = {
   feed: 30 * 60 * 1000,      // 30 minutes
   play: 15 * 60 * 1000,      // 15 minutes
-  clean: 60 * 60 * 1000,     // 1 hour
+  clean: 60 * 60 * 1000,     // 1 hour (20 min for eggs, handled in cooldown-storage.ts)
   rest: 4 * 60 * 60 * 1000,  // 4 hours
-  warming: 10 * 60 * 1000,   // 10 minutes
-  checking: 5 * 60 * 1000,   // 5 minutes
-  singing: 20 * 60 * 1000,   // 20 minutes
-  talking: 10 * 60 * 1000,   // 10 minutes
-  medicine: 2 * 60 * 60 * 1000, // 2 hours
+  warm: 10 * 60 * 1000,      // 10 minutes (30 min for eggs, handled in cooldown-storage.ts)
+  check: 5 * 60 * 1000,      // 5 minutes
+  sing: 20 * 60 * 1000,      // 20 minutes (15 min for eggs, handled in cooldown-storage.ts)
+  talk: 10 * 60 * 1000,      // 10 minutes
+  medicine: 2 * 60 * 60 * 1000, // 2 hours (45 min for eggs, handled in cooldown-storage.ts)
   cruzar: 24 * 60 * 60 * 1000, // 1 day
 };
 
@@ -55,7 +55,7 @@ export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blob
     name,
     birthTime: Date.now(),
     lastInteraction: Date.now(),
-    lifeStage: 'baby',
+    lifeStage: 'child',
     state: 'active',
     stats: {
       hunger: 80,
@@ -109,7 +109,7 @@ export function getLifeStage(birthTime: number, currentTime: number = Date.now()
   const age = currentTime - birthTime;
   
   if (age >= LIFE_STAGE_THRESHOLDS.adult) return 'adult';
-  if (age >= LIFE_STAGE_THRESHOLDS.baby) return 'baby';
+  if (age >= LIFE_STAGE_THRESHOLDS.child) return 'child';
   return 'egg';
 }
 

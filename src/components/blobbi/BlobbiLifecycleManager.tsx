@@ -131,8 +131,8 @@ export const BlobbiLifecycleManager: React.FC<BlobbiLifecycleManagerProps> = ({ 
   const handleEvolution = async () => {
     try {
       if (blobbi.lifeStage === 'egg') {
-        await evolve({ newStage: 'baby', evolutionReason: 'Manual hatching triggered' });
-      } else if (blobbi.lifeStage === 'baby') {
+        await evolve({ newStage: 'child', evolutionReason: 'Manual hatching triggered' });
+      } else if (blobbi.lifeStage === 'child') {
         await evolve({ newStage: 'adult', evolutionReason: 'Manual evolution triggered' });
       }
     } catch (error) {
@@ -155,7 +155,7 @@ export const BlobbiLifecycleManager: React.FC<BlobbiLifecycleManagerProps> = ({ 
   const getStageIcon = (stage: string) => {
     switch (stage) {
       case 'egg': return <Egg className="h-5 w-5" />;
-      case 'baby': return <Baby className="h-5 w-5" />;
+      case 'child': return <Baby className="h-5 w-5" />;
       case 'adult': return <Sparkles className="h-5 w-5" />;
       default: return <Heart className="h-5 w-5" />;
     }
@@ -177,10 +177,10 @@ export const BlobbiLifecycleManager: React.FC<BlobbiLifecycleManagerProps> = ({ 
   ];
 
   const eggActions = [
-    { id: 'warming', label: 'Warm', icon: Thermometer, description: 'Keep egg warm' },
-    { id: 'checking', label: 'Check', icon: Eye, description: 'Check egg health' },
-    { id: 'singing', label: 'Sing', icon: Music, description: 'Sing to egg' },
-    { id: 'talking', label: 'Talk', icon: MessageCircle, description: 'Talk to egg' },
+    { id: 'warm', label: 'Warm', icon: Thermometer, description: 'Keep egg warm' },
+    { id: 'check', label: 'Check', icon: Eye, description: 'Check egg health' },
+    { id: 'sing', label: 'Sing', icon: Music, description: 'Sing to egg' },
+    { id: 'talk', label: 'Talk', icon: MessageCircle, description: 'Talk to egg' },
     { id: 'medicine', label: 'Medicine', icon: Stethoscope, description: 'Apply medicine to strengthen egg' },
     { id: 'clean', label: 'Clean', icon: Bath, description: 'Clean the egg shell' },
   ];

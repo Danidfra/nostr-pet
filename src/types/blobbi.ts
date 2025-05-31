@@ -9,7 +9,7 @@ export interface BlobbiStats {
 }
 
 // Updated lifecycle stages according to spec
-export type BlobbiLifeStage = 'egg' | 'baby' | 'adult';
+export type BlobbiLifeStage = 'egg' | 'child' | 'adult';
 export type BlobbiEvolutionForm = 'blobbi' | 'pengui' | 'owli' | 'catti' | 'froggi';
 export type BlobbiMood = 'happy' | 'sad' | 'sleepy' | 'hungry' | 'dirty' | 'sick' | 'neutral' | 'playful';
 export type BlobbiState = 'active' | 'sleeping' | 'hibernating';
@@ -18,7 +18,7 @@ export type BlobbiState = 'active' | 'sleeping' | 'hibernating';
 export type BlobbiRecordType = 'birth' | 'hatched' | 'evolution' | 'memory' | 'adoption';
 
 // Interaction types for Kind 14919 events
-export type BlobbiInteractionType = 'feed' | 'play' | 'clean' | 'rest' | 'warming' | 'checking' | 'singing' | 'talking' | 'medicine' | 'cruzar';
+export type BlobbiInteractionType = 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar';
 
 export interface BlobbiCustomization {
   color: string;
@@ -131,21 +131,44 @@ export interface BlobbiRecordEvent {
   tags: Array<[string, string]>; // Record-specific tags based on record_type
 }
 
+// Kind 31125: Blobbanaut Profile (Addressable)
+export interface BlobbonautProfileEvent {
+  kind: 31125;
+  content: string; // Must be empty according to spec
+  tags: Array<[string, string]>; // Profile-specific tags
+}
+
+// Blobbanaut Profile data structure
+export interface BlobbonautProfile {
+  id: string; // Unique identifier (d tag value)
+  ownerPubkey: string; // Nostr pubkey of the Blobbanaut
+  coins: number; // Amount of in-game coins
+  ownedBlobbis: string[]; // Array of Blobbi IDs owned
+  pettingLevel: number; // Interaction/care level
+  lifetimeBlobbis: number; // Total Blobbis adopted over time
+  favoriteBlobbi?: string; // Favorite Blobbi ID
+  starterBlobbi?: string; // First Blobbi ID
+  achievements: string[]; // Array of achievement IDs
+  style?: string; // Aesthetic style
+  background?: string; // Background/theme
+  title?: string; // Custom title or role
+}
+
 // Action types for interacting with Blobbi (updated to match spec)
 export type BlobbiAction = 
   | 'feed'
   | 'play'
   | 'clean'
   | 'rest'
-  | 'warming'
-  | 'checking'
-  | 'singing'
-  | 'talking'
+  | 'warm'
+  | 'check'
+  | 'sing'
+  | 'talk'
   | 'medicine'
   | 'cruzar';
 
 // Care actions that count towards evolution
-export type BlobbiCareAction = 'feed' | 'play' | 'clean' | 'rest' | 'warming' | 'checking' | 'singing' | 'talking' | 'medicine' | 'cruzar';
+export type BlobbiCareAction = 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar';
 
 // Interaction data structure for detailed tracking
 export interface BlobbiInteractionData {

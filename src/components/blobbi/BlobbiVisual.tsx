@@ -94,9 +94,8 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
   };
   
   const lifeStageScale = {
-    baby: 0.7,
-    child: 0.85,
-    teen: 0.95,
+    egg: 0.6,
+    child: 0.7,
     adult: 1,
   };
   

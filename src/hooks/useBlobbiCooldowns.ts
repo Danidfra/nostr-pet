@@ -15,7 +15,8 @@ import {
   formatCooldownTime, 
   getCooldownDuration, 
   getSyncWindow,
-  isActionAvailableForStage 
+  isActionAvailableForStage,
+  COOLDOWN_DURATIONS
 } from '@/lib/cooldown-storage';
 
 // Interface for cooldown state
@@ -103,7 +104,7 @@ export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsRet
   }, [nostr]);
 
   /**
-   * Sync cooldowns from relay events
+   * Sync cooldowns from relay events according to the specification
    */
   const syncCooldownsFromRelay = useCallback(async (blobbiId: string, stage: BlobbiLifeStage) => {
     try {
@@ -113,14 +114,17 @@ export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsRet
       // Import logger
       const { logCooldownSync } = await import('@/lib/interaction-logger');
 
-      // Fetch recent interaction events
+      // Determine sync window based on stage
+      const syncWindow = getSyncWindow(stage);
+      const since = Math.floor((Date.now() - syncWindow) / 1000);
+
+      // Fetch recent interaction events within the sync window
       const interactionEvents = await fetchRecentInteractions(blobbiId, stage);
       
-      // For egg stage, also fetch status events
-      let statusEvents: Array<{ tags: string[][]; created_at: number }> = [];
-      if (stage === 'egg') {
-        statusEvents = await fetchStatusEvents(blobbiId);
-      }
+      // Filter events to only include actions relevant to the current stage
+      const relevantActions = Object.keys(COOLDOWN_DURATIONS[stage]).filter(
+        action => COOLDOWN_DURATIONS[stage][action as BlobbiAction] > 0
+      );
 
       // Process interaction events to extract action timestamps
       const actionTimestamps: Record<string, number> = {};
@@ -129,16 +133,20 @@ export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsRet
         const actionTag = event.tags.find(([name]) => name === 'action');
         if (actionTag && actionTag[1]) {
           const action = actionTag[1] as BlobbiAction;
-          const timestamp = event.created_at * 1000; // Convert to milliseconds
           
-          // Keep the most recent timestamp for each action
-          if (!actionTimestamps[action] || timestamp > actionTimestamps[action]) {
-            actionTimestamps[action] = timestamp;
+          // Only process actions that are relevant for this stage
+          if (relevantActions.includes(action)) {
+            const timestamp = event.created_at * 1000; // Convert to milliseconds
+            
+            // Keep the most recent timestamp for each action
+            if (!actionTimestamps[action] || timestamp > actionTimestamps[action]) {
+              actionTimestamps[action] = timestamp;
+            }
           }
         }
       }
 
-      // Update local storage with synced data
+      // Update local storage with synced data - this is the source of truth
       for (const [action, timestamp] of Object.entries(actionTimestamps)) {
         await cooldownStorage.setCooldown(blobbiId, action as BlobbiAction, timestamp, stage);
       }
@@ -146,15 +154,7 @@ export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsRet
       // Log sync event
       logCooldownSync(blobbiId, Object.keys(actionTimestamps), 'relay');
 
-      // Process status events for egg stage warming state
-      if (stage === 'egg' && statusEvents.length > 0) {
-        const latestStatus = statusEvents[0];
-        const lastInteractionTag = latestStatus.tags.find(([name]) => name === 'last_interaction');
-        if (lastInteractionTag && lastInteractionTag[1]) {
-          const lastInteractionTime = new Date(lastInteractionTag[1]).getTime();
-          // This could be used to infer warming state, but we'll rely on interaction events
-        }
-      }
+      console.log(`🔄 COOLDOWN SYNC COMPLETE | ${blobbiId} | ${stage} | Synced ${Object.keys(actionTimestamps).length} actions from relay`);
 
     } catch (err) {
       console.error('Failed to sync cooldowns from relay:', err);
@@ -162,7 +162,7 @@ export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsRet
     } finally {
       setIsLoading(false);
     }
-  }, [fetchRecentInteractions, fetchStatusEvents]);
+  }, [fetchRecentInteractions]);
 
   /**
    * Load and update cooldown state
@@ -173,7 +173,7 @@ export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsRet
       const newCooldowns: CooldownState = {};
 
       // Get all possible actions for this stage
-      const allActions: BlobbiAction[] = ['feed', 'play', 'clean', 'rest', 'warming', 'checking', 'singing', 'talking', 'medicine', 'cruzar'];
+      const allActions: BlobbiAction[] = ['feed', 'play', 'clean', 'rest', 'warm', 'check', 'sing', 'talk', 'medicine', 'cruzar'];
 
       for (const action of allActions) {
         const isAvailable = isActionAvailableForStage(action, stage);

@@ -294,8 +294,8 @@ export function processEvolution(
 
   // Create evolution record
   const evolutionRecord: import('@/types/blobbi').BlobbiRecordData = {
-    recordType: newStage === 'baby' ? 'hatched' : 'evolution',
-    ...(newStage === 'baby' && {
+    recordType: newStage === 'child' ? 'hatched' : 'evolution',
+    ...(newStage === 'child' && {
       hatchedAt: currentTime,
       hatchedBy: blobbi.ownerPubkey,
       eggType: 'standard',
@@ -394,8 +394,8 @@ export function checkEggHatchingReadiness(blobbi: Blobbi): {
   };
 }
 
-// Check if baby is ready to evolve to adult
-export function checkBabyEvolutionReadiness(blobbi: Blobbi): {
+// Check if child is ready to evolve to adult
+export function checkChildEvolutionReadiness(blobbi: Blobbi): {
   isReady: boolean;
   requirements: {
     ageRequired: number;
@@ -411,7 +411,7 @@ export function checkBabyEvolutionReadiness(blobbi: Blobbi): {
   };
   message: string;
 } {
-  if (blobbi.lifeStage !== 'baby') {
+  if (blobbi.lifeStage !== 'child') {
     return {
       isReady: false,
       requirements: {
@@ -426,7 +426,7 @@ export function checkBabyEvolutionReadiness(blobbi: Blobbi): {
         healthRequired: 0,
         currentHealth: 0,
       },
-      message: 'Not a baby',
+      message: 'Not a child',
     };
   }
 
@@ -456,7 +456,7 @@ export function checkBabyEvolutionReadiness(blobbi: Blobbi): {
 
   let message: string;
   if (isReady) {
-    message = 'Your baby Blobbi is ready to evolve to adult! 🌟';
+    message = 'Your child Blobbi is ready to evolve to adult! 🌟';
   } else {
     const missing: string[] = [];
     if (ageInDays < requirements.ageRequired) {
