@@ -33,7 +33,6 @@ A decentralized virtual pet game built on the Nostr protocol. Each Nostr account
 
 ### Development
 ```bash
-npm install
 npm run dev
 ```
 
