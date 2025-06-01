@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { BlobbiInventoryModal } from './BlobbiInventoryModal';
 import { useBlobbiCooldowns } from '@/hooks/useBlobbiCooldowns';
 import { useBlobbiCareInteraction } from '@/hooks/useBlobbiInteractionWithStateUpdate';
+import { useBlobbonautProfile, useCreateInitialProfile } from '@/hooks/useBlobbonautProfile';
+import { useToast } from '@/hooks/useToast';
 import { isActionAvailableForStage } from '@/lib/cooldown-storage';
 
 interface BlobbiActionsProps {
@@ -38,6 +40,11 @@ export function BlobbiActions({
 }: BlobbiActionsProps) {
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<BlobbiAction | null>(null);
+  
+  // Check if user has a profile, create one if needed
+  const { data: blobbonautProfile } = useBlobbonautProfile();
+  const { mutateAsync: createInitialProfile } = useCreateInitialProfile();
+  const { toast } = useToast();
   
   // Use the new cooldown system
   const {
@@ -79,8 +86,23 @@ export function BlobbiActions({
       return;
     }
 
-    // For actions that can use items, open the inventory modal
+    // For actions that require items, open the inventory modal
     if (['feed', 'play', 'clean', 'medicine'].includes(action)) {
+      // Ensure user has a profile before opening inventory
+      if (!blobbonautProfile) {
+        try {
+          await createInitialProfile({});
+        } catch (error) {
+          console.error('Failed to create initial profile:', error);
+          toast({
+            title: "Profile Creation Failed",
+            description: "Unable to create your profile. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
       setSelectedAction(action);
       setInventoryModalOpen(true);
     } else {
@@ -165,7 +187,7 @@ export function BlobbiActions({
           label: 'Medicine',
           color: 'hover:bg-red-100',
           disabled: false, // Always allow medicine for eggs
-          tooltip: 'Apply medicine to strengthen the egg',
+          tooltip: 'Apply medicine to strengthen the egg (requires medicine items)',
         },
         {
           action: 'clean' as BlobbiAction,
@@ -173,7 +195,7 @@ export function BlobbiActions({
           label: 'Clean',
           color: 'hover:bg-cyan-100',
           disabled: false, // Always allow cleaning for eggs
-          tooltip: 'Clean the egg shell',
+          tooltip: 'Clean the egg shell (requires hygiene items)',
         },
 
       ];
@@ -187,7 +209,7 @@ export function BlobbiActions({
         label: 'Feed',
         color: 'hover:bg-orange-100',
         disabled: blobbi.stats.hunger > 90 || blobbi.state === 'sleeping',
-        tooltip: blobbi.stats.hunger > 90 ? 'Already full!' : blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : '',
+        tooltip: blobbi.stats.hunger > 90 ? 'Already full!' : blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : 'Feed your Blobbi (requires food items)',
       },
       {
         action: 'play' as BlobbiAction,
@@ -195,7 +217,7 @@ export function BlobbiActions({
         label: 'Play',
         color: 'hover:bg-yellow-100',
         disabled: blobbi.stats.energy < 20 || blobbi.state === 'sleeping',
-        tooltip: blobbi.stats.energy < 20 ? 'Too tired to play' : blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : '',
+        tooltip: blobbi.stats.energy < 20 ? 'Too tired to play' : blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : 'Play with your Blobbi (requires toy items)',
       },
       {
         action: 'clean' as BlobbiAction,
@@ -203,7 +225,7 @@ export function BlobbiActions({
         label: 'Clean',
         color: 'hover:bg-purple-100',
         disabled: blobbi.state === 'sleeping', // Only disable when sleeping
-        tooltip: blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : 'Clean your Blobbi',
+        tooltip: blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : 'Clean your Blobbi (requires hygiene items)',
       },
       {
         action: 'rest' as BlobbiAction,
@@ -219,7 +241,7 @@ export function BlobbiActions({
         label: 'Medicine',
         color: 'hover:bg-red-100',
         disabled: false, // Always allow medicine
-        tooltip: 'Give medicine to your Blobbi',
+        tooltip: 'Give medicine to your Blobbi (requires medicine items)',
       },
     ];
 

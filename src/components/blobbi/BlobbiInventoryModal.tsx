@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { BlobbiItem, BlobbiAction } from '@/types/blobbi';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { useBlobbiCareInteraction } from '@/hooks/useBlobbiInteractionWithStateUpdate';
+import { useBlobbonautProfile, useRemoveFromStorage } from '@/hooks/useBlobbonautProfile';
 import { useToast } from '@/hooks/useToast';
-import { getInventoryItemsByType } from '@/lib/blobbi';
 import { Utensils, Gamepad2, Pill, Bath, Sparkles } from 'lucide-react';
 import { SHOP_ITEMS } from '@/lib/shop-items';
 
@@ -46,23 +46,48 @@ const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: strin
 
 export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }: BlobbiInventoryModalProps) {
   const { blobbi } = useBlobbi();
+  const { data: blobbonautProfile, isLoading: isProfileLoading } = useBlobbonautProfile();
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteraction();
+  const { mutateAsync: removeFromStorage } = useRemoveFromStorage();
   const { toast } = useToast();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
+  const [isUsingItem, setIsUsingItem] = useState(false);
   
   if (!blobbi) return null;
   
   const itemType = ACTION_TYPE_MAP[actionType];
   if (!itemType) return null;
   
-  const inventoryItems = getInventoryItemsByType(blobbi, itemType, SHOP_ITEMS) as (BlobbiItem & { quantity: number })[];
+  // Get items from BlobbonautProfile storage instead of individual Blobbi inventory
+  const getStorageItemsByType = (type: string): (BlobbiItem & { quantity: number })[] => {
+    if (!blobbonautProfile || !blobbonautProfile.storage) return [];
+    
+    return blobbonautProfile.storage
+      .map(storageItem => {
+        const shopItem = SHOP_ITEMS.find(item => item.id === storageItem.itemId);
+        return shopItem && shopItem.type === type
+          ? { ...shopItem, quantity: storageItem.quantity }
+          : null;
+      })
+      .filter((item): item is (BlobbiItem & { quantity: number }) => item !== null);
+  };
+  
+  const inventoryItems = getStorageItemsByType(itemType);
   const ActionIcon = ACTION_ICONS[actionType];
   
   const handleUseItem = async () => {
-    if (!selectedItem || !blobbi) return;
+    if (!selectedItem || !blobbi || isUsingItem) return;
+    
+    setIsUsingItem(true);
     
     try {
-      // Use the enhanced care interaction system with item effects
+      // First, remove the item from storage
+      await removeFromStorage({
+        itemId: selectedItem.id,
+        quantity: 1,
+      });
+      
+      // Then use the enhanced care interaction system with item effects
       await performCareInteraction({
         blobbiId: blobbi.id,
         action: actionType,
@@ -78,13 +103,20 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }
       // Close with action performed flag
       onClose(true, actionType);
     } catch (error) {
+      console.error('Failed to use item:', error);
       toast({
         title: "Failed to use item",
-        description: "Please try again.",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsUsingItem(false);
     }
   };
+
+
+
+
   
   const getActionTitle = () => {
     switch (actionType) {
@@ -111,21 +143,35 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }
           </DialogTitle>
         </DialogHeader>
         
-        {inventoryItems.length === 0 ? (
+        {isProfileLoading ? (
           <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading your inventory...</p>
+          </div>
+        ) : inventoryItems.length === 0 ? (
+          <div className="text-center py-8 space-y-4">
             <p className="text-muted-foreground mb-4">
-              You don't have any {itemType} items in your inventory.
+              You need {itemType} items to perform this action.
             </p>
-            <Button variant="outline" onClick={() => {
-                if (onOpenShop) {
-                  onClose(false); // Close inventory modal first
-                  onOpenShop(); // Then open shop modal
-                } else {
-                  onClose(false); // Fallback: just close the modal
-                }
-              }}>
-              Go to Shop
-            </Button>
+            <p className="text-sm text-muted-foreground mb-4">
+              Purchase {itemType} items from the shop to use this action.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" onClick={() => {
+                  if (onOpenShop) {
+                    onClose(false); // Close inventory modal first
+                    onOpenShop(); // Then open shop modal
+                  } else {
+                    onClose(false); // Fallback: just close the modal
+                  }
+                }}>
+                Go to Shop
+              </Button>
+              <Button variant="secondary" onClick={() => onClose(false)}>
+                Cancel
+              </Button>
+
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -166,10 +212,10 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }
               </Button>
               <Button 
                 onClick={handleUseItem} 
-                disabled={!selectedItem}
+                disabled={!selectedItem || isUsingItem}
                 className="flex-1"
               >
-                Use Item
+                {isUsingItem ? 'Using...' : 'Use Item'}
               </Button>
             </div>
           </div>
