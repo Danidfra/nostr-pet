@@ -332,5 +332,19 @@ export class InteractionLogger {
   }
 }
 
+/**
+ * Logs when an interaction is completed successfully (alias for logInteractionTriggered)
+ */
+export function logInteractionSuccess(
+  actionName: BlobbiAction,
+  blobbiId: string,
+  currentStage: BlobbiLifeStage,
+  method: string = 'direct'
+): void {
+  logInteractionTriggered(actionName, blobbiId, currentStage, {
+    itemUsed: method !== 'direct' ? method : undefined
+  });
+}
+
 // Export the logger instance for global access
 export const interactionLogger = InteractionLogger;

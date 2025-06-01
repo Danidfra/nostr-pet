@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Play, RotateCcw, Trophy } from 'lucide-react';
 import { useBlobbi } from '@/hooks/useBlobbi';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useBlobbiGameInteraction } from '@/hooks/useBlobbiInteractionWithStateUpdate';
 import { useToast } from '@/hooks/useToast';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
@@ -49,8 +49,8 @@ export function BubblePopGame() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { blobbi, addCoins, performAction } = useBlobbi();
-  const { mutateAsync: publishEvent } = useNostrPublish();
+  const { blobbi, addCoins } = useBlobbi();
+  const { mutateAsync: recordGameInteraction } = useBlobbiGameInteraction();
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
@@ -133,39 +133,23 @@ export function BubblePopGame() {
     });
   }, []);
 
-  // End game and publish results
+  // End game and record interaction using enhanced system
   const endGame = useCallback(async (finalScore: number) => {
     if (bubbleSpawnRef.current) {
       clearInterval(bubbleSpawnRef.current);
     }
 
-    // Always decrease energy after playing the game (outside try-catch to ensure it happens)
-    if (blobbi && performAction) {
-      try {
-        performAction('play');
-      } catch (error) {
-        console.error('Failed to update energy:', error);
-      }
-    }
-
     try {
-      // Publish game results to Nostr
-      await publishEvent({
-        kind: 30079, // Custom kind for game results
-        content: JSON.stringify({
+      // Record the game interaction using enhanced system that automatically handles both 14919 and 31124 events
+      if (blobbi && blobbiId) {
+        await recordGameInteraction({
+          blobbiId,
           gameType: 'bubble-pop',
           score: finalScore,
           duration: GAME_DURATION,
-          timestamp: Date.now(),
-          blobbiId: blobbiId,
-        }),
-        tags: [
-          ['d', `game-${Date.now()}`],
-          ['game', 'bubble-pop'],
-          ['score', finalScore.toString()],
-          ['blobbi', blobbiId || ''],
-        ],
-      });
+          energyCost: 10,
+        });
+      }
 
       // Award coins based on score
       const coinsEarned = Math.floor(finalScore / 10);
@@ -190,14 +174,14 @@ export function BubblePopGame() {
         });
       }
     } catch (error) {
-      console.error('Failed to publish game results:', error);
-      // Still show game over message even if publishing fails
+      console.error('Failed to record game interaction:', error);
+      // Still show game over message even if recording fails
       toast({
         title: 'Game Over!',
         description: `You scored ${finalScore} points!`,
       });
     }
-  }, [blobbiId, blobbi, publishEvent, toast, addCoins, performAction]);
+  }, [blobbiId, blobbi, recordGameInteraction, toast, addCoins]);
 
   // Game loop
   useEffect(() => {

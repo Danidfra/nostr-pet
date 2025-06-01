@@ -699,7 +699,7 @@ function validateStatChange(statChangeTag: string): boolean {
   if (parts.length !== 2) return false;
   
   const [stat, change] = parts;
-  const validStats = ['hunger', 'happiness', 'health', 'hygiene', 'energy'];
+  const validStats = ['hunger', 'happiness', 'health', 'hygiene', 'energy', 'egg_temperature'];
   const changeNum = parseInt(change);
   
   return validStats.includes(stat) && !isNaN(changeNum) && Math.abs(changeNum) <= 100;

@@ -13,8 +13,8 @@ const STORAGE_KEY = 'nostr:relays';
 
 // Default relays that are commonly used in the Nostr ecosystem
 const DEFAULT_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://relay.nostr.band',
+  'wss://ditto.pub/relay',
+  'wss://gleasonator.dev/relay',
 ];
 
 // Test relay connection by attempting to open a WebSocket

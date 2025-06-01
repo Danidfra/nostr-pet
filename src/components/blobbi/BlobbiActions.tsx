@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { BlobbiInventoryModal } from './BlobbiInventoryModal';
 import { useBlobbiCooldowns } from '@/hooks/useBlobbiCooldowns';
+import { useBlobbiCareInteraction } from '@/hooks/useBlobbiInteractionWithStateUpdate';
 import { isActionAvailableForStage } from '@/lib/cooldown-storage';
 
 interface BlobbiActionsProps {
@@ -48,6 +49,9 @@ export function BlobbiActions({
     isActionAvailable,
   } = useBlobbiCooldowns(blobbi);
   
+  // Use the enhanced interaction system that automatically handles both 14919 and 31124 events
+  const { mutateAsync: performCareInteraction } = useBlobbiCareInteraction();
+  
   const handleAction = async (action: BlobbiAction) => {
     // Check if action is available for this stage
     const isAvailableForStage = isActionAvailableForStage(action, blobbi.lifeStage);
@@ -78,13 +82,28 @@ export function BlobbiActions({
       setSelectedAction(action);
       setInventoryModalOpen(true);
     } else {
-      // For other actions, perform directly
+      // For other actions, perform directly using the enhanced interaction system
+      // This will automatically send both 14919 and 31124 events
       try {
-        await onAction(action);
+        await performCareInteraction({
+          blobbiId: blobbi.id,
+          action: action as 'warm' | 'check' | 'sing' | 'talk' | 'rest',
+        });
         // Record the interaction for cooldown tracking
         await recordInteraction(action);
+        
+        // Log successful interaction
+        const { logInteractionSuccess } = await import('@/lib/interaction-logger');
+        logInteractionSuccess(action, blobbi.id, blobbi.lifeStage, 'direct');
       } catch (error) {
         console.error('Failed to perform action:', error);
+        // Fallback to old system if new system fails
+        try {
+          await onAction(action);
+          await recordInteraction(action);
+        } catch (fallbackError) {
+          console.error('Fallback action also failed:', fallbackError);
+        }
       }
     }
   };

@@ -33,7 +33,7 @@ function NostrProviderWithRelays({ children, fallbackRelays }: { children: React
 
 // DO NOT MODIFY THIS LIST UNLESS YOU ARE ABSOLUTELY CERTAIN EACH RELAY URL YOU ARE ADDING IS VALID AND THE RELAY IS CURRENTLY ONLINE AND CONFIRMED TO BE FULLY FUNCTIONAL AND WORKING.
 const defaultRelays = [
-  'wss://relay.nostr.band', // DO NOT MODIFY THIS UNLESS EXPLICITLY REQUESTED
+  'wss://gleasonator.dev/relay', // DO NOT MODIFY THIS UNLESS EXPLICITLY REQUESTED
 ];
 
 const queryClient = new QueryClient({
