@@ -15,6 +15,7 @@ interface BlobbiActionsProps {
   isPerformingAction: boolean;
   className?: string;
   onGamesClick?: () => void;
+  onOpenShop?: () => void;
   lifecycleStatus?: {
     isEligibleForEvolution: boolean;
     evolutionStatus?: {
@@ -31,6 +32,7 @@ export function BlobbiActions({
   isPerformingAction, 
   className, 
   onGamesClick,
+  onOpenShop,
   lifecycleStatus,
   onEvolution 
 }: BlobbiActionsProps) {
@@ -337,6 +339,7 @@ export function BlobbiActions({
           isOpen={inventoryModalOpen}
           onClose={handleInventoryClose}
           actionType={selectedAction}
+          onOpenShop={onOpenShop}
         />
       )}
     </>

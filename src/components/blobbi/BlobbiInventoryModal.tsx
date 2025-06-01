@@ -15,6 +15,7 @@ interface BlobbiInventoryModalProps {
   isOpen: boolean;
   onClose: (actionPerformed?: boolean, action?: BlobbiAction) => void;
   actionType: BlobbiAction;
+  onOpenShop?: () => void;
 }
 
 const ACTION_TYPE_MAP: Record<BlobbiAction, string> = {
@@ -43,7 +44,7 @@ const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: strin
   cruzar: null,
 };
 
-export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInventoryModalProps) {
+export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }: BlobbiInventoryModalProps) {
   const { blobbi } = useBlobbi();
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteraction();
   const { toast } = useToast();
@@ -115,7 +116,14 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInve
             <p className="text-muted-foreground mb-4">
               You don't have any {itemType} items in your inventory.
             </p>
-            <Button variant="outline" onClick={() => onClose(false)}>
+            <Button variant="outline" onClick={() => {
+                if (onOpenShop) {
+                  onClose(false); // Close inventory modal first
+                  onOpenShop(); // Then open shop modal
+                } else {
+                  onClose(false); // Fallback: just close the modal
+                }
+              }}>
               Go to Shop
             </Button>
           </div>

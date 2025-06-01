@@ -224,6 +224,7 @@ export function BlobbiGame() {
               onAction={performAction}
               isPerformingAction={isPerformingAction}
               onGamesClick={() => setShowGames(true)}
+              onOpenShop={() => setShowShop(true)}
             />
           ) : (
             <Card>
