@@ -95,6 +95,14 @@ export interface Blobbi {
   hasDebuff?: string;
   lastMeal?: number;
   lastBath?: number;
+  // Last care tracking fields (for egg phase)
+  // Unix timestamps in seconds (same format as Nostr's created_at)
+  lastWarm?: number;
+  lastTalk?: number;
+  lastCheck?: number;
+  lastSing?: number;
+  lastClean?: number;
+  lastMedicine?: number;
   // Social
   adoptedBy?: string;
   adoptedFrom?: string;

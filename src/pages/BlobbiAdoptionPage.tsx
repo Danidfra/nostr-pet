@@ -1,4 +1,5 @@
 import { BlobbiAdoption } from '@/components/BlobbiAdoption';
+import { BlobbiEggDemo } from '@/components/BlobbiEggDemo';
 import { LoginArea } from '@/components/auth/LoginArea';
 
 export function BlobbiAdoptionPage() {
@@ -49,7 +50,7 @@ export function BlobbiAdoptionPage() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
                   <span className="text-primary">✓</span>
-                  Unique randomized appearance and traits
+                  Specification-compliant egg generation with exact rarities
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-green-500">✓</span>
@@ -82,6 +83,10 @@ export function BlobbiAdoptionPage() {
             
             <BlobbiAdoption />
           </div>
+        </div>
+        
+        <div className="max-w-4xl mx-auto mt-12 pt-8 border-t">
+          <BlobbiEggDemo />
         </div>
       </div>
     </div>

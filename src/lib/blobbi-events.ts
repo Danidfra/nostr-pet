@@ -124,6 +124,17 @@ export function createBlobbiStateEvent(blobbi: Blobbi): Omit<BlobbiStateEvent, '
   if (blobbi.lastMeal) tags.push(['last_meal', new Date(blobbi.lastMeal).toISOString()]);
   if (blobbi.lastBath) tags.push(['last_bath', new Date(blobbi.lastBath).toISOString()]);
 
+  // Add last care tracking fields for egg phase
+  // Using Unix timestamp in seconds (same format as Nostr's created_at)
+  if (blobbi.lifeStage === 'egg') {
+    if (blobbi.lastWarm) tags.push(['last_warm', blobbi.lastWarm.toString()]);
+    if (blobbi.lastTalk) tags.push(['last_talk', blobbi.lastTalk.toString()]);
+    if (blobbi.lastCheck) tags.push(['last_check', blobbi.lastCheck.toString()]);
+    if (blobbi.lastSing) tags.push(['last_sing', blobbi.lastSing.toString()]);
+    if (blobbi.lastClean) tags.push(['last_clean', blobbi.lastClean.toString()]);
+    if (blobbi.lastMedicine) tags.push(['last_medicine', blobbi.lastMedicine.toString()]);
+  }
+
   // Add social tags
   if (blobbi.adoptedBy) tags.push(['adopted_by', blobbi.adoptedBy]);
   if (blobbi.adoptedFrom) tags.push(['adopted_from', blobbi.adoptedFrom]);
@@ -447,6 +458,14 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       hasDebuff: getTagValue(tags, 'has_debuff'),
       lastMeal: getTagValue(tags, 'last_meal') ? new Date(getTagValue(tags, 'last_meal')!).getTime() : undefined,
       lastBath: getTagValue(tags, 'last_bath') ? new Date(getTagValue(tags, 'last_bath')!).getTime() : undefined,
+      // Last care tracking fields (for egg phase)
+      // Parse Unix timestamps in seconds (same format as Nostr's created_at)
+      lastWarm: getTagValue(tags, 'last_warm') ? parseInt(getTagValue(tags, 'last_warm')!) : undefined,
+      lastTalk: getTagValue(tags, 'last_talk') ? parseInt(getTagValue(tags, 'last_talk')!) : undefined,
+      lastCheck: getTagValue(tags, 'last_check') ? parseInt(getTagValue(tags, 'last_check')!) : undefined,
+      lastSing: getTagValue(tags, 'last_sing') ? parseInt(getTagValue(tags, 'last_sing')!) : undefined,
+      lastClean: getTagValue(tags, 'last_clean') ? parseInt(getTagValue(tags, 'last_clean')!) : undefined,
+      lastMedicine: getTagValue(tags, 'last_medicine') ? parseInt(getTagValue(tags, 'last_medicine')!) : undefined,
       // Social fields
       adoptedBy: getTagValue(tags, 'adopted_by'),
       adoptedFrom: getTagValue(tags, 'adopted_from'),

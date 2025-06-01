@@ -343,69 +343,21 @@ export function useCreateBlobbi() {
     }) => {
       if (!user) throw new Error('Must be logged in to create a Blobbi');
       
-      // Import the helper function to create proper blobbi ID
-      const { createBlobbiId } = await import('@/lib/blobbi-events');
-      const blobbiId = createBlobbiId(name);
-      const now = Date.now();
-      
-      // Create initial Blobbi object
-      const newBlobbi: Blobbi = {
-        id: blobbiId,
-        ownerPubkey: user.pubkey,
-        name,
-        birthTime: now,
-        lastInteraction: now,
-        lifeStage: stage,
-        state: 'active',
-        stats: {
-          hunger: 100,
-          happiness: 100,
-          energy: 100,
-          hygiene: 100,
-          health: 100,
-        },
-        customization: {
-          color: '#7C3AED',
-          accessories: [],
-        },
-        experience: 0,
-        coins: 100,
-        inventory: [],
-        generation: 1,
-        breedingReady: false,
-        careStreak: 0,
-        evolutionProgress: {
-          totalCareDays: 0,
-          currentStreak: 0,
-          lastCareDate: 0,
-          careSessions: [],
-          isEligibleForEvolution: false,
-          nextEvolutionCheck: now + 24 * 60 * 60 * 1000,
-        },
-        visibleToOthers: true,
-        // Egg-specific fields
-        ...(stage === 'egg' && {
-          incubationTime: 4 * 24 * 60 * 60, // 4 days in seconds
-          incubationProgress: 0,
-          eggTemperature: 75, // Start with warm temperature (0-100 scale)
-          eggStatus: 'healthy',
-          shellIntegrity: 100,
-        }),
-      };
+      // Use the specification-compliant egg generation system
+      const { createBlobbiWithAdoption } = await import('@/lib/blobbi-adoption');
+      const { blobbi: newBlobbi, adoptionRecord } = createBlobbiWithAdoption({
+        petName: name,
+        userPubkey: user.pubkey,
+      });
 
-      // Create birth record
-      const birthRecordData: BlobbiRecordData = {
-        recordType: 'birth',
-        generation: 1,
-        origin: 'wild',
-        rarity: 'common',
-        creator: user.pubkey,
-        // adoptedFrom: 'BlobbiWorld/1.0.0', // This field doesn't exist in BlobbiRecordData
+      // Merge any additional birth data
+      const finalBirthData: BlobbiRecordData = {
+        ...adoptionRecord,
         ...birthData,
       };
 
       // First create the birth record with the correct blobbi_id
-      const recordEventData = createBlobbiRecordEvent(blobbiId, birthRecordData, `${name} was born!`);
+      const recordEventData = createBlobbiRecordEvent(newBlobbi.id, finalBirthData, `${name} was born!`);
       await publishEvent({
         ...recordEventData,
       });
