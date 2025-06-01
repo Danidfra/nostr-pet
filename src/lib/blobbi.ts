@@ -54,7 +54,7 @@ export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blob
     ownerPubkey,
     name,
     birthTime: Date.now(),
-    lastInteraction: Date.now(),
+    lastInteraction: Math.floor(Date.now() / 1000),
     lifeStage: 'child',
     state: 'active',
     stats: {
@@ -80,7 +80,7 @@ export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blob
 
 // Calculate stat decay based on time passed
 export function calculateStatDecay(blobbi: Blobbi, currentTime: number = Date.now()): BlobbiStats {
-  const hoursPassed = (currentTime - blobbi.lastInteraction) / (1000 * 60 * 60);
+  const hoursPassed = (currentTime / 1000 - blobbi.lastInteraction) / (60 * 60);
   
   // If sleeping, only energy increases, other stats decay slower
   const sleepMultiplier = blobbi.state === 'sleeping' ? 0.3 : 1;
@@ -127,7 +127,7 @@ export function getBlobbiMood(stats: BlobbiStats, state: BlobbiState): BlobbiMoo
 
 // Check if Blobbi should go into hibernation
 export function shouldHibernate(blobbi: Blobbi, currentTime: number = Date.now()): boolean {
-  const daysSinceInteraction = (currentTime - blobbi.lastInteraction) / (1000 * 60 * 60 * 24);
+  const daysSinceInteraction = (currentTime / 1000 - blobbi.lastInteraction) / (60 * 60 * 24);
   return daysSinceInteraction > 7 && blobbi.state !== 'hibernating';
 }
 
@@ -196,7 +196,7 @@ export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: n
     stats: newStats,
     state: newState,
     lifeStage: currentLifeStage,
-    lastInteraction: currentTime,
+    lastInteraction: Math.floor(currentTime / 1000),
     experience: blobbi.experience + expGain,
     coins: blobbi.coins + coinReward,
     evolutionForm,

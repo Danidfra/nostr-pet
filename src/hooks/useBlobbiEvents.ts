@@ -526,7 +526,7 @@ export function useBlobbiCare(blobbiId: string) {
       
       const updatedBlobbi: Blobbi = {
         ...blobbi,
-        lastInteraction: Date.now(),
+        lastInteraction: Math.floor(Date.now() / 1000),
         evolutionProgress: updatedProgress,
         experience: blobbi.experience + (fullInteractionData.experienceGained || 5),
         careStreak: fullInteractionData.careStreak || blobbi.careStreak,

@@ -273,7 +273,7 @@ export function processEvolution(
     lifeStage: newStage,
     evolutionForm: evolutionForm || blobbi.evolutionForm,
     evolutionTime: currentTime,
-    lastInteraction: currentTime,
+    lastInteraction: Math.floor(currentTime / 1000),
     // Reset some stats for new stage
     stats: {
       ...blobbi.stats,

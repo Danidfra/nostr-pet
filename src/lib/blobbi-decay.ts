@@ -200,7 +200,7 @@ export function applyDecay(blobbi: Blobbi, currentTime: number = Date.now()): Bl
     return blobbi; // No decay when hibernating
   }
 
-  const hoursPassed = (currentTime - blobbi.lastInteraction) / (1000 * 60 * 60);
+  const hoursPassed = (currentTime / 1000 - blobbi.lastInteraction) / (60 * 60);
   
   if (hoursPassed < 0.1) {
     return blobbi; // Less than 6 minutes, no decay
@@ -217,7 +217,7 @@ export function applyDecay(blobbi: Blobbi, currentTime: number = Date.now()): Bl
   return {
     ...blobbi,
     ...updates,
-    lastInteraction: currentTime,
+    lastInteraction: Math.floor(currentTime / 1000),
   };
 }
 

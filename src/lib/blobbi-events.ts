@@ -120,9 +120,9 @@ export function createBlobbiStateEvent(blobbi: Blobbi): Omit<BlobbiStateEvent, '
   if (blobbi.isDirty) tags.push(['is_dirty', blobbi.isDirty.toString()]);
   if (blobbi.hasBuff) tags.push(['has_buff', blobbi.hasBuff]);
   if (blobbi.hasDebuff) tags.push(['has_debuff', blobbi.hasDebuff]);
-  if (blobbi.lastInteraction) tags.push(['last_interaction', new Date(blobbi.lastInteraction).toISOString()]);
-  if (blobbi.lastMeal) tags.push(['last_meal', new Date(blobbi.lastMeal).toISOString()]);
-  if (blobbi.lastBath) tags.push(['last_bath', new Date(blobbi.lastBath).toISOString()]);
+  if (blobbi.lastInteraction) tags.push(['last_interaction', blobbi.lastInteraction.toString()]);
+  if (blobbi.lastMeal) tags.push(['last_meal', blobbi.lastMeal.toString()]);
+  if (blobbi.lastClean) tags.push(['last_clean', blobbi.lastClean.toString()]);
 
   // Add last care tracking fields for egg phase
   // Using Unix timestamp in seconds (same format as Nostr's created_at)
@@ -131,7 +131,6 @@ export function createBlobbiStateEvent(blobbi: Blobbi): Omit<BlobbiStateEvent, '
     if (blobbi.lastTalk) tags.push(['last_talk', blobbi.lastTalk.toString()]);
     if (blobbi.lastCheck) tags.push(['last_check', blobbi.lastCheck.toString()]);
     if (blobbi.lastSing) tags.push(['last_sing', blobbi.lastSing.toString()]);
-    if (blobbi.lastClean) tags.push(['last_clean', blobbi.lastClean.toString()]);
     if (blobbi.lastMedicine) tags.push(['last_medicine', blobbi.lastMedicine.toString()]);
   }
 
@@ -407,7 +406,7 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       ownerPubkey: event.pubkey,
       name: extractBlobbiName(id), // Extract name from ID using helper
       birthTime: event.created_at * 1000,
-      lastInteraction: new Date(getTagValue(tags, 'last_interaction') || event.created_at * 1000).getTime(),
+      lastInteraction: getTagValue(tags, 'last_interaction') ? parseInt(getTagValue(tags, 'last_interaction')!) : event.created_at,
       lifeStage: stage,
       state: getTagValue(tags, 'is_sleeping') === 'true' ? 'sleeping' : 'active',
       stats,
@@ -456,15 +455,14 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       isDirty: getTagValue(tags, 'is_dirty') === 'true',
       hasBuff: getTagValue(tags, 'has_buff'),
       hasDebuff: getTagValue(tags, 'has_debuff'),
-      lastMeal: getTagValue(tags, 'last_meal') ? new Date(getTagValue(tags, 'last_meal')!).getTime() : undefined,
-      lastBath: getTagValue(tags, 'last_bath') ? new Date(getTagValue(tags, 'last_bath')!).getTime() : undefined,
+      lastMeal: getTagValue(tags, 'last_meal') ? parseInt(getTagValue(tags, 'last_meal')!) : undefined,
+      lastClean: getTagValue(tags, 'last_clean') ? parseInt(getTagValue(tags, 'last_clean')!) : undefined,
       // Last care tracking fields (for egg phase)
       // Parse Unix timestamps in seconds (same format as Nostr's created_at)
       lastWarm: getTagValue(tags, 'last_warm') ? parseInt(getTagValue(tags, 'last_warm')!) : undefined,
       lastTalk: getTagValue(tags, 'last_talk') ? parseInt(getTagValue(tags, 'last_talk')!) : undefined,
       lastCheck: getTagValue(tags, 'last_check') ? parseInt(getTagValue(tags, 'last_check')!) : undefined,
       lastSing: getTagValue(tags, 'last_sing') ? parseInt(getTagValue(tags, 'last_sing')!) : undefined,
-      lastClean: getTagValue(tags, 'last_clean') ? parseInt(getTagValue(tags, 'last_clean')!) : undefined,
       lastMedicine: getTagValue(tags, 'last_medicine') ? parseInt(getTagValue(tags, 'last_medicine')!) : undefined,
       // Social fields
       adoptedBy: getTagValue(tags, 'adopted_by'),

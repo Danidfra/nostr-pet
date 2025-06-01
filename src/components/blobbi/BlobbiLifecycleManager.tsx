@@ -386,7 +386,7 @@ export const BlobbiLifecycleManager: React.FC<BlobbiLifecycleManagerProps> = ({ 
                     </div>
                     <div className="flex justify-between">
                       <span>Last Interaction:</span>
-                      <span>{new Date(blobbi.lastInteraction).toLocaleString()}</span>
+                      <span>{new Date(blobbi.lastInteraction * 1000).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Generation:</span>

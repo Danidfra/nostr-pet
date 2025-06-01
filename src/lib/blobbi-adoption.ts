@@ -264,7 +264,6 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
     ownerPubkey: userPubkey,
     name: petName,
     birthTime: now,
-    lastInteraction: now,
     lifeStage: 'egg',
     state: 'active',
     stats: {
@@ -310,9 +309,10 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
     eggStatus: record.egg_status,
     shellIntegrity: record.shell_integrity,
     
-    // Additional timestamp fields per specification
-    lastMeal: now - (randomBetween(1, 6) * 60 * 60 * 1000), // 1-6 hours ago
-    lastBath: now - (randomBetween(12, 48) * 60 * 60 * 1000), // 12-48 hours ago
+    // Additional timestamp fields - all use the same creation timestamp in Unix seconds
+    lastInteraction: createdAtSeconds,
+    lastMeal: createdAtSeconds,
+    lastClean: createdAtSeconds,
     
     // Last care tracking fields - initialized with exact timestamp of pet creation
     // These fields are only included during the egg phase for care tracking
@@ -321,7 +321,6 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
     lastTalk: createdAtSeconds,
     lastCheck: createdAtSeconds,
     lastSing: createdAtSeconds,
-    lastClean: createdAtSeconds,
     lastMedicine: createdAtSeconds
   };
   
@@ -397,10 +396,10 @@ export function blobbiEggToTags(record: BlobbiAdoptionRecord, blobbiId: string):
     ['egg_temperature', record.egg_temperature.toString()],
     ['egg_status', record.egg_status],
     ['shell_integrity', record.shell_integrity.toString()],
-    ['last_interaction', now],
+    ['last_interaction', createdAtSeconds.toString()],
     ['last_interaction_type', randomChoice(INTERACTION_TYPES)],
-    ['last_meal', getPastTimestamp(randomBetween(1, 6))],
-    ['last_bath', getPastTimestamp(randomBetween(12, 48))],
+    ['last_meal', createdAtSeconds.toString()],
+    ['last_clean', createdAtSeconds.toString()],
     ['visible_to_others', 'true'],
     // Last care tracking fields - initialized with exact timestamp of pet creation
     // Using Unix timestamp in seconds (same format as Nostr's created_at)
@@ -408,7 +407,6 @@ export function blobbiEggToTags(record: BlobbiAdoptionRecord, blobbiId: string):
     ['last_talk', createdAtSeconds.toString()],
     ['last_check', createdAtSeconds.toString()],
     ['last_sing', createdAtSeconds.toString()],
-    ['last_clean', createdAtSeconds.toString()],
     ['last_medicine', createdAtSeconds.toString()]
   ];
   

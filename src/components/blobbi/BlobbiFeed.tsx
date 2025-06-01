@@ -115,7 +115,7 @@ export function BlobbiFeed() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Last Care</span>
                     <span className="text-xs">
-                      {formatDistanceToNow(blobbi.lastInteraction, { addSuffix: true })}
+                      {formatDistanceToNow(blobbi.lastInteraction * 1000, { addSuffix: true })}
                     </span>
                   </div>
                 </div>

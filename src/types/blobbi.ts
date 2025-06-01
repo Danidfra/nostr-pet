@@ -52,8 +52,8 @@ export interface Blobbi {
   id: string;           // Unique ID (blobbi-{blobbi_name})
   ownerPubkey: string;  // Nostr pubkey of the owner
   name: string;         // Pet's name
-  birthTime: number;    // Unix timestamp of creation
-  lastInteraction: number; // Unix timestamp of last interaction
+  birthTime: number;    // Unix timestamp of creation (milliseconds)
+  lastInteraction: number; // Unix timestamp of last interaction (seconds, same as Nostr created_at)
   lifeStage: BlobbiLifeStage;
   state: BlobbiState;
   stats: BlobbiStats;
@@ -93,15 +93,15 @@ export interface Blobbi {
   isDirty?: boolean;
   hasBuff?: string;
   hasDebuff?: string;
+  // Behavior timestamp fields - Unix timestamps in seconds (same format as Nostr's created_at)
   lastMeal?: number;
-  lastBath?: number;
+  lastClean?: number;
   // Last care tracking fields (for egg phase)
   // Unix timestamps in seconds (same format as Nostr's created_at)
   lastWarm?: number;
   lastTalk?: number;
   lastCheck?: number;
   lastSing?: number;
-  lastClean?: number;
   lastMedicine?: number;
   // Social
   adoptedBy?: string;

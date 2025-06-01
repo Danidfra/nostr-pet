@@ -198,7 +198,7 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
   // Create updated Blobbi
   const updatedBlobbi: Blobbi = {
     ...decayedBlobbi,
-    lastInteraction: Date.now(),
+    lastInteraction: Math.floor(Date.now() / 1000),
     stats: updatedStats,
     experience: blobbi.experience + experienceGain,
     evolutionProgress: updatedEvolutionProgress,

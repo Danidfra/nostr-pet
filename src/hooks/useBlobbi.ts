@@ -95,7 +95,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
   const currentBlobbi = blobbi ? {
     ...blobbi,
     stats: (() => {
-      const degradation = calculateStatDegradation(blobbi.lastInteraction);
+      const degradation = calculateStatDegradation(blobbi.lastInteraction * 1000);
       return {
         hunger: clampStat(blobbi.stats.hunger + (degradation.hunger || 0)),
         happiness: clampStat(blobbi.stats.happiness + (degradation.happiness || 0)),
@@ -403,7 +403,7 @@ export function useBlobbis(limit: number = 20) {
       return blobbis.map(blobbi => ({
         ...blobbi,
         stats: (() => {
-          const degradation = calculateStatDegradation(blobbi.lastInteraction);
+          const degradation = calculateStatDegradation(blobbi.lastInteraction * 1000);
           return {
             hunger: clampStat(blobbi.stats.hunger + (degradation.hunger || 0)),
             happiness: clampStat(blobbi.stats.happiness + (degradation.happiness || 0)),

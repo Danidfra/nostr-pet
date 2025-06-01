@@ -203,7 +203,7 @@ export default function BlobbiProfile() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Last Care</span>
-                  <span>{formatDistanceToNow(blobbi.lastInteraction, { addSuffix: true })}</span>
+                  <span>{formatDistanceToNow(blobbi.lastInteraction * 1000, { addSuffix: true })}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Owner</span>

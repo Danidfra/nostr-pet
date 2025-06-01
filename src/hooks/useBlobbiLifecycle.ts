@@ -207,7 +207,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
       // Create updated Blobbi with decay applied
       const updatedBlobbi: Blobbi = {
         ...decayedBlobbi,
-        lastInteraction: Date.now(),
+        lastInteraction: Math.floor(Date.now() / 1000),
         stats: newStats,
         experience: blobbi.experience + experienceGained,
         evolutionProgress: updatedProgress,
