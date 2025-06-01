@@ -3,7 +3,7 @@ import { useNostr } from '@nostrify/react';
 
 import { useCurrentUser } from './useCurrentUser';
 import { useNostrPublish } from './useNostrPublish';
-import { BlobbonautProfile } from '@/types/blobbi';
+import { BlobbonautProfile, BlobbonautStorageItem } from '@/types/blobbi';
 import { 
   BLOBBI_EVENT_KINDS, 
   createBlobbonautProfileEvent,
@@ -315,6 +315,7 @@ export function useCreateInitialProfile() {
         pettingLevel: 0,
         lifetimeBlobbis: 0,
         achievements: [],
+        storage: [], // Initialize empty storage
         ...customizations,
       };
 
@@ -326,4 +327,183 @@ export function useCreateInitialProfile() {
       });
     },
   });
+}
+
+// Hook to add items to storage
+export function useAddToStorage() {
+  const { data: currentProfile } = useBlobbonautProfile();
+  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
+  const { user } = useCurrentUser();
+
+  return useMutation({
+    mutationFn: async ({ itemId, quantity = 1 }: { itemId: string; quantity?: number }) => {
+      if (!user || !currentProfile) {
+        throw new Error('User must be logged in and have a profile');
+      }
+
+      if (quantity <= 0) {
+        throw new Error('Quantity must be positive');
+      }
+
+      // Find existing item in storage
+      const existingItemIndex = currentProfile.storage.findIndex(item => item.itemId === itemId);
+      
+      let updatedStorage: BlobbonautStorageItem[];
+      
+      if (existingItemIndex >= 0) {
+        // Update existing item quantity
+        updatedStorage = [...currentProfile.storage];
+        updatedStorage[existingItemIndex] = {
+          ...updatedStorage[existingItemIndex],
+          quantity: updatedStorage[existingItemIndex].quantity + quantity,
+        };
+      } else {
+        // Add new item to storage
+        updatedStorage = [
+          ...currentProfile.storage,
+          { itemId, quantity },
+        ];
+      }
+
+      const updatedProfile: BlobbonautProfile = {
+        ...currentProfile,
+        storage: updatedStorage,
+      };
+
+      return new Promise<void>((resolve, reject) => {
+        updateProfile(updatedProfile, {
+          onSuccess: () => resolve(),
+          onError: reject,
+        });
+      });
+    },
+  });
+}
+
+// Hook to remove items from storage
+export function useRemoveFromStorage() {
+  const { data: currentProfile } = useBlobbonautProfile();
+  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
+  const { user } = useCurrentUser();
+
+  return useMutation({
+    mutationFn: async ({ itemId, quantity = 1 }: { itemId: string; quantity?: number }) => {
+      if (!user || !currentProfile) {
+        throw new Error('User must be logged in and have a profile');
+      }
+
+      if (quantity <= 0) {
+        throw new Error('Quantity must be positive');
+      }
+
+      // Find existing item in storage
+      const existingItemIndex = currentProfile.storage.findIndex(item => item.itemId === itemId);
+      
+      if (existingItemIndex < 0) {
+        throw new Error(`Item ${itemId} not found in storage`);
+      }
+
+      const existingItem = currentProfile.storage[existingItemIndex];
+      
+      if (existingItem.quantity < quantity) {
+        throw new Error(`Insufficient quantity. Have ${existingItem.quantity}, trying to remove ${quantity}`);
+      }
+
+      let updatedStorage: BlobbonautStorageItem[];
+      
+      if (existingItem.quantity === quantity) {
+        // Remove item completely if quantity becomes 0
+        updatedStorage = currentProfile.storage.filter((_, index) => index !== existingItemIndex);
+      } else {
+        // Reduce quantity
+        updatedStorage = [...currentProfile.storage];
+        updatedStorage[existingItemIndex] = {
+          ...existingItem,
+          quantity: existingItem.quantity - quantity,
+        };
+      }
+
+      const updatedProfile: BlobbonautProfile = {
+        ...currentProfile,
+        storage: updatedStorage,
+      };
+
+      return new Promise<void>((resolve, reject) => {
+        updateProfile(updatedProfile, {
+          onSuccess: () => resolve(),
+          onError: reject,
+        });
+      });
+    },
+  });
+}
+
+// Hook to purchase items (spend coins and add to storage in single transaction)
+export function usePurchaseItem() {
+  const { data: currentProfile } = useBlobbonautProfile();
+  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
+  const { user } = useCurrentUser();
+
+  return useMutation({
+    mutationFn: async ({ itemId, price, quantity = 1 }: { itemId: string; price: number; quantity?: number }) => {
+      if (!user || !currentProfile) {
+        throw new Error('User must be logged in and have a profile');
+      }
+
+      if (quantity <= 0) {
+        throw new Error('Quantity must be positive');
+      }
+
+      const totalCost = price * quantity;
+
+      // Check if user has enough coins
+      if (currentProfile.coins < totalCost) {
+        throw new Error(`Insufficient coins. Need ${totalCost}, have ${currentProfile.coins}`);
+      }
+
+      // Find existing item in storage
+      const existingItemIndex = currentProfile.storage.findIndex(item => item.itemId === itemId);
+      
+      let updatedStorage: BlobbonautStorageItem[];
+      
+      if (existingItemIndex >= 0) {
+        // Update existing item quantity
+        updatedStorage = [...currentProfile.storage];
+        updatedStorage[existingItemIndex] = {
+          ...updatedStorage[existingItemIndex],
+          quantity: updatedStorage[existingItemIndex].quantity + quantity,
+        };
+      } else {
+        // Add new item to storage
+        updatedStorage = [
+          ...currentProfile.storage,
+          { itemId, quantity },
+        ];
+      }
+
+      // Update profile with both coin deduction and storage addition
+      const updatedProfile: BlobbonautProfile = {
+        ...currentProfile,
+        coins: currentProfile.coins - totalCost,
+        storage: updatedStorage,
+      };
+
+      return new Promise<void>((resolve, reject) => {
+        updateProfile(updatedProfile, {
+          onSuccess: () => resolve(),
+          onError: reject,
+        });
+      });
+    },
+  });
+}
+
+// Hook to get storage item quantity
+export function useStorageItemQuantity(itemId: string): number {
+  const { data: currentProfile } = useBlobbonautProfile();
+  
+  if (!currentProfile) return 0;
+  
+  const storageItem = currentProfile.storage.find(item => item.itemId === itemId);
+  return storageItem?.quantity || 0;
 }

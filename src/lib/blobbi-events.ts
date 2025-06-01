@@ -7,6 +7,7 @@ import {
   BlobbiBreedingEvent,
   BlobbonautProfileEvent,
   BlobbonautProfile,
+  BlobbonautStorageItem,
   BlobbiRecordType,
   BlobbiInteractionType,
   BlobbiInteractionData,
@@ -352,6 +353,11 @@ export function createBlobbonautProfileEvent(
     tags.push(['achievements', achievement]);
   });
 
+  // Add storage items (multiple 'storage' tags in format "item_id:quantity")
+  profile.storage.forEach(storageItem => {
+    tags.push(['storage', `${storageItem.itemId}:${storageItem.quantity}`]);
+  });
+
   return {
     kind: BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE,
     content: '', // Content must be empty according to spec
@@ -654,6 +660,22 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
     const id = getTagValue(tags, 'd');
     if (!id) return null;
 
+    // Parse storage items from storage tags
+    const storageTagValues = getTagValues(tags, 'storage');
+    const storage: BlobbonautStorageItem[] = storageTagValues
+      .map(storageValue => {
+        const parts = storageValue.split(':');
+        if (parts.length === 2) {
+          const itemId = parts[0];
+          const quantity = parseInt(parts[1]);
+          if (!isNaN(quantity) && quantity > 0) {
+            return { itemId, quantity };
+          }
+        }
+        return null;
+      })
+      .filter((item): item is BlobbonautStorageItem => item !== null);
+
     const profile: BlobbonautProfile = {
       id,
       ownerPubkey: event.pubkey,
@@ -662,6 +684,7 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
       pettingLevel: parseInt(getTagValue(tags, 'pettingLevel') || '0'),
       lifetimeBlobbis: parseInt(getTagValue(tags, 'lifetimeBlobbis') || '0'),
       achievements: getTagValues(tags, 'achievements'),
+      storage,
       favoriteBlobbi: getTagValue(tags, 'favoriteBlobbi'),
       starterBlobbi: getTagValue(tags, 'starterBlobbi'),
       style: getTagValue(tags, 'style'),

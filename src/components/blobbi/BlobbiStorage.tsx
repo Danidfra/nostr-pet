@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Package, Sparkles, Apple, Palette, Home, Heart, Droplets } from 'lucide-react';
 import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { SHOP_ITEMS } from '@/lib/shop-items';
-import { getInventoryItemsByType } from '@/lib/blobbi';
 import { useToast } from '@/hooks/useToast';
+import { BlobbiItem } from '@/types/blobbi';
 
 interface BlobbiStorageProps {
   isOpen: boolean;
@@ -18,23 +19,24 @@ interface BlobbiStorageProps {
 
 export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
   const { blobbi } = useBlobbi();
+  const { data: blobbonautProfile } = useBlobbonautProfile();
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-
-
-  // Get items by category
+  // Get items by category from Blobbanaut Profile storage
   const getItemsByCategory = (category: string) => {
-    if (!blobbi || !blobbi.inventory) return [];
+    if (!blobbonautProfile || !blobbonautProfile.storage) return [];
+    
+    const storageItems = blobbonautProfile.storage.map(storageItem => {
+      const shopItem = SHOP_ITEMS.find(item => item.id === storageItem.itemId);
+      return shopItem ? { ...shopItem, quantity: storageItem.quantity } : null;
+    }).filter((item): item is BlobbiItem & { quantity: number } => item !== null);
     
     if (category === 'all') {
-      return blobbi.inventory.map(invItem => {
-        const shopItem = SHOP_ITEMS.find(item => item.id === invItem.itemId);
-        return shopItem ? { ...shopItem, quantity: invItem.quantity, purchasedAt: invItem.purchasedAt } : null;
-      }).filter(item => item !== null);
+      return storageItems;
     }
     
-    return getInventoryItemsByType(blobbi, category, SHOP_ITEMS);
+    return storageItems.filter(item => item.type === category);
   };
 
   const categories = [
@@ -66,7 +68,7 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
           </DialogTitle>
         </DialogHeader>
 
-        {!blobbi ? (
+        {!blobbonautProfile ? (
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
@@ -166,7 +168,7 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
 
             <div className="flex justify-between items-center mt-4 pt-4 border-t">
               <div className="text-sm text-muted-foreground">
-                Total items: {blobbi.inventory?.reduce((sum, item) => sum + item.quantity, 0) || 0}
+                Total items: {blobbonautProfile.storage?.reduce((sum, item) => sum + item.quantity, 0) || 0}
               </div>
               <Button variant="outline" onClick={onClose}>
                 Close

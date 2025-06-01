@@ -138,6 +138,12 @@ export interface BlobbonautProfileEvent {
   tags: Array<[string, string]>; // Profile-specific tags
 }
 
+// Storage item for Blobbanaut Profile
+export interface BlobbonautStorageItem {
+  itemId: string; // Item identifier
+  quantity: number; // Quantity owned
+}
+
 // Blobbanaut Profile data structure
 export interface BlobbonautProfile {
   id: string; // Unique identifier (d tag value)
@@ -149,6 +155,7 @@ export interface BlobbonautProfile {
   favoriteBlobbi?: string; // Favorite Blobbi ID
   starterBlobbi?: string; // First Blobbi ID
   achievements: string[]; // Array of achievement IDs
+  storage: BlobbonautStorageItem[]; // Items stored in inventory
   style?: string; // Aesthetic style
   background?: string; // Background/theme
   title?: string; // Custom title or role

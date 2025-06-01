@@ -3,7 +3,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbiLifecycle } from '@/hooks/useBlobbiLifecycle';
 import { useBlobbiState, useBlobbiRecords, useCreateBlobbi } from '@/hooks/useBlobbiEvents';
 import { useUserBlobbi } from '@/hooks/useUserBlobbi';
-import { useBlobbonautProfile, useSpendCoins, useAddCoins } from '@/hooks/useBlobbonautProfile';
+import { useBlobbonautProfile, useAddCoins, usePurchaseItem } from '@/hooks/useBlobbonautProfile';
 import { Blobbi, BlobbiAction, BlobbiItem, BlobbiStats, BlobbiInteractionType } from '@/types/blobbi';
 import { calculateStatDegradation, clampStat } from '@/lib/blobbi-events';
 
@@ -60,8 +60,8 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
   const { data: blobbonautProfile } = useBlobbonautProfile();
-  const { mutateAsync: spendCoins } = useSpendCoins();
   const { mutateAsync: addCoins } = useAddCoins();
+  const { mutateAsync: purchaseItemFromProfile } = usePurchaseItem();
   
   // Use provided pubkey or current user's pubkey
   const targetPubkey = pubkey || user?.pubkey;
@@ -290,48 +290,23 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
     },
   });
 
-  // Purchase item with Blobbanaut Profile integration
+  // Purchase item with Blobbanaut Profile integration (only emits kind 31125)
   const purchaseItemMutation = useMutation({
     mutationFn: async (item: BlobbiItem) => {
-      if (!user || !currentBlobbi) throw new Error('No Blobbi found');
-      if (!isOwner) throw new Error('You can only purchase items for your own Blobbi');
+      if (!user) throw new Error('Must be logged in to purchase items');
       if (!blobbonautProfile) throw new Error('Blobbanaut Profile not found');
       
-      // Check if user has enough coins
-      if (blobbonautProfile.coins < item.price) {
-        throw new Error(`Insufficient coins. Need ${item.price}, have ${blobbonautProfile.coins}`);
-      }
-      
-      // Spend coins from Blobbanaut Profile
-      await spendCoins(item.price);
-      
-      // Add item to Blobbi's inventory (this would be handled by the state update)
-      const updatedBlobbi = {
-        ...currentBlobbi,
-        inventory: [
-          ...currentBlobbi.inventory,
-          {
-            itemId: item.id,
-            quantity: 1,
-            purchasedAt: Date.now(),
-          }
-        ],
-      };
-      
-      // Update Blobbi state
-      await updateState(updatedBlobbi);
-      
-      // Create a memory for the purchase
-      await createMemory({
-        memoryTitle: 'Item Purchase',
-        memoryDescription: `Purchased ${item.name} for ${item.price} coins`,
-        achievement: `purchased_${item.type}`,
+      // Purchase item (spend coins and add to storage in single kind 31125 event)
+      await purchaseItemFromProfile({ 
+        itemId: item.id, 
+        price: item.price, 
+        quantity: 1 
       });
       
-      return { item, updatedBlobbi };
+      return { item };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
+      // Only invalidate Blobbanaut Profile queries since we're only updating kind 31125
       queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile'] });
     },
   });
