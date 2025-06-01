@@ -135,7 +135,7 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
   // Extract interaction data from tags
   const tags = interactionEvent.tags;
   const action = tags.find((tag: string[]) => tag[0] === 'action')?.[1];
-  const statChangeTag = tags.find((tag: string[]) => tag[0] === 'stat_change')?.[1];
+  const statChangeTags = tags.filter((tag: string[]) => tag[0] === 'stat_change');
   const experienceGainedTag = tags.find((tag: string[]) => tag[0] === 'experience_gained')?.[1];
   const gameType = tags.find((tag: string[]) => tag[0] === 'game_type')?.[1];
   const playDuration = tags.find((tag: string[]) => tag[0] === 'play_duration')?.[1];
@@ -144,23 +144,26 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
   const { applyDecay } = await import('@/lib/blobbi-decay');
   const decayedBlobbi = applyDecay(blobbi);
 
-  // Parse stat change
+  // Parse multiple stat changes
   const updatedStats = { ...decayedBlobbi.stats };
   let updatedEggTemperature = decayedBlobbi.eggTemperature;
   
-  if (statChangeTag) {
-    const [statName, changeStr] = statChangeTag.split(':');
-    const changeValue = parseInt(changeStr);
-    
-    if (statName && !isNaN(changeValue)) {
-      // Handle egg_temperature separately since it's not part of BlobbiStats
-      if (statName === 'egg_temperature') {
-        const currentValue = updatedEggTemperature || 100; // Default to 100 if undefined (new eggs start at 100)
-        updatedEggTemperature = clampStat(currentValue + changeValue);
-      } else {
-        // Handle regular stats
-        const currentValue = updatedStats[statName as keyof BlobbiStats] || 0;
-        updatedStats[statName as keyof BlobbiStats] = clampStat(currentValue + changeValue);
+  // Apply all stat changes from the interaction
+  for (const statChangeTag of statChangeTags) {
+    if (statChangeTag[1]) {
+      const [statName, changeStr] = statChangeTag[1].split(':');
+      const changeValue = parseInt(changeStr);
+      
+      if (statName && !isNaN(changeValue)) {
+        // Handle egg_temperature separately since it's not part of BlobbiStats
+        if (statName === 'egg_temperature') {
+          const currentValue = updatedEggTemperature || 100; // Default to 100 if undefined (new eggs start at 100)
+          updatedEggTemperature = clampStat(currentValue + changeValue);
+        } else {
+          // Handle regular stats
+          const currentValue = updatedStats[statName as keyof BlobbiStats] || 0;
+          updatedStats[statName as keyof BlobbiStats] = clampStat(currentValue + changeValue);
+        }
       }
     }
   }

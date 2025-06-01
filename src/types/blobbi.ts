@@ -174,7 +174,8 @@ export type BlobbiCareAction = 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'ch
 export interface BlobbiInteractionData {
   action: BlobbiInteractionType;
   actionCategory: string;
-  statChange: [string, string]; // [stat_name, change_value]
+  statChange: [string, string]; // [stat_name, change_value] - kept for backward compatibility
+  statChanges?: Array<[string, string]>; // Multiple stat changes for items
   itemUsed?: string;
   itemQuality?: string;
   timeOfDay?: string;
@@ -274,6 +275,6 @@ export interface BlobbiItem {
   name: string;
   type: 'food' | 'toy' | 'accessory' | 'medicine' | 'decoration' | 'hygiene';
   price: number;
-  effect?: Partial<BlobbiStats>;
+  effect?: Partial<BlobbiStats & { egg_temperature?: number }>; // Support negative values and egg_temperature
   icon?: string;
 }

@@ -8,6 +8,7 @@ import {
 import { 
   BlobbiInteractionData, 
   BlobbiInteractionType,
+  BlobbiStats,
 } from '@/types/blobbi';
 
 interface InteractionWithStateUpdateParams {
@@ -15,6 +16,7 @@ interface InteractionWithStateUpdateParams {
   action: BlobbiInteractionType;
   actionCategory?: string;
   statChange?: [string, number];
+  statChanges?: Array<[string, number]>; // Multiple stat changes for items
   experienceGained?: number;
   carePoints?: number;
   gameType?: string;
@@ -42,6 +44,7 @@ export function useBlobbiInteractionWithStateUpdate() {
         action,
         actionCategory = 'game',
         statChange = ['energy', -10],
+        statChanges,
         experienceGained = 5,
         carePoints = 1,
         gameType,
@@ -50,11 +53,16 @@ export function useBlobbiInteractionWithStateUpdate() {
         customData = {},
       } = params;
 
+      // Use multiple stat changes if provided, otherwise use single stat change
+      const finalStatChanges = statChanges || [statChange];
+      const primaryStatChange = finalStatChanges[0];
+
       // Create interaction data
       const interactionData: BlobbiInteractionData = {
         action,
         actionCategory,
-        statChange: [statChange[0], statChange[1] > 0 ? `+${statChange[1]}` : `${statChange[1]}`],
+        statChange: [primaryStatChange[0], primaryStatChange[1] > 0 ? `+${primaryStatChange[1]}` : `${primaryStatChange[1]}`],
+        statChanges: finalStatChanges.map(([stat, value]) => [stat, value > 0 ? `+${value}` : `${value}`]),
         experienceGained,
         carePoints,
         timeOfDay: getTimeOfDay(),
@@ -165,31 +173,46 @@ export function useBlobbiCareInteraction() {
   return useMutation({
     mutationFn: async (params: {
       blobbiId: string;
-      action: 'feed' | 'clean' | 'rest' | 'warm' | 'medicine' | 'check' | 'sing' | 'talk';
+      action: 'feed' | 'clean' | 'rest' | 'warm' | 'medicine' | 'check' | 'sing' | 'talk' | 'play' | 'cruzar';
       itemUsed?: string;
+      itemEffects?: Partial<BlobbiStats & { egg_temperature?: number }>;
       customStatChange?: [string, number];
     }) => {
-      const { blobbiId, action, itemUsed, customStatChange } = params;
+      const { blobbiId, action, itemUsed, itemEffects, customStatChange } = params;
 
-      // Default stat changes for care actions
-      const defaultStatChanges: Record<string, [string, number]> = {
-        feed: ['hunger', 30],
-        clean: ['hygiene', 40],
+      // Static actions that don't depend on items
+      const staticActionChanges: Record<string, [string, number]> = {
         rest: ['energy', 35],
         warm: ['egg_temperature', 5],
-        medicine: ['health', 20],
         check: ['happiness', 3],
         sing: ['happiness', 8],
         talk: ['happiness', 6],
       };
 
-      const statChange = customStatChange || defaultStatChanges[action] || ['happiness', 5];
+      let statChanges: Array<[string, number]>;
+
+      // If item effects are provided (for feed, clean, medicine, play), use them
+      if (itemEffects && ['feed', 'clean', 'medicine', 'play'].includes(action)) {
+        statChanges = Object.entries(itemEffects).map(([stat, value]) => [stat, value as number]);
+      } 
+      // If custom stat change is provided, use it
+      else if (customStatChange) {
+        statChanges = [customStatChange];
+      }
+      // For static actions, use predefined values
+      else if (staticActionChanges[action]) {
+        statChanges = [staticActionChanges[action]];
+      }
+      // Fallback
+      else {
+        statChanges = [['happiness', 5]];
+      }
 
       return await baseHook.mutateAsync({
         blobbiId,
         action: action as BlobbiInteractionType,
         actionCategory: getCareActionCategory(action),
-        statChange,
+        statChanges,
         experienceGained: 5,
         carePoints: action === 'feed' || action === 'clean' ? 3 : 2,
         itemUsed,

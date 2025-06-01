@@ -149,6 +149,14 @@ export function createBlobbiInteractionEvent(
     ['stat_change', `${interactionData.statChange[0]}:${interactionData.statChange[1]}`],
   ];
 
+  // Add multiple stat changes if provided (for items with multiple effects)
+  if (interactionData.statChanges && interactionData.statChanges.length > 1) {
+    // Skip the first one since it's already added as the primary stat_change
+    interactionData.statChanges.slice(1).forEach(([stat, value]) => {
+      tags.push(['stat_change', `${stat}:${value}`]);
+    });
+  }
+
   // Add optional interaction tags
   if (interactionData.itemUsed) tags.push(['item_used', interactionData.itemUsed]);
   if (interactionData.itemQuality) tags.push(['item_quality', interactionData.itemQuality]);

@@ -25,38 +25,34 @@ function mapActionToInteractionType(action: BlobbiAction): BlobbiInteractionType
 }
 
 // Calculate stat changes based on action and item effects
-function calculateStatChange(
+function calculateStatChanges(
   action: BlobbiAction, 
   currentStats: BlobbiStats,
-  itemEffect?: Partial<BlobbiStats>,
+  itemEffect?: Partial<BlobbiStats & { egg_temperature?: number }>,
   lifeStage?: 'egg' | 'child' | 'adult'
-): [string, number] {
-  const baseChanges: Record<BlobbiAction, [string, number]> = {
-    feed: ['hunger', Math.min(30, 100 - currentStats.hunger)],
-    play: ['happiness', Math.min(25, 100 - currentStats.happiness)],
-    clean: lifeStage === 'egg' 
-      ? ['health', Math.min(15, 100 - currentStats.health)] // For eggs, cleaning improves shell health
-      : ['hygiene', Math.min(40, 100 - currentStats.hygiene)], // For child/adult, normal hygiene
+): Array<[string, number]> {
+  // For actions that use items, return the item effects directly
+  if (itemEffect && ['feed', 'play', 'clean', 'medicine'].includes(action)) {
+    return Object.entries(itemEffect).map(([stat, value]) => [stat, value as number]);
+  }
+
+  // For static actions, use predefined values
+  const staticChanges: Partial<Record<BlobbiAction, [string, number]>> = {
     rest: ['energy', Math.min(35, 100 - currentStats.energy)],
-    medicine: lifeStage === 'egg'
-      ? ['health', Math.min(25, 100 - currentStats.health)] // Stronger effect for eggs
-      : ['health', Math.min(20, 100 - currentStats.health)], // Normal effect for child/adult
-    warm: ['health', 5], // Note: For eggs, this is handled specially in useBlobbiLifecycle
+    warm: ['egg_temperature', 5], // For eggs
     check: ['happiness', 3],
     sing: ['happiness', 8],
     talk: ['happiness', 6],
     cruzar: ['happiness', Math.min(20, 100 - currentStats.happiness)], // Special breeding action
   };
 
-  const [stat, baseChange] = baseChanges[action] || ['happiness', 5];
-  
-  // Apply item effects if provided
-  let finalChange = baseChange;
-  if (itemEffect && itemEffect[stat as keyof BlobbiStats]) {
-    finalChange += itemEffect[stat as keyof BlobbiStats] || 0;
+  const staticChange = staticChanges[action];
+  if (staticChange) {
+    return [staticChange];
   }
   
-  return [stat, finalChange];
+  // Fallback
+  return [['happiness', 5]];
 }
 
 // Main hook for Blobbi management using new event system
@@ -177,13 +173,15 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
         }
         
         const interactionType = mapActionToInteractionType(action);
-        const [statName, statChange] = calculateStatChange(action, currentBlobbi.stats, itemEffect, currentBlobbi.lifeStage);
+        const statChanges = calculateStatChanges(action, currentBlobbi.stats, itemEffect, currentBlobbi.lifeStage);
+        const primaryStatChange = statChanges[0];
         
         const result = await performCare({
           action: interactionType,
-          customStatChange: [statName, statChange],
+          customStatChange: primaryStatChange,
           experienceGained: 5,
           carePoints: action === 'feed' || action === 'play' ? 2 : 1,
+          itemUsed: itemEffect ? 'item' : undefined,
         });
         
         // Record cooldown after successful action
@@ -192,12 +190,12 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
         // Calculate new stats for logging
         const newStats = {
           ...previousStats,
-          [statName]: Math.min(100, Math.max(0, previousStats[statName as keyof BlobbiStats] + statChange))
+          [primaryStatChange[0]]: Math.min(100, Math.max(0, previousStats[primaryStatChange[0] as keyof BlobbiStats] + primaryStatChange[1]))
         };
         
         // Log successful interaction
         logInteractionTriggered(action, currentBlobbi.id, currentBlobbi.lifeStage, {
-          statChanges: { [statName]: statChange },
+          statChanges: { [primaryStatChange[0]]: primaryStatChange[1] },
           experienceGained: 5,
           itemUsed: itemEffect ? 'custom_item' : undefined,
           previousStats,

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BlobbiItem, BlobbiAction } from '@/types/blobbi';
 import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiCareInteraction } from '@/hooks/useBlobbiInteractionWithStateUpdate';
 import { useToast } from '@/hooks/useToast';
 import { getInventoryItemsByType } from '@/lib/blobbi';
 import { Utensils, Gamepad2, Pill, Bath, Sparkles } from 'lucide-react';
@@ -43,7 +44,8 @@ const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: strin
 };
 
 export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInventoryModalProps) {
-  const { blobbi, performAction } = useBlobbi();
+  const { blobbi } = useBlobbi();
+  const { mutateAsync: performCareInteraction } = useBlobbiCareInteraction();
   const { toast } = useToast();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
   
@@ -56,11 +58,16 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInve
   const ActionIcon = ACTION_ICONS[actionType];
   
   const handleUseItem = async () => {
-    if (!selectedItem) return;
+    if (!selectedItem || !blobbi) return;
     
     try {
-      // Use the performAction method with item effects
-      await performAction(actionType, selectedItem.effect);
+      // Use the enhanced care interaction system with item effects
+      await performCareInteraction({
+        blobbiId: blobbi.id,
+        action: actionType,
+        itemEffects: selectedItem.effect,
+        itemUsed: selectedItem.name,
+      });
       
       toast({
         title: "Item Used!",
@@ -132,7 +139,7 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType }: BlobbiInve
                           <div className="flex gap-2 mt-1">
                             {item.effect && Object.entries(item.effect).map(([stat, value]) => (
                               <Badge key={stat} variant="secondary" className="text-xs">
-                                {stat} +{value}
+                                {stat} {value >= 0 ? '+' : ''}{value}
                               </Badge>
                             ))}
                           </div>
