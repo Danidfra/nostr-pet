@@ -1,6 +1,15 @@
 import { NostrEvent } from '@nostrify/nostrify';
 import { Blobbi, BlobbiRecordData } from '@/types/blobbi';
 import { createBlobbiId, isValidBlobbiName } from '@/lib/blobbi-events';
+import { 
+  VALID_BASE_COLORS, 
+  VALID_SECONDARY_COLORS, 
+  VALID_SIZES, 
+  VALID_SPECIAL_MARKS, 
+  VALID_TITLES,
+  VALID_PATTERNS,
+  VALID_EGG_STATUSES
+} from './blobbi-egg-validation';
 
 /**
  * Generates a Nostr event of kind 14921 for Blobbi adoption following the exact rules
@@ -58,49 +67,49 @@ interface RaritySystem<T> {
 
 // Base color rarity system (Required - Always Present)
 const BASE_COLOR_RARITY: RaritySystem<string> = {
-  common: { probability: 0.5, values: ['#ffffff', '#f2f2f2', '#e6e6ff'] },
-  uncommon: { probability: 0.3, values: ['#99ccff', '#ccffcc', '#ffffcc'] },
-  rare: { probability: 0.15, values: ['#cc99ff', '#ffb3cc', '#66ffcc'] },
-  legendary: { probability: 0.05, values: ['#6633cc', '#ff3399', '#00ffff'] }
+  common: { probability: 0.5, values: [...VALID_BASE_COLORS.common] },
+  uncommon: { probability: 0.3, values: [...VALID_BASE_COLORS.uncommon] },
+  rare: { probability: 0.15, values: [...VALID_BASE_COLORS.rare] },
+  legendary: { probability: 0.05, values: [...VALID_BASE_COLORS.legendary] }
 };
 
 // Size rarity system (Required - Always Present)
 const SIZE_RARITY: RaritySystem<string> = {
-  common: { probability: 0.6, values: ['small'] },
-  uncommon: { probability: 0.25, values: ['medium'] },
-  rare: { probability: 0.1, values: ['large'] },
-  legendary: { probability: 0.05, values: ['tiny'] }
+  common: { probability: 0.6, values: [...VALID_SIZES.common] },
+  uncommon: { probability: 0.25, values: [...VALID_SIZES.uncommon] },
+  rare: { probability: 0.1, values: [...VALID_SIZES.rare] },
+  legendary: { probability: 0.05, values: [...VALID_SIZES.legendary] }
 };
 
 // Secondary color rarity system (Optional - 45% spawn chance)
 const SECONDARY_COLOR_RARITY: RaritySystem<string> = {
-  common: { probability: 0.6, values: ['#cccccc', '#f0f0f0', '#aabbcc'] },
-  uncommon: { probability: 0.25, values: ['#99ccff', '#ccffcc', '#ffcc99'] },
-  rare: { probability: 0.1, values: ['#ff99ff', '#9966ff', '#66cccc'] },
-  legendary: { probability: 0.05, values: ['#9933ff', '#ff3399', '#00ffcc'] }
+  common: { probability: 0.6, values: [...VALID_SECONDARY_COLORS.common] },
+  uncommon: { probability: 0.25, values: [...VALID_SECONDARY_COLORS.uncommon] },
+  rare: { probability: 0.1, values: [...VALID_SECONDARY_COLORS.rare] },
+  legendary: { probability: 0.05, values: [...VALID_SECONDARY_COLORS.legendary] }
 };
 
 // Special mark rarity system (Optional - 15% spawn chance)
 const SPECIAL_MARK_RARITY: RaritySystem<string> = {
-  common: { probability: 0.5, values: ['dot_center', 'oval_spots'] },
-  uncommon: { probability: 0.3, values: ['ring_mark', 'blush_sides'] },
-  rare: { probability: 0.15, values: ['rune_top', 'shimmer_band'] },
-  legendary: { probability: 0.05, values: ['sigil_eye', 'glow_crack_pattern'] }
+  common: { probability: 0.5, values: [...VALID_SPECIAL_MARKS.common] },
+  uncommon: { probability: 0.3, values: [...VALID_SPECIAL_MARKS.uncommon] },
+  rare: { probability: 0.15, values: [...VALID_SPECIAL_MARKS.rare] },
+  legendary: { probability: 0.05, values: [...VALID_SPECIAL_MARKS.legendary] }
 };
 
 // Title rarity system (Optional - 10% spawn chance)
 const TITLE_RARITY: RaritySystem<string> = {
-  common: { probability: 0.5, values: ['Hatchling', 'Watcher of the Nest'] },
-  uncommon: { probability: 0.3, values: ['Tender of Flames', 'Whisperer'] },
-  rare: { probability: 0.15, values: ['Echo of Ancients', 'Shellbound Hero'] },
-  legendary: { probability: 0.05, values: ['Defender of the Grove', 'The Primordial'] }
+  common: { probability: 0.5, values: [...VALID_TITLES.common] },
+  uncommon: { probability: 0.3, values: [...VALID_TITLES.uncommon] },
+  rare: { probability: 0.15, values: [...VALID_TITLES.rare] },
+  legendary: { probability: 0.05, values: [...VALID_TITLES.legendary] }
 };
 
-// Pattern options (Required)
-const PATTERN_OPTIONS = ['gradient', 'solid', 'speckled', 'striped'];
+// Pattern options (Required) - from validation
+const PATTERN_OPTIONS = [...VALID_PATTERNS];
 
-// Egg status options (Required)
-const EGG_STATUS_OPTIONS = ['cracking', 'warm', 'glowing', 'pulsing'];
+// Egg status options (Required) - from validation
+const EGG_STATUS_OPTIONS = [...VALID_EGG_STATUSES];
 
 // Interaction type options (Required)
 const INTERACTION_TYPES = ['tap', 'stroke', 'whisper', 'sing'];

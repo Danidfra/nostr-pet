@@ -1,0 +1,8 @@
+<svg viewBox="0 0 192 240" xmlns="http://www.w3.org/2000/svg">
+  <!-- Mancha central irregular e suave -->
+  <path d="M90 112 
+           C95 108, 105 110, 107 118 
+           C108 124, 100 128, 92 127 
+           C86 126, 84 120, 90 112 Z" 
+        fill="rgba(120, 75, 30, 0.22)" />
+</svg>

@@ -1,3 +1,6 @@
+/* Import special marks styles */
+@import './styles/special-marks.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

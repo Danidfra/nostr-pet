@@ -1,0 +1,12 @@
+<svg viewBox="0 0 192 240" xmlns="http://www.w3.org/2000/svg">
+  <path d="M60 60 L60 140" stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" />
+  <path d="M100 60 L100 140" stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" />
+  <path d="M60 100 L100 100" stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" />
+  
+  <path d="M40 140 L80 60 L120 140 Z" stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" fill="none" />
+  <path d="M60 110 L100 110" stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" />
+
+  <path d="M40 140 
+           C40 180, 120 180, 120 140" 
+           stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" fill="none" />
+</svg>

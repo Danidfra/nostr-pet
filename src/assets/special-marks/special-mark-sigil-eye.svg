@@ -1,0 +1,23 @@
+<svg viewBox="0 0 192 240" xmlns="http://www.w3.org/2000/svg" >
+  <!-- Contorno do olho -->
+  <path d="M30 120 
+           Q96 50, 162 120 
+           Q96 190, 30 120 Z" 
+        fill="none" stroke="rgba(130,85,30,0.8)" stroke-width="4" />
+  
+  <!-- Íris estilizada -->
+  <circle cx="96" cy="120" r="35" fill="rgba(130,85,30,0.3)" />
+  
+  <!-- Pupila com efeito místico -->
+  <circle cx="96" cy="120" r="12" fill="rgba(80,50,20,0.9)" />
+  
+  <!-- Raios místicos ao redor da íris -->
+  <g stroke="rgba(130,85,30,0.5)" stroke-width="2" >
+    <line x1="96" y1="75" x2="96" y2="55" />
+    <line x1="130" y1="90" x2="150" y2="80" />
+    <line x1="145" y1="140" x2="165" y2="150" />
+    <!-- Linha da esquerda inclinada, 3px para a esquerda -->
+    <line x1="32" y1="155" x2="47" y2="140" />
+    <line x1="50" y1="90" x2="30" y2="80" />
+  </g>
+</svg>

@@ -1,0 +1,7 @@
+<svg viewBox="0 0 192 240" xmlns="http://www.w3.org/2000/svg">
+  <!-- Mancha blush lado esquerdo, forma oval alongada -->
+  <ellipse cx="50" cy="135" rx="18" ry="8" fill="rgba(150, 90, 40, 0.18)" />
+  
+  <!-- Mancha blush lado direito, forma oval alongada -->
+  <ellipse cx="140" cy="135" rx="18" ry="8" fill="rgba(150, 90, 40, 0.18)" />
+</svg>

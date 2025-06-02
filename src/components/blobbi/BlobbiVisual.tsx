@@ -78,6 +78,7 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
         onClick={onClick}
       >
         <EggGraphic
+          blobbi={blobbi}
           size={size}
           animated={blobbi.state === 'active'}
           cracking={!!(blobbi.incubationProgress && blobbi.incubationProgress > 80)}
