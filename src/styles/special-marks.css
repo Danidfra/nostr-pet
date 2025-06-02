@@ -102,6 +102,12 @@
   transform-style: preserve-3d;
 }
 
+/* Ensure special marks are subtle and well-positioned */
+.special-mark-container svg {
+  opacity: 0.8;
+  filter: brightness(0.9);
+}
+
 /* Performance optimizations for special marks */
 .special-mark-container svg {
   will-change: transform;

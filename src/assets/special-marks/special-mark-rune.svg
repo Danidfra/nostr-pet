@@ -1,12 +1,15 @@
 <svg viewBox="0 0 192 240" xmlns="http://www.w3.org/2000/svg">
-  <path d="M60 60 L60 140" stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" />
-  <path d="M100 60 L100 140" stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" />
-  <path d="M60 100 L100 100" stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" />
-  
-  <path d="M40 140 L80 60 L120 140 Z" stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" fill="none" />
-  <path d="M60 110 L100 110" stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" />
+  <!-- Scaled down and repositioned to top center -->
+  <g transform="translate(96, 40) scale(0.4) translate(-40, -40)">
+    <path d="M20 20 L20 60" stroke="rgba(130, 85, 30, 0.6)" stroke-width="2" />
+    <path d="M40 20 L40 60" stroke="rgba(130, 85, 30, 0.6)" stroke-width="2" />
+    <path d="M20 40 L40 40" stroke="rgba(130, 85, 30, 0.6)" stroke-width="2" />
+    
+    <path d="M10 60 L30 20 L50 60 Z" stroke="rgba(130, 85, 30, 0.6)" stroke-width="2" fill="none" />
+    <path d="M20 45 L40 45" stroke="rgba(130, 85, 30, 0.6)" stroke-width="2" />
 
-  <path d="M40 140 
-           C40 180, 120 180, 120 140" 
-           stroke="rgba(130, 85, 30, 0.7)" stroke-width="4" fill="none" />
+    <path d="M10 60 
+             C10 75, 50 75, 50 60" 
+             stroke="rgba(130, 85, 30, 0.6)" stroke-width="2" fill="none" />
+  </g>
 </svg>

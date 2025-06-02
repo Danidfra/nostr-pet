@@ -19,25 +19,28 @@ const SpecialMarkSVGs = {
           <feDropShadow dx="0" dy="0" stdDeviation="1" floodColor="rgba(130,85,30,0.6)" floodOpacity="0.8" />
         </filter>
       </defs>
-      {/* Eye outline */}
-      <path 
-        d="M30 120 Q96 50, 162 120 Q96 190, 30 120 Z" 
-        fill="none" 
-        stroke="rgba(130,85,30,0.8)" 
-        strokeWidth="4" 
-        filter="url(#sigil-glow)"
-      />
-      {/* Stylized iris */}
-      <circle cx="96" cy="120" r="35" fill="rgba(130,85,30,0.3)" />
-      {/* Mystical pupil */}
-      <circle cx="96" cy="120" r="12" fill="rgba(80,50,20,0.9)" />
-      {/* Mystical rays around iris */}
-      <g stroke="rgba(130,85,30,0.5)" strokeWidth="2">
-        <line x1="96" y1="75" x2="96" y2="55" />
-        <line x1="130" y1="90" x2="150" y2="80" />
-        <line x1="145" y1="140" x2="165" y2="150" />
-        <line x1="32" y1="155" x2="47" y2="140" />
-        <line x1="50" y1="90" x2="30" y2="80" />
+      {/* Scaled down and repositioned to top center */}
+      <g transform="translate(96, 45) scale(0.35) translate(-96, -120)">
+        {/* Eye outline */}
+        <path 
+          d="M30 120 Q96 50, 162 120 Q96 190, 30 120 Z" 
+          fill="none" 
+          stroke="rgba(130,85,30,0.6)" 
+          strokeWidth="3" 
+          filter="url(#sigil-glow)"
+        />
+        {/* Stylized iris */}
+        <circle cx="96" cy="120" r="35" fill="rgba(130,85,30,0.25)" />
+        {/* Mystical pupil */}
+        <circle cx="96" cy="120" r="12" fill="rgba(80,50,20,0.7)" />
+        {/* Mystical rays around iris */}
+        <g stroke="rgba(130,85,30,0.4)" strokeWidth="1.5">
+          <line x1="96" y1="75" x2="96" y2="55" />
+          <line x1="130" y1="90" x2="150" y2="80" />
+          <line x1="145" y1="140" x2="165" y2="150" />
+          <line x1="32" y1="155" x2="47" y2="140" />
+          <line x1="50" y1="90" x2="30" y2="80" />
+        </g>
       </g>
     </svg>
   ),
@@ -94,13 +97,16 @@ const SpecialMarkSVGs = {
           <feDropShadow dx="0" dy="0" stdDeviation="1" floodColor="rgba(130, 85, 30, 0.7)" floodOpacity="0.6" />
         </filter>
       </defs>
-      <g stroke="rgba(130, 85, 30, 0.7)" strokeWidth="4" fill="none" filter="url(#rune-glow)">
-        <path d="M60 60 L60 140" />
-        <path d="M100 60 L100 140" />
-        <path d="M60 100 L100 100" />
-        <path d="M40 140 L80 60 L120 140 Z" />
-        <path d="M60 110 L100 110" />
-        <path d="M40 140 C40 180, 120 180, 120 140" />
+      {/* Scaled down and repositioned to top center */}
+      <g transform="translate(96, 40) scale(0.4) translate(-40, -40)">
+        <g stroke="rgba(130, 85, 30, 0.6)" strokeWidth="2" fill="none" filter="url(#rune-glow)">
+          <path d="M20 20 L20 60" />
+          <path d="M40 20 L40 60" />
+          <path d="M20 40 L40 40" />
+          <path d="M10 60 L30 20 L50 60 Z" />
+          <path d="M20 45 L40 45" />
+          <path d="M10 60 C10 75, 50 75, 50 60" />
+        </g>
       </g>
     </svg>
   ),
