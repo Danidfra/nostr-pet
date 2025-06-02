@@ -1,27 +1,27 @@
 # 🪐 Nostr Event Kind 31125 — Blobbanaut Profile
 
-## 🧬 Descrição
+## 🧬 Description
 
-Este evento representa o **Blobbanaut**, ou seja, o dono dos Blobbis. Ele armazena informações sobre o dono, como suas moedas, quais Blobbis possui, nível de interação, conquistas, e outros atributos personalizados.
+This event represents the **Blobbanaut**, i.e., the owner of the Blobbis. It stores information about the owner such as their coins, which Blobbis they own, interaction level, achievements, and other custom attributes.
 
-As informações são armazenadas exclusivamente via **tags** e o evento segue o padrão de eventos parametrizados (`NIP-33`), com a tag `"d"` identificando o dono.
+The information is stored exclusively via **tags** and the event follows the parameterized event standard (`NIP-33`), with the `"d"` tag identifying the owner.
 
 ---
 
-| Tag                   | Description                                         | Required | Example                         |
+| Tag                    | Description                                         | Required | Example                         |
 |------------------------|-----------------------------------------------------|----------|---------------------------------|
 | `d`                    | Unique ID for the Blobbanaut (for NIP-33 replaceable)| ✅ Yes   | `Blobbanaut-Loovi`             |
-| `coins`                | Amount of in-game coins the user owns              | ❌ No    | `1250`                          |
-| `has`                  | A Blobbi the user currently owns                   | ❌ No    | `blobbi:blue-bouncer`          |
-| `pettingLevel`         | Interaction/care level with Blobbis                | ❌ No    | `12`                            |
-| `lifetimeBlobbis`      | Total Blobbis adopted by the user over time        | ❌ No    | `17`                            |
-| `favoriteBlobbi`       | The user's favorite Blobbi                         | ❌ No    | `blobbi:ghosty`                |
-| `starterBlobbi`        | The first Blobbi the user received                 | ❌ No    | `blobbi:ghosty`                |
-| `achievements`         | Unlocked achievements                              | ❌ No    | `friend-of-blobbi`             |
-| `style`                | Aesthetic style selected by the user               | ❌ No    | `punk`                          |
-| `background`           | Background/theme associated with the user          | ❌ No    | `space-station`                |
-| `title`                | Custom title or role of the Blobbanaut             | ❌ No    | `Space Caretaker`              |
-
+| `coins`                | Amount of in-game coins the user owns              | ❌ No    | `1250`                           |
+| `has`                  | A Blobbi the user currently owns                   | ❌ No    | `blobbi:blue-bouncer`            |
+| `pettingLevel`         | Interaction/care level with Blobbis                | ❌ No    | `12`                             |
+| `lifetimeBlobbis`      | Total Blobbis adopted by the user over time        | ❌ No    | `17`                             |
+| `favoriteBlobbi`       | The user's favorite Blobbi                         | ❌ No    | `blobbi:ghosty`                  |
+| `starterBlobbi`        | The first Blobbi the user received                 | ❌ No    | `blobbi:ghosty`                  |
+| `achievements`         | Unlocked achievements                              | ❌ No    | `friend-of-blobbi`               |
+| `style`                | Aesthetic style selected by the user               | ❌ No    | `punk`                           |
+| `background`           | Background/theme associated with the user          | ❌ No    | `space-station`                  |
+| `title`                | Custom title or role of the Blobbanaut             | ❌ No    | `Space Caretaker`                |
+| `storage`              | List of all items the user currently owns          | ❌ No    | `apple:10`, `burger:5`, `ball:1` |
 ---
 
 ---
@@ -46,8 +46,12 @@ As informações são armazenadas exclusivamente via **tags** e o evento segue o
     ["achievements", "first-zap"],
     ["achievements", "friend-of-blobbi"],
     ["style", "punk"],
-    ["title", "Space Caretaker"]
+    ["title", "Space Caretaker"],
+    ["storage", "apple:10"],
+    ["storage", "burger:5"],
+    ["storage", "ball:1"]
   ],
   "content": "",
-  "sig": "<assinatura nostr>"
+  "sig": "<nostr signature>"
 }
+```

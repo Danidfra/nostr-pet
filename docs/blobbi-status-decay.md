@@ -1,151 +1,132 @@
-# 🐣 Blobbi Status Decay Specification
+# 🐣 Blobbi Status Decay & Regeneration Specification
 
-This document defines the rate at which a Blobbi’s status values decay over time. Blobbi has two distinct life stages: **Egg** and **Post-Hatch (Child/Adult)**, each with different visible stats and behaviors.
+This document defines how a Blobbi’s status values decay and regenerate over time, across its life stages: **Egg**, **Baby**, and **Adult**.
 
 ---
 
-## 📘 General Decay Rules
+## 📘 General Decay & Regeneration Rules
 
 - All stats use a 0–100 range.
-- Decay occurs **every hour** when the Blobbi is in an `active` state.
-- If the Blobbi is marked as `inactive`, decay is paused.
-- No stat should ever fall below 0 or exceed 100.
-- Multiple low stats may cause increased `health` decay.
-- Ideal care involves interacting with the Blobbi **2–3 times a day**.
+- Decay and regeneration occur **once per hour** when the Blobbi is `active`.
+- If the Blobbi is marked as `inactive`, status changes are **paused**.
+- No stat should fall below 0 or exceed 100.
+- Ideal care involves interacting with the Blobbi:
+  - **Egg**: 2–3 times daily (minimum: once every 12 hours)
+  - **Baby**: At least 2 times daily
+  - **Adult**: At least 2 times daily
 
 ---
 
 ## 🥚 Egg Stage
 
-During the egg stage, **four stats** are visible and managed:
+### ⚙️ Stats
 
-| Attribute          | Display Name | Initial Value | Decay Rate (/hour) | Notes |
-|--------------------|--------------|---------------|--------------------|-------|
-| `egg_temperature`   | Warmth       | 100           | 3                  | Recovered via the "Warm" action. |
-| `hygiene`          | Cleanliness  | 100           | 2                  | Clean the shell to maintain.     |
-| `happiness`        | Happiness    | 100           | 3                  | Affected by actions like "Sing", "Talk", or "Check". |
-| `shell_integrity`   | Health       | 100           | 0–9 (stacking)     | Depends on other stats, see below.|
+| Attribute        | Display Name | Initial | Decay Rate (/hr) | Regeneration (/hr) | Notes |
+|------------------|--------------|---------|-------------------|---------------------|-------|
+| `egg_temperature`| Warmth       | 100     | -3                | —                   | Use “Warm” action to restore |
+| `hygiene`        | Cleanliness  | 100     | -2                | —                   | Restored with “Clean” action |
+| `happiness`      | Happiness    | 100     | -3                | —                   | Raised via “Sing”, “Talk” or “Check” |
+| `shell_integrity`| Shell Health | 100     | 0–9 (conditional) | +1 (if perfect care) | Represents egg’s overall health |
 
-### 🧪 Shell Integrity and Health Decay
+### 🧪 Shell Integrity Decay Conditions
 
-`shell_integrity` decays based on the severity of neglect in the three core stats. Each stat has **two thresholds** that trigger different levels of shell decay:
+Shell integrity degrades based on **low** values in the other three stats:
 
-| Condition                 | Shell Integrity Decay (/hour) |
-|---------------------------|-------------------------------|
-| `egg_temperature` < 70    | -2                            |
-| `egg_temperature` < 40    | -4                            |
-| `hygiene` < 50            | -1.5                          |
-| `hygiene` < 20            | -3                            |
-| `happiness` < 70          | -1                            |
-| `happiness` < 40          | -2                            |
+| Condition                  | Decay (/hr) |
+|----------------------------|-------------|
+| `egg_temperature` < 70     | -2          |
+| `egg_temperature` < 40     | -4          |
+| `hygiene` < 50             | -1.5        |
+| `hygiene` < 20             | -3          |
+| `happiness` < 70           | -1          |
+| `happiness` < 40           | -2          |
 
-- These penalties **stack** if multiple conditions are met.
-- Example: If `egg_temperature` = 25, `hygiene` = 15, and `happiness` = 45 →  
-  `shell_integrity` decays by **4 (temp) + 3 (hygiene) + 1 (happiness) = 8/hour**.
+These decay values **stack**.  
+Example: If temperature = 30, hygiene = 15, happiness = 65 → shell decays by **4 + 3 + 1 = 8/hour**
 
-- `shell_integrity` **does not recover passively**, unless special conditions are met (see below).
+### ❤️ Shell Integrity Regeneration
 
-#### 🧴 Shell Repair Item (Emergency Use)
+Shell integrity **regenerates** naturally if the user provides **perfect care**:
 
-- A **special item** is available in the store to **restore shell_integrity**.
-- This item is **expensive** and should only be used in **critical situations**.
-- Applying this item will **partially restore** the shell based on item tier.
-- Only one item can be used per day.
+- All three stats (`egg_temperature`, `hygiene`, `happiness`) must be at **100** →  
+  ✅ `shell_integrity` regenerates at **+1/hour**
 
-#### 🌟 Natural Regeneration (Perfect Care)
-
-- If all three other egg stats (`egg_temperature`, `hygiene`, `happiness`) reach **100**, `shell_integrity` will **start to regenerate** at a rate of **+1/hour**.
-- If any of these stats fall **below 90**, regeneration **pauses**.
-- If any stat falls **below 30**, the shell may weaken again and return to active decay.
-
-#### ⚠️ Critical Shell Integrity (Below 50)
-
-If `shell_integrity` drops **below 50**:
-
-- For every hour it stays below 50:
-  - Emit a Nostr event of **kind `31124`** to penalize care.
-  - Deduct **5 care points per hour** from the user.
-  - The event must include tags:  
-    - `["d", "blobbi-{name}"]`  
-    - `["penalty", "shell_integrity_breach"]`  
-    - `["value", "{current_shell_integrity}"]`  
-    - `["care_points_deducted", "5"]`
-
-### 🐣 Evolution Requirements
-
-- Care points deducted when conditions are not met.
-- To hatch (egg to child):
-  - Minimum age: 7 days since adoption
-  - Minimum care points: 40 (care points will be deducted on kind `31124` events if not met)
-- If conditions are not met, evolution is delayed or penalized.
+- If **any stat drops below 90**, regeneration **pauses**  
+- If **any stat drops below 30**, decay resumes as per rules above
 
 ---
 
-## 🧒 Post-Hatch Stage (Child/Adult)
+### 🧴 Emergency Shell Repair
 
-After hatching, the Blobbi enters a new phase with **five main stats** decaying actively:
-
-| Attribute  | Initial Value | Decay Rate (/hour)     | Notes |
-|------------|---------------|-----------------------|-------|
-| `hunger`   | 100           | -5.0                  | Feed to restore.                    |
-| `happiness`| 100           | -3.0                  | Raised via play and attention.      |
-| `energy`   | 100           | -6.0 (awake), +4.0 (sleeping) | Sleep regenerates energy.     |
-| `hygiene`  | 100           | -4.0                  | Bathe the Blobbi regularly.         |
-| `health`   | 100           | -1.0 (baseline)       | Decay increases with poor care.     |
-
-### ⚠️ Health Decay Modifiers
-
-When the following conditions are met, `health` decay is increased:
-
-- `hunger` < 30 → +1.5/hour health decay  
-- `hygiene` < 20 → +1.0/hour health decay  
-- `energy` < 20 → +1.0/hour health decay  
-- `happiness` < 30 → +1.0/hour health decay  
-
-**Maximum health decay**: -4.5/hour (when all conditions are met).
-
-### ❤️ Health Recovery
-
-If all other stats are **above 80**, health regenerates at **+2/hour**.  
-Actions that improve other stats may also slightly boost health.
-
-### 🐾 Evolution to Adult
-
-To evolve from Child to Adult:
-
-- Minimum age: 10 days since adoption
-- Minimum care points: 150 (must have at least 150 care points in addition to age requirement)
-- At least 50 interaction events
-- Happiness level: ≥ 70%
-- Health level: ≥ 80%
-
-If care points are below 150 or the minimum age has not passed, the Blobbi **will not evolve to adult**.
+- An expensive **item** is available to restore `shell_integrity`
+- Only **one use per day** allowed
+- Restores based on **item tier**
 
 ---
 
-## 🕒 Update Cycle
+### 🐣 Hatching Requirements
 
-The Blobbi engine should:
+- Minimum egg age: **7 days**
+- Minimum care points: **40**
 
-- Apply status decay **every hour**.
-- Round all values to integers.
-- Keep all stats within [0, 100].
-- Persist current values in local or remote storage.
+---
+
+## 👶 Baby Stage
+
+| Attribute   | Initial | Decay Rate (/hr)         | Regeneration Conditions     |
+|-------------|---------|---------------------------|-----------------------------|
+| `hunger`    | 100     | -5                        | —                           |
+| `happiness` | 100     | -3                        | —                           |
+| `energy`    | 100     | -6 (awake), +4 (asleep)   | Sleep action                |
+| `hygiene`   | 100     | -4                        | —                           |
+| `health`    | 100     | -1 baseline               | +2 if all other stats > 80  |
+
+### ⚠️ Health Decay Boosts
+
+When thresholds are breached:
+
+- `hunger` < 30 → +1.5/hr
+- `hygiene` < 20 → +1/hr
+- `energy` < 20 → +1/hr
+- `happiness` < 30 → +1/hr
+
+Max `health` decay: **-4.5/hour**
+
+---
+
+## 🧑 Adult Stage
+
+Same decay system as Baby, but with **slightly slower hunger and energy cycles**.
+
+- Encourages consistent but less intense care
 
 ---
 
 ## 🧬 Initial Stat Values
 
-| Life Stage  | hunger | happiness | energy | hygiene | health | egg_temperature | shell_integrity |
-|-------------|--------|-----------|--------|---------|--------|-----------------|-----------------|
-| Egg         | N/A    | 100       | N/A    | 100     | 100    | 100             | 100             |
-| Post-Hatch  | 100    | 100       | 100    | 100     | 100    | N/A             | N/A             |
+| Stage       | hunger | happiness | energy | hygiene | health | egg_temp | shell_integrity |
+|-------------|--------|-----------|--------|---------|--------|----------|------------------|
+| Egg         | —      | 100       | —      | 100     | —      | 100      | 100              |
+| Baby        | 100    | 100       | 100    | 100     | 100    | —        | —                |
+| Adult       | 100    | 100       | 100    | 100     | 100    | —        | —                |
 
 ---
 
-## 📆 Recommended Interaction Frequency
+## 📆 Engine Update Cycle
 
-- **Egg Stage**: Interact **at least once every 12 hours**.
-- **Post-Hatch Stage**: Interact **2–3 times daily** to maintain optimal stats.
+- Decay and regeneration apply **once per hour**
+- Values are rounded to integers
+- Stats must remain in [0–100]
+- Persistent state is saved locally or remotely
+
+---
+
+## 🔁 Interaction Frequency Summary
+
+| Stage  | Recommended Interactions Per Day |
+|--------|----------------------------------|
+| Egg    | 2–3 (minimum once every 12h)     |
+| Baby   | At least 2                       |
+| Adult  | At least 2                       |
 
 ---

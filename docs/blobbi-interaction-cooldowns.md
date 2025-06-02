@@ -1,98 +1,103 @@
 # Blobbi Interaction Cooldowns
 
-To make interactions more engaging and prevent spammy behavior, each action in the Blobbi lifecycle has a cooldown. This prevents repeated usage in a short period and encourages regular check-ins.
+To make interactions more engaging and prevent spammy behavior, each action in the Blobbi lifecycle has a cooldown system. This prevents repeated usage in a short period and encourages regular check-ins with meaningful care loops.
+
+---
+
+## ⏳ Cooldown Model
+
+- Each action can be used **up to 4 times per session**.
+- A **short cooldown** applies after each individual use.
+- Once the **max uses per session** is reached, the action enters a **global cooldown**.
+- Global cooldowns vary by action and Blobbi stage.
 
 ---
 
 ## 🥚 Egg Stage
 
-| Action  | Cooldown | Description                                    |
-|---------|----------|------------------------------------------------|
-| `warm`  | 30 min   | Warming provides a long-lasting effect and should not be spammed. |
-| `sing`  | 15 min   | Frequent bonding action, adds happiness.       |
-| `check` | 5 min    | Can be used often to inspect Blobbi.            |
-| `talk`  | 10 min   | Emotional bonding, minor impact.                 |
+| Action     | Cooldown per use | Max uses per session | Global cooldown | Description                                                       |
+|------------|------------------|----------------------|------------------|-------------------------------------------------------------------|
+| `warm`     | 5 min            | 4                    | 1.5 hours        | Warming provides a lasting effect; avoid spamming.                |
+| `sing`     | 5 min            | 4                    | 1.5 hours        | Frequent bonding action, increases happiness.                     |
+| `check`    | 3 min            | 4                    | 1 hour           | Can be used often to inspect Blobbi, minor happiness boost.       |
+| `talk`     | 5 min            | 4                    | 1.5 hours        | Emotional bonding, low impact.                                    |
+| `clean`    | 10 min           | 4                    | 1.5 hours        | Prevents hygiene abuse and farming.                               |
+| `medicine` | 120 min          | 1                    | —                | High-impact action, should remain rare and meaningful.            |
 
 ---
 
-## 🐣 Post-Hatched (Child Stage)
+## 🐣 Child Stage
 
-| Action     | Cooldown | Description                                    |
-|------------|----------|------------------------------------------------|
-| `feed`     | 45 min   | Avoids overfeeding. Should feel meaningful.     |
-| `play`     | 30 min   | Boosts happiness and energy. Should be spaced out. |
-| `clean`    | 60 min   | Hygiene needs time to accumulate. Prevents farming. |
-| `rest`     | 90 min   | Sleep cycles need to feel natural.              |
-| `medicine` | 120 min  | High-impact action, should be rare and meaningful. |
-| `check`    | 5 min    | Can be used often to inspect status.            |
-| `talk`     | 15 min   | Similar to `sing`, increases connection.        |
+| Action     | Cooldown per use | Max uses per session | Global cooldown | Description                                    |
+|------------|------------------|----------------------|------------------|------------------------------------------------|
+| `feed`     | 5 min            | 4                    | 1.5 hours        | Avoids overfeeding; promotes meaningful care.  |
+| `play`     | 10 min           | 4                    | 2 hours          | Boosts happiness and energy.                   |
+| `clean`    | 10 min           | 4                    | 1.5 hours        | Hygiene management.                            |
+| `rest`     | —                | 1                    | Until full/4h     | Full rest cycle per session.                   |
+| `talk`     | 5 min            | 4                    | 1.5 hours        | Builds bond through frequent interaction.      |
+| `check`    | 3 min            | 4                    | 1 hour           | Status inspection.                             |
+| `medicine` | 120 min          | 1                    | —                | Rare, impactful.                               |
 
 ---
 
 ## 🧑‍🦱 Adult Stage
 
-| Action     | Cooldown | Description                                    |
-|------------|----------|------------------------------------------------|
-| `feed`     | 60 min   | Adults eat less frequently.                     |
-| `play`     | 45 min   | Less frequent than with children.               |
-| `clean`    | 90 min   | Same hygiene cycle as child.                     |
-| `rest`     | 120 min  | Longer rest cycle for adults.                    |
-| `medicine` | 180 min  | High-impact and rare usage.                       |
-| `check`    | 5 min    | Always available.                                |
-| `talk`     | 15 min   | Low impact, social interaction.                  |
-| `cruzar`   | 1 day    | Special action. Must feel rare and important.    |
+| Action     | Cooldown per use | Max uses per session | Global cooldown | Description                                    |
+|------------|------------------|----------------------|------------------|------------------------------------------------|
+| `feed`     | 5 min            | 4                    | 1.5 hours        | Adults eat less frequently.                    |
+| `play`     | 10 min           | 4                    | 2 hours          | Less playful than children, but still needed.  |
+| `clean`    | 10 min           | 4                    | 1.5 hours        | Maintains hygiene.                             |
+| `rest`     | —                | 1                    | Until full/4h     | Longer sleep cycles.                           |
+| `talk`     | 5 min            | 4                    | 1.5 hours        | Low-impact social bonding.                     |
+| `check`    | 3 min            | 4                    | 1 hour           | General status checking.                       |
+| `medicine` | 180 min          | 1                    | —                | High-impact action.                            |
+| `cruzar`   | —                | 1/day                | 24 hours         | Rare and meaningful reproductive event.        |
 
 ---
 
 ## 🔁 Cooldown Handling & Sync Logic
 
-To ensure a smooth and consistent experience, cooldowns must be reliably tracked even if the app is closed or offline for a while. Here's how cooldowns are managed on the client side:
+Cooldowns are enforced consistently, even if the app is closed or offline. The system uses a hybrid approach that prioritizes local data but can sync with the relay when needed.
 
-### 🧠 Local Cache First
+### 🧠 Local-First Tracking
 
-- The client **caches the last performed actions and their timestamps locally** (e.g., `localStorage`, `IndexedDB`, or encrypted local database on mobile).
-- When the app is opened or resumed, the client **first checks this local cache** to determine if an action is currently on cooldown.
-- This guarantees quick interaction without requiring a network call if the app was recently used.
+- The app **locally stores timestamps** of each action per Blobbi using mechanisms like `localStorage`, `IndexedDB`, or a mobile-safe database.
+- On app resume, cooldowns are **calculated using local timestamps**, allowing for fast, offline-friendly interactions.
+- This ensures a responsive experience without requiring a constant internet connection.
 
-### 🌐 Fallback to Relay Sync
+### 🌐 Relay Sync on Demand
 
-If no recent cached data is available or the app has been closed for a longer period:
+If the app is reopened after a long time, or if the local data is missing or outdated:
 
-- The client must **query the relay** for the **most recent interaction events** for each action type (`kind: 14919`) associated with the current Blobbi.
-- This query should filter events by:
-  - `#d` tag identifying the action (e.g., `feed`, `warm`, etc.)
-  - `created_at` timestamp within a defined window:
-    - **2 hours** for Blobbi in **Egg** or **Child** stages (due to the maximum cooldown of 120 min).
-    - **24 hours** for **Adult** stage Blobbi (to include actions like `cruzar`).
+- The client queries the relay for recent action events using **`kind: 31124`**, scoped to the relevant Blobbi.
+- It reads the relevant **`last_<action>` tags** from these events to restore the correct cooldown state.
 
-- After receiving the events, the client should:
-  - **Update the local cache** with the most recent timestamps.
-  - **Update the UI** accordingly (e.g., disabling buttons, showing timers).
+After fetching:
 
-#### Special Case: Egg Stage
-
-- If the Blobbi is still in the **egg** stage, the client should additionally:
-  - Fetch the latest **status events** (`kind: 14919`) tagged for that egg Blobbi.
-  - Use these to **restore UI elements specific to incubation**, such as `warm` or `sing` timers and the egg state visuals.
-
-### ⚙️ Implementation Notes
-
-- Cooldowns are **per Blobbi and per action**.
-- The app should **block or disable the UI for actions still on cooldown**, showing a timer or progress indicator.
-- Attempting an action during cooldown should be prevented client-side or rejected server-side for consistency.
-- This hybrid approach balances **performance** (via cache) with **accuracy** (via recent relay sync).
-- It also supports **offline mode** gracefully by relying on cached timestamps.
+- Local timestamps are updated to match the most recent action data.
+- Cooldown timers and button states in the UI are refreshed accordingly.
 
 ---
 
-## ⏳ Summary
+## ⚙️ Technical Notes
 
-| Stage  | Max Cooldown Window for Sync Request |
-|--------|-------------------------------------|
-| Egg    | 2 hours                            |
-| Child  | 2 hours                            |
-| Adult  | 24 hours                           |
+- Cooldowns are enforced **per action, per Blobbi**.
+- The UI should:
+  - **Disable actions** that are on cooldown.
+  - **Show countdown timers** until actions become available.
+- If a user tries to perform an action during a cooldown, the app should **block it locally**, with optional server-side validation for security.
+- This hybrid model provides **offline support** while ensuring **data consistency** when the device reconnects.
 
-This ensures cooldown enforcement aligns with the Blobbi lifecycle and interaction pacing.
+---
+
+## ⏳ Sync Validity Window
+
+| Stage  | Max Age of Local Data Before Sync |
+|--------|-----------------------------------|
+| Egg    | 2 hours                           |
+| Child  | 2 hours                           |
+| Adult  | 24 hours                          |
+
+After these limits, a relay sync is recommended to ensure cooldown accuracy.
 
 ---

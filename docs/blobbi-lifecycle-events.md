@@ -215,9 +215,9 @@ This replaceable event contains the current state of the Blobbi. The `d` tag con
 
 | Tag                   | Description                              | Required | Example Value                        |
 |-----------------------|------------------------------------------|----------|--------------------------------------|
-| `base_color`          | Main body color (hex)                    | ❌ No    | `#9999ff`                            |
+| `base_color`          | Main color (hex)                    | ❌ No    | `#9999ff`                            |
 | `secondary_color`     | Secondary color (hex)                    | ❌ No    | `#ccccff`                            |
-| `pattern`             | Body pattern type                        | ❌ No    | `gradient`                           |
+| `pattern`             | Cplor pattern type                        | ❌ No    | `gradient`                           |
 | `eye_color`           | Eye color (hex)                          | ❌ No    | `#6633cc`                            |
 | `special_mark`        | Unique visual mark                       | ❌ No    | `star_forehead`                      |
 | `template_design`     | Reference design URL                     | ❌ No    | `https://github.com/.../egg-v1`      |
@@ -258,11 +258,17 @@ This replaceable event contains the current state of the Blobbi. The `d` tag con
 | `is_sleeping`            | Currently sleeping                       | ❌ No    | `true`                            |
 | `has_buff`               | Current buff name                        | ❌ No    | `hyper_active`                    |
 | `has_debuff`             | Current debuff name                      | ❌ No    | `sick`                            |
-| `last_interaction`       | ISO timestamp of last user interaction   | ❌ No    | `2025-05-30T14:22:00Z`            |
-| `last_interaction_type`  | ISO timestamp of last user interaction   | ❌ No    | `2025-05-30T14:22:00Z`            |
-| `last_meal`              | ISO timestamp of last feeding            | ❌ No    | `2025-05-30T12:15:00Z`            |
-| `last_bath`              | ISO timestamp of last cleaning           | ❌ No    | `2025-05-29T21:00:00Z`            |
-
+| `last_interaction`       | Unix timestamp of last user interaction  | ❌ No    | `1717292400`                      |
+| `last_interaction_type`  | Unix timestamp of last user interaction  | ❌ No    | `1717296000`                      |
+| `last_meal`              | Unix timestamp of last feeding           | ❌ No    | `1717303200`                      |
+| `last_bath`              | Unix timestamp of last cleaning          | ❌ No    | `1717306800`                      |
+| `last_warm`              | Unix timestamp of last `warm`            | ❌ No    | `1717285200`                      |
+| `last_talk`              | Unix timestamp of last `talk`            | ❌ No    | `1717288800`                      |
+| `last_check`             | Unix timestamp of last `check`           | ❌ No    | `1717292400`                      |
+| `last_sing`              | Unix timestamp of last `sing`            | ❌ No    | `1717296000`                      |
+| `last_medicine`          | Unix timestamp of last `medicine`        | ❌ No    | `1717303200`                      |
+| `last_meal`              | Unix timestamp of last `feed`            | ❌ No    | `1717306800`                      |
+| `last_clean`             | Unix timestamp of last `clean`           | ❌ No    | `1717310400`                      |
 ---
 
 ### Social & World
