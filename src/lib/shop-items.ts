@@ -14,13 +14,13 @@ export const SHOP_ITEMS: BlobbiItem[] = [
   { id: 'toy_blocks', name: 'Building Blocks', type: 'toy', price: 40, effect: { happiness: 30, energy: -10 }, icon: '🧱' },
   { id: 'toy_puzzle', name: 'Puzzle', type: 'toy', price: 50, effect: { happiness: 35, energy: -15 }, icon: '🧩' },
   
-  // Medicine - boost health for child/adult, shell_integrity for eggs, some have side effects
+  // Medicine - boost health (automatically converts to shell_integrity for eggs)
   { id: 'med_vitamins', name: 'Vitamins', type: 'medicine', price: 40, effect: { health: 20 }, icon: '💊' },
   { id: 'med_super', name: 'Super Medicine', type: 'medicine', price: 100, effect: { health: 50, energy: 20, happiness: -10 }, icon: '💉' },
   { id: 'med_bandage', name: 'Bandage', type: 'medicine', price: 20, effect: { health: 15 }, icon: '🩹' },
   { id: 'med_elixir', name: 'Health Elixir', type: 'medicine', price: 150, effect: { health: 80, happiness: 20, energy: 10 }, icon: '🧪' },
-  { id: 'med_shell_repair', name: 'Shell Repair Kit', type: 'medicine', price: 60, effect: { shell_integrity: 30 }, icon: '🥚' },
-  { id: 'med_calcium', name: 'Calcium Supplement', type: 'medicine', price: 35, effect: { shell_integrity: 25, health: 10 }, icon: '🦴' },
+  { id: 'med_shell_repair', name: 'Shell Repair Kit', type: 'medicine', price: 60, effect: { health: 30 }, icon: '🥚' },
+  { id: 'med_calcium', name: 'Calcium Supplement', type: 'medicine', price: 35, effect: { health: 35 }, icon: '🦴' },
   
   // Hygiene items - clean and boost happiness
   { id: 'hyg_soap', name: 'Soap', type: 'hygiene', price: 15, effect: { hygiene: 30 }, icon: '🧼' },

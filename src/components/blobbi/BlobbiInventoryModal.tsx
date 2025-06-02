@@ -202,7 +202,9 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }
                         <div>
                           <h4 className="font-medium text-sm">{item.name}</h4>
                           <div className="flex gap-2 mt-1">
-                            {item.effect && Object.entries(item.effect).map(([stat, value]) => (
+                            {item.effect && Object.entries(item.effect)
+                              .filter(([stat]) => stat !== 'shell_integrity') // Hide shell_integrity from UI, show only health
+                              .map(([stat, value]) => (
                               <Badge key={stat} variant="secondary" className="text-xs">
                                 {formatStatName(stat)} {value >= 0 ? '+' : ''}{value}
                               </Badge>
