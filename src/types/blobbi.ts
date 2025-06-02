@@ -290,6 +290,6 @@ export interface BlobbiItem {
   name: string;
   type: 'food' | 'toy' | 'accessory' | 'medicine' | 'decoration' | 'hygiene';
   price: number;
-  effect?: Partial<BlobbiStats & { egg_temperature?: number }>; // Support negative values and egg_temperature
+  effect?: Partial<BlobbiStats & { egg_temperature?: number; shell_integrity?: number }>; // Support negative values, egg_temperature, and shell_integrity
   icon?: string;
 }

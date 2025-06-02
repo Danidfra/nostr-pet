@@ -113,7 +113,7 @@ export const useSpecialMark = (
   useEffect(() => {
     if (!autoAnimate || !state.mark) return;
 
-    const shouldAutoAnimate = ['sigil_eye', 'shimmer_band', 'glow_crack_pattern', 'rune_top'].includes(state.mark);
+    const shouldAutoAnimate = ['sigil_eye', 'glow_crack_pattern', 'rune_top'].includes(state.mark);
     
     setState(prev => ({
       ...prev,
@@ -138,7 +138,7 @@ export const useSpecialMark = (
       case 'sigil_eye':
         return 'animate-sigil-pulse';
       case 'shimmer_band':
-        return 'animate-shimmer';
+        return ''; // shimmer_band should always be static and centered
       case 'glow_crack_pattern':
         return 'animate-glow-pulse';
       case 'rune_top':

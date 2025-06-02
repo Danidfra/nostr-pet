@@ -34,17 +34,20 @@ const ACTION_EFFECTS: Record<BlobbiAction, Partial<BlobbiStats>> = {
   cruzar: { happiness: 20, energy: -10 }, // Special breeding action
 };
 
+// DEPRECATED: These cooldown constants are superseded by the comprehensive cooldown system
+// in cooldown-storage.ts which handles per-stage cooldowns, session limits, and global cooldowns.
+// This is kept for backward compatibility only.
 const ACTION_COOLDOWNS: Record<BlobbiAction, number> = {
-  feed: 30 * 60 * 1000,      // 30 minutes
-  play: 15 * 60 * 1000,      // 15 minutes
-  clean: 60 * 60 * 1000,     // 1 hour (20 min for eggs, handled in cooldown-storage.ts)
-  rest: 4 * 60 * 60 * 1000,  // 4 hours
-  warm: 10 * 60 * 1000,      // 10 minutes (30 min for eggs, handled in cooldown-storage.ts)
-  check: 5 * 60 * 1000,      // 5 minutes
-  sing: 20 * 60 * 1000,      // 20 minutes (15 min for eggs, handled in cooldown-storage.ts)
-  talk: 10 * 60 * 1000,      // 10 minutes
-  medicine: 2 * 60 * 60 * 1000, // 2 hours (45 min for eggs, handled in cooldown-storage.ts)
-  cruzar: 24 * 60 * 60 * 1000, // 1 day
+  feed: 30 * 60 * 1000,      // 30 minutes (DEPRECATED - see cooldown-storage.ts)
+  play: 15 * 60 * 1000,      // 15 minutes (DEPRECATED - see cooldown-storage.ts)
+  clean: 60 * 60 * 1000,     // 1 hour (DEPRECATED - see cooldown-storage.ts)
+  rest: 4 * 60 * 60 * 1000,  // 4 hours (DEPRECATED - see cooldown-storage.ts)
+  warm: 10 * 60 * 1000,      // 10 minutes (DEPRECATED - see cooldown-storage.ts)
+  check: 5 * 60 * 1000,      // 5 minutes (DEPRECATED - see cooldown-storage.ts)
+  sing: 20 * 60 * 1000,      // 20 minutes (DEPRECATED - see cooldown-storage.ts)
+  talk: 10 * 60 * 1000,      // 10 minutes (DEPRECATED - see cooldown-storage.ts)
+  medicine: 2 * 60 * 60 * 1000, // 2 hours (DEPRECATED - see cooldown-storage.ts)
+  cruzar: 24 * 60 * 60 * 1000, // 1 day (DEPRECATED - see cooldown-storage.ts)
 };
 
 // Create a new Blobbi for a user
@@ -205,12 +208,16 @@ export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: n
   };
 }
 
-// Check if an action is available (not on cooldown)
+// DEPRECATED: Check if an action is available (not on cooldown)
+// This function is deprecated in favor of the comprehensive cooldown system in cooldown-storage.ts
+// which handles per-stage cooldowns, session limits, and global cooldowns.
+// Use useBlobbiCooldowns hook or cooldownStorage.isOnCooldown() instead.
 export function isActionAvailable(
   action: BlobbiAction, 
   lastActionTime: number | undefined, 
   currentTime: number = Date.now()
 ): boolean {
+  console.warn('isActionAvailable() is deprecated. Use useBlobbiCooldowns hook or cooldownStorage.isOnCooldown() instead.');
   if (!lastActionTime) return true;
   const cooldown = ACTION_COOLDOWNS[action];
   return currentTime - lastActionTime >= cooldown;

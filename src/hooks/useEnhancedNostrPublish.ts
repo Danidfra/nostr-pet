@@ -147,6 +147,7 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
   // Parse multiple stat changes
   const updatedStats = { ...decayedBlobbi.stats };
   let updatedEggTemperature = decayedBlobbi.eggTemperature;
+  let updatedShellIntegrity = decayedBlobbi.shellIntegrity;
   
   // Apply all stat changes from the interaction
   for (const statChangeTag of statChangeTags) {
@@ -159,7 +160,19 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
         if (statName === 'egg_temperature') {
           const currentValue = updatedEggTemperature || 100; // Default to 100 if undefined (new eggs start at 100)
           updatedEggTemperature = clampStat(currentValue + changeValue);
-        } else {
+        }
+        // Handle shell_integrity separately since it's not part of BlobbiStats
+        else if (statName === 'shell_integrity') {
+          const currentValue = updatedShellIntegrity || 100; // Default to 100 if undefined (new eggs start at 100)
+          updatedShellIntegrity = clampStat(currentValue + changeValue);
+        }
+        // Special handling for medicine action on eggs
+        else if (statName === 'health' && action === 'medicine' && decayedBlobbi.lifeStage === 'egg') {
+          // For eggs, medicine should restore shell_integrity instead of health
+          const currentValue = updatedShellIntegrity || 100;
+          updatedShellIntegrity = clampStat(currentValue + changeValue);
+        }
+        else {
           // Handle regular stats
           const currentValue = updatedStats[statName as keyof BlobbiStats] || 0;
           updatedStats[statName as keyof BlobbiStats] = clampStat(currentValue + changeValue);
@@ -195,16 +208,46 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
     updatedEvolutionProgress = updateEvolutionProgress(blobbi, action || '');
   }
 
-  // Create updated Blobbi
+  // Update last_* timestamp fields based on the action
+  // Use Unix timestamp in seconds (same format as Nostr's created_at)
+  const currentTimestamp = Math.floor(Date.now() / 1000);
   const updatedBlobbi: Blobbi = {
     ...decayedBlobbi,
-    lastInteraction: Math.floor(Date.now() / 1000),
+    lastInteraction: currentTimestamp,
     stats: updatedStats,
     experience: blobbi.experience + experienceGain,
     evolutionProgress: updatedEvolutionProgress,
     careStreak: Math.max(blobbi.careStreak, updatedEvolutionProgress.currentStreak),
     eggTemperature: updatedEggTemperature,
+    shellIntegrity: updatedShellIntegrity,
   };
+
+  // Update corresponding last_* timestamp based on action type
+  switch (action) {
+    case 'warm':
+      updatedBlobbi.lastWarm = currentTimestamp;
+      break;
+    case 'talk':
+      updatedBlobbi.lastTalk = currentTimestamp;
+      break;
+    case 'sing':
+      updatedBlobbi.lastSing = currentTimestamp;
+      break;
+    case 'check':
+      updatedBlobbi.lastCheck = currentTimestamp;
+      break;
+    case 'medicine':
+      updatedBlobbi.lastMedicine = currentTimestamp;
+      break;
+    case 'clean':
+      updatedBlobbi.lastClean = currentTimestamp;
+      break;
+    case 'feed':
+      updatedBlobbi.lastMeal = currentTimestamp;
+      break;
+    // Note: 'rest', 'play', and 'cruzar' don't have corresponding last_* fields in the Blobbi type
+    // but they still update lastInteraction which is handled above
+  }
 
   return updatedBlobbi;
 }

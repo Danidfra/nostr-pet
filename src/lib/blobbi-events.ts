@@ -121,18 +121,17 @@ export function createBlobbiStateEvent(blobbi: Blobbi): Omit<BlobbiStateEvent, '
   if (blobbi.hasBuff) tags.push(['has_buff', blobbi.hasBuff]);
   if (blobbi.hasDebuff) tags.push(['has_debuff', blobbi.hasDebuff]);
   if (blobbi.lastInteraction) tags.push(['last_interaction', blobbi.lastInteraction.toString()]);
+
+  // Add last care tracking fields - Unix timestamps in seconds (same format as Nostr's created_at)
+  // These fields track when specific actions were last performed and are used for cooldowns and evolution
+  // Only include these tags if the actions have actually been performed (not just initialized during adoption)
   if (blobbi.lastMeal) tags.push(['last_meal', blobbi.lastMeal.toString()]);
   if (blobbi.lastClean) tags.push(['last_clean', blobbi.lastClean.toString()]);
-
-  // Add last care tracking fields for egg phase
-  // Using Unix timestamp in seconds (same format as Nostr's created_at)
-  if (blobbi.lifeStage === 'egg') {
-    if (blobbi.lastWarm) tags.push(['last_warm', blobbi.lastWarm.toString()]);
-    if (blobbi.lastTalk) tags.push(['last_talk', blobbi.lastTalk.toString()]);
-    if (blobbi.lastCheck) tags.push(['last_check', blobbi.lastCheck.toString()]);
-    if (blobbi.lastSing) tags.push(['last_sing', blobbi.lastSing.toString()]);
-    if (blobbi.lastMedicine) tags.push(['last_medicine', blobbi.lastMedicine.toString()]);
-  }
+  if (blobbi.lastWarm) tags.push(['last_warm', blobbi.lastWarm.toString()]);
+  if (blobbi.lastTalk) tags.push(['last_talk', blobbi.lastTalk.toString()]);
+  if (blobbi.lastCheck) tags.push(['last_check', blobbi.lastCheck.toString()]);
+  if (blobbi.lastSing) tags.push(['last_sing', blobbi.lastSing.toString()]);
+  if (blobbi.lastMedicine) tags.push(['last_medicine', blobbi.lastMedicine.toString()]);
 
   // Add social tags
   if (blobbi.adoptedBy) tags.push(['adopted_by', blobbi.adoptedBy]);
@@ -455,10 +454,10 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       isDirty: getTagValue(tags, 'is_dirty') === 'true',
       hasBuff: getTagValue(tags, 'has_buff'),
       hasDebuff: getTagValue(tags, 'has_debuff'),
+      // Last care tracking fields - Unix timestamps in seconds (same format as Nostr's created_at)
+      // These fields track when specific actions were last performed and are used for cooldowns and evolution
       lastMeal: getTagValue(tags, 'last_meal') ? parseInt(getTagValue(tags, 'last_meal')!) : undefined,
       lastClean: getTagValue(tags, 'last_clean') ? parseInt(getTagValue(tags, 'last_clean')!) : undefined,
-      // Last care tracking fields (for egg phase)
-      // Parse Unix timestamps in seconds (same format as Nostr's created_at)
       lastWarm: getTagValue(tags, 'last_warm') ? parseInt(getTagValue(tags, 'last_warm')!) : undefined,
       lastTalk: getTagValue(tags, 'last_talk') ? parseInt(getTagValue(tags, 'last_talk')!) : undefined,
       lastCheck: getTagValue(tags, 'last_check') ? parseInt(getTagValue(tags, 'last_check')!) : undefined,
@@ -909,6 +908,26 @@ export function isValidBlobbiName(name: string): boolean {
 // Helper function to clamp stat values
 export function clampStat(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+// Helper function to extract action timestamps from Blobbi object
+// Maps last_<action> fields to their corresponding action names
+export function extractActionTimestamps(blobbi: Blobbi): Record<string, number> {
+  const actionTimestamps: Record<string, number> = {};
+  
+  // Map last_<action> fields to action names
+  if (blobbi.lastMeal) actionTimestamps.feed = blobbi.lastMeal * 1000; // Convert to milliseconds
+  if (blobbi.lastClean) actionTimestamps.clean = blobbi.lastClean * 1000;
+  if (blobbi.lastWarm) actionTimestamps.warm = blobbi.lastWarm * 1000;
+  if (blobbi.lastTalk) actionTimestamps.talk = blobbi.lastTalk * 1000;
+  if (blobbi.lastCheck) actionTimestamps.check = blobbi.lastCheck * 1000;
+  if (blobbi.lastSing) actionTimestamps.sing = blobbi.lastSing * 1000;
+  if (blobbi.lastMedicine) actionTimestamps.medicine = blobbi.lastMedicine * 1000;
+  
+  // Note: rest, play, and cruzar don't have corresponding last_* fields in the Blobbi type
+  // but they still update lastInteraction which is handled separately
+  
+  return actionTimestamps;
 }
 
 // Helper function to calculate stat degradation over time

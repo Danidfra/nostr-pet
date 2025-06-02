@@ -6,10 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNostr } from '@/hooks/useNostr';
 import { BlobbiAction, BlobbiLifeStage, Blobbi } from '@/types/blobbi';
-import { BLOBBI_EVENT_KINDS } from '@/lib/blobbi-events';
 import { 
   cooldownStorage, 
   formatCooldownTime, 
@@ -25,6 +22,12 @@ export interface CooldownState {
     isOnCooldown: boolean;
     remainingTime: number;
     lastTimestamp: number | null;
+    sessionInfo: {
+      usesInSession: number;
+      maxUses: number;
+      isInGlobalCooldown: boolean;
+      globalCooldownRemaining: number;
+    };
   };
 }
 
@@ -42,10 +45,9 @@ export interface UseBlobbiCooldownsReturn {
 
 /**
  * Hook for managing Blobbi interaction cooldowns
+ * Now uses pre-loaded kind 31124 data instead of separate fetches
  */
 export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsReturn {
-  const { nostr } = useNostr();
-  const queryClient = useQueryClient();
   const [cooldowns, setCooldowns] = useState<CooldownState>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -54,115 +56,37 @@ export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsRet
   const stage = blobbi?.lifeStage;
 
   /**
-   * Fetch recent interaction events from relay for cooldown sync
+   * Initialize cooldowns from the already-loaded Blobbi data
+   * Always uses the current blobbiState as the source of truth
    */
-  const fetchRecentInteractions = useCallback(async (blobbiId: string, stage: BlobbiLifeStage) => {
-    if (!nostr) return [];
-
-    const syncWindow = getSyncWindow(stage);
-    const since = Math.floor((Date.now() - syncWindow) / 1000);
-
-    try {
-      const signal = AbortSignal.timeout(5000);
-      const events = await nostr.query([
-        {
-          kinds: [BLOBBI_EVENT_KINDS.INTERACTION],
-          '#blobbi_id': [blobbiId],
-          since,
-          limit: 100,
-        }
-      ], { signal });
-
-      return events.sort((a, b) => b.created_at - a.created_at);
-    } catch (error) {
-      console.warn('Failed to fetch recent interactions:', error);
-      return [];
-    }
-  }, [nostr]);
-
-  /**
-   * Fetch status events for egg stage to restore UI state
-   */
-  const fetchStatusEvents = useCallback(async (blobbiId: string) => {
-    if (!nostr) return [];
-
-    try {
-      const signal = AbortSignal.timeout(3000);
-      const events = await nostr.query([
-        {
-          kinds: [BLOBBI_EVENT_KINDS.STATE],
-          '#d': [blobbiId],
-          limit: 10,
-        }
-      ], { signal });
-
-      return events.sort((a, b) => b.created_at - a.created_at);
-    } catch (error) {
-      console.warn('Failed to fetch status events:', error);
-      return [];
-    }
-  }, [nostr]);
-
-  /**
-   * Sync cooldowns from relay events according to the specification
-   */
-  const syncCooldownsFromRelay = useCallback(async (blobbiId: string, stage: BlobbiLifeStage) => {
+  const initializeCooldownsFromBlobbi = useCallback(async (blobbi: Blobbi) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Import logger
+      // Import utilities
+      const { extractActionTimestamps } = await import('@/lib/blobbi-events');
       const { logCooldownSync } = await import('@/lib/interaction-logger');
 
-      // Determine sync window based on stage
-      const syncWindow = getSyncWindow(stage);
-      const since = Math.floor((Date.now() - syncWindow) / 1000);
-
-      // Fetch recent interaction events within the sync window
-      const interactionEvents = await fetchRecentInteractions(blobbiId, stage);
+      // Extract action timestamps from the already-loaded Blobbi object
+      const actionTimestamps = extractActionTimestamps(blobbi);
       
-      // Filter events to only include actions relevant to the current stage
-      const relevantActions = Object.keys(COOLDOWN_DURATIONS[stage]).filter(
-        action => COOLDOWN_DURATIONS[stage][action as BlobbiAction] > 0
-      );
-
-      // Process interaction events to extract action timestamps
-      const actionTimestamps: Record<string, number> = {};
+      // Always initialize from the current blobbiState data - this is the source of truth
+      // Remove any localStorage checks that could cause bugs
+      await cooldownStorage.initializeFromActionTimestamps(blobbi.id, actionTimestamps, blobbi.lifeStage);
       
-      for (const event of interactionEvents) {
-        const actionTag = event.tags.find(([name]) => name === 'action');
-        if (actionTag && actionTag[1]) {
-          const action = actionTag[1] as BlobbiAction;
-          
-          // Only process actions that are relevant for this stage
-          if (relevantActions.includes(action)) {
-            const timestamp = event.created_at * 1000; // Convert to milliseconds
-            
-            // Keep the most recent timestamp for each action
-            if (!actionTimestamps[action] || timestamp > actionTimestamps[action]) {
-              actionTimestamps[action] = timestamp;
-            }
-          }
-        }
-      }
-
-      // Update local storage with synced data - this is the source of truth
-      for (const [action, timestamp] of Object.entries(actionTimestamps)) {
-        await cooldownStorage.setCooldown(blobbiId, action as BlobbiAction, timestamp, stage);
-      }
-
-      // Log sync event
-      logCooldownSync(blobbiId, Object.keys(actionTimestamps), 'relay');
-
-      console.log(`🔄 COOLDOWN SYNC COMPLETE | ${blobbiId} | ${stage} | Synced ${Object.keys(actionTimestamps).length} actions from relay`);
+      // Log successful initialization
+      logCooldownSync(blobbi.id, Object.keys(actionTimestamps), 'relay');
+      
+      console.log(`📊 COOLDOWNS INITIALIZED FROM BLOBBI STATE | ${blobbi.id} | ${blobbi.lifeStage} | Actions: ${Object.keys(actionTimestamps).join(', ')}`);
 
     } catch (err) {
-      console.error('Failed to sync cooldowns from relay:', err);
-      setError(err instanceof Error ? err : new Error('Failed to sync cooldowns'));
+      console.error('Failed to initialize cooldowns from Blobbi data:', err);
+      setError(err instanceof Error ? err : new Error('Failed to initialize cooldowns'));
     } finally {
       setIsLoading(false);
     }
-  }, [fetchRecentInteractions]);
+  }, []);
 
   /**
    * Load and update cooldown state
@@ -178,12 +102,13 @@ export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsRet
       for (const action of allActions) {
         const isAvailable = isActionAvailableForStage(action, stage);
         const remainingTime = activeCooldowns[action] || 0;
-        const lastTimestamp = await cooldownStorage.getCooldown(blobbiId, action);
+        const sessionInfo = cooldownStorage.getSessionInfo(blobbiId, action, stage);
 
         newCooldowns[action] = {
           isOnCooldown: isAvailable && remainingTime > 0,
           remainingTime,
-          lastTimestamp,
+          lastTimestamp: null, // We'll get this from cache if needed
+          sessionInfo,
         };
       }
 
@@ -198,31 +123,30 @@ export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsRet
    * Record a new interaction and update cooldowns
    */
   const recordInteraction = useCallback(async (action: BlobbiAction) => {
-    if (!blobbiId || !stage) {
-      throw new Error('Blobbi ID and stage are required');
+    if (!blobbi) {
+      throw new Error('Blobbi is required');
     }
 
-    const timestamp = Date.now();
-    await cooldownStorage.setCooldown(blobbiId, action, timestamp, stage);
-    await updateCooldownState(blobbiId, stage);
+    await cooldownStorage.recordInteraction(blobbi.id, action, blobbi.lifeStage);
+    await updateCooldownState(blobbi.id, blobbi.lifeStage);
     
     // Import and log the interaction recording
     const { logCooldownSync } = await import('@/lib/interaction-logger');
-    logCooldownSync(blobbiId, [action], 'local');
-  }, [blobbiId, stage, updateCooldownState]);
+    logCooldownSync(blobbi.id, [action], 'local');
+  }, [blobbi, updateCooldownState]);
 
   /**
-   * Refresh cooldowns (sync from relay and update state)
+   * Refresh cooldowns (re-initialize from Blobbi data and update state)
    */
   const refreshCooldowns = useCallback(async () => {
-    if (!blobbiId || !stage) return;
+    if (!blobbi) return;
 
-    // First try to sync from relay
-    await syncCooldownsFromRelay(blobbiId, stage);
+    // Re-initialize from the current Blobbi data
+    await initializeCooldownsFromBlobbi(blobbi);
     
     // Then update local state
-    await updateCooldownState(blobbiId, stage);
-  }, [blobbiId, stage, syncCooldownsFromRelay, updateCooldownState]);
+    await updateCooldownState(blobbi.id, blobbi.lifeStage);
+  }, [blobbi, initializeCooldownsFromBlobbi, updateCooldownState]);
 
   /**
    * Format remaining time for display
@@ -245,33 +169,35 @@ export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsRet
    * Check if an action is available (not on cooldown and valid for stage)
    */
   const isActionAvailable = useCallback((action: BlobbiAction): boolean => {
-    if (!stage) return false;
-    const isAvailableForStage = isActionAvailableForStage(action, stage);
+    if (!blobbi) return false;
+    const isAvailableForStage = isActionAvailableForStage(action, blobbi.lifeStage);
     const isOnCooldown = isActionOnCooldown(action);
     return isAvailableForStage && !isOnCooldown;
-  }, [stage, isActionOnCooldown]);
+  }, [blobbi, isActionOnCooldown]);
 
   // Initialize cooldowns when blobbi changes
   useEffect(() => {
-    if (blobbiId && stage) {
+    if (blobbi) {
       // Log cooldown system initialization
       import('@/lib/interaction-logger').then(({ logCooldownSystemInit }) => {
-        logCooldownSystemInit(blobbiId);
+        logCooldownSystemInit(blobbi.id);
       });
-      refreshCooldowns();
+      
+      // Initialize cooldowns from the already-loaded Blobbi data
+      initializeCooldownsFromBlobbi(blobbi);
     }
-  }, [blobbiId, stage, refreshCooldowns]);
+  }, [blobbi, initializeCooldownsFromBlobbi]);
 
   // Update cooldown timers every second
   useEffect(() => {
-    if (!blobbiId || !stage) return;
+    if (!blobbi) return;
 
     const interval = setInterval(async () => {
-      await updateCooldownState(blobbiId, stage);
+      await updateCooldownState(blobbi.id, blobbi.lifeStage);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [blobbiId, stage, updateCooldownState]);
+  }, [blobbi, updateCooldownState]);
 
   // Clean up old cooldowns periodically
   useEffect(() => {

@@ -307,11 +307,23 @@ export function logCooldownSystemInit(blobbiId: string): void {
 /**
  * Logs cooldown system sync events
  */
-export function logCooldownSync(blobbiId: string, syncedActions: string[], source: 'relay' | 'local'): void {
+export function logCooldownSync(blobbiId: string, syncedActions: string[], source: 'relay' | 'local' | 'local_fresh'): void {
+  const sourceEmoji = {
+    relay: '🌐',
+    local: '📱',
+    local_fresh: '✨'
+  };
+
+  const sourceDescription = {
+    relay: 'Relay (kind 31124 + fallback to 14919)',
+    local: 'Local Storage',
+    local_fresh: 'Local Data (Fresh, No Sync Needed)'
+  };
+
   console.group(`🔄 COOLDOWN SYNC`);
   console.log(`🔮 Blobbi ID: ${blobbiId}`);
   console.log(`⏰ Timestamp: ${formatTimestamp(Date.now())}`);
-  console.log(`📡 Source: ${source}`);
+  console.log(`${sourceEmoji[source]} Source: ${sourceDescription[source]}`);
   console.log(`🎯 Synced Actions: ${syncedActions.join(', ') || 'none'}`);
   console.groupEnd();
 }

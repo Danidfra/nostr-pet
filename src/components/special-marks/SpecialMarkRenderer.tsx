@@ -220,7 +220,7 @@ const getAnimationClasses = (specialMark: string, animated: boolean) => {
     case 'sigil_eye':
       return 'animate-pulse';
     case 'shimmer_band':
-      return 'animate-shimmer';
+      return ''; // shimmer_band should always be static and centered
     case 'glow_crack_pattern':
       return 'animate-glow-pulse';
     case 'rune_top':

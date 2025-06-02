@@ -68,21 +68,39 @@ export function BlobbiActions({
       // Import and log blocked action
       const { logInteractionBlockedUnavailable } = await import('@/lib/interaction-logger');
       logInteractionBlockedUnavailable(action, blobbi.id, blobbi.lifeStage);
+      toast({
+        title: "Action Unavailable",
+        description: `${action} is not available for ${blobbi.lifeStage} stage Blobbis.`,
+        variant: "destructive",
+      });
       return;
     }
     
-    // Check if action is on cooldown
+    // Check if action is on cooldown using the new local-first system
     const isOnCooldown = isActionOnCooldown(action);
     if (isOnCooldown) {
       // Import and log blocked action
       const { logInteractionBlockedByCooldown } = await import('@/lib/interaction-logger');
       const remainingMs = cooldowns[action]?.remainingTime || 0;
       logInteractionBlockedByCooldown(action, blobbi.id, blobbi.lifeStage, remainingMs);
+      
+      const remainingTime = formatRemainingTime(action);
+      const sessionInfo = cooldowns[action]?.sessionInfo;
+      const isGlobalCooldown = sessionInfo?.isInGlobalCooldown;
+      
+      toast({
+        title: isGlobalCooldown ? "Global Cooldown Active" : "Action on Cooldown",
+        description: isGlobalCooldown 
+          ? `You've used ${action} ${sessionInfo.usesInSession}/${sessionInfo.maxUses} times. Wait ${remainingTime} before using again.`
+          : `Wait ${remainingTime} before using ${action} again.`,
+        variant: "destructive",
+      });
       return;
     }
     
-    // Check if action is available (not on cooldown and valid for stage)
+    // Final check if action is available (not on cooldown and valid for stage)
     if (!isActionAvailable(action)) {
+      console.warn(`Action ${action} failed final availability check for ${blobbi.id}`);
       return;
     }
 
@@ -296,14 +314,27 @@ export function BlobbiActions({
               const isAvailableForStage = isActionAvailableForStage(action, blobbi.lifeStage);
               const isOnCooldown = isActionOnCooldown(action);
               const remainingTime = formatRemainingTime(action);
-              const isDisabled = !isAvailableForStage || disabled || isOnCooldown || isPerformingAction || cooldownsLoading;
+              
+              // Only show loading for the initial cooldown system setup, not for ongoing updates
+              const isInitialLoading = cooldownsLoading && !cooldowns[action];
+              const isDisabled = !isAvailableForStage || disabled || isOnCooldown || isPerformingAction || isInitialLoading;
+              
+              // Get session information
+              const sessionInfo = cooldowns[action]?.sessionInfo;
+              const showSessionInfo = sessionInfo && sessionInfo.maxUses > 1;
               
               // Build tooltip
               let actionTooltip = tooltip;
               if (!isAvailableForStage) {
                 actionTooltip = `Not available in ${blobbi.lifeStage} stage`;
               } else if (isOnCooldown && remainingTime) {
-                actionTooltip = `Cooldown: ${remainingTime}`;
+                if (sessionInfo?.isInGlobalCooldown) {
+                  actionTooltip = `Global cooldown: ${remainingTime} (used ${sessionInfo.usesInSession}/${sessionInfo.maxUses} times)`;
+                } else {
+                  actionTooltip = `Cooldown: ${remainingTime}`;
+                }
+              } else if (showSessionInfo) {
+                actionTooltip = `${tooltip} (${sessionInfo.usesInSession}/${sessionInfo.maxUses} uses this session)`;
               }
               
               return (
@@ -322,12 +353,28 @@ export function BlobbiActions({
                 >
                   <Icon className="w-5 h-5" />
                   <span className="text-xs">{label}</span>
+                  {/* Session usage indicator */}
+                  {showSessionInfo && (
+                    <span className="absolute -top-1 -left-1 text-[10px] bg-blue-500 text-white px-1 rounded">
+                      {sessionInfo.usesInSession}/{sessionInfo.maxUses}
+                    </span>
+                  )}
+                  
+                  {/* Cooldown timer */}
                   {isOnCooldown && remainingTime && (
                     <span className="absolute -top-1 -right-1 text-[10px] bg-background px-1 rounded border">
                       {remainingTime}
                     </span>
                   )}
-                  {cooldownsLoading && (
+                  
+                  {/* Global cooldown indicator */}
+                  {sessionInfo?.isInGlobalCooldown && (
+                    <span className="absolute -bottom-1 -right-1 text-[10px] bg-red-500 text-white px-1 rounded">
+                      G
+                    </span>
+                  )}
+                  {/* Only show loading spinner during initial setup */}
+                  {isInitialLoading && (
                     <div className="absolute inset-0 bg-background/50 rounded flex items-center justify-center">
                       <RefreshCw className="w-3 h-3 animate-spin" />
                     </div>
@@ -342,10 +389,10 @@ export function BlobbiActions({
                 variant="outline"
                 size="sm"
                 onClick={onGamesClick}
-                disabled={isPerformingAction || cooldownsLoading}
+                disabled={isPerformingAction}
                 className={cn(
                   'flex flex-col gap-1 h-auto py-3 relative',
-                  !isPerformingAction && !cooldownsLoading && 'hover:bg-purple-100'
+                  !isPerformingAction && 'hover:bg-purple-100'
                 )}
               >
                 <Trophy className="w-5 h-5" />

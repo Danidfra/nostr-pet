@@ -37,10 +37,10 @@ export function useBlobbiDecayManager({
 
     const interval = setInterval(async () => {
       const now = Date.now();
-      const hoursSinceLastInteraction = (now / 1000 - blobbi.lastInteraction) / (60 * 60);
+      const hoursSinceLastUpdate = (now / 1000 - blobbi.lastInteraction) / (60 * 60);
 
-      // Only apply decay if at least 1 hour has passed
-      if (hoursSinceLastInteraction >= 1) {
+      // Only apply decay if at least 1 hour has passed since last update and Blobbi is active
+      if (hoursSinceLastUpdate >= 1 && blobbi.state === 'active') {
         try {
           // Apply decay
           const decayedBlobbi = applyDecay(blobbi, now);

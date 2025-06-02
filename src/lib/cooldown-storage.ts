@@ -2,7 +2,8 @@
  * Cooldown Storage System
  * 
  * Manages persistent storage of Blobbi interaction cooldowns using IndexedDB
- * with localStorage fallback for compatibility.
+ * with localStorage fallback for compatibility. Implements session-based cooldowns
+ * with global cooldowns according to the specification.
  */
 
 import { BlobbiAction, BlobbiLifeStage } from '@/types/blobbi';
@@ -12,15 +13,15 @@ const DB_NAME = 'BlobbiCooldowns';
 const DB_VERSION = 1;
 const STORE_NAME = 'cooldowns';
 
-// Cooldown durations in milliseconds - reduced for better user experience
+// Cooldown durations in milliseconds according to specification
 export const COOLDOWN_DURATIONS: Record<BlobbiLifeStage, Record<BlobbiAction, number>> = {
   egg: {
-    warm: 5 * 60 * 1000,        // 5 minutes (reduced from 30)
-    sing: 3 * 60 * 1000,        // 3 minutes (reduced from 15)
-    check: 1 * 60 * 1000,       // 1 minute (reduced from 5)
-    talk: 2 * 60 * 1000,        // 2 minutes (reduced from 10)
-    medicine: 5 * 60 * 1000,    // 5 minutes (reduced from 45) - heal the egg if health is low
-    clean: 3 * 60 * 1000,       // 3 minutes (reduced from 20) - clean the egg shell
+    warm: 5 * 60 * 1000,        // 5 minutes per use
+    sing: 5 * 60 * 1000,        // 5 minutes per use
+    check: 3 * 60 * 1000,       // 3 minutes per use
+    talk: 5 * 60 * 1000,        // 5 minutes per use
+    clean: 10 * 60 * 1000,      // 10 minutes per use
+    medicine: 120 * 60 * 1000,  // 120 minutes per use (2 hours)
     // Actions not available in egg stage
     feed: 0,
     play: 0,
@@ -28,27 +29,113 @@ export const COOLDOWN_DURATIONS: Record<BlobbiLifeStage, Record<BlobbiAction, nu
     cruzar: 0,
   },
   child: {
-    feed: 10 * 60 * 1000,       // 10 minutes (reduced from 45)
-    play: 8 * 60 * 1000,        // 8 minutes (reduced from 30)
-    clean: 10 * 60 * 1000,      // 10 minutes (reduced from 60)
-    rest: 15 * 60 * 1000,       // 15 minutes (reduced from 90)
-    medicine: 15 * 60 * 1000,   // 15 minutes (reduced from 120)
-    check: 1 * 60 * 1000,       // 1 minute (reduced from 5)
-    talk: 3 * 60 * 1000,        // 3 minutes (reduced from 15)
+    feed: 5 * 60 * 1000,        // 5 minutes per use
+    play: 10 * 60 * 1000,       // 10 minutes per use
+    clean: 10 * 60 * 1000,      // 10 minutes per use
+    rest: 0,                    // Special handling - 1 use per session until full/4h
+    talk: 5 * 60 * 1000,        // 5 minutes per use
+    check: 3 * 60 * 1000,       // 3 minutes per use
+    medicine: 120 * 60 * 1000,  // 120 minutes per use (2 hours)
     // Actions not available in child stage
     warm: 0,
     sing: 0,
     cruzar: 0,
   },
   adult: {
-    feed: 15 * 60 * 1000,       // 15 minutes (reduced from 60)
-    play: 10 * 60 * 1000,       // 10 minutes (reduced from 45)
-    clean: 15 * 60 * 1000,      // 15 minutes (reduced from 90)
-    rest: 20 * 60 * 1000,       // 20 minutes (reduced from 120)
-    medicine: 20 * 60 * 1000,   // 20 minutes (reduced from 180)
-    check: 1 * 60 * 1000,       // 1 minute (reduced from 5)
-    talk: 3 * 60 * 1000,        // 3 minutes (reduced from 15)
-    cruzar: 2 * 60 * 60 * 1000, // 2 hours (reduced from 24 hours)
+    feed: 5 * 60 * 1000,        // 5 minutes per use
+    play: 10 * 60 * 1000,       // 10 minutes per use
+    clean: 10 * 60 * 1000,      // 10 minutes per use
+    rest: 0,                    // Special handling - 1 use per session until full/4h
+    talk: 5 * 60 * 1000,        // 5 minutes per use
+    check: 3 * 60 * 1000,       // 3 minutes per use
+    medicine: 180 * 60 * 1000,  // 180 minutes per use (3 hours)
+    cruzar: 24 * 60 * 60 * 1000, // 24 hours (1 use per day)
+    // Actions not available in adult stage
+    warm: 0,
+    sing: 0,
+  },
+};
+
+// Global cooldown durations in milliseconds according to specification
+export const GLOBAL_COOLDOWN_DURATIONS: Record<BlobbiLifeStage, Record<BlobbiAction, number>> = {
+  egg: {
+    warm: 1.5 * 60 * 60 * 1000,    // 1.5 hours
+    sing: 1.5 * 60 * 60 * 1000,    // 1.5 hours
+    check: 1 * 60 * 60 * 1000,     // 1 hour
+    talk: 1.5 * 60 * 60 * 1000,    // 1.5 hours
+    clean: 1.5 * 60 * 60 * 1000,   // 1.5 hours
+    medicine: 0,                    // No global cooldown (only 1 use per session)
+    // Actions not available in egg stage
+    feed: 0,
+    play: 0,
+    rest: 0,
+    cruzar: 0,
+  },
+  child: {
+    feed: 1.5 * 60 * 60 * 1000,    // 1.5 hours
+    play: 2 * 60 * 60 * 1000,      // 2 hours
+    clean: 1.5 * 60 * 60 * 1000,   // 1.5 hours
+    rest: 4 * 60 * 60 * 1000,      // Until full or 4 hours
+    talk: 1.5 * 60 * 60 * 1000,    // 1.5 hours
+    check: 1 * 60 * 60 * 1000,     // 1 hour
+    medicine: 0,                    // No global cooldown (only 1 use per session)
+    // Actions not available in child stage
+    warm: 0,
+    sing: 0,
+    cruzar: 0,
+  },
+  adult: {
+    feed: 1.5 * 60 * 60 * 1000,    // 1.5 hours
+    play: 2 * 60 * 60 * 1000,      // 2 hours
+    clean: 1.5 * 60 * 60 * 1000,   // 1.5 hours
+    rest: 4 * 60 * 60 * 1000,      // Until full or 4 hours
+    talk: 1.5 * 60 * 60 * 1000,    // 1.5 hours
+    check: 1 * 60 * 60 * 1000,     // 1 hour
+    medicine: 0,                    // No global cooldown (only 1 use per session)
+    cruzar: 24 * 60 * 60 * 1000,   // 24 hours
+    // Actions not available in adult stage
+    warm: 0,
+    sing: 0,
+  },
+};
+
+// Maximum uses per session according to specification
+export const MAX_USES_PER_SESSION: Record<BlobbiLifeStage, Record<BlobbiAction, number>> = {
+  egg: {
+    warm: 4,
+    sing: 4,
+    check: 4,
+    talk: 4,
+    clean: 4,
+    medicine: 1,
+    // Actions not available in egg stage
+    feed: 0,
+    play: 0,
+    rest: 0,
+    cruzar: 0,
+  },
+  child: {
+    feed: 4,
+    play: 4,
+    clean: 4,
+    rest: 1,
+    talk: 4,
+    check: 4,
+    medicine: 1,
+    // Actions not available in child stage
+    warm: 0,
+    sing: 0,
+    cruzar: 0,
+  },
+  adult: {
+    feed: 4,
+    play: 4,
+    clean: 4,
+    rest: 1,
+    talk: 4,
+    check: 4,
+    medicine: 1,
+    cruzar: 1, // 1 per day
     // Actions not available in adult stage
     warm: 0,
     sing: 0,
@@ -70,9 +157,29 @@ export interface CooldownData {
   stage: BlobbiLifeStage;
 }
 
+// Interface for session tracking
+export interface SessionData {
+  blobbiId: string;
+  action: BlobbiAction;
+  sessionStart: number;
+  usesInSession: number;
+  globalCooldownStart?: number;
+  lastUse?: number;
+}
+
 // Interface for cooldown cache entry
 export interface CooldownCacheEntry {
   [action: string]: number; // action -> timestamp
+}
+
+// Interface for session cache entry
+export interface SessionCacheEntry {
+  [action: string]: {
+    sessionStart: number;
+    usesInSession: number;
+    globalCooldownStart?: number;
+    lastUse?: number;
+  };
 }
 
 // Interface for the complete cooldown cache
@@ -80,14 +187,31 @@ export interface CooldownCache {
   [blobbiId: string]: CooldownCacheEntry;
 }
 
+// Interface for the complete session cache
+export interface SessionCache {
+  [blobbiId: string]: SessionCacheEntry;
+}
+
+// Interface for local data tracking
+export interface LocalDataTracker {
+  [blobbiId: string]: {
+    lastSyncTimestamp: number;
+    lastUpdateTimestamp: number;
+  };
+}
+
 class CooldownStorage {
   private db: IDBDatabase | null = null;
   private dbReady: Promise<void>;
   private cache: CooldownCache = {};
+  private sessionCache: SessionCache = {};
+  private localDataTracker: LocalDataTracker = {};
 
   constructor() {
     this.dbReady = this.initDB();
     this.loadCacheFromLocalStorage();
+    this.loadSessionCacheFromLocalStorage();
+    this.loadLocalDataTrackerFromLocalStorage();
   }
 
   /**
@@ -153,6 +277,58 @@ class CooldownStorage {
   }
 
   /**
+   * Load session cache from localStorage
+   */
+  private loadSessionCacheFromLocalStorage(): void {
+    try {
+      const stored = localStorage.getItem('blobbi-sessions');
+      if (stored) {
+        this.sessionCache = JSON.parse(stored);
+      }
+    } catch (error) {
+      console.warn('Failed to load sessions from localStorage:', error);
+      this.sessionCache = {};
+    }
+  }
+
+  /**
+   * Save session cache to localStorage
+   */
+  private saveSessionCacheToLocalStorage(): void {
+    try {
+      localStorage.setItem('blobbi-sessions', JSON.stringify(this.sessionCache));
+    } catch (error) {
+      console.warn('Failed to save sessions to localStorage:', error);
+    }
+  }
+
+  /**
+   * Load local data tracker from localStorage
+   */
+  private loadLocalDataTrackerFromLocalStorage(): void {
+    try {
+      const stored = localStorage.getItem('blobbi-local-data-tracker');
+      if (stored) {
+        this.localDataTracker = JSON.parse(stored);
+      }
+    } catch (error) {
+      console.warn('Failed to load local data tracker from localStorage:', error);
+      this.localDataTracker = {};
+    }
+  }
+
+  /**
+   * Save local data tracker to localStorage
+   */
+  private saveLocalDataTrackerToLocalStorage(): void {
+    try {
+      localStorage.setItem('blobbi-local-data-tracker', JSON.stringify(this.localDataTracker));
+    } catch (error) {
+      console.warn('Failed to save local data tracker to localStorage:', error);
+    }
+  }
+
+  /**
    * Generate a unique ID for a cooldown entry
    */
   private generateId(blobbiId: string, action: BlobbiAction): string {
@@ -160,19 +336,103 @@ class CooldownStorage {
   }
 
   /**
-   * Store a cooldown timestamp for a specific Blobbi and action
+   * Check if a new session should start for an action
    */
-  async setCooldown(blobbiId: string, action: BlobbiAction, timestamp: number, stage: BlobbiLifeStage): Promise<void> {
-    // Log cooldown being set
-    console.log(`⏱️ COOLDOWN SET | ${action} | ${blobbiId} | ${stage} | ${new Date(timestamp).toLocaleString()}`);
+  private shouldStartNewSession(blobbiId: string, action: BlobbiAction, stage: BlobbiLifeStage): boolean {
+    const sessionData = this.sessionCache[blobbiId]?.[action];
+    if (!sessionData) return true;
+
+    const now = Date.now();
+    const globalCooldownDuration = GLOBAL_COOLDOWN_DURATIONS[stage][action];
     
-    // Update cache immediately
+    // If there's a global cooldown and it's still active, don't start new session
+    if (sessionData.globalCooldownStart && globalCooldownDuration > 0) {
+      const globalCooldownRemaining = globalCooldownDuration - (now - sessionData.globalCooldownStart);
+      if (globalCooldownRemaining > 0) {
+        return false;
+      }
+    }
+
+    // For rest action, check if Blobbi is full energy or 4 hours have passed
+    if (action === 'rest') {
+      const timeSinceSession = now - sessionData.sessionStart;
+      return timeSinceSession >= (4 * 60 * 60 * 1000); // 4 hours
+    }
+
+    // Start new session if global cooldown has expired
+    return true;
+  }
+
+  /**
+   * Record an interaction and update session tracking
+   */
+  async recordInteraction(blobbiId: string, action: BlobbiAction, stage: BlobbiLifeStage): Promise<void> {
+    const now = Date.now();
+    
+    // Initialize caches if needed
     if (!this.cache[blobbiId]) {
       this.cache[blobbiId] = {};
     }
-    this.cache[blobbiId][action] = timestamp;
-    this.saveCacheToLocalStorage();
+    if (!this.sessionCache[blobbiId]) {
+      this.sessionCache[blobbiId] = {};
+    }
 
+    // Check if we should start a new session
+    const shouldStartNew = this.shouldStartNewSession(blobbiId, action, stage);
+    
+    if (shouldStartNew) {
+      // Start new session
+      this.sessionCache[blobbiId][action] = {
+        sessionStart: now,
+        usesInSession: 1,
+        lastUse: now,
+      };
+      console.log(`🆕 NEW SESSION | ${action} | ${blobbiId} | ${stage} | Session 1/4`);
+    } else {
+      // Continue existing session
+      const sessionData = this.sessionCache[blobbiId][action];
+      sessionData.usesInSession += 1;
+      sessionData.lastUse = now;
+      
+      const maxUses = MAX_USES_PER_SESSION[stage][action];
+      console.log(`📈 SESSION CONTINUE | ${action} | ${blobbiId} | ${stage} | Session ${sessionData.usesInSession}/${maxUses}`);
+      
+      // Check if we've reached max uses and should start global cooldown
+      if (sessionData.usesInSession >= maxUses) {
+        const globalCooldownDuration = GLOBAL_COOLDOWN_DURATIONS[stage][action];
+        if (globalCooldownDuration > 0) {
+          sessionData.globalCooldownStart = now;
+          console.log(`🚫 GLOBAL COOLDOWN | ${action} | ${blobbiId} | ${stage} | ${formatCooldownTime(globalCooldownDuration)}`);
+        }
+      }
+    }
+
+    // Update individual action cooldown
+    this.cache[blobbiId][action] = now;
+    
+    // Update local data tracker
+    if (!this.localDataTracker[blobbiId]) {
+      this.localDataTracker[blobbiId] = {
+        lastSyncTimestamp: now,
+        lastUpdateTimestamp: now,
+      };
+    } else {
+      this.localDataTracker[blobbiId].lastUpdateTimestamp = now;
+    }
+
+    // Save to storage
+    this.saveCacheToLocalStorage();
+    this.saveSessionCacheToLocalStorage();
+    this.saveLocalDataTrackerToLocalStorage();
+    
+    // Try to store in IndexedDB
+    await this.setCooldown(blobbiId, action, now, stage);
+  }
+
+  /**
+   * Store a cooldown timestamp for a specific Blobbi and action
+   */
+  async setCooldown(blobbiId: string, action: BlobbiAction, timestamp: number, stage: BlobbiLifeStage): Promise<void> {
     // Try to store in IndexedDB
     await this.dbReady;
     if (this.db) {
@@ -200,82 +460,144 @@ class CooldownStorage {
   }
 
   /**
-   * Get cooldown timestamp for a specific Blobbi and action
+   * Check if an action is currently on cooldown (individual or global)
    */
-  async getCooldown(blobbiId: string, action: BlobbiAction): Promise<number | null> {
-    // Check cache first
-    const cached = this.cache[blobbiId]?.[action];
-    if (cached) {
-      return cached;
+  async isOnCooldown(blobbiId: string, action: BlobbiAction, stage: BlobbiLifeStage): Promise<boolean> {
+    const now = Date.now();
+    
+    // Check if action is available for this stage
+    if (!isActionAvailableForStage(action, stage)) {
+      return false; // Not on cooldown, just not available
     }
 
-    // Try IndexedDB
-    await this.dbReady;
-    if (this.db) {
-      try {
-        const transaction = this.db.transaction([STORE_NAME], 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
-        
-        const data = await new Promise<CooldownData & { id: string } | undefined>((resolve, reject) => {
-          const request = store.get(this.generateId(blobbiId, action));
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        });
-
-        if (data) {
-          // Update cache
-          if (!this.cache[blobbiId]) {
-            this.cache[blobbiId] = {};
-          }
-          this.cache[blobbiId][action] = data.timestamp;
-          this.saveCacheToLocalStorage();
-          return data.timestamp;
-        }
-      } catch (error) {
-        console.warn('Failed to get cooldown from IndexedDB:', error);
+    // Check individual action cooldown
+    const lastUse = this.cache[blobbiId]?.[action];
+    if (lastUse) {
+      const individualCooldown = COOLDOWN_DURATIONS[stage][action];
+      const individualRemaining = individualCooldown - (now - lastUse);
+      if (individualRemaining > 0) {
+        console.log(`⏳ INDIVIDUAL COOLDOWN | ${action} | ${blobbiId} | ${stage} | ${formatCooldownTime(individualRemaining)}`);
+        return true;
       }
     }
 
-    return null;
+    // Check session limits and global cooldown
+    const sessionData = this.sessionCache[blobbiId]?.[action];
+    if (sessionData) {
+      const maxUses = MAX_USES_PER_SESSION[stage][action];
+      
+      // If we've reached max uses, check global cooldown
+      if (sessionData.usesInSession >= maxUses && sessionData.globalCooldownStart) {
+        const globalCooldownDuration = GLOBAL_COOLDOWN_DURATIONS[stage][action];
+        if (globalCooldownDuration > 0) {
+          const globalRemaining = globalCooldownDuration - (now - sessionData.globalCooldownStart);
+          if (globalRemaining > 0) {
+            console.log(`🚫 GLOBAL COOLDOWN | ${action} | ${blobbiId} | ${stage} | ${formatCooldownTime(globalRemaining)}`);
+            return true;
+          }
+        }
+      }
+    }
+
+    console.log(`✅ AVAILABLE | ${action} | ${blobbiId} | ${stage} | Ready to use`);
+    return false;
   }
 
   /**
-   * Get all cooldowns for a specific Blobbi
+   * Get remaining cooldown time in milliseconds
    */
-  async getAllCooldowns(blobbiId: string): Promise<CooldownCacheEntry> {
-    // Start with cache
-    const result = this.cache[blobbiId] ? { ...this.cache[blobbiId] } : {};
+  async getRemainingCooldown(blobbiId: string, action: BlobbiAction, stage: BlobbiLifeStage): Promise<number> {
+    const now = Date.now();
+    
+    if (!isActionAvailableForStage(action, stage)) {
+      return 0;
+    }
 
-    // Try to get additional data from IndexedDB
-    await this.dbReady;
-    if (this.db) {
-      try {
-        const transaction = this.db.transaction([STORE_NAME], 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
-        const index = store.index('blobbiId');
-        
-        const cooldowns = await new Promise<(CooldownData & { id: string })[]>((resolve, reject) => {
-          const request = index.getAll(blobbiId);
-          request.onsuccess = () => resolve(request.result || []);
-          request.onerror = () => reject(request.error);
-        });
-
-        // Merge with cache
-        for (const cooldown of cooldowns) {
-          if (!result[cooldown.action] || result[cooldown.action] < cooldown.timestamp) {
-            result[cooldown.action] = cooldown.timestamp;
-          }
-        }
-
-        // Update cache
-        this.cache[blobbiId] = result;
-        this.saveCacheToLocalStorage();
-      } catch (error) {
-        console.warn('Failed to get all cooldowns from IndexedDB:', error);
+    // Check individual action cooldown first
+    const lastUse = this.cache[blobbiId]?.[action];
+    if (lastUse) {
+      const individualCooldown = COOLDOWN_DURATIONS[stage][action];
+      const individualRemaining = individualCooldown - (now - lastUse);
+      if (individualRemaining > 0) {
+        return individualRemaining;
       }
     }
 
-    return result;
+    // Check global cooldown
+    const sessionData = this.sessionCache[blobbiId]?.[action];
+    if (sessionData) {
+      const maxUses = MAX_USES_PER_SESSION[stage][action];
+      
+      if (sessionData.usesInSession >= maxUses && sessionData.globalCooldownStart) {
+        const globalCooldownDuration = GLOBAL_COOLDOWN_DURATIONS[stage][action];
+        if (globalCooldownDuration > 0) {
+          const globalRemaining = globalCooldownDuration - (now - sessionData.globalCooldownStart);
+          if (globalRemaining > 0) {
+            return globalRemaining;
+          }
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  /**
+   * Get all actions that are currently on cooldown for a Blobbi
+   */
+  async getActiveCooldowns(blobbiId: string, stage: BlobbiLifeStage): Promise<Record<BlobbiAction, number>> {
+    const activeCooldowns: Record<string, number> = {};
+    const allActions: BlobbiAction[] = ['feed', 'play', 'clean', 'rest', 'warm', 'check', 'sing', 'talk', 'medicine', 'cruzar'];
+
+    for (const action of allActions) {
+      const remaining = await this.getRemainingCooldown(blobbiId, action, stage);
+      if (remaining > 0) {
+        activeCooldowns[action] = remaining;
+      }
+    }
+
+    return activeCooldowns as Record<BlobbiAction, number>;
+  }
+
+  /**
+   * Get session information for an action
+   */
+  getSessionInfo(blobbiId: string, action: BlobbiAction, stage: BlobbiLifeStage): {
+    usesInSession: number;
+    maxUses: number;
+    isInGlobalCooldown: boolean;
+    globalCooldownRemaining: number;
+  } {
+    const sessionData = this.sessionCache[blobbiId]?.[action];
+    const maxUses = MAX_USES_PER_SESSION[stage][action];
+    
+    if (!sessionData) {
+      return {
+        usesInSession: 0,
+        maxUses,
+        isInGlobalCooldown: false,
+        globalCooldownRemaining: 0,
+      };
+    }
+
+    const now = Date.now();
+    let isInGlobalCooldown = false;
+    let globalCooldownRemaining = 0;
+
+    if (sessionData.globalCooldownStart) {
+      const globalCooldownDuration = GLOBAL_COOLDOWN_DURATIONS[stage][action];
+      if (globalCooldownDuration > 0) {
+        globalCooldownRemaining = Math.max(0, globalCooldownDuration - (now - sessionData.globalCooldownStart));
+        isInGlobalCooldown = globalCooldownRemaining > 0;
+      }
+    }
+
+    return {
+      usesInSession: sessionData.usesInSession,
+      maxUses,
+      isInGlobalCooldown,
+      globalCooldownRemaining,
+    };
   }
 
   /**
@@ -296,7 +618,23 @@ class CooldownStorage {
         delete this.cache[blobbiId];
       }
     }
+
+    // Clear from session cache
+    for (const blobbiId in this.sessionCache) {
+      for (const action in this.sessionCache[blobbiId]) {
+        const sessionData = this.sessionCache[blobbiId][action];
+        if (sessionData.sessionStart < cutoff) {
+          delete this.sessionCache[blobbiId][action];
+        }
+      }
+      // Remove empty entries
+      if (Object.keys(this.sessionCache[blobbiId]).length === 0) {
+        delete this.sessionCache[blobbiId];
+      }
+    }
+
     this.saveCacheToLocalStorage();
+    this.saveSessionCacheToLocalStorage();
 
     // Clear from IndexedDB
     await this.dbReady;
@@ -323,68 +661,119 @@ class CooldownStorage {
   }
 
   /**
-   * Check if an action is currently on cooldown
+   * Get the age of local data for a specific Blobbi
+   * Returns null if no local data exists, otherwise returns age in milliseconds
    */
-  async isOnCooldown(blobbiId: string, action: BlobbiAction, stage: BlobbiLifeStage): Promise<boolean> {
-    const lastTimestamp = await this.getCooldown(blobbiId, action);
-    if (!lastTimestamp) {
-      console.log(`✅ COOLDOWN CHECK | ${action} | ${blobbiId} | ${stage} | No previous timestamp - NOT on cooldown`);
-      return false;
-    }
-
-    const cooldownDuration = COOLDOWN_DURATIONS[stage][action];
-    if (cooldownDuration === 0) {
-      console.log(`🚫 COOLDOWN CHECK | ${action} | ${blobbiId} | ${stage} | Action not available for stage - NOT on cooldown`);
-      return false; // Action not available for this stage
+  async getLocalDataAge(blobbiId: string): Promise<number | null> {
+    const tracker = this.localDataTracker[blobbiId];
+    if (!tracker) {
+      return null;
     }
 
     const now = Date.now();
-    const isOnCooldown = (now - lastTimestamp) < cooldownDuration;
-    const remaining = isOnCooldown ? cooldownDuration - (now - lastTimestamp) : 0;
-    
-    console.log(`${isOnCooldown ? '⏳' : '✅'} COOLDOWN CHECK | ${action} | ${blobbiId} | ${stage} | ${isOnCooldown ? `ON cooldown (${formatCooldownTime(remaining)} remaining)` : 'NOT on cooldown'}`);
-    
-    return isOnCooldown;
+    return now - tracker.lastUpdateTimestamp;
   }
 
   /**
-   * Get remaining cooldown time in milliseconds
+   * Update the local data timestamp to mark successful sync
    */
-  async getRemainingCooldown(blobbiId: string, action: BlobbiAction, stage: BlobbiLifeStage): Promise<number> {
-    const lastTimestamp = await this.getCooldown(blobbiId, action);
-    if (!lastTimestamp) return 0;
-
-    const cooldownDuration = COOLDOWN_DURATIONS[stage][action];
-    if (cooldownDuration === 0) return 0;
-
+  async updateLocalDataTimestamp(blobbiId: string): Promise<void> {
     const now = Date.now();
-    const elapsed = now - lastTimestamp;
-    return Math.max(0, cooldownDuration - elapsed);
+    
+    if (!this.localDataTracker[blobbiId]) {
+      this.localDataTracker[blobbiId] = {
+        lastSyncTimestamp: now,
+        lastUpdateTimestamp: now,
+      };
+    } else {
+      this.localDataTracker[blobbiId].lastSyncTimestamp = now;
+      this.localDataTracker[blobbiId].lastUpdateTimestamp = now;
+    }
+
+    this.saveLocalDataTrackerToLocalStorage();
   }
 
   /**
-   * Get all actions that are currently on cooldown for a Blobbi
+   * Check if local data is fresh enough to avoid relay sync
+   * NOTE: This method is deprecated - we now always use blobbiState as source of truth
    */
-  async getActiveCooldowns(blobbiId: string, stage: BlobbiLifeStage): Promise<Record<BlobbiAction, number>> {
-    const allCooldowns = await this.getAllCooldowns(blobbiId);
-    const activeCooldowns: Record<string, number> = {};
-    const now = Date.now();
+  async isLocalDataFresh(blobbiId: string, stage: BlobbiLifeStage): Promise<boolean> {
+    // Always return false to force using blobbiState as source of truth
+    return false;
+  }
 
-    for (const action in allCooldowns) {
-      const lastTimestamp = allCooldowns[action];
-      const cooldownDuration = COOLDOWN_DURATIONS[stage][action as BlobbiAction];
+  /**
+   * Force a local data refresh (marks data as stale)
+   */
+  async forceLocalDataRefresh(blobbiId: string): Promise<void> {
+    if (this.localDataTracker[blobbiId]) {
+      // Set last update to a very old timestamp to force sync
+      this.localDataTracker[blobbiId].lastUpdateTimestamp = 0;
+      this.saveLocalDataTrackerToLocalStorage();
+    }
+  }
+
+  /**
+   * Initialize cooldowns from pre-extracted action timestamps (from kind 31124 event)
+   * Always uses blobbiState as the source of truth, ignoring any cached data
+   */
+  async initializeFromActionTimestamps(
+    blobbiId: string, 
+    actionTimestamps: Record<string, number>, 
+    stage: BlobbiLifeStage
+  ): Promise<void> {
+    const now = Date.now();
+    
+    // Clear any existing data for this Blobbi to ensure fresh state
+    this.cache[blobbiId] = {};
+    this.sessionCache[blobbiId] = {};
+
+    // Update cache with action timestamps from blobbiState
+    for (const [action, timestamp] of Object.entries(actionTimestamps)) {
+      this.cache[blobbiId][action] = timestamp;
       
-      if (cooldownDuration > 0) {
-        const elapsed = now - lastTimestamp;
-        const remaining = cooldownDuration - elapsed;
-        
-        if (remaining > 0) {
-          activeCooldowns[action] = remaining;
-        }
+      // Initialize session data based on the timestamp from blobbiState
+      this.sessionCache[blobbiId][action] = {
+        sessionStart: timestamp,
+        usesInSession: 1,
+        lastUse: timestamp,
+      };
+    }
+
+    // For actions that don't have last_* timestamps (rest, play, cruzar),
+    // initialize empty session data
+    const allActions: BlobbiAction[] = ['feed', 'play', 'clean', 'rest', 'warm', 'check', 'sing', 'talk', 'medicine', 'cruzar'];
+    for (const action of allActions) {
+      if (isActionAvailableForStage(action, stage) && !this.sessionCache[blobbiId][action]) {
+        // Initialize with no previous usage
+        this.sessionCache[blobbiId][action] = {
+          sessionStart: now,
+          usesInSession: 0,
+        };
       }
     }
 
-    return activeCooldowns as Record<BlobbiAction, number>;
+    // Update local data tracker
+    this.localDataTracker[blobbiId] = {
+      lastSyncTimestamp: now,
+      lastUpdateTimestamp: now,
+    };
+
+    // Save to storage
+    this.saveCacheToLocalStorage();
+    this.saveSessionCacheToLocalStorage();
+    this.saveLocalDataTrackerToLocalStorage();
+
+    console.log(`📊 COOLDOWNS INITIALIZED FROM BLOBBI STATE | ${blobbiId} | ${stage} | Actions with timestamps: ${Object.keys(actionTimestamps).join(', ')}`);
+  }
+
+  /**
+   * Check if cooldowns have been initialized for a Blobbi
+   * NOTE: This method is deprecated - we now always reinitialize from blobbiState
+   */
+  hasCooldownData(blobbiId: string): boolean {
+    // Always return false to force reinitialization from blobbiState
+    return false;
   }
 }
 
@@ -399,7 +788,7 @@ export const cooldownStorage = new CooldownStorage();
  * Check if an action is available for a specific life stage
  */
 export function isActionAvailableForStage(action: BlobbiAction, stage: BlobbiLifeStage): boolean {
-  return COOLDOWN_DURATIONS[stage][action] > 0;
+  return MAX_USES_PER_SESSION[stage][action] > 0;
 }
 
 /**
@@ -407,6 +796,20 @@ export function isActionAvailableForStage(action: BlobbiAction, stage: BlobbiLif
  */
 export function getCooldownDuration(action: BlobbiAction, stage: BlobbiLifeStage): number {
   return COOLDOWN_DURATIONS[stage][action];
+}
+
+/**
+ * Get the global cooldown duration for an action and stage
+ */
+export function getGlobalCooldownDuration(action: BlobbiAction, stage: BlobbiLifeStage): number {
+  return GLOBAL_COOLDOWN_DURATIONS[stage][action];
+}
+
+/**
+ * Get the maximum uses per session for an action and stage
+ */
+export function getMaxUsesPerSession(action: BlobbiAction, stage: BlobbiLifeStage): number {
+  return MAX_USES_PER_SESSION[stage][action];
 }
 
 /**

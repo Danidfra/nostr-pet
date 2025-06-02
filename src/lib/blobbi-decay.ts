@@ -3,18 +3,26 @@ import { clampStat } from '@/lib/blobbi-events';
 
 // Decay rates per hour according to specification
 const EGG_DECAY_RATES = {
-  egg_temperature: -3,
-  hygiene: -2,
-  happiness: -3,
+  egg_temperature: -3,  // Warmth decays at -3/hour
+  hygiene: -2,          // Cleanliness decays at -2/hour
+  happiness: -3,        // Happiness decays at -3/hour
   // shell_integrity has complex decay based on other stats
 } as const;
 
-const POST_HATCH_DECAY_RATES = {
-  hunger: -5.0,
-  happiness: -3.0,
-  energy: -6.0, // when awake, +4.0 when sleeping
-  hygiene: -4.0,
-  health: -1.0, // baseline, can increase with poor care
+const BABY_DECAY_RATES = {
+  hunger: -5.0,         // Baby hunger decays at -5/hour
+  happiness: -3.0,      // Baby happiness decays at -3/hour
+  energy: -6.0,         // Baby energy decays at -6/hour when awake, +4/hour when sleeping
+  hygiene: -4.0,        // Baby hygiene decays at -4/hour
+  health: -1.0,         // Baby health baseline decay at -1/hour, can increase with poor care
+} as const;
+
+const ADULT_DECAY_RATES = {
+  hunger: -4.0,         // Adult hunger decays slightly slower at -4/hour
+  happiness: -3.0,      // Adult happiness decays at -3/hour (same as baby)
+  energy: -5.0,         // Adult energy decays slightly slower at -5/hour when awake, +4/hour when sleeping
+  hygiene: -4.0,        // Adult hygiene decays at -4/hour (same as baby)
+  health: -1.0,         // Adult health baseline decay at -1/hour, can increase with poor care
 } as const;
 
 // Shell integrity decay thresholds and rates
@@ -144,18 +152,21 @@ export function calculatePostHatchDecay(blobbi: Blobbi, hoursPassed: number): Pa
 
   const currentStats = blobbi.stats;
   const isSleeping = blobbi.isSleeping ?? false;
+  
+  // Use stage-specific decay rates
+  const decayRates = blobbi.lifeStage === 'adult' ? ADULT_DECAY_RATES : BABY_DECAY_RATES;
 
   // Apply basic decay
-  const newHunger = clampStat(currentStats.hunger + (POST_HATCH_DECAY_RATES.hunger * hoursPassed));
-  const newHappiness = clampStat(currentStats.happiness + (POST_HATCH_DECAY_RATES.happiness * hoursPassed));
-  const newHygiene = clampStat(currentStats.hygiene + (POST_HATCH_DECAY_RATES.hygiene * hoursPassed));
+  const newHunger = clampStat(currentStats.hunger + (decayRates.hunger * hoursPassed));
+  const newHappiness = clampStat(currentStats.happiness + (decayRates.happiness * hoursPassed));
+  const newHygiene = clampStat(currentStats.hygiene + (decayRates.hygiene * hoursPassed));
   
   // Energy decay/regeneration based on sleep state
-  const energyRate = isSleeping ? 4.0 : POST_HATCH_DECAY_RATES.energy;
+  const energyRate = isSleeping ? 4.0 : decayRates.energy;
   const newEnergy = clampStat(currentStats.energy + (energyRate * hoursPassed));
 
   // Calculate health decay with modifiers
-  let healthDecayRate: number = POST_HATCH_DECAY_RATES.health;
+  let healthDecayRate: number = decayRates.health;
 
   // Add modifiers based on other stats
   if (newHunger < HEALTH_DECAY_MODIFIERS.hunger.threshold) {
@@ -196,8 +207,8 @@ export function calculatePostHatchDecay(blobbi: Blobbi, hoursPassed: number): Pa
  * Apply decay to a Blobbi based on time passed since last interaction
  */
 export function applyDecay(blobbi: Blobbi, currentTime: number = Date.now()): Blobbi {
-  if (blobbi.state === 'hibernating') {
-    return blobbi; // No decay when hibernating
+  if (blobbi.state !== 'active') {
+    return blobbi; // Only apply decay when Blobbi is active
   }
 
   const hoursPassed = (currentTime / 1000 - blobbi.lastInteraction) / (60 * 60);
@@ -269,6 +280,7 @@ export function getDecaySummary(blobbi: Blobbi, hoursPassed: number): {
     };
   } else {
     const stats = blobbi.stats;
+    const decayRates = blobbi.lifeStage === 'adult' ? ADULT_DECAY_RATES : BABY_DECAY_RATES;
     
     if (stats.hunger < 30) warnings.push('Very hungry!');
     if (stats.hygiene < 20) warnings.push('Needs bath!');
@@ -277,13 +289,13 @@ export function getDecaySummary(blobbi: Blobbi, hoursPassed: number): {
     if (stats.health < 30) warnings.push('Feeling sick!');
 
     return {
-      stage: 'post-hatch',
+      stage: blobbi.lifeStage,
       decayRates: {
-        hunger: POST_HATCH_DECAY_RATES.hunger,
-        happiness: POST_HATCH_DECAY_RATES.happiness,
-        energy: blobbi.isSleeping ? 4.0 : POST_HATCH_DECAY_RATES.energy,
-        hygiene: POST_HATCH_DECAY_RATES.hygiene,
-        health: POST_HATCH_DECAY_RATES.health,
+        hunger: decayRates.hunger,
+        happiness: decayRates.happiness,
+        energy: blobbi.isSleeping ? 4.0 : decayRates.energy,
+        hygiene: decayRates.hygiene,
+        health: decayRates.health,
       },
       warnings,
     };
@@ -328,12 +340,13 @@ export function getTimeToNextCritical(blobbi: Blobbi): {
     }
   } else {
     const stats = blobbi.stats;
+    const decayRates = blobbi.lifeStage === 'adult' ? ADULT_DECAY_RATES : BABY_DECAY_RATES;
     const candidates = [
-      { stat: 'hunger', value: stats.hunger, threshold: 30, rate: POST_HATCH_DECAY_RATES.hunger },
-      { stat: 'hygiene', value: stats.hygiene, threshold: 20, rate: POST_HATCH_DECAY_RATES.hygiene },
-      { stat: 'happiness', value: stats.happiness, threshold: 30, rate: POST_HATCH_DECAY_RATES.happiness },
-      { stat: 'energy', value: stats.energy, threshold: 20, rate: blobbi.isSleeping ? -4.0 : POST_HATCH_DECAY_RATES.energy },
-      { stat: 'health', value: stats.health, threshold: 30, rate: POST_HATCH_DECAY_RATES.health },
+      { stat: 'hunger', value: stats.hunger, threshold: 30, rate: decayRates.hunger },
+      { stat: 'hygiene', value: stats.hygiene, threshold: 20, rate: decayRates.hygiene },
+      { stat: 'happiness', value: stats.happiness, threshold: 30, rate: decayRates.happiness },
+      { stat: 'energy', value: stats.energy, threshold: 20, rate: blobbi.isSleeping ? -4.0 : decayRates.energy },
+      { stat: 'health', value: stats.health, threshold: 30, rate: decayRates.health },
     ];
 
     const nextCritical = candidates

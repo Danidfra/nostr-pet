@@ -319,18 +319,7 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
     shellIntegrity: record.shell_integrity,
     
     // Additional timestamp fields - all use the same creation timestamp in Unix seconds
-    lastInteraction: createdAtSeconds,
-    lastMeal: createdAtSeconds,
-    lastClean: createdAtSeconds,
-    
-    // Last care tracking fields - initialized with exact timestamp of pet creation
-    // These fields are only included during the egg phase for care tracking
-    // Using Unix timestamp in seconds (same format as Nostr's created_at)
-    lastWarm: createdAtSeconds,
-    lastTalk: createdAtSeconds,
-    lastCheck: createdAtSeconds,
-    lastSing: createdAtSeconds,
-    lastMedicine: createdAtSeconds
+    lastInteraction: createdAtSeconds
   };
   
   // Create the adoption record with proper rarity determination
@@ -407,16 +396,7 @@ export function blobbiEggToTags(record: BlobbiAdoptionRecord, blobbiId: string):
     ['shell_integrity', record.shell_integrity.toString()],
     ['last_interaction', createdAtSeconds.toString()],
     ['last_interaction_type', randomChoice(INTERACTION_TYPES)],
-    ['last_meal', createdAtSeconds.toString()],
-    ['last_clean', createdAtSeconds.toString()],
-    ['visible_to_others', 'true'],
-    // Last care tracking fields - initialized with exact timestamp of pet creation
-    // Using Unix timestamp in seconds (same format as Nostr's created_at)
-    ['last_warm', createdAtSeconds.toString()],
-    ['last_talk', createdAtSeconds.toString()],
-    ['last_check', createdAtSeconds.toString()],
-    ['last_sing', createdAtSeconds.toString()],
-    ['last_medicine', createdAtSeconds.toString()]
+    ['visible_to_others', 'true']
   ];
   
   // Add optional tags only if they exist

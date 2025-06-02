@@ -175,7 +175,7 @@ export function useBlobbiCareInteraction() {
       blobbiId: string;
       action: 'feed' | 'clean' | 'rest' | 'warm' | 'medicine' | 'check' | 'sing' | 'talk' | 'play' | 'cruzar';
       itemUsed?: string;
-      itemEffects?: Partial<BlobbiStats & { egg_temperature?: number }>;
+      itemEffects?: Partial<BlobbiStats & { egg_temperature?: number; shell_integrity?: number }>;
       customStatChange?: [string, number];
     }) => {
       const { blobbiId, action, itemUsed, itemEffects, customStatChange } = params;

@@ -132,6 +132,17 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }
         return 'Use Item';
     }
   };
+
+  const formatStatName = (stat: string): string => {
+    switch (stat) {
+      case 'shell_integrity':
+        return 'Shell';
+      case 'egg_temperature':
+        return 'Temp';
+      default:
+        return stat.charAt(0).toUpperCase() + stat.slice(1);
+    }
+  };
   
   return (
     <Dialog open={isOpen} onOpenChange={() => onClose()}>
@@ -193,7 +204,7 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }
                           <div className="flex gap-2 mt-1">
                             {item.effect && Object.entries(item.effect).map(([stat, value]) => (
                               <Badge key={stat} variant="secondary" className="text-xs">
-                                {stat} {value >= 0 ? '+' : ''}{value}
+                                {formatStatName(stat)} {value >= 0 ? '+' : ''}{value}
                               </Badge>
                             ))}
                           </div>
