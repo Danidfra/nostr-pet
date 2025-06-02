@@ -91,7 +91,7 @@ export function BlobbiActions({
       toast({
         title: isGlobalCooldown ? "Global Cooldown Active" : "Action on Cooldown",
         description: isGlobalCooldown 
-          ? `You've used ${action} ${sessionInfo.usesInSession}/${sessionInfo.maxUses} times. Wait ${remainingTime} before using again.`
+          ? `You've reached the action limit. Wait ${remainingTime} before using again.`
           : `Wait ${remainingTime} before using ${action} again.`,
         variant: "destructive",
       });
@@ -321,7 +321,6 @@ export function BlobbiActions({
               
               // Get session information
               const sessionInfo = cooldowns[action]?.sessionInfo;
-              const showSessionInfo = sessionInfo && sessionInfo.maxUses > 1;
               
               // Build tooltip
               let actionTooltip = tooltip;
@@ -329,12 +328,10 @@ export function BlobbiActions({
                 actionTooltip = `Not available in ${blobbi.lifeStage} stage`;
               } else if (isOnCooldown && remainingTime) {
                 if (sessionInfo?.isInGlobalCooldown) {
-                  actionTooltip = `Global cooldown: ${remainingTime} (used ${sessionInfo.usesInSession}/${sessionInfo.maxUses} times)`;
+                  actionTooltip = `Global cooldown: ${remainingTime}`;
                 } else {
                   actionTooltip = `Cooldown: ${remainingTime}`;
                 }
-              } else if (showSessionInfo) {
-                actionTooltip = `${tooltip} (${sessionInfo.usesInSession}/${sessionInfo.maxUses} uses this session)`;
               }
               
               return (
@@ -353,24 +350,11 @@ export function BlobbiActions({
                 >
                   <Icon className="w-5 h-5" />
                   <span className="text-xs">{label}</span>
-                  {/* Session usage indicator */}
-                  {showSessionInfo && (
-                    <span className="absolute -top-1 -left-1 text-[10px] bg-blue-500 text-white px-1 rounded">
-                      {sessionInfo.usesInSession}/{sessionInfo.maxUses}
-                    </span>
-                  )}
                   
-                  {/* Cooldown timer */}
+                  {/* Cooldown timer - only show when on cooldown */}
                   {isOnCooldown && remainingTime && (
                     <span className="absolute -top-1 -right-1 text-[10px] bg-background px-1 rounded border">
                       {remainingTime}
-                    </span>
-                  )}
-                  
-                  {/* Global cooldown indicator */}
-                  {sessionInfo?.isInGlobalCooldown && (
-                    <span className="absolute -bottom-1 -right-1 text-[10px] bg-red-500 text-white px-1 rounded">
-                      G
                     </span>
                   )}
                   {/* Only show loading spinner during initial setup */}
