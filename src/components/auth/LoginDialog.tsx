@@ -138,7 +138,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                     id='nsec'
                     value={nsec}
                     onChange={(e) => setNsec(e.target.value)}
-                    className='rounded-lg border-gray-300 dark:border-gray-700 focus-visible:ring-primary'
+                    className='rounded-lg bg-white/80 border-purple-200 focus:border-purple-400 focus:ring-purple-400/50 focus:bg-white placeholder:text-purple-400/60 dark:border-gray-700 dark:bg-gray-800 dark:focus:border-purple-400'
                     placeholder='nsec1...'
                   />
                 </div>
@@ -154,7 +154,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                   />
                   <Button
                     variant='outline'
-                    className='w-full dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700'
+                    className='w-full bg-white/80 border-purple-200 hover:bg-purple-50/80 hover:border-purple-300 transition-all duration-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700'
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Upload className='w-4 h-4 mr-2' />
@@ -181,7 +181,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                   id='bunkerUri'
                   value={bunkerUri}
                   onChange={(e) => setBunkerUri(e.target.value)}
-                  className='rounded-lg border-gray-300 dark:border-gray-700 focus-visible:ring-primary'
+                  className='rounded-lg bg-white/80 border-purple-200 focus:border-purple-400 focus:ring-purple-400/50 focus:bg-white placeholder:text-purple-400/60 dark:border-gray-700 dark:bg-gray-800 dark:focus:border-purple-400'
                   placeholder='bunker://'
                 />
                 {bunkerUri && !bunkerUri.startsWith('bunker://') && (

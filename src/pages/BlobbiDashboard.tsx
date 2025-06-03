@@ -33,6 +33,7 @@ import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 import { BlobbonautProfileCard } from '@/components/blobbi/BlobbonautProfileCard';
 import { EditBlobbonautProfile } from '@/components/blobbi/EditBlobbonautProfile';
 import { BlobbiIncubationDashboard } from '@/components/blobbi/BlobbiIncubationDashboard';
+import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -63,33 +64,34 @@ export default function BlobbiDashboard() {
   
   if (!user) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">Blobbi Dashboard</h1>
-          <div className="flex items-center gap-2">
-            <SettingsButton />
-            <ThemeToggle />
-            <LoginArea />
-          </div>
-        </div>
-        
-        <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle>Welcome to Blobbi!</CardTitle>
-            <CardDescription>
-              Log in with your Nostr account to access your Blobbi dashboard
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-4">
-            <div className="text-center space-y-2">
-              <p className="text-muted-foreground">
-                Manage your virtual pets, track their evolution, and explore the Blobbi community.
-              </p>
+      <BlobbiLayout>
+        <div className="container mx-auto py-8 px-4">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-4xl font-bold">Blobbi Dashboard</h1>
+            <div className="flex items-center gap-2">
+              <SettingsButton />
+              <ThemeToggle />
             </div>
-            <LoginArea />
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+          
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle>Welcome to Blobbi!</CardTitle>
+              <CardDescription>
+                Log in with your Nostr account to access your Blobbi dashboard
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center gap-4">
+              <div className="text-center space-y-2">
+                <p className="text-muted-foreground">
+                  Manage your virtual pets, track their evolution, and explore the Blobbi community.
+                </p>
+              </div>
+              <LoginArea />
+            </CardContent>
+          </Card>
+        </div>
+      </BlobbiLayout>
     );
   }
 
@@ -133,21 +135,21 @@ export default function BlobbiDashboard() {
     .slice(0, 5);
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-4xl font-bold">Blobbi Dashboard</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage your virtual pets and track their evolution
-          </p>
+    <BlobbiLayout>
+      <div className="container mx-auto py-8 px-4">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-4xl font-bold">Blobbi Dashboard</h1>
+            <p className="text-muted-foreground mt-2">
+              Manage your virtual pets and track their evolution
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <SettingsButton />
+            <ThemeToggle />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <SettingsButton />
-          <ThemeToggle />
-          <LoginArea />
-        </div>
-      </div>
 
       <div className="grid lg:grid-cols-4 gap-6">
         {/* Sidebar - Profile & Quick Stats */}
@@ -379,7 +381,7 @@ export default function BlobbiDashboard() {
                           placeholder="Search your Blobbis..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10"
+                          className="pl-10 bg-white/80 border-purple-200 focus:border-purple-400 focus:ring-purple-400/50 focus:bg-white placeholder:text-purple-400/60"
                         />
                       </div>
                     </div>
@@ -670,11 +672,12 @@ export default function BlobbiDashboard() {
         </div>
       </div>
 
-      {/* Edit Profile Dialog */}
-      <EditBlobbonautProfile 
-        isOpen={showEditProfile}
-        onClose={() => setShowEditProfile(false)}
-      />
-    </div>
+        {/* Edit Profile Dialog */}
+        <EditBlobbonautProfile 
+          isOpen={showEditProfile}
+          onClose={() => setShowEditProfile(false)}
+        />
+      </div>
+    </BlobbiLayout>
   );
 }

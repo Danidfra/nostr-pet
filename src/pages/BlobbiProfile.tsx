@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Coins, Trophy, Calendar } from 'lucide-react';
+import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { useAuthor } from '@/hooks/useAuthor';
@@ -27,33 +28,70 @@ export default function BlobbiProfile() {
   
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/blobbi/community')}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <h1 className="text-4xl font-bold">Loading...</h1>
-          </div>
-          <LoginArea />
-        </div>
-        <Card className="max-w-2xl mx-auto">
-          <CardContent className="p-8">
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <BlobbiLayout>
+        <div className="container mx-auto py-8 px-4">
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/blobbi/community')}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <h1 className="text-4xl font-bold">Loading...</h1>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="p-8">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </BlobbiLayout>
     );
   }
   
   if (!blobbi) {
     return (
+      <BlobbiLayout>
+        <div className="container mx-auto py-8 px-4">
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/blobbi/community')}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <h1 className="text-4xl font-bold">No Blobbi Found</h1>
+            </div>
+          </div>
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="p-8 text-center">
+              <p className="text-muted-foreground">
+                This user hasn't adopted a Blobbi yet.
+              </p>
+              {isOwner && (
+                <Button 
+                  className="mt-4" 
+                  onClick={() => navigate('/blobbi')}
+                >
+                  Adopt Your Blobbi
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </BlobbiLayout>
+    );
+  }
+  
+  return (
+    <BlobbiLayout>
       <div className="container mx-auto py-8 px-4">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
@@ -64,47 +102,12 @@ export default function BlobbiProfile() {
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <h1 className="text-4xl font-bold">No Blobbi Found</h1>
-          </div>
-          <LoginArea />
-        </div>
-        <Card className="max-w-2xl mx-auto">
-          <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground">
-              This user hasn't adopted a Blobbi yet.
-            </p>
-            {isOwner && (
-              <Button 
-                className="mt-4" 
-                onClick={() => navigate('/blobbi')}
-              >
-                Adopt Your Blobbi
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-8">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/blobbi/community')}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-4xl font-bold">{blobbi.name}</h1>
-            <p className="text-muted-foreground">Owned by {displayName}</p>
+            <div>
+              <h1 className="text-4xl font-bold">{blobbi.name}</h1>
+              <p className="text-muted-foreground">Owned by {displayName}</p>
+            </div>
           </div>
         </div>
-        <LoginArea />
-      </div>
       
       <div className="max-w-4xl mx-auto space-y-4">
         {/* Header with pet info */}
@@ -214,6 +217,7 @@ export default function BlobbiProfile() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </BlobbiLayout>
   );
 }

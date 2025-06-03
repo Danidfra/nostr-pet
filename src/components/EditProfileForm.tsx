@@ -134,7 +134,11 @@ export const EditProfileForm: React.FC = () => {
             <FormItem>
               <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input placeholder="Your name" {...field} />
+                <Input 
+                  placeholder="Your name" 
+                  className="bg-white/80 border-purple-200 focus:border-purple-400 focus:ring-purple-400/50 focus:bg-white placeholder:text-purple-400/60"
+                  {...field} 
+                />
               </FormControl>
               <FormDescription>
                 This is your display name that will be displayed to others.
@@ -153,7 +157,7 @@ export const EditProfileForm: React.FC = () => {
               <FormControl>
                 <Textarea 
                   placeholder="Tell others about yourself" 
-                  className="resize-none" 
+                  className="resize-none bg-white/80 border-purple-200 focus:border-purple-400 focus:ring-purple-400/50 focus:bg-white placeholder:text-purple-400/60" 
                   {...field} 
                 />
               </FormControl>
@@ -205,7 +209,11 @@ export const EditProfileForm: React.FC = () => {
               <FormItem>
                 <FormLabel>Website</FormLabel>
                 <FormControl>
-                  <Input placeholder="https://yourwebsite.com" {...field} />
+                  <Input 
+                    placeholder="https://yourwebsite.com" 
+                    className="bg-white/80 border-purple-200 focus:border-purple-400 focus:ring-purple-400/50 focus:bg-white placeholder:text-purple-400/60"
+                    {...field} 
+                  />
                 </FormControl>
                 <FormDescription>
                   Your personal website or social media link.
@@ -222,7 +230,11 @@ export const EditProfileForm: React.FC = () => {
               <FormItem>
                 <FormLabel>NIP-05 Identifier</FormLabel>
                 <FormControl>
-                  <Input placeholder="you@example.com" {...field} />
+                  <Input 
+                    placeholder="you@example.com" 
+                    className="bg-white/80 border-purple-200 focus:border-purple-400 focus:ring-purple-400/50 focus:bg-white placeholder:text-purple-400/60"
+                    {...field} 
+                  />
                 </FormControl>
                 <FormDescription>
                   Your verified Nostr identifier.
@@ -305,6 +317,7 @@ const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
             value={field.value ?? ''}
             onChange={e => field.onChange(e.target.value)}
             onBlur={field.onBlur}
+            className="bg-white/80 border-purple-200 focus:border-purple-400 focus:ring-purple-400/50 focus:bg-white placeholder:text-purple-400/60"
           />
         </FormControl>
         <div className="flex items-center gap-2">

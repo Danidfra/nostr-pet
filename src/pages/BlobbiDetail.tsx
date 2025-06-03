@@ -39,6 +39,7 @@ import { BlobbiCustomization } from '@/components/blobbi/BlobbiCustomization';
 import { BlobbiGamesModal } from '@/components/blobbi/BlobbiGamesModal';
 import { EvolutionProgress } from '@/components/blobbi/EvolutionProgress';
 import { EggGraphic } from '@/components/blobbi/EggGraphic';
+import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { formatDistanceToNow } from 'date-fns';
 import { checkEggHatchingReadiness, checkChildEvolutionReadiness } from '@/lib/blobbi-evolution';
@@ -73,38 +74,42 @@ export default function BlobbiDetail() {
   
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <Card className="max-w-2xl mx-auto">
-          <CardContent className="p-8">
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <BlobbiLayout>
+        <div className="container mx-auto py-8 px-4">
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="p-8">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </BlobbiLayout>
     );
   }
   
   if (!blobbi) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle>Blobbi Not Found</CardTitle>
-            <CardDescription>
-              The Blobbi you're looking for doesn't exist or couldn't be loaded.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link to="/blobbi">
-              <Button>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Dashboard
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <BlobbiLayout>
+        <div className="container mx-auto py-8 px-4">
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle>Blobbi Not Found</CardTitle>
+              <CardDescription>
+                The Blobbi you're looking for doesn't exist or couldn't be loaded.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link to="/blobbi">
+                <Button>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Dashboard
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </BlobbiLayout>
     );
   }
 
@@ -132,7 +137,8 @@ export default function BlobbiDetail() {
   ];
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <BlobbiLayout>
+      <div className="container mx-auto py-8 px-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
@@ -766,6 +772,7 @@ export default function BlobbiDetail() {
           />
         </>
       )}
-    </div>
+      </div>
+    </BlobbiLayout>
   );
 }
