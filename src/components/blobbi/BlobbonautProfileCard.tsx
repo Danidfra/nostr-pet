@@ -64,7 +64,8 @@ export function BlobbonautProfileCard({
   }
 
   const isOwnProfile = user?.pubkey === profile.ownerPubkey;
-  const displayName = author.data?.metadata?.name || 
+  const displayName = profile.name || 
+                     author.data?.metadata?.name || 
                      author.data?.metadata?.display_name || 
                      profile.ownerPubkey.slice(0, 8);
   const profileImage = author.data?.metadata?.picture;
@@ -228,7 +229,8 @@ export function BlobbonautProfileCompact({ profileId }: { profileId: string }) {
     );
   }
 
-  const displayName = author.data?.metadata?.name || 
+  const displayName = profile.name || 
+                     author.data?.metadata?.name || 
                      author.data?.metadata?.display_name || 
                      profile.ownerPubkey.slice(0, 8);
   const profileImage = author.data?.metadata?.picture;

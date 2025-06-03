@@ -156,6 +156,7 @@ export interface BlobbonautStorageItem {
 export interface BlobbonautProfile {
   id: string; // Unique identifier (d tag value)
   ownerPubkey: string; // Nostr pubkey of the Blobbanaut
+  name?: string; // Display name of the user
   coins: number; // Amount of in-game coins
   ownedBlobbis: string[]; // Array of Blobbi IDs owned
   pettingLevel: number; // Interaction/care level

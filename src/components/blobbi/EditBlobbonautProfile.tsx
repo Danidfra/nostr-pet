@@ -67,6 +67,7 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
   useEffect(() => {
     if (currentProfile) {
       setFormData({
+        name: currentProfile.name || '',
         style: currentProfile.style || '',
         background: currentProfile.background || '',
         title: currentProfile.title || '',
@@ -101,6 +102,7 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
   const handleSave = () => {
     const updatedProfile: BlobbonautProfile = {
       ...currentProfile,
+      name: formData.name || undefined,
       style: formData.style || undefined,
       background: formData.background || undefined,
       title: formData.title || undefined,
@@ -227,6 +229,20 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
               <CardTitle className="text-lg">Customization</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="name">Display Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter your display name"
+                  maxLength={50}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  This name will be shown on your profile and can be changed at any time.
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="style">Style</Label>

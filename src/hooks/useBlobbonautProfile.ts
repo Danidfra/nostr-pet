@@ -298,6 +298,7 @@ export function useAddAchievement() {
 export function useCreateInitialProfile() {
   const { mutate: updateProfile } = useUpdateBlobbonautProfile();
   const { user } = useCurrentUser();
+  const { nostr } = useNostr();
 
   return useMutation({
     mutationFn: async (customizations?: Partial<BlobbonautProfile>) => {
@@ -307,9 +308,27 @@ export function useCreateInitialProfile() {
 
       const defaultProfileId = `Blobbanaut-${user.pubkey.slice(0, 8)}`;
       
+      // Try to get user's Nostr metadata for default name
+      let defaultName: string | undefined;
+      try {
+        const [metadataEvent] = await nostr.query(
+          [{ kinds: [0], authors: [user.pubkey], limit: 1 }],
+          { signal: AbortSignal.timeout(2000) }
+        );
+        
+        if (metadataEvent) {
+          const metadata = JSON.parse(metadataEvent.content);
+          defaultName = metadata.name || metadata.display_name;
+        }
+      } catch (error) {
+        // Ignore errors when fetching metadata, we'll use fallback
+        console.log('Could not fetch user metadata for default name:', error);
+      }
+      
       const initialProfile: BlobbonautProfile = {
         id: defaultProfileId,
         ownerPubkey: user.pubkey,
+        name: defaultName, // Include default name from Nostr metadata
         coins: 100, // Starting coins
         ownedBlobbis: [],
         pettingLevel: 0,

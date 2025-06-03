@@ -340,6 +340,7 @@ export function createBlobbonautProfileEvent(
 ): Omit<BlobbonautProfileEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
   const tags: Array<[string, string]> = [
     ['d', profile.id],
+    ['name', profile.name || ''], // Always include name tag, even if empty
   ];
 
   // Add optional tags
@@ -695,6 +696,10 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
     const profile: BlobbonautProfile = {
       id,
       ownerPubkey: event.pubkey,
+      name: (() => {
+        const nameValue = getTagValue(tags, 'name');
+        return nameValue && nameValue.trim() !== '' ? nameValue : undefined;
+      })(), // Convert empty string to undefined
       coins: parseInt(getTagValue(tags, 'coins') || '0'),
       ownedBlobbis: getTagValues(tags, 'has'),
       pettingLevel: parseInt(getTagValue(tags, 'pettingLevel') || '0'),
