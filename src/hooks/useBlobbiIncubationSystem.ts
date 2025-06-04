@@ -263,6 +263,10 @@ interface BlobbiIncubationSystemState {
   // Subscription status
   metadataSubscriptionActive: boolean;
   taskSubscriptionActive: boolean;
+  
+  // Selected egg for incubation
+  selectedEggId: string | null;
+  incubationStartTime: number | null;
 }
 
 /**
@@ -294,6 +298,8 @@ export function useBlobbiIncubationSystem() {
     },
     metadataSubscriptionActive: false,
     taskSubscriptionActive: false,
+    selectedEggId: null,
+    incubationStartTime: null,
   });
 
   // Refs to track subscription cleanup functions
@@ -362,10 +368,11 @@ export function useBlobbiIncubationSystem() {
       return;
     }
 
-    // Only process events that occurred after Blobbi creation
+    // Only process events that occurred after incubation started
     const eventTimestamp = event.created_at * 1000;
-    if (eventTimestamp < state.incubationState.blobbiCreationTime) {
-      console.log(`⏭️ Skipping event from before Blobbi creation: ${new Date(eventTimestamp).toISOString()}`);
+    const incubationTime = state.incubationStartTime || state.incubationState.blobbiCreationTime;
+    if (eventTimestamp < incubationTime) {
+      console.log(`⏭️ Skipping event from before incubation: ${new Date(eventTimestamp).toISOString()}`);
       return;
     }
 
@@ -445,8 +452,15 @@ export function useBlobbiIncubationSystem() {
     // Publish task confirmation if completed
     if (taskCompleted && completedTaskName) {
       await publishTaskConfirmation(completedTaskName);
+      
+      // Check if all egg tasks are completed (ready to hatch)
+      const allEggTasksCompleted = state.incubationState.eggTasks.every(task => task.completed);
+      if (allEggTasksCompleted && state.selectedEggId) {
+        console.log('🎉 All egg tasks completed! Ready to hatch.');
+        // The subscription will be closed when the task_completed tag is found in the 31124 event
+      }
     }
-  }, [user, publishEvent, state.incubationState.blobbiCreationTime, publishTaskConfirmation]);
+  }, [user, publishEvent, state.incubationStartTime, state.incubationState.blobbiCreationTime, state.selectedEggId, publishTaskConfirmation]);
 
   // Step 2: Start persistent metadata subscription (kind 31124)
   const startMetadataSubscription = useCallback(async () => {
@@ -480,6 +494,21 @@ export function useBlobbiIncubationSystem() {
                       ? prev.blobbis.map(b => b.id === blobbi.id ? blobbi : b)
                       : [...prev.blobbis, blobbi],
                   }));
+                  
+                  // Check for task_completed tags
+                  const taskCompletedTags = event.tags.filter(tag => tag[0] === 'task_completed');
+                  if (taskCompletedTags.length > 0) {
+                    console.log('✅ Found task_completed tags:', taskCompletedTags);
+                    
+                    // Check if this is for the selected egg
+                    if (state.selectedEggId === blobbi.id) {
+                      // Check if egg is now adult (all tasks completed)
+                      if (blobbi.lifeStage !== 'egg') {
+                        console.log('🎊 Egg has evolved! Closing task subscription.');
+                        stopIncubationRef.current?.();
+                      }
+                    }
+                  }
                 }
               } catch (error) {
                 console.warn('Failed to parse updated Blobbi event:', error);
@@ -508,21 +537,43 @@ export function useBlobbiIncubationSystem() {
       console.error('❌ Failed to start metadata subscription:', error);
       setState(prev => ({ ...prev, metadataSubscriptionActive: false }));
     }
-  }, [user, nostr, state.metadataSubscriptionActive]);
+  }, [user, nostr, state.metadataSubscriptionActive, state.selectedEggId]);
 
   // Step 3: Start task tracking subscription (only after metadata is loaded)
-  const startTaskSubscription = useCallback(async () => {
-    if (!user || !nostr || state.taskSubscriptionActive || state.blobbis.length === 0) return;
+  const startTaskSubscription = useCallback(async (selectedEggId?: string, sinceTimestamp?: number) => {
+    if (!user || !nostr || state.taskSubscriptionActive) return;
+
+    // If no egg is selected, don't start task subscription
+    if (!selectedEggId) {
+      console.log('⚠️ No egg selected, skipping task subscription');
+      return;
+    }
 
     console.log('🎯 Step 3: Starting persistent task tracking subscription...');
+    console.log(`🥚 Selected egg: ${selectedEggId}`);
+    console.log(`⏰ Since timestamp: ${sinceTimestamp ? new Date(sinceTimestamp).toISOString() : 'Not specified'}`);
 
     try {
-      // Use the filter exactly as specified in the documentation
-      const subscriptionIterable = nostr.req([{
-        kinds: [1, 3, 6, 7, 9735],
-        authors: [user.pubkey],
-        '#p': [user.pubkey],
-      }]);
+      // Create filters to capture events with p tag mentioning the user AND events authored by the user
+      const filters: Array<{ kinds: number[]; '#p'?: string[]; authors?: string[]; since?: number }> = [
+        {
+          kinds: [0, 1, 3, 6, 7, 9735], // Updated to include kind 0 as per the markdown
+          '#p': [user.pubkey], // Using p tag filter as requested
+        },
+        {
+          kinds: [0, 1, 3, 6, 7, 9735], // Same kinds for events authored by user
+          authors: [user.pubkey], // Events authored by the user
+        }
+      ];
+
+      // Add since filter if timestamp is provided (when hatch button is clicked)
+      if (sinceTimestamp) {
+        const sinceSeconds = Math.floor(sinceTimestamp / 1000); // Convert to seconds
+        filters[0].since = sinceSeconds;
+        filters[1].since = sinceSeconds;
+      }
+
+      const subscriptionIterable = nostr.req(filters);
 
       setState(prev => ({ 
         ...prev, 
@@ -569,7 +620,7 @@ export function useBlobbiIncubationSystem() {
         }));
       };
 
-      console.log('✅ Persistent task tracking subscription established');
+      console.log('✅ Persistent task tracking subscription established with both #p and authors filters');
     } catch (error) {
       console.error('❌ Failed to start task subscription:', error);
       setState(prev => ({ 
@@ -623,8 +674,7 @@ export function useBlobbiIncubationSystem() {
       // Step 2: Start persistent metadata subscription
       await startMetadataSubscription();
 
-      // Step 3: Start task tracking subscription (only after metadata is loaded)
-      await startTaskSubscription();
+      // Don't automatically start task subscription - wait for egg selection
 
     } catch (error) {
       console.error('❌ Failed to fetch Blobbi metadata:', error);
@@ -666,6 +716,46 @@ export function useBlobbiIncubationSystem() {
     };
   }, [state.incubationState]);
 
+  // Select an egg for incubation
+  const selectEgg = useCallback((eggId: string | null) => {
+    setState(prev => ({ ...prev, selectedEggId: eggId }));
+  }, []);
+
+  // Start incubation for selected egg
+  const startIncubation = useCallback(async () => {
+    if (!state.selectedEggId) {
+      console.warn('⚠️ No egg selected for incubation');
+      return;
+    }
+
+    const now = Date.now();
+    setState(prev => ({ ...prev, incubationStartTime: now }));
+    
+    // Start task subscription with since timestamp
+    await startTaskSubscription(state.selectedEggId, now);
+  }, [state.selectedEggId, startTaskSubscription]);
+
+  // Stop incubation (cleanup) - defined early to avoid circular dependency
+  const stopIncubationRef = useRef<() => void>();
+  
+  stopIncubationRef.current = () => {
+    if (taskCleanupRef.current) {
+      taskCleanupRef.current();
+      taskCleanupRef.current = null;
+    }
+    setState(prev => ({ 
+      ...prev, 
+      taskSubscriptionActive: false,
+      incubationState: { ...prev.incubationState, isListening: false },
+      selectedEggId: null,
+      incubationStartTime: null,
+    }));
+  };
+  
+  const stopIncubation = useCallback(() => {
+    stopIncubationRef.current?.();
+  }, []);
+
   const progress = getProgress();
   const isReadyToHatch = progress.egg.completed === progress.egg.total;
   const isReadyToEvolve = progress.evolution.completed === progress.evolution.total && 
@@ -689,6 +779,13 @@ export function useBlobbiIncubationSystem() {
     metadataSubscriptionActive: state.metadataSubscriptionActive,
     taskSubscriptionActive: state.taskSubscriptionActive,
     isListening: state.incubationState.isListening,
+    
+    // Egg selection and incubation
+    selectedEggId: state.selectedEggId,
+    incubationStartTime: state.incubationStartTime,
+    selectEgg,
+    startIncubation,
+    stopIncubation,
     
     // Controls
     refetchMetadata: fetchBlobbiMetadata,

@@ -45,11 +45,15 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
     metadataSubscriptionActive,
     taskSubscriptionActive,
     isListening,
+    selectedEggId,
+    incubationStartTime,
+    selectEgg,
+    startIncubation,
+    stopIncubation,
     refetchMetadata,
     debugInfo,
   } = useBlobbiIncubationSystem();
 
-  const [selectedBlobbiId, setSelectedBlobbiId] = useState<string | null>(null);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [showEggList, setShowEggList] = useState(true);
   const [showEvolvedList, setShowEvolvedList] = useState(true);
@@ -57,18 +61,18 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
   // Filter eggs and evolved blobbis
   const eggBlobbis = blobbis.filter(blobbi => blobbi.lifeStage === 'egg');
   const evolvedBlobbis = blobbis.filter(blobbi => blobbi.lifeStage !== 'egg');
-  const selectedBlobbi = selectedBlobbiId ? blobbis.find(b => b.id === selectedBlobbiId) : null;
+  const selectedBlobbi = selectedEggId ? blobbis.find(b => b.id === selectedEggId) : null;
 
   // Clear selection when relevant section is collapsed
   useEffect(() => {
     if (selectedBlobbi) {
       if (selectedBlobbi.lifeStage === 'egg' && !showEggList) {
-        setSelectedBlobbiId(null);
+        selectEgg(null);
       } else if (selectedBlobbi.lifeStage !== 'egg' && !showEvolvedList) {
-        setSelectedBlobbiId(null);
+        selectEgg(null);
       }
     }
-  }, [showEggList, showEvolvedList, selectedBlobbi]);
+  }, [showEggList, showEvolvedList, selectedBlobbi, selectEgg]);
 
   // Show loading state
   if (isLoadingBlobbis) {
@@ -240,11 +244,11 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                       <div
                         key={blobbi.id}
                         className={`p-4 border rounded-lg cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-105 ${
-                          selectedBlobbiId === blobbi.id
+                          selectedEggId === blobbi.id
                             ? 'border-purple-400 dark:border-purple-500 bg-purple-50/50 dark:bg-purple-900/20 shadow-md scale-105 ring-2 ring-purple-200 dark:ring-purple-600'
                             : 'border-purple-200 dark:border-purple-600 bg-white/60 dark:bg-gray-700/60 hover:border-purple-300 dark:hover:border-purple-500'
                         }`}
-                        onClick={() => setSelectedBlobbiId(selectedBlobbiId === blobbi.id ? null : blobbi.id)}
+                        onClick={() => selectEgg(selectedEggId === blobbi.id ? null : blobbi.id)}
                       >
                         <div className="flex flex-col items-center space-y-3">
                           <div className="relative">
@@ -253,7 +257,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                               animated={true}
                               warmth={60 + (progress.egg.percentage * 0.4)} // Warmth increases with progress
                             />
-                            {selectedBlobbiId === blobbi.id && (
+                            {selectedEggId === blobbi.id && (
                               <div className="absolute -top-1 -right-1">
                                 <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse">
                                   <div className="absolute inset-0 w-3 h-3 bg-purple-400 rounded-full animate-ping"></div>
@@ -283,7 +287,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                             )}
                           </div>
 
-                          {selectedBlobbiId === blobbi.id && (
+                          {selectedEggId === blobbi.id && (
                             <div className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400">
                               <ArrowRight className="w-3 h-3" />
                               <span>View details below</span>
@@ -319,12 +323,32 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
       {selectedBlobbi && selectedBlobbi.lifeStage === 'egg' && showEggList && (
         <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-400 dark:border-purple-500 shadow-lg animate-in slide-in-from-top-4 duration-500">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-              <Target className="h-5 w-5 text-purple-500" />
-              {selectedBlobbi.name} - Hatching Progress
+            <CardTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
+              <div className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-purple-500" />
+                {selectedBlobbi.name} - Hatching Progress
+              </div>
+              {!taskSubscriptionActive && !incubationStartTime && (
+                <Button 
+                  onClick={startIncubation}
+                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <Egg className="w-4 h-4 mr-2" />
+                  Start Incubation
+                </Button>
+              )}
+              {taskSubscriptionActive && (
+                <Badge className="bg-green-600 text-white">
+                  <Wifi className="w-3 h-3 mr-1" />
+                  Listening for events...
+                </Badge>
+              )}
             </CardTitle>
             <CardDescription className="text-gray-600 dark:text-gray-300">
-              Complete these 4 Nostr interactions to hatch your egg
+              {!incubationStartTime 
+                ? "Click 'Start Incubation' to begin tracking your Nostr interactions"
+                : "Complete these 4 Nostr interactions to hatch your egg"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -422,11 +446,11 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                     <div
                       key={blobbi.id}
                       className={`p-4 border rounded-lg cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-105 ${
-                        selectedBlobbiId === blobbi.id
+                        selectedEggId === blobbi.id
                           ? 'border-purple-400 dark:border-purple-500 bg-purple-50/50 dark:bg-purple-900/20 shadow-md scale-105 ring-2 ring-purple-200 dark:ring-purple-600'
                           : 'border-purple-200 dark:border-purple-600 bg-white/60 dark:bg-gray-700/60 hover:border-purple-300 dark:hover:border-purple-500'
                       }`}
-                      onClick={() => setSelectedBlobbiId(selectedBlobbiId === blobbi.id ? null : blobbi.id)}
+                      onClick={() => selectEgg(selectedEggId === blobbi.id ? null : blobbi.id)}
                     >
                       <div className="flex flex-col items-center space-y-3">
                         <div className="relative">
@@ -435,7 +459,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                           ) : (
                             <BlobbiVisual blobbi={blobbi} size="medium" />
                           )}
-                          {selectedBlobbiId === blobbi.id && (
+                          {selectedEggId === blobbi.id && (
                             <div className="absolute -top-1 -right-1">
                               <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse">
                                 <div className="absolute inset-0 w-3 h-3 bg-purple-400 rounded-full animate-ping"></div>
@@ -468,7 +492,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                           )}
                         </div>
 
-                        {selectedBlobbiId === blobbi.id && (
+                        {selectedEggId === blobbi.id && (
                           <div className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400">
                             <ArrowRight className="w-3 h-3" />
                             <span>View details below</span>
@@ -599,7 +623,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                   </div>
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${debugInfo.subscriptionStatus.tasks ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span>Tasks (kinds:[1,3,6,7,9735]): {debugInfo.subscriptionStatus.tasks ? 'Active' : 'Inactive'}</span>
+                    <span>Tasks (kinds:[0,1,3,6,7,9735] with #p + authors filters): {debugInfo.subscriptionStatus.tasks ? 'Active' : 'Inactive'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${isListening ? 'bg-green-500' : 'bg-red-500'}`}></div>
@@ -672,7 +696,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                 </h4>
                 <div className="text-sm text-purple-600 dark:text-purple-300 space-y-2">
                   <div>🔄 Implementation: Single REQ + Persistent Subscriptions</div>
-                  <div>📡 Filter: kinds:[1,3,6,7,9735], authors:[user], #p:[user]</div>
+                  <div>📡 Filters: kinds:[0,1,3,6,7,9735] with #p:[user] + authors:[user] (events mentioning user AND events authored by user)</div>
                   <div>⚡ Real-time: Event processing as they arrive</div>
                   <div>🚫 No REQ+CLOSE cycles: Connections remain open</div>
                 </div>

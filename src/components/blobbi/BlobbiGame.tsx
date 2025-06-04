@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Coins, Trophy, Calendar, Heart, ShoppingBag, Palette, Sparkles, Package } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Coins, Trophy, Calendar, Heart, ShoppingBag, Palette, Sparkles, Package, Egg } from 'lucide-react';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
@@ -15,6 +16,7 @@ import { BlobbiCustomization } from './BlobbiCustomization';
 import { BlobbiGamesModal } from './BlobbiGamesModal';
 import { EvolutionProgress } from './EvolutionProgress';
 import { EggGraphic } from './EggGraphic';
+import { BlobbiIncubationDashboard } from './BlobbiIncubationDashboard';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { formatDistanceToNow } from 'date-fns';
@@ -104,177 +106,193 @@ export function BlobbiGame() {
   }
   
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
-      {/* Header with pet info */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <CardTitle className="text-2xl">{blobbi.name}</CardTitle>
-              <CardDescription>
-                {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} • 
-                Born {formatDistanceToNow(blobbi.birthTime, { addSuffix: true })}
-              </CardDescription>
-            </div>
-            <div className="flex gap-2 items-center flex-wrap">
-              <div className="flex gap-4 text-sm">
-                <div className="flex items-center gap-1">
-                  <Coins className="w-4 h-4 text-yellow-600" />
-                  <span className="font-semibold">{blobbi.coins}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Trophy className="w-4 h-4 text-purple-600" />
-                  <span className="font-semibold">{blobbi.experience} XP</span>
-                </div>
-              </div>
-              {isOwner && (
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowShop(true)}
-                    className="gap-1"
-                  >
-                    <ShoppingBag className="w-3 h-3" />
-                    Shop
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowStorage(true)}
-                    className="gap-1"
-                  >
-                    <Package className="w-3 h-3" />
-                    Storage
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowCustomization(true)}
-                    className="gap-1"
-                  >
-                    <Palette className="w-3 h-3" />
-                    Customize
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-      
-      <div className="grid md:grid-cols-2 gap-4">
-        {/* Left column - Visual and stats */}
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="p-8">
-              <div className="flex justify-center">
-                {blobbi.evolutionForm ? (
-                  <BlobbiEvolvedVisual 
-                    blobbi={blobbi} 
-                    size="large"
-                    onClick={() => isOwner && performAction('play')}
-                  />
-                ) : (
-                  <BlobbiVisual 
-                    blobbi={blobbi} 
-                    size="large"
-                    onClick={() => isOwner && performAction('play')}
-                  />
-                )}
-              </div>
-              {blobbi.state === 'hibernating' && (
-                <p className="text-center text-sm text-muted-foreground mt-4">
-                  Your Blobbi is hibernating. Interact with it to wake it up!
-                </p>
-              )}
-
-              {blobbi.evolutionForm && (
-                <div className="text-center mt-4 space-y-1">
-                  <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
-                    <Sparkles className="w-4 h-4" />
-                    <span>Evolved into {blobbi.evolutionForm.charAt(0).toUpperCase() + blobbi.evolutionForm.slice(1)}</span>
-                  </div>
-                  {blobbi.evolutionTime && (
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(blobbi.evolutionTime, { addSuffix: true })}
-                    </p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          
-          <BlobbiStats stats={blobbi.stats} lifeStage={blobbi.lifeStage} blobbi={blobbi} />
-          
-          {/* Evolution Progress - show for owner only */}
-          {isOwner && (
-            <EvolutionProgress 
-              evolutionProgress={blobbi.evolutionProgress} 
-              hasEvolved={!!blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi'}
-            />
-          )}
-        </div>
+    <div className="max-w-6xl mx-auto space-y-4">
+      <Tabs defaultValue="blobbi" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="blobbi">My Blobbi</TabsTrigger>
+          <TabsTrigger value="incubation" className="flex items-center gap-2">
+            <Egg className="w-4 h-4" />
+            Incubation
+          </TabsTrigger>
+        </TabsList>
         
-        {/* Right column - Actions and info */}
-        <div className="space-y-4">
-          {isOwner ? (
-            <BlobbiActions 
-              blobbi={blobbi}
-              onAction={performAction}
-              isPerformingAction={isPerformingAction}
-              onGamesClick={() => setShowGames(true)}
-              onOpenShop={() => setShowShop(true)}
-            />
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Viewing Mode</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  You're viewing someone else's Blobbi. Only the owner can interact with it.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Pet info */}
+        <TabsContent value="blobbi" className="space-y-4">
+          {/* Header with pet info */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Pet Info</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Life Stage</span>
-                <Badge variant="outline">
-                  {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">State</span>
-                <Badge variant={blobbi.state === 'active' ? 'default' : 'secondary'}>
-                  {blobbi.state.charAt(0).toUpperCase() + blobbi.state.slice(1)}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Last Care</span>
-                <span>{formatDistanceToNow(blobbi.lastInteraction * 1000, { addSuffix: true })}</span>
-              </div>
-              {blobbi.evolutionForm && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Evolution</span>
-                  <Badge variant="default" className="gap-1">
-                    <Sparkles className="w-3 h-3" />
-                    {blobbi.evolutionForm.charAt(0).toUpperCase() + blobbi.evolutionForm.slice(1)}
-                  </Badge>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <CardTitle className="text-2xl">{blobbi.name}</CardTitle>
+                  <CardDescription>
+                    {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} • 
+                    Born {formatDistanceToNow(blobbi.birthTime, { addSuffix: true })}
+                  </CardDescription>
                 </div>
-              )}
-
-            </CardContent>
+                <div className="flex gap-2 items-center flex-wrap">
+                  <div className="flex gap-4 text-sm">
+                    <div className="flex items-center gap-1">
+                      <Coins className="w-4 h-4 text-yellow-600" />
+                      <span className="font-semibold">{blobbi.coins}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Trophy className="w-4 h-4 text-purple-600" />
+                      <span className="font-semibold">{blobbi.experience} XP</span>
+                    </div>
+                  </div>
+                  {isOwner && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowShop(true)}
+                        className="gap-1"
+                      >
+                        <ShoppingBag className="w-3 h-3" />
+                        Shop
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowStorage(true)}
+                        className="gap-1"
+                      >
+                        <Package className="w-3 h-3" />
+                        Storage
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowCustomization(true)}
+                        className="gap-1"
+                      >
+                        <Palette className="w-3 h-3" />
+                        Customize
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
           </Card>
-        </div>
-      </div>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Left column - Visual and stats */}
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="p-8">
+                  <div className="flex justify-center">
+                    {blobbi.evolutionForm ? (
+                      <BlobbiEvolvedVisual 
+                        blobbi={blobbi} 
+                        size="large"
+                        onClick={() => isOwner && performAction('play')}
+                      />
+                    ) : (
+                      <BlobbiVisual 
+                        blobbi={blobbi} 
+                        size="large"
+                        onClick={() => isOwner && performAction('play')}
+                      />
+                    )}
+                  </div>
+                  {blobbi.state === 'hibernating' && (
+                    <p className="text-center text-sm text-muted-foreground mt-4">
+                      Your Blobbi is hibernating. Interact with it to wake it up!
+                    </p>
+                  )}
+
+                  {blobbi.evolutionForm && (
+                    <div className="text-center mt-4 space-y-1">
+                      <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
+                        <Sparkles className="w-4 h-4" />
+                        <span>Evolved into {blobbi.evolutionForm.charAt(0).toUpperCase() + blobbi.evolutionForm.slice(1)}</span>
+                      </div>
+                      {blobbi.evolutionTime && (
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(blobbi.evolutionTime, { addSuffix: true })}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              
+              <BlobbiStats stats={blobbi.stats} lifeStage={blobbi.lifeStage} blobbi={blobbi} />
+              
+              {/* Evolution Progress - show for owner only */}
+              {isOwner && (
+                <EvolutionProgress 
+                  evolutionProgress={blobbi.evolutionProgress} 
+                  hasEvolved={!!blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi'}
+                />
+              )}
+            </div>
+            
+            {/* Right column - Actions and info */}
+            <div className="space-y-4">
+              {isOwner ? (
+                <BlobbiActions 
+                  blobbi={blobbi}
+                  onAction={performAction}
+                  isPerformingAction={isPerformingAction}
+                  onGamesClick={() => setShowGames(true)}
+                  onOpenShop={() => setShowShop(true)}
+                />
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Viewing Mode</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      You're viewing someone else's Blobbi. Only the owner can interact with it.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Pet info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Pet Info</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Life Stage</span>
+                    <Badge variant="outline">
+                      {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">State</span>
+                    <Badge variant={blobbi.state === 'active' ? 'default' : 'secondary'}>
+                      {blobbi.state.charAt(0).toUpperCase() + blobbi.state.slice(1)}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Last Care</span>
+                    <span>{formatDistanceToNow(blobbi.lastInteraction * 1000, { addSuffix: true })}</span>
+                  </div>
+                  {blobbi.evolutionForm && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Evolution</span>
+                      <Badge variant="default" className="gap-1">
+                        <Sparkles className="w-3 h-3" />
+                        {blobbi.evolutionForm.charAt(0).toUpperCase() + blobbi.evolutionForm.slice(1)}
+                      </Badge>
+                    </div>
+                  )}
+
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="incubation" className="space-y-4">
+          <BlobbiIncubationDashboard />
+        </TabsContent>
+      </Tabs>
       
       {/* Shop, Storage, Customization, and Games Dialogs */}
       {isOwner && (
