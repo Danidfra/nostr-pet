@@ -1,7 +1,8 @@
 import { Progress } from '@/components/ui/progress';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BlobbiStats as Stats, BlobbiLifeStage, Blobbi } from '@/types/blobbi';
-import { Heart, Utensils, Zap, Sparkles, Smile, Thermometer, Shield } from 'lucide-react';
+import { Heart, Utensils, Zap, Sparkles, Smile, Thermometer, Shield, BarChart3 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface BlobbiStatsProps {
   stats: Stats;
@@ -100,8 +101,17 @@ export function BlobbiStats({ stats, lifeStage, blobbi, className }: BlobbiStats
   const statConfig = lifeStage === 'egg' ? eggStatConfig : normalStatConfig;
 
   return (
-    <Card className={className}>
-      <CardContent className="p-4 space-y-3">
+    <Card className={cn("bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600", className)}>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BarChart3 className="w-5 h-5" />
+          Stats
+        </CardTitle>
+        <CardDescription>
+          {lifeStage === 'egg' ? 'Monitor your egg\'s development' : 'Keep track of your Blobbi\'s wellbeing'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
         {statConfig.map((stat) => {
           const Icon = stat.icon;
           const isLow = stat.value < stat.lowThreshold;

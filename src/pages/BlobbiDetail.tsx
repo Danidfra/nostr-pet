@@ -213,42 +213,48 @@ export default function BlobbiDetail() {
           {/* Quick Info */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <CardHeader>
-              <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Quick Info</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Star className="w-5 h-5" />
+                Quick Info
+              </CardTitle>
+              <CardDescription>
+                Essential details about your Blobbi
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Life Stage</span>
+                <span className="text-muted-foreground">Life Stage</span>
                 <Badge variant="outline">
                   {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)}
                 </Badge>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">State</span>
+                <span className="text-muted-foreground">State</span>
                 <Badge variant={blobbi.state === 'active' ? 'default' : 'secondary'}>
                   {blobbi.state.charAt(0).toUpperCase() + blobbi.state.slice(1)}
                 </Badge>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Experience</span>
+                <span className="text-muted-foreground">Experience</span>
                 <div className="flex items-center gap-1">
                   <Trophy className="w-3 h-3 text-purple-600" />
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">{blobbi.experience} XP</span>
+                  <span className="font-semibold">{blobbi.experience} XP</span>
                 </div>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Coins</span>
+                <span className="text-muted-foreground">Coins</span>
                 <div className="flex items-center gap-1">
                   <Coins className="w-3 h-3 text-yellow-600" />
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">{blobbi.coins}</span>
+                  <span className="font-semibold">{blobbi.coins}</span>
                 </div>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Last Care</span>
-                <span className="text-gray-900 dark:text-gray-100">{formatDistanceToNow(blobbi.lastInteraction * 1000, { addSuffix: true })}</span>
+                <span className="text-muted-foreground">Last Care</span>
+                <span className="font-medium">{formatDistanceToNow(blobbi.lastInteraction * 1000, { addSuffix: true })}</span>
               </div>
               {blobbi.evolutionForm && (
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Evolution</span>
+                  <span className="text-muted-foreground">Evolution</span>
                   <Badge variant="default" className="gap-1">
                     <Sparkles className="w-3 h-3" />
                     {blobbi.evolutionForm.charAt(0).toUpperCase() + blobbi.evolutionForm.slice(1)}
@@ -262,7 +268,13 @@ export default function BlobbiDetail() {
           {isOwner && (
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardHeader>
-                <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Quick Actions</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="w-5 h-5" />
+                  Quick Actions
+                </CardTitle>
+                <CardDescription>
+                  Manage your Blobbi's needs and activities
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 <Button
@@ -327,18 +339,47 @@ export default function BlobbiDetail() {
         {/* Right Column - Detailed Information */}
         <div className="lg:col-span-2">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="evolution">Evolution</TabsTrigger>
-              <TabsTrigger value="interactions">Interactions</TabsTrigger>
-              <TabsTrigger value="social">Social</TabsTrigger>
-              <TabsTrigger value="actions">Actions</TabsTrigger>
-            </TabsList>
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+              <CardContent className="p-2">
+                <TabsList className="grid w-full grid-cols-5 bg-purple-50/50 dark:bg-purple-900/20">
+                  <TabsTrigger 
+                    value="overview"
+                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                  >
+                    Overview
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="evolution"
+                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                  >
+                    Evolution
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="interactions"
+                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                  >
+                    Interactions
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="social"
+                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                  >
+                    Social
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="actions"
+                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                  >
+                    Actions
+                  </TabsTrigger>
+                </TabsList>
+              </CardContent>
+            </Card>
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6">
               {/* Evolution Path */}
-              <Card>
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5" />
@@ -420,12 +461,15 @@ export default function BlobbiDetail() {
               </Card>
 
               {/* Recent Activity Summary */}
-              <Card>
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Clock className="w-5 h-5" />
                     Recent Activity
                   </CardTitle>
+                  <CardDescription>
+                    Latest interactions and care activities
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -463,9 +507,12 @@ export default function BlobbiDetail() {
               )}
               
               {/* Evolution Requirements */}
-              <Card>
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                 <CardHeader>
-                  <CardTitle>Evolution Requirements</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    Evolution Requirements
+                  </CardTitle>
                   <CardDescription>
                     What your Blobbi needs to reach the next stage
                   </CardDescription>
@@ -601,9 +648,12 @@ export default function BlobbiDetail() {
 
             {/* Interactions Tab */}
             <TabsContent value="interactions" className="space-y-6">
-              <Card>
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                 <CardHeader>
-                  <CardTitle>Interaction History</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5" />
+                    Interaction History
+                  </CardTitle>
                   <CardDescription>
                     Complete history of interactions with this Blobbi
                   </CardDescription>
@@ -639,7 +689,7 @@ export default function BlobbiDetail() {
             {/* Social Tab */}
             <TabsContent value="social" className="space-y-6">
               {/* Zaps Received */}
-              <Card>
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Zap className="w-5 h-5" />
@@ -682,7 +732,7 @@ export default function BlobbiDetail() {
               </Card>
 
               {/* Comments */}
-              <Card>
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MessageCircle className="w-5 h-5" />
@@ -731,13 +781,19 @@ export default function BlobbiDetail() {
                   onOpenShop={() => setShowShop(true)}
                 />
               ) : (
-                <Card>
+                <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                   <CardHeader>
-                    <CardTitle className="text-lg">Viewing Mode</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      <Share className="w-5 h-5" />
+                      Viewing Mode
+                    </CardTitle>
+                    <CardDescription>
+                      You're viewing someone else's Blobbi
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground">
-                      You're viewing someone else's Blobbi. Only the owner can interact with it.
+                      Only the owner can interact with this Blobbi. You can view its stats and evolution progress.
                     </p>
                   </CardContent>
                 </Card>

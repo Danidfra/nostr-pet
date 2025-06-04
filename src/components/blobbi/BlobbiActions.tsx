@@ -282,10 +282,13 @@ export function BlobbiActions({
   
   return (
     <>
-      <Card className={className}>
+      <Card className={cn("bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600", className)}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Actions</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Gamepad2 className="w-5 h-5" />
+              Actions
+            </CardTitle>
             {cooldownError && (
               <Button
                 variant="ghost"

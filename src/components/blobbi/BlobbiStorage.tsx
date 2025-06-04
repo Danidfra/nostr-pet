@@ -75,27 +75,31 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
         ) : (
           <>
             <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-              <TabsList className="grid grid-cols-3 lg:grid-cols-6 w-full">
-                {categories.map((category) => {
-                  const Icon = category.icon;
-                  const itemCount = getItemsByCategory(category.id).length;
-                  return (
-                    <TabsTrigger 
-                      key={category.id} 
-                      value={category.id}
-                      className="flex items-center gap-1 text-xs"
-                    >
-                      <Icon className="w-3 h-3" />
-                      <span className="hidden sm:inline">{category.label}</span>
-                      {itemCount > 0 && (
-                        <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
-                          {itemCount}
-                        </Badge>
-                      )}
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+                <CardContent className="p-2">
+                  <TabsList className="grid grid-cols-3 lg:grid-cols-6 w-full bg-purple-50/50 dark:bg-purple-900/20">
+                    {categories.map((category) => {
+                      const Icon = category.icon;
+                      const itemCount = getItemsByCategory(category.id).length;
+                      return (
+                        <TabsTrigger 
+                          key={category.id} 
+                          value={category.id}
+                          className="flex items-center gap-1 text-xs data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                        >
+                          <Icon className="w-3 h-3" />
+                          <span className="hidden sm:inline">{category.label}</span>
+                          {itemCount > 0 && (
+                            <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
+                              {itemCount}
+                            </Badge>
+                          )}
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
+                </CardContent>
+              </Card>
 
               <ScrollArea className="h-[400px] mt-4">
                 <TabsContent value={selectedCategory} className="mt-0">

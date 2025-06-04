@@ -242,7 +242,7 @@ export default function BlobbiDashboard() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-2">
-                <TabsList className="grid w-full grid-cols-5 bg-purple-50/50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-600">
+                <TabsList className="grid w-full grid-cols-5 bg-purple-50/50 dark:bg-purple-900/20 ">
                   <TabsTrigger 
                     value="overview"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
@@ -253,7 +253,7 @@ export default function BlobbiDashboard() {
                     value="blobbis"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
                   >
-                    My Blobbis
+                    My Blobbies
                   </TabsTrigger>
                   <TabsTrigger 
                     value="incubation"
@@ -396,7 +396,7 @@ export default function BlobbiDashboard() {
               </Card>
             </TabsContent>
 
-            {/* My Blobbis Tab */}
+            {/* My Blobbies Tab */}
             <TabsContent value="blobbis" className="space-y-6">
               {/* Filters and Search */}
               <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">

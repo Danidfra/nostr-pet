@@ -360,11 +360,30 @@ export const BlobbiLifecycleManager: React.FC<BlobbiLifecycleManagerProps> = ({ 
 
       {/* Detailed Information Tabs */}
       <Tabs defaultValue="timeline" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="stats">Detailed Stats</TabsTrigger>
-          <TabsTrigger value="records">Records</TabsTrigger>
-        </TabsList>
+        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+          <CardContent className="p-2">
+            <TabsList className="grid w-full grid-cols-3 bg-purple-50/50 dark:bg-purple-900/20">
+              <TabsTrigger 
+                value="timeline"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+              >
+                Timeline
+              </TabsTrigger>
+              <TabsTrigger 
+                value="stats"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+              >
+                Detailed Stats
+              </TabsTrigger>
+              <TabsTrigger 
+                value="records"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+              >
+                Records
+              </TabsTrigger>
+            </TabsList>
+          </CardContent>
+        </Card>
         
         <TabsContent value="timeline" className="space-y-4">
           <BlobbiTimeline blobbiId={blobbiId} />
