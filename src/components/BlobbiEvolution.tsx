@@ -324,34 +324,36 @@ const BlobbiEvolution: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <Card>
+    <div className="max-w-6xl mx-auto space-y-8">
+      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle className="text-3xl">Blobbi Evolution System</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">Evolution System</CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-300 mt-2">
                 After 4 full days of consistent care, your Blobbi will evolve into one of four adorable forms! 
                 Care for your Blobbi at least 3 times per day to maintain your care streak.
               </CardDescription>
             </div>
             {user && !blobbi && (
               <CreateBlobbiDialog>
-                <Button>Create Your First Blobbi</Button>
+                <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white">
+                  Create Your First Blobbi
+                </Button>
               </CreateBlobbiDialog>
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-8">
           <div className="grid md:grid-cols-2 gap-8">
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold">Original Blobbi</h3>
-              <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Original Blobbi</h3>
+              <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl p-8 border border-blue-200 dark:border-blue-600">
                 <div className="w-48 h-48 mx-auto">
                   {renderBlobbi()}
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-300 text-center">
                 Your cute blob companion awaiting evolution
               </p>
               <div className="flex justify-center">
@@ -359,6 +361,7 @@ const BlobbiEvolution: React.FC = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowAccessory(!showAccessory)}
+                  className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
                 >
                   {showAccessory ? 'Remove' : 'Add'} Accessories
                 </Button>
@@ -366,21 +369,23 @@ const BlobbiEvolution: React.FC = () => {
             </div>
             
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold">Evolution Preview</h3>
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 min-h-[256px] flex items-center justify-center">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Evolution Preview</h3>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 rounded-2xl p-8 min-h-[256px] flex items-center justify-center border border-gray-200 dark:border-gray-600">
                 {selectedForm !== null ? (
                   <div className="w-48 h-48">
                     {renderPet(selectedForm)}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground">Select an evolution form below</p>
+                  <p className="text-gray-600 dark:text-gray-300">Select an evolution form below</p>
                 )}
               </div>
               {selectedForm !== null && (
                 <div className="text-center space-y-2">
-                  <h4 className="font-semibold text-lg">{petForms[selectedForm].name}</h4>
-                  <Badge variant="secondary">{petForms[selectedForm].personality}</Badge>
-                  <p className="text-sm text-muted-foreground">{petForms[selectedForm].description}</p>
+                  <h4 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{petForms[selectedForm].name}</h4>
+                  <Badge variant="secondary" className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                    {petForms[selectedForm].personality}
+                  </Badge>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{petForms[selectedForm].description}</p>
                 </div>
               )}
             </div>
@@ -388,18 +393,20 @@ const BlobbiEvolution: React.FC = () => {
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-4 gap-4">
+      <div className="grid md:grid-cols-4 gap-6">
         {petForms.map((form, index) => (
           <Card 
             key={form.name}
-            className={`cursor-pointer transition-all hover:shadow-lg ${
-              selectedForm === index ? 'ring-2 ring-primary' : ''
+            className={`cursor-pointer transition-all hover:shadow-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border ${
+              selectedForm === index 
+                ? 'ring-2 ring-purple-500 border-purple-300 dark:border-purple-500' 
+                : 'border-purple-200 dark:border-purple-600 hover:border-purple-300 dark:hover:border-purple-500'
             }`}
             onClick={() => setSelectedForm(index)}
           >
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">{form.name}</CardTitle>
-              <Badge variant="outline" className="w-fit text-xs">
+              <CardTitle className="text-lg text-gray-900 dark:text-gray-100">{form.name}</CardTitle>
+              <Badge variant="outline" className="w-fit text-xs border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400">
                 {form.personality}
               </Badge>
             </CardHeader>
@@ -407,7 +414,7 @@ const BlobbiEvolution: React.FC = () => {
               <div className="w-32 h-32 mx-auto mb-3">
                 {renderPet(index)}
               </div>
-              <p className="text-xs text-muted-foreground text-center">
+              <p className="text-xs text-gray-600 dark:text-gray-300 text-center">
                 {form.description}
               </p>
             </CardContent>
@@ -415,17 +422,56 @@ const BlobbiEvolution: React.FC = () => {
         ))}
       </div>
 
-      <Card className="bg-muted/50">
+      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-yellow-200 dark:border-yellow-600">
         <CardHeader>
-          <CardTitle className="text-lg">Design Features</CardTitle>
+          <CardTitle className="text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <span className="text-yellow-500">✨</span>
+            Design Features
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <p>✨ <strong>Soft, minimal aesthetic</strong> with flat colors and gentle gradients</p>
-          <p>🎨 <strong>Simple geometric shapes</strong> for easy animation and recognition</p>
-          <p>😊 <strong>Expressive personalities</strong> through facial features and body language</p>
-          <p>🎩 <strong>Accessory support</strong> for customization (hats, glasses, collars, etc.)</p>
-          <p>🎲 <strong>Evolution after 4 days</strong> of consistent care - each Blobbi's form is determined by your care patterns!</p>
-          <p>📅 <strong>Daily care requirement</strong> - perform at least 3 care actions per day to maintain your streak</p>
+        <CardContent className="space-y-3 text-sm">
+          <div className="flex gap-3">
+            <span className="text-purple-500">✨</span>
+            <div>
+              <strong className="text-gray-900 dark:text-gray-100">Soft, minimal aesthetic</strong>
+              <span className="text-gray-600 dark:text-gray-300"> with flat colors and gentle gradients</span>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-pink-500">🎨</span>
+            <div>
+              <strong className="text-gray-900 dark:text-gray-100">Simple geometric shapes</strong>
+              <span className="text-gray-600 dark:text-gray-300"> for easy animation and recognition</span>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-yellow-500">😊</span>
+            <div>
+              <strong className="text-gray-900 dark:text-gray-100">Expressive personalities</strong>
+              <span className="text-gray-600 dark:text-gray-300"> through facial features and body language</span>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-blue-500">🎩</span>
+            <div>
+              <strong className="text-gray-900 dark:text-gray-100">Accessory support</strong>
+              <span className="text-gray-600 dark:text-gray-300"> for customization (hats, glasses, collars, etc.)</span>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-green-500">🎲</span>
+            <div>
+              <strong className="text-gray-900 dark:text-gray-100">Evolution after 4 days</strong>
+              <span className="text-gray-600 dark:text-gray-300"> of consistent care - each Blobbi's form is determined by your care patterns!</span>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-red-500">📅</span>
+            <div>
+              <strong className="text-gray-900 dark:text-gray-100">Daily care requirement</strong>
+              <span className="text-gray-600 dark:text-gray-300"> - perform at least 3 care actions per day to maintain your streak</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

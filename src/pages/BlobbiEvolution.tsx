@@ -10,6 +10,7 @@ export default function BlobbiEvolutionPage() {
       <div className="container mx-auto py-8 px-4">
         <AppHeader 
           title="Evolution Guide"
+          subtitle="Discover how your Blobbi transforms after 4 days of loving care"
           leftContent={
             <Link to="/blobbi">
               <Button variant="ghost" size="sm" className="gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20">
