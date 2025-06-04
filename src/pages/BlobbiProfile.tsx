@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Coins, Trophy, Calendar } from 'lucide-react';
 import { BlobbiLayout } from '@/components/BlobbiLayout';
-import { LoginArea } from '@/components/auth/LoginArea';
+import { AppHeader } from '@/components/AppHeader';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { useAuthor } from '@/hooks/useAuthor';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
@@ -30,8 +30,9 @@ export default function BlobbiProfile() {
     return (
       <BlobbiLayout>
         <div className="container mx-auto py-8 px-4">
-          <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-4">
+          <AppHeader 
+            title="Loading..."
+            leftContent={
               <Button
                 variant="ghost"
                 size="icon"
@@ -39,9 +40,8 @@ export default function BlobbiProfile() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h1 className="text-4xl font-bold">Loading...</h1>
-            </div>
-          </div>
+            }
+          />
           <Card className="max-w-2xl mx-auto">
             <CardContent className="p-8">
               <div className="flex items-center justify-center">
@@ -58,8 +58,9 @@ export default function BlobbiProfile() {
     return (
       <BlobbiLayout>
         <div className="container mx-auto py-8 px-4">
-          <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-4">
+          <AppHeader 
+            title="No Blobbi Found"
+            leftContent={
               <Button
                 variant="ghost"
                 size="icon"
@@ -67,9 +68,8 @@ export default function BlobbiProfile() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h1 className="text-4xl font-bold">No Blobbi Found</h1>
-            </div>
-          </div>
+            }
+          />
           <Card className="max-w-2xl mx-auto">
             <CardContent className="p-8 text-center">
               <p className="text-muted-foreground">
@@ -93,8 +93,10 @@ export default function BlobbiProfile() {
   return (
     <BlobbiLayout>
       <div className="container mx-auto py-8 px-4">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
+        <AppHeader 
+          title={blobbi.name}
+          subtitle={`Owned by ${displayName}`}
+          leftContent={
             <Button
               variant="ghost"
               size="icon"
@@ -102,12 +104,8 @@ export default function BlobbiProfile() {
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div>
-              <h1 className="text-4xl font-bold">{blobbi.name}</h1>
-              <p className="text-muted-foreground">Owned by {displayName}</p>
-            </div>
-          </div>
-        </div>
+          }
+        />
       
       <div className="max-w-4xl mx-auto space-y-4">
         {/* Header with pet info */}

@@ -22,6 +22,7 @@ import {
   getSpecialMarkRarity,
   getTitleRarity
 } from '@/lib/blobbi-egg-validation';
+import { AppHeader } from '@/components/AppHeader';
 
 interface EggProperties {
   d: string;
@@ -166,27 +167,20 @@ export default function EggDemo() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <Sparkles className="h-6 w-6 text-purple-500" />
-              Blobbi Egg Demo
-            </CardTitle>
-            <CardDescription>
-              Interactive demonstration of Blobbi egg generation and customization based on the blobbi-egg.md specification.
-              This is a visual demo only - no events are published to Nostr.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
+      <div className="container mx-auto py-8 px-4">
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* Header */}
+          <AppHeader 
+            title="🥚 Blobbi Egg Demo"
+            subtitle="Interactive demonstration of Blobbi egg generation and customization based on the blobbi-egg.md specification. This is a visual demo only - no events are published to Nostr."
+          />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Visual Display */}
-          <Card className="lg:sticky lg:top-4">
+          <Card className="lg:sticky lg:top-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                 🥚 Egg Visualization
                 {eggData && <Badge variant="secondary">ID: {eggData.d}</Badge>}
               </CardTitle>
@@ -210,7 +204,7 @@ export default function EggDemo() {
                   
                   {/* Stats Display */}
                   <div className="w-full space-y-3">
-                    <h4 className="font-semibold text-sm">Current Stats</h4>
+                    <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Current Stats</h4>
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div className="flex justify-between">
                         <span>Happiness:</span>
@@ -246,7 +240,7 @@ export default function EggDemo() {
                   </div>
                 </>
               ) : (
-                <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground">
+                <div className="flex flex-col items-center justify-center min-h-[300px] text-gray-600 dark:text-gray-400">
                   <Sparkles className="h-12 w-12 mb-4 opacity-50" />
                   <p>Generate or customize an egg to see the visualization</p>
                 </div>
@@ -257,9 +251,9 @@ export default function EggDemo() {
           {/* Controls */}
           <div className="space-y-6">
             {/* Generation Controls */}
-            <Card>
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                   <RefreshCw className="h-5 w-5" />
                   Generation
                 </CardTitle>
@@ -267,7 +261,7 @@ export default function EggDemo() {
               <CardContent>
                 <Button 
                   onClick={generateRandomEgg}
-                  className="w-full flex items-center gap-2"
+                  className="w-full flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
                   size="lg"
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -279,9 +273,9 @@ export default function EggDemo() {
             {eggData && (
               <>
                 {/* Required Properties */}
-                <Card>
+                <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                       <Palette className="h-5 w-5" />
                       Required Properties
                     </CardTitle>
@@ -407,13 +401,13 @@ export default function EggDemo() {
                 </Card>
 
                 {/* Optional Properties */}
-                <Card>
+                <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                       <Star className="h-5 w-5" />
                       Optional Properties
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-gray-600 dark:text-gray-300">
                       These properties have spawn chances and add rarity to your egg
                     </CardDescription>
                   </CardHeader>
@@ -550,12 +544,12 @@ export default function EggDemo() {
                 </Card>
 
                 {/* Specification Info */}
-                <Card>
+                <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                   <CardHeader>
-                    <CardTitle className="text-sm">Specification Compliance</CardTitle>
+                    <CardTitle className="text-sm text-gray-900 dark:text-gray-100">Specification Compliance</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-xs text-muted-foreground space-y-1">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
                       <p>✅ Follows exact blobbi-egg.md specification</p>
                       <p>✅ Rarity system with weighted probabilities</p>
                       <p>✅ Optional traits with correct spawn chances</p>
@@ -566,6 +560,7 @@ export default function EggDemo() {
                 </Card>
               </>
             )}
+          </div>
           </div>
         </div>
       </div>

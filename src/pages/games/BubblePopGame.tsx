@@ -8,6 +8,7 @@ import { useBlobbiGameInteraction } from '@/hooks/useBlobbiInteractionWithStateU
 import { useToast } from '@/hooks/useToast';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
+import { AppHeader } from '@/components/AppHeader';
 
 interface Bubble {
   id: number;
@@ -360,40 +361,43 @@ export function BubblePopGame() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </Button>
+        <AppHeader 
+          leftContent={
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </Button>
+          }
+        />
+        
+        {/* Game Stats */}
+        <div className="flex justify-center gap-4 mb-4">
+          <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-yellow-600" />
+              <span className="font-bold text-gray-900 dark:text-gray-100">{gameState.score}</span>
+            </div>
+          </Card>
           
-          <div className="flex items-center gap-4">
-            <Card className="px-4 py-2">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-yellow-600" />
-                <span className="font-bold">{gameState.score}</span>
-              </div>
-            </Card>
-            
-            <Card className="px-4 py-2">
-              <div className="flex items-center gap-2">
-                <span className="font-bold">{gameState.timeLeft}s</span>
-              </div>
-            </Card>
-          </div>
+          <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-gray-900 dark:text-gray-100">{gameState.timeLeft}s</span>
+            </div>
+          </Card>
         </div>
 
         {/* Game Area */}
-        <Card className="relative overflow-hidden">
+        <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
           <CardContent className="p-0">
-            <div className="relative w-full h-[600px] bg-gradient-to-t from-blue-100 to-purple-100">
+            <div className="relative w-full h-[600px] bg-gradient-to-t from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30">
               {/* Blobbi Character */}
               {blobbi && (
                 <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none">
@@ -430,21 +434,21 @@ export function BubblePopGame() {
               {/* Game Over Overlay */}
               {gameState.gameOver && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
-                  <Card className="p-8 text-center">
+                  <Card className="p-8 text-center bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                     <CardHeader>
-                      <CardTitle className="text-2xl">Game Over!</CardTitle>
+                      <CardTitle className="text-2xl text-gray-900 dark:text-gray-100">Game Over!</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="text-4xl font-bold">{gameState.score} points</div>
-                      <div className="text-muted-foreground">
+                      <div className="text-4xl font-bold text-gray-900 dark:text-gray-100">{gameState.score} points</div>
+                      <div className="text-gray-600 dark:text-gray-400">
                         You earned {Math.floor(gameState.score / 10)} coins!
                       </div>
                       <div className="flex gap-2 justify-center">
-                        <Button onClick={startGame} className="flex items-center gap-2">
+                        <Button onClick={startGame} className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white">
                           <RotateCcw className="w-4 h-4" />
                           Play Again
                         </Button>
-                        <Button variant="outline" onClick={() => navigate(-1)}>
+                        <Button variant="outline" onClick={() => navigate(-1)} className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
                           Back to Games
                         </Button>
                       </div>
@@ -456,20 +460,20 @@ export function BubblePopGame() {
               {/* Start Screen */}
               {!gameState.isPlaying && !gameState.gameOver && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
-                  <Card className="p-8 text-center">
+                  <Card className="p-8 text-center bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                     <CardHeader>
-                      <CardTitle className="text-2xl">Bubble Pop!</CardTitle>
+                      <CardTitle className="text-2xl text-gray-900 dark:text-gray-100">Bubble Pop!</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <p className="text-muted-foreground">
+                      <p className="text-gray-600 dark:text-gray-400">
                         Pop as many bubbles as you can before time runs out!
                       </p>
-                      <div className="space-y-2 text-sm text-left">
+                      <div className="space-y-2 text-sm text-left text-gray-700 dark:text-gray-300">
                         <p>• Click on bubbles to pop them</p>
                         <p>• Smaller bubbles give more points</p>
                         <p>• Bubbles disappear after 5 seconds</p>
                       </div>
-                      <Button onClick={startGame} size="lg" className="flex items-center gap-2">
+                      <Button onClick={startGame} size="lg" className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white">
                         <Play className="w-5 h-5" />
                         Start Game
                       </Button>
