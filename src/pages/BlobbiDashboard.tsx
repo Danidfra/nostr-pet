@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,7 +45,7 @@ type BlobbiFilter = 'all' | 'active' | 'incubating' | 'evolved' | 'archived';
 export default function BlobbiDashboard() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  const { data: profile } = useBlobbonautProfile();
+  const { data: profile, isLoading: isProfileLoading } = useBlobbonautProfile();
   const { data: communityBlobbis } = useBlobbis(10);
   const { data: userBlobbis = [] } = useUserBlobbis();
   const { 
@@ -60,6 +60,13 @@ export default function BlobbiDashboard() {
   const [filter, setFilter] = useState<BlobbiFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Redirect to adoption page if user doesn't have a profile (kind 31125)
+  useEffect(() => {
+    if (user && !isProfileLoading && !profile) {
+      navigate('/blobbi/adopt');
+    }
+  }, [user, profile, isProfileLoading, navigate]);
   
   if (!user) {
     return (
@@ -85,6 +92,50 @@ export default function BlobbiDashboard() {
                   </p>
                 </div>
                 <LoginArea />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </BlobbiLayout>
+    );
+  }
+
+  // Show loading state while checking for profile
+  if (user && isProfileLoading) {
+    return (
+      <BlobbiLayout>
+        <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
+          <div className="container mx-auto py-8 px-4">
+            <AppHeader 
+              title="Blobbi Dashboard"
+              subtitle="Loading your profile..."
+            />
+            
+            <Card className="max-w-2xl mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+              <CardContent className="p-8">
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </BlobbiLayout>
+    );
+  }
+
+  // If user is logged in but has no profile, they will be redirected by useEffect
+  // This prevents the dashboard from showing briefly before redirect
+  if (user && !profile) {
+    return (
+      <BlobbiLayout>
+        <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
+          <div className="container mx-auto py-8 px-4">
+            <Card className="max-w-2xl mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+              <CardContent className="p-8">
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                </div>
               </CardContent>
             </Card>
           </div>
