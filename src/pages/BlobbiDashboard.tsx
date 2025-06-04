@@ -31,7 +31,7 @@ import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 import { BlobbonautProfileCard } from '@/components/blobbi/BlobbonautProfileCard';
-import { EditBlobbonautProfile } from '@/components/blobbi/EditBlobbonautProfile';
+
 import { BlobbiIncubationDashboard } from '@/components/blobbi/BlobbiIncubationDashboard';
 import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { LoginArea } from '@/components/auth/LoginArea';
@@ -56,7 +56,7 @@ export default function BlobbiDashboard() {
     isReadyToEvolve 
   } = useBlobbiIncubationSystem();
   
-  const [showEditProfile, setShowEditProfile] = useState(false);
+
   const [filter, setFilter] = useState<BlobbiFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
@@ -146,10 +146,7 @@ export default function BlobbiDashboard() {
       <div className="grid lg:grid-cols-4 gap-6">
         {/* Sidebar - Profile & Quick Stats */}
         <div className="lg:col-span-1 space-y-4">
-          <BlobbonautProfileCard 
-            showEditButton={true}
-            onEdit={() => setShowEditProfile(true)}
-          />
+          <BlobbonautProfileCard />
           
           {/* Quick Stats */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
@@ -698,11 +695,7 @@ export default function BlobbiDashboard() {
         </div>
       </div>
 
-          {/* Edit Profile Dialog */}
-          <EditBlobbonautProfile 
-            isOpen={showEditProfile}
-            onClose={() => setShowEditProfile(false)}
-          />
+
         </div>
       </div>
     </BlobbiLayout>

@@ -9,8 +9,7 @@ import {
   Star, 
   Users, 
   Palette,
-  Crown,
-  Settings
+  Crown
 } from 'lucide-react';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -18,14 +17,10 @@ import { useAuthor } from '@/hooks/useAuthor';
 
 interface BlobbonautProfileCardProps {
   profileId?: string;
-  showEditButton?: boolean;
-  onEdit?: () => void;
 }
 
 export function BlobbonautProfileCard({ 
-  profileId, 
-  showEditButton = false, 
-  onEdit 
+  profileId
 }: BlobbonautProfileCardProps) {
   const { user } = useCurrentUser();
   const { data: profile, isLoading } = useBlobbonautProfile(profileId);
@@ -96,17 +91,7 @@ export function BlobbonautProfileCard({
               </p>
             </div>
           </div>
-          {showEditButton && isOwnProfile && onEdit && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={onEdit}
-              className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Edit
-            </Button>
-          )}
+
         </div>
       </CardHeader>
       

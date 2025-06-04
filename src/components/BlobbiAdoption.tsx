@@ -454,7 +454,7 @@ export function BlobbiAdoption() {
                       </div>
                       <div className="text-center">
                         <div className="text-2xl mb-1">🪙</div>
-                        <p className="text-sm font-medium text-green-700 dark:text-green-300">Starting Coins</p>
+                        <p className="text-sm font-medium text-green-700 dark:text-green-300">Coins</p>
                         <p className="text-xs text-gray-600 dark:text-gray-300">{blobbonautProfile.coins}</p>
                       </div>
                     </div>

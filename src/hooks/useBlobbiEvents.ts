@@ -61,19 +61,19 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
 
   // Update Blobbi state
   const updateStateMutation = useMutation({
-    mutationFn: async (updatedBlobbi: Blobbi) => {
+    mutationFn: async ({ blobbi, fees }: { blobbi: Blobbi; fees?: number }) => {
       if (!user) throw new Error('Must be logged in to update Blobbi state');
       
-      const stateEventData = createBlobbiStateEvent(updatedBlobbi);
+      const stateEventData = createBlobbiStateEvent(blobbi, fees);
       
       await publishEvent({
         ...stateEventData,
       });
       
-      return updatedBlobbi;
+      return blobbi;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['blobbi-state', targetBlobbiId, targetPubkey] });
+    onSuccess: (_, { blobbi }) => {
+      queryClient.invalidateQueries({ queryKey: ['blobbi-state', blobbi.id, blobbi.ownerPubkey] });
     },
   });
 
@@ -83,7 +83,7 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
     isLoading,
     error,
     isOwner: user?.pubkey === targetPubkey,
-    updateState: updateStateMutation.mutateAsync,
+    updateState: (blobbi: Blobbi, fees?: number) => updateStateMutation.mutateAsync({ blobbi, fees }),
     isUpdating: updateStateMutation.isPending,
   };
 }
@@ -362,8 +362,9 @@ export function useCreateBlobbi() {
         ...recordEventData,
       });
 
-      // Then create the initial state
-      await updateState(newBlobbi);
+      // Then create the initial state with adoption fees
+      const adoptionFees = 100; // Standard adoption cost
+      await updateState(newBlobbi, adoptionFees);
 
       return newBlobbi;
     },

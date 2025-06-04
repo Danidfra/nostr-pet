@@ -329,7 +329,7 @@ export function useCreateInitialProfile() {
         id: defaultProfileId,
         ownerPubkey: user.pubkey,
         name: defaultName, // Include default name from Nostr metadata
-        coins: 100, // Starting coins
+        coins: 500, // Starting coins
         ownedBlobbis: [],
         pettingLevel: 0,
         lifetimeBlobbis: 0,

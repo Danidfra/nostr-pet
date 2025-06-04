@@ -70,7 +70,7 @@ export function createShellIntegrityPenaltyEvent(
 }
 
 // Create Kind 31124: Blobbi Current State Event
-export function createBlobbiStateEvent(blobbi: Blobbi): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
+export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
   const tags: Array<[string, string]> = [
     ['d', blobbi.id],
     ['stage', blobbi.lifeStage],
@@ -84,6 +84,11 @@ export function createBlobbiStateEvent(blobbi: Blobbi): Omit<BlobbiStateEvent, '
     ['experience', blobbi.experience.toString()],
     ['care_streak', blobbi.careStreak.toString()],
   ];
+
+  // Add fees tag for adoption events
+  if (adoptionFees !== undefined) {
+    tags.push(['fees', adoptionFees.toString()]);
+  }
 
   // Add optional appearance tags
   if (blobbi.baseColor) tags.push(['base_color', blobbi.baseColor]);

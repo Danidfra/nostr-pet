@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BlobbiGame } from '@/components/blobbi/BlobbiGame';
 import { DailyCheckIn } from '@/components/blobbi/DailyCheckIn';
 import { BlobbonautProfileCard } from '@/components/blobbi/BlobbonautProfileCard';
-import { EditBlobbonautProfile } from '@/components/blobbi/EditBlobbonautProfile';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbi } from '@/hooks/useBlobbi';
@@ -15,7 +13,6 @@ import { Sparkles } from 'lucide-react';
 export default function Blobbi() {
   const { user } = useCurrentUser();
   const { blobbi } = useBlobbi();
-  const [showEditProfile, setShowEditProfile] = useState(false);
   
   return (
     <div className="container mx-auto py-8 px-4">
@@ -37,10 +34,7 @@ export default function Blobbi() {
         {user && (
           <div className="space-y-4">
             {/* Blobbanaut Profile */}
-            <BlobbonautProfileCard 
-              showEditButton={true}
-              onEdit={() => setShowEditProfile(true)}
-            />
+            <BlobbonautProfileCard />
             
             {blobbi && <DailyCheckIn />}
             
@@ -53,12 +47,7 @@ export default function Blobbi() {
           </div>
         )}
       </div>
-      
-      {/* Edit Profile Dialog */}
-      <EditBlobbonautProfile 
-        isOpen={showEditProfile}
-        onClose={() => setShowEditProfile(false)}
-      />
+
     </div>
   );
 }
