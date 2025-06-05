@@ -96,7 +96,7 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
   
   const lifeStageScale = {
     egg: 0.6,
-    child: 0.7,
+    baby: 0.7,
     adult: 1,
   };
   

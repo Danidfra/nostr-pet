@@ -793,7 +793,7 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
         
         // Validate stage is valid
         const stage = getTagValue(event.tags, 'stage');
-        if (stage && !['egg', 'child', 'adult'].includes(stage)) return false;
+        if (stage && !['egg', 'baby', 'adult'].includes(stage)) return false;
         
         break;
       }

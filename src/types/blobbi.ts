@@ -9,7 +9,7 @@ export interface BlobbiStats {
 }
 
 // Updated lifecycle stages according to spec
-export type BlobbiLifeStage = 'egg' | 'child' | 'adult';
+export type BlobbiLifeStage = 'egg' | 'baby' | 'adult';
 export type BlobbiEvolutionForm = 'blobbi' | 'pengui' | 'owli' | 'catti' | 'froggi';
 export type BlobbiMood = 'happy' | 'sad' | 'sleepy' | 'hungry' | 'dirty' | 'sick' | 'neutral' | 'playful';
 export type BlobbiState = 'active' | 'sleeping' | 'hibernating';

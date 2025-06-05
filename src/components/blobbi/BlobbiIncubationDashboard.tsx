@@ -253,9 +253,10 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                         <div className="flex flex-col items-center space-y-3">
                           <div className="relative">
                             <EggGraphic 
+                              blobbi={blobbi} // Pass the full blobbi object for unique characteristics
                               size="medium" 
                               animated={true}
-                              warmth={60 + (progress.egg.percentage * 0.4)} // Warmth increases with progress
+                              warmth={blobbi.eggTemperature || (60 + (progress.egg.percentage * 0.4))} // Use blobbi's specific temperature or fallback
                             />
                             {selectedEggId === blobbi.id && (
                               <div className="absolute -top-1 -right-1">
@@ -454,7 +455,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                     >
                       <div className="flex flex-col items-center space-y-3">
                         <div className="relative">
-                          {blobbi.evolutionForm ? (
+                          {blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
                             <BlobbiEvolvedVisual blobbi={blobbi} size="medium" />
                           ) : (
                             <BlobbiVisual blobbi={blobbi} size="medium" />

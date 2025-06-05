@@ -28,7 +28,7 @@ export const COOLDOWN_DURATIONS: Record<BlobbiLifeStage, Record<BlobbiAction, nu
     rest: 0,
     cruzar: 0,
   },
-  child: {
+  baby: {
     feed: 5 * 60 * 1000,        // 5 minutes per use
     play: 10 * 60 * 1000,       // 10 minutes per use
     clean: 10 * 60 * 1000,      // 10 minutes per use
@@ -36,7 +36,7 @@ export const COOLDOWN_DURATIONS: Record<BlobbiLifeStage, Record<BlobbiAction, nu
     talk: 5 * 60 * 1000,        // 5 minutes per use
     check: 3 * 60 * 1000,       // 3 minutes per use
     medicine: 120 * 60 * 1000,  // 120 minutes per use (2 hours)
-    // Actions not available in child stage
+    // Actions not available in baby stage
     warm: 0,
     sing: 0,
     cruzar: 0,
@@ -71,7 +71,7 @@ export const GLOBAL_COOLDOWN_DURATIONS: Record<BlobbiLifeStage, Record<BlobbiAct
     rest: 0,
     cruzar: 0,
   },
-  child: {
+  baby: {
     feed: 1.5 * 60 * 60 * 1000,    // 1.5 hours
     play: 2 * 60 * 60 * 1000,      // 2 hours
     clean: 1.5 * 60 * 60 * 1000,   // 1.5 hours
@@ -79,7 +79,7 @@ export const GLOBAL_COOLDOWN_DURATIONS: Record<BlobbiLifeStage, Record<BlobbiAct
     talk: 1.5 * 60 * 60 * 1000,    // 1.5 hours
     check: 1 * 60 * 60 * 1000,     // 1 hour
     medicine: 0,                    // No global cooldown (only 1 use per session)
-    // Actions not available in child stage
+    // Actions not available in baby stage
     warm: 0,
     sing: 0,
     cruzar: 0,
@@ -114,7 +114,7 @@ export const MAX_USES_PER_SESSION: Record<BlobbiLifeStage, Record<BlobbiAction, 
     rest: 0,
     cruzar: 0,
   },
-  child: {
+  baby: {
     feed: 4,
     play: 4,
     clean: 4,
@@ -122,7 +122,7 @@ export const MAX_USES_PER_SESSION: Record<BlobbiLifeStage, Record<BlobbiAction, 
     talk: 4,
     check: 4,
     medicine: 1,
-    // Actions not available in child stage
+    // Actions not available in baby stage
     warm: 0,
     sing: 0,
     cruzar: 0,
@@ -145,7 +145,7 @@ export const MAX_USES_PER_SESSION: Record<BlobbiLifeStage, Record<BlobbiAction, 
 // Sync window durations according to the specification
 export const SYNC_WINDOWS: Record<BlobbiLifeStage, number> = {
   egg: 2 * 60 * 60 * 1000,     // 2 hours
-  child: 2 * 60 * 60 * 1000,   // 2 hours (child stage)
+  baby: 2 * 60 * 60 * 1000,   // 2 hours (baby stage)
   adult: 24 * 60 * 60 * 1000,  // 24 hours (includes cruzar action)
 };
 

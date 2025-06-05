@@ -307,6 +307,57 @@ export function useBlobbiIncubationSystem() {
   const taskCleanupRef = useRef<(() => void) | null>(null);
   const isInitializedRef = useRef<boolean>(false);
 
+  // Publish stage transition to baby when all egg tasks are completed
+  const publishStageTransition = useCallback(async (blobbiId: string) => {
+    if (!user || !nostr) return;
+
+    try {
+      console.log(`🐣 Publishing stage transition to baby for Blobbi: ${blobbiId}`);
+      
+      // Fetch current Blobbi event to update it
+      const signal = AbortSignal.timeout(5000);
+      const currentBlobbiEvents = await nostr.query([{
+        kinds: [31124],
+        authors: [user.pubkey],
+        '#d': [blobbiId],
+        limit: 1,
+      }], { signal });
+
+      if (currentBlobbiEvents.length === 0) {
+        console.error('❌ No Blobbi event found for stage transition');
+        return;
+      }
+
+      const currentEvent = currentBlobbiEvents[0];
+      const existingTags = currentEvent.tags.map(tag => [tag[0] || '', tag[1] || '']) as Array<[string, string]>;
+      
+      // Update the stage tag to 'baby'
+      const updatedTags = existingTags.map(tag => {
+        if (tag[0] === 'stage') {
+          return ['stage', 'baby'] as [string, string];
+        }
+        return tag;
+      });
+
+      // Add hatch time if not present
+      const hasHatchTime = updatedTags.some(tag => tag[0] === 'hatch_time');
+      if (!hasHatchTime) {
+        updatedTags.push(['hatch_time', Math.floor(Date.now() / 1000).toString()]);
+      }
+
+      // Publish the updated event with baby stage
+      await publishEvent({
+        kind: 31124,
+        content: currentEvent.content,
+        tags: updatedTags,
+      });
+      
+      console.log(`✅ Successfully transitioned Blobbi ${blobbiId} to baby stage`);
+    } catch (error) {
+      console.error('❌ Failed to publish stage transition:', error);
+    }
+  }, [user, nostr, publishEvent]);
+
   // Publish task confirmation event
   const publishTaskConfirmation = useCallback(async (taskName: string) => {
     if (!user || !nostr) return;
@@ -456,11 +507,12 @@ export function useBlobbiIncubationSystem() {
       // Check if all egg tasks are completed (ready to hatch)
       const allEggTasksCompleted = state.incubationState.eggTasks.every(task => task.completed);
       if (allEggTasksCompleted && state.selectedEggId) {
-        console.log('🎉 All egg tasks completed! Ready to hatch.');
-        // The subscription will be closed when the task_completed tag is found in the 31124 event
+        console.log('🎉 All egg tasks completed! Transitioning to baby stage...');
+        // Automatically transition the egg to baby stage
+        await publishStageTransition(state.selectedEggId);
       }
     }
-  }, [user, publishEvent, state.incubationStartTime, state.incubationState.blobbiCreationTime, state.selectedEggId, publishTaskConfirmation]);
+  }, [user, publishEvent, state.incubationStartTime, state.incubationState.blobbiCreationTime, state.selectedEggId, publishTaskConfirmation, publishStageTransition]);
 
   // Step 2: Start persistent metadata subscription (kind 31124)
   const startMetadataSubscription = useCallback(async () => {
@@ -502,9 +554,18 @@ export function useBlobbiIncubationSystem() {
                     
                     // Check if this is for the selected egg
                     if (state.selectedEggId === blobbi.id) {
-                      // Check if egg is now adult (all tasks completed)
-                      if (blobbi.lifeStage !== 'egg') {
-                        console.log('🎊 Egg has evolved! Closing task subscription.');
+                      // Check if egg has transitioned to baby or adult
+                      if (blobbi.lifeStage === 'baby') {
+                        console.log('🐣 Egg has hatched to baby! Updating hatch time.');
+                        setState(prev => ({
+                          ...prev,
+                          incubationState: {
+                            ...prev.incubationState,
+                            hatchTime: Date.now(),
+                          },
+                        }));
+                      } else if (blobbi.lifeStage === 'adult') {
+                        console.log('🎊 Blobbi has evolved to adult! Closing task subscription.');
                         stopIncubationRef.current?.();
                       }
                     }

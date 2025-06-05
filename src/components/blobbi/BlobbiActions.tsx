@@ -219,7 +219,7 @@ export function BlobbiActions({
       ];
     }
     
-    // Child and Adult actions
+    // Baby and Adult actions
     const baseActions = [
       {
         action: 'feed' as BlobbiAction,
@@ -370,7 +370,7 @@ export function BlobbiActions({
               );
             })}
             
-            {/* Games Button - only for child and adult */}
+            {/* Games Button - only for baby and adult */}
             {blobbi.lifeStage !== 'egg' && (
               <Button
                 variant="outline"

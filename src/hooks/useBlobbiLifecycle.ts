@@ -26,7 +26,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
 
       const { 
         checkEggHatchingReadiness, 
-        checkChildEvolutionReadiness,
+        checkBabyEvolutionReadiness,
         getCareStreakStatus,
       } = await import('@/lib/blobbi-evolution');
 
@@ -35,8 +35,8 @@ export function useBlobbiLifecycle(blobbiId: string) {
       let evolutionStatus: { isReady: boolean; message: string; requirements?: Record<string, unknown> } | null = null;
       if (blobbi.lifeStage === 'egg') {
         evolutionStatus = checkEggHatchingReadiness(blobbi);
-      } else if (blobbi.lifeStage === 'child') {
-        evolutionStatus = checkChildEvolutionReadiness(blobbi);
+      } else if (blobbi.lifeStage === 'baby') {
+        evolutionStatus = checkBabyEvolutionReadiness(blobbi);
       }
 
       return {
@@ -73,7 +73,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
       // Create evolution record
       await createRecord({
         recordData: evolutionRecord,
-        content: newStage === 'child' 
+        content: newStage === 'baby' 
           ? `${blobbi.name} has hatched from their egg! 🐣✨` 
           : `${blobbi.name} has evolved to ${evolutionRecord.evolutionStage}! 🌟`,
       });
@@ -152,7 +152,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
               // For eggs, medicine strengthens shell health
               statChange = ['health', Math.min(25, 100 - degradedStats.health)];
             } else {
-              // For child/adult, normal health boost
+              // For baby/adult, normal health boost
               statChange = ['health', Math.min(20, 100 - degradedStats.health)];
             }
             break;
@@ -161,7 +161,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
               // For eggs, cleaning improves shell health
               statChange = ['health', Math.min(15, 100 - degradedStats.health)];
             } else {
-              // For child/adult, normal hygiene boost
+              // For baby/adult, normal hygiene boost
               statChange = ['hygiene', Math.min(40, 100 - degradedStats.hygiene)];
             }
             break;
@@ -226,10 +226,10 @@ export function useBlobbiLifecycle(blobbiId: string) {
       if (lifecycleStatus.data?.isEligibleForEvolution) {
         if (blobbi.lifeStage === 'egg') {
           autoEvolution = await evolveMutation.mutateAsync({ 
-            newStage: 'child', 
+            newStage: 'baby', 
             evolutionReason: 'Hatching requirements met through care' 
           });
-        } else if (blobbi.lifeStage === 'child' && updatedProgress.isEligibleForEvolution) {
+        } else if (blobbi.lifeStage === 'baby' && updatedProgress.isEligibleForEvolution) {
           autoEvolution = await evolveMutation.mutateAsync({ 
             newStage: 'adult', 
             evolutionReason: 'Evolution requirements met through consistent care' 

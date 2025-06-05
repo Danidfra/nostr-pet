@@ -126,8 +126,8 @@ function validateLifecycleProgression(
 
     if (previousStage) {
       const validTransitions: Record<BlobbiLifeStage, BlobbiLifeStage[]> = {
-        egg: ['child'],
-        child: ['adult'],
+        egg: ['baby'],
+        baby: ['adult'],
         adult: [], // Adults don't evolve further
       };
 

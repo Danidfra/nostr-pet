@@ -29,7 +29,7 @@ function calculateStatChanges(
   action: BlobbiAction, 
   currentStats: BlobbiStats,
   itemEffect?: Partial<BlobbiStats & { egg_temperature?: number }>,
-  lifeStage?: 'egg' | 'child' | 'adult'
+  lifeStage?: 'egg' | 'baby' | 'adult'
 ): Array<[string, number]> {
   // For actions that use items, return the item effects directly
   if (itemEffect && ['feed', 'play', 'clean', 'medicine'].includes(action)) {
@@ -111,7 +111,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
 
   // Create new Blobbi using new event system
   const createBlobbiMutation = useMutation({
-    mutationFn: async ({ name, stage = 'egg' }: { name: string; stage?: 'egg' | 'child' | 'adult' }) => {
+    mutationFn: async ({ name, stage = 'egg' }: { name: string; stage?: 'egg' | 'baby' | 'adult' }) => {
       if (!user) throw new Error('Must be logged in to create a Blobbi');
       
       return await createBlobbiFromEvents({
@@ -223,13 +223,13 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       if (!user || !currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only evolve your own Blobbi');
       
-      let newStage: 'child' | 'adult';
+      let newStage: 'baby' | 'adult';
       let reason: string;
       
       if (currentBlobbi.lifeStage === 'egg') {
-        newStage = 'child';
+        newStage = 'baby';
         reason = 'Manual hatching triggered';
-      } else if (currentBlobbi.lifeStage === 'child') {
+      } else if (currentBlobbi.lifeStage === 'baby') {
         newStage = 'adult';
         reason = 'Manual evolution triggered';
       } else {

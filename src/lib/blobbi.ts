@@ -17,20 +17,20 @@ const STAT_DECAY_RATES = {
 
 const LIFE_STAGE_THRESHOLDS = {
   egg: 0,
-  child: 4 * 24 * 60 * 60 * 1000,    // 4 days (hatching)
+  baby: 4 * 24 * 60 * 60 * 1000,    // 4 days (hatching)
   adult: 14 * 24 * 60 * 60 * 1000,   // 14 days (evolution)
 };
 
 const ACTION_EFFECTS: Record<BlobbiAction, Partial<BlobbiStats>> = {
   feed: { hunger: 30, happiness: 5 },
   play: { happiness: 25, energy: -15, hygiene: -5 },
-  clean: { hygiene: 40, happiness: 10 }, // For child/adult: hygiene boost; For eggs: shell health boost
+  clean: { hygiene: 40, happiness: 10 }, // For baby/adult: hygiene boost; For eggs: shell health boost
   rest: { energy: 50, happiness: 5 },
   warm: { health: 5, happiness: 2 },
   check: { health: 2 },
   sing: { happiness: 15, energy: -5 },
   talk: { happiness: 10 },
-  medicine: { health: 30, happiness: -5 }, // For eggs: stronger shell health; For child/adult: general health
+  medicine: { health: 30, happiness: -5 }, // For eggs: stronger shell health; For baby/adult: general health
   cruzar: { happiness: 20, energy: -10 }, // Special breeding action
 };
 
@@ -58,7 +58,7 @@ export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blob
     name,
     birthTime: Date.now(),
     lastInteraction: Math.floor(Date.now() / 1000),
-    lifeStage: 'child',
+    lifeStage: 'baby',
     state: 'active',
     stats: {
       hunger: 80,
@@ -112,7 +112,7 @@ export function getLifeStage(birthTime: number, currentTime: number = Date.now()
   const age = currentTime - birthTime;
   
   if (age >= LIFE_STAGE_THRESHOLDS.adult) return 'adult';
-  if (age >= LIFE_STAGE_THRESHOLDS.child) return 'child';
+  if (age >= LIFE_STAGE_THRESHOLDS.baby) return 'baby';
   return 'egg';
 }
 

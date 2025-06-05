@@ -43,7 +43,7 @@ import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AppHeader } from '@/components/AppHeader';
 import { formatDistanceToNow } from 'date-fns';
-import { checkEggHatchingReadiness, checkChildEvolutionReadiness } from '@/lib/blobbi-evolution';
+import { checkEggHatchingReadiness, checkBabyEvolutionReadiness } from '@/lib/blobbi-evolution';
 
 export default function BlobbiDetail() {
   const { blobbiId } = useParams<{ blobbiId: string }>();
@@ -120,7 +120,7 @@ export default function BlobbiDetail() {
 
   // Calculate evolution readiness
   const eggReadiness = blobbi.lifeStage === 'egg' ? checkEggHatchingReadiness(blobbi) : null;
-  const childReadiness = blobbi.lifeStage === 'child' ? checkChildEvolutionReadiness(blobbi) : null;
+  const babyReadiness = blobbi.lifeStage === 'baby' ? checkBabyEvolutionReadiness(blobbi) : null;
 
   // Mock interaction history (in a real app, this would come from Nostr events)
   const interactionHistory = [
@@ -166,11 +166,12 @@ export default function BlobbiDetail() {
               <div className="flex justify-center">
                 {blobbi.lifeStage === 'egg' ? (
                   <EggGraphic 
+                    blobbi={blobbi} // Pass the full blobbi object for unique characteristics
                     size="large" 
                     animated={true}
                     warmth={blobbi.eggTemperature || 60}
                   />
-                ) : blobbi.evolutionForm ? (
+                ) : blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
                   <BlobbiEvolvedVisual 
                     blobbi={blobbi} 
                     size="large"
@@ -301,7 +302,7 @@ export default function BlobbiDetail() {
                   <Palette className="w-4 h-4" />
                   Customize
                 </Button>
-                {(eggReadiness?.isReady || childReadiness?.isReady) && (
+                {(eggReadiness?.isReady || babyReadiness?.isReady) && (
                   <Button
                     className="w-full justify-start gap-2"
                     onClick={() => triggerEvolution()}
@@ -407,11 +408,11 @@ export default function BlobbiDetail() {
                     <div className="flex items-center gap-2">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                         blobbi.lifeStage === 'adult' ? 'bg-green-100 text-green-600' : 
-                        blobbi.lifeStage === 'child' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                        blobbi.lifeStage === 'baby' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
                       }`}>
-                        {blobbi.lifeStage === 'adult' ? '✓' : blobbi.lifeStage === 'child' ? '○' : '○'}
+                        {blobbi.lifeStage === 'adult' ? '✓' : blobbi.lifeStage === 'baby' ? '○' : '○'}
                       </div>
-                      <span className="text-sm font-medium">Child</span>
+                      <span className="text-sm font-medium">Baby</span>
                     </div>
                     <div className="flex-1 h-0.5 bg-gray-200 mx-4">
                       <div className={`h-full transition-all duration-500 ${
@@ -441,13 +442,13 @@ export default function BlobbiDetail() {
                         </div>
                       </div>
                     )}
-                    {blobbi.lifeStage === 'child' && childReadiness && (
+                    {blobbi.lifeStage === 'baby' && babyReadiness && (
                       <div>
-                        <p className="text-sm text-muted-foreground mb-2">{childReadiness.message}</p>
+                        <p className="text-sm text-muted-foreground mb-2">{babyReadiness.message}</p>
                         <div className="space-y-1 text-xs">
-                          <div>Age: {childReadiness.requirements.currentAge}/{childReadiness.requirements.ageRequired} days</div>
-                          <div>Care Score: {childReadiness.requirements.currentCareScore}/{childReadiness.requirements.careScoreRequired}</div>
-                          <div>Interactions: {childReadiness.requirements.currentInteractions}/{childReadiness.requirements.interactionsRequired}</div>
+                          <div>Age: {babyReadiness.requirements.currentAge}/{babyReadiness.requirements.ageRequired} days</div>
+                          <div>Care Score: {babyReadiness.requirements.currentCareScore}/{babyReadiness.requirements.careScoreRequired}</div>
+                          <div>Interactions: {babyReadiness.requirements.currentInteractions}/{babyReadiness.requirements.interactionsRequired}</div>
                         </div>
                       </div>
                     )}
@@ -575,51 +576,51 @@ export default function BlobbiDetail() {
                     </div>
                   )}
                   
-                  {blobbi.lifeStage === 'child' && childReadiness && (
+                  {blobbi.lifeStage === 'baby' && babyReadiness && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="p-3 border rounded-lg">
                           <div className="text-sm text-muted-foreground">Age (Days)</div>
                           <div className="text-lg font-bold">
-                            {childReadiness.requirements.currentAge}/{childReadiness.requirements.ageRequired}
+                            {babyReadiness.requirements.currentAge}/{babyReadiness.requirements.ageRequired}
                           </div>
                           <Progress 
-                            value={(childReadiness.requirements.currentAge / childReadiness.requirements.ageRequired) * 100} 
+                            value={(babyReadiness.requirements.currentAge / babyReadiness.requirements.ageRequired) * 100} 
                             className="mt-2" 
                           />
                         </div>
                         <div className="p-3 border rounded-lg">
                           <div className="text-sm text-muted-foreground">Care Score</div>
                           <div className="text-lg font-bold">
-                            {childReadiness.requirements.currentCareScore}/{childReadiness.requirements.careScoreRequired}
+                            {babyReadiness.requirements.currentCareScore}/{babyReadiness.requirements.careScoreRequired}
                           </div>
                           <Progress 
-                            value={(childReadiness.requirements.currentCareScore / childReadiness.requirements.careScoreRequired) * 100} 
+                            value={(babyReadiness.requirements.currentCareScore / babyReadiness.requirements.careScoreRequired) * 100} 
                             className="mt-2" 
                           />
                         </div>
                         <div className="p-3 border rounded-lg">
                           <div className="text-sm text-muted-foreground">Interactions</div>
                           <div className="text-lg font-bold">
-                            {childReadiness.requirements.currentInteractions}/{childReadiness.requirements.interactionsRequired}
+                            {babyReadiness.requirements.currentInteractions}/{babyReadiness.requirements.interactionsRequired}
                           </div>
                           <Progress 
-                            value={(childReadiness.requirements.currentInteractions / childReadiness.requirements.interactionsRequired) * 100} 
+                            value={(babyReadiness.requirements.currentInteractions / babyReadiness.requirements.interactionsRequired) * 100} 
                             className="mt-2" 
                           />
                         </div>
                         <div className="p-3 border rounded-lg">
                           <div className="text-sm text-muted-foreground">Happiness</div>
                           <div className="text-lg font-bold">
-                            {childReadiness.requirements.currentHappiness}%/{childReadiness.requirements.happinessRequired}%
+                            {babyReadiness.requirements.currentHappiness}%/{babyReadiness.requirements.happinessRequired}%
                           </div>
                           <Progress 
-                            value={(childReadiness.requirements.currentHappiness / childReadiness.requirements.happinessRequired) * 100} 
+                            value={(babyReadiness.requirements.currentHappiness / babyReadiness.requirements.happinessRequired) * 100} 
                             className="mt-2" 
                           />
                         </div>
                       </div>
-                      {childReadiness.isReady && isOwner && (
+                      {babyReadiness.isReady && isOwner && (
                         <Button 
                           className="w-full" 
                           onClick={() => triggerEvolution()}
