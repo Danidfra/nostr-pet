@@ -42,6 +42,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
     progress,
     isReadyToHatch,
     isReadyToEvolve,
+    isBlobbiReadyToHatch,
     metadataSubscriptionActive,
     taskSubscriptionActive,
     isListening,
@@ -50,6 +51,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
     selectEgg,
     startIncubation,
     stopIncubation,
+    hatchBlobbi,
     refetchMetadata,
     debugInfo,
   } = useBlobbiIncubationSystem();
@@ -208,11 +210,22 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                   <div className="flex items-center gap-2">
                     <Egg className="h-5 w-5 text-yellow-500" />
                     Incubating Eggs ({eggBlobbis.length})
-                    {!showEggList && isReadyToHatch && (
-                      <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs">
+                    {!showEggList && eggBlobbis.some(blobbi => isBlobbiReadyToHatch(blobbi)) && (
+                      <Button 
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent collapsible toggle
+                          // Find the first ready-to-hatch egg and hatch it
+                          const readyEgg = eggBlobbis.find(blobbi => isBlobbiReadyToHatch(blobbi));
+                          if (readyEgg) {
+                            hatchBlobbi(readyEgg.id);
+                          }
+                        }}
+                      >
                         <Zap className="w-3 h-3 mr-1" />
-                        Ready!
-                      </Badge>
+                        Hatch Ready Egg
+                      </Button>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -280,10 +293,21 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                               <span>{progress.egg.completed}/{progress.egg.total}</span>
                             </div>
                             <Progress value={progress.egg.percentage} className="h-2" />
-                            {isReadyToHatch && (
-                              <Badge className="w-full justify-center bg-green-600 hover:bg-green-700 text-white">
+                            {isBlobbiReadyToHatch(blobbi) ? (
+                              <Button 
+                                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent card selection when clicking button
+                                  hatchBlobbi(blobbi.id);
+                                }}
+                              >
                                 <Zap className="w-3 h-3 mr-1" />
-                                Ready to Hatch!
+                                Hatch {blobbi.name}
+                              </Button>
+                            ) : (
+                              <Badge className="w-full justify-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                <Clock className="w-3 h-3 mr-1" />
+                                Incubating...
                               </Badge>
                             )}
                           </div>

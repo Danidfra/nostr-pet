@@ -266,6 +266,18 @@ export interface BlobbiRecordData {
   hatchedBy?: string;
   eggType?: string;
   incubationTime?: string;
+  eyeColor?: string;
+  baseColor?: string;
+  pattern?: string;
+  secondaryColor?: string;
+  manifestation?: string;
+  blessing?: string;
+  memoryTitle?: string;
+  memoryDescription?: string;
+  memoryDate?: string;
+  evolvedFrom?: string;
+  hatchFee?: number;
+  evolutionStage?: string;
   // Adoption record fields
   adoptedBy?: string;
   adoptedOn?: number;
@@ -273,13 +285,8 @@ export interface BlobbiRecordData {
   title?: string;
   titleReason?: string;
   // Evolution record fields
-  evolutionStage?: string;
   evolutionReason?: string;
-  evolvedFrom?: string;
   // Memory record fields
-  memoryTitle?: string;
-  memoryDescription?: string;
-  memoryDate?: string;
   discoveredTrait?: string;
   achievement?: string;
   milestone?: string;

@@ -398,28 +398,43 @@ export function useBlobbiEvolution(blobbiId: string) {
       if (!user) throw new Error('Must be logged in to evolve Blobbi');
       if (!blobbi) throw new Error('Blobbi not found');
       
-      // Import evolution functions dynamically to avoid circular dependencies
-      const { processEvolution } = await import('@/lib/blobbi-evolution');
-      
-      // Process evolution and get updated data
-      const { updatedBlobbi, evolutionRecord } = processEvolution(
-        blobbi,
-        newStage,
-        evolutionReason
-      );
+      if (newStage === 'baby' && blobbi.lifeStage === 'egg') {
+        // Handle hatching with dual-event emission
+        const { processHatching } = await import('@/lib/blobbi-evolution');
+        
+        const { hatchingRecord, updatedBlobbi } = processHatching(blobbi);
 
-      // Create evolution record first
-      await createRecord({
-        recordData: evolutionRecord,
-        content: newStage === 'baby' 
-          ? `${blobbi.name} has hatched! 🐣` 
-          : `${blobbi.name} has evolved to ${evolutionRecord.evolutionStage}! ✨`,
-      });
+        // First, create the kind 14921 hatching record
+        await createRecord({
+          recordData: hatchingRecord,
+          content: `${blobbi.name} has hatched! 🐣`,
+        });
 
-      // Update state
-      await updateState(updatedBlobbi);
+        // Then, update the state with kind 31124 event (baby stage)
+        await updateState(updatedBlobbi);
 
-      return updatedBlobbi;
+        return updatedBlobbi;
+      } else {
+        // Handle regular evolution (baby to adult)
+        const { processEvolution } = await import('@/lib/blobbi-evolution');
+        
+        const { updatedBlobbi, evolutionRecord } = processEvolution(
+          blobbi,
+          newStage,
+          evolutionReason
+        );
+
+        // Create evolution record first
+        await createRecord({
+          recordData: evolutionRecord,
+          content: `${blobbi.name} has evolved to ${evolutionRecord.evolutionStage}! ✨`,
+        });
+
+        // Update state
+        await updateState(updatedBlobbi);
+
+        return updatedBlobbi;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blobbi-state', blobbiId] });

@@ -111,7 +111,7 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
   if (blobbi.title) tags.push(['title', blobbi.title]);
   if (blobbi.skill) tags.push(['skill', blobbi.skill]);
 
-  // Add egg-specific tags
+  // Add egg-specific tags only for eggs
   if (blobbi.lifeStage === 'egg') {
     if (blobbi.incubationTime) tags.push(['incubation_time', blobbi.incubationTime.toString()]);
     if (blobbi.incubationProgress) tags.push(['incubation_progress', blobbi.incubationProgress.toString()]);
@@ -119,6 +119,7 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
     if (blobbi.eggStatus) tags.push(['egg_status', blobbi.eggStatus]);
     if (blobbi.shellIntegrity) tags.push(['shell_integrity', blobbi.shellIntegrity.toString()]);
   }
+  // Note: egg-specific tags like shell_integrity are intentionally excluded for baby/adult stages
 
   // Add behavior tags
   if (blobbi.isSleeping) tags.push(['is_sleeping', blobbi.isSleeping.toString()]);
@@ -264,6 +265,9 @@ export function createBlobbiRecordEvent(
       if (recordData.passiveTrait) {
         recordData.passiveTrait.forEach(trait => tags.push(['passive_trait', trait]));
       }
+      if (recordData.evolvedFrom) tags.push(['evolved_from', recordData.evolvedFrom]);
+      if (recordData.hatchFee) tags.push(['hatch_fee', recordData.hatchFee.toString()]);
+      if (recordData.evolutionStage) tags.push(['evolution_stage', recordData.evolutionStage]);
       break;
 
     case 'hatched':
@@ -271,6 +275,21 @@ export function createBlobbiRecordEvent(
       if (recordData.hatchedBy) tags.push(['hatched_by', recordData.hatchedBy]);
       if (recordData.eggType) tags.push(['egg_type', recordData.eggType]);
       if (recordData.incubationTime) tags.push(['incubation_time', recordData.incubationTime]);
+      if (recordData.generation) tags.push(['generation', recordData.generation.toString()]);
+      if (recordData.eyeColor) tags.push(['eye_color', recordData.eyeColor]);
+      if (recordData.baseColor) tags.push(['base_color', recordData.baseColor]);
+      if (recordData.pattern) tags.push(['pattern', recordData.pattern]);
+      if (recordData.secondaryColor) tags.push(['secondary_color', recordData.secondaryColor]);
+      if (recordData.manifestation) tags.push(['manifestation', recordData.manifestation]);
+      if (recordData.title) tags.push(['title', recordData.title]);
+      if (recordData.titleReason) tags.push(['title_reason', recordData.titleReason]);
+      if (recordData.blessing) tags.push(['blessing', recordData.blessing]);
+      if (recordData.memoryTitle) tags.push(['memory_title', recordData.memoryTitle]);
+      if (recordData.memoryDescription) tags.push(['memory_description', recordData.memoryDescription]);
+      if (recordData.memoryDate) tags.push(['memory_date', recordData.memoryDate]);
+      if (recordData.passiveTrait) {
+        recordData.passiveTrait.forEach(trait => tags.push(['passive_trait', trait]));
+      }
       break;
 
     case 'adoption':
@@ -634,6 +653,21 @@ export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null
         recordData.hatchedBy = getTagValue(tags, 'hatched_by');
         recordData.eggType = getTagValue(tags, 'egg_type');
         recordData.incubationTime = getTagValue(tags, 'incubation_time');
+        recordData.eyeColor = getTagValue(tags, 'eye_color');
+        recordData.baseColor = getTagValue(tags, 'base_color');
+        recordData.pattern = getTagValue(tags, 'pattern');
+        recordData.secondaryColor = getTagValue(tags, 'secondary_color');
+        recordData.manifestation = getTagValue(tags, 'manifestation');
+        recordData.title = getTagValue(tags, 'title');
+        recordData.titleReason = getTagValue(tags, 'title_reason');
+        recordData.blessing = getTagValue(tags, 'blessing');
+        recordData.memoryTitle = getTagValue(tags, 'memory_title');
+        recordData.memoryDescription = getTagValue(tags, 'memory_description');
+        recordData.memoryDate = getTagValue(tags, 'memory_date');
+        recordData.passiveTrait = getTagValues(tags, 'passive_trait');
+        recordData.evolvedFrom = getTagValue(tags, 'evolved_from');
+        recordData.hatchFee = getTagValue(tags, 'hatch_fee') ? parseInt(getTagValue(tags, 'hatch_fee')!) : undefined;
+        recordData.evolutionStage = getTagValue(tags, 'evolution_stage');
         break;
       }
 

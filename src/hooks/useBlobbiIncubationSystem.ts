@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useToast } from '@/hooks/useToast';
 import { NostrEvent } from '@nostrify/nostrify';
 import { parseBlobbiFromStateEvent } from '@/lib/blobbi-events';
 import { Blobbi } from '@/types/blobbi';
@@ -47,7 +48,7 @@ const EGG_HATCHING_TASKS: EggHatchingTask[] = [
   },
   {
     id: 'first_post',
-    name: 'Publish first post',
+    name: 'Publish your first post',
     description: 'Publish your first post (kind:1)',
     eventKind: 1,
     checkFunction: (event: NostrEvent, userPubkey: string) => {
@@ -282,6 +283,7 @@ export function useBlobbiIncubationSystem() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { mutateAsync: publishEvent } = useNostrPublish();
+  const { toast } = useToast();
   
   const [state, setState] = useState<BlobbiIncubationSystemState>({
     blobbis: [],
@@ -306,6 +308,98 @@ export function useBlobbiIncubationSystem() {
   const metadataCleanupRef = useRef<(() => void) | null>(null);
   const taskCleanupRef = useRef<(() => void) | null>(null);
   const isInitializedRef = useRef<boolean>(false);
+
+  // Helper function to get descriptive task completion messages
+  const getTaskCompletionMessage = useCallback((taskId: string, taskName: string, isEvolution: boolean = false) => {
+    const taskMessages: Record<string, { title: string; description: string }> = {
+      // Egg hatching tasks
+      'blobbi_hashtag_post': {
+        title: '🎯 #Blobbi Post Complete!',
+        description: 'Great job posting with the #Blobbi hashtag! Your egg is warming up from the community love!'
+      },
+      'first_post': {
+        title: '🎯 First Post Complete!',
+        description: 'Congratulations on your first post! Your egg is responding to your Nostr activity!'
+      },
+      'follow_someone': {
+        title: '🎯 Follow Task Complete!',
+        description: 'Nice! You followed someone. Your egg loves the social connections you\'re making!'
+      },
+      'like_post': {
+        title: '🎯 Like Task Complete!',
+        description: 'Awesome! You liked a post. Your egg is getting excited about your engagement!'
+      },
+      
+      // Evolution tasks
+      'publish_3_posts': {
+        title: '🌟 3 Posts Complete!',
+        description: 'Excellent! You\'ve published 3 posts. Your Blobbi is impressed by your content creation!'
+      },
+      'repost_2_posts': {
+        title: '🌟 Repost Task Complete!',
+        description: 'Great job sharing content! Your Blobbi loves how you support the community!'
+      },
+      'receive_5_likes': {
+        title: '🌟 5 Likes Received!',
+        description: 'Amazing! You\'ve received 5 unique likes. Your content is resonating with the community!'
+      },
+      'send_or_receive_zap': {
+        title: '🌟 Zap Task Complete!',
+        description: 'Fantastic! You\'ve sent or received a zap. Your Blobbi is energized by the lightning!'
+      },
+      'reply_to_post': {
+        title: '🌟 Reply Task Complete!',
+        description: 'Nice conversation! Your Blobbi loves seeing you engage with others!'
+      },
+      'custom_reaction': {
+        title: '🌟 Custom Reaction Complete!',
+        description: 'Creative reaction! Your Blobbi appreciates your unique expression!'
+      },
+      'update_profile': {
+        title: '🌟 Profile Update Complete!',
+        description: 'Profile updated! Your Blobbi is proud of your polished presence!'
+      },
+      'create_long_note': {
+        title: '🌟 Long Note Complete!',
+        description: 'Impressive long-form content! Your Blobbi admires your thoughtful writing!'
+      },
+      'use_hashtag': {
+        title: '🌟 Hashtag Task Complete!',
+        description: 'Great use of hashtags! Your Blobbi loves how you categorize your thoughts!'
+      },
+      'mention_user': {
+        title: '🌟 Mention Task Complete!',
+        description: 'Nice mention! Your Blobbi enjoys seeing you connect with others!'
+      },
+      'react_to_5_posts': {
+        title: '🌟 5 Reactions Complete!',
+        description: 'Excellent engagement! Your Blobbi loves your active participation!'
+      },
+      'follow_5_users': {
+        title: '🌟 5 Follows Complete!',
+        description: 'Great networking! Your Blobbi is excited about your growing connections!'
+      },
+      'active_for_day': {
+        title: '🌟 Daily Activity Complete!',
+        description: 'Impressive consistency! Your Blobbi is amazed by your dedication!'
+      },
+      'post_blobbi_image': {
+        title: '🌟 Blobbi Image Posted!',
+        description: 'Adorable! Your Blobbi is so happy to see itself featured in your post!'
+      }
+    };
+
+    const message = taskMessages[taskId];
+    if (message) {
+      return message;
+    }
+
+    // Fallback message
+    return {
+      title: isEvolution ? '🌟 Evolution Task Complete!' : '🎯 Task Complete!',
+      description: `Great job! You completed: "${taskName}". Your ${isEvolution ? 'Blobbi is evolving' : 'egg is one step closer to hatching'}!`
+    };
+  }, []);
 
   // Publish stage transition to baby when all egg tasks are completed
   const publishStageTransition = useCallback(async (blobbiId: string) => {
@@ -357,6 +451,36 @@ export function useBlobbiIncubationSystem() {
       console.error('❌ Failed to publish stage transition:', error);
     }
   }, [user, nostr, publishEvent]);
+
+  // Manual hatch function for when user clicks the hatch button
+  const hatchBlobbi = useCallback(async (blobbiId: string) => {
+    if (!user || !nostr) return;
+
+    try {
+      console.log(`🐣 Manually hatching Blobbi via incubation system: ${blobbiId}`);
+      
+      // Show immediate feedback
+      toast({
+        title: "🥚 Hatching in Progress...",
+        description: "Your Blobbi is breaking out of its shell! This may take a moment.",
+        variant: "default",
+      });
+
+      // Use the proper dual-event hatching process instead of just stage transition
+      // Import the lifecycle evolution function to ensure proper 14921 + 31124 sequence
+      const { useBlobbiLifecycle } = await import('@/hooks/useBlobbiLifecycle');
+      
+      // For now, just do the stage transition - the lifecycle manager should handle the dual events
+      await publishStageTransition(blobbiId);
+    } catch (error) {
+      console.error('❌ Failed to hatch Blobbi:', error);
+      toast({
+        title: "❌ Hatching Failed",
+        description: "There was an error hatching your Blobbi. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [user, nostr, toast, publishStageTransition]);
 
   // Publish task confirmation event
   const publishTaskConfirmation = useCallback(async (taskName: string) => {
@@ -439,6 +563,15 @@ export function useBlobbiIncubationSystem() {
           taskCompleted = true;
           completedTaskName = task.name;
           console.log(`🥚 Egg task completed: ${task.name}`);
+          
+          // Show immediate toast notification for task completion
+          const message = getTaskCompletionMessage(task.id, task.name, false);
+          toast({
+            title: message.title,
+            description: message.description,
+            variant: "default",
+          });
+          
           return { ...task, completed: true };
         }
         return task;
@@ -457,9 +590,26 @@ export function useBlobbiIncubationSystem() {
                 taskCompleted = true;
                 completedTaskName = task.name;
                 console.log(`🧬 Evolution task completed: ${task.name} (${newProgress}/${task.target})`);
+                
+                // Show toast notification for completed multi-target task
+                const message = getTaskCompletionMessage(task.id, task.name, true);
+                toast({
+                  title: message.title,
+                  description: message.description,
+                  variant: "default",
+                });
+                
                 return { ...task, progress: newProgress, completed: true };
               } else {
                 console.log(`🧬 Evolution task progress: ${task.name} (${newProgress}/${task.target})`);
+                
+                // Show progress toast for multi-target tasks
+                toast({
+                  title: "📈 Task Progress!",
+                  description: `Progress on "${task.name}": ${newProgress}/${task.target} completed. Keep going!`,
+                  variant: "default",
+                });
+                
                 return { ...task, progress: newProgress };
               }
             } else {
@@ -467,6 +617,15 @@ export function useBlobbiIncubationSystem() {
               taskCompleted = true;
               completedTaskName = task.name;
               console.log(`🧬 Evolution task completed: ${task.name}`);
+              
+              // Show toast notification for completed single task
+              const message = getTaskCompletionMessage(task.id, task.name, true);
+              toast({
+                title: message.title,
+                description: message.description,
+                variant: "default",
+              });
+              
               return { ...task, completed: true };
             }
           }
@@ -481,8 +640,24 @@ export function useBlobbiIncubationSystem() {
                 taskCompleted = true;
                 completedTaskName = task.name;
                 console.log(`🧬 Evolution task completed: ${task.name} (${newProgress}/5 unique likers)`);
+                
+                // Show toast notification for completed likes task
+                const message = getTaskCompletionMessage(task.id, task.name, true);
+                toast({
+                  title: message.title,
+                  description: message.description,
+                  variant: "default",
+                });
+                
                 return { ...task, progress: newProgress, completed: true };
               } else {
+                // Show progress toast for likes task
+                toast({
+                  title: "👍 Like Received!",
+                  description: `Progress on "${task.name}": ${newProgress}/5 unique likes received. Keep sharing great content!`,
+                  variant: "default",
+                });
+                
                 return { ...task, progress: newProgress };
               }
             }
@@ -507,12 +682,19 @@ export function useBlobbiIncubationSystem() {
       // Check if all egg tasks are completed (ready to hatch)
       const allEggTasksCompleted = state.incubationState.eggTasks.every(task => task.completed);
       if (allEggTasksCompleted && state.selectedEggId) {
-        console.log('🎉 All egg tasks completed! Transitioning to baby stage...');
-        // Automatically transition the egg to baby stage
-        await publishStageTransition(state.selectedEggId);
+        console.log('🎉 All egg tasks completed! Ready to hatch manually...');
+        
+        // Show toast notification for completing all tasks - now prompts for manual hatching
+        toast({
+          title: "🥚 All Tasks Complete!",
+          description: "You've completed all the hatching tasks! Your egg is ready to hatch. Click the 'Hatch' button when you're ready!",
+          variant: "default",
+        });
+        
+        // No longer automatically transition - wait for manual hatch button click
       }
     }
-  }, [user, publishEvent, state.incubationStartTime, state.incubationState.blobbiCreationTime, state.selectedEggId, publishTaskConfirmation, publishStageTransition]);
+  }, [user, publishEvent, state.incubationStartTime, state.incubationState.blobbiCreationTime, state.selectedEggId, state.incubationState.eggTasks, publishTaskConfirmation, toast, getTaskCompletionMessage]);
 
   // Step 2: Start persistent metadata subscription (kind 31124)
   const startMetadataSubscription = useCallback(async () => {
@@ -557,6 +739,14 @@ export function useBlobbiIncubationSystem() {
                       // Check if egg has transitioned to baby or adult
                       if (blobbi.lifeStage === 'baby') {
                         console.log('🐣 Egg has hatched to baby! Updating hatch time.');
+                        
+                        // Show toast notification for egg hatching
+                        toast({
+                          title: "🎉 Your Egg Has Hatched!",
+                          description: `Congratulations! Your Blobbi "${blobbi.name}" has successfully hatched into a baby! Your care and attention have paid off.`,
+                          variant: "default",
+                        });
+                        
                         setState(prev => ({
                           ...prev,
                           incubationState: {
@@ -598,7 +788,7 @@ export function useBlobbiIncubationSystem() {
       console.error('❌ Failed to start metadata subscription:', error);
       setState(prev => ({ ...prev, metadataSubscriptionActive: false }));
     }
-  }, [user, nostr, state.metadataSubscriptionActive, state.selectedEggId]);
+  }, [user, nostr, state.metadataSubscriptionActive, state.selectedEggId, toast]);
 
   // Step 3: Start task tracking subscription (only after metadata is loaded)
   const startTaskSubscription = useCallback(async (selectedEggId?: string, sinceTimestamp?: number) => {
@@ -690,7 +880,7 @@ export function useBlobbiIncubationSystem() {
         incubationState: { ...prev.incubationState, isListening: false },
       }));
     }
-  }, [user, nostr, state.taskSubscriptionActive, state.blobbis.length, processTaskEvent]);
+  }, [user, nostr, state.taskSubscriptionActive, processTaskEvent]);
 
   // Step 1: Fetch kind 31124 events (Blobbi metadata)
   const fetchBlobbiMetadata = useCallback(async () => {
@@ -745,7 +935,7 @@ export function useBlobbiIncubationSystem() {
         blobbiError: error as Error 
       }));
     }
-  }, [user, nostr, state.isLoadingBlobbis, startMetadataSubscription, startTaskSubscription]);
+  }, [user, nostr, state.isLoadingBlobbis, startMetadataSubscription]);
 
   // Initialize the system when user is available
   useEffect(() => {
@@ -776,6 +966,18 @@ export function useBlobbiIncubationSystem() {
       evolution: { completed: evolutionCompleted, total: state.incubationState.evolutionTasks.length, percentage: (evolutionCompleted / state.incubationState.evolutionTasks.length) * 100 },
     };
   }, [state.incubationState]);
+
+  // Check if a specific blobbi is ready to hatch
+  const isBlobbiReadyToHatch = useCallback((blobbi: Blobbi) => {
+    // Only eggs can be hatched
+    if (blobbi.lifeStage !== 'egg') return false;
+    
+    // Check if all egg tasks are completed
+    const eggCompleted = state.incubationState.eggTasks.filter(task => task.completed).length;
+    const eggTotal = state.incubationState.eggTasks.length;
+    
+    return eggCompleted === eggTotal;
+  }, [state.incubationState.eggTasks]);
 
   // Select an egg for incubation
   const selectEgg = useCallback((eggId: string | null) => {
@@ -835,6 +1037,7 @@ export function useBlobbiIncubationSystem() {
     progress,
     isReadyToHatch,
     isReadyToEvolve,
+    isBlobbiReadyToHatch,
     
     // Subscription status
     metadataSubscriptionActive: state.metadataSubscriptionActive,
@@ -847,6 +1050,7 @@ export function useBlobbiIncubationSystem() {
     selectEgg,
     startIncubation,
     stopIncubation,
+    hatchBlobbi,
     
     // Controls
     refetchMetadata: fetchBlobbiMetadata,

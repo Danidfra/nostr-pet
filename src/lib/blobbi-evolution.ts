@@ -4,7 +4,8 @@ import {
   BlobbiCareSession, 
   BlobbiCareAction,
   BlobbiEvolutionForm,
-  BlobbiLifeStage
+  BlobbiLifeStage,
+  BlobbiMood
 } from '@/types/blobbi';
 
 // Constants for evolution mechanics
@@ -311,6 +312,213 @@ export function processEvolution(
   return {
     updatedBlobbi,
     evolutionRecord,
+  };
+}
+
+// Generate hatching data for kind 14921 event based on blobbi-hatch-14921.md
+export function generateHatchingData(
+  blobbi: Blobbi,
+  currentTime: number = Date.now()
+): import('@/types/blobbi').BlobbiRecordData {
+  const hatchingData: import('@/types/blobbi').BlobbiRecordData = {
+    recordType: 'hatched',
+    generation: blobbi.generation,
+    hatchedAt: currentTime,
+    hatchedBy: blobbi.ownerPubkey,
+    incubationTime: blobbi.incubationTime ? `${blobbi.incubationTime}s` : undefined,
+    evolvedFrom: blobbi.id, // The egg ID that this baby evolved from
+    hatchFee: 100, // Standard hatching fee
+    evolutionStage: 'baby', // The stage being evolved to
+  };
+
+  // Add optional fields based on random chance and existing blobbi data
+  
+  // Add appearance data if available
+  if (blobbi.eyeColor) {
+    // Eye color is required in hatching data
+    hatchingData.eyeColor = blobbi.eyeColor;
+  }
+  
+  if (blobbi.baseColor) {
+    hatchingData.baseColor = blobbi.baseColor;
+  }
+  
+  if (blobbi.pattern) {
+    hatchingData.pattern = blobbi.pattern;
+  }
+  
+  if (blobbi.secondaryColor) {
+    hatchingData.secondaryColor = blobbi.secondaryColor;
+  }
+
+  // Add manifestation if available
+  if (blobbi.specialMark) {
+    hatchingData.manifestation = blobbi.specialMark;
+  }
+
+  // Add title if available
+  if (blobbi.title) {
+    hatchingData.title = blobbi.title;
+    hatchingData.titleReason = `Title earned when ${blobbi.name} was hatched`;
+  }
+
+  // Add passive traits if available
+  if (blobbi.traits && blobbi.traits.length > 0) {
+    hatchingData.passiveTrait = [...blobbi.traits];
+  }
+
+  // Generate random hatching-specific data based on specification
+  
+  // Random chance for memory (15% spawn chance)
+  if (Math.random() <= 0.15) {
+    const memoryTitles = ['Woke with a Yawn', 'Blinking into Light', 'First Wiggle', 'Broke the Shell', 'First Gaze', 'Whispered by the Wind'];
+    const memoryDescriptions = [
+      'Opened eyes to the world for the first time',
+      'The shell cracked under the full moon\'s light',
+      'Greeted by soft glowing moss',
+      'Heard distant humming during birth',
+      'Felt warmth and safety while hatching',
+      'Emerged during a gentle rainstorm'
+    ];
+    
+    hatchingData.memoryTitle = memoryTitles[Math.floor(Math.random() * memoryTitles.length)];
+    hatchingData.memoryDescription = memoryDescriptions[Math.floor(Math.random() * memoryDescriptions.length)];
+    hatchingData.memoryDate = Math.floor(currentTime / 1000).toString();
+  }
+
+  // Random chance for blessing (10% spawn chance)
+  if (Math.random() <= 0.10) {
+    const blessings = ['telepathic', 'keen_sense', 'light_heal', 'night_vision', 'inner_peace', 'sun_gifted', 'eternal_grace', 'blessing_of_light', 'soul_touch'];
+    hatchingData.blessing = blessings[Math.floor(Math.random() * blessings.length)];
+  }
+
+  return hatchingData;
+}
+
+// Generate baby state data for kind 31124 event based on blobbi-hatch-31124.md
+export function generateBabyStateData(
+  blobbi: Blobbi,
+  hatchingData: import('@/types/blobbi').BlobbiRecordData,
+  currentTime: number = Date.now()
+): Partial<Blobbi> {
+  const babyData: Partial<Blobbi> = {
+    lifeStage: 'baby' as BlobbiLifeStage,
+    evolutionTime: currentTime,
+    lastInteraction: Math.floor(currentTime / 1000),
+    breedingReady: false,
+    
+    // Initialize baby-specific stats
+    stats: {
+      ...blobbi.stats,
+      happiness: Math.min(100, blobbi.stats.happiness + 20), // Hatching happiness boost
+      energy: Math.min(100, blobbi.stats.energy + 15),
+    },
+    
+    // Initialize evolution progress for baby stage
+    evolutionProgress: {
+      totalCareDays: 0,
+      currentStreak: 0,
+      lastCareDate: 0,
+      careSessions: [],
+      isEligibleForEvolution: false,
+      nextEvolutionCheck: currentTime + 24 * 60 * 60 * 1000, // 24 hours
+    },
+    
+    // Initialize required baby fields from 31124 spec
+    birthTime: blobbi.birthTime, // Keep original birth time
+    experience: blobbi.experience, // Keep accumulated experience
+    careStreak: blobbi.careStreak, // Keep care streak
+    generation: blobbi.generation, // Keep generation
+    
+    // Initialize behavior state
+    isSleeping: false, // Baby starts awake
+    
+    // Clear egg-specific fields (these should not appear in baby stage)
+    incubationTime: undefined,
+    incubationProgress: undefined,
+    eggTemperature: undefined,
+    eggStatus: undefined,
+    shellIntegrity: undefined,
+  };
+
+  // Preserve consistent attributes from hatching data
+  if (hatchingData.manifestation && blobbi.specialMark === hatchingData.manifestation) {
+    babyData.specialMark = hatchingData.manifestation;
+  }
+  
+  if (hatchingData.passiveTrait && blobbi.traits) {
+    // Ensure passive traits are consistent
+    babyData.traits = [...hatchingData.passiveTrait];
+  }
+  
+  if (hatchingData.title && blobbi.title === hatchingData.title) {
+    babyData.title = hatchingData.title;
+  }
+
+  // Initialize baby-specific personality if not already set
+  if (!blobbi.personality || blobbi.personality.length === 0) {
+    const personalities = ['brave', 'shy', 'curious', 'gentle', 'playful', 'calm'];
+    babyData.personality = [personalities[Math.floor(Math.random() * personalities.length)]];
+  }
+
+  // Initialize baby-specific traits if not already set
+  if (!blobbi.traits || blobbi.traits.length === 0) {
+    const traits = ['night_owl', 'early_bird', 'social', 'independent', 'adventurous', 'cautious'];
+    babyData.traits = [traits[Math.floor(Math.random() * traits.length)]];
+  }
+
+  // Initialize mood
+  if (!blobbi.mood) {
+    babyData.mood = 'joyful' as BlobbiMood;
+  }
+
+  // Initialize favorite food
+  if (!blobbi.favoriteFood) {
+    const foods = ['glowberries', 'moonfruits', 'starseeds', 'dewdrops', 'crystalnuts'];
+    babyData.favoriteFood = foods[Math.floor(Math.random() * foods.length)];
+  }
+
+  // Initialize voice type
+  if (!blobbi.voiceType) {
+    const voiceTypes = ['squeaky', 'melodic', 'chirpy', 'soft', 'bubbly'];
+    babyData.voiceType = voiceTypes[Math.floor(Math.random() * voiceTypes.length)];
+  }
+
+  // Initialize size if not already set
+  if (!blobbi.size) {
+    babyData.size = 'tiny';
+  }
+
+  return babyData;
+}
+
+// Process hatching with dual-event emission (14921 then 31124)
+export function processHatching(
+  blobbi: Blobbi,
+  currentTime: number = Date.now()
+): {
+  hatchingRecord: import('@/types/blobbi').BlobbiRecordData;
+  updatedBlobbi: Blobbi;
+} {
+  if (blobbi.lifeStage !== 'egg') {
+    throw new Error('Only eggs can hatch');
+  }
+
+  // Generate hatching data for kind 14921 event
+  const hatchingRecord = generateHatchingData(blobbi, currentTime);
+
+  // Generate baby state data for kind 31124 event
+  const babyStateData = generateBabyStateData(blobbi, hatchingRecord, currentTime);
+
+  // Create updated Blobbi with baby state
+  const updatedBlobbi: Blobbi = {
+    ...blobbi,
+    ...babyStateData,
+  };
+
+  return {
+    hatchingRecord,
+    updatedBlobbi,
   };
 }
 

@@ -275,7 +275,10 @@ export const BlobbiLifecycleManager: React.FC<BlobbiLifecycleManagerProps> = ({ 
                     disabled={isEvolving}
                     size="sm"
                   >
-                    {isEvolving ? 'Evolving...' : 'Evolve Now'}
+                    {isEvolving 
+                      ? (blobbi.lifeStage === 'egg' ? 'Hatching...' : 'Evolving...') 
+                      : (blobbi.lifeStage === 'egg' ? `Hatch ${blobbi.name}` : 'Evolve Now')
+                    }
                   </Button>
                 </AlertDescription>
               </Alert>

@@ -61,27 +61,50 @@ export function useBlobbiLifecycle(blobbiId: string) {
     }) => {
       if (!user || !blobbi) throw new Error('Invalid state for evolution');
 
-      const { processEvolution } = await import('@/lib/blobbi-evolution');
-      
-      // Process evolution
-      const { updatedBlobbi, evolutionRecord } = processEvolution(
-        blobbi,
-        newStage,
-        evolutionReason
-      );
+      if (newStage === 'baby' && blobbi.lifeStage === 'egg') {
+        // Handle hatching with dual-event emission
+        const { processHatching } = await import('@/lib/blobbi-evolution');
+        
+        console.log('🐣 Starting hatching process for:', blobbi.name);
+        console.log('🥚 Current egg state:', blobbi.lifeStage);
+        
+        const { hatchingRecord, updatedBlobbi } = processHatching(blobbi);
 
-      // Create evolution record
-      await createRecord({
-        recordData: evolutionRecord,
-        content: newStage === 'baby' 
-          ? `${blobbi.name} has hatched from their egg! 🐣✨` 
-          : `${blobbi.name} has evolved to ${evolutionRecord.evolutionStage}! 🌟`,
-      });
+        console.log('📝 Creating kind 14921 hatching record...');
+        // First, create the kind 14921 hatching record
+        await createRecord({
+          recordData: hatchingRecord,
+          content: `${blobbi.name} has hatched! 🐣✨`,
+        });
 
-      // Update state
-      await updateState(updatedBlobbi);
+        console.log('📝 Creating kind 31124 baby state...');
+        // Then, update the state with kind 31124 event (baby stage)
+        // The createBlobbiStateEvent function should filter out egg-specific tags
+        await updateState(updatedBlobbi);
 
-      return { updatedBlobbi, evolutionRecord };
+        console.log('✅ Hatching process completed for:', blobbi.name);
+        return { updatedBlobbi, evolutionRecord: hatchingRecord };
+      } else {
+        // Handle regular evolution (baby to adult)
+        const { processEvolution } = await import('@/lib/blobbi-evolution');
+        
+        const { updatedBlobbi, evolutionRecord } = processEvolution(
+          blobbi,
+          newStage,
+          evolutionReason
+        );
+
+        // Create evolution record
+        await createRecord({
+          recordData: evolutionRecord,
+          content: `${blobbi.name} has evolved to ${evolutionRecord.evolutionStage}! 🌟`,
+        });
+
+        // Update state
+        await updateState(updatedBlobbi);
+
+        return { updatedBlobbi, evolutionRecord };
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', blobbiId] });

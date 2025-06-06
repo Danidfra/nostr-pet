@@ -24,7 +24,12 @@ import {
   MoreHorizontal,
   ShoppingBag,
   Package,
-  Palette
+  Palette,
+  Target,
+  CheckCircle,
+  Circle,
+  Users,
+  ExternalLink
 } from 'lucide-react';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { useBlobbiById } from '@/hooks/useUserBlobbis';
@@ -64,7 +69,9 @@ export default function BlobbiDetail() {
     evolutionTasks, 
     progress,
     isReadyToHatch,
-    isReadyToEvolve 
+    isReadyToEvolve,
+    metadataSubscriptionActive,
+    taskSubscriptionActive 
   } = useBlobbiIncubationSystem();
   
   const [showShop, setShowShop] = useState(false);
@@ -500,14 +507,208 @@ export default function BlobbiDetail() {
 
             {/* Evolution Tab */}
             <TabsContent value="evolution" className="space-y-6">
+              {/* Original Evolution Progress Component */}
               {isOwner && (
                 <EvolutionProgress 
                   evolutionProgress={blobbi.evolutionProgress} 
                   hasEvolved={!!blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi'}
                 />
               )}
-              
-              {/* Evolution Requirements */}
+
+              {/* Evolution System Status */}
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-purple-500" />
+                      Evolution System
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant={metadataSubscriptionActive ? 'default' : 'secondary'} 
+                        className={`flex items-center gap-1 ${
+                          metadataSubscriptionActive 
+                            ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' 
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {metadataSubscriptionActive ? <Activity className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                        {metadataSubscriptionActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 dark:text-gray-300">
+                    Track your Blobbi's evolution progress through Nostr interactions
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+
+              {/* Current Stage Progress */}
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-purple-500" />
+                    {blobbi.name} - {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} Stage
+                  </CardTitle>
+                  <CardDescription>
+                    {blobbi.lifeStage === 'egg' && 'Complete 4 Nostr interactions to hatch your egg'}
+                    {blobbi.lifeStage === 'baby' && 'Complete 14 Nostr interactions to evolve to adult'}
+                    {blobbi.lifeStage === 'adult' && 'Your Blobbi has reached full maturity!'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Progress Bar */}
+                  {blobbi.lifeStage !== 'adult' && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                        <span>Progress</span>
+                        <span>
+                          {blobbi.lifeStage === 'egg' 
+                            ? `${progress.egg.completed}/${progress.egg.total} tasks`
+                            : `${progress.evolution.completed}/${progress.evolution.total} tasks`
+                          }
+                        </span>
+                      </div>
+                      <Progress 
+                        value={blobbi.lifeStage === 'egg' ? progress.egg.percentage : progress.evolution.percentage} 
+                        className="h-3" 
+                      />
+                      {((blobbi.lifeStage === 'egg' && isReadyToHatch) || (blobbi.lifeStage === 'baby' && isReadyToEvolve)) && (
+                        <Badge className="w-full justify-center bg-green-600 hover:bg-green-700 text-white">
+                          <Zap className="w-3 h-3 mr-1" />
+                          Ready to {blobbi.lifeStage === 'egg' ? 'Hatch' : 'Evolve'}!
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Task List for Eggs */}
+                  {blobbi.lifeStage === 'egg' && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Hatching Tasks</h4>
+                      {eggTasks.map((task, index) => (
+                        <div
+                          key={task.id}
+                          className={`flex items-start gap-3 p-4 rounded-lg border transition-colors ${
+                            task.completed
+                              ? 'bg-green-50/80 dark:bg-green-950/50 border-green-200 dark:border-green-800'
+                              : 'bg-gray-50/80 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700'
+                          }`}
+                        >
+                          <div className="mt-0.5">
+                            {task.completed ? (
+                              <CheckCircle className="h-5 w-5 text-green-500" />
+                            ) : (
+                              <Circle className="h-5 w-5 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className={`font-medium ${task.completed ? 'text-green-800 dark:text-green-200' : 'text-gray-900 dark:text-gray-100'}`}>
+                                {task.name}
+                              </h4>
+                              {task.completed && (
+                                <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
+                                  Completed
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              {task.description}
+                            </p>
+                            {task.completed && (
+                              <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                Task confirmed on Nostr
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Task List for Babies */}
+                  {blobbi.lifeStage === 'baby' && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Evolution Tasks</h4>
+                      {evolutionTasks.map((task, index) => (
+                        <div
+                          key={task.id}
+                          className={`flex items-start gap-3 p-4 rounded-lg border transition-colors ${
+                            task.completed
+                              ? 'bg-purple-50/80 dark:bg-purple-950/50 border-purple-200 dark:border-purple-800'
+                              : 'bg-gray-50/80 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700'
+                          }`}
+                        >
+                          <div className="mt-0.5">
+                            {task.completed ? (
+                              <CheckCircle className="h-5 w-5 text-purple-500" />
+                            ) : (
+                              <Circle className="h-5 w-5 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className={`font-medium ${task.completed ? 'text-purple-800 dark:text-purple-200' : 'text-gray-900 dark:text-gray-100'}`}>
+                                {task.name}
+                              </h4>
+                              {task.completed && (
+                                <Badge variant="secondary" className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
+                                  Completed
+                                </Badge>
+                              )}
+                              {'progress' in task && task.target && (
+                                <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">
+                                  {task.progress || 0}/{task.target}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              {task.description}
+                            </p>
+                            {task.completed && (
+                              <p className="text-xs text-purple-600 dark:text-purple-400 mt-1 flex items-center gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                Task confirmed on Nostr
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Evolution Button */}
+                  {((blobbi.lifeStage === 'egg' && eggReadiness?.isReady) || (blobbi.lifeStage === 'baby' && babyReadiness?.isReady)) && isOwner && (
+                    <Button 
+                      className="w-full" 
+                      onClick={() => triggerEvolution()}
+                      disabled={isEvolving}
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      {isEvolving 
+                        ? (blobbi.lifeStage === 'egg' ? 'Hatching...' : 'Evolving...') 
+                        : (blobbi.lifeStage === 'egg' ? 'Hatch Egg' : 'Evolve to Adult')
+                      }
+                    </Button>
+                  )}
+
+                  {/* Adult Stage Message */}
+                  {blobbi.lifeStage === 'adult' && (
+                    <div className="text-center py-8">
+                      <Sparkles className="w-12 h-12 mx-auto text-purple-500 mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Fully Evolved!</h3>
+                      <p className="text-muted-foreground">
+                        Your Blobbi has reached its final evolution stage.
+                        {blobbi.evolutionForm && ` It has become a magnificent ${blobbi.evolutionForm}!`}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Evolution Requirements (Traditional View) */}
               <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -543,9 +744,9 @@ export default function BlobbiDetail() {
                           />
                         </div>
                         <div className="p-3 border rounded-lg">
-                          <div className="text-sm text-muted-foreground">Health Level</div>
+                          <div className="text-sm text-muted-foreground">Minimum Health</div>
                           <div className="text-lg font-bold">
-                            {eggReadiness.requirements.currentHealth}%/{eggReadiness.requirements.healthRequirement}%
+                            {eggReadiness.requirements.currentHealth}/{eggReadiness.requirements.healthRequirement}
                           </div>
                           <Progress 
                             value={(eggReadiness.requirements.currentHealth / eggReadiness.requirements.healthRequirement) * 100} 
@@ -563,16 +764,6 @@ export default function BlobbiDetail() {
                           />
                         </div>
                       </div>
-                      {eggReadiness.isReady && isOwner && (
-                        <Button 
-                          className="w-full" 
-                          onClick={() => triggerEvolution()}
-                          disabled={isEvolving}
-                        >
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          {isEvolving ? 'Hatching...' : 'Hatch Egg'}
-                        </Button>
-                      )}
                     </div>
                   )}
                   
@@ -620,16 +811,6 @@ export default function BlobbiDetail() {
                           />
                         </div>
                       </div>
-                      {babyReadiness.isReady && isOwner && (
-                        <Button 
-                          className="w-full" 
-                          onClick={() => triggerEvolution()}
-                          disabled={isEvolving}
-                        >
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          {isEvolving ? 'Evolving...' : 'Evolve to Adult'}
-                        </Button>
-                      )}
                     </div>
                   )}
                   
@@ -645,6 +826,61 @@ export default function BlobbiDetail() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Recommended Nostr Clients */}
+              {blobbi.lifeStage !== 'adult' && (
+                <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                      <Users className="h-5 w-5 text-purple-500" />
+                      Recommended Nostr Clients
+                    </CardTitle>
+                    <CardDescription className="text-gray-600 dark:text-gray-300">
+                      Use these clients to complete your {blobbi.lifeStage === 'egg' ? 'hatching' : 'evolution'} tasks
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <a
+                        href="https://ditto.pub"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-4 border border-purple-200 dark:border-purple-600 rounded-lg hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">Ditto</h4>
+                          <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-purple-500 transition-colors" />
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">ditto.pub</p>
+                      </a>
+                      <a
+                        href="https://gleasonator.dev"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-4 border border-purple-200 dark:border-purple-600 rounded-lg hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">Gleasonator</h4>
+                          <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-purple-500 transition-colors" />
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">gleasonator.dev</p>
+                      </a>
+                      <a
+                        href="https://cobrafuma.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-4 border border-purple-200 dark:border-purple-600 rounded-lg hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">Cobrafuma</h4>
+                          <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-purple-500 transition-colors" />
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">cobrafuma.com</p>
+                      </a>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Interactions Tab */}
