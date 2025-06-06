@@ -74,7 +74,7 @@ const Index = () => {
                 {/* Main body - cute water droplet shape */}
                 <path
                   d="M 50 15 Q 50 10 50 15 Q 72 25 75 55 Q 75 80 50 88 Q 25 80 25 55 Q 28 25 50 15"
-                  fill="hsl(var(--primary))"
+                  fill="url(#blobbiBodyGradient)"
                   className="transition-colors duration-300"
                 />
                 
@@ -114,6 +114,15 @@ const Index = () => {
                 {/* Blush for cuteness */}
                 <ellipse cx="22" cy="55" rx="6" ry="4" fill="rgba(255,182,193,0.4)" />
                 <ellipse cx="78" cy="55" rx="6" ry="4" fill="rgba(255,182,193,0.4)" />
+                
+                {/* Gradient definitions */}
+                <defs>
+                  <radialGradient id="blobbiBodyGradient" cx="0.3" cy="0.25">
+                    <stop offset="0%" stopColor="#8b5cf6" />
+                    <stop offset="60%" stopColor="#7c3aed" />
+                    <stop offset="100%" stopColor="#6d28d9" />
+                  </radialGradient>
+                </defs>
               </svg>
             </div>
           </div>

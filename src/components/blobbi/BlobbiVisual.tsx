@@ -7,12 +7,12 @@ import { BlobbiVisualEffects, BlobbiVisualEffectGradients } from './BlobbiVisual
 
 interface BlobbiVisualProps {
   blobbi: Blobbi;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large' | 'tiny';
   className?: string;
   onClick?: () => void;
 }
 
-export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: BlobbiVisualProps) {
+export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualProps) {
   const mood = getBlobbiMood(blobbi.stats, blobbi.state);
   const svgRef = useRef<SVGSVGElement>(null);
   
@@ -89,10 +89,31 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
     );
   }
   
+  // Determine the display size - use the Blobbi's size tag if available, otherwise fall back to the size prop or default
+  const displaySize = blobbi.size || size || 'medium';
+  
+  // Container sizes that scale proportionally with the Blobbi size
   const sizeClasses = {
-    small: 'w-24 h-24',
-    medium: 'w-48 h-48',
-    large: 'w-64 h-64',
+    tiny: 'w-20 h-20',      // Compact UI
+    small: 'w-32 h-32',     // Small UI
+    medium: 'w-48 h-48',    // Standard UI
+    large: 'w-72 h-72',     // Large UI with more presence
+  };
+  
+  // Padding/spacing that scales with size
+  const paddingClasses = {
+    tiny: 'p-1',
+    small: 'p-2', 
+    medium: 'p-4',
+    large: 'p-6',
+  };
+  
+  // Shadow intensity that scales with size
+  const shadowClasses = {
+    tiny: 'drop-shadow-sm',
+    small: 'drop-shadow-md',
+    medium: 'drop-shadow-lg', 
+    large: 'drop-shadow-2xl',
   };
   
   const lifeStageScale = {
@@ -101,7 +122,15 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
     adult: 1,
   };
   
-  const scale = lifeStageScale[blobbi.lifeStage];
+  // Additional size scaling based on the Blobbi's size tag
+  const sizeScale = {
+    tiny: 0.7,    // Slightly larger for better visibility in compact UI
+    small: 0.85,  // Adjusted for proportional scaling
+    medium: 1.0,
+    large: 1.2,   // Slightly reduced to fit better in larger container
+  };
+  
+  const scale = lifeStageScale[blobbi.lifeStage] * sizeScale[displaySize as keyof typeof sizeScale];
   
   // Eye expressions based on mood
   const eyeExpressions = {
@@ -138,8 +167,11 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
   return (
     <div 
       className={cn(
-        'relative cursor-pointer transition-transform hover:scale-105',
-        sizeClasses[size],
+        'relative cursor-pointer transition-all duration-300 hover:scale-105',
+        sizeClasses[displaySize as keyof typeof sizeClasses],
+        paddingClasses[displaySize as keyof typeof paddingClasses],
+        shadowClasses[displaySize as keyof typeof shadowClasses],
+        'rounded-full bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm',
         className
       )}
       onClick={onClick}

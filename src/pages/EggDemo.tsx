@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -362,7 +363,14 @@ export default function EggDemo() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Visual Display */}
-          <Card className="lg:sticky lg:top-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+          <Card className={cn(
+            "lg:sticky lg:top-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 transition-all duration-500",
+            // Size-based card scaling
+            eggData?.size === 'tiny' ? 'max-w-md' :
+            eggData?.size === 'small' ? 'max-w-lg' :
+            eggData?.size === 'large' ? 'max-w-4xl' :
+            'max-w-2xl' // medium (default)
+          )}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                 <Sparkles className="h-5 w-5" />
@@ -386,7 +394,14 @@ export default function EggDemo() {
                 <TabsContent value="egg" className="space-y-4">
                   {eggData ? (
                     <>
-                      <div className="flex items-center justify-center min-h-[300px] p-8">
+                      <div className={cn(
+                        "flex items-center justify-center transition-all duration-500",
+                        // Size-based container scaling for eggs
+                        eggData.size === 'tiny' ? 'min-h-[180px] p-4 bg-gradient-to-br from-amber-50/30 to-orange-50/30 rounded-lg' :
+                        eggData.size === 'small' ? 'min-h-[220px] p-6 bg-gradient-to-br from-amber-50/40 to-orange-50/40 rounded-xl' :
+                        eggData.size === 'large' ? 'min-h-[380px] p-12 bg-gradient-to-br from-amber-50/60 to-orange-50/60 rounded-3xl border-2 border-amber-100/50' :
+                        'min-h-[300px] p-8 bg-gradient-to-br from-amber-50/50 to-orange-50/50 rounded-2xl' // medium (default)
+                      )}>
                         <BlobbiEggVisual
                           baseColor={eggData.base_color}
                           secondaryColor={eggData.secondary_color}
@@ -401,36 +416,86 @@ export default function EggDemo() {
                       </div>
                       
                       {/* Egg Stats Display */}
-                      <div className="w-full space-y-3">
-                        <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Egg Stats</h4>
-                        <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className={cn(
+                        "w-full",
+                        // Size-based spacing
+                        eggData.size === 'tiny' ? 'space-y-2' :
+                        eggData.size === 'small' ? 'space-y-2' :
+                        eggData.size === 'large' ? 'space-y-4' :
+                        'space-y-3' // medium (default)
+                      )}>
+                        <h4 className={cn(
+                          "text-gray-900 dark:text-gray-100",
+                          // Size-based text scaling
+                          eggData.size === 'tiny' ? 'text-xs font-medium' :
+                          eggData.size === 'small' ? 'text-sm font-semibold' :
+                          eggData.size === 'large' ? 'text-lg font-bold' :
+                          'text-sm font-semibold' // medium (default)
+                        )}>Egg Stats</h4>
+                        <div className={cn(
+                          "grid grid-cols-2",
+                          // Size-based grid spacing and text
+                          eggData.size === 'tiny' ? 'gap-2 text-xs' :
+                          eggData.size === 'small' ? 'gap-2 text-xs' :
+                          eggData.size === 'large' ? 'gap-4 text-base' :
+                          'gap-3 text-sm' // medium (default)
+                        )}>
                           <div className="flex justify-between">
                             <span>Happiness:</span>
-                            <Badge variant="outline">{eggData.happiness}/100</Badge>
+                            <Badge 
+                              variant="outline" 
+                              className={eggData.size === 'large' ? 'text-sm px-3 py-1' : eggData.size === 'tiny' ? 'text-xs px-1.5 py-0.5' : ''}
+                            >
+                              {eggData.happiness}/100
+                            </Badge>
                           </div>
                           <div className="flex justify-between">
                             <span>Hygiene:</span>
-                            <Badge variant="outline">{eggData.hygiene}/100</Badge>
+                            <Badge 
+                              variant="outline"
+                              className={eggData.size === 'large' ? 'text-sm px-3 py-1' : eggData.size === 'tiny' ? 'text-xs px-1.5 py-0.5' : ''}
+                            >
+                              {eggData.hygiene}/100
+                            </Badge>
                           </div>
                           <div className="flex justify-between">
                             <span>Temperature:</span>
-                            <Badge variant="outline">{eggData.egg_temperature}/100</Badge>
+                            <Badge 
+                              variant="outline"
+                              className={eggData.size === 'large' ? 'text-sm px-3 py-1' : eggData.size === 'tiny' ? 'text-xs px-1.5 py-0.5' : ''}
+                            >
+                              {eggData.egg_temperature}/100
+                            </Badge>
                           </div>
                           <div className="flex justify-between">
                             <span>Shell Integrity:</span>
-                            <Badge variant="outline">{eggData.shell_integrity}/100</Badge>
+                            <Badge 
+                              variant="outline"
+                              className={eggData.size === 'large' ? 'text-sm px-3 py-1' : eggData.size === 'tiny' ? 'text-xs px-1.5 py-0.5' : ''}
+                            >
+                              {eggData.shell_integrity}/100
+                            </Badge>
                           </div>
                         </div>
                         
                         {/* Incubation Progress */}
                         <div className="space-y-1">
-                          <div className="flex justify-between text-xs">
+                          <div className={cn(
+                            "flex justify-between",
+                            eggData.size === 'large' ? 'text-sm' : eggData.size === 'tiny' ? 'text-xs' : 'text-xs'
+                          )}>
                             <span>Incubation Progress:</span>
                             <span>{eggData.incubation_progress}%</span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className={cn(
+                            "w-full bg-gray-200 rounded-full transition-all duration-300",
+                            eggData.size === 'large' ? 'h-3' : eggData.size === 'tiny' ? 'h-1.5' : 'h-2'
+                          )}>
                             <div 
-                              className="bg-gradient-to-r from-yellow-400 to-orange-500 h-2 rounded-full transition-all duration-300"
+                              className={cn(
+                                "bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full transition-all duration-300",
+                                eggData.size === 'large' ? 'h-3' : eggData.size === 'tiny' ? 'h-1.5' : 'h-2'
+                              )}
                               style={{ width: `${eggData.incubation_progress}%` }}
                             />
                           </div>
@@ -448,17 +513,43 @@ export default function EggDemo() {
                 <TabsContent value="baby" className="space-y-4">
                   {eggData && babyData ? (
                     <>
-                      <div className="flex items-center justify-center min-h-[300px] p-8">
+                      <div className={cn(
+                        "flex items-center justify-center transition-all duration-500",
+                        // Size-based container scaling
+                        eggData.size === 'tiny' ? 'min-h-[200px] p-4 bg-gradient-to-br from-purple-50/30 to-pink-50/30 rounded-lg' :
+                        eggData.size === 'small' ? 'min-h-[250px] p-6 bg-gradient-to-br from-purple-50/40 to-pink-50/40 rounded-xl' :
+                        eggData.size === 'large' ? 'min-h-[400px] p-12 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50' :
+                        'min-h-[300px] p-8 bg-gradient-to-br from-purple-50/50 to-pink-50/50 rounded-2xl' // medium (default)
+                      )}>
                         <BlobbiVisual
                           blobbi={createBabyBlobbi()!}
-                          size="large"
                         />
                       </div>
                       
                       {/* Baby Traits Display */}
-                      <div className="w-full space-y-3">
-                        <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Baby Traits</h4>
-                        <div className="space-y-2 text-xs">
+                      <div className={cn(
+                        "w-full",
+                        // Size-based spacing
+                        eggData.size === 'tiny' ? 'space-y-2' :
+                        eggData.size === 'small' ? 'space-y-2' :
+                        eggData.size === 'large' ? 'space-y-4' :
+                        'space-y-3' // medium (default)
+                      )}>
+                        <h4 className={cn(
+                          "text-gray-900 dark:text-gray-100",
+                          // Size-based text scaling
+                          eggData.size === 'tiny' ? 'text-xs font-medium' :
+                          eggData.size === 'small' ? 'text-sm font-semibold' :
+                          eggData.size === 'large' ? 'text-lg font-bold' :
+                          'text-sm font-semibold' // medium (default)
+                        )}>Baby Traits</h4>
+                        <div className={cn(
+                          // Size-based text and spacing
+                          eggData.size === 'tiny' ? 'space-y-1 text-xs' :
+                          eggData.size === 'small' ? 'space-y-1.5 text-xs' :
+                          eggData.size === 'large' ? 'space-y-3 text-base' :
+                          'space-y-2 text-sm' // medium (default)
+                        )}>
                           <div className="flex justify-between">
                             <span>Eye Color:</span>
                             <div className="flex items-center gap-2">
@@ -480,6 +571,15 @@ export default function EggDemo() {
                           <div className="flex justify-between">
                             <span>Favorite Food:</span>
                             <Badge variant="outline" className="capitalize">{babyData.favoriteFood}</Badge>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Size:</span>
+                            <Badge 
+                              variant={getRarityBadgeVariant(getRarityInfo(eggData.size, 'size').rarity)} 
+                              className="capitalize"
+                            >
+                              {eggData.size}
+                            </Badge>
                           </div>
                           
                           {/* Personality */}
