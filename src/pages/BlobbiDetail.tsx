@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,8 @@ import {
   CheckCircle,
   Circle,
   Users,
-  ExternalLink
+  ExternalLink,
+  Egg
 } from 'lucide-react';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { useBlobbiById } from '@/hooks/useUserBlobbis';
@@ -71,7 +72,13 @@ export default function BlobbiDetail() {
     isReadyToHatch,
     isReadyToEvolve,
     metadataSubscriptionActive,
-    taskSubscriptionActive 
+    taskSubscriptionActive,
+    selectedEggId,
+    incubationStartTime,
+    selectEgg,
+    startIncubation,
+    stopIncubation,
+    hatchBlobbi
   } = useBlobbiIncubationSystem();
   
   const [showShop, setShowShop] = useState(false);
@@ -79,6 +86,22 @@ export default function BlobbiDetail() {
   const [showGames, setShowGames] = useState(false);
   const [showStorage, setShowStorage] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Select the current Blobbi for incubation/evolution tracking
+  useEffect(() => {
+    if (blobbi && blobbiId) {
+      // Select this Blobbi if it's an egg or baby
+      if (blobbi.lifeStage === 'egg' || blobbi.lifeStage === 'baby') {
+        selectEgg(blobbiId);
+      }
+    }
+    
+    // Cleanup: deselect when leaving the page
+    return () => {
+      selectEgg(null);
+      stopIncubation();
+    };
+  }, [blobbi, blobbiId, selectEgg, stopIncubation]);
   
   if (isLoading) {
     return (
@@ -546,13 +569,49 @@ export default function BlobbiDetail() {
               {/* Current Stage Progress */}
               <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="w-5 h-5 text-purple-500" />
-                    {blobbi.name} - {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} Stage
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-5 h-5 text-purple-500" />
+                      {blobbi.name} - {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} Stage
+                    </div>
+                    {/* Start Incubation/Evolution Button */}
+                    {isOwner && !taskSubscriptionActive && !incubationStartTime && blobbi.lifeStage !== 'adult' && (
+                      <Button 
+                        onClick={startIncubation}
+                        size="sm"
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                      >
+                        {blobbi.lifeStage === 'egg' ? (
+                          <>
+                            <Egg className="w-4 h-4 mr-2" />
+                            Start Incubation
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Start Evolution
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {taskSubscriptionActive && (
+                      <Badge className="bg-green-600 text-white">
+                        <Activity className="w-3 h-3 mr-1" />
+                        Listening for events...
+                      </Badge>
+                    )}
                   </CardTitle>
                   <CardDescription>
-                    {blobbi.lifeStage === 'egg' && 'Complete 4 Nostr interactions to hatch your egg'}
-                    {blobbi.lifeStage === 'baby' && 'Complete 14 Nostr interactions to evolve to adult'}
+                    {blobbi.lifeStage === 'egg' && (
+                      !incubationStartTime 
+                        ? "Click 'Start Incubation' to begin tracking your Nostr interactions"
+                        : 'Complete 4 Nostr interactions to hatch your egg'
+                    )}
+                    {blobbi.lifeStage === 'baby' && (
+                      !incubationStartTime 
+                        ? "Click 'Start Evolution' to begin tracking your Nostr interactions"
+                        : 'Complete 14 Nostr interactions to evolve to adult'
+                    )}
                     {blobbi.lifeStage === 'adult' && 'Your Blobbi has reached full maturity!'}
                   </CardDescription>
                 </CardHeader>

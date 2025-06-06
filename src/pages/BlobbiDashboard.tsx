@@ -24,7 +24,6 @@ import {
   BarChart3,
   Settings
 } from 'lucide-react';
-import { useBlobbis } from '@/hooks/useBlobbi';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
@@ -46,7 +45,6 @@ export default function BlobbiDashboard() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   const { data: profile, isLoading: isProfileLoading } = useBlobbonautProfile();
-  const { data: communityBlobbis } = useBlobbis(10);
   const { data: userBlobbis = [] } = useUserBlobbis();
   const { 
     eggTasks, 
@@ -335,7 +333,7 @@ export default function BlobbiDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                     <Crown className="w-5 h-5 text-yellow-500" />
-                    Welcome back, {profile?.ownerPubkey.slice(0, 8)}!
+                    Welcome back, {profile?.name}!
                   </CardTitle>
                   <CardDescription className="text-gray-600 dark:text-gray-300">
                     Here's what's happening with your Blobbis

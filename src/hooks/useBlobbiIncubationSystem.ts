@@ -466,12 +466,44 @@ export function useBlobbiIncubationSystem() {
         variant: "default",
       });
 
-      // Use the proper dual-event hatching process instead of just stage transition
-      // Import the lifecycle evolution function to ensure proper 14921 + 31124 sequence
-      const { useBlobbiLifecycle } = await import('@/hooks/useBlobbiLifecycle');
+      // Find the current blobbi
+      const currentBlobbi = state.blobbis.find(b => b.id === blobbiId);
+      if (!currentBlobbi) {
+        throw new Error('Blobbi not found');
+      }
+
+      // Use the proper dual-event hatching process
+      const { processHatching } = await import('@/lib/blobbi-evolution');
+      const { createBlobbiRecordEvent, createBlobbiStateEvent } = await import('@/lib/blobbi-events');
       
-      // For now, just do the stage transition - the lifecycle manager should handle the dual events
-      await publishStageTransition(blobbiId);
+      // Generate hatching data
+      const { hatchingRecord, updatedBlobbi } = processHatching(currentBlobbi);
+      
+      // First, create and publish the kind 14921 hatching record
+      console.log('📝 Publishing kind 14921 hatching record...');
+      const recordEventData = createBlobbiRecordEvent(blobbiId, hatchingRecord, `${currentBlobbi.name} has hatched! 🐣✨`);
+      await publishEvent({
+        ...recordEventData,
+      });
+      
+      // Wait a moment to ensure proper event ordering
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Then, create and publish the kind 31124 baby state (without task tags)
+      console.log('📝 Publishing kind 31124 baby state...');
+      const stateEventData = createBlobbiStateEvent(updatedBlobbi);
+      await publishEvent({
+        ...stateEventData,
+      });
+      
+      console.log(`✅ Successfully hatched Blobbi ${blobbiId}`);
+      
+      // Show success message
+      toast({
+        title: "🎉 Hatching Complete!",
+        description: `${currentBlobbi.name} has successfully hatched into a baby Blobbi!`,
+        variant: "default",
+      });
     } catch (error) {
       console.error('❌ Failed to hatch Blobbi:', error);
       toast({
@@ -480,14 +512,14 @@ export function useBlobbiIncubationSystem() {
         variant: "destructive",
       });
     }
-  }, [user, nostr, toast, publishStageTransition]);
+  }, [user, nostr, state.blobbis, publishEvent, toast]);
 
   // Publish task confirmation event
   const publishTaskConfirmation = useCallback(async (taskName: string) => {
     if (!user || !nostr) return;
 
     try {
-      // Find the task ID
+      // Find the task ID from both egg and evolution tasks
       const eggTask = state.incubationState.eggTasks.find(t => t.name === taskName);
       const evolutionTask = state.incubationState.evolutionTasks.find(t => t.name === taskName);
       const taskId = eggTask?.id || evolutionTask?.id;
@@ -502,22 +534,32 @@ export function useBlobbiIncubationSystem() {
         limit: 10,
       }], { signal });
 
-      // Update each Blobbi event with task confirmation
+      // Update ALL Blobbi events with task confirmation (not just eggs)
       for (const currentEvent of currentBlobbiEvents) {
-        const existingTags = currentEvent.tags.map(tag => [tag[0] || '', tag[1] || '']) as Array<[string, string]>;
-        const confirmationTags: Array<[string, string]> = [
-          [`(${taskId})_confirmed`, 'true'],
-          ['task_completed', taskId],
-        ];
+        // Parse the Blobbi to get its info
+        const blobbi = parseBlobbiFromStateEvent(currentEvent);
+        
+        if (!blobbi) {
+          console.log(`⏭️ Skipping invalid Blobbi event`);
+          continue;
+        }
 
-        // Remove any existing confirmation tags for this task
+        console.log(`📝 Adding task confirmation for ${blobbi.name} (${blobbi.lifeStage}): ${taskId}_confirmed`);
+
+        const existingTags = currentEvent.tags.map(tag => [tag[0] || '', tag[1] || '']) as Array<[string, string]>;
+        
+        // Create the correct confirmation tag format: ["<task_id>_confirmed", "true"]
+        const confirmationTag: [string, string] = [`${taskId}_confirmed`, 'true'];
+
+        // Remove any existing confirmation tags for this task (both old and new formats)
         const filteredTags = existingTags.filter(tag => 
+          tag[0] !== `${taskId}_confirmed` && 
           tag[0] !== `(${taskId})_confirmed` && 
           !(tag[0] === 'task_completed' && tag[1] === taskId)
         );
 
-        // Combine existing tags with new confirmation tags
-        const enrichedTags = [...filteredTags, ...confirmationTags];
+        // Add the new confirmation tag
+        const enrichedTags = [...filteredTags, confirmationTag];
 
         // Publish the enriched event
         await publishEvent({
@@ -527,11 +569,11 @@ export function useBlobbiIncubationSystem() {
         });
       }
       
-      console.log(`✅ Published task confirmation: ${taskName}`);
+      console.log(`✅ Published task confirmation for all Blobbis: ${taskId}_confirmed`);
     } catch (error) {
       console.error('Failed to publish task confirmation:', error);
     }
-  }, [user, nostr, state.incubationState]);
+  }, [user, nostr, state.incubationState, publishEvent]);
 
   // Process incoming task events
   const processTaskEvent = useCallback(async (event: NostrEvent) => {
@@ -729,10 +771,42 @@ export function useBlobbiIncubationSystem() {
                       : [...prev.blobbis, blobbi],
                   }));
                   
-                  // Check for task_completed tags
-                  const taskCompletedTags = event.tags.filter(tag => tag[0] === 'task_completed');
-                  if (taskCompletedTags.length > 0) {
-                    console.log('✅ Found task_completed tags:', taskCompletedTags);
+                  // Check for *_confirmed tags to mark tasks as completed
+                  const confirmedTags = event.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
+                  if (confirmedTags.length > 0) {
+                    console.log('✅ Found confirmed task tags:', confirmedTags);
+                    
+                    // Update task completion state based on confirmed tags
+                    setState(prev => {
+                      const newIncubationState = { ...prev.incubationState };
+                      
+                      // Mark egg tasks as completed based on confirmed tags
+                      newIncubationState.eggTasks = newIncubationState.eggTasks.map(task => {
+                        const confirmationTag = `${task.id}_confirmed`;
+                        const isConfirmed = confirmedTags.some(tag => tag[0] === confirmationTag);
+                        if (isConfirmed && !task.completed) {
+                          console.log(`🥚 Marking egg task as completed from confirmed tag: ${task.name}`);
+                          return { ...task, completed: true };
+                        }
+                        return task;
+                      });
+                      
+                      // Mark evolution tasks as completed based on confirmed tags
+                      newIncubationState.evolutionTasks = newIncubationState.evolutionTasks.map(task => {
+                        const confirmationTag = `${task.id}_confirmed`;
+                        const isConfirmed = confirmedTags.some(tag => tag[0] === confirmationTag);
+                        if (isConfirmed && !task.completed) {
+                          console.log(`🧬 Marking evolution task as completed from confirmed tag: ${task.name}`);
+                          return { ...task, completed: true };
+                        }
+                        return task;
+                      });
+                      
+                      return {
+                        ...prev,
+                        incubationState: newIncubationState,
+                      };
+                    });
                     
                     // Check if this is for the selected egg
                     if (state.selectedEggId === blobbi.id) {
@@ -899,28 +973,59 @@ export function useBlobbiIncubationSystem() {
 
       console.log(`✅ Found ${events.length} Blobbi metadata events`);
 
-      // Parse Blobbi events
+      // Parse Blobbi events and check for confirmed tasks
       const blobbis: Blobbi[] = [];
+      const allConfirmedTasks = new Set<string>();
+      
       for (const event of events) {
         try {
           const blobbi = parseBlobbiFromStateEvent(event);
           if (blobbi) {
             blobbis.push(blobbi);
+            
+            // Collect all confirmed task tags from this event
+            const confirmedTags = event.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
+            confirmedTags.forEach(tag => {
+              const taskId = tag[0].replace('_confirmed', '');
+              allConfirmedTasks.add(taskId);
+              console.log(`📋 Found confirmed task in initial load: ${taskId}`);
+            });
           }
         } catch (error) {
           console.warn('Failed to parse Blobbi event:', error);
         }
       }
 
-      setState(prev => ({
-        ...prev,
-        blobbis,
-        isLoadingBlobbis: false,
-        incubationState: {
-          ...prev.incubationState,
-          blobbiCreationTime: blobbis.length > 0 ? Math.min(...blobbis.map(b => b.birthTime)) : Date.now(),
-        },
-      }));
+      setState(prev => {
+        // Mark tasks as completed based on confirmed tags found in initial load
+        const updatedEggTasks = prev.incubationState.eggTasks.map(task => {
+          if (allConfirmedTasks.has(task.id) && !task.completed) {
+            console.log(`🥚 Marking egg task as completed from initial load: ${task.name}`);
+            return { ...task, completed: true };
+          }
+          return task;
+        });
+        
+        const updatedEvolutionTasks = prev.incubationState.evolutionTasks.map(task => {
+          if (allConfirmedTasks.has(task.id) && !task.completed) {
+            console.log(`🧬 Marking evolution task as completed from initial load: ${task.name}`);
+            return { ...task, completed: true };
+          }
+          return task;
+        });
+        
+        return {
+          ...prev,
+          blobbis,
+          isLoadingBlobbis: false,
+          incubationState: {
+            ...prev.incubationState,
+            eggTasks: updatedEggTasks,
+            evolutionTasks: updatedEvolutionTasks,
+            blobbiCreationTime: blobbis.length > 0 ? Math.min(...blobbis.map(b => b.birthTime)) : Date.now(),
+          },
+        };
+      });
 
       // Step 2: Start persistent metadata subscription
       await startMetadataSubscription();

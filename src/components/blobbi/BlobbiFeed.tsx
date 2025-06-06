@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useBlobbis } from '@/hooks/useBlobbi';
+import { useCommunityBlobbis } from '@/hooks/useBlobbi';
 import { BlobbiVisual } from './BlobbiVisual';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,7 @@ import { Heart, Sparkles, Zap, Smile } from 'lucide-react';
 import { getBlobbiMood } from '@/lib/blobbi';
 
 export function BlobbiFeed() {
-  const { data: blobbis, isLoading } = useBlobbis(20);
+  const { data: blobbis, isLoading } = useCommunityBlobbis(20);
   const navigate = useNavigate();
   
   if (isLoading) {

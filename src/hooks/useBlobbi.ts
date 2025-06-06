@@ -366,12 +366,69 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
   };
 }
 
-// Hook to fetch multiple Blobbis using new event system
+// Hook to fetch multiple Blobbis using new event system (user's own Blobbis)
 export function useBlobbis(limit: number = 20) {
+  const { nostr } = useNostr();
+  const { user } = useCurrentUser();
+  
+  return useQuery({
+    queryKey: ['blobbis-new', limit, user?.pubkey],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const signal = AbortSignal.timeout(5000);
+      
+      // Query recent state events ONLY from the current user
+      const stateEvents = await nostr.query([
+        { 
+          kinds: [31124], // Blobbi state events
+          authors: [user.pubkey], // Only fetch events from the current user
+          limit: limit,
+        }
+      ], { signal });
+      
+      // Parse and filter unique Blobbis
+      const { parseBlobbiFromStateEvent } = await import('@/lib/blobbi-events');
+      const blobbis = stateEvents
+        .map(event => {
+          return parseBlobbiFromStateEvent(event);
+        })
+        .filter(blobbi => blobbi !== null)
+        .reduce((unique, blobbi) => {
+          // Keep only one Blobbi per ID (latest state)
+          if (!unique.find(b => b.id === blobbi.id)) {
+            unique.push(blobbi);
+          }
+          return unique;
+        }, [] as Blobbi[])
+        .slice(0, limit);
+
+      // Apply stat degradation
+      return blobbis.map(blobbi => ({
+        ...blobbi,
+        stats: (() => {
+          const degradation = calculateStatDegradation(blobbi.lastInteraction * 1000);
+          return {
+            hunger: clampStat(blobbi.stats.hunger + (degradation.hunger || 0)),
+            happiness: clampStat(blobbi.stats.happiness + (degradation.happiness || 0)),
+            health: blobbi.stats.health,
+            hygiene: clampStat(blobbi.stats.hygiene + (degradation.hygiene || 0)),
+            energy: clampStat(blobbi.stats.energy + (degradation.energy || 0)),
+          };
+        })(),
+      }));
+    },
+    enabled: !!user, // Only run query when user is logged in
+    refetchInterval: 60000, // Refetch every minute
+  });
+}
+
+// Hook to fetch community Blobbis from different users (for community feed)
+export function useCommunityBlobbis(limit: number = 20) {
   const { nostr } = useNostr();
   
   return useQuery({
-    queryKey: ['blobbis-new', limit],
+    queryKey: ['community-blobbis', limit],
     queryFn: async () => {
       const signal = AbortSignal.timeout(5000);
       
