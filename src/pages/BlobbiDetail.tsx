@@ -332,14 +332,27 @@ export default function BlobbiDetail() {
                   <Palette className="w-4 h-4" />
                   Customize
                 </Button>
-                {(eggReadiness?.isReady || babyReadiness?.isReady) && (
+                {/* Incubation System Hatch Button (Priority) */}
+                {blobbi.lifeStage === 'egg' && isReadyToHatch && (
+                  <Button
+                    className="w-full justify-start gap-2 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => hatchBlobbi(blobbi.id)}
+                    disabled={isEvolving}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Hatch the Egg
+                  </Button>
+                )}
+                
+                {/* Traditional Evolution Button (Fallback) */}
+                {((eggReadiness?.isReady && !isReadyToHatch) || babyReadiness?.isReady) && (
                   <Button
                     className="w-full justify-start gap-2"
                     onClick={() => triggerEvolution()}
                     disabled={isEvolving}
                   >
                     <Sparkles className="w-4 h-4" />
-                    {blobbi.lifeStage === 'egg' ? 'Hatch Egg' : 'Evolve to Adult'}
+                    {blobbi.lifeStage === 'egg' ? 'Hatch Egg (Traditional)' : 'Evolve to Adult'}
                   </Button>
                 )}
                 {blobbi.state === 'hibernating' && (
@@ -632,12 +645,6 @@ export default function BlobbiDetail() {
                         value={blobbi.lifeStage === 'egg' ? progress.egg.percentage : progress.evolution.percentage} 
                         className="h-3" 
                       />
-                      {((blobbi.lifeStage === 'egg' && isReadyToHatch) || (blobbi.lifeStage === 'baby' && isReadyToEvolve)) && (
-                        <Badge className="w-full justify-center bg-green-600 hover:bg-green-700 text-white">
-                          <Zap className="w-3 h-3 mr-1" />
-                          Ready to {blobbi.lifeStage === 'egg' ? 'Hatch' : 'Evolve'}!
-                        </Badge>
-                      )}
                     </div>
                   )}
 
@@ -738,8 +745,47 @@ export default function BlobbiDetail() {
                     </div>
                   )}
 
-                  {/* Evolution Button */}
-                  {((blobbi.lifeStage === 'egg' && eggReadiness?.isReady) || (blobbi.lifeStage === 'baby' && babyReadiness?.isReady)) && isOwner && (
+                  {/* Debug Information */}
+                  {blobbi.lifeStage === 'egg' && isOwner && (
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Hatching Status</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-blue-700 dark:text-blue-300">Incubation Tasks:</span>
+                          <span className={`font-medium ${isReadyToHatch ? 'text-green-600' : 'text-orange-600'}`}>
+                            {progress.egg.completed}/{progress.egg.total} {isReadyToHatch ? '✅ Ready!' : '⏳ In Progress'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-blue-700 dark:text-blue-300">Traditional Requirements:</span>
+                          <span className={`font-medium ${eggReadiness?.isReady ? 'text-green-600' : 'text-orange-600'}`}>
+                            {eggReadiness?.isReady ? '✅ Ready!' : '⏳ In Progress'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-blue-700 dark:text-blue-300">Task Subscription:</span>
+                          <span className={`font-medium ${taskSubscriptionActive ? 'text-green-600' : 'text-red-600'}`}>
+                            {taskSubscriptionActive ? '🟢 Active' : '🔴 Inactive'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Evolution Button - Incubation System */}
+                  {blobbi.lifeStage === 'egg' && isReadyToHatch && isOwner && (
+                    <Button 
+                      className="w-full bg-green-600 hover:bg-green-700 text-white" 
+                      onClick={() => hatchBlobbi(blobbi.id)}
+                      disabled={isEvolving}
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      {isEvolving ? 'Hatching...' : 'Hatch the Egg'}
+                    </Button>
+                  )}
+
+                  {/* Evolution Button - Traditional System */}
+                  {((blobbi.lifeStage === 'egg' && eggReadiness?.isReady && !isReadyToHatch) || (blobbi.lifeStage === 'baby' && babyReadiness?.isReady)) && isOwner && (
                     <Button 
                       className="w-full" 
                       onClick={() => triggerEvolution()}
@@ -748,7 +794,7 @@ export default function BlobbiDetail() {
                       <Sparkles className="w-4 h-4 mr-2" />
                       {isEvolving 
                         ? (blobbi.lifeStage === 'egg' ? 'Hatching...' : 'Evolving...') 
-                        : (blobbi.lifeStage === 'egg' ? 'Hatch Egg' : 'Evolve to Adult')
+                        : (blobbi.lifeStage === 'egg' ? 'Hatch Egg (Traditional)' : 'Evolve to Adult')
                       }
                     </Button>
                   )}
