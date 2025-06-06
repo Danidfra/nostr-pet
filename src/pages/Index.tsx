@@ -4,10 +4,61 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Heart, Sparkles, Gamepad2, Users } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
+import { useEffect, useState, useRef } from 'react';
 
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
+  
+  // Mouse tracking state for Blobbi eyes
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [pupilOffset, setPupilOffset] = useState({
+    left: { x: 0, y: 0 },
+    right: { x: 0, y: 0 }
+  });
+  
+  // Check if device has mouse (not touch-only)
+  const hasMouseSupport = typeof window !== 'undefined' && 
+    window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  
+  useEffect(() => {
+    if (!hasMouseSupport) return;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!svgRef.current) return;
+      
+      const rect = svgRef.current.getBoundingClientRect();
+      const svgCenterX = rect.left + rect.width / 2;
+      const svgCenterY = rect.top + rect.height / 2;
+      
+      // Calculate angle from SVG center to mouse
+      const angle = Math.atan2(e.clientY - svgCenterY, e.clientX - svgCenterX);
+      
+      // Calculate distance (capped for natural movement)
+      const distance = Math.min(
+        Math.sqrt(Math.pow(e.clientX - svgCenterX, 2) + Math.pow(e.clientY - svgCenterY, 2)),
+        200
+      ) / 200;
+      
+      // Maximum pupil movement (in SVG units)
+      const maxOffset = 2.5;
+      
+      // Calculate offsets
+      const offsetX = Math.cos(angle) * distance * maxOffset;
+      const offsetY = Math.sin(angle) * distance * maxOffset;
+      
+      setPupilOffset({
+        left: { x: offsetX, y: offsetY },
+        right: { x: offsetX, y: offsetY }
+      });
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [hasMouseSupport]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
@@ -68,6 +119,7 @@ const Index = () => {
               
               {/* Bouncing Blobbi */}
               <svg
+                ref={svgRef}
                 viewBox="0 0 100 100"
                 className="absolute inset-0 w-full h-full animate-blobbi-jump"
               >
@@ -88,18 +140,34 @@ const Index = () => {
                   opacity="0.15"
                 />
                 
-                {/* Eyes - simple with single highlight */}
+                {/* Eyes with mouse tracking */}
                 <g id="left-eye">
                   <ellipse cx="38" cy="45" rx="8" ry="10" fill="white" />
-                  <circle cx="38" cy="46" r="6" fill="#1e293b" />
-                  {/* Single eye shine */}
-                  <circle cx="40" cy="44" r="2" fill="white" />
+                  <g 
+                    className="pupil-container"
+                    style={{
+                      transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
+                      transition: 'transform 0.1s ease-out'
+                    }}
+                  >
+                    <circle cx="38" cy="46" r="6" fill="#1e293b" />
+                    {/* Single eye shine */}
+                    <circle cx="40" cy="44" r="2" fill="white" />
+                  </g>
                 </g>
                 <g id="right-eye">
                   <ellipse cx="62" cy="45" rx="8" ry="10" fill="white" />
-                  <circle cx="62" cy="46" r="6" fill="#1e293b" />
-                  {/* Single eye shine */}
-                  <circle cx="64" cy="44" r="2" fill="white" />
+                  <g 
+                    className="pupil-container"
+                    style={{
+                      transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
+                      transition: 'transform 0.1s ease-out'
+                    }}
+                  >
+                    <circle cx="62" cy="46" r="6" fill="#1e293b" />
+                    {/* Single eye shine */}
+                    <circle cx="64" cy="44" r="2" fill="white" />
+                  </g>
                 </g>
                 
                 {/* Happy mouth */}
