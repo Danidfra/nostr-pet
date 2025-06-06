@@ -25,7 +25,6 @@ export function AppHeader({
         {showLeftControls && (
           <div className="flex items-center gap-2">
             <SettingsButton />
-            <ThemeToggle />
           </div>
         )}
         {title && (
