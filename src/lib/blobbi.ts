@@ -5,6 +5,7 @@ import {
   shouldTriggerEvolution,
   determineEvolutionForm 
 } from './blobbi-evolution';
+import { generateRandomVisualEffects } from './blobbi-visual-tags';
 
 // Constants for game mechanics
 const STAT_DECAY_RATES = {
@@ -52,6 +53,26 @@ const ACTION_COOLDOWNS: Record<BlobbiAction, number> = {
 
 // Create a new Blobbi for a user
 export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blobbi {
+  // Generate random visual effects for the new Blobbi
+  const visualEffects = generateRandomVisualEffects();
+  
+  // Generate random base colors
+  const baseColors = [
+    '#ffdab9', '#808080', '#98ff98', // Common: peach, grey, mint
+    '#ffcc99', '#00ffff', '#f4a460', // Uncommon: sunset, aqua, sand
+    '#f8f8ff', '#0b0b0b', '#ffd700'  // Rare: lunar_white, void_black, radiant_gold
+  ];
+  
+  // Generate random eye colors
+  const eyeColors = [
+    '#6b4423', '#6699ff', '#a0522d', // Common: brown, blue, hazel
+    '#50c878', '#8a2be2', '#c0c0c0', // Uncommon: emerald, violet, silver
+    '#ff66cc', '#ffd700', '#ff0033'  // Rare: glow_pink, golden_flare, red_shift
+  ];
+  
+  const baseColor = baseColors[Math.floor(Math.random() * baseColors.length)];
+  const eyeColor = eyeColors[Math.floor(Math.random() * eyeColors.length)];
+  
   return {
     id: `blobbi_${ownerPubkey}`,
     ownerPubkey,
@@ -68,7 +89,7 @@ export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blob
       health: 100,
     },
     customization: {
-      color: '#7C3AED', // Default purple color
+      color: baseColor,
       accessories: [],
     },
     experience: 0,
@@ -78,6 +99,11 @@ export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blob
     generation: 1,
     breedingReady: false,
     careStreak: 0,
+    // Visual appearance
+    baseColor,
+    eyeColor,
+    // Apply random visual effects
+    ...visualEffects,
   };
 }
 

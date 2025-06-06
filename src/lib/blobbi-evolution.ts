@@ -189,7 +189,7 @@ export function determineEvolutionForm(
   }
 
   // Map to evolution forms
-  const forms: BlobbiEvolutionForm[] = ['pengui', 'owli', 'catti', 'froggi'];
+  const forms: BlobbiEvolutionForm[] = ['pandi', 'owli', 'catti', 'froggi'];
   const index = Math.abs(hash) % forms.length;
   
   return forms[index];

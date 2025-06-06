@@ -81,110 +81,194 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
   
   const renderBlobbi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Base blob shape */}
-      <ellipse cx="100" cy="110" rx="60" ry="70" fill={blobbi.customization.color || "#e0e7ff"} />
+      {/* Gentle shadow for subtle depth */}
+      <ellipse
+        cx="102"
+        cy="190"
+        rx="50"
+        ry="6"
+        fill="rgba(0,0,0,0.15)"
+      />
       
-      {/* Soft shading */}
-      <ellipse cx="100" cy="110" rx="60" ry="70" fill="url(#blobbiGradient)" opacity="0.3" />
+      {/* Main body - cute water droplet shape with subtle gradient */}
+      <path
+        d="M 100 30 Q 100 20 100 30 Q 144 50 150 110 Q 150 160 100 176 Q 50 160 50 110 Q 56 50 100 30"
+        fill={`url(#${patternIdPrefix}blobbiBodySubtle)`}
+        className="transition-colors duration-300"
+      />
       
-      {/* Eyes with mouse tracking */}
+      {/* Soft inner glow for gentle warmth */}
+      <ellipse
+        cx="100"
+        cy="90"
+        rx="30"
+        ry="40"
+        fill="white"
+        opacity="0.2"
+      />
+      
+      {/* Eyes with gentle depth */}
       {blobbi.state === 'sleeping' ? (
         <>
-          <line x1="70" y1="100" x2="90" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
-          <line x1="110" y1="100" x2="130" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+          <path d="M 70 90 Q 80 93 90 90" stroke={`url(#${patternIdPrefix}blobbiMouthSubtle)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M 110 90 Q 120 93 130 90" stroke={`url(#${patternIdPrefix}blobbiMouthSubtle)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
         </>
       ) : (
         <>
-          <g 
-            style={{
-              transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
-              transition: 'transform 0.1s ease-out'
-            }}
-          >
-            <circle cx="80" cy="100" r="8" fill="#1e293b" />
-            <circle cx="82" cy="98" r="3" fill="white" />
+          <g id="left-eye">
+            <ellipse cx="76" cy="90" rx="16" ry="20" fill={`url(#${patternIdPrefix}blobbiEyeSubtle)`} />
+            <g 
+              style={{
+                transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
+                transition: 'transform 0.1s ease-out'
+              }}
+            >
+              <circle cx="76" cy="92" r="12" fill={`url(#${patternIdPrefix}blobbiPupilSubtle)`} />
+              <circle cx="80" cy="88" r="4" fill="white" />
+              <circle cx="82" cy="90" r="1.5" fill="white" opacity="0.8" />
+            </g>
           </g>
-          <g 
-            style={{
-              transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
-              transition: 'transform 0.1s ease-out'
-            }}
-          >
-            <circle cx="120" cy="100" r="8" fill="#1e293b" />
-            <circle cx="122" cy="98" r="3" fill="white" />
+          <g id="right-eye">
+            <ellipse cx="124" cy="90" rx="16" ry="20" fill={`url(#${patternIdPrefix}blobbiEyeSubtle)`} />
+            <g 
+              style={{
+                transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
+                transition: 'transform 0.1s ease-out'
+              }}
+            >
+              <circle cx="124" cy="92" r="12" fill={`url(#${patternIdPrefix}blobbiPupilSubtle)`} />
+              <circle cx="128" cy="88" r="4" fill="white" />
+              <circle cx="130" cy="90" r="1.5" fill="white" opacity="0.8" />
+            </g>
           </g>
         </>
       )}
       
-      {/* Mouth based on mood */}
-      {mood === 'happy' && <path d="M 80 120 Q 100 135 120 120" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />}
-      {mood === 'sad' && <path d="M 80 130 Q 100 115 120 130" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />}
-      {(mood === 'neutral' || mood === 'sleepy') && <path d="M 90 120 Q 100 125 110 120" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />}
+      {/* Happy mouth with gentle shading */}
+      {mood === 'happy' && (
+        <path 
+          d="M 84 124 Q 100 136 116 124" 
+          stroke={`url(#${patternIdPrefix}blobbiMouthSubtle)`} 
+          strokeWidth="5" 
+          fill="none" 
+          strokeLinecap="round" 
+        />
+      )}
+      {mood === 'sad' && (
+        <path 
+          d="M 84 136 Q 100 124 116 136" 
+          stroke={`url(#${patternIdPrefix}blobbiMouthSubtle)`} 
+          strokeWidth="5" 
+          fill="none" 
+          strokeLinecap="round" 
+        />
+      )}
+      {(mood === 'neutral' || mood === 'sleepy') && (
+        <circle cx="100" cy="130" r="2" fill={`url(#${patternIdPrefix}blobbiPupilSubtle)`} />
+      )}
       
-      {/* Accessories */}
+      {/* Soft blush for cuteness */}
+      {mood === 'happy' && (
+        <>
+          <ellipse cx="44" cy="110" rx="12" ry="8" fill="rgba(255,182,193,0.5)" />
+          <ellipse cx="156" cy="110" rx="12" ry="8" fill="rgba(255,182,193,0.5)" />
+        </>
+      )}
+      
+      {/* Accessories with enhanced styling */}
       {blobbi.customization.accessories.includes('hat') && (
         <g>
-          <rect x="70" y="50" width="60" height="10" fill="#f59e0b" rx="2" />
-          <rect x="80" y="30" width="40" height="30" fill="#f59e0b" rx="5" />
+          <ellipse cx="100" cy="45" rx="32" ry="12" fill={`url(#${patternIdPrefix}blobbiHatSubtle)`} />
+          <rect x="78" y="38" width="44" height="15" fill={`url(#${patternIdPrefix}blobbiHatBandSubtle)`} rx="2" />
+          <circle cx="100" cy="30" r="6" fill={`url(#${patternIdPrefix}blobbiHatPompomSubtle)`} />
+          <circle cx="101" cy="29" r="2" fill="white" opacity="0.6" />
         </g>
       )}
       
       {blobbi.customization.accessories.includes('glasses') && (
         <g>
-          <circle cx="80" cy="100" r="12" fill="none" stroke="#1e293b" strokeWidth="2" />
-          <circle cx="120" cy="100" r="12" fill="none" stroke="#1e293b" strokeWidth="2" />
-          <line x1="92" y1="100" x2="108" y2="100" stroke="#1e293b" strokeWidth="2" />
+          <circle cx="76" cy="90" r="18" fill="none" stroke={`url(#${patternIdPrefix}blobbiPupilSubtle)`} strokeWidth="3" />
+          <circle cx="124" cy="90" r="18" fill="none" stroke={`url(#${patternIdPrefix}blobbiPupilSubtle)`} strokeWidth="3" />
+          <line x1="94" y1="90" x2="106" y2="90" stroke={`url(#${patternIdPrefix}blobbiPupilSubtle)`} strokeWidth="3" />
         </g>
       )}
       
       <defs>
-        <radialGradient id="blobbiGradient">
+        <radialGradient id={`${patternIdPrefix}blobbiBodySubtle`} cx="0.3" cy="0.25">
+          <stop offset="0%" stopColor={blobbi.baseColor || blobbi.customization.color || "#8b5cf6"} />
+          <stop offset="60%" stopColor={blobbi.customization.color || "#7c3aed"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#6d28d9"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}blobbiEyeSubtle`} cx="0.3" cy="0.3">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#c7d2fe" />
+          <stop offset="100%" stopColor="#f1f5f9" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}blobbiPupilSubtle`} cx="0.3" cy="0.3">
+          <stop offset="0%" stopColor="#374151" />
+          <stop offset="100%" stopColor="#1e293b" />
+        </radialGradient>
+        <linearGradient id={`${patternIdPrefix}blobbiMouthSubtle`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#374151" />
+          <stop offset="50%" stopColor="#1e293b" />
+          <stop offset="100%" stopColor="#374151" />
+        </linearGradient>
+        <radialGradient id={`${patternIdPrefix}blobbiHatSubtle`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#fbbf24" />
+          <stop offset="100%" stopColor="#f59e0b" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}blobbiHatBandSubtle`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#d97706" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}blobbiHatPompomSubtle`} cx="0.3" cy="0.3">
+          <stop offset="0%" stopColor="#fef3c7" />
+          <stop offset="100%" stopColor="#fbbf24" />
         </radialGradient>
       </defs>
     </svg>
   );
 
-  const renderPengui = () => (
+  const renderPandi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Body - rounder, more egg-shaped */}
-      <ellipse cx="100" cy="115" rx="55" ry="65" fill={blobbi.customization.color || "#374151"} />
-      <ellipse cx="100" cy="115" rx="55" ry="65" fill="url(#penguiBodyGradient)" opacity="0.3" />
+      {/* Drop shadow */}
+      <ellipse cx="105" cy="185" rx="45" ry="8" fill="rgba(0,0,0,0.15)" />
       
-      {/* White belly - larger and rounder */}
-      <ellipse cx="100" cy="120" rx="40" ry="45" fill="#f9fafb" />
-      <ellipse cx="100" cy="120" rx="40" ry="45" fill="url(#penguiBellyGradient)" opacity="0.5" />
+      {/* Main body - perfect circle with subtle outline */}
+      <circle cx="100" cy="120" r="55" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="2" />
       
-      {/* Pattern overlay if customized */}
-      {blobbi.customization.pattern && (
-        <ellipse cx="100" cy="115" rx="55" ry="65" fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`} opacity="0.3" />
-      )}
+      {/* Head - perfect circle with subtle outline */}
+      <circle cx="100" cy="85" r="45" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="2" />
       
-      {/* Wings - slightly reduced for better proportion */}
-      <ellipse cx="55" cy="115" rx="12" ry="22" fill={blobbi.customization.color || "#374151"} transform="rotate(-15 55 115)" />
-      <ellipse cx="145" cy="115" rx="12" ry="22" fill={blobbi.customization.color || "#374151"} transform="rotate(15 145 115)" />
+      {/* Black ear patches - perfect circles using Blobbi's colors */}
+      <circle cx="75" cy="65" r="18" fill={blobbi.customization.color || "#1f2937"} />
+      <circle cx="125" cy="65" r="18" fill={blobbi.customization.color || "#1f2937"} />
       
-      {/* Eyes with mouse tracking */}
+      {/* Inner ears - smaller circles */}
+      <circle cx="75" cy="65" r="12" fill={blobbi.secondaryColor || "#374151"} />
+      <circle cx="125" cy="65" r="12" fill={blobbi.secondaryColor || "#374151"} />
+      
+      {/* Eye patches - perfect circles */}
+      <circle cx="85" cy="85" r="20" fill={blobbi.customization.color || "#1f2937"} />
+      <circle cx="115" cy="85" r="20" fill={blobbi.customization.color || "#1f2937"} />
+      
+      {/* Eyes - geometric circles with enhanced depth */}
       {blobbi.state === 'sleeping' ? (
         <>
-          <path d="M 75 85 Q 85 88 95 85" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />
-          <path d="M 105 85 Q 115 88 125 85" stroke="#1e293b" strokeWidth="3" fill="none" strokeLinecap="round" />
+          <path d="M 75 85 Q 85 88 95 85" stroke={`url(#${patternIdPrefix}pandiMouth3D)`} strokeWidth="3" fill="none" strokeLinecap="round" />
+          <path d="M 105 85 Q 115 88 125 85" stroke={`url(#${patternIdPrefix}pandiMouth3D)`} strokeWidth="3" fill="none" strokeLinecap="round" />
         </>
       ) : (
         <>
-          {/* Eye whites */}
-          <ellipse cx="85" cy="85" rx="12" ry="14" fill="#ffffff" />
-          <ellipse cx="115" cy="85" rx="12" ry="14" fill="#ffffff" />
-          {/* Pupils with tracking */}
+          <circle cx="85" cy="85" r="12" fill={`url(#${patternIdPrefix}pandiEyeWhite3D)`} />
+          <circle cx="115" cy="85" r="12" fill={`url(#${patternIdPrefix}pandiEyeWhite3D)`} />
           <g 
             style={{
               transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
               transition: 'transform 0.1s ease-out'
             }}
           >
-            <circle cx="85" cy="87" r="8" fill="#1e293b" />
-            <circle cx="88" cy="84" r="3" fill="white" />
+            <circle cx="85" cy="85" r="8" fill={`url(#${patternIdPrefix}pandiPupil3D)`} />
+            <circle cx="88" cy="82" r="3" fill="white" />
           </g>
           <g 
             style={{
@@ -192,56 +276,77 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
               transition: 'transform 0.1s ease-out'
             }}
           >
-            <circle cx="115" cy="87" r="8" fill="#1e293b" />
-            <circle cx="118" cy="84" r="3" fill="white" />
+            <circle cx="115" cy="85" r="8" fill={`url(#${patternIdPrefix}pandiPupil3D)`} />
+            <circle cx="118" cy="82" r="3" fill="white" />
           </g>
         </>
       )}
       
-      {/* Beak - rounder and friendlier */}
-      <ellipse cx="100" cy="105" rx="8" ry="6" fill="#fb923c" />
-      <ellipse cx="100" cy="103" rx="6" ry="4" fill="#fed7aa" opacity="0.6" />
+      {/* Nose - simple triangle with gradient */}
+      <path d="M 100 95 L 95 105 L 105 105 Z" fill={`url(#${patternIdPrefix}pandiNose3D)`} />
       
-      {/* Rosy cheeks */}
-      <ellipse cx="60" cy="95" rx="10" ry="8" fill="#fbbf24" opacity="0.3" />
-      <ellipse cx="140" cy="95" rx="10" ry="8" fill="#fbbf24" opacity="0.3" />
-      
-      {/* Feet - more rounded */}
-      <ellipse cx="85" cy="175" rx="15" ry="8" fill="#fb923c" />
-      <ellipse cx="115" cy="175" rx="15" ry="8" fill="#fb923c" />
-      <ellipse cx="85" cy="173" rx="12" ry="5" fill="#fed7aa" opacity="0.5" />
-      <ellipse cx="115" cy="173" rx="12" ry="5" fill="#fed7aa" opacity="0.5" />
-      
-      {/* Mouth based on mood - positioned under beak */}
-      {mood === 'happy' && <path d="M 92 110 Q 100 115 108 110" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />}
-      {mood === 'sad' && <path d="M 92 115 Q 100 110 108 115" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />}
-      
-      {/* Accessories */}
-      {blobbi.customization.accessories.includes('scarf') && (
-        <g>
-          <path d="M 55 125 Q 100 130 145 125 L 145 140 Q 100 145 55 140 Z" fill="#ef4444" />
-          <path d="M 125 135 L 130 165 Q 125 170 120 165 L 115 140" fill="#ef4444" />
-          <rect x="120" y="160" width="10" height="5" fill="#dc2626" />
-        </g>
+      {/* Mouth - geometric curves with enhanced styling */}
+      {mood === 'happy' && (
+        <path d="M 90 110 Q 100 118 110 110" stroke={`url(#${patternIdPrefix}pandiMouth3D)`} strokeWidth="3" fill="none" strokeLinecap="round" />
+      )}
+      {mood === 'sad' && (
+        <path d="M 90 118 Q 100 110 110 118" stroke={`url(#${patternIdPrefix}pandiMouth3D)`} strokeWidth="3" fill="none" strokeLinecap="round" />
+      )}
+      {(mood === 'neutral' || mood === 'sleepy') && (
+        <path d="M 95 114 Q 100 116 105 114" stroke={`url(#${patternIdPrefix}pandiMouth3D)`} strokeWidth="3" fill="none" strokeLinecap="round" />
       )}
       
+      {/* Arms - simple circles with gradient */}
+      <circle cx="55" cy="120" r="15" fill={`url(#${patternIdPrefix}pandiArm3D)`} />
+      <circle cx="145" cy="120" r="15" fill={`url(#${patternIdPrefix}pandiArm3D)`} />
+      
+      {/* Legs - simple circles with gradient */}
+      <circle cx="80" cy="165" r="18" fill={`url(#${patternIdPrefix}pandiLeg3D)`} />
+      <circle cx="120" cy="165" r="18" fill={`url(#${patternIdPrefix}pandiLeg3D)`} />
+      
+      {/* Accessories with enhanced styling */}
       {blobbi.customization.accessories.includes('hat') && (
         <g>
-          <ellipse cx="100" cy="45" rx="40" ry="30" fill="#60a5fa" />
-          <rect x="60" y="40" width="80" height="25" fill="#3b82f6" rx="3" />
-          <circle cx="100" cy="30" r="10" fill="#ffffff" />
-          <circle cx="100" cy="30" r="7" fill="#dbeafe" />
+          <rect x="70" y="45" width="60" height="8" fill={`url(#${patternIdPrefix}pandiBambooHat3D)`} rx="4" stroke="#16a34a" strokeWidth="1" />
+          <rect x="75" y="25" width="50" height="25" fill={`url(#${patternIdPrefix}pandiBambooHatTop3D)`} rx="3" stroke="#15803d" strokeWidth="1" />
+          <rect x="80" y="30" width="40" height="15" fill={`url(#${patternIdPrefix}pandiBambooHat3D)`} rx="2" stroke="#16a34a" strokeWidth="1" />
         </g>
       )}
       
       <defs>
-        <radialGradient id="penguiBodyGradient">
-          <stop offset="0%" stopColor={blobbi.customization.color || "#6b7280"} stopOpacity="0.8" />
-          <stop offset="100%" stopColor={blobbi.customization.color || "#1f2937"} stopOpacity="0.4" />
-        </radialGradient>
-        <radialGradient id="penguiBellyGradient">
+        <radialGradient id={`${patternIdPrefix}pandiEyeWhite3D`} cx="0.3" cy="0.3">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#f3f4f6" />
+          <stop offset="70%" stopColor="#f5f5f4" />
+          <stop offset="100%" stopColor="#e7e5e4" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}pandiPupil3D`} cx="0.3" cy="0.3">
+          <stop offset="0%" stopColor="#374151" />
+          <stop offset="100%" stopColor="#1e293b" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}pandiNose3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor={blobbi.customization.color || "#1f2937"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#374151"} />
+        </radialGradient>
+        <linearGradient id={`${patternIdPrefix}pandiMouth3D`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#374151" />
+          <stop offset="50%" stopColor="#1e293b" />
+          <stop offset="100%" stopColor="#374151" />
+        </linearGradient>
+        <radialGradient id={`${patternIdPrefix}pandiArm3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor={blobbi.customization.color || "#1f2937"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#374151"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}pandiLeg3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor={blobbi.customization.color || "#1f2937"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#374151"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}pandiBambooHat3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#22c55e" />
+          <stop offset="100%" stopColor="#16a34a" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}pandiBambooHatTop3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#16a34a" />
+          <stop offset="100%" stopColor="#15803d" />
         </radialGradient>
       </defs>
     </svg>
@@ -249,39 +354,37 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderOwli = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Round body */}
-      <circle cx="100" cy="110" r="60" fill={blobbi.customization.color || "#a8a29e"} />
-      <circle cx="100" cy="110" r="60" fill="url(#owliGradient)" opacity="0.3" />
+      {/* Drop shadow for 3D effect */}
+      <ellipse cx="105" cy="185" rx="55" ry="8" fill="rgba(0,0,0,0.15)" />
       
-      {/* Triangle ears */}
-      <path d="M 60 70 L 70 50 L 80 70 Z" fill={blobbi.customization.color || "#a8a29e"} />
-      <path d="M 120 70 L 130 50 L 140 70 Z" fill={blobbi.customization.color || "#a8a29e"} />
+      {/* Round body with enhanced 3D gradient */}
+      <circle cx="100" cy="110" r="60" fill={`url(#${patternIdPrefix}owliBody3D)`} />
       
-      {/* Pattern overlay if customized */}
-      {blobbi.customization.pattern && (
-        <circle cx="100" cy="110" r="60" fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`} opacity="0.3" />
-      )}
+      {/* Triangle ears with depth */}
+      <path d="M 60 70 L 70 48 L 82 70 Z" fill={`url(#${patternIdPrefix}owliEar3D)`} />
+      <path d="M 118 70 L 130 48 L 140 70 Z" fill={`url(#${patternIdPrefix}owliEar3D)`} />
+      <path d="M 65 65 L 70 52 L 77 65 Z" fill={`url(#${patternIdPrefix}owliEarInner)`} />
+      <path d="M 123 65 L 130 52 L 135 65 Z" fill={`url(#${patternIdPrefix}owliEarInner)`} />
       
-      {/* Large circular eyes with mouse tracking */}
+      {/* Large expressive eyes with enhanced depth */}
       {blobbi.state === 'sleeping' ? (
         <>
-          <line x1="60" y1="100" x2="100" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
-          <line x1="100" y1="100" x2="140" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+          <path d="M 60 100 Q 70 103 80 100" stroke={`url(#${patternIdPrefix}owliMouth3D)`} strokeWidth="3" fill="none" strokeLinecap="round" />
+          <path d="M 120 100 Q 130 103 140 100" stroke={`url(#${patternIdPrefix}owliMouth3D)`} strokeWidth="3" fill="none" strokeLinecap="round" />
         </>
       ) : (
         <>
-          {/* Eye whites */}
-          <circle cx="80" cy="100" r="20" fill="#f5f5f4" />
-          <circle cx="120" cy="100" r="20" fill="#f5f5f4" />
-          {/* Pupils with tracking */}
+          <circle cx="80" cy="100" r="22" fill={`url(#${patternIdPrefix}owliEyeWhite3D)`} />
+          <circle cx="120" cy="100" r="22" fill={`url(#${patternIdPrefix}owliEyeWhite3D)`} />
           <g 
             style={{
               transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
               transition: 'transform 0.1s ease-out'
             }}
           >
-            <circle cx="80" cy="100" r="12" fill="#1e293b" />
-            <circle cx="83" cy="97" r="4" fill="white" />
+            <circle cx="80" cy="100" r="14" fill={`url(#${patternIdPrefix}owliPupil3D)`} />
+            <circle cx="84" cy="96" r="5" fill="white" opacity="0.9" />
+            <circle cx="86" cy="98" r="2" fill="white" />
           </g>
           <g 
             style={{
@@ -289,123 +392,248 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
               transition: 'transform 0.1s ease-out'
             }}
           >
-            <circle cx="120" cy="100" r="12" fill="#1e293b" />
-            <circle cx="123" cy="97" r="4" fill="white" />
+            <circle cx="120" cy="100" r="14" fill={`url(#${patternIdPrefix}owliPupil3D)`} />
+            <circle cx="124" cy="96" r="5" fill="white" opacity="0.9" />
+            <circle cx="126" cy="98" r="2" fill="white" />
           </g>
         </>
       )}
       
-      {/* Small beak */}
-      <path d="M 100 110 L 95 120 L 100 125 L 105 120 Z" fill="#f59e0b" />
+      {/* Enhanced beak with 3D shading */}
+      <path d="M 100 112 L 94 122 L 100 128 L 106 122 Z" fill={`url(#${patternIdPrefix}owliBeak3D)`} />
+      <path d="M 100 114 L 96 120 L 100 124 L 104 120 Z" fill={`url(#${patternIdPrefix}owliBeakHighlight)`} />
       
-      {/* Minimal wings */}
-      <ellipse cx="50" cy="110" rx="15" ry="30" fill={blobbi.customization.color || "#78716c"} transform="rotate(-20 50 110)" opacity="0.8" />
-      <ellipse cx="150" cy="110" rx="15" ry="30" fill={blobbi.customization.color || "#78716c"} transform="rotate(20 150 110)" opacity="0.8" />
+      {/* Subtle wing details with layered depth */}
+      <ellipse cx="48" cy="110" rx="16" ry="32" fill={`url(#${patternIdPrefix}owliWing3D)`} transform="rotate(-20 48 110)" />
+      <ellipse cx="152" cy="110" rx="16" ry="32" fill={`url(#${patternIdPrefix}owliWing3D)`} transform="rotate(20 152 110)" />
+      <ellipse cx="50" cy="108" rx="12" ry="25" fill={`url(#${patternIdPrefix}owliWingHighlight)`} transform="rotate(-20 50 108)" />
+      <ellipse cx="150" cy="108" rx="12" ry="25" fill={`url(#${patternIdPrefix}owliWingHighlight)`} transform="rotate(20 150 108)" />
       
-      {/* Accessories */}
+      {/* Soft feather texture details */}
+      <circle cx="70" cy="130" r="3" fill="rgba(255,255,255,0.2)" />
+      <circle cx="130" cy="125" r="2.5" fill="rgba(255,255,255,0.2)" />
+      <circle cx="85" cy="140" r="2" fill="rgba(255,255,255,0.15)" />
+      <circle cx="115" cy="135" r="2.5" fill="rgba(255,255,255,0.15)" />
+      
+      {/* Accessories with enhanced styling */}
       {blobbi.customization.accessories.includes('bow') && (
         <g>
-          <path d="M 85 140 L 100 135 L 115 140 L 115 150 L 100 145 L 85 150 Z" fill="#dc2626" />
-          <rect x="95" y="135" width="10" height="15" fill="#991b1b" />
+          <path d="M 83 142 L 100 136 L 117 142 L 117 154 L 100 148 L 83 154 Z" fill={`url(#${patternIdPrefix}owliBowTie3D)`} />
+          <rect x="94" y="136" width="12" height="18" fill={`url(#${patternIdPrefix}owliBowTieCenter3D)`} rx="2" />
+          <ellipse cx="100" cy="145" rx="4" ry="6" fill="rgba(255,255,255,0.3)" />
         </g>
       )}
       
       <defs>
-        <radialGradient id="owliGradient">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
-          <stop offset="100%" stopColor={blobbi.customization.color || "#78716c"} stopOpacity="0.4" />
+        <radialGradient id={`${patternIdPrefix}owliBody3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#d6d3d1" />
+          <stop offset="40%" stopColor={blobbi.customization.color || "#a8a29e"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#78716c"} />
         </radialGradient>
+        <radialGradient id={`${patternIdPrefix}owliEar3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor={blobbi.customization.color || "#a8a29e"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#57534e"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}owliEarInner`} cx="0.4" cy="0.3">
+          <stop offset="0%" stopColor="#fbbf24" />
+          <stop offset="100%" stopColor="#d97706" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}owliEyeWhite3D`} cx="0.3" cy="0.3">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="70%" stopColor="#f5f5f4" />
+          <stop offset="100%" stopColor="#e7e5e4" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}owliPupil3D`} cx="0.3" cy="0.3">
+          <stop offset="0%" stopColor="#374151" />
+          <stop offset="100%" stopColor="#1e293b" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}owliBeak3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#fbbf24" />
+          <stop offset="50%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#d97706" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}owliBeakHighlight`} cx="0.4" cy="0.3">
+          <stop offset="0%" stopColor="#fef3c7" />
+          <stop offset="100%" stopColor="#fbbf24" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}owliWing3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor={blobbi.customization.color || "#a8a29e"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#57534e"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}owliWingHighlight`} cx="0.4" cy="0.3">
+          <stop offset="0%" stopColor="#d6d3d1" />
+          <stop offset="100%" stopColor={blobbi.customization.color || "#a8a29e"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}owliBowTie3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#f87171" />
+          <stop offset="50%" stopColor="#dc2626" />
+          <stop offset="100%" stopColor="#991b1b" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}owliBowTieCenter3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#dc2626" />
+          <stop offset="100%" stopColor="#7f1d1d" />
+        </radialGradient>
+        <linearGradient id={`${patternIdPrefix}owliMouth3D`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#374151" />
+          <stop offset="50%" stopColor="#1e293b" />
+          <stop offset="100%" stopColor="#374151" />
+        </linearGradient>
       </defs>
     </svg>
   );
 
   const renderCatti = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Oval upright body */}
-      <ellipse cx="100" cy="120" rx="45" ry="60" fill={blobbi.customization.color || "#f97316"} />
-      <ellipse cx="100" cy="120" rx="45" ry="60" fill="url(#cattiGradient)" opacity="0.3" />
+      {/* Drop shadow for 3D effect */}
+      <ellipse cx="105" cy="185" rx="40" ry="8" fill="rgba(0,0,0,0.15)" />
       
-      {/* Triangle ears */}
-      <path d="M 70 70 L 60 50 L 80 60 Z" fill={blobbi.customization.color || "#f97316"} />
-      <path d="M 130 70 L 140 50 L 120 60 Z" fill={blobbi.customization.color || "#f97316"} />
-      <path d="M 70 60 L 65 52 L 75 57 Z" fill={blobbi.customization.color || "#fb923c"} opacity="0.8" />
-      <path d="M 130 60 L 135 52 L 125 57 Z" fill={blobbi.customization.color || "#fb923c"} opacity="0.8" />
+      {/* Oval upright body with enhanced 3D gradient */}
+      <ellipse cx="100" cy="120" rx="45" ry="60" fill={`url(#${patternIdPrefix}cattiBody3D)`} />
       
-      {/* Pattern overlay if customized */}
-      {blobbi.customization.pattern && (
-        <ellipse cx="100" cy="120" rx="45" ry="60" fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`} opacity="0.3" />
-      )}
+      {/* Triangle ears with depth and inner detail */}
+      <path d="M 68 72 L 58 48 L 82 62 Z" fill={`url(#${patternIdPrefix}cattiEar3D)`} />
+      <path d="M 132 72 L 142 48 L 118 62 Z" fill={`url(#${patternIdPrefix}cattiEar3D)`} />
+      <path d="M 70 62 L 64 52 L 76 58 Z" fill={`url(#${patternIdPrefix}cattiEarInner)`} />
+      <path d="M 130 62 L 136 52 L 124 58 Z" fill={`url(#${patternIdPrefix}cattiEarInner)`} />
       
-      {/* Eyes with mouse tracking - enhanced with bigger white area */}
+      {/* Enhanced expressive eyes with depth */}
       {blobbi.state === 'sleeping' ? (
         <>
-          <line x1="75" y1="100" x2="95" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
-          <line x1="105" y1="100" x2="125" y2="100" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+          <path d="M 75 100 Q 85 103 95 100" stroke={`url(#${patternIdPrefix}cattiMouth3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M 105 100 Q 115 103 125 100" stroke={`url(#${patternIdPrefix}cattiMouth3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
         </>
       ) : (
         <>
-          {/* Left eye */}
-          <ellipse cx="85" cy="100" rx="12" ry="16" fill="#f9fafb" />
+          <ellipse cx="85" cy="100" rx="12" ry="16" fill={`url(#${patternIdPrefix}cattiEyeWhite3D)`} />
+          <ellipse cx="115" cy="100" rx="12" ry="16" fill={`url(#${patternIdPrefix}cattiEyeWhite3D)`} />
           <g 
             style={{
               transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
               transition: 'transform 0.1s ease-out'
             }}
           >
-            <ellipse cx="85" cy="100" rx="8" ry="12" fill="#1e293b" />
-            <ellipse cx="87" cy="98" rx="3" ry="4" fill="white" />
+            <ellipse cx="85" cy="100" rx="8" ry="12" fill={`url(#${patternIdPrefix}cattiPupil3D)`} />
+            <ellipse cx="87" cy="97" rx="3" ry="4" fill="white" opacity="0.9" />
+            <ellipse cx="89" cy="99" rx="1.5" ry="2" fill="white" />
           </g>
-          {/* Right eye */}
-          <ellipse cx="115" cy="100" rx="12" ry="16" fill="#f9fafb" />
           <g 
             style={{
               transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
               transition: 'transform 0.1s ease-out'
             }}
           >
-            <ellipse cx="115" cy="100" rx="8" ry="12" fill="#1e293b" />
-            <ellipse cx="117" cy="98" rx="3" ry="4" fill="white" />
+            <ellipse cx="115" cy="100" rx="8" ry="12" fill={`url(#${patternIdPrefix}cattiPupil3D)`} />
+            <ellipse cx="117" cy="97" rx="3" ry="4" fill="white" opacity="0.9" />
+            <ellipse cx="119" cy="99" rx="1.5" ry="2" fill="white" />
           </g>
         </>
       )}
       
-      {/* Cat nose and mouth */}
-      <path d="M 95 115 L 100 120 L 105 115 Z" fill="#1e293b" />
+      {/* Enhanced cat nose with 3D effect */}
+      <path d="M 94 115 L 100 122 L 106 115 Z" fill={`url(#${patternIdPrefix}cattiNose3D)`} />
+      <path d="M 96 116 L 100 120 L 104 116 Z" fill={`url(#${patternIdPrefix}cattiNoseHighlight)`} />
+      
+      {/* Cat mouth with subtle curves */}
       {mood === 'happy' && (
         <>
-          <path d="M 100 120 Q 90 125 85 120" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />
-          <path d="M 100 120 Q 110 125 115 120" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M 100 122 Q 88 128 82 122" stroke={`url(#${patternIdPrefix}cattiMouth3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M 100 122 Q 112 128 118 122" stroke={`url(#${patternIdPrefix}cattiMouth3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
         </>
       )}
       {mood === 'sad' && (
         <>
-          <path d="M 100 120 Q 90 115 85 120" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />
-          <path d="M 100 120 Q 110 115 115 120" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M 100 122 Q 88 116 82 122" stroke={`url(#${patternIdPrefix}cattiMouth3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M 100 122 Q 112 116 118 122" stroke={`url(#${patternIdPrefix}cattiMouth3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        </>
+      )}
+      {(mood === 'neutral' || mood === 'sleepy') && (
+        <>
+          <path d="M 100 122 Q 92 125 88 122" stroke={`url(#${patternIdPrefix}cattiMouth3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M 100 122 Q 108 125 112 122" stroke={`url(#${patternIdPrefix}cattiMouth3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
         </>
       )}
       
-      {/* Curved tail */}
-      <path d="M 145 140 Q 160 120 155 100 Q 150 80 160 70" stroke={blobbi.customization.color || "#f97316"} strokeWidth="20" fill="none" strokeLinecap="round" />
+      {/* Enhanced curved tail with gradient */}
+      <path d="M 145 140 Q 165 115 158 95 Q 148 75 165 65" stroke={`url(#${patternIdPrefix}cattiTail3D)`} strokeWidth="22" fill="none" strokeLinecap="round" />
+      <path d="M 145 140 Q 163 117 156 97 Q 148 79 163 69" stroke={`url(#${patternIdPrefix}cattiTailHighlight)`} strokeWidth="16" fill="none" strokeLinecap="round" />
       
-      {/* Whiskers */}
-      <line x1="50" y1="110" x2="70" y2="108" stroke="#1e293b" strokeWidth="1.5" />
-      <line x1="50" y1="120" x2="70" y2="118" stroke="#1e293b" strokeWidth="1.5" />
-      <line x1="130" y1="108" x2="150" y2="110" stroke="#1e293b" strokeWidth="1.5" />
-      <line x1="130" y1="118" x2="150" y2="120" stroke="#1e293b" strokeWidth="1.5" />
+      {/* Enhanced whiskers with subtle curves */}
+      <path d="M 48 108 Q 58 110 72 108" stroke="#1e293b" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      <path d="M 48 118 Q 58 120 72 118" stroke="#1e293b" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      <path d="M 128 108 Q 138 110 152 108" stroke="#1e293b" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      <path d="M 128 118 Q 138 120 152 118" stroke="#1e293b" strokeWidth="1.8" fill="none" strokeLinecap="round" />
       
-      {/* Accessories */}
+      {/* Soft fur texture details */}
+      <ellipse cx="75" cy="135" rx="3" ry="2" fill="rgba(255,255,255,0.2)" />
+      <ellipse cx="125" cy="130" rx="2.5" ry="2" fill="rgba(255,255,255,0.2)" />
+      <ellipse cx="90" cy="150" rx="2" ry="1.5" fill="rgba(255,255,255,0.15)" />
+      
+      {/* Accessories with enhanced styling */}
       {blobbi.customization.accessories.includes('collar') && (
         <g>
-          <rect x="55" y="145" width="90" height="8" fill="#dc2626" rx="4" />
-          <circle cx="100" cy="155" r="6" fill="#fbbf24" />
-          <line x1="100" y1="155" x2="100" y2="159" stroke="#1e293b" strokeWidth="1" />
+          <rect x="53" y="145" width="94" height="10" fill={`url(#${patternIdPrefix}cattiCollar3D)`} rx="5" />
+          <circle cx="100" cy="157" r="8" fill={`url(#${patternIdPrefix}cattiBell3D)`} />
+          <circle cx="100" cy="155" r="6" fill={`url(#${patternIdPrefix}cattiBellHighlight)`} />
+          <line x1="100" y1="157" x2="100" y2="162" stroke="#1e293b" strokeWidth="1.5" strokeLinecap="round" />
         </g>
       )}
       
       <defs>
-        <radialGradient id="cattiGradient">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
-          <stop offset="100%" stopColor={blobbi.customization.color || "#ea580c"} stopOpacity="0.4" />
+        <radialGradient id={`${patternIdPrefix}cattiBody3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#fed7aa" />
+          <stop offset="40%" stopColor={blobbi.customization.color || "#f97316"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#c2410c"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}cattiEar3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor={blobbi.customization.color || "#f97316"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#c2410c"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}cattiEarInner`} cx="0.4" cy="0.3">
+          <stop offset="0%" stopColor="#fbbf24" />
+          <stop offset="100%" stopColor="#f59e0b" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}cattiEyeWhite3D`} cx="0.3" cy="0.3">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#f3f4f6" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}cattiPupil3D`} cx="0.3" cy="0.3">
+          <stop offset="0%" stopColor="#374151" />
+          <stop offset="100%" stopColor="#1f2937" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}cattiNose3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#f472b6" />
+          <stop offset="100%" stopColor="#be185d" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}cattiNoseHighlight`} cx="0.4" cy="0.3">
+          <stop offset="0%" stopColor="#fce7f3" />
+          <stop offset="100%" stopColor="#f472b6" />
+        </radialGradient>
+        <linearGradient id={`${patternIdPrefix}cattiMouth3D`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#374151" />
+          <stop offset="50%" stopColor="#1f2937" />
+          <stop offset="100%" stopColor="#374151" />
+        </linearGradient>
+        <radialGradient id={`${patternIdPrefix}cattiTail3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#fed7aa" />
+          <stop offset="50%" stopColor={blobbi.customization.color || "#f97316"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#c2410c"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}cattiTailHighlight`} cx="0.4" cy="0.3">
+          <stop offset="0%" stopColor="#fef3c7" />
+          <stop offset="100%" stopColor="#fed7aa" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}cattiCollar3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#f87171" />
+          <stop offset="100%" stopColor="#991b1b" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}cattiBell3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#fde047" />
+          <stop offset="50%" stopColor="#fbbf24" />
+          <stop offset="100%" stopColor="#d97706" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}cattiBellHighlight`} cx="0.4" cy="0.3">
+          <stop offset="0%" stopColor="#fefce8" />
+          <stop offset="100%" stopColor="#fde047" />
         </radialGradient>
       </defs>
     </svg>
@@ -413,38 +641,34 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderFroggi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Flattened oval body */}
-      <ellipse cx="100" cy="120" rx="70" ry="50" fill={blobbi.customization.color || "#22c55e"} />
-      <ellipse cx="100" cy="120" rx="70" ry="50" fill="url(#froggiGradient)" opacity="0.3" />
+      {/* Drop shadow for 3D effect */}
+      <ellipse cx="105" cy="185" rx="65" ry="8" fill="rgba(0,0,0,0.15)" />
       
-      {/* Big circular pop-out eyes */}
-      <circle cx="70" cy="80" r="25" fill={blobbi.customization.color || "#22c55e"} />
-      <circle cx="130" cy="80" r="25" fill={blobbi.customization.color || "#22c55e"} />
+      {/* Flattened oval body with enhanced 3D gradient */}
+      <ellipse cx="100" cy="120" rx="70" ry="50" fill={`url(#${patternIdPrefix}froggiBody3D)`} />
       
-      {/* Pattern overlay if customized */}
-      {blobbi.customization.pattern && (
-        <ellipse cx="100" cy="120" rx="70" ry="50" fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`} opacity="0.3" />
-      )}
+      {/* Big circular pop-out eyes with enhanced depth */}
+      <circle cx="70" cy="80" r="27" fill={`url(#${patternIdPrefix}froggiEyeBase3D)`} />
+      <circle cx="130" cy="80" r="27" fill={`url(#${patternIdPrefix}froggiEyeBase3D)`} />
       
       {blobbi.state === 'sleeping' ? (
         <>
-          <line x1="55" y1="80" x2="85" y2="80" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
-          <line x1="115" y1="80" x2="145" y2="80" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+          <path d="M 55 80 Q 65 83 75 80" stroke={`url(#${patternIdPrefix}froggiMouth3D)`} strokeWidth="3" fill="none" strokeLinecap="round" />
+          <path d="M 125 80 Q 135 83 145 80" stroke={`url(#${patternIdPrefix}froggiMouth3D)`} strokeWidth="3" fill="none" strokeLinecap="round" />
         </>
       ) : (
         <>
-          {/* Eye whites */}
-          <circle cx="70" cy="80" r="20" fill="#f5f5f4" />
-          <circle cx="130" cy="80" r="20" fill="#f5f5f4" />
-          {/* Pupils with tracking */}
+          <circle cx="70" cy="80" r="22" fill={`url(#${patternIdPrefix}froggiEyeWhite3D)`} />
+          <circle cx="130" cy="80" r="22" fill={`url(#${patternIdPrefix}froggiEyeWhite3D)`} />
           <g 
             style={{
               transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
               transition: 'transform 0.1s ease-out'
             }}
           >
-            <circle cx="70" cy="80" r="15" fill="#1e293b" />
-            <circle cx="73" cy="77" r="5" fill="white" />
+            <circle cx="70" cy="80" r="16" fill={`url(#${patternIdPrefix}froggiPupil3D)`} />
+            <circle cx="74" cy="76" r="6" fill="white" opacity="0.9" />
+            <circle cx="76" cy="78" r="2.5" fill="white" />
           </g>
           <g 
             style={{
@@ -452,39 +676,129 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
               transition: 'transform 0.1s ease-out'
             }}
           >
-            <circle cx="130" cy="80" r="15" fill="#1e293b" />
-            <circle cx="133" cy="77" r="5" fill="white" />
+            <circle cx="130" cy="80" r="16" fill={`url(#${patternIdPrefix}froggiPupil3D)`} />
+            <circle cx="134" cy="76" r="6" fill="white" opacity="0.9" />
+            <circle cx="136" cy="78" r="2.5" fill="white" />
           </g>
         </>
       )}
       
-      {/* Mouth based on mood */}
-      {mood === 'happy' && <path d="M 50 120 Q 100 140 150 120" stroke="#1e293b" strokeWidth="4" fill="none" strokeLinecap="round" />}
-      {mood === 'sad' && <path d="M 50 130 Q 100 110 150 130" stroke="#1e293b" strokeWidth="4" fill="none" strokeLinecap="round" />}
-      {(mood === 'neutral' || mood === 'sleepy') && <path d="M 60 120 Q 100 125 140 120" stroke="#1e293b" strokeWidth="4" fill="none" strokeLinecap="round" />}
+      {/* Enhanced wide smile with depth */}
+      {mood === 'happy' && (
+        <>
+          <path d="M 45 120 Q 100 145 155 120" stroke={`url(#${patternIdPrefix}froggiMouth3D)`} strokeWidth="5" fill="none" strokeLinecap="round" />
+          <path d="M 50 122 Q 100 142 150 122" stroke={`url(#${patternIdPrefix}froggiMouthHighlight)`} strokeWidth="3" fill="none" strokeLinecap="round" />
+        </>
+      )}
+      {mood === 'sad' && (
+        <path d="M 45 135 Q 100 115 155 135" stroke={`url(#${patternIdPrefix}froggiMouth3D)`} strokeWidth="5" fill="none" strokeLinecap="round" />
+      )}
+      {(mood === 'neutral' || mood === 'sleepy') && (
+        <path d="M 60 120 Q 100 125 140 120" stroke={`url(#${patternIdPrefix}froggiMouth3D)`} strokeWidth="4" fill="none" strokeLinecap="round" />
+      )}
       
-      {/* Nostrils */}
-      <ellipse cx="90" cy="110" rx="3" ry="5" fill={blobbi.customization.color || "#16a34a"} opacity="0.6" />
-      <ellipse cx="110" cy="110" rx="3" ry="5" fill={blobbi.customization.color || "#16a34a"} opacity="0.6" />
+      {/* Enhanced nostrils with 3D effect */}
+      <ellipse cx="90" cy="110" rx="4" ry="6" fill={`url(#${patternIdPrefix}froggiNostril3D)`} />
+      <ellipse cx="110" cy="110" rx="4" ry="6" fill={`url(#${patternIdPrefix}froggiNostril3D)`} />
+      <ellipse cx="90" cy="108" rx="2" ry="3" fill={`url(#${patternIdPrefix}froggiNostrilHighlight)`} />
+      <ellipse cx="110" cy="108" rx="2" ry="3" fill={`url(#${patternIdPrefix}froggiNostrilHighlight)`} />
       
-      {/* Little webbed feet */}
-      <ellipse cx="60" cy="160" rx="20" ry="10" fill={blobbi.customization.color || "#22c55e"} />
-      <ellipse cx="140" cy="160" rx="20" ry="10" fill={blobbi.customization.color || "#22c55e"} />
-      <path d="M 45 160 L 50 155 M 55 160 L 55 155 M 65 160 L 70 155" stroke={blobbi.customization.color || "#16a34a"} strokeWidth="2" opacity="0.6" />
-      <path d="M 125 160 L 130 155 M 135 160 L 135 155 M 145 160 L 150 155" stroke={blobbi.customization.color || "#16a34a"} strokeWidth="2" opacity="0.6" />
+      {/* Enhanced webbed feet with depth */}
+      <ellipse cx="60" cy="160" rx="22" ry="12" fill={`url(#${patternIdPrefix}froggiFeet3D)`} />
+      <ellipse cx="140" cy="160" rx="22" ry="12" fill={`url(#${patternIdPrefix}froggiFeet3D)`} />
+      <ellipse cx="60" cy="158" rx="18" ry="8" fill={`url(#${patternIdPrefix}froggiFeetHighlight)`} />
+      <ellipse cx="140" cy="158" rx="18" ry="8" fill={`url(#${patternIdPrefix}froggiFeetHighlight)`} />
       
-      {/* Accessories */}
+      {/* Enhanced webbed toes */}
+      <path d="M 43 160 Q 47 155 52 160" stroke={`url(#${patternIdPrefix}froggiToe3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M 53 160 Q 57 155 62 160" stroke={`url(#${patternIdPrefix}froggiToe3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M 63 160 Q 67 155 72 160" stroke={`url(#${patternIdPrefix}froggiToe3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M 123 160 Q 127 155 132 160" stroke={`url(#${patternIdPrefix}froggiToe3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M 133 160 Q 137 155 142 160" stroke={`url(#${patternIdPrefix}froggiToe3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M 143 160 Q 147 155 152 160" stroke={`url(#${patternIdPrefix}froggiToe3D)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      
+      {/* Soft skin texture details */}
+      <ellipse cx="75" cy="135" rx="4" ry="3" fill="rgba(255,255,255,0.2)" />
+      <ellipse cx="125" cy="130" rx="3.5" ry="2.5" fill="rgba(255,255,255,0.2)" />
+      <ellipse cx="85" cy="145" rx="3" ry="2" fill="rgba(255,255,255,0.15)" />
+      <ellipse cx="115" cy="140" rx="3.5" ry="2.5" fill="rgba(255,255,255,0.15)" />
+      
+      {/* Accessories with enhanced styling */}
       {blobbi.customization.accessories.includes('crown') && (
         <g>
-          <path d="M 80 50 L 85 40 L 90 50 L 100 40 L 110 50 L 115 40 L 120 50 L 120 60 L 80 60 Z" fill="#fbbf24" />
-          <circle cx="100" cy="45" r="3" fill="#dc2626" />
+          <path d="M 78 52 L 84 38 L 92 52 L 100 38 L 108 52 L 116 38 L 122 52 L 122 64 L 78 64 Z" fill={`url(#${patternIdPrefix}froggiCrown3D)`} />
+          <path d="M 80 54 L 85 42 L 90 54 L 100 42 L 110 54 L 115 42 L 120 54 L 120 62 L 80 62 Z" fill={`url(#${patternIdPrefix}froggiCrownHighlight)`} />
+          <circle cx="100" cy="46" r="4" fill={`url(#${patternIdPrefix}froggiGem3D)`} />
+          <circle cx="100" cy="44" r="2.5" fill={`url(#${patternIdPrefix}froggiGemHighlight)`} />
         </g>
       )}
       
       <defs>
-        <radialGradient id="froggiGradient">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
-          <stop offset="100%" stopColor={blobbi.customization.color || "#16a34a"} stopOpacity="0.4" />
+        <radialGradient id={`${patternIdPrefix}froggiBody3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#86efac" />
+          <stop offset="40%" stopColor={blobbi.customization.color || "#22c55e"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#15803d"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}froggiEyeBase3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#4ade80" />
+          <stop offset="100%" stopColor={blobbi.customization.color || "#16a34a"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}froggiEyeWhite3D`} cx="0.3" cy="0.3">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="70%" stopColor="#f5f5f4" />
+          <stop offset="100%" stopColor="#e7e5e4" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}froggiPupil3D`} cx="0.3" cy="0.3">
+          <stop offset="0%" stopColor="#374151" />
+          <stop offset="100%" stopColor="#1e293b" />
+        </radialGradient>
+        <linearGradient id={`${patternIdPrefix}froggiMouth3D`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#374151" />
+          <stop offset="50%" stopColor="#1e293b" />
+          <stop offset="100%" stopColor="#374151" />
+        </linearGradient>
+        <linearGradient id={`${patternIdPrefix}froggiMouthHighlight`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.3)" />
+          <stop offset="50%" stopColor="rgba(255,255,255,0.1)" />
+          <stop offset="100%" stopColor="rgba(255,255,255,0.3)" />
+        </linearGradient>
+        <radialGradient id={`${patternIdPrefix}froggiNostril3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor={blobbi.customization.color || "#16a34a"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#14532d"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}froggiNostrilHighlight`} cx="0.4" cy="0.3">
+          <stop offset="0%" stopColor="#4ade80" />
+          <stop offset="100%" stopColor={blobbi.customization.color || "#16a34a"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}froggiFeet3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#4ade80" />
+          <stop offset="100%" stopColor={blobbi.customization.color || "#16a34a"} />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}froggiFeetHighlight`} cx="0.4" cy="0.3">
+          <stop offset="0%" stopColor="#86efac" />
+          <stop offset="100%" stopColor="#4ade80" />
+        </radialGradient>
+        <linearGradient id={`${patternIdPrefix}froggiToe3D`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor={blobbi.customization.color || "#16a34a"} />
+          <stop offset="100%" stopColor={blobbi.secondaryColor || "#14532d"} />
+        </linearGradient>
+        <radialGradient id={`${patternIdPrefix}froggiCrown3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#fde047" />
+          <stop offset="50%" stopColor="#fbbf24" />
+          <stop offset="100%" stopColor="#d97706" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}froggiCrownHighlight`} cx="0.4" cy="0.3">
+          <stop offset="0%" stopColor="#fefce8" />
+          <stop offset="100%" stopColor="#fde047" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}froggiGem3D`} cx="0.3" cy="0.2">
+          <stop offset="0%" stopColor="#f87171" />
+          <stop offset="50%" stopColor="#dc2626" />
+          <stop offset="100%" stopColor="#991b1b" />
+        </radialGradient>
+        <radialGradient id={`${patternIdPrefix}froggiGemHighlight`} cx="0.4" cy="0.3">
+          <stop offset="0%" stopColor="#fecaca" />
+          <stop offset="100%" stopColor="#f87171" />
         </radialGradient>
       </defs>
     </svg>
@@ -492,7 +806,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderPet = () => {
     switch (blobbi.evolutionForm) {
-      case 'pengui': return renderPengui();
+      case 'pandi': return renderPandi();
       case 'owli': return renderOwli();
       case 'catti': return renderCatti();
       case 'froggi': return renderFroggi();

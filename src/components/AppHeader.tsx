@@ -42,6 +42,7 @@ export function AppHeader({
         )}
       </div>
       <div className="flex items-center gap-2">
+        <ThemeToggle />
         <LoginArea />
       </div>
     </div>

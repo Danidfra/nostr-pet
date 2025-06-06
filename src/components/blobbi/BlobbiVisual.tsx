@@ -3,6 +3,7 @@ import { Blobbi, BlobbiMood } from '@/types/blobbi';
 import { getBlobbiMood } from '@/lib/blobbi';
 import { useEffect, useState, useRef } from 'react';
 import { EggGraphic } from './EggGraphic';
+import { BlobbiVisualEffects, BlobbiVisualEffectGradients } from './BlobbiVisualEffects';
 
 interface BlobbiVisualProps {
   blobbi: Blobbi;
@@ -169,20 +170,20 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
         style={{ transform: `scale(${scale})` }}
       >
         
-        {/* Main body - cute water droplet shape */}
+        {/* Main body - cute water droplet shape with enhanced gradients */}
         <path
           d="M 50 15 Q 50 10 50 15 Q 72 25 75 55 Q 75 80 50 88 Q 25 80 25 55 Q 28 25 50 15"
-          fill={blobbi.customization.color}
+          fill={`url(#${patternIdPrefix}blobbiBodyGradient)`}
           className="transition-colors duration-300"
         />
-        {/* Subtle inner glow for softness */}
+        {/* Soft inner glow for gentle warmth */}
         <ellipse
           cx="50"
           cy="45"
           rx="15"
           ry="20"
           fill="white"
-          opacity="0.15"
+          opacity="0.2"
         />
         
         {/* Pattern overlay if customized */}
@@ -194,18 +195,17 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
           />
         )}
         
-        {/* Eyes - simple with mouse tracking */}
+        {/* Eyes with gentle depth and enhanced tracking */}
         {blobbi.state === 'sleeping' ? (
           <>
-            <path d="M 30 45 Q 40 48 45 45" stroke="#1e293b" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            <path d="M 55 45 Q 65 48 70 45" stroke="#1e293b" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+            <path d="M 30 45 Q 40 48 45 45" stroke={`url(#${patternIdPrefix}blobbiMouthGradient)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+            <path d="M 55 45 Q 65 48 70 45" stroke={`url(#${patternIdPrefix}blobbiMouthGradient)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
           </>
         ) : (
           <>
-            {/* Eye sockets (whites) */}
-            <g id="left-eye-socket">
-              <ellipse cx="38" cy="45" rx="8" ry="10" fill="white" />
-              {/* Pupil with tracking */}
+            {/* Left eye with enhanced depth */}
+            <g id="left-eye">
+              <ellipse cx="38" cy="45" rx="8" ry="10" fill={`url(#${patternIdPrefix}blobbiEyeGradient)`} />
               <g 
                 className="pupil-container"
                 style={{
@@ -213,14 +213,14 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
                   transition: 'transform 0.1s ease-out'
                 }}
               >
-                <circle cx="38" cy="46" r="6" fill="#1e293b" />
-                {/* Single eye shine */}
+                <circle cx="38" cy="46" r="6" fill={`url(#${patternIdPrefix}blobbiPupilGradient)`} />
                 <circle cx="40" cy="44" r="2" fill="white" />
+                <circle cx="41" cy="45" r="0.8" fill="white" opacity="0.8" />
               </g>
             </g>
-            <g id="right-eye-socket">
-              <ellipse cx="62" cy="45" rx="8" ry="10" fill="white" />
-              {/* Pupil with tracking */}
+            {/* Right eye with enhanced depth */}
+            <g id="right-eye">
+              <ellipse cx="62" cy="45" rx="8" ry="10" fill={`url(#${patternIdPrefix}blobbiEyeGradient)`} />
               <g 
                 className="pupil-container"
                 style={{
@@ -228,39 +228,39 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
                   transition: 'transform 0.1s ease-out'
                 }}
               >
-                <circle cx="62" cy="46" r="6" fill="#1e293b" />
-                {/* Single eye shine */}
+                <circle cx="62" cy="46" r="6" fill={`url(#${patternIdPrefix}blobbiPupilGradient)`} />
                 <circle cx="64" cy="44" r="2" fill="white" />
+                <circle cx="65" cy="45" r="0.8" fill="white" opacity="0.8" />
               </g>
             </g>
           </>
         )}
         
-        {/* Mouth - simple and cute */}
+        {/* Mouth with gentle shading and enhanced expressions */}
         {mood === 'happy' && (
-          <path d="M 42 62 Q 50 68 58 62" stroke="#1e293b" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M 42 62 Q 50 68 58 62" stroke={`url(#${patternIdPrefix}blobbiMouthGradient)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
         )}
         {mood === 'sad' && (
-          <path d="M 42 68 Q 50 62 58 68" stroke="#1e293b" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          <path d="M 42 68 Q 50 62 58 68" stroke={`url(#${patternIdPrefix}blobbiMouthGradient)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
         )}
         {(mood === 'neutral' || mood === 'sleepy') && (
-          <circle cx="50" cy="65" r="1.5" fill="#1e293b" />
+          <circle cx="50" cy="65" r="1.5" fill={`url(#${patternIdPrefix}blobbiPupilGradient)`} />
         )}
         {mood === 'hungry' && (
-          <ellipse cx="50" cy="65" rx="4" ry="6" fill="#1e293b" opacity="0.3" />
+          <ellipse cx="50" cy="65" rx="4" ry="6" fill={`url(#${patternIdPrefix}blobbiPupilGradient)`} opacity="0.3" />
         )}
         {mood === 'sick' && (
-          <path d="M 45 65 Q 50 62 55 65" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M 45 65 Q 50 62 55 65" stroke={`url(#${patternIdPrefix}blobbiMouthGradient)`} strokeWidth="2" fill="none" strokeLinecap="round" />
         )}
         {mood === 'dirty' && (
-          <path d="M 45 65 L 55 65" stroke="#1e293b" strokeWidth="2" strokeLinecap="round" />
+          <path d="M 45 65 L 55 65" stroke={`url(#${patternIdPrefix}blobbiMouthGradient)`} strokeWidth="2" strokeLinecap="round" />
         )}
         
-        {/* Blush for happy mood */}
+        {/* Soft blush for cuteness */}
         {mood === 'happy' && (
           <>
-            <ellipse cx="22" cy="55" rx="6" ry="4" fill="rgba(255,182,193,0.4)" />
-            <ellipse cx="78" cy="55" rx="6" ry="4" fill="rgba(255,182,193,0.4)" />
+            <ellipse cx="22" cy="55" rx="6" ry="4" fill="rgba(255,182,193,0.5)" />
+            <ellipse cx="78" cy="55" rx="6" ry="4" fill="rgba(255,182,193,0.5)" />
           </>
         )}
         
@@ -288,24 +288,61 @@ export function BlobbiVisual({ blobbi, size = 'medium', className, onClick }: Bl
           </text>
         )}
         
-        {/* Accessories */}
+        {/* Visual Effects Layer */}
+        <BlobbiVisualEffects blobbi={blobbi} patternIdPrefix={patternIdPrefix} />
+        
+        {/* Accessories with enhanced styling */}
         {blobbi.customization.accessories.includes('hat') && (
           <g>
-            <ellipse cx="50" cy="12" rx="20" ry="8" fill="#FF6B6B" />
-            <rect x="35" y="8" width="30" height="15" fill="#FF6B6B" rx="2" />
+            <ellipse cx="50" cy="12" rx="20" ry="8" fill={`url(#${patternIdPrefix}blobbiHatGradient)`} />
+            <rect x="35" y="8" width="30" height="15" fill={`url(#${patternIdPrefix}blobbiHatBandGradient)`} rx="2" />
+            <circle cx="50" cy="5" r="3" fill={`url(#${patternIdPrefix}blobbiHatPompomGradient)`} />
+            <circle cx="50.5" cy="4" r="1" fill="white" opacity="0.6" />
           </g>
         )}
         
         {blobbi.customization.accessories.includes('glasses') && (
           <g>
-            <circle cx="38" cy="45" r="10" fill="none" stroke="#1e293b" strokeWidth="2" />
-            <circle cx="62" cy="45" r="10" fill="none" stroke="#1e293b" strokeWidth="2" />
-            <line x1="48" y1="45" x2="52" y2="45" stroke="#1e293b" strokeWidth="2" />
+            <circle cx="38" cy="45" r="10" fill="none" stroke={`url(#${patternIdPrefix}blobbiPupilGradient)`} strokeWidth="2" />
+            <circle cx="62" cy="45" r="10" fill="none" stroke={`url(#${patternIdPrefix}blobbiPupilGradient)`} strokeWidth="2" />
+            <line x1="48" y1="45" x2="52" y2="45" stroke={`url(#${patternIdPrefix}blobbiPupilGradient)`} strokeWidth="2" />
           </g>
         )}
         
-        {/* Pattern definitions */}
+        {/* Enhanced gradient and pattern definitions */}
         <defs>
+          {/* Visual Effects Gradients */}
+          <BlobbiVisualEffectGradients patternIdPrefix={patternIdPrefix} />
+          <radialGradient id={`${patternIdPrefix}blobbiBodyGradient`} cx="0.3" cy="0.25">
+            <stop offset="0%" stopColor={blobbi.baseColor || blobbi.customization.color || "#8b5cf6"} />
+            <stop offset="60%" stopColor={blobbi.customization.color || "#7c3aed"} />
+            <stop offset="100%" stopColor={blobbi.secondaryColor || "#6d28d9"} />
+          </radialGradient>
+          <radialGradient id={`${patternIdPrefix}blobbiEyeGradient`} cx="0.3" cy="0.3">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#f1f5f9" />
+          </radialGradient>
+          <radialGradient id={`${patternIdPrefix}blobbiPupilGradient`} cx="0.3" cy="0.3">
+            <stop offset="0%" stopColor={blobbi.eyeColor || "#374151"} />
+            <stop offset="100%" stopColor={blobbi.eyeColor || "#1e293b"} />
+          </radialGradient>
+          <linearGradient id={`${patternIdPrefix}blobbiMouthGradient`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#374151" />
+            <stop offset="50%" stopColor="#1e293b" />
+            <stop offset="100%" stopColor="#374151" />
+          </linearGradient>
+          <radialGradient id={`${patternIdPrefix}blobbiHatGradient`} cx="0.3" cy="0.2">
+            <stop offset="0%" stopColor="#fbbf24" />
+            <stop offset="100%" stopColor="#f59e0b" />
+          </radialGradient>
+          <radialGradient id={`${patternIdPrefix}blobbiHatBandGradient`} cx="0.3" cy="0.2">
+            <stop offset="0%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#d97706" />
+          </radialGradient>
+          <radialGradient id={`${patternIdPrefix}blobbiHatPompomGradient`} cx="0.3" cy="0.3">
+            <stop offset="0%" stopColor="#fef3c7" />
+            <stop offset="100%" stopColor="#fbbf24" />
+          </radialGradient>
           <pattern id={`${patternIdPrefix}stripes`} patternUnits="userSpaceOnUse" width="8" height="8">
             <line x1="0" y1="0" x2="0" y2="8" stroke="#000" strokeWidth="1" opacity="0.2" />
           </pattern>
