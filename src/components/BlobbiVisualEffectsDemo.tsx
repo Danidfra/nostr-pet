@@ -51,7 +51,7 @@ export function BlobbiVisualEffectsDemo() {
   const manifestations = [
     'dot_center', 'oval_spots', 'side_bands', 'dot_speckle', 'light_dash',
     'freckle_patch', 'sparkle_trail', 'light_smoke', 'dusty_aura',
-    'ring_mark', 'blush_sides', 'tiger_stripe', 'glow_ring', 'wavy_spots', 'mist_drift',
+    'ring_mark', 'blush_sides', 'glow_ring', 'wavy_spots', 'mist_drift',
     'rune_top', 'shimmer_band', 'spirit_knot', 'crescent_moon', 'tiny_star',
     'wave_stroke', 'glow_blue', 'glimmer_gold', 'mist_wisp',
     'sigil_eye', 'glow_crack_pattern', 'ethereal_rune', 'leaf_stamp', 'divine_circle',

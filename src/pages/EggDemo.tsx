@@ -70,7 +70,7 @@ const TITLES = [...ALL_VALID_TITLES];
 const MANIFESTATIONS = [
   'dot_center', 'oval_spots', 'dot_speckle',
   'freckle_patch', 'sparkle_trail', 'light_smoke', 'dusty_aura',
-  'ring_mark', 'blush_sides', 'tiger_stripe', 'glow_ring', 'mist_drift',
+  'ring_mark', 'blush_sides', 'glow_ring', 'mist_drift',
   'rune_top', 'spirit_knot', 'crescent_moon', 'tiny_star',
   'glow_blue', 'sigil_eye', 'ethereal_rune', 'leaf_stamp', 'divine_circle',
   'angel_halo'

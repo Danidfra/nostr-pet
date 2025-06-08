@@ -216,20 +216,7 @@ function ManifestationEffect({ type, patternIdPrefix }: { type: string; patternI
       </svg>
       );
     
-    case 'tiger_stripe':
-      return (
-        <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <path d="M13 7 Q20 28 10 50 T17 93 Q13 113 27 120" stroke="#555555" stroke-width="1.7" fill="none" transform="rotate(40 33 50)" />
-  <path d="M23 4 Q30 25 21 46 T27 88 Q23 107 37 113" stroke="#666666" stroke-width="1.3" fill="none" transform="rotate(40 43 53)" />
-  <path d="M33 5 Q40 27 32 48 T38 87 Q33 107 47 120" stroke="#555555" stroke-width="1.5" fill="none" transform="rotate(40 53 57)" />
-  <path d="M43 4 Q50 22 42 42 T48 80 Q43 93 57 106" stroke="#666666" stroke-width="1.1" fill="none" transform="rotate(40 63 60)" />
-  <path d="M53 7 Q60 28 52 50 T58 90 Q53 113 67 120" stroke="#555555" stroke-width="1.5" fill="none" transform="rotate(40 73 63)" />
-  <path d="M63 4 Q70 27 62 48 T68 88 Q63 113 77 120" stroke="#666666" stroke-width="1.3" fill="none" transform="rotate(40 83 66)" />
-  <path d="M73 5 Q80 28 72 50 T78 90 Q73 113 87 122" stroke="#555555" stroke-width="1.7" fill="none" transform="rotate(40 93 69)" />
-  <path d="M83 4 Q90 25 82 46 T88 87 Q83 107 97 113" stroke="#666666" stroke-width="1.1" fill="none" transform="rotate(40 103 72)" />
-</svg>
-      );
-    
+
     case 'glow_ring':
       return (
         <svg width="600" height="600" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
