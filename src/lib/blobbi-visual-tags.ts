@@ -332,25 +332,25 @@ export function getVisualEffectRarity(effectType: string): 'common' | 'uncommon'
     
     // Rare
     'rune_top': 'rare',
-    'shimmer_band': 'rare',
+
     'spirit_knot': 'rare',
     'crescent_moon': 'rare',
     'tiny_star': 'rare',
-    'wave_stroke': 'rare',
+
     'glow_blue': 'rare',
-    'glimmer_gold': 'rare',
-    'mist_wisp': 'rare',
+
+
     
     // Legendary
     'sigil_eye': 'legendary',
-    'glow_crack_pattern': 'legendary',
+
     'ethereal_rune': 'legendary',
     'leaf_stamp': 'legendary',
     'divine_circle': 'legendary',
-    'ancestral_knot': 'legendary',
+
     'angel_halo': 'legendary',
-    'aurora_waves': 'legendary',
-    'radiant_line': 'legendary',
+
+
   };
   
   // Pattern rarities
@@ -411,11 +411,9 @@ export function generateRandomVisualEffects(): Partial<Blobbi> {
       // Uncommon (30%)
       'ring_mark', 'blush_sides', 'tiger_stripe', 'glow_ring', 'wavy_spots', 'mist_drift',
       // Rare (15%)
-      'rune_top', 'shimmer_band', 'spirit_knot', 'crescent_moon', 'tiny_star', 
-      'wave_stroke', 'glow_blue', 'glimmer_gold', 'mist_wisp',
+      'rune_top', 'spirit_knot', 'crescent_moon', 'tiny_star', 'glow_blue',
       // Legendary (5%)
-      'sigil_eye', 'glow_crack_pattern', 'ethereal_rune', 'leaf_stamp', 'divine_circle', 
-      'ancestral_knot', 'angel_halo', 'aurora_waves', 'radiant_line'
+      'sigil_eye', 'ethereal_rune', 'leaf_stamp', 'divine_circle', 'angel_halo'
     ];
     
     const rand = Math.random();
@@ -429,10 +427,10 @@ export function generateRandomVisualEffects(): Partial<Blobbi> {
       manifestation = manifestations.slice(9, 15)[Math.floor(Math.random() * 6)];
     } else if (rand < 0.95) {
       // Rare (15%)
-      manifestation = manifestations.slice(15, 24)[Math.floor(Math.random() * 9)];
+      manifestation = manifestations.slice(15, 20)[Math.floor(Math.random() * 5)];
     } else {
       // Legendary (5%)
-      manifestation = manifestations.slice(24)[Math.floor(Math.random() * 9)];
+      manifestation = manifestations.slice(20)[Math.floor(Math.random() * 5)];
     }
     
     effects.manifestation = manifestation;

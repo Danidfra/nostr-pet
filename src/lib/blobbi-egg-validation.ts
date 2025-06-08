@@ -44,8 +44,8 @@ export const VALID_EGG_STATUSES = ['cracking', 'warm', 'glowing', 'pulsing'] as 
 export const VALID_SPECIAL_MARKS = {
   common: ['dot_center', 'oval_spots'],
   uncommon: ['ring_mark', 'blush_sides'],
-  rare: ['rune_top', 'shimmer_band'],
-  legendary: ['sigil_eye', 'glow_crack_pattern']
+  rare: ['rune_top'],
+  legendary: ['sigil_eye']
 } as const;
 
 // Title options from the specification

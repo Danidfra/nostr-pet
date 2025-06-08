@@ -171,7 +171,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
         sizeClasses[displaySize as keyof typeof sizeClasses],
         paddingClasses[displaySize as keyof typeof paddingClasses],
         shadowClasses[displaySize as keyof typeof shadowClasses],
-        'rounded-full bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm',
+        // 'rounded-full bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm',
         className
       )}
       onClick={onClick}
@@ -227,7 +227,10 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
           />
         )}
         
-        {/* Eyes with gentle depth and enhanced tracking */}
+        {/* Visual Effects Layer - Render BEFORE eyes so they appear behind */}
+        <BlobbiVisualEffects blobbi={blobbi} patternIdPrefix={patternIdPrefix} />
+        
+        {/* Eyes with gentle depth and enhanced tracking - Render AFTER effects so they appear on top */}
         {blobbi.state === 'sleeping' ? (
           <>
             <path d="M 30 45 Q 40 48 45 45" stroke={`url(#${patternIdPrefix}blobbiMouthGradient)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
@@ -319,9 +322,6 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
             Z
           </text>
         )}
-        
-        {/* Visual Effects Layer */}
-        <BlobbiVisualEffects blobbi={blobbi} patternIdPrefix={patternIdPrefix} />
         
         {/* Accessories with enhanced styling */}
         {blobbi.customization.accessories.includes('hat') && (

@@ -326,11 +326,11 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
   let rarity = 'common';
   if (record.title && ['Defender of the Grove', 'The Primordial'].includes(record.title)) {
     rarity = 'legendary';
-  } else if (record.special_mark && ['sigil_eye', 'glow_crack_pattern'].includes(record.special_mark)) {
+  } else if (record.special_mark && ['sigil_eye'].includes(record.special_mark)) {
     rarity = 'legendary';
   } else if (record.title && ['Echo of Ancients', 'Shellbound Hero'].includes(record.title)) {
     rarity = 'rare';
-  } else if (record.special_mark && ['rune_top', 'shimmer_band'].includes(record.special_mark)) {
+  } else if (record.special_mark && ['rune_top'].includes(record.special_mark)) {
     rarity = 'rare';
   } else if (record.secondary_color || record.special_mark || record.title) {
     rarity = 'uncommon';

@@ -68,13 +68,12 @@ const TITLES = [...ALL_VALID_TITLES];
 
 // Baby Blobbi visual effects options
 const MANIFESTATIONS = [
-  'dot_center', 'oval_spots', 'side_bands', 'dot_speckle', 'light_dash',
+  'dot_center', 'oval_spots', 'dot_speckle',
   'freckle_patch', 'sparkle_trail', 'light_smoke', 'dusty_aura',
-  'ring_mark', 'blush_sides', 'tiger_stripe', 'glow_ring', 'wavy_spots', 'mist_drift',
-  'rune_top', 'shimmer_band', 'spirit_knot', 'crescent_moon', 'tiny_star',
-  'wave_stroke', 'glow_blue', 'glimmer_gold', 'mist_wisp',
-  'sigil_eye', 'glow_crack_pattern', 'ethereal_rune', 'leaf_stamp', 'divine_circle',
-  'ancestral_knot', 'angel_halo', 'aurora_waves', 'radiant_line'
+  'ring_mark', 'blush_sides', 'tiger_stripe', 'glow_ring', 'mist_drift',
+  'rune_top', 'spirit_knot', 'crescent_moon', 'tiny_star',
+  'glow_blue', 'sigil_eye', 'ethereal_rune', 'leaf_stamp', 'divine_circle',
+  'angel_halo'
 ];
 
 const BABY_PATTERNS = [
@@ -255,6 +254,351 @@ export default function EggDemo() {
     };
   };
 
+  // Custom BlobbiVisual component for EggDemo that positions background effects behind the Blobbi
+  const EggDemoBlobbiVisual = ({ blobbi }: { blobbi: Blobbi }) => {
+    const backgroundEffects = ['divine_circle', 'light_smoke', 'dusty_aura', 'ring_mark', 'glow_ring', 'mist_drift', 'spirit_knot', 'tiny_star', 'glow_blue', 'ethereal_rune'];
+    const hasBackgroundEffect = backgroundEffects.includes(blobbi.manifestation || '');
+    
+    if (!hasBackgroundEffect) {
+      // If no background effect, use standard BlobbiVisual
+      return <BlobbiVisual blobbi={blobbi} />;
+    }
+
+    // If has background effect, render it behind the Blobbi and remove it from the Blobbi's manifestation
+    const blobbiWithoutBackgroundEffect = {
+      ...blobbi,
+      manifestation: undefined // Remove background effect so it doesn't render in the normal position
+    };
+
+    const renderBackgroundEffect = (effectType: string) => {
+      switch (effectType) {
+        case 'divine_circle':
+          return (
+            <svg width="420" height="420" viewBox="0 0 420 420" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="divineGlowYellow" cx="50%" cy="50%" r="50%">
+      <stop offset="40%" stop-color="rgba(255,215,0,0.8)" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="rgba(255,215,0,0)" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="circleLightYellow" cx="50%" cy="50%" r="50%">
+      <stop offset="30%" stop-color="#fff8dc" stop-opacity="1"/>
+      <stop offset="100%" stop-color="rgba(255,215,0,0)" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="softGlowYellow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="9" flood-color="rgba(255,215,0,0.7)" flood-opacity="0.7" />
+      <feDropShadow dx="0" dy="0" stdDeviation="18" flood-color="rgba(255,215,0,0.5)" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <circle cx="210" cy="210" r="168" fill="url(#divineGlowYellow)" filter="url(#softGlowYellow)">
+    <animate attributeName="opacity" values="0.6;1;0.6" dur="4s" repeatCount="indefinite" />
+  </circle>
+
+  <circle cx="210" cy="210" r="150" fill="none" stroke="url(#circleLightYellow)" stroke-width="12" filter="url(#softGlowYellow)">
+    <animate attributeName="stroke-opacity" values="0.3;1;0.3" dur="4s" repeatCount="indefinite" />
+  </circle>
+
+  <circle cx="210" cy="210" r="120" fill="none" stroke="rgba(255,215,0,0.9)" stroke-width="4.5" stroke-dasharray="15 24" />
+  <circle cx="210" cy="210" r="90" fill="none" stroke="rgba(255,215,0,0.7)" stroke-width="3.6" stroke-dasharray="6 12" />
+
+  <g>
+    <circle cx="210" cy="210" r="48" fill="none" stroke="rgba(255,215,0,0.8)" stroke-width="6">
+      <animate attributeName="r" values="45;51;45" dur="2.5s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="210" cy="210" r="33" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="3">
+      <animate attributeName="opacity" values="0.3;1;0.3" dur="3s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="210" cy="210" r="21" fill="none" stroke="rgba(255,215,0,0.4)" stroke-width="4.5">
+      <animate attributeName="r" values="18;24;18" dur="2s" repeatCount="indefinite" />
+    </circle>
+  </g>
+
+  <g stroke="rgba(255,215,0,0.8)" stroke-width="3" fill="rgba(255,215,0,0.7)">
+    <circle cx="210" cy="36" r="6">
+      <animate attributeName="opacity" values="0;1;0" dur="3s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="336" cy="90" r="4.5">
+      <animate attributeName="opacity" values="0;1;0" dur="3.5s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="378" cy="210" r="6">
+      <animate attributeName="opacity" values="0;1;0" dur="4s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="312" cy="336" r="4.5">
+      <animate attributeName="opacity" values="0;1;0" dur="3.3s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="195" cy="381" r="6">
+      <animate attributeName="opacity" values="0;1;0" dur="3.8s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="84" cy="336" r="4.5">
+      <animate attributeName="opacity" values="0;1;0" dur="3.1s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="36" cy="210" r="6">
+      <animate attributeName="opacity" values="0;1;0" dur="3.6s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="84" cy="84" r="4.5">
+      <animate attributeName="opacity" values="0;1;0" dur="3.2s" repeatCount="indefinite" />
+    </circle>
+  </g>
+</svg>
+          );
+
+        case 'light_smoke':
+          return (
+            <svg width="100%" height="100%" viewBox="-50 0 300 300" className="absolute">
+              <defs>
+                <radialGradient id={`${blobbi.id}-smokeGradient`} cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#aaa" stopOpacity="0.85" />
+                  <stop offset="70%" stopColor="#666" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="#333" stopOpacity="0.25" />
+                </radialGradient>
+                <filter id={`${blobbi.id}-blurSmoke`} x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="8" />
+                </filter>
+              </defs>
+              <g transform="translate(100, 100)">
+                <ellipse cx="-20" cy="-40" rx="45" ry="27" fill={`url(#${blobbi.id}-smokeGradient)`} filter={`url(#${blobbi.id}-blurSmoke)`}>
+                  <animateTransform attributeName="transform" attributeType="XML" type="scale" values="1;1.1;1" dur="3s" repeatCount="indefinite" additive="sum" />
+                </ellipse>
+                <ellipse cx="20" cy="-20" rx="42" ry="24" fill={`url(#${blobbi.id}-smokeGradient)`} filter={`url(#${blobbi.id}-blurSmoke)`}>
+                  <animateTransform attributeName="transform" attributeType="XML" type="scale" values="1;1.1;1" dur="3s" repeatCount="indefinite" additive="sum" />
+                </ellipse>
+                <ellipse cx="0" cy="10" rx="37.5" ry="22.5" fill={`url(#${blobbi.id}-smokeGradient)`} filter={`url(#${blobbi.id}-blurSmoke)`}>
+                  <animateTransform attributeName="transform" attributeType="XML" type="scale" values="1;1.1;1" dur="3s" repeatCount="indefinite" additive="sum" />
+                </ellipse>
+                <ellipse cx="-30" cy="-20" rx="30" ry="18" fill={`url(#${blobbi.id}-smokeGradient)`} filter={`url(#${blobbi.id}-blurSmoke)`}>
+                  <animateTransform attributeName="transform" attributeType="XML" type="scale" values="1;1.1;1" dur="3s" repeatCount="indefinite" additive="sum" />
+                </ellipse>
+                <ellipse cx="-6" cy="-16" rx="39" ry="24" fill={`url(#${blobbi.id}-smokeGradient)`} filter={`url(#${blobbi.id}-blurSmoke)`}>
+                  <animateTransform attributeName="transform" attributeType="XML" type="scale" values="1;1.1;1" dur="3s" repeatCount="indefinite" additive="sum" />
+                </ellipse>
+              </g>
+            </svg>
+          );
+
+        case 'dusty_aura':
+          return (
+            <svg width="100%" height="100%" viewBox="-100 -100 300 300" className="absolute">
+              <defs>
+                <radialGradient id={`${blobbi.id}-auraGradient`} cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#d2b48c" stopOpacity="0.8" />
+                  <stop offset="70%" stopColor="#a0522d" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#5c3317" stopOpacity="0" />
+                </radialGradient>
+                <filter id={`${blobbi.id}-blurAura`} x="-50%" y="-50%" width="200%" height="200%" colorInterpolationFilters="sRGB">
+                  <feGaussianBlur stdDeviation="7" />
+                </filter>
+              </defs>
+              <g transform="translate(50, 50)">
+                <circle cx="0" cy="0" r="60" fill={`url(#${blobbi.id}-auraGradient)`} filter={`url(#${blobbi.id}-blurAura)`}>
+                  <animate attributeName="r" values="55;65;55" dur="3s" repeatCount="indefinite" />
+                  <animate attributeName="fillOpacity" values="0.6;0.85;0.6" dur="3s" repeatCount="indefinite" />
+                </circle>
+              </g>
+            </svg>
+          );
+
+        case 'ring_mark':
+          return (
+            <svg width="100%" height="100%" viewBox="-10 -10 120 120" className="absolute">
+              <g transform="translate(50, 50)">
+                <circle cx="0" cy="0" r="67.5" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="3" />
+              </g>
+            </svg>
+          );
+
+        case 'glow_ring':
+          return (
+            <svg width="100%" height="100%" viewBox="-200 -200 1000 1000" className="absolute">
+              <defs>
+                <filter id={`${blobbi.id}-auraGlow`} x="-100%" y="-100%" width="300%" height="300%">
+                  <feDropShadow dx="0" dy="0" stdDeviation="30" floodColor="#6A5ACD" floodOpacity="1">
+                    <animate attributeName="floodOpacity" values="0.3;1;0.3" dur="3s" repeatCount="indefinite" />
+                  </feDropShadow>
+                  <feDropShadow dx="0" dy="0" stdDeviation="52.5" floodColor="#6A5ACD" floodOpacity="0.8">
+                    <animate attributeName="floodOpacity" values="0.1;0.8;0.1" dur="3s" repeatCount="indefinite" />
+                  </feDropShadow>
+                  <feDropShadow dx="0" dy="0" stdDeviation="75" floodColor="#6A5ACD" floodOpacity="0.6">
+                    <animate attributeName="floodOpacity" values="0.05;0.6;0.05" dur="3s" repeatCount="indefinite" />
+                  </feDropShadow>
+                </filter>
+              </defs>
+              <g transform="translate(300, 300)">
+                <circle cx="0" cy="0" r="120" stroke="#6A5ACD" strokeWidth="15" fill="none" filter={`url(#${blobbi.id}-auraGlow)`} />
+              </g>
+            </svg>
+          );
+
+        case 'mist_drift':
+          return (
+            <svg width="100%" height="100%" viewBox="-70 -40 420 240" className="absolute">
+              <defs>
+                <filter id={`${blobbi.id}-glow`} x="-50%" y="-50%" width="200%" height="200%" colorInterpolationFilters="sRGB">
+                  <feDropShadow dx="0" dy="0" stdDeviation="9" floodColor="#bbb" floodOpacity="0.7"/>
+                  <feDropShadow dx="0" dy="0" stdDeviation="18" floodColor="#bbb" floodOpacity="0.4"/>
+                </filter>
+                <radialGradient id={`${blobbi.id}-foggyFill`} cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#ccc" stopOpacity="0.8"/>
+                  <stop offset="70%" stopColor="#999" stopOpacity="0.3"/>
+                  <stop offset="100%" stopColor="#666" stopOpacity="0"/>
+                </radialGradient>
+              </defs>
+              <g fill={`url(#${blobbi.id}-foggyFill)`} filter={`url(#${blobbi.id}-glow)`} transformOrigin="140 90" id={`${blobbi.id}-cloudFog`}>
+                <circle cx="80" cy="90" r="60" />
+                <circle cx="130" cy="70" r="67.5" />
+                <circle cx="180" cy="90" r="60" />
+                <circle cx="155" cy="105" r="75" />
+                <circle cx="120" cy="105" r="57" />
+                <circle cx="170" cy="85" r="52.5" />
+                <circle cx="100" cy="80" r="45" />
+              </g>
+              <animateTransform href={`#${blobbi.id}-cloudFog`} attributeName="transform" attributeType="XML" type="scale" values="1;1.08;1" dur="7s" repeatCount="indefinite" />
+            </svg>
+          );
+
+        case 'spirit_knot':
+          return (
+            <svg width="100%" height="100%" viewBox="-38 -38 140 140" className="absolute">
+              <defs>
+                <radialGradient id={`${blobbi.id}-gradPulse`} cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#7B3FD6" />
+                  <stop offset="100%" stopColor="#C6A9F7" />
+                </radialGradient>
+                <filter id={`${blobbi.id}-glowPulse`} x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
+                  <feDropShadow dx="0" dy="0" stdDeviation="2.1" floodColor="#B69CFF" floodOpacity="0.8" />
+                  <feDropShadow dx="0" dy="0" stdDeviation="4.2" floodColor="#7B3FD6" floodOpacity="0.6" />
+                </filter>
+              </defs>
+              <g transform="translate(32, 32)" filter={`url(#${blobbi.id}-glowPulse)`} fill="none" stroke={`url(#${blobbi.id}-gradPulse)`}>
+                <path d="M32 8 L24 20 C22 22 22 26 24 28 L32 36 L40 28 C42 26 42 22 40 20 L32 8 Z M32 56 L40 44 C42 42 42 38 40 36 L32 28 L24 36 C22 38 22 42 24 44 L32 56 Z" strokeWidth="3.3" strokeLinejoin="round" strokeLinecap="round"/>
+                <path transform="rotate(90 32 32)" d="M32 8 L24 20 C22 22 22 26 24 28 L32 36 L40 28 C42 26 42 22 40 20 L32 8 Z M32 56 L40 44 C42 42 42 38 40 36 L32 28 L24 36 C22 38 22 42 24 44 L32 56 Z" strokeWidth="3.3" strokeLinejoin="round" strokeLinecap="round"/>
+              </g>
+            </svg>
+          );
+
+        case 'tiny_star':
+          return (
+            <svg width="450" height="450" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="aura" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#FFD700" flood-opacity="0.8"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="20" flood-color="#FFD700" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#aura)">
+    <path
+      d="M100,20 
+         L117.6,69.1 
+         L170,75.1 
+         L130,112.5 
+         L141.6,165 
+         L100,137 
+         L58.4,165 
+         L70,112.5 
+         L30,75.1 
+         L82.4,69.1 
+         Z"
+      fill="#FFD700"
+      stroke="#FFA500"
+      stroke-width="3"
+    >
+      <animate attributeName="fill-opacity" values="1;0.6;1" dur="2s" repeatCount="indefinite" />
+    </path>
+
+    <animateTransform
+      attributeName="transform"
+      attributeType="XML"
+      type="rotate"
+      from="0 100 100"
+      to="360 100 100"
+      dur="6s"
+      repeatCount="indefinite"
+    />
+  </g>
+</svg>
+          );
+
+        case 'glow_blue':
+          return (
+            <svg width="600" height="600" viewBox="-40 -20 600 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="blueHalo" cx="50%" cy="50%" r="60%">
+      <stop offset="40%" stop-color="#4a90e2" stop-opacity="0.7" />
+      <stop offset="100%" stop-color="#4a90e2" stop-opacity="0" />
+    </radialGradient>
+
+    <mask id="waveMask">
+      <rect width="400" height="400" fill="white" />
+      <circle cx="200" cy="200" r="100" fill="black" />
+      <circle cx="200" cy="200" r="130" fill="url(#blueHalo)">
+        <animate attributeName="r" values="120;136;120" dur="5s" repeatCount="indefinite" />
+        <animate attributeName="cx" values="200;220;200" dur="5s" repeatCount="indefinite" />
+      </circle>
+    </mask>
+
+    <filter id="softBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="16" />
+    </filter>
+
+    <circle id="sparkle" r="6" fill="#aaddff" opacity="0">
+      <animate attributeName="opacity" values="0;1;0" dur="1.8s" repeatCount="indefinite" />
+      <animate attributeName="r" values="4;8;4" dur="1.8s" repeatCount="indefinite" />
+    </circle>
+  </defs>
+
+  <g transform="translate(-60, -40) scale(1.6)">
+    <circle cx="200" cy="200" r="140" fill="url(#blueHalo)" mask="url(#waveMask)" filter="url(#softBlur)">
+      <animate attributeName="opacity" values="0.6;0.9;0.6" dur="6s" repeatCount="indefinite" />
+    </circle>
+
+    <use href="#sparkle" x="120" y="140" />
+    <use href="#sparkle" x="280" y="180" />
+    <use href="#sparkle" x="220" y="280" />
+    <use href="#sparkle" x="160" y="240" />
+  </g>
+</svg>
+          );
+
+        case 'ethereal_rune':
+          return (
+            <svg width="400" height="400" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <g id="rune">
+      <circle cx="48" cy="48" r="40" fill="none" stroke="rgba(0,180,255,0.9)" stroke-width="8" />
+      <path d="M24 48 L48 24 L72 48 L48 72 Z" fill="none" stroke="rgba(0,180,255,1)" stroke-width="8" />
+      <path d="M48 24 L48 72" stroke="rgba(0,180,255,1)" stroke-width="8" />
+      <path d="M24 48 L72 48" stroke="rgba(0,180,255,1)" stroke-width="8" />
+    </g>
+  </defs>
+
+  <use href="#rune" x="0" y="0">
+    <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite" />
+  </use>
+</svg>
+          );
+
+        default:
+          return null;
+      }
+    };
+
+    return (
+      <div className="relative w-full h-full flex items-center justify-center">
+        {/* Background Effect positioned behind the Blobbi */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          {renderBackgroundEffect(blobbi.manifestation!)}
+        </div>
+
+        {/* Blobbi on top */}
+        <div className="relative z-10">
+          <BlobbiVisual blobbi={blobbiWithoutBackgroundEffect} />
+        </div>
+      </div>
+    );
+  };
+
   const toggleOptionalProperty = (property: 'secondary_color' | 'special_mark' | 'title', show: boolean) => {
     if (!eggData) return;
 
@@ -363,14 +707,7 @@ export default function EggDemo() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Visual Display */}
-          <Card className={cn(
-            "lg:sticky lg:top-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 transition-all duration-500",
-            // Size-based card scaling
-            eggData?.size === 'tiny' ? 'max-w-md' :
-            eggData?.size === 'small' ? 'max-w-lg' :
-            eggData?.size === 'large' ? 'max-w-4xl' :
-            'max-w-2xl' // medium (default)
-          )}>
+          <Card className="lg:sticky lg:top-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 transition-all duration-500 max-w-4xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                 <Sparkles className="h-5 w-5" />
@@ -394,14 +731,7 @@ export default function EggDemo() {
                 <TabsContent value="egg" className="space-y-4">
                   {eggData ? (
                     <>
-                      <div className={cn(
-                        "flex items-center justify-center transition-all duration-500",
-                        // Size-based container scaling for eggs
-                        eggData.size === 'tiny' ? 'min-h-[180px] p-4 bg-gradient-to-br from-amber-50/30 to-orange-50/30 rounded-lg' :
-                        eggData.size === 'small' ? 'min-h-[220px] p-6 bg-gradient-to-br from-amber-50/40 to-orange-50/40 rounded-xl' :
-                        eggData.size === 'large' ? 'min-h-[380px] p-12 bg-gradient-to-br from-amber-50/60 to-orange-50/60 rounded-3xl border-2 border-amber-100/50' :
-                        'min-h-[300px] p-8 bg-gradient-to-br from-amber-50/50 to-orange-50/50 rounded-2xl' // medium (default)
-                      )}>
+                      <div className="flex items-center justify-center transition-all duration-500 min-h-[380px] p-12 bg-gradient-to-br from-amber-50/60 to-orange-50/60 rounded-3xl border-2 border-amber-100/50">
                         <BlobbiEggVisual
                           baseColor={eggData.base_color}
                           secondaryColor={eggData.secondary_color}
@@ -416,35 +746,14 @@ export default function EggDemo() {
                       </div>
                       
                       {/* Egg Stats Display */}
-                      <div className={cn(
-                        "w-full",
-                        // Size-based spacing
-                        eggData.size === 'tiny' ? 'space-y-2' :
-                        eggData.size === 'small' ? 'space-y-2' :
-                        eggData.size === 'large' ? 'space-y-4' :
-                        'space-y-3' // medium (default)
-                      )}>
-                        <h4 className={cn(
-                          "text-gray-900 dark:text-gray-100",
-                          // Size-based text scaling
-                          eggData.size === 'tiny' ? 'text-xs font-medium' :
-                          eggData.size === 'small' ? 'text-sm font-semibold' :
-                          eggData.size === 'large' ? 'text-lg font-bold' :
-                          'text-sm font-semibold' // medium (default)
-                        )}>Egg Stats</h4>
-                        <div className={cn(
-                          "grid grid-cols-2",
-                          // Size-based grid spacing and text
-                          eggData.size === 'tiny' ? 'gap-2 text-xs' :
-                          eggData.size === 'small' ? 'gap-2 text-xs' :
-                          eggData.size === 'large' ? 'gap-4 text-base' :
-                          'gap-3 text-sm' // medium (default)
-                        )}>
+                      <div className="w-full space-y-4">
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100">Egg Stats</h4>
+                        <div className="grid grid-cols-2 gap-4 text-base">
                           <div className="flex justify-between">
                             <span>Happiness:</span>
                             <Badge 
                               variant="outline" 
-                              className={eggData.size === 'large' ? 'text-sm px-3 py-1' : eggData.size === 'tiny' ? 'text-xs px-1.5 py-0.5' : ''}
+                              className="text-sm px-3 py-1"
                             >
                               {eggData.happiness}/100
                             </Badge>
@@ -453,7 +762,7 @@ export default function EggDemo() {
                             <span>Hygiene:</span>
                             <Badge 
                               variant="outline"
-                              className={eggData.size === 'large' ? 'text-sm px-3 py-1' : eggData.size === 'tiny' ? 'text-xs px-1.5 py-0.5' : ''}
+                              className="text-sm px-3 py-1"
                             >
                               {eggData.hygiene}/100
                             </Badge>
@@ -462,7 +771,7 @@ export default function EggDemo() {
                             <span>Temperature:</span>
                             <Badge 
                               variant="outline"
-                              className={eggData.size === 'large' ? 'text-sm px-3 py-1' : eggData.size === 'tiny' ? 'text-xs px-1.5 py-0.5' : ''}
+                              className="text-sm px-3 py-1"
                             >
                               {eggData.egg_temperature}/100
                             </Badge>
@@ -471,7 +780,7 @@ export default function EggDemo() {
                             <span>Shell Integrity:</span>
                             <Badge 
                               variant="outline"
-                              className={eggData.size === 'large' ? 'text-sm px-3 py-1' : eggData.size === 'tiny' ? 'text-xs px-1.5 py-0.5' : ''}
+                              className="text-sm px-3 py-1"
                             >
                               {eggData.shell_integrity}/100
                             </Badge>
@@ -480,22 +789,13 @@ export default function EggDemo() {
                         
                         {/* Incubation Progress */}
                         <div className="space-y-1">
-                          <div className={cn(
-                            "flex justify-between",
-                            eggData.size === 'large' ? 'text-sm' : eggData.size === 'tiny' ? 'text-xs' : 'text-xs'
-                          )}>
+                          <div className="flex justify-between text-sm">
                             <span>Incubation Progress:</span>
                             <span>{eggData.incubation_progress}%</span>
                           </div>
-                          <div className={cn(
-                            "w-full bg-gray-200 rounded-full transition-all duration-300",
-                            eggData.size === 'large' ? 'h-3' : eggData.size === 'tiny' ? 'h-1.5' : 'h-2'
-                          )}>
+                          <div className="w-full bg-gray-200 rounded-full transition-all duration-300 h-3">
                             <div 
-                              className={cn(
-                                "bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full transition-all duration-300",
-                                eggData.size === 'large' ? 'h-3' : eggData.size === 'tiny' ? 'h-1.5' : 'h-2'
-                              )}
+                              className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full transition-all duration-300 h-3"
                               style={{ width: `${eggData.incubation_progress}%` }}
                             />
                           </div>
@@ -513,43 +813,16 @@ export default function EggDemo() {
                 <TabsContent value="baby" className="space-y-4">
                   {eggData && babyData ? (
                     <>
-                      <div className={cn(
-                        "flex items-center justify-center transition-all duration-500",
-                        // Size-based container scaling
-                        eggData.size === 'tiny' ? 'min-h-[200px] p-4 bg-gradient-to-br from-purple-50/30 to-pink-50/30 rounded-lg' :
-                        eggData.size === 'small' ? 'min-h-[250px] p-6 bg-gradient-to-br from-purple-50/40 to-pink-50/40 rounded-xl' :
-                        eggData.size === 'large' ? 'min-h-[400px] p-12 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50' :
-                        'min-h-[300px] p-8 bg-gradient-to-br from-purple-50/50 to-pink-50/50 rounded-2xl' // medium (default)
-                      )}>
-                        <BlobbiVisual
+                      <div className="flex items-center justify-center transition-all duration-500 min-h-[400px] p-12 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
+                        <EggDemoBlobbiVisual
                           blobbi={createBabyBlobbi()!}
                         />
                       </div>
                       
                       {/* Baby Traits Display */}
-                      <div className={cn(
-                        "w-full",
-                        // Size-based spacing
-                        eggData.size === 'tiny' ? 'space-y-2' :
-                        eggData.size === 'small' ? 'space-y-2' :
-                        eggData.size === 'large' ? 'space-y-4' :
-                        'space-y-3' // medium (default)
-                      )}>
-                        <h4 className={cn(
-                          "text-gray-900 dark:text-gray-100",
-                          // Size-based text scaling
-                          eggData.size === 'tiny' ? 'text-xs font-medium' :
-                          eggData.size === 'small' ? 'text-sm font-semibold' :
-                          eggData.size === 'large' ? 'text-lg font-bold' :
-                          'text-sm font-semibold' // medium (default)
-                        )}>Baby Traits</h4>
-                        <div className={cn(
-                          // Size-based text and spacing
-                          eggData.size === 'tiny' ? 'space-y-1 text-xs' :
-                          eggData.size === 'small' ? 'space-y-1.5 text-xs' :
-                          eggData.size === 'large' ? 'space-y-3 text-base' :
-                          'space-y-2 text-sm' // medium (default)
-                        )}>
+                      <div className="w-full space-y-4">
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100">Baby Traits</h4>
+                        <div className="space-y-3 text-base">
                           <div className="flex justify-between">
                             <span>Eye Color:</span>
                             <div className="flex items-center gap-2">
