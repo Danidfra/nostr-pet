@@ -197,19 +197,7 @@ const SpecialMarkSVGs = {
     </svg>
   ),
 
-  blush_sides: (
-    <svg viewBox="0 0 192 240" className="w-full h-full">
-      <defs>
-        <filter id="blush-blur" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="1" />
-        </filter>
-      </defs>
-      {/* Left blush spot, elongated oval shape */}
-      <ellipse cx="50" cy="135" rx="18" ry="8" fill="rgba(150, 90, 40, 0.18)" filter="url(#blush-blur)" />
-      {/* Right blush spot, elongated oval shape */}
-      <ellipse cx="140" cy="135" rx="18" ry="8" fill="rgba(150, 90, 40, 0.18)" filter="url(#blush-blur)" />
-    </svg>
-  ),
+
 };
 
 // Animation variants for different special marks
@@ -346,8 +334,7 @@ export const SpecialMarkFallback: React.FC<{
           border: '2px solid rgba(0, 0, 0, 0.2)',
           borderRadius: '50%',
         };
-      case 'blush_sides':
-        return null; // Will render multiple elements
+
       default:
         return {
           ...baseStyle,
@@ -362,38 +349,7 @@ export const SpecialMarkFallback: React.FC<{
     }
   }, [specialMark]);
 
-  if (specialMark === 'blush_sides') {
-    return (
-      <>
-        <div
-          style={{
-            position: 'absolute',
-            pointerEvents: 'none',
-            top: '45%',
-            left: '15%',
-            width: '12px',
-            height: '8px',
-            background: 'rgba(255, 182, 193, 0.4)',
-            borderRadius: '50%',
-            filter: 'blur(1px)',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            pointerEvents: 'none',
-            top: '45%',
-            right: '15%',
-            width: '12px',
-            height: '8px',
-            background: 'rgba(255, 182, 193, 0.4)',
-            borderRadius: '50%',
-            filter: 'blur(1px)',
-          }}
-        />
-      </>
-    );
-  }
+
 
   if (!fallbackStyle) return null;
 

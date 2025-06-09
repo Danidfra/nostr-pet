@@ -324,7 +324,6 @@ export function getVisualEffectRarity(effectType: string): 'common' | 'uncommon'
     
     // Uncommon
     'ring_mark': 'uncommon',
-    'blush_sides': 'uncommon',
     'glow_ring': 'uncommon',
     'wavy_spots': 'uncommon',
     'mist_drift': 'uncommon',
@@ -408,7 +407,7 @@ export function generateRandomVisualEffects(): Partial<Blobbi> {
       'dot_center', 'oval_spots', 'side_bands', 'dot_speckle', 'light_dash', 
       'freckle_patch', 'sparkle_trail', 'light_smoke', 'dusty_aura',
       // Uncommon (30%)
-      'ring_mark', 'blush_sides', 'glow_ring', 'wavy_spots', 'mist_drift',
+      'ring_mark', 'glow_ring', 'wavy_spots', 'mist_drift',
       // Rare (15%)
       'rune_top', 'spirit_knot', 'crescent_moon', 'tiny_star', 'glow_blue',
       // Legendary (5%)
@@ -423,13 +422,13 @@ export function generateRandomVisualEffects(): Partial<Blobbi> {
       manifestation = manifestations.slice(0, 9)[Math.floor(Math.random() * 9)];
     } else if (rand < 0.8) {
       // Uncommon (30%)
-      manifestation = manifestations.slice(9, 14)[Math.floor(Math.random() * 5)];
+      manifestation = manifestations.slice(9, 13)[Math.floor(Math.random() * 4)];
     } else if (rand < 0.95) {
       // Rare (15%)
-      manifestation = manifestations.slice(14, 19)[Math.floor(Math.random() * 5)];
+      manifestation = manifestations.slice(13, 18)[Math.floor(Math.random() * 5)];
     } else {
       // Legendary (5%)
-      manifestation = manifestations.slice(19)[Math.floor(Math.random() * 5)];
+      manifestation = manifestations.slice(18)[Math.floor(Math.random() * 5)];
     }
     
     effects.manifestation = manifestation;

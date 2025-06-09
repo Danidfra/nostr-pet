@@ -203,19 +203,7 @@ function ManifestationEffect({ type, patternIdPrefix }: { type: string; patternI
     case 'ring_mark':
   return <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="2" />;
 
-    case 'blush_sides':
-      return (
-        <svg width="200" height="200" viewBox="-17 -39 200 200" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="15" cy="20" rx="8" ry="5.5" fill="pink" fill-opacity="0.3" />
-        <ellipse cx="18" cy="20" rx="6" ry="4" fill="pink" fill-opacity="0.4" />
-        <ellipse cx="12" cy="20" rx="4" ry="2.5" fill="pink" fill-opacity="0.5" />
-      
-        <ellipse cx="50" cy="20" rx="8" ry="5.5" fill="pink" fill-opacity="0.3" />
-        <ellipse cx="47" cy="20" rx="6" ry="4" fill="pink" fill-opacity="0.4" />
-        <ellipse cx="53" cy="20" rx="4" ry="2.5" fill="pink" fill-opacity="0.5" />
-      </svg>
-      );
-    
+
 
     case 'glow_ring':
       return (

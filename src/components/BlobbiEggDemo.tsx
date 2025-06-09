@@ -51,7 +51,7 @@ export function BlobbiEggDemo() {
     
     const legendaryMarks = ['sigil_eye', 'glow_crack_pattern'];
     const rareMarks = ['rune_top', 'shimmer_band'];
-    const uncommonMarks = ['ring_mark', 'blush_sides'];
+    const uncommonMarks = ['ring_mark'];
 
     const legendaryTitles = ['Defender of the Grove', 'The Primordial'];
     const rareTitles = ['Echo of Ancients', 'Shellbound Hero'];

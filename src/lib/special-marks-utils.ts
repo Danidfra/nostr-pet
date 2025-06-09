@@ -10,8 +10,7 @@ export const AVAILABLE_SPECIAL_MARKS = [
   'ring_mark',
   'oval_spots',
   'glow_crack_pattern',
-  'dot_center',
-  'blush_sides'
+  'dot_center'
 ];
 
 // Utility function to check if a special mark is supported
