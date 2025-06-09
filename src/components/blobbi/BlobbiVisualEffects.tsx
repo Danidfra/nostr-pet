@@ -17,14 +17,14 @@ export function BlobbiVisualEffects({ blobbi, patternIdPrefix }: BlobbiVisualEff
       {/* Manifestation Effects */}
       {manifestation && <ManifestationEffect type={manifestation} patternIdPrefix={patternIdPrefix} />}
       
-      {/* Pattern Effects */}
-      {pattern && <PatternEffect type={pattern} patternIdPrefix={patternIdPrefix} />}
+      {/* Pattern Effects - REMOVED VISUAL DISPLAY */}
+      {/* {pattern && <PatternEffect type={pattern} patternIdPrefix={patternIdPrefix} />} */}
       
       {/* Visual Effects */}
       {visualEffect && <VisualEffect type={visualEffect} patternIdPrefix={patternIdPrefix} />}
       
-      {/* Blessing Effects */}
-      {blessing && <BlessingEffect type={blessing} patternIdPrefix={patternIdPrefix} />}
+      {/* Blessing Effects - REMOVED VISUAL DISPLAY */}
+      {/* {blessing && <BlessingEffect type={blessing} patternIdPrefix={patternIdPrefix} />} */}
     </g>
   );
 }

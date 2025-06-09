@@ -139,10 +139,11 @@ export function BlobbiEggDemo() {
                         {eggData.size}
                       </Badge>
                     </div>
-                    <div className="flex items-center justify-between">
+                    {/* Pattern display removed from UI but data preserved */}
+                    {/* <div className="flex items-center justify-between">
                       <span>Pattern:</span>
                       <span className="capitalize">{eggData.pattern}</span>
-                    </div>
+                    </div> */}
                     <div className="flex items-center justify-between">
                       <span>Status:</span>
                       <span className="capitalize">{eggData.egg_status}</span>

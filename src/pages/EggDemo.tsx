@@ -914,8 +914,8 @@ export default function EggDemo() {
                             </div>
                           </div>
                           
-                          {/* Visual Effects */}
-                          {(babyData.manifestation || babyData.visualEffect || babyData.blessing) && (
+                          {/* Visual Effects - HIDDEN FROM UI BUT DATA PRESERVED */}
+                          {(babyData.manifestation) && (
                             <div className="space-y-1">
                               <span className="font-medium">Visual Effects:</span>
                               <div className="flex flex-wrap gap-1">
@@ -932,7 +932,8 @@ export default function EggDemo() {
                                     {babyData.manifestation.replace('_', ' ')}
                                   </Badge>
                                 )}
-                                {babyData.visualEffect && (
+                                {/* Pattern and Blessing badges removed from visual display */}
+                                {/* {babyData.visualEffect && (
                                   <Badge 
                                     variant="destructive" 
                                     className={`text-xs ${
@@ -957,7 +958,7 @@ export default function EggDemo() {
                                   >
                                     {babyData.blessing.replace('_', ' ')}
                                   </Badge>
-                                )}
+                                )} */}
                               </div>
                             </div>
                           )}
@@ -1103,8 +1104,8 @@ export default function EggDemo() {
                       </Select>
                     </div>
 
-                    {/* Pattern */}
-                    <div className="space-y-2">
+                    {/* Pattern - HIDDEN FROM UI BUT DATA PRESERVED */}
+                    {/* <div className="space-y-2">
                       <Label>Pattern</Label>
                       <Select value={eggData.pattern} onValueChange={(value) => updateProperty('pattern', value)}>
                         <SelectTrigger>
@@ -1118,7 +1119,7 @@ export default function EggDemo() {
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
+                    </div> */}
 
                     {/* Egg Status */}
                     <div className="space-y-2">
@@ -1389,8 +1390,8 @@ export default function EggDemo() {
                           )}
                         </div>
 
-                        {/* Pattern/Visual Effect Toggle */}
-                        <div className="space-y-2">
+                        {/* Pattern/Visual Effect Toggle - HIDDEN FROM UI BUT DATA PRESERVED */}
+                        {/* <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label htmlFor="visual-effect-toggle" className="flex items-center gap-2">
                               Pattern
@@ -1427,10 +1428,10 @@ export default function EggDemo() {
                               </SelectContent>
                             </Select>
                           )}
-                        </div>
+                        </div> */}
 
-                        {/* Blessing Toggle */}
-                        <div className="space-y-2">
+                        {/* Blessing Toggle - HIDDEN FROM UI BUT DATA PRESERVED */}
+                        {/* <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label htmlFor="blessing-toggle" className="flex items-center gap-2">
                               Blessing
@@ -1467,7 +1468,7 @@ export default function EggDemo() {
                               </SelectContent>
                             </Select>
                           )}
-                        </div>
+                        </div> */}
                       </div>
                     </CardContent>
                   </Card>

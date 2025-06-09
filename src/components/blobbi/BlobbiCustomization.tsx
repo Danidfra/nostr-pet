@@ -113,8 +113,9 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
   };
   
   const hasChanges = 
-    selectedColor !== (blobbi.customization?.color || '#7C3AED') || 
-    selectedPattern !== (blobbi.customization?.pattern || '');
+    selectedColor !== (blobbi.customization?.color || '#7C3AED');
+    // Pattern changes removed from UI but data preserved
+    // selectedPattern !== (blobbi.customization?.pattern || '');
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -186,8 +187,8 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
               </div>
             </div>
             
-            {/* Pattern Selection */}
-            <div className="space-y-3">
+            {/* Pattern Selection - HIDDEN FROM UI BUT DATA PRESERVED */}
+            {/* <div className="space-y-3">
               <Label>Pattern</Label>
               <RadioGroup value={selectedPattern} onValueChange={setSelectedPattern}>
                 {PATTERNS.map((pattern) => (
@@ -202,7 +203,7 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
                   </div>
                 ))}
               </RadioGroup>
-            </div>
+            </div> */}
             
             {/* Future Accessories */}
             <div className="space-y-3">

@@ -218,14 +218,14 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
           opacity="0.2"
         />
         
-        {/* Pattern overlay if customized */}
-        {blobbi.customization.pattern && (
+        {/* Pattern overlay if customized - REMOVED VISUAL DISPLAY */}
+        {/* {blobbi.customization.pattern && (
           <path
             d="M 50 15 Q 50 10 50 15 Q 72 25 75 55 Q 75 80 50 88 Q 25 80 25 55 Q 28 25 50 15"
             fill={`url(#${patternIdPrefix}${blobbi.customization.pattern})`}
             opacity="0.3"
           />
-        )}
+        )} */}
         
         {/* Visual Effects Layer - Render BEFORE eyes so they appear behind */}
         <BlobbiVisualEffects blobbi={blobbi} patternIdPrefix={patternIdPrefix} />

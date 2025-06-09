@@ -232,8 +232,8 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
           }}
         />
 
-        {/* Pattern overlay */}
-        {createPatternOverlay()}
+        {/* Pattern overlay - REMOVED VISUAL DISPLAY BUT DATA PRESERVED */}
+        {/* {createPatternOverlay()} */}
 
         {/* Special marks based on blobbi.specialMark */}
         {blobbi?.specialMark && (
