@@ -188,8 +188,11 @@ export function determineEvolutionForm(
     hash = hash & hash; // Convert to 32-bit integer
   }
 
-  // Map to evolution forms
-  const forms: BlobbiEvolutionForm[] = ['pandi', 'owli', 'catti', 'froggi'];
+  // Map to evolution forms - all possible evolution types
+  const forms: BlobbiEvolutionForm[] = [
+    'pandi', 'owli', 'catti', 'froggi', 'cloudi', 'crysti', 'bloomi', 'starri',
+    'flammi', 'droppi', 'breezy', 'rocky', 'cacti', 'mushie', 'leafy', 'rosey'
+  ];
   const index = Math.abs(hash) % forms.length;
   
   return forms[index];
