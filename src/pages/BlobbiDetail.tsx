@@ -50,6 +50,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AppHeader } from '@/components/AppHeader';
 import { formatDistanceToNow } from 'date-fns';
 import { checkEggHatchingReadiness, checkBabyEvolutionReadiness } from '@/lib/blobbi-evolution';
+import { isValidSize } from '@/lib/blobbi-egg-validation';
 
 export default function BlobbiDetail() {
   const { blobbiId } = useParams<{ blobbiId: string }>();
@@ -64,6 +65,14 @@ export default function BlobbiDetail() {
   } = useBlobbi(undefined, blobbiId);
   
   const isOwner = user?.pubkey === blobbi?.ownerPubkey;
+  
+  // Helper function to get valid size for components
+  const getValidSize = (size?: string): 'tiny' | 'small' | 'medium' | 'large' => {
+    if (size && isValidSize(size)) {
+      return size as 'tiny' | 'small' | 'medium' | 'large';
+    }
+    return 'medium'; // Default fallback
+  };
   
   const { 
     eggTasks, 
@@ -193,24 +202,24 @@ export default function BlobbiDetail() {
           {/* Blobbi Visual */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <CardContent className="p-8">
-              <div className="flex justify-center">
+              <div className="flex items-center justify-center transition-all duration-500 min-h-[380px] p-12 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
                 {blobbi.lifeStage === 'egg' ? (
                   <EggGraphic 
                     blobbi={blobbi} // Pass the full blobbi object for unique characteristics
-                    size="large" 
+                    size={getValidSize(blobbi.size)} 
                     animated={true}
                     warmth={blobbi.eggTemperature || 60}
                   />
                 ) : blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
                   <BlobbiEvolvedVisual 
                     blobbi={blobbi} 
-                    size="large"
+                    size={getValidSize(blobbi.size)}
                     onClick={() => isOwner && performAction('play')}
                   />
                 ) : (
                   <BlobbiVisual 
                     blobbi={blobbi} 
-                    size="large"
+                    size={getValidSize(blobbi.size)}
                     onClick={() => isOwner && performAction('play')}
                   />
                 )}

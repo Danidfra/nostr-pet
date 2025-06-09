@@ -142,18 +142,18 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex justify-center">
+                <div className="flex items-center justify-center transition-all duration-500 min-h-[200px] p-6 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
                   {previewBlobbi.evolutionForm ? (
                     <BlobbiEvolvedVisual 
                       key={`${selectedColor}-${selectedPattern}`}
                       blobbi={previewBlobbi} 
-                      size="medium" 
+                      size={previewBlobbi.lifeStage === 'baby' ? 'small' : 'medium'} 
                     />
                   ) : (
                     <BlobbiVisual 
                       key={`${selectedColor}-${selectedPattern}`}
                       blobbi={previewBlobbi} 
-                      size="medium" 
+                      size={previewBlobbi.lifeStage === 'baby' ? 'small' : 'medium'} 
                     />
                   )}
                 </div>

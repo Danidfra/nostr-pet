@@ -178,19 +178,26 @@ export function BlobbiGame() {
           <div className="grid md:grid-cols-2 gap-4">
             {/* Left column - Visual and stats */}
             <div className="space-y-4">
-              <Card>
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                 <CardContent className="p-8">
-                  <div className="flex justify-center">
-                    {blobbi.evolutionForm ? (
+                  <div className="flex items-center justify-center transition-all duration-500 min-h-[380px] p-12 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
+                    {blobbi.lifeStage === 'egg' ? (
+                      <EggGraphic 
+                        blobbi={blobbi}
+                        size="large" 
+                        animated={true}
+                        warmth={blobbi.eggTemperature || 60}
+                      />
+                    ) : blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
                       <BlobbiEvolvedVisual 
                         blobbi={blobbi} 
-                        size="large"
+                        size={blobbi.lifeStage === 'baby' ? 'medium' : 'large'}
                         onClick={() => isOwner && performAction('play')}
                       />
                     ) : (
                       <BlobbiVisual 
                         blobbi={blobbi} 
-                        size="large"
+                        size={blobbi.lifeStage === 'baby' ? 'medium' : 'large'}
                         onClick={() => isOwner && performAction('play')}
                       />
                     )}

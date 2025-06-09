@@ -11,6 +11,7 @@ import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiStats } from '@/components/blobbi/BlobbiStats';
 import { BlobbiActions } from '@/components/blobbi/BlobbiActions';
 import { formatDistanceToNow } from 'date-fns';
+import { isValidSize } from '@/lib/blobbi-egg-validation';
 
 export default function BlobbiProfile() {
   const { pubkey } = useParams<{ pubkey: string }>();
@@ -25,6 +26,14 @@ export default function BlobbiProfile() {
   
   const author = useAuthor(pubkey || '');
   const displayName = author.data?.metadata?.name || pubkey?.slice(0, 8) || 'Unknown';
+  
+  // Helper function to get valid size for components
+  const getValidSize = (size?: string): 'tiny' | 'small' | 'medium' | 'large' => {
+    if (size && isValidSize(size)) {
+      return size as 'tiny' | 'small' | 'medium' | 'large';
+    }
+    return 'medium'; // Default fallback
+  };
   
   if (isLoading) {
     return (
@@ -138,10 +147,10 @@ export default function BlobbiProfile() {
           <div className="space-y-4">
             <Card>
               <CardContent className="p-8">
-                <div className="flex justify-center">
+                <div className="flex items-center justify-center transition-all duration-500 min-h-[380px] p-12 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
                   <BlobbiVisual 
                     blobbi={blobbi} 
-                    size="large"
+                    size={getValidSize(blobbi.size)}
                     onClick={() => isOwner && performAction('play')}
                   />
                 </div>

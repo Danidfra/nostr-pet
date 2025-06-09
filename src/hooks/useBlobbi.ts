@@ -141,7 +141,8 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       action: BlobbiAction; 
       itemEffect?: Partial<BlobbiStats> 
     }) => {
-      if (!user || !currentBlobbi) throw new Error('No Blobbi found');
+      if (!user) throw new Error('Must be logged in');
+      if (!currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only interact with your own Blobbi');
       
       // Import cooldown utilities and logger
@@ -220,7 +221,8 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
   // Manual evolution trigger
   const triggerEvolutionMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !currentBlobbi) throw new Error('No Blobbi found');
+      if (!user) throw new Error('Must be logged in');
+      if (!currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only evolve your own Blobbi');
       
       let newStage: 'baby' | 'adult';
@@ -251,7 +253,8 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       description?: string;
       achievement?: string;
     }) => {
-      if (!user || !currentBlobbi) throw new Error('No Blobbi found');
+      if (!user) throw new Error('Must be logged in');
+      if (!currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only create memories for your own Blobbi');
       
       return await createMemory({
@@ -269,7 +272,8 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
   // Legacy compatibility methods
   const updateCustomizationMutation = useMutation({
     mutationFn: async (customization: Partial<Blobbi['customization']>) => {
-      if (!user || !currentBlobbi) throw new Error('No Blobbi found');
+      if (!user) throw new Error('Must be logged in');
+      if (!currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only customize your own Blobbi');
       
       const updatedBlobbi = {
@@ -322,7 +326,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       // Create a memory for earning coins if we have a Blobbi
       if (currentBlobbi && isOwner) {
         await createMemory({
-          memoryTitle: 'Coins Earned',
+          memoryTitle: 'First coins earned through games',
           achievement: `earned_${amount}_coins`,
           memoryDescription: `Earned ${amount} coins through gameplay`,
         });
@@ -393,7 +397,7 @@ export function useBlobbis(limit: number = 20) {
         .map(event => {
           return parseBlobbiFromStateEvent(event);
         })
-        .filter(blobbi => blobbi !== null)
+        .filter((blobbi): blobbi is Blobbi => blobbi !== null)
         .reduce((unique, blobbi) => {
           // Keep only one Blobbi per ID (latest state)
           if (!unique.find(b => b.id === blobbi.id)) {
@@ -446,7 +450,7 @@ export function useCommunityBlobbis(limit: number = 20) {
         .map(event => {
           return parseBlobbiFromStateEvent(event);
         })
-        .filter(blobbi => blobbi !== null)
+        .filter((blobbi): blobbi is Blobbi => blobbi !== null)
         .reduce((unique, blobbi) => {
           // Keep only one Blobbi per user
           if (!unique.find(b => b.ownerPubkey === blobbi.ownerPubkey)) {

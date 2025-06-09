@@ -38,6 +38,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AppHeader } from '@/components/AppHeader';
 import { formatDistanceToNow } from 'date-fns';
 import { Blobbi, BlobbiLifeStage } from '@/types/blobbi';
+import { isValidSize } from '@/lib/blobbi-egg-validation';
 
 type BlobbiFilter = 'all' | 'active' | 'incubating' | 'evolved' | 'archived';
 
@@ -58,6 +59,14 @@ export default function BlobbiDashboard() {
   const [filter, setFilter] = useState<BlobbiFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Helper function to get valid size for components
+  const getValidSize = (size?: string): 'tiny' | 'small' | 'medium' | 'large' => {
+    if (size && isValidSize(size)) {
+      return size as 'tiny' | 'small' | 'medium' | 'large';
+    }
+    return 'medium'; // Default fallback
+  };
 
   // Redirect to adoption page if user doesn't have a profile (kind 31125)
   useEffect(() => {
@@ -381,11 +390,11 @@ export default function BlobbiDashboard() {
                             <h4 className="font-medium text-gray-900 dark:text-gray-100">{blobbi.name}</h4>
                             {index === 0 && <Crown className="w-4 h-4 text-yellow-500" />}
                           </div>
-                          <div className="flex justify-center mb-2">
+                          <div className="flex items-center justify-center transition-all duration-500 min-h-[100px] p-3 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50 mb-2">
                             {blobbi.evolutionForm ? (
-                              <BlobbiEvolvedVisual blobbi={blobbi} size="small" />
+                              <BlobbiEvolvedVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
                             ) : (
-                              <BlobbiVisual blobbi={blobbi} size="small" />
+                              <BlobbiVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
                             )}
                           </div>
                           <div className="text-center">
@@ -417,11 +426,11 @@ export default function BlobbiDashboard() {
                         className="flex items-center gap-3 p-3 border border-purple-200 dark:border-purple-600 rounded-lg cursor-pointer hover:bg-purple-50/50 dark:hover:bg-purple-900/20"
                         onClick={() => navigate(`/blobbi/${blobbi.id}`)}
                       >
-                        <div className="flex-shrink-0">
+                        <div className="flex-shrink-0 flex items-center justify-center transition-all duration-500 min-h-[80px] min-w-[80px] p-2 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
                           {blobbi.evolutionForm ? (
-                            <BlobbiEvolvedVisual blobbi={blobbi} size="small" />
+                            <BlobbiEvolvedVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
                           ) : (
-                            <BlobbiVisual blobbi={blobbi} size="small" />
+                            <BlobbiVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
                           )}
                         </div>
                         <div className="flex-1">
@@ -532,11 +541,11 @@ export default function BlobbiDashboard() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex justify-center mb-4">
+                      <div className="flex items-center justify-center transition-all duration-500 min-h-[160px] p-6 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50 mb-4">
                         {blobbi.evolutionForm ? (
-                          <BlobbiEvolvedVisual blobbi={blobbi} size="medium" />
+                          <BlobbiEvolvedVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
                         ) : (
-                          <BlobbiVisual blobbi={blobbi} size="medium" />
+                          <BlobbiVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
                         )}
                       </div>
                       
@@ -612,11 +621,11 @@ export default function BlobbiDashboard() {
                   <div className="space-y-4">
                     {recentActivity.map(({ blobbi, lastActivity, type }) => (
                       <div key={blobbi.id} className="flex items-start gap-4 p-4 border border-purple-200 dark:border-purple-600 rounded-lg bg-white/60 dark:bg-gray-700/60">
-                        <div className="flex-shrink-0">
+                        <div className="flex-shrink-0 flex items-center justify-center min-h-[80px] min-w-[80px] p-2 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-lg border border-purple-100/50">
                           {blobbi.evolutionForm ? (
-                            <BlobbiEvolvedVisual blobbi={blobbi} size="small" />
+                            <BlobbiEvolvedVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
                           ) : (
-                            <BlobbiVisual blobbi={blobbi} size="small" />
+                            <BlobbiVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
                           )}
                         </div>
                         <div className="flex-1">

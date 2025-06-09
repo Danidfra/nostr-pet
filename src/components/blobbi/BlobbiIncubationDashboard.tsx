@@ -478,11 +478,11 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                       onClick={() => selectEgg(selectedEggId === blobbi.id ? null : blobbi.id)}
                     >
                       <div className="flex flex-col items-center space-y-3">
-                        <div className="relative">
+                        <div className="relative flex items-center justify-center transition-all duration-500 min-h-[120px] p-4 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
                           {blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
-                            <BlobbiEvolvedVisual blobbi={blobbi} size="medium" />
+                            <BlobbiEvolvedVisual blobbi={blobbi} size={blobbi.lifeStage === 'baby' ? 'small' : 'medium'} />
                           ) : (
-                            <BlobbiVisual blobbi={blobbi} size="medium" />
+                            <BlobbiVisual blobbi={blobbi} size={blobbi.lifeStage === 'baby' ? 'small' : 'medium'} />
                           )}
                           {selectedEggId === blobbi.id && (
                             <div className="absolute -top-1 -right-1">

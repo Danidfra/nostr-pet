@@ -101,7 +101,7 @@ export function BlobbiVisualEffectsDemo() {
           <CardTitle>Blobbi Visual Effects Demo</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-center mb-6">
+          <div className="flex items-center justify-center min-h-[300px] p-8 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-lg border border-purple-100/50 mb-6">
             <BlobbiVisual 
               blobbi={currentEffect === 'none' ? baseBlobbi : getDemoBlobbi(
                 currentEffect.split(':')[0], 

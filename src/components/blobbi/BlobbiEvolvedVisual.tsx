@@ -5,12 +5,14 @@ import { useEffect, useState, useRef } from 'react';
 
 interface BlobbiEvolvedVisualProps {
   blobbi: Blobbi;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large' | 'tiny';
   className?: string;
   onClick?: () => void;
 }
 
 export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClick }: BlobbiEvolvedVisualProps) {
+  // Use blobbi size if available, otherwise use prop
+  const displaySize = blobbi.size || size;
   const mood = getBlobbiMood(blobbi.stats, blobbi.state);
   const svgRef = useRef<SVGSVGElement>(null);
   
@@ -67,6 +69,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
   }, [hasMouseSupport, blobbi.state]);
   
   const sizeClasses = {
+    tiny: 'w-20 h-20',
     small: 'w-24 h-24',
     medium: 'w-48 h-48',
     large: 'w-64 h-64',
@@ -839,7 +842,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
     <div 
       className={cn(
         'relative cursor-pointer transition-transform hover:scale-105',
-        sizeClasses[size],
+        sizeClasses[displaySize as keyof typeof sizeClasses],
         className
       )}
       onClick={onClick}
