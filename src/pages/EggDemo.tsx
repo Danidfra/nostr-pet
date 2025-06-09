@@ -459,22 +459,57 @@ export default function EggDemo() {
 
         case 'spirit_knot':
           return (
-            <svg width="100%" height="100%" viewBox="-38 -38 140 140" className="absolute">
-              <defs>
-                <radialGradient id={`${blobbi.id}-gradPulse`} cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#7B3FD6" />
-                  <stop offset="100%" stopColor="#C6A9F7" />
-                </radialGradient>
-                <filter id={`${blobbi.id}-glowPulse`} x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
-                  <feDropShadow dx="0" dy="0" stdDeviation="2.1" floodColor="#B69CFF" floodOpacity="0.8" />
-                  <feDropShadow dx="0" dy="0" stdDeviation="4.2" floodColor="#7B3FD6" floodOpacity="0.6" />
-                </filter>
-              </defs>
-              <g transform="translate(32, 32)" filter={`url(#${blobbi.id}-glowPulse)`} fill="none" stroke={`url(#${blobbi.id}-gradPulse)`}>
-                <path d="M32 8 L24 20 C22 22 22 26 24 28 L32 36 L40 28 C42 26 42 22 40 20 L32 8 Z M32 56 L40 44 C42 42 42 38 40 36 L32 28 L24 36 C22 38 22 42 24 44 L32 56 Z" strokeWidth="3.3" strokeLinejoin="round" strokeLinecap="round"/>
-                <path transform="rotate(90 32 32)" d="M32 8 L24 20 C22 22 22 26 24 28 L32 36 L40 28 C42 26 42 22 40 20 L32 8 Z M32 56 L40 44 C42 42 42 38 40 36 L32 28 L24 36 C22 38 22 42 24 44 L32 56 Z" strokeWidth="3.3" strokeLinejoin="round" strokeLinecap="round"/>
-              </g>
-            </svg>
+            <svg width="400" height="400" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#7B3FD6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+  <defs>
+    <radialGradient id="gradPulse" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7B3FD6" />
+      <stop offset="100%" stop-color="#C6A9F7" />
+    </radialGradient>
+    <filter id="glowPulse" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="1.4" flood-color="#B69CFF" flood-opacity="0.8" />
+      <feDropShadow dx="0" dy="0" stdDeviation="2.8" flood-color="#7B3FD6" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <g filter="url(#glowPulse)" fill="none" stroke="url(#gradPulse)">
+    <path d="
+      M32 8
+      L24 20
+      C22 22 22 26 24 28
+      L32 36
+      L40 28
+      C42 26 42 22 40 20
+      L32 8
+      Z
+      M32 56
+      L40 44
+      C42 42 42 38 40 36
+      L32 28
+      L24 36
+      C22 38 22 42 24 44
+      L32 56
+      Z
+    " stroke-width="2.2"/>
+    <path transform="rotate(90 32 32)" d="
+      M32 8
+      L24 20
+      C22 22 22 26 24 28
+      L32 36
+      L40 28
+      C42 26 42 22 40 20
+      L32 8
+      Z
+      M32 56
+      L40 44
+      C42 42 42 38 40 36
+      L32 28
+      L24 36
+      C22 38 22 42 24 44
+      L32 56
+      Z
+    " stroke-width="2.2"/>
+  </g>
+</svg>
           );
 
         case 'tiny_star':
