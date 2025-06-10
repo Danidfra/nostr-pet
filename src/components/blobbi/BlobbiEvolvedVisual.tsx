@@ -233,8 +233,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderPandi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Drop shadow */}
-      <ellipse cx="105" cy="185" rx="45" ry="8" fill="rgba(0,0,0,0.15)" />
       
       {/* Main body - perfect circle with subtle outline */}
       <circle cx="100" cy="120" r="55" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="2" />
@@ -357,9 +355,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderOwli = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Drop shadow for 3D effect */}
-      <ellipse cx="105" cy="185" rx="55" ry="8" fill="rgba(0,0,0,0.15)" />
-      
       {/* Round body with enhanced 3D gradient */}
       <circle cx="100" cy="110" r="60" fill={`url(#${patternIdPrefix}owliBody3D)`} />
       
@@ -487,8 +482,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderCatti = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Drop shadow for 3D effect */}
-      <ellipse cx="105" cy="185" rx="40" ry="8" fill="rgba(0,0,0,0.15)" />
       
       {/* Oval upright body with enhanced 3D gradient */}
       <ellipse cx="100" cy="120" rx="45" ry="60" fill={`url(#${patternIdPrefix}cattiBody3D)`} />
@@ -644,8 +637,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderFroggi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Drop shadow for 3D effect */}
-      <ellipse cx="105" cy="185" rx="65" ry="8" fill="rgba(0,0,0,0.15)" />
       
       {/* Flattened oval body with enhanced 3D gradient */}
       <ellipse cx="100" cy="120" rx="70" ry="50" fill={`url(#${patternIdPrefix}froggiBody3D)`} />
@@ -809,8 +800,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderCloudi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Soft shadow */}
-      <ellipse cx="105" cy="185" rx="60" ry="8" fill="rgba(0,0,0,0.1)" />
       
       {/* Main cloud body - multiple overlapping circles */}
       <circle cx="100" cy="120" r="45" fill={`url(#${patternIdPrefix}cloudiBody)`} />
@@ -894,10 +883,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
   );
 
   const renderCrysti = () => (
-    <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Prismatic shadow */}
-      <ellipse cx="105" cy="185" rx="60" ry="8" fill={`url(#${patternIdPrefix}crystiShadow)`} opacity="0.3" />
-      
+    <svg viewBox="0 0 200 200" className="w-full h-full">      
       {/* Main crystal body - rounded hexagon shape */}
       <path d="M 100 50 L 140 80 L 140 130 L 100 160 L 60 130 L 60 80 Z" fill={`url(#${patternIdPrefix}crystiBody)`} />
       <path d="M 100 55 L 135 82 L 135 128 L 100 155 L 65 128 L 65 82 Z" fill={`url(#${patternIdPrefix}crystiInner)`} opacity="0.7" />
@@ -1037,8 +1023,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderBloomi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Soft shadow */}
-      <ellipse cx="105" cy="185" rx="55" ry="8" fill="rgba(0,0,0,0.1)" />
       
       {/* Flower petals - overlapping circles */}
       <circle cx="100" cy="70" r="25" fill={`url(#${patternIdPrefix}bloomiPetal1)`} />
@@ -1171,8 +1155,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderStarri = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Cosmic shadow */}
-      <ellipse cx="105" cy="185" rx="65" ry="10" fill={`url(#${patternIdPrefix}starriShadow)`} opacity="0.4" />
       
       {/* Main star body - larger 5-pointed star shape */}
       <path d="M 100 25 L 115 75 L 165 75 L 125 110 L 140 160 L 100 130 L 60 160 L 75 110 L 35 75 L 85 75 Z" 
@@ -1290,8 +1272,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderFlammi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Warm glow shadow */}
-      <ellipse cx="105" cy="185" rx="65" ry="8" fill={`url(#${patternIdPrefix}flammiGlow)`} opacity="0.4" />
       
       {/* Main flame body with wider, rounder organic shape */}
       <path d="M 100 160 Q 60 140 50 110 Q 45 80 70 60 Q 80 40 100 25 Q 120 40 130 60 Q 155 80 150 110 Q 140 140 100 160 Z" 
@@ -1404,8 +1384,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderDroppi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Ripple shadow */}
-      <ellipse cx="105" cy="185" rx="55" ry="8" fill={`url(#${patternIdPrefix}droppiRipple)`} opacity="0.3" />
       
       {/* Main water drop body */}
       <path d="M 100 40 Q 100 30 100 40 Q 135 60 140 110 Q 140 150 100 165 Q 60 150 60 110 Q 65 60 100 40" 
@@ -1519,8 +1497,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderBreezy = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Nature shadow */}
-      <ellipse cx="105" cy="185" rx="50" ry="8" fill="rgba(0,0,0,0.1)" />
       
       {/* Main leaf body - classic leaf shape */}
       <path d="M 100 40 Q 70 60 60 90 Q 55 120 70 140 Q 85 155 100 160 Q 115 155 130 140 Q 145 120 140 90 Q 130 60 100 40" 
@@ -1645,8 +1621,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderRocky = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Solid shadow */}
-      <ellipse cx="105" cy="185" rx="50" ry="8" fill="rgba(0,0,0,0.2)" />
       
       {/* Main rocky body - rounded boulder shape */}
       <path d="M 100 50 L 130 70 L 140 110 L 130 150 L 100 165 L 70 150 L 60 110 L 70 70 Z" 
@@ -1747,8 +1721,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderCacti = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Desert shadow */}
-      <ellipse cx="105" cy="185" rx="40" ry="8" fill="rgba(0,0,0,0.15)" />
       
       {/* Main cactus body */}
       <rect x="85" y="80" width="30" height="80" rx="15" fill={`url(#${patternIdPrefix}cactiBody)`} />
@@ -1864,8 +1836,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderMushie = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Forest floor shadow */}
-      <ellipse cx="105" cy="185" rx="55" ry="8" fill="rgba(0,0,0,0.12)" />
       
       {/* Mushroom stem */}
       <ellipse cx="100" cy="140" rx="25" ry="40" fill={`url(#${patternIdPrefix}mushieStem)`} />
@@ -1986,8 +1956,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderLeafy = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Sunny shadow */}
-      <ellipse cx="105" cy="185" rx="50" ry="8" fill="rgba(0,0,0,0.1)" />
       
       {/* Sunflower stem */}
       <rect x="96" y="120" width="8" height="55" fill={`url(#${patternIdPrefix}leafyStem)`} rx="4" />
@@ -2160,8 +2128,6 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
 
   const renderRosey = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">
-      {/* Elegant shadow */}
-      <ellipse cx="105" cy="185" rx="45" ry="8" fill="rgba(0,0,0,0.12)" />
       
       {/* Rose stem */}
       <rect x="98" y="120" width="4" height="50" fill={`url(#${patternIdPrefix}roseyStem)`} rx="2" />

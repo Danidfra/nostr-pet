@@ -14,7 +14,8 @@ import {
   BlobbiRecordData,
   BlobbiStats,
   BlobbiLifeStage,
-  BlobbiMood
+  BlobbiMood,
+  BlobbiEvolutionForm
 } from '@/types/blobbi';
 
 // Event kinds according to the specification
@@ -96,6 +97,11 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
   if (blobbi.pattern) tags.push(['pattern', blobbi.pattern]);
   if (blobbi.eyeColor) tags.push(['eye_color', blobbi.eyeColor]);
   if (blobbi.specialMark) tags.push(['special_mark', blobbi.specialMark]);
+
+  // Add adult type tag for evolved adult Blobbis
+  if (blobbi.lifeStage === 'adult' && blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi') {
+    tags.push(['adult_type', blobbi.evolutionForm]);
+  }
 
   // Add personality tags
   if (blobbi.personality) {
@@ -499,6 +505,8 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       currentLocation: getTagValue(tags, 'current_location'),
       inParty: getTagValue(tags, 'in_party') === 'true',
       visibleToOthers: getTagValue(tags, 'visible_to_others') !== 'false', // Default to true
+      // Evolution form from adult_type tag
+      evolutionForm: getTagValue(tags, 'adult_type') as BlobbiEvolutionForm || undefined,
     };
 
     return blobbi;
