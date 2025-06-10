@@ -9,7 +9,7 @@
     "nostr": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "deno", "run", "-A", "jsr:@nostrbook/mcp"]
+      "args": ["-y", "@nostrbook/mcp"]
     }
   }
 }
