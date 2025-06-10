@@ -22,7 +22,8 @@ import {
   Crown,
   Activity,
   BarChart3,
-  Settings
+  Settings,
+  Target
 } from 'lucide-react';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
@@ -32,6 +33,7 @@ import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 import { BlobbonautProfileCard } from '@/components/blobbi/BlobbonautProfileCard';
 
 import { BlobbiIncubationDashboard } from '@/components/blobbi/BlobbiIncubationDashboard';
+import { BlobbiMissions } from '@/components/blobbi/BlobbiMissions';
 import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -269,6 +271,14 @@ export default function BlobbiDashboard() {
                   Adopt New Blobbi
                 </Button>
               </Link>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start gap-2 border-yellow-200 dark:border-yellow-600 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
+                onClick={() => setActiveTab('missions')}
+              >
+                <Target className="w-4 h-4" />
+                View Missions
+              </Button>
               {stats.incubatingBlobbis > 0 && (
                 <Button 
                   variant="outline" 
@@ -300,7 +310,7 @@ export default function BlobbiDashboard() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-2">
-                <TabsList className="grid w-full grid-cols-5 bg-purple-50/50 dark:bg-purple-900/20 ">
+                <TabsList className="grid w-full grid-cols-6 bg-purple-50/50 dark:bg-purple-900/20 ">
                   <TabsTrigger 
                     value="overview"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
@@ -312,6 +322,12 @@ export default function BlobbiDashboard() {
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
                   >
                     My Blobbies
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="missions"
+                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                  >
+                    Missions
                   </TabsTrigger>
                   <TabsTrigger 
                     value="incubation"
@@ -601,6 +617,11 @@ export default function BlobbiDashboard() {
                   </CardContent>
                 </Card>
               )}
+            </TabsContent>
+
+            {/* Missions Tab */}
+            <TabsContent value="missions">
+              <BlobbiMissions />
             </TabsContent>
 
             {/* Incubation Tab */}

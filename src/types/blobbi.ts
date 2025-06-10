@@ -171,6 +171,7 @@ export interface BlobbonautProfile {
   style?: string; // Aesthetic style
   background?: string; // Background/theme
   title?: string; // Custom title or role
+  welcomeMissionStatus?: 'unclaimed' | 'claimed'; // Welcome mission status
 }
 
 // Action types for interacting with Blobbi (updated to match spec)
