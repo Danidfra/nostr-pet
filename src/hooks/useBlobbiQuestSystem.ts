@@ -171,6 +171,10 @@ interface QuestState {
   questStartTime: number;
   babyBlobbis: Blobbi[]; // Track baby Blobbis for hashtag validation
   selectedBlobbi?: Blobbi; // The currently selected baby Blobbi
+  // Per-Blobbi quest progress tracking
+  blobbiQuestProgress: Map<string, BabyToAdultQuest[]>; // Map of Blobbi ID to their quest progress
+  blobbiUniqueReactionTargets: Map<string, Set<string>>; // Map of Blobbi ID to their unique reaction targets
+  blobbiUniqueRepostTargets: Map<string, Set<string>>; // Map of Blobbi ID to their unique repost targets
 }
 
 interface BlobbiQuestSystemState {
@@ -222,6 +226,10 @@ export function useBlobbiQuestSystem() {
       questStartTime: Date.now(),
       babyBlobbis: [],
       selectedBlobbi: undefined,
+      // Per-Blobbi quest progress tracking
+      blobbiQuestProgress: new Map(),
+      blobbiUniqueReactionTargets: new Map(),
+      blobbiUniqueRepostTargets: new Map(),
     },
     metadataSubscriptionActive: false,
     questSubscriptionActive: false,
@@ -390,8 +398,14 @@ export function useBlobbiQuestSystem() {
         newQuestState.selectedBlobbi = selectedBlobbi;
       }
 
-      // Process baby to adult quests
-      newQuestState.babyToAdultQuests = newQuestState.babyToAdultQuests.map(quest => {
+      // Get or initialize quest progress for the selected Blobbi
+      const selectedBabyId = prevState.selectedBabyId!;
+      let blobbiQuests = newQuestState.blobbiQuestProgress.get(selectedBabyId) || [...BABY_TO_ADULT_QUESTS];
+      const currentBlobbiReactionTargets = newQuestState.blobbiUniqueReactionTargets.get(selectedBabyId) || new Set<string>();
+      const currentBlobbiRepostTargets = newQuestState.blobbiUniqueRepostTargets.get(selectedBabyId) || new Set<string>();
+
+      // Process baby to adult quests for the selected Blobbi only
+      blobbiQuests = blobbiQuests.map(quest => {
         if (quest.completed) return quest;
 
         const eventKinds = Array.isArray(quest.eventKind) ? quest.eventKind : [quest.eventKind];
@@ -402,23 +416,23 @@ export function useBlobbiQuestSystem() {
             // Multi-target quest
             let newProgress = quest.progress;
             
-            // Special handling for unique targets
+            // Special handling for unique targets per Blobbi
             if (quest.id === 'react_to_5_posts') {
               const eTags = event.tags.filter(tag => tag[0] === 'e');
               if (eTags.length > 0) {
                 const targetEventId = eTags[0][1];
-                if (!newQuestState.uniqueReactionTargets.has(targetEventId)) {
-                  newQuestState.uniqueReactionTargets.add(targetEventId);
-                  newProgress = newQuestState.uniqueReactionTargets.size;
+                if (!currentBlobbiReactionTargets.has(targetEventId)) {
+                  currentBlobbiReactionTargets.add(targetEventId);
+                  newProgress = currentBlobbiReactionTargets.size;
                 }
               }
             } else if (quest.id === 'repost_3_posts') {
               const eTags = event.tags.filter(tag => tag[0] === 'e');
               if (eTags.length > 0) {
                 const targetEventId = eTags[0][1];
-                if (!newQuestState.uniqueRepostTargets.has(targetEventId)) {
-                  newQuestState.uniqueRepostTargets.add(targetEventId);
-                  newProgress = newQuestState.uniqueRepostTargets.size;
+                if (!currentBlobbiRepostTargets.has(targetEventId)) {
+                  currentBlobbiRepostTargets.add(targetEventId);
+                  newProgress = currentBlobbiRepostTargets.size;
                 }
               }
             } else {
@@ -428,24 +442,24 @@ export function useBlobbiQuestSystem() {
             if (newProgress >= quest.target) {
               questCompleted = true;
               completedQuestName = quest.name;
-              console.log(`🧬 Quest completed: ${quest.name} (${newProgress}/${quest.target})`);
+              console.log(`🧬 Quest completed for ${selectedBlobbi?.name}: ${quest.name} (${newProgress}/${quest.target})`);
               
               // Show toast notification for completed multi-target quest
               const message = getQuestCompletionMessage(quest.id, quest.name);
               toast({
                 title: message.title,
-                description: message.description,
+                description: `${selectedBlobbi?.name}: ${message.description}`,
                 variant: "default",
               });
               
               return { ...quest, progress: newProgress, completed: true };
             } else {
-              console.log(`🧬 Quest progress: ${quest.name} (${newProgress}/${quest.target})`);
+              console.log(`🧬 Quest progress for ${selectedBlobbi?.name}: ${quest.name} (${newProgress}/${quest.target})`);
               
               // Show progress toast for multi-target quests
               toast({
                 title: "📈 Quest Progress!",
-                description: `Progress on "${quest.name}": ${newProgress}/${quest.target} completed. Keep going!`,
+                description: `${selectedBlobbi?.name}: Progress on "${quest.name}": ${newProgress}/${quest.target} completed. Keep going!`,
                 variant: "default",
               });
               
@@ -455,13 +469,13 @@ export function useBlobbiQuestSystem() {
             // Single completion quest
             questCompleted = true;
             completedQuestName = quest.name;
-            console.log(`🧬 Quest completed: ${quest.name}`);
+            console.log(`🧬 Quest completed for ${selectedBlobbi?.name}: ${quest.name}`);
             
             // Show toast notification for completed single quest
             const message = getQuestCompletionMessage(quest.id, quest.name);
             toast({
               title: message.title,
-              description: message.description,
+              description: `${selectedBlobbi?.name}: ${message.description}`,
               variant: "default",
             });
             
@@ -471,6 +485,16 @@ export function useBlobbiQuestSystem() {
 
         return quest;
       });
+
+      // Update the per-Blobbi quest progress
+      newQuestState.blobbiQuestProgress.set(selectedBabyId, blobbiQuests);
+      newQuestState.blobbiUniqueReactionTargets.set(selectedBabyId, currentBlobbiReactionTargets);
+      newQuestState.blobbiUniqueRepostTargets.set(selectedBabyId, currentBlobbiRepostTargets);
+
+      // Also update the global quest state for the selected Blobbi (for backward compatibility)
+      newQuestState.babyToAdultQuests = blobbiQuests;
+      newQuestState.uniqueReactionTargets = currentBlobbiReactionTargets;
+      newQuestState.uniqueRepostTargets = currentBlobbiRepostTargets;
 
       newQuestState.lastEventTime = Date.now();
 
@@ -484,20 +508,24 @@ export function useBlobbiQuestSystem() {
     if (questCompleted && completedQuestName) {
       await publishQuestConfirmation(completedQuestName);
       
-      // Check if all quests are completed (ready to evolve to adult)
-      const allQuestsCompleted = state.questState.babyToAdultQuests.every(quest => quest.completed);
-      if (allQuestsCompleted) {
-        console.log('🎉 All baby to adult quests completed! Ready to evolve...');
-        
-        // Show toast notification for completing all quests
-        toast({
-          title: "🎊 All Quests Complete!",
-          description: "Amazing! You've completed all evolution quests. Your Blobbi is ready to evolve to adult!",
-          variant: "default",
-        });
+      // Check if all quests are completed for this specific Blobbi (ready to evolve to adult)
+      const selectedBlobbi = state.blobbis.find(b => b.id === state.selectedBabyId);
+      if (selectedBlobbi) {
+        const blobbiQuests = state.questState.blobbiQuestProgress.get(state.selectedBabyId) || [...BABY_TO_ADULT_QUESTS];
+        const allQuestsCompleted = blobbiQuests.every(quest => quest.completed);
+        if (allQuestsCompleted) {
+          console.log(`🎉 All baby to adult quests completed for ${selectedBlobbi.name}! Ready to evolve...`);
+          
+          // Show toast notification for completing all quests
+          toast({
+            title: "🎊 All Quests Complete!",
+            description: `Amazing! ${selectedBlobbi.name} has completed all evolution quests and is ready to evolve to adult!`,
+            variant: "default",
+          });
+        }
       }
     }
-  }, [user, publishEvent, state.questStartTime, state.questState.questStartTime, state.questState.babyToAdultQuests, state.selectedBabyId, publishQuestConfirmation, toast, getQuestCompletionMessage]);
+  }, [user, publishEvent, state.questStartTime, state.questState.questStartTime, state.selectedBabyId, state.blobbis, state.questState.blobbiQuestProgress, publishQuestConfirmation, toast, getQuestCompletionMessage]);
 
   // Process #Blobbi hashtag events for quest validation
   const processBlobbiHashtagEvent = useCallback((event: NostrEvent) => {
@@ -568,32 +596,42 @@ export function useBlobbiQuestSystem() {
                     };
                   });
                   
-                  // Check for *_confirmed tags to mark quests as completed
-                  // ONLY if this Blobbi is the selected one
+                  // Check for *_confirmed tags to mark quests as completed for this specific Blobbi
                   setState(prevInner => {
-                    if (blobbi.id === prevInner.selectedBabyId) {
-                      const confirmedTags = event.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
-                      if (confirmedTags.length > 0) {
-                        console.log(`✅ Found confirmed quest tags for selected Blobbi ${blobbi.name}:`, confirmedTags);
-                        
-                        const newQuestState = { ...prevInner.questState };
-                        
-                        // Mark baby to adult quests as completed based on confirmed tags
-                        newQuestState.babyToAdultQuests = newQuestState.babyToAdultQuests.map(quest => {
-                          const confirmationTag = `${quest.id}_confirmed`;
-                          const isConfirmed = confirmedTags.some(tag => tag[0] === confirmationTag);
-                          if (isConfirmed && !quest.completed) {
-                            console.log(`🧬 Marking quest as completed from confirmed tag: ${quest.name}`);
-                            return { ...quest, completed: true };
-                          }
-                          return quest;
-                        });
-                        
-                        return {
-                          ...prevInner,
-                          questState: newQuestState,
-                        };
+                    const confirmedTags = event.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
+                    if (confirmedTags.length > 0 && blobbi.lifeStage === 'baby') {
+                      console.log(`✅ Found confirmed quest tags for Blobbi ${blobbi.name}:`, confirmedTags);
+                      
+                      const newQuestState = { ...prevInner.questState };
+                      
+                      // Get or initialize quest progress for this Blobbi
+                      let blobbiQuests = newQuestState.blobbiQuestProgress.get(blobbi.id) || [...BABY_TO_ADULT_QUESTS];
+                      
+                      // Mark baby to adult quests as completed based on confirmed tags
+                      blobbiQuests = blobbiQuests.map(quest => {
+                        const confirmationTag = `${quest.id}_confirmed`;
+                        const isConfirmed = confirmedTags.some(tag => tag[0] === confirmationTag);
+                        if (isConfirmed && !quest.completed) {
+                          console.log(`🧬 Marking quest as completed from confirmed tag for ${blobbi.name}: ${quest.name}`);
+                          return { ...quest, completed: true };
+                        }
+                        return quest;
+                      });
+                      
+                      // Update the per-Blobbi quest progress
+                      const newBlobbiQuestProgress = new Map(newQuestState.blobbiQuestProgress);
+                      newBlobbiQuestProgress.set(blobbi.id, blobbiQuests);
+                      newQuestState.blobbiQuestProgress = newBlobbiQuestProgress;
+                      
+                      // If this is the selected Blobbi, also update the global quest state
+                      if (blobbi.id === prevInner.selectedBabyId) {
+                        newQuestState.babyToAdultQuests = blobbiQuests;
                       }
+                      
+                      return {
+                        ...prevInner,
+                        questState: newQuestState,
+                      };
                     }
                     return prevInner;
                   });
@@ -818,31 +856,52 @@ export function useBlobbiQuestSystem() {
         // Update baby Blobbis list for hashtag validation
         const babyBlobbis = blobbis.filter(b => b.lifeStage === 'baby');
         
-        // If we have a selected baby, load its quest confirmations
+        // Load quest confirmations for all baby Blobbis
+        const newBlobbiQuestProgress = new Map(prev.questState.blobbiQuestProgress);
         let updatedQuests = [...prev.questState.babyToAdultQuests];
         let selectedBlobbi: Blobbi | undefined;
         
-        if (prev.selectedBabyId) {
-          selectedBlobbi = blobbis.find(b => b.id === prev.selectedBabyId);
-          
-          const selectedBlobbiEvent = events.find(event => {
-            const blobbi = parseBlobbiFromStateEvent(event);
-            return blobbi && blobbi.id === prev.selectedBabyId;
+        // Process quest confirmations for all baby Blobbis
+        for (const blobbi of babyBlobbis) {
+          const blobbiEvent = events.find(event => {
+            const eventBlobbi = parseBlobbiFromStateEvent(event);
+            return eventBlobbi && eventBlobbi.id === blobbi.id;
           });
           
-          if (selectedBlobbiEvent) {
-            const confirmedTags = selectedBlobbiEvent.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
+          if (blobbiEvent) {
+            const confirmedTags = blobbiEvent.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
             
-            updatedQuests = updatedQuests.map(quest => {
-              const confirmationTag = `${quest.id}_confirmed`;
-              const isConfirmed = confirmedTags.some(tag => tag[0] === confirmationTag);
-              if (isConfirmed && !quest.completed) {
-                console.log(`🧬 Marking quest as completed from initial load for ${prev.selectedBabyId}: ${quest.name}`);
-                return { ...quest, completed: true };
+            if (confirmedTags.length > 0) {
+              // Get existing quest progress for this Blobbi or start fresh
+              let blobbiQuests = newBlobbiQuestProgress.get(blobbi.id) || [...BABY_TO_ADULT_QUESTS];
+              
+              blobbiQuests = blobbiQuests.map(quest => {
+                const confirmationTag = `${quest.id}_confirmed`;
+                const isConfirmed = confirmedTags.some(tag => tag[0] === confirmationTag);
+                if (isConfirmed && !quest.completed) {
+                  console.log(`🧬 Marking quest as completed from initial load for ${blobbi.name}: ${quest.name}`);
+                  return { ...quest, completed: true };
+                }
+                return quest;
+              });
+              
+              newBlobbiQuestProgress.set(blobbi.id, blobbiQuests);
+              
+              // If this is the selected Blobbi, update the global quest state
+              if (blobbi.id === prev.selectedBabyId) {
+                updatedQuests = blobbiQuests;
+                selectedBlobbi = blobbi;
               }
-              return quest;
-            });
+            }
           }
+        }
+        
+        // Set selected Blobbi if we have one
+        if (prev.selectedBabyId && !selectedBlobbi) {
+          selectedBlobbi = blobbis.find(b => b.id === prev.selectedBabyId);
+          // Load quest progress for selected Blobbi
+          const blobbiQuests = newBlobbiQuestProgress.get(prev.selectedBabyId) || [...BABY_TO_ADULT_QUESTS];
+          updatedQuests = blobbiQuests;
         }
         
         return {
@@ -855,6 +914,7 @@ export function useBlobbiQuestSystem() {
             questStartTime: blobbis.length > 0 ? Math.min(...blobbis.map(b => b.birthTime)) : Date.now(),
             babyBlobbis,
             selectedBlobbi: selectedBlobbi,
+            blobbiQuestProgress: newBlobbiQuestProgress,
           },
         };
       });
@@ -910,8 +970,26 @@ export function useBlobbiQuestSystem() {
     }
   }, [state.questSubscriptionActive]);
 
-  // Calculate progress for baby to adult quests
+  // Get quest progress for a specific Blobbi
+  const getBlobbiQuestProgress = useCallback((blobbiId: string) => {
+    const blobbiQuests = state.questState.blobbiQuestProgress.get(blobbiId) || [...BABY_TO_ADULT_QUESTS];
+    const completed = blobbiQuests.filter(quest => quest.completed).length;
+    const total = blobbiQuests.length;
+    
+    return {
+      completed,
+      total,
+      percentage: (completed / total) * 100,
+    };
+  }, [state.questState.blobbiQuestProgress]);
+
+  // Calculate progress for baby to adult quests (for selected Blobbi)
   const getQuestProgress = useCallback(() => {
+    if (state.selectedBabyId) {
+      return getBlobbiQuestProgress(state.selectedBabyId);
+    }
+    
+    // Fallback to global state if no Blobbi selected
     const completed = state.questState.babyToAdultQuests.filter(quest => quest.completed).length;
     const total = state.questState.babyToAdultQuests.length;
     
@@ -920,19 +998,20 @@ export function useBlobbiQuestSystem() {
       total,
       percentage: (completed / total) * 100,
     };
-  }, [state.questState]);
+  }, [state.questState, state.selectedBabyId, getBlobbiQuestProgress]);
 
   // Check if a specific baby blobbi is ready to evolve to adult
   const isBabyReadyToEvolve = useCallback((blobbi: Blobbi) => {
     // Only babies can evolve to adult
     if (blobbi.lifeStage !== 'baby') return false;
     
-    // Check if all baby to adult quests are completed
-    const questsCompleted = state.questState.babyToAdultQuests.filter(quest => quest.completed).length;
-    const questsTotal = state.questState.babyToAdultQuests.length;
+    // Check if all baby to adult quests are completed for this specific Blobbi
+    const blobbiQuests = state.questState.blobbiQuestProgress.get(blobbi.id) || [...BABY_TO_ADULT_QUESTS];
+    const questsCompleted = blobbiQuests.filter(quest => quest.completed).length;
+    const questsTotal = blobbiQuests.length;
     
     return questsCompleted === questsTotal;
-  }, [state.questState.babyToAdultQuests]);
+  }, [state.questState.blobbiQuestProgress]);
 
   // Select a baby for quest tracking
   const selectBaby = useCallback(async (babyId: string | null) => {
@@ -943,20 +1022,28 @@ export function useBlobbiQuestSystem() {
       console.log('🔄 Same baby selected, updating selection only');
       setState(prev => {
         const selectedBlobbi = babyId ? prev.blobbis.find(b => b.id === babyId) : undefined;
+        // Load the quest progress for this specific Blobbi
+        const blobbiQuests = babyId ? prev.questState.blobbiQuestProgress.get(babyId) || [...BABY_TO_ADULT_QUESTS] : [...BABY_TO_ADULT_QUESTS];
+        const blobbiReactionTargets = babyId ? prev.questState.blobbiUniqueReactionTargets.get(babyId) || new Set<string>() : new Set<string>();
+        const blobbiRepostTargets = babyId ? prev.questState.blobbiUniqueRepostTargets.get(babyId) || new Set<string>() : new Set<string>();
+        
         return {
           ...prev,
           selectedBabyId: babyId,
           questState: {
             ...prev.questState,
             selectedBlobbi: selectedBlobbi,
+            babyToAdultQuests: blobbiQuests,
+            uniqueReactionTargets: blobbiReactionTargets,
+            uniqueRepostTargets: blobbiRepostTargets,
           },
         };
       });
       return;
     }
     
-    // If selecting a different baby, reset quest state and reload
-    console.log(`🔄 Different baby selected, resetting quest state`);
+    // If selecting a different baby, load its specific quest state
+    console.log(`🔄 Different baby selected, loading quest state for: ${babyId}`);
     
     // Stop current quest tracking if active
     if (activeQuestSubscriptionRef.current && questCleanupRef.current) {
@@ -966,20 +1053,29 @@ export function useBlobbiQuestSystem() {
       questCleanupRef.current = null;
     }
     
-    // Reset quest state
-    setState(prev => ({
-      ...prev,
-      selectedBabyId: babyId,
-      questStartTime: null,
-      questSubscriptionActive: false,
-      questState: {
-        ...prev.questState,
-        babyToAdultQuests: [...BABY_TO_ADULT_QUESTS], // Reset to initial state
-        isListening: false,
-        uniqueReactionTargets: new Set(),
-        uniqueRepostTargets: new Set(),
-      },
-    }));
+    // Load quest state for the new baby
+    setState(prev => {
+      const selectedBlobbi = babyId ? prev.blobbis.find(b => b.id === babyId) : undefined;
+      // Load the quest progress for this specific Blobbi
+      const blobbiQuests = babyId ? prev.questState.blobbiQuestProgress.get(babyId) || [...BABY_TO_ADULT_QUESTS] : [...BABY_TO_ADULT_QUESTS];
+      const blobbiReactionTargets = babyId ? prev.questState.blobbiUniqueReactionTargets.get(babyId) || new Set<string>() : new Set<string>();
+      const blobbiRepostTargets = babyId ? prev.questState.blobbiUniqueRepostTargets.get(babyId) || new Set<string>() : new Set<string>();
+      
+      return {
+        ...prev,
+        selectedBabyId: babyId,
+        questStartTime: null,
+        questSubscriptionActive: false,
+        questState: {
+          ...prev.questState,
+          babyToAdultQuests: blobbiQuests,
+          isListening: false,
+          uniqueReactionTargets: blobbiReactionTargets,
+          uniqueRepostTargets: blobbiRepostTargets,
+          selectedBlobbi: selectedBlobbi,
+        },
+      };
+    });
     
     // If a new baby is selected, load its quest confirmations
     if (babyId && user && nostr) {
@@ -999,7 +1095,11 @@ export function useBlobbiQuestSystem() {
           const confirmedTags = selectedBlobbiEvent.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
           
           setState(prev => {
-            const updatedQuests = prev.questState.babyToAdultQuests.map(quest => {
+            // Get existing quest progress for this Blobbi or start fresh
+            let blobbiQuests = prev.questState.blobbiQuestProgress.get(babyId) || [...BABY_TO_ADULT_QUESTS];
+            
+            // Update quest completion status based on confirmed tags
+            blobbiQuests = blobbiQuests.map(quest => {
               const confirmationTag = `${quest.id}_confirmed`;
               const isConfirmed = confirmedTags.some(tag => tag[0] === confirmationTag);
               if (isConfirmed) {
@@ -1009,14 +1109,19 @@ export function useBlobbiQuestSystem() {
               return quest;
             });
             
+            // Update the per-Blobbi quest progress
+            const newBlobbiQuestProgress = new Map(prev.questState.blobbiQuestProgress);
+            newBlobbiQuestProgress.set(babyId, blobbiQuests);
+            
             const selectedBlobbi = prev.blobbis.find(b => b.id === babyId);
             
             return {
               ...prev,
               questState: {
                 ...prev.questState,
-                babyToAdultQuests: updatedQuests,
+                babyToAdultQuests: blobbiQuests,
                 selectedBlobbi: selectedBlobbi,
+                blobbiQuestProgress: newBlobbiQuestProgress,
               },
             };
           });
@@ -1108,6 +1213,9 @@ export function useBlobbiQuestSystem() {
         babyToAdultQuests: [...BABY_TO_ADULT_QUESTS],
         uniqueReactionTargets: new Set(),
         uniqueRepostTargets: new Set(),
+        blobbiQuestProgress: new Map(),
+        blobbiUniqueReactionTargets: new Map(),
+        blobbiUniqueRepostTargets: new Map(),
       },
     }));
   }, []);
@@ -1126,6 +1234,7 @@ export function useBlobbiQuestSystem() {
     questProgress,
     isReadyToEvolve,
     isBabyReadyToEvolve,
+    getBlobbiQuestProgress, // New function to get progress for specific Blobbi
     
     // Subscription status
     metadataSubscriptionActive: state.metadataSubscriptionActive,

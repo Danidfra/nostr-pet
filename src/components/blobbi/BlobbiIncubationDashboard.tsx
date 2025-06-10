@@ -65,6 +65,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
     questProgress,
     isReadyToEvolve: isQuestReadyToEvolve,
     isBabyReadyToEvolve,
+    getBlobbiQuestProgress,
     questSubscriptionActive,
     blobbiHashtagSubscriptionActive,
     isListening: isQuestListening,
@@ -529,11 +530,18 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                         </div>
 
                         <div className="w-full space-y-2">
-                          <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                            <span>Evolution Progress</span>
-                            <span>{questProgress.completed}/{questProgress.total}</span>
-                          </div>
-                          <Progress value={questProgress.percentage} className="h-2" />
+                          {(() => {
+                            const blobbiProgress = getBlobbiQuestProgress(blobbi.id);
+                            return (
+                              <>
+                                <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                                  <span>Evolution Progress</span>
+                                  <span>{blobbiProgress.completed}/{blobbiProgress.total}</span>
+                                </div>
+                                <Progress value={blobbiProgress.percentage} className="h-2" />
+                              </>
+                            );
+                          })()}
                           {isBabyReadyToEvolve(blobbi) ? (
                             selectedBabyId === blobbi.id ? (
                               <Button 
