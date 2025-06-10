@@ -78,7 +78,7 @@ const EGG_HATCHING_TASKS: EggHatchingTask[] = [
   },
 ];
 
-// Define evolution tasks (14 tasks total)
+// Define evolution tasks (13 tasks total)
 const EVOLUTION_TASKS: EvolutionTask[] = [
   {
     id: 'publish_3_posts',
@@ -151,16 +151,7 @@ const EVOLUTION_TASKS: EvolutionTask[] = [
     },
     completed: false,
   },
-  {
-    id: 'update_profile',
-    name: 'Update profile',
-    description: 'Update your profile information',
-    eventKind: 0,
-    checkFunction: (event: NostrEvent, userPubkey: string) => {
-      return event.pubkey === userPubkey && event.kind === 0;
-    },
-    completed: false,
-  },
+
   {
     id: 'create_long_note',
     name: 'Create long note',
@@ -355,10 +346,7 @@ export function useBlobbiIncubationSystem() {
         title: '🌟 Custom Reaction Complete!',
         description: 'Creative reaction! Your Blobbi appreciates your unique expression!'
       },
-      'update_profile': {
-        title: '🌟 Profile Update Complete!',
-        description: 'Profile updated! Your Blobbi is proud of your polished presence!'
-      },
+
       'create_long_note': {
         title: '🌟 Long Note Complete!',
         description: 'Impressive long-form content! Your Blobbi admires your thoughtful writing!'
@@ -939,11 +927,11 @@ export function useBlobbiIncubationSystem() {
       // Create filters to capture events with p tag mentioning the user AND events authored by the user
       const filters: Array<{ kinds: number[]; '#p'?: string[]; authors?: string[]; since?: number }> = [
         {
-          kinds: [0, 1, 3, 6, 7, 9735], // Updated to include kind 0 as per the markdown
+          kinds: [1, 3, 6, 7, 9735], // Removed kind:0 since it's no longer needed
           '#p': [user.pubkey], // Using p tag filter as requested
         },
         {
-          kinds: [0, 1, 3, 6, 7, 9735], // Same kinds for events authored by user
+          kinds: [1, 3, 6, 7, 9735], // Same kinds for events authored by user (removed kind:0)
           authors: [user.pubkey], // Events authored by the user
         }
       ];
