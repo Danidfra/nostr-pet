@@ -24,17 +24,13 @@ This project is a Nostr client application built with React 18.x, TailwindCSS 3.
   - `useCurrentUser`: Get currently logged-in user
   - `useNostrPublish`: Publish events to Nostr
   - `useUploadFile`: Upload files via Blossom servers
-  - `useAppContext`: Access global app configuration
-  - `useTheme`: Theme management
   - `useToast`: Toast notifications
-  - `useLocalStorage`: Persistent local storage
   - `useLoggedInAccounts`: Manage multiple accounts
   - `useLoginActions`: Authentication actions
   - `useIsMobile`: Responsive design helper
 - `/src/pages/`: Page components used by React Router (Index, NotFound)
 - `/src/lib/`: Utility functions and shared logic
-- `/src/contexts/`: React context providers (AppContext)
-- `/src/test/`: Testing utilities including TestApp component
+- `/src/contexts/`: React context providers
 - `/public/`: Static assets
 - `App.tsx`: Main app component with provider setup
 - `AppRouter.tsx`: React Router configuration
