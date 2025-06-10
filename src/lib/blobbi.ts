@@ -32,7 +32,7 @@ const ACTION_EFFECTS: Record<BlobbiAction, Partial<BlobbiStats>> = {
   sing: { happiness: 15, energy: -5 },
   talk: { happiness: 10 },
   medicine: { health: 30, happiness: -5 }, // For eggs: stronger shell health; For baby/adult: general health
-  cruzar: { happiness: 20, energy: -10 }, // Special breeding action
+  cruzar: { happiness: 20, energy: -10 }, // Breed action
 };
 
 // DEPRECATED: These cooldown constants are superseded by the comprehensive cooldown system

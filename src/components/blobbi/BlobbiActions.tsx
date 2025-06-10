@@ -263,15 +263,15 @@ export function BlobbiActions({
       },
     ];
 
-    // Add cruzar action for adult Blobbis
+    // Add breed action for adult Blobbis
     if (blobbi.lifeStage === 'adult') {
       baseActions.push({
         action: 'cruzar' as BlobbiAction,
         icon: Heart,
-        label: 'Cruzar',
+        label: 'Breed',
         color: 'hover:bg-pink-100',
-        disabled: !blobbi.breedingReady || blobbi.state === 'sleeping',
-        tooltip: !blobbi.breedingReady ? 'Not ready for breeding' : blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : 'Special breeding action',
+        disabled: true, // Temporarily disabled
+        tooltip: 'Breeding feature coming soon',
       });
     }
 

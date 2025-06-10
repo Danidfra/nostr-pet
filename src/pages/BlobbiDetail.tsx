@@ -50,6 +50,8 @@ import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AppHeader } from '@/components/AppHeader';
 import { formatDistanceToNow } from 'date-fns';
+import { getActionDisplayName } from '@/lib/utils';
+import { BlobbiAction } from '@/types/blobbi';
 import { checkEggHatchingReadiness, checkBabyEvolutionReadiness } from '@/lib/blobbi-evolution';
 import { isValidSize } from '@/lib/blobbi-egg-validation';
 
@@ -111,7 +113,7 @@ export default function BlobbiDetail() {
   const [showCustomization, setShowCustomization] = useState(false);
   const [showGames, setShowGames] = useState(false);
   const [showStorage, setShowStorage] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('actions');
   
   // Select the current Blobbi for incubation/evolution tracking
   useEffect(() => {
@@ -183,7 +185,7 @@ export default function BlobbiDetail() {
   const babyReadiness = blobbi.lifeStage === 'baby' ? checkBabyEvolutionReadiness(blobbi) : null;
 
   // Mock interaction history (in a real app, this would come from Nostr events)
-  const interactionHistory = [
+  const interactionHistory: Array<{ id: string; action: BlobbiAction; timestamp: number; result: string }> = [
     { id: '1', action: 'feed', timestamp: Date.now() - 3600000, result: 'Blobbi enjoyed the meal!' },
     { id: '2', action: 'play', timestamp: Date.now() - 7200000, result: 'Blobbi had fun playing!' },
     { id: '3', action: 'clean', timestamp: Date.now() - 10800000, result: 'Blobbi feels fresh and clean!' },
@@ -417,6 +419,12 @@ export default function BlobbiDetail() {
               <CardContent className="p-2">
                 <TabsList className="grid w-full grid-cols-5 bg-purple-50/50 dark:bg-purple-900/20">
                   <TabsTrigger 
+                    value="actions"
+                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                  >
+                    Actions
+                  </TabsTrigger>
+                  <TabsTrigger 
                     value="overview"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
                   >
@@ -440,15 +448,39 @@ export default function BlobbiDetail() {
                   >
                     Social
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="actions"
-                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                  >
-                    Actions
-                  </TabsTrigger>
                 </TabsList>
               </CardContent>
             </Card>
+
+            {/* Actions Tab */}
+            <TabsContent value="actions">
+              {isOwner ? (
+                <BlobbiActions 
+                  blobbi={blobbi}
+                  onAction={performAction}
+                  isPerformingAction={isPerformingAction}
+                  onGamesClick={() => setShowGames(true)}
+                  onOpenShop={() => setShowShop(true)}
+                />
+              ) : (
+                <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Share className="w-5 h-5" />
+                      Viewing Mode
+                    </CardTitle>
+                    <CardDescription>
+                      You're viewing someone else's Blobbi
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Only the owner can interact with this Blobbi. You can view its stats and evolution progress.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6">
@@ -553,7 +585,7 @@ export default function BlobbiDetail() {
                           <Activity className="w-4 h-4 text-blue-600" />
                         </div>
                         <div className="flex-1">
-                          <div className="font-medium capitalize">{interaction.action}</div>
+                          <div className="font-medium">{getActionDisplayName(interaction.action)}</div>
                           <div className="text-sm text-muted-foreground">{interaction.result}</div>
                           <div className="text-xs text-muted-foreground">
                             {formatDistanceToNow(interaction.timestamp, { addSuffix: true })}
@@ -1119,7 +1151,7 @@ export default function BlobbiDetail() {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
-                            <div className="font-medium capitalize">{interaction.action}</div>
+                            <div className="font-medium">{getActionDisplayName(interaction.action)}</div>
                             <div className="text-xs text-muted-foreground">
                               {formatDistanceToNow(interaction.timestamp, { addSuffix: true })}
                             </div>
@@ -1222,35 +1254,7 @@ export default function BlobbiDetail() {
               </Card>
             </TabsContent>
 
-            {/* Actions Tab */}
-            <TabsContent value="actions">
-              {isOwner ? (
-                <BlobbiActions 
-                  blobbi={blobbi}
-                  onAction={performAction}
-                  isPerformingAction={isPerformingAction}
-                  onGamesClick={() => setShowGames(true)}
-                  onOpenShop={() => setShowShop(true)}
-                />
-              ) : (
-                <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Share className="w-5 h-5" />
-                      Viewing Mode
-                    </CardTitle>
-                    <CardDescription>
-                      You're viewing someone else's Blobbi
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      Only the owner can interact with this Blobbi. You can view its stats and evolution progress.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
+
           </Tabs>
         </div>
       </div>
