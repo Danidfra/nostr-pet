@@ -1,667 +1,148 @@
-# NIP-XX: Blobbi Virtual Pet Lifecycle Events
+# NIP-XX: Blobbi Virtual Pet Events
 
 `draft` `optional`
 
-This NIP defines event kinds `31124`, `14919`, `14920`, `14921`, and `31125` for managing virtual pet (Blobbi) lifecycle stages, interactions, breeding, permanent records, and owner profiles on Nostr.
+This NIP defines event kinds for managing virtual pets called "Blobbi" on Nostr.
 
-## Abstract
+## Event Kinds
 
-This specification describes a system for creating, managing, and interacting with virtual pets called "Blobbi" on the Nostr network. Blobbi pets progress through three distinct life stages (egg, baby, and adult), each with unique care requirements and interaction possibilities. The system uses five event kinds: replaceable events for current state and owner profiles, regular events for interactions and breeding, and immutable records for permanent history.
+- **Kind 31124**: Current pet state (replaceable)
+- **Kind 14919**: Pet interactions (regular)
+- **Kind 14920**: Pet breeding (regular)
+- **Kind 14921**: Pet records (regular, immutable)
+- **Kind 31125**: Owner profile (replaceable)
 
-## Motivation
+## Pet Lifecycle
 
-Virtual pets provide an engaging way for users to interact on Nostr beyond traditional social messaging. By standardizing Blobbi lifecycle events, we enable:
-- Cross-client compatibility for virtual pet experiences
-- Persistent pet state across different applications
-- Social interactions through pet care and evolution milestones
-- Gamification elements that encourage regular platform engagement
-- Immutable historical records of pet milestones and lineage
-- Real-time state updates that can be efficiently queried
-- Breeding mechanics for creating new generations
-- Owner profile management with achievements and inventory
-
-## Event Structure
-
-The Blobbi system uses five distinct event kinds to manage different aspects of virtual pet lifecycle:
-
-### Kind 31124: Blobbi Current State (Replaceable)
-This replaceable event contains the current state of the Blobbi, including:
-- Current lifecycle stage (egg, baby, adult)
-- Current stats (hunger, happiness, health, hygiene, energy)
-- Evolution progress and requirements
-- Active traits and abilities
-- Current appearance and characteristics
-
-This event is updated whenever the Blobbi's state changes (through interactions, time passage, or evolution). Clients should query for the most recent event of this kind to get the current Blobbi state.
-
-### Kind 14919: Blobbi Interactions (Regular)
-These regular events record individual interactions with the Blobbi, such as:
-- Feeding, playing, cleaning, resting
-- Medical care and grooming
-- Training and skill development
-- Social interactions with other Blobbi
-
-Each interaction generates a new event, creating a complete activity log. These events are used to calculate state changes and track care patterns.
-
-### Kind 14920: Blobbi Breeding Events (Regular)
-These regular events record breeding attempts between two Blobbi:
-- Parent information and owner details
-- Breeding success or failure
-- Offspring generation and traits
-- Breeding conditions and timing
-
-### Kind 14921: Blobbi Records (Regular, Immutable)
-These regular events serve as permanent, immutable records of significant milestones:
-- Birth/adoption information and initial traits
-- Hatching records with revealed traits
-- Evolution milestones and transformations
-- Major achievements and titles earned
-- Unique life events and special moments
-
-These records form the permanent history and lineage of each Blobbi, never to be modified or replaced.
-
-### Kind 31125: Blobbanaut Profile (Addressable)
-This addressable event contains the owner's profile and game progress:
-- Display name and personal information
-- In-game currency (coins) and achievements
-- Owned Blobbi collection and favorites
-- Item storage and inventory management
-- Petting level and lifetime statistics
-
-## Lifecycle Stages
+Blobbi pets have three stages: **egg** → **baby** → **adult**
 
 ### Egg Stage
+- Requires daily care for 4+ days to hatch
+- Care actions: warm, clean, check, sing, talk
+- Each action gives care points (max 10 per day)
+- Need 40+ total care points to hatch
 
-**Description**: The initial stage when a user adopts a Blobbi. The egg requires consistent daily care over multiple days to prepare for hatching.
-
-**State Event**: Kind `31124` with `stage` tag set to "egg"
-**Birth Record**: Kind `14921` containing adoption/birth information
-**Interactions**: Kind `14919` for care actions (warming, cleaning, checking, etc.)
-
-**Hatching Requirements**:
-- **Duration**: 4 full real days minimum since adoption
-- **Care Points**: At least 40 total care points required
-- **Daily Care Cap**: Maximum 10 care points can be earned per day
-- **Distinct Care Days**: Must provide care on at least 4 different days
-- **Health Penalty**: If egg health drops below 50%, one penalty day is added to the required duration
-
-**Care Mechanics**:
-- Care points are earned through various interaction types (warming, cleaning, checking, singing, talking)
-- Each interaction type provides different care point values
-- Daily care is capped at 10 points to ensure consistent multi-day engagement
-- The 4-day requirement ensures eggs cannot be rushed to hatching
-
-**Care Requirements**:
-- Temperature regulation (keep warmth above 50%)
-- Regular cleaning (maintain cleanliness above 50%)
-- Health monitoring (keep health above 50% to avoid penalties)
-- Daily interactions to earn care points
-
-### Baby Stage (Post-Hatch Phase)
-
-**Description**: The newly hatched Blobbi enters a special post-hatch phase requiring continued daily care before becoming a full adult.
-
-**State Event**: Kind `31124` with `stage` tag set to "baby"
-**Hatching Record**: Kind `14921` containing hatching milestone and revealed traits
-**Interactions**: Kind `14919` for care actions (feeding, playing, cleaning, etc.)
-
-**Post-Hatch Phase Requirements** (for Blobbis hatched from eggs):
-- **Duration**: 10 days minimum since hatching
-- **Daily Care Cap**: Care points are still capped daily (configurable per implementation)
-- **Health Penalty**: If health drops below 50%, one penalty day is added to the required duration
-- **Completion**: After 10 days (plus any penalty days), the Blobbi becomes a full adult
-
-**Standard Evolution Conditions** (for directly adopted Blobbis):
-- Minimum age: 7 days since adoption
-- Care score: ≥ 150 points
-- At least 50 interaction events
-- Happiness level: ≥ 70%
-- Health level: ≥ 80%
-
-**Care Requirements**:
-- Feeding every 4-6 hours
-- Play sessions (3-4 times daily)
-- Cleaning when hygiene < 50%
-- Rest periods (8-10 hours daily)
-- Medical attention when sick
-- Daily care point tracking (for post-hatch phase)
+### Baby Stage
+- Newly hatched pets need 10 days of care
+- Care actions: feed, play, clean, rest
+- Stats: hunger, happiness, health, hygiene, energy (0-100)
 
 ### Adult Stage
+- Fully evolved pets with established traits
+- Lower maintenance requirements
+- Can breed with other adults
 
-**Description**: The fully evolved Blobbi with established personality traits and advanced interaction capabilities.
+## Event Examples
 
-**State Event**: Kind `31124` with `stage` tag set to "adult"
-**Evolution Record**: Kind `14921` containing evolution milestone and final form details
-**Interactions**: Kind `14919` for advanced care and social interactions
-
-**Evolution Conditions**:
-- This is the final stage (no further evolution)
-
-**Care Requirements**:
-- Feeding every 8-12 hours
-- Play sessions (1-2 times daily)
-- Cleaning when hygiene < 30%
-- Rest periods (6-8 hours daily)
-- Social interactions with other Blobbi
-
-## Interaction Events
-
-**Kind**: `14919` (Blobbi Interaction Event)
-
-Interaction events modify the Blobbi's status attributes and contribute to evolution requirements. Each interaction generates a new event that is processed to update the current state (Kind 31124).
-
-### Interaction Types and Effects
-
-| Action | Hunger | Happiness | Health | Hygiene | Energy |
-|--------|--------|-----------|---------|----------|---------|
-| Feed   | +30    | +10       | +5      | -5       | +10     |
-| Play   | -10    | +25       | +5      | -10      | -20     |
-| Clean  | 0      | +5        | +10     | +40      | -5      |
-| Rest   | -5     | 0         | +15     | 0        | +30     |
-| Medicine | 0    | -10       | +30     | 0        | -5      |
-| Pet    | 0      | +15       | +5      | 0        | -5      |
-
-**Note**: Care points for egg and post-hatch phases are tracked separately from these stat effects. Each interaction type awards different care point values during these phases, with daily caps enforced.
-
-## Event Formats
-
-### Kind 31124: Blobbi Current State (Replaceable)
-
-This replaceable event contains the current state of the Blobbi. The `d` tag contains the unique Blobbi identifier.
+### Kind 31124: Pet State
 
 ```json
 {
-  "id": "a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890",
-  "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
-  "created_at": 1717087000,
   "kind": 31124,
   "tags": [
-    ["d", "b-a7f1c2e8d3b9f6c1"],
+    ["d", "blobbi-fluffy"],
     ["stage", "baby"],
-    ["generation", "1"],
     ["hunger", "75"],
     ["happiness", "85"],
     ["health", "90"],
     ["hygiene", "60"],
-    ["energy", "70"],
-    ["experience", "150"],
-    ["care_streak", "5"],
-    ["evolution_progress", "3"],
-    ["evolution_required", "4"],
-    ["base_color", "#9999ff"],
-    ["secondary_color", "#ccccff"],
-    ["pattern", "gradient"],
-    ["eye_color", "#6633cc"],
-    ["personality", "playful"],
-    ["personality", "curious"],
-    ["trait", "fast_learner"],
-    ["trait", "social"],
-    ["size", "small"],
-    ["shape", "round"],
-    ["special_mark", "star_forehead"],
-    ["voice_type", "chirpy"],
-    ["favorite_food", "starberries"],
-    ["last_fed", "1717086000"],
-    ["last_played", "1717085000"],
-    ["last_cleaned", "1717084000"],
-    ["mood", "happy"],
-    ["activity_state", "playing"]
+    ["energy", "70"]
   ],
-  "content": "Current state of Fluffy the baby Blobbi. Playful and curious, with sparkling purple eyes and a star-shaped mark on its forehead. Currently happy and energetic!",
-  "sig": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855f4e1c80a1b3a7f1fddc3b342e56789ab75d8f3dabe1c2b934cf2e56789a7c3210"
+  "content": "Fluffy is a happy baby Blobbi"
 }
 ```
 
-### Kind 14921: Blobbi Birth Record (Immutable)
-
-This event records the permanent birth/adoption information of a Blobbi.
+### Kind 14919: Interaction
 
 ```json
 {
-  "id": "b2c3d4e5f67890123456789012345678901234567890123456789012345678901",
-  "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
-  "created_at": 1717000000,
-  "kind": 14921,
+  "kind": 14919,
   "tags": [
-    ["blobbi_id", "b-a7f1c2e8d3b9f6c1"],
-    ["record_type", "birth"],
-    ["generation", "1"],
-    ["origin", "wild"],
-    ["birth_location", "enchanted_grove"],
-    ["weather_at_birth", "misty_morning"],
-    ["shell_color", "#ccccff"],
-    ["shell_pattern", "speckled"],
-    ["initial_trait", "warm"],
-    ["initial_trait", "quiet"],
-    ["initial_trait", "mysterious"],
-    ["rarity", "uncommon"],
-    ["parent_1", "b-d9e8f7c6b5a4"],
-    ["parent_2", "b-c8b7a6d5e4f3"],
-    ["lineage_depth", "3"],
-    ["genetic_marker", "stellar_line"],
-    ["birth_season", "spring"],
-    ["birth_moon_phase", "new_moon"],
-    ["creator", "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6"],
-    ["design_url", "https://github.com/blobbi-project/designs/egg-v1"],
-    ["adopted_from", "BlobbiWorld/1.0.0"],
-    ["adoption_fee", "1000"]
+    ["blobbi_id", "blobbi-fluffy"],
+    ["action", "feed"],
+    ["stat_change", "hunger:+30"]
   ],
-  "content": "Birth record: A mysterious Blobbi egg has been adopted from the wild! 🌿🥚 This speckled egg radiates a gentle warmth and occasionally trembles with life. Born under a new moon in the enchanted grove during a misty spring morning.",
-  "sig": "f4e1c80a1b3a7f1fddc3b342e56789ab75d8f3dabe1c2b934cf2e56789a7c3210e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  "content": "Fed Fluffy some berries"
 }
 ```
 
-### Kind 14920: Blobbi Breeding Event
-
-This event records a breeding attempt between two Blobbi.
+### Kind 14920: Breeding
 
 ```json
 {
-  "id": "b2c3d4e5f67890123456789012345678901234567890123456789012345678901",
-  "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
-  "created_at": 1717087000,
   "kind": 14920,
   "tags": [
-    ["parent_a", "b-fluffy123"],
-    ["parent_b", "b-sparkle456"],
-    ["owner_a", "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6"],
-    ["owner_b", "a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890"],
-    ["breed_time", "2024-05-30T14:30:00.000Z"],
+    ["parent_a", "blobbi-fluffy"],
+    ["parent_b", "blobbi-sparkle"],
     ["success", "true"],
-    ["offspring_id", "b-newbaby789"],
-    ["generation", "2"],
-    ["breeding_location", "enchanted_grove"],
-    ["compatibility_score", "85"],
-    ["inherited_traits", "playful,curious,fast_learner"]
+    ["offspring_id", "blobbi-baby"]
   ],
-  "content": "New life is forming ✨ Fluffy and Sparkle have successfully bred, creating a new generation 2 Blobbi with inherited traits of playfulness and curiosity!",
-  "sig": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855f4e1c80a1b3a7f1fddc3b342e56789ab75d8f3dabe1c2b934cf2e56789a7c3210"
+  "content": "New Blobbi born from Fluffy and Sparkle"
 }
 ```
 
-### Kind 14921: Blobbi Evolution Record (Immutable)
-
-This event records a permanent evolution milestone.
+### Kind 14921: Record
 
 ```json
 {
-  "id": "c3d4e5f678901234567890123456789012345678901234567890123456789012",
-  "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
-  "created_at": 1717691200,
   "kind": 14921,
   "tags": [
-    ["blobbi_id", "b-a7f1c2e8d3b9f6c1"],
-    ["record_type", "evolution"],
-    ["e", "b2c3d4e5f67890123456789012345678901234567890123456789012345678901", "wss://relay.example.com", "reply"],
-    ["evolution_from", "baby"],
-    ["evolution_to", "adult"],
-    ["evolved_at", "1717691200"],
-    ["evolution_duration", "604800"],
-    ["evolution_type", "natural"],
-    ["final_form", "celestial_guardian"],
-    ["care_days_completed", "7"],
-    ["total_interactions", "156"],
-    ["evolution_trigger", "care_milestone"],
-    ["primary_color", "#6666ff"],
-    ["secondary_color", "#9999ff"],
-    ["tertiary_color", "#ccccff"],
-    ["pattern", "cosmic_swirl"],
-    ["size", "medium"],
-    ["wingspan", "large"],
-    ["special_ability", "starlight_dash"],
-    ["special_ability", "healing_aura"],
-    ["passive_trait", "night_vision"],
-    ["passive_trait", "weather_sense"],
-    ["achievement", "perfect_care_week"],
-    ["achievement", "social_butterfly"],
-    ["title_earned", "Star Guardian"],
-    ["design_url", "https://github.com/blobbi-project/designs/adult-celestial-v1"],
-    ["animation_set", "majestic_float"],
-    ["sound_pack", "celestial_harmonies"],
-    ["legacy_trait", "stellar_offspring"]
+    ["blobbi_id", "blobbi-fluffy"],
+    ["record_type", "birth"],
+    ["origin", "wild"],
+    ["rarity", "uncommon"]
   ],
-  "content": "Evolution milestone: Fluffy has transformed into a magnificent Celestial Guardian! ✨ After 7 days of dedicated care and 156 interactions, this baby Blobbi evolved into its final form with cosmic swirls and starlight abilities. Now bearing the title of Star Guardian, it watches over other Blobbi with wisdom and grace.",
-  "sig": "1b3a7f1fddc3b342e56789ab75d8f3dabe1c2b934cf2e56789a7c3210e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855f4e1c80a"
+  "content": "Fluffy was adopted from the wild"
 }
 ```
 
-### Kind 14919: Blobbi Interaction Event
-
-This event records individual interactions with the Blobbi.
+### Kind 31125: Owner Profile
 
 ```json
 {
-  "id": "d4e5f6789012345678901234567890123456789012345678901234567890123",
-  "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
-  "created_at": 1717087000,
-  "kind": 14919,
-  "tags": [
-    ["blobbi_id", "b-a7f1c2e8d3b9f6c1"],
-    ["action", "feed"],
-    ["action_category", "care"],
-    ["item_used", "premium_starberries"],
-    ["item_quality", "excellent"],
-    ["location", "home_garden"],
-    ["weather", "sunny"],
-    ["time_of_day", "morning"],
-    ["blobbi_mood_before", "hungry"],
-    ["blobbi_mood_after", "satisfied"],
-    ["animation_played", "happy_eating"],
-    ["sound_played", "nom_nom_delighted"],
-    ["stat_change", "hunger", "+35"],
-    ["stat_change", "happiness", "+15"],
-    ["stat_change", "health", "+8"],
-    ["stat_change", "energy", "+12"],
-    ["bonus_applied", "favorite_food_bonus"],
-    ["experience_gained", "10"],
-    ["care_streak", "5"],
-    ["achievement_progress", "gourmet_chef", "15/50"],
-    ["companion_reaction", "b-d9e8f7c6b5a4", "jealous"],
-    ["special_event", "discovered_new_flavor"],
-    ["memory_created", "first_starberry_feast"]
-  ],
-  "content": "🍇 Fed premium starberries to Fluffy! The baby Blobbi's eyes lit up with delight as it savored its favorite food. It performed a happy dance and chirped melodiously. The morning sunshine made the berries extra sweet! Fluffy discovered a new flavor combination and will remember this special meal.",
-  "sig": "298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855f4e1c80a1b3a7f1fddc3b342e56789ab75d8f3dabe1c2b934cf2e56789a7c3210e3b0c44"
-}
-```
-
-## Additional Interaction Examples
-
-### Play Interaction
-
-```json
-{
-  "id": "e5f67890123456789012345678901234567890123456789012345678901234",
-  "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
-  "created_at": 1717090600,
-  "kind": 14919,
-  "tags": [
-    ["blobbi_id", "b-a7f1c2e8d3b9f6c1"],
-    ["e", "b2c3d4e5f67890123456789012345678901234567890123456789012345678901", "wss://relay.example.com", "reply"],
-    ["action", "play"],
-    ["action_category", "enrichment"],
-    ["game_type", "cosmic_catch"],
-    ["toy_used", "glowing_orb"],
-    ["play_duration", "900"],
-    ["location", "starlight_meadow"],
-    ["play_partner", "b-d9e8f7c6b5a4"],
-    ["stat_change", "happiness", "+30"],
-    ["stat_change", "energy", "-25"],
-    ["stat_change", "hunger", "-15"],
-    ["skill_improved", "agility", "+2"],
-    ["bond_increased", "b-d9e8f7c6b5a4", "+5"],
-    ["achievement_unlocked", "first_friend"],
-    ["new_move_learned", "spiral_jump"]
-  ],
-  "content": "🎮 Played cosmic catch with Fluffy and their friend Sparkle! The two Blobbi bounced and spiraled through the air, chasing the glowing orb. Fluffy learned a new spiral jump move and strengthened their friendship bond!",
-  "sig": "3b342e56789ab75d8f3dabe1c2b934cf2e56789a7c3210e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855f4e1c80a1b3a7f1fddc"
-}
-```
-
-### Clean Interaction
-
-```json
-{
-  "id": "f67890123456789012345678901234567890123456789012345678901234567",
-  "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
-  "created_at": 1717094200,
-  "kind": 14919,
-  "tags": [
-    ["blobbi_id", "b-a7f1c2e8d3b9f6c1"],
-    ["e", "b2c3d4e5f67890123456789012345678901234567890123456789012345678901", "wss://relay.example.com", "reply"],
-    ["action", "clean"],
-    ["action_category", "hygiene"],
-    ["cleaning_type", "bubble_bath"],
-    ["water_temperature", "warm"],
-    ["soap_used", "lavender_bubbles"],
-    ["grooming_tool", "soft_brush"],
-    ["stat_change", "hygiene", "+45"],
-    ["stat_change", "happiness", "+8"],
-    ["stat_change", "health", "+12"],
-    ["special_effect", "sparkly_clean"],
-    ["scent_applied", "lavender_dreams"],
-    ["mood_boost", "relaxed"]
-  ],
-  "content": "🛁 Gave Fluffy a luxurious bubble bath! The baby Blobbi splashed playfully in the warm lavender bubbles. Now sparkling clean with a lovely scent, Fluffy feels refreshed and relaxed.",
-  "sig": "4c8996fb92427ae41e4649b934ca495991b7852b855f4e1c80a1b3a7f1fddc3b342e56789ab75d8f3dabe1c2b934cf2e56789a7c3210e3b0c44298fc1c149afbf"
-}
-```
-
-### Rest Interaction
-
-```json
-{
-  "id": "078901234567890123456789012345678901234567890123456789012345678",
-  "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
-  "created_at": 1717108800,
-  "kind": 14919,
-  "tags": [
-    ["blobbi_id", "b-a7f1c2e8d3b9f6c1"],
-    ["e", "b2c3d4e5f67890123456789012345678901234567890123456789012345678901", "wss://relay.example.com", "reply"],
-    ["action", "rest"],
-    ["action_category", "recovery"],
-    ["rest_type", "deep_sleep"],
-    ["bed_type", "cloud_nest"],
-    ["lullaby_played", "stellar_symphony"],
-    ["sleep_duration", "28800"],
-    ["dream_type", "adventure"],
-    ["stat_change", "energy", "+40"],
-    ["stat_change", "health", "+20"],
-    ["stat_change", "happiness", "+5"],
-    ["growth_bonus", "+2"],
-    ["dream_memory", "flying_through_stars"]
-  ],
-  "content": "😴 Tucked Fluffy into their cozy cloud nest for a deep sleep. Soft stellar symphonies played as they drifted off to dreamland. Fluffy dreamed of flying through stars and woke up fully refreshed!",
-  "sig": "5dabe1c2b934cf2e56789a7c3210e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855f4e1c80a1b3a7f1fddc3b342e56789ab75d8f3"
-}
-```
-
-### Kind 31125: Blobbanaut Profile Event
-
-This addressable event contains the owner's profile and game progress.
-
-```json
-{
-  "id": "a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890",
-  "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
-  "created_at": 1717087000,
   "kind": 31125,
   "tags": [
     ["d", "blobbanaut-profile"],
-    ["name", "Alex the Blobbanaut"],
     ["coins", "2500"],
-    ["pettingLevel", "15"],
-    ["lifetimeBlobbis", "8"],
-    ["favoriteBlobbi", "b-fluffy123"],
-    ["starterBlobbi", "b-firstpet456"],
-    ["style", "cosmic_explorer"],
-    ["background", "starfield"],
-    ["title", "Blobbi Whisperer"],
-    ["has", "b-fluffy123"],
-    ["has", "b-sparkle456"],
-    ["has", "b-cosmic789"],
-    ["achievements", "first_adoption"],
-    ["achievements", "perfect_care_week"],
-    ["achievements", "evolution_master"],
-    ["storage", "premium_food:5"],
-    ["storage", "cosmic_toy:2"],
-    ["storage", "healing_potion:3"]
+    ["has", "blobbi-fluffy"],
+    ["has", "blobbi-sparkle"],
+    ["achievements", "first_adoption"]
   ],
-  "content": "",
-  "sig": "6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f"
+  "content": ""
 }
 ```
 
-## Tag Specifications
+## Key Tags
 
-### Common Tags for All Events
+### Kind 31124 (Pet State)
+- `d`: Pet ID (required)
+- `stage`: "egg", "baby", or "adult"
+- `hunger`, `happiness`, `health`, `hygiene`, `energy`: 0-100
 
-- `blobbi_id`: Unique identifier for the Blobbi (format: "b-[16 char hex]")
-- `e`: References to related events (birth records, evolution records, etc.)
-- `generation`: Breeding generation number
+### Kind 14919 (Interactions)
+- `blobbi_id`: Pet ID
+- `action`: "feed", "play", "clean", "rest", "warm", "check", "sing", "talk"
+- `stat_change`: "stat_name:+/-value"
 
-### Kind 31124 (Current State) Tags
+### Kind 14920 (Breeding)
+- `parent_a`, `parent_b`: Parent pet IDs
+- `success`: "true" or "false"
+- `offspring_id`: New pet ID (if successful)
 
-- `d`: Unique identifier for the Blobbi (same as blobbi_id, required for replaceable events)
-- `stage`: Current lifecycle stage ("egg", "baby", "adult")
-- `hunger`, `happiness`, `health`, `hygiene`, `energy`: Current stat values (0-100)
-- `experience`: Total experience points earned
-- `care_streak`: Current consecutive care days
-- `evolution_progress`: Days of care completed toward evolution
-- `evolution_required`: Total days of care required for evolution
-- `base_color`, `secondary_color`, `tertiary_color`: Color attributes
-- `pattern`: Visual pattern type
-- `personality`: Personality traits (multiple allowed)
-- `trait`: Active traits (multiple allowed)
-- `size`, `shape`: Physical characteristics
-- `special_mark`: Unique identifying features
-- `mood`: Current emotional state
-- `activity_state`: Current activity ("sleeping", "playing", "eating", etc.)
-- `last_fed`, `last_played`, `last_cleaned`: Timestamps of last care actions
+### Kind 14921 (Records)
+- `blobbi_id`: Pet ID
+- `record_type`: "birth", "hatched", "evolution", "adoption"
 
-### Kind 14920 (Breeding Events) Tags
+### Kind 31125 (Owner Profile)
+- `d`: Profile ID (required)
+- `coins`: Currency amount
+- `has`: Owned pet IDs (multiple)
+- `achievements`: Achievement IDs (multiple)
 
-- `parent_a`: Blobbi ID of the first parent
-- `parent_b`: Blobbi ID of the second parent
-- `owner_a`: Pubkey of the first parent's owner
-- `owner_b`: Pubkey of the second parent's owner
-- `breed_time`: ISO timestamp of when breeding occurred
-- `success`: Boolean indicating if breeding was successful ("true" or "false")
-- `offspring_id`: Blobbi ID of the resulting offspring (if successful)
-- `generation`: Generation number of the offspring
-- `breeding_location`: Where the breeding took place
-- `compatibility_score`: Numeric compatibility rating between parents
-- `inherited_traits`: Comma-separated list of traits passed to offspring
+## Implementation Notes
 
-### Kind 14921 (Records) Tags
-
-#### Birth Records
-- `record_type`: Set to "birth" for birth/adoption records
-- `origin`: Source of the Blobbi ("wild", "bred", "gift", "special_event")
-- `birth_location`: Where the Blobbi was born/found
-- `weather_at_birth`: Weather conditions at birth
-- `shell_color`, `shell_pattern`: Egg appearance (for egg stage)
-- `initial_trait`: Starting traits (multiple allowed)
-- `rarity`: Rarity classification
-- `parent_1`, `parent_2`: Parent Blobbi IDs (for bred Blobbis)
-- `lineage_depth`: Generations from original wild Blobbi
-- `genetic_marker`: Lineage family identifier
-- `creator`: The pubkey of the Blobbi owner
-- `adopted_from`: Client name and version that generated the event
-
-#### Evolution Records
-- `record_type`: Set to "evolution" for evolution milestones
-- `evolution_from`: Previous stage
-- `evolution_to`: New stage
-- `evolved_at`: Timestamp of evolution
-- `evolution_duration`: Time spent in previous stage
-- `evolution_type`: Type of evolution ("natural", "special", "forced")
-- `final_form`: The specific adult variant achieved (for adult evolution)
-- `care_days_completed`: Total care days that triggered evolution
-- `total_interactions`: Total interactions during previous stage
-- `evolution_trigger`: What caused the evolution
-- `special_ability`: New abilities gained (multiple allowed)
-- `passive_trait`: New passive traits (multiple allowed)
-- `achievement`: Achievements unlocked during evolution (multiple allowed)
-- `title_earned`: Special titles earned
-- `legacy_trait`: Traits that can be passed to offspring
-
-### Kind 14919 (Interactions) Tags
-
-- `action`: The interaction type performed ("feed", "play", "clean", "rest", etc.)
-- `action_category`: Category of action ("care", "enrichment", "hygiene", "recovery")
-- `stat_change`: Format: ["stat_change", "stat_name", "modifier"]
-- `item_used`: Specific item used in the interaction
-- `item_quality`: Quality of item used
-- `location`: Where the interaction took place
-- `weather`: Weather conditions during interaction
-- `time_of_day`: Time period of interaction
-- `blobbi_mood_before`, `blobbi_mood_after`: Emotional state changes
-- `animation_played`: Animation triggered by interaction
-- `sound_played`: Sound effect played
-- `bonus_applied`: Special bonuses that applied
-- `experience_gained`: Experience points earned
-- `care_streak`: Current care streak after interaction
-- `achievement_progress`: Progress toward achievements
-- `companion_reaction`: Reactions from other Blobbis
-- `special_event`: Special events triggered
-- `memory_created`: New memories formed
-
-### Kind 31125 (Blobbanaut Profile) Tags
-
-- `d`: Unique identifier for the profile (required for addressable events)
-- `name`: Display name of the Blobbanaut owner
-- `coins`: Amount of in-game currency owned
-- `pettingLevel`: Current interaction/care level
-- `lifetimeBlobbis`: Total number of Blobbis adopted over time
-- `favoriteBlobbi`: Blobbi ID of the user's favorite pet
-- `starterBlobbi`: Blobbi ID of the user's first adopted pet
-- `style`: Aesthetic style preference
-- `background`: Background/theme preference
-- `title`: Custom title or role
-- `has`: Blobbi IDs owned by this user (multiple tags allowed)
-- `achievements`: Achievement IDs unlocked (multiple tags allowed)
-- `storage`: Inventory items in format "item_id:quantity" (multiple tags allowed)
-
-## Implementation Considerations
-
-1. **State Management**: 
-   - Clients should query for the most recent Kind 31124 event to get current Blobbi state
-   - Process Kind 14919 interaction events since the last state update to calculate current stats
-   - Use Kind 14921 records for historical information and lineage tracking
-   - Use Kind 14920 events for breeding history and offspring relationships
-   - Use Kind 31125 events for owner profile and inventory management
-   - State updates should be published as new Kind 31124 events when significant changes occur
-
-2. **Event Processing Order**:
-   - Birth records (Kind 14921 with record_type "birth") establish the Blobbi
-   - Interaction events (Kind 14919) modify state and trigger evolution checks
-   - Breeding events (Kind 14920) create new offspring
-   - Evolution records (Kind 14921 with record_type "evolution") mark permanent milestones
-   - Current state events (Kind 31124) reflect the latest calculated state
-   - Blobbanaut profiles (Kind 31125) track owner progress and inventory
-
-3. **Time-based Degradation**: Stats should decrease over time based on last interaction timestamp:
-   - Hunger: -5 per hour
-   - Happiness: -3 per hour
-   - Hygiene: -2 per hour
-   - Energy: -4 per hour (except during rest periods)
-   - State should be recalculated and published periodically
-
-4. **Validation Rules**:
-   - Stats must remain within 0-100 range
-   - Interaction events must reference valid Blobbi IDs
-   - Evolution can only occur when all conditions are met
-   - Each Blobbi ID must be unique per user (enforced by `d` tag in Kind 31124)
-   - Record events (Kind 14921) are immutable and should never be deleted
-   - Breeding events (Kind 14920) are immutable and should never be deleted
-
-5. **Query Patterns**:
-   - Current state: Query Kind 31124 with specific `d` tag
-   - Interaction history: Query Kind 14919 with specific `blobbi_id` tag
-   - Life records: Query Kind 14921 with specific `blobbi_id` tag
-   - Breeding history: Query Kind 14920 with specific parent IDs
-   - Owner profile: Query Kind 31125 with specific `d` tag
-   - All user Blobbis: Query Kind 31124 by author pubkey
-
-6. **Client Features**:
-   - Visual representation of current stage and stats
-   - Notification system for care reminders
-   - Achievement tracking for milestones
-   - Social features for Blobbi interactions
-   - Lineage browser using birth and evolution records
-   - Historical timeline of major milestones
-
-## Security Considerations
-
-- Clients must verify event signatures and timestamps
-- Rate limiting should prevent interaction spam
-- State calculations must be deterministic across clients
-- Private Blobbi data can be encrypted using NIP-04 or NIP-44
-
-## References
-
-- NIP-01: Basic protocol flow description
-- NIP-33: Parameterized Replaceable Events (used for Kind 31124)
-- NIP-78: Application-specific data
-- NIP-16: Event Treatment (regular events for interactions and records)
+1. Query Kind 31124 for current pet state
+2. Process Kind 14919 events to update stats
+3. Use Kind 14921 for permanent history
+4. Stats decay over time without care
+5. All pet IDs use format: "blobbi-{name}"
