@@ -2,11 +2,11 @@
 
 `draft` `optional`
 
-This NIP defines event kinds `31124`, `14919`, and `14920` for managing virtual pet (Blobbi) lifecycle stages, interactions, and permanent records on Nostr.
+This NIP defines event kinds `31124`, `14919`, `14920`, `14921`, and `31125` for managing virtual pet (Blobbi) lifecycle stages, interactions, breeding, permanent records, and owner profiles on Nostr.
 
 ## Abstract
 
-This specification describes a system for creating, managing, and interacting with virtual pets called "Blobbi" on the Nostr network. Blobbi pets progress through three distinct life stages (egg, baby, and adult), each with unique care requirements and interaction possibilities. The system uses three event kinds: replaceable events for current state, regular events for interactions, and immutable records for permanent history.
+This specification describes a system for creating, managing, and interacting with virtual pets called "Blobbi" on the Nostr network. Blobbi pets progress through three distinct life stages (egg, baby, and adult), each with unique care requirements and interaction possibilities. The system uses five event kinds: replaceable events for current state and owner profiles, regular events for interactions and breeding, and immutable records for permanent history.
 
 ## Motivation
 
@@ -17,10 +17,12 @@ Virtual pets provide an engaging way for users to interact on Nostr beyond tradi
 - Gamification elements that encourage regular platform engagement
 - Immutable historical records of pet milestones and lineage
 - Real-time state updates that can be efficiently queried
+- Breeding mechanics for creating new generations
+- Owner profile management with achievements and inventory
 
 ## Event Structure
 
-The Blobbi system uses three distinct event kinds to manage different aspects of virtual pet lifecycle:
+The Blobbi system uses five distinct event kinds to manage different aspects of virtual pet lifecycle:
 
 ### Kind 31124: Blobbi Current State (Replaceable)
 This replaceable event contains the current state of the Blobbi, including:
@@ -41,15 +43,30 @@ These regular events record individual interactions with the Blobbi, such as:
 
 Each interaction generates a new event, creating a complete activity log. These events are used to calculate state changes and track care patterns.
 
-### Kind 14920: Blobbi Records (Regular, Immutable)
+### Kind 14920: Blobbi Breeding Events (Regular)
+These regular events record breeding attempts between two Blobbi:
+- Parent information and owner details
+- Breeding success or failure
+- Offspring generation and traits
+- Breeding conditions and timing
+
+### Kind 14921: Blobbi Records (Regular, Immutable)
 These regular events serve as permanent, immutable records of significant milestones:
 - Birth/adoption information and initial traits
-- Parent lineage and breeding history
+- Hatching records with revealed traits
 - Evolution milestones and transformations
 - Major achievements and titles earned
 - Unique life events and special moments
 
 These records form the permanent history and lineage of each Blobbi, never to be modified or replaced.
+
+### Kind 31125: Blobbanaut Profile (Addressable)
+This addressable event contains the owner's profile and game progress:
+- Display name and personal information
+- In-game currency (coins) and achievements
+- Owned Blobbi collection and favorites
+- Item storage and inventory management
+- Petting level and lifetime statistics
 
 ## Lifecycle Stages
 
@@ -58,7 +75,7 @@ These records form the permanent history and lineage of each Blobbi, never to be
 **Description**: The initial stage when a user adopts a Blobbi. The egg requires consistent daily care over multiple days to prepare for hatching.
 
 **State Event**: Kind `31124` with `stage` tag set to "egg"
-**Birth Record**: Kind `14920` containing adoption/birth information
+**Birth Record**: Kind `14921` containing adoption/birth information
 **Interactions**: Kind `14919` for care actions (warming, cleaning, checking, etc.)
 
 **Hatching Requirements**:
@@ -85,7 +102,7 @@ These records form the permanent history and lineage of each Blobbi, never to be
 **Description**: The newly hatched Blobbi enters a special post-hatch phase requiring continued daily care before becoming a full adult.
 
 **State Event**: Kind `31124` with `stage` tag set to "baby"
-**Hatching Record**: Kind `14920` containing hatching milestone and revealed traits
+**Hatching Record**: Kind `14921` containing hatching milestone and revealed traits
 **Interactions**: Kind `14919` for care actions (feeding, playing, cleaning, etc.)
 
 **Post-Hatch Phase Requirements** (for Blobbis hatched from eggs):
@@ -114,7 +131,7 @@ These records form the permanent history and lineage of each Blobbi, never to be
 **Description**: The fully evolved Blobbi with established personality traits and advanced interaction capabilities.
 
 **State Event**: Kind `31124` with `stage` tag set to "adult"
-**Evolution Record**: Kind `14920` containing evolution milestone and final form details
+**Evolution Record**: Kind `14921` containing evolution milestone and final form details
 **Interactions**: Kind `14919` for advanced care and social interactions
 
 **Evolution Conditions**:
@@ -195,7 +212,7 @@ This replaceable event contains the current state of the Blobbi. The `d` tag con
 }
 ```
 
-### Kind 14920: Blobbi Birth Record (Immutable)
+### Kind 14921: Blobbi Birth Record (Immutable)
 
 This event records the permanent birth/adoption information of a Blobbi.
 
@@ -204,7 +221,7 @@ This event records the permanent birth/adoption information of a Blobbi.
   "id": "b2c3d4e5f67890123456789012345678901234567890123456789012345678901",
   "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
   "created_at": 1717000000,
-  "kind": 14920,
+  "kind": 14921,
   "tags": [
     ["blobbi_id", "b-a7f1c2e8d3b9f6c1"],
     ["record_type", "birth"],
@@ -234,7 +251,35 @@ This event records the permanent birth/adoption information of a Blobbi.
 }
 ```
 
-### Kind 14920: Blobbi Evolution Record (Immutable)
+### Kind 14920: Blobbi Breeding Event
+
+This event records a breeding attempt between two Blobbi.
+
+```json
+{
+  "id": "b2c3d4e5f67890123456789012345678901234567890123456789012345678901",
+  "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
+  "created_at": 1717087000,
+  "kind": 14920,
+  "tags": [
+    ["parent_a", "b-fluffy123"],
+    ["parent_b", "b-sparkle456"],
+    ["owner_a", "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6"],
+    ["owner_b", "a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890"],
+    ["breed_time", "2024-05-30T14:30:00.000Z"],
+    ["success", "true"],
+    ["offspring_id", "b-newbaby789"],
+    ["generation", "2"],
+    ["breeding_location", "enchanted_grove"],
+    ["compatibility_score", "85"],
+    ["inherited_traits", "playful,curious,fast_learner"]
+  ],
+  "content": "New life is forming ✨ Fluffy and Sparkle have successfully bred, creating a new generation 2 Blobbi with inherited traits of playfulness and curiosity!",
+  "sig": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855f4e1c80a1b3a7f1fddc3b342e56789ab75d8f3dabe1c2b934cf2e56789a7c3210"
+}
+```
+
+### Kind 14921: Blobbi Evolution Record (Immutable)
 
 This event records a permanent evolution milestone.
 
@@ -243,7 +288,7 @@ This event records a permanent evolution milestone.
   "id": "c3d4e5f678901234567890123456789012345678901234567890123456789012",
   "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
   "created_at": 1717691200,
-  "kind": 14920,
+  "kind": 14921,
   "tags": [
     ["blobbi_id", "b-a7f1c2e8d3b9f6c1"],
     ["record_type", "evolution"],
@@ -411,6 +456,42 @@ This event records individual interactions with the Blobbi.
 }
 ```
 
+### Kind 31125: Blobbanaut Profile Event
+
+This addressable event contains the owner's profile and game progress.
+
+```json
+{
+  "id": "a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890",
+  "pubkey": "f7e3b1d8a0c4e9f6b2d1a2e6f3c8d7b1c9a3b0d5e2f1c8a7b6d4e3a2f1c9e7d6",
+  "created_at": 1717087000,
+  "kind": 31125,
+  "tags": [
+    ["d", "blobbanaut-profile"],
+    ["name", "Alex the Blobbanaut"],
+    ["coins", "2500"],
+    ["pettingLevel", "15"],
+    ["lifetimeBlobbis", "8"],
+    ["favoriteBlobbi", "b-fluffy123"],
+    ["starterBlobbi", "b-firstpet456"],
+    ["style", "cosmic_explorer"],
+    ["background", "starfield"],
+    ["title", "Blobbi Whisperer"],
+    ["has", "b-fluffy123"],
+    ["has", "b-sparkle456"],
+    ["has", "b-cosmic789"],
+    ["achievements", "first_adoption"],
+    ["achievements", "perfect_care_week"],
+    ["achievements", "evolution_master"],
+    ["storage", "premium_food:5"],
+    ["storage", "cosmic_toy:2"],
+    ["storage", "healing_potion:3"]
+  ],
+  "content": "",
+  "sig": "6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f"
+}
+```
+
 ## Tag Specifications
 
 ### Common Tags for All Events
@@ -438,7 +519,21 @@ This event records individual interactions with the Blobbi.
 - `activity_state`: Current activity ("sleeping", "playing", "eating", etc.)
 - `last_fed`, `last_played`, `last_cleaned`: Timestamps of last care actions
 
-### Kind 14920 (Records) Tags
+### Kind 14920 (Breeding Events) Tags
+
+- `parent_a`: Blobbi ID of the first parent
+- `parent_b`: Blobbi ID of the second parent
+- `owner_a`: Pubkey of the first parent's owner
+- `owner_b`: Pubkey of the second parent's owner
+- `breed_time`: ISO timestamp of when breeding occurred
+- `success`: Boolean indicating if breeding was successful ("true" or "false")
+- `offspring_id`: Blobbi ID of the resulting offspring (if successful)
+- `generation`: Generation number of the offspring
+- `breeding_location`: Where the breeding took place
+- `compatibility_score`: Numeric compatibility rating between parents
+- `inherited_traits`: Comma-separated list of traits passed to offspring
+
+### Kind 14921 (Records) Tags
 
 #### Birth Records
 - `record_type`: Set to "birth" for birth/adoption records
@@ -492,19 +587,39 @@ This event records individual interactions with the Blobbi.
 - `special_event`: Special events triggered
 - `memory_created`: New memories formed
 
+### Kind 31125 (Blobbanaut Profile) Tags
+
+- `d`: Unique identifier for the profile (required for addressable events)
+- `name`: Display name of the Blobbanaut owner
+- `coins`: Amount of in-game currency owned
+- `pettingLevel`: Current interaction/care level
+- `lifetimeBlobbis`: Total number of Blobbis adopted over time
+- `favoriteBlobbi`: Blobbi ID of the user's favorite pet
+- `starterBlobbi`: Blobbi ID of the user's first adopted pet
+- `style`: Aesthetic style preference
+- `background`: Background/theme preference
+- `title`: Custom title or role
+- `has`: Blobbi IDs owned by this user (multiple tags allowed)
+- `achievements`: Achievement IDs unlocked (multiple tags allowed)
+- `storage`: Inventory items in format "item_id:quantity" (multiple tags allowed)
+
 ## Implementation Considerations
 
 1. **State Management**: 
    - Clients should query for the most recent Kind 31124 event to get current Blobbi state
    - Process Kind 14919 interaction events since the last state update to calculate current stats
-   - Use Kind 14920 records for historical information and lineage tracking
+   - Use Kind 14921 records for historical information and lineage tracking
+   - Use Kind 14920 events for breeding history and offspring relationships
+   - Use Kind 31125 events for owner profile and inventory management
    - State updates should be published as new Kind 31124 events when significant changes occur
 
 2. **Event Processing Order**:
-   - Birth records (Kind 14920 with record_type "birth") establish the Blobbi
+   - Birth records (Kind 14921 with record_type "birth") establish the Blobbi
    - Interaction events (Kind 14919) modify state and trigger evolution checks
-   - Evolution records (Kind 14920 with record_type "evolution") mark permanent milestones
+   - Breeding events (Kind 14920) create new offspring
+   - Evolution records (Kind 14921 with record_type "evolution") mark permanent milestones
    - Current state events (Kind 31124) reflect the latest calculated state
+   - Blobbanaut profiles (Kind 31125) track owner progress and inventory
 
 3. **Time-based Degradation**: Stats should decrease over time based on last interaction timestamp:
    - Hunger: -5 per hour
@@ -518,12 +633,15 @@ This event records individual interactions with the Blobbi.
    - Interaction events must reference valid Blobbi IDs
    - Evolution can only occur when all conditions are met
    - Each Blobbi ID must be unique per user (enforced by `d` tag in Kind 31124)
-   - Record events (Kind 14920) are immutable and should never be deleted
+   - Record events (Kind 14921) are immutable and should never be deleted
+   - Breeding events (Kind 14920) are immutable and should never be deleted
 
 5. **Query Patterns**:
    - Current state: Query Kind 31124 with specific `d` tag
    - Interaction history: Query Kind 14919 with specific `blobbi_id` tag
-   - Life records: Query Kind 14920 with specific `blobbi_id` tag
+   - Life records: Query Kind 14921 with specific `blobbi_id` tag
+   - Breeding history: Query Kind 14920 with specific parent IDs
+   - Owner profile: Query Kind 31125 with specific `d` tag
    - All user Blobbis: Query Kind 31124 by author pubkey
 
 6. **Client Features**:
