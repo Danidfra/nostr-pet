@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 import { useBlobbiQuestSystem } from '@/hooks/useBlobbiQuestSystem';
+import { useBlobbi } from '@/hooks/useBlobbi';
 import { EggGraphic } from './EggGraphic';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
@@ -75,6 +76,9 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
     debugInfo: questDebugInfo,
   } = useBlobbiQuestSystem();
 
+  // Get evolution function for the selected baby
+  const { triggerEvolution, isEvolving } = useBlobbi(undefined, selectedBabyId || undefined);
+
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [showEggList, setShowEggList] = useState(true);
   const [showEvolvedList, setShowEvolvedList] = useState(true);
@@ -105,7 +109,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
             <RefreshCw className="h-5 w-5 animate-spin text-purple-500" />
-            Loading Blobbi Incubation System...
+            Loading Blobbi Growth Hub...
           </CardTitle>
           <CardDescription className="text-gray-600 dark:text-gray-300">
             Fetching your Blobbi metadata and setting up task tracking...
@@ -181,7 +185,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
           <CardTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-500" />
-              Blobbi Incubation System
+              Blobbi Growth Hub
             </div>
             <div className="flex items-center gap-2">
               <Badge 
@@ -450,6 +454,18 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                 </div>
               ))}
             </div>
+
+            {/* Evolution Button */}
+            {selectedBabyBlobbi && isBabyReadyToEvolve(selectedBabyBlobbi) && (
+              <Button 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-4"
+                onClick={() => triggerEvolution()}
+                disabled={isEvolving}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                {isEvolving ? 'Evolving...' : 'Evolve to Adult'}
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -519,10 +535,24 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                           </div>
                           <Progress value={questProgress.percentage} className="h-2" />
                           {isBabyReadyToEvolve(blobbi) ? (
-                            <Badge className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white">
-                              <Sparkles className="w-3 h-3 mr-1" />
-                              Ready to Evolve!
-                            </Badge>
+                            selectedBabyId === blobbi.id ? (
+                              <Button 
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent card selection when clicking button
+                                  triggerEvolution();
+                                }}
+                                disabled={isEvolving}
+                              >
+                                <Sparkles className="w-3 h-3 mr-1" />
+                                {isEvolving ? 'Evolving...' : 'Evolve to Adult'}
+                              </Button>
+                            ) : (
+                              <Badge className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white">
+                                <Sparkles className="w-3 h-3 mr-1" />
+                                Ready to Evolve!
+                              </Badge>
+                            )
                           ) : (
                             <Badge className="w-full justify-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                               <Clock className="w-3 h-3 mr-1" />

@@ -255,6 +255,7 @@ interface BlobbiIncubationSystemState {
   // Subscription status
   metadataSubscriptionActive: boolean;
   taskSubscriptionActive: boolean;
+  isStartingIncubation: boolean;
   
   // Selected egg for incubation
   selectedEggId: string | null;
@@ -291,14 +292,17 @@ export function useBlobbiIncubationSystem() {
     },
     metadataSubscriptionActive: false,
     taskSubscriptionActive: false,
+    isStartingIncubation: false,
     selectedEggId: null,
     incubationStartTime: null,
   });
 
-  // Refs to track subscription cleanup functions
+  // Refs to track subscription cleanup functions and active subscriptions
   const metadataCleanupRef = useRef<(() => void) | null>(null);
   const taskCleanupRef = useRef<(() => void) | null>(null);
   const isInitializedRef = useRef<boolean>(false);
+  const activeTaskSubscriptionRef = useRef<boolean>(false);
+  const activeMetadataSubscriptionRef = useRef<boolean>(false);
 
   // Helper function to get descriptive task completion messages
   const getTaskCompletionMessage = useCallback((taskId: string, taskName: string, isEvolution: boolean = false) => {
@@ -911,7 +915,13 @@ export function useBlobbiIncubationSystem() {
 
   // Step 3: Start task tracking subscription (only after metadata is loaded)
   const startTaskSubscription = useCallback(async (selectedEggId?: string, sinceTimestamp?: number) => {
-    if (!user || !nostr || state.taskSubscriptionActive) return;
+    if (!user || !nostr) return;
+    
+    // Prevent duplicate subscriptions using both state and ref
+    if (state.taskSubscriptionActive || activeTaskSubscriptionRef.current) {
+      console.warn('⚠️ Task subscription already active, ignoring start request');
+      return;
+    }
 
     // If no egg is selected, don't start task subscription
     if (!selectedEggId) {
@@ -945,11 +955,15 @@ export function useBlobbiIncubationSystem() {
 
       const subscriptionIterable = nostr.req(filters);
 
+      // Mark subscription as active in both state and ref
+      activeTaskSubscriptionRef.current = true;
       setState(prev => ({ 
         ...prev, 
         taskSubscriptionActive: true,
         incubationState: { ...prev.incubationState, isListening: true },
       }));
+      
+      console.log('🎯 Task subscription marked as active in state and ref');
 
       // Process subscription messages in the background
       (async () => {
@@ -963,6 +977,7 @@ export function useBlobbiIncubationSystem() {
               console.log('📡 Task subscription EOSE');
             } else if (msg[0] === 'CLOSED') {
               console.log(`🔌 Task subscription closed: ${msg[1] || 'unknown reason'}`);
+              activeTaskSubscriptionRef.current = false;
               setState(prev => ({ 
                 ...prev, 
                 taskSubscriptionActive: false,
@@ -973,6 +988,7 @@ export function useBlobbiIncubationSystem() {
           }
         } catch (error) {
           console.error('❌ Task subscription error:', error);
+          activeTaskSubscriptionRef.current = false;
           setState(prev => ({ 
             ...prev, 
             taskSubscriptionActive: false,
@@ -981,18 +997,23 @@ export function useBlobbiIncubationSystem() {
         }
       })();
 
-      // Store cleanup function
+      // Store cleanup function that properly closes the subscription
       taskCleanupRef.current = () => {
+        console.log('🔌 Manually closing task subscription...');
+        activeTaskSubscriptionRef.current = false;
         setState(prev => ({ 
           ...prev, 
           taskSubscriptionActive: false,
           incubationState: { ...prev.incubationState, isListening: false },
         }));
+        // The subscription will close naturally when the async iterator breaks
       };
 
       console.log('✅ Persistent task tracking subscription established with both #p and authors filters');
+      console.log(`🔍 Task subscription state - Active: ${activeTaskSubscriptionRef.current}, State: ${state.taskSubscriptionActive}`);
     } catch (error) {
       console.error('❌ Failed to start task subscription:', error);
+      activeTaskSubscriptionRef.current = false;
       setState(prev => ({ 
         ...prev, 
         taskSubscriptionActive: false,
@@ -1095,16 +1116,28 @@ export function useBlobbiIncubationSystem() {
       fetchBlobbiMetadata();
     }
 
+    // Only cleanup on unmount, not on re-renders
     return () => {
-      // Cleanup subscriptions on unmount
+      // Only cleanup if the component is actually unmounting
+      // This prevents cleanup during re-renders
+      console.log('🧹 Cleaning up Blobbi Incubation System subscriptions...');
       if (metadataCleanupRef.current) {
         metadataCleanupRef.current();
+        metadataCleanupRef.current = null;
       }
       if (taskCleanupRef.current) {
         taskCleanupRef.current();
+        taskCleanupRef.current = null;
       }
     };
-  }, [user, fetchBlobbiMetadata]);
+  }, [user]); // Removed fetchBlobbiMetadata dependency to prevent re-runs
+
+  // Sync ref state with component state for debugging
+  useEffect(() => {
+    if (state.taskSubscriptionActive !== activeTaskSubscriptionRef.current) {
+      console.log(`🔄 Task subscription state mismatch - State: ${state.taskSubscriptionActive}, Ref: ${activeTaskSubscriptionRef.current}`);
+    }
+  }, [state.taskSubscriptionActive]);
 
   // Calculate progress for current stage
   const getProgress = useCallback(() => {
@@ -1141,17 +1174,44 @@ export function useBlobbiIncubationSystem() {
       return;
     }
 
-    const now = Date.now();
-    setState(prev => ({ ...prev, incubationStartTime: now }));
-    
-    // Start task subscription with since timestamp
-    await startTaskSubscription(state.selectedEggId, now);
-  }, [state.selectedEggId, startTaskSubscription]);
+    // Prevent multiple listeners using both state and ref
+    if (state.taskSubscriptionActive || activeTaskSubscriptionRef.current || state.incubationStartTime || state.isStartingIncubation) {
+      console.warn('⚠️ Incubation already active or starting, ignoring start request');
+      console.log(`🔍 Current state - taskSubscriptionActive: ${state.taskSubscriptionActive}, activeRef: ${activeTaskSubscriptionRef.current}, incubationStartTime: ${state.incubationStartTime}, isStarting: ${state.isStartingIncubation}`);
+      return;
+    }
+
+    try {
+      console.log('🥚 Starting incubation for egg:', state.selectedEggId);
+      setState(prev => ({ ...prev, isStartingIncubation: true }));
+      
+      const now = Date.now();
+      setState(prev => ({ ...prev, incubationStartTime: now }));
+      
+      // Start task subscription with since timestamp
+      await startTaskSubscription(state.selectedEggId, now);
+      
+      setState(prev => ({ ...prev, isStartingIncubation: false }));
+      console.log('✅ Incubation started successfully');
+    } catch (error) {
+      console.error('❌ Failed to start incubation:', error);
+      activeTaskSubscriptionRef.current = false;
+      setState(prev => ({ 
+        ...prev, 
+        isStartingIncubation: false,
+        incubationStartTime: null,
+        taskSubscriptionActive: false,
+        incubationState: { ...prev.incubationState, isListening: false },
+      }));
+    }
+  }, [state.selectedEggId, state.taskSubscriptionActive, state.incubationStartTime, state.isStartingIncubation, startTaskSubscription]);
 
   // Stop incubation (cleanup) - defined early to avoid circular dependency
   const stopIncubationRef = useRef<() => void>();
   
   stopIncubationRef.current = () => {
+    console.log('🛑 Stopping incubation...');
+    activeTaskSubscriptionRef.current = false;
     if (taskCleanupRef.current) {
       taskCleanupRef.current();
       taskCleanupRef.current = null;
@@ -1193,6 +1253,7 @@ export function useBlobbiIncubationSystem() {
     metadataSubscriptionActive: state.metadataSubscriptionActive,
     taskSubscriptionActive: state.taskSubscriptionActive,
     isListening: state.incubationState.isListening,
+    isStartingIncubation: state.isStartingIncubation,
     
     // Egg selection and incubation
     selectedEggId: state.selectedEggId,

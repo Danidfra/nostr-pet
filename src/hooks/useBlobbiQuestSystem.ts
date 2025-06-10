@@ -186,6 +186,7 @@ interface BlobbiQuestSystemState {
   metadataSubscriptionActive: boolean;
   questSubscriptionActive: boolean;
   blobbiHashtagSubscriptionActive: boolean;
+  isStartingQuestTracking: boolean;
   
   // Selected baby for quest tracking
   selectedBabyId: string | null;
@@ -225,15 +226,19 @@ export function useBlobbiQuestSystem() {
     metadataSubscriptionActive: false,
     questSubscriptionActive: false,
     blobbiHashtagSubscriptionActive: false,
+    isStartingQuestTracking: false,
     selectedBabyId: null,
     questStartTime: null,
   });
 
-  // Refs to track subscription cleanup functions
+  // Refs to track subscription cleanup functions and active subscriptions
   const metadataCleanupRef = useRef<(() => void) | null>(null);
   const questCleanupRef = useRef<(() => void) | null>(null);
   const blobbiHashtagCleanupRef = useRef<(() => void) | null>(null);
   const isInitializedRef = useRef<boolean>(false);
+  const activeQuestSubscriptionRef = useRef<boolean>(false);
+  const activeMetadataSubscriptionRef = useRef<boolean>(false);
+  const activeBlobbiHashtagSubscriptionRef = useRef<boolean>(false);
 
   // Helper function to get descriptive quest completion messages
   const getQuestCompletionMessage = useCallback((questId: string, questName: string) => {
@@ -353,7 +358,7 @@ export function useBlobbiQuestSystem() {
     } catch (error) {
       console.error('Failed to publish quest confirmation:', error);
     }
-  }, [user, nostr, state.selectedBabyId, state.questState, publishEvent]);
+  }, [user, nostr, state.selectedBabyId, state.questState.babyToAdultQuests, publishEvent]);
 
   // Process incoming quest events
   const processQuestEvent = useCallback(async (event: NostrEvent) => {
@@ -671,7 +676,13 @@ export function useBlobbiQuestSystem() {
 
   // Start quest tracking subscription (only after user clicks "Start Listening")
   const startQuestSubscription = useCallback(async (selectedBabyId?: string, sinceTimestamp?: number) => {
-    if (!user || !nostr || state.questSubscriptionActive) return;
+    if (!user || !nostr) return;
+    
+    // Prevent duplicate subscriptions using ref only (more reliable)
+    if (activeQuestSubscriptionRef.current) {
+      console.warn('⚠️ Quest subscription already active (ref check), ignoring start request');
+      return;
+    }
 
     // If no baby is selected, don't start quest subscription
     if (!selectedBabyId) {
@@ -705,11 +716,15 @@ export function useBlobbiQuestSystem() {
 
       const subscriptionIterable = nostr.req(filters);
 
+      // Mark subscription as active in both state and ref
+      activeQuestSubscriptionRef.current = true;
       setState(prev => ({ 
         ...prev, 
         questSubscriptionActive: true,
         questState: { ...prev.questState, isListening: true },
       }));
+      
+      console.log('🎯 Quest subscription marked as active in state and ref');
 
       // Process subscription messages in the background
       (async () => {
@@ -723,6 +738,7 @@ export function useBlobbiQuestSystem() {
               console.log('📡 Quest subscription EOSE');
             } else if (msg[0] === 'CLOSED') {
               console.log(`🔌 Quest subscription closed: ${msg[1] || 'unknown reason'}`);
+              activeQuestSubscriptionRef.current = false;
               setState(prev => ({ 
                 ...prev, 
                 questSubscriptionActive: false,
@@ -733,6 +749,7 @@ export function useBlobbiQuestSystem() {
           }
         } catch (error) {
           console.error('❌ Quest subscription error:', error);
+          activeQuestSubscriptionRef.current = false;
           setState(prev => ({ 
             ...prev, 
             questSubscriptionActive: false,
@@ -741,18 +758,23 @@ export function useBlobbiQuestSystem() {
         }
       })();
 
-      // Store cleanup function
+      // Store cleanup function that properly closes the subscription
       questCleanupRef.current = () => {
+        console.log('🔌 Manually closing quest subscription...');
+        activeQuestSubscriptionRef.current = false;
         setState(prev => ({ 
           ...prev, 
           questSubscriptionActive: false,
           questState: { ...prev.questState, isListening: false },
         }));
+        // The subscription will close naturally when the async iterator breaks
       };
 
       console.log('✅ Persistent quest tracking subscription established');
+      console.log(`🔍 Quest subscription state - Active: ${activeQuestSubscriptionRef.current}, State: ${state.questSubscriptionActive}`);
     } catch (error) {
       console.error('❌ Failed to start quest subscription:', error);
+      activeQuestSubscriptionRef.current = false;
       setState(prev => ({ 
         ...prev, 
         questSubscriptionActive: false,
@@ -861,19 +883,32 @@ export function useBlobbiQuestSystem() {
       fetchBlobbiMetadata();
     }
 
+    // Only cleanup on unmount, not on re-renders
     return () => {
-      // Cleanup subscriptions on unmount
+      // Only cleanup if the component is actually unmounting
+      // This prevents cleanup during re-renders
+      console.log('🧹 Cleaning up Blobbi Quest System subscriptions...');
       if (metadataCleanupRef.current) {
         metadataCleanupRef.current();
+        metadataCleanupRef.current = null;
       }
       if (questCleanupRef.current) {
         questCleanupRef.current();
+        questCleanupRef.current = null;
       }
       if (blobbiHashtagCleanupRef.current) {
         blobbiHashtagCleanupRef.current();
+        blobbiHashtagCleanupRef.current = null;
       }
     };
   }, [user, fetchBlobbiMetadata]);
+
+  // Sync ref state with component state for debugging
+  useEffect(() => {
+    if (state.questSubscriptionActive !== activeQuestSubscriptionRef.current) {
+      console.log(`🔄 Quest subscription state mismatch - State: ${state.questSubscriptionActive}, Ref: ${activeQuestSubscriptionRef.current}`);
+    }
+  }, [state.questSubscriptionActive]);
 
   // Calculate progress for baby to adult quests
   const getQuestProgress = useCallback(() => {
@@ -901,75 +936,11 @@ export function useBlobbiQuestSystem() {
 
   // Select a baby for quest tracking
   const selectBaby = useCallback(async (babyId: string | null) => {
-    // If selecting a different baby, reset quest state and reload
-    if (babyId !== state.selectedBabyId) {
-      // Stop current quest tracking if active
-      if (state.questSubscriptionActive && questCleanupRef.current) {
-        questCleanupRef.current();
-        questCleanupRef.current = null;
-      }
-      
-      // Reset quest state
-      setState(prev => ({
-        ...prev,
-        selectedBabyId: babyId,
-        questStartTime: null,
-        questSubscriptionActive: false,
-        questState: {
-          ...prev.questState,
-          babyToAdultQuests: [...BABY_TO_ADULT_QUESTS], // Reset to initial state
-          isListening: false,
-          uniqueReactionTargets: new Set(),
-          uniqueRepostTargets: new Set(),
-        },
-      }));
-      
-      // If a new baby is selected, load its quest confirmations
-      if (babyId && user && nostr) {
-        try {
-          const signal = AbortSignal.timeout(5000);
-          const events = await nostr.query([{
-            kinds: [31124],
-            authors: [user.pubkey],
-          }], { signal });
-          
-          const selectedBlobbiEvent = events.find(event => {
-            const blobbi = parseBlobbiFromStateEvent(event);
-            return blobbi && blobbi.id === babyId;
-          });
-          
-          if (selectedBlobbiEvent) {
-            const confirmedTags = selectedBlobbiEvent.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
-            
-            setState(prev => {
-              const updatedQuests = prev.questState.babyToAdultQuests.map(quest => {
-                const confirmationTag = `${quest.id}_confirmed`;
-                const isConfirmed = confirmedTags.some(tag => tag[0] === confirmationTag);
-                if (isConfirmed) {
-                  console.log(`🧬 Loading confirmed quest for ${babyId}: ${quest.name}`);
-                  return { ...quest, completed: true };
-                }
-                return quest;
-              });
-              
-              const selectedBlobbi = prev.blobbis.find(b => b.id === babyId);
-              
-              return {
-                ...prev,
-                questState: {
-                  ...prev.questState,
-                  babyToAdultQuests: updatedQuests,
-                  selectedBlobbi: selectedBlobbi,
-                },
-              };
-            });
-          }
-        } catch (error) {
-          console.error('Failed to load quest confirmations for selected baby:', error);
-        }
-      }
-    } else {
-      // Just update the selection
+    console.log(`🎯 selectBaby called with: ${babyId}, current selected: ${state.selectedBabyId}`);
+    
+    // If selecting the same baby, just update the selection without resetting anything
+    if (babyId === state.selectedBabyId) {
+      console.log('🔄 Same baby selected, updating selection only');
       setState(prev => {
         const selectedBlobbi = babyId ? prev.blobbis.find(b => b.id === babyId) : undefined;
         return {
@@ -981,8 +952,80 @@ export function useBlobbiQuestSystem() {
           },
         };
       });
+      return;
     }
-  }, [state.selectedBabyId, state.questSubscriptionActive, user, nostr]);
+    
+    // If selecting a different baby, reset quest state and reload
+    console.log(`🔄 Different baby selected, resetting quest state`);
+    
+    // Stop current quest tracking if active
+    if (activeQuestSubscriptionRef.current && questCleanupRef.current) {
+      console.log('🛑 Stopping current quest tracking for baby change');
+      activeQuestSubscriptionRef.current = false;
+      questCleanupRef.current();
+      questCleanupRef.current = null;
+    }
+    
+    // Reset quest state
+    setState(prev => ({
+      ...prev,
+      selectedBabyId: babyId,
+      questStartTime: null,
+      questSubscriptionActive: false,
+      questState: {
+        ...prev.questState,
+        babyToAdultQuests: [...BABY_TO_ADULT_QUESTS], // Reset to initial state
+        isListening: false,
+        uniqueReactionTargets: new Set(),
+        uniqueRepostTargets: new Set(),
+      },
+    }));
+    
+    // If a new baby is selected, load its quest confirmations
+    if (babyId && user && nostr) {
+      try {
+        const signal = AbortSignal.timeout(5000);
+        const events = await nostr.query([{
+          kinds: [31124],
+          authors: [user.pubkey],
+        }], { signal });
+        
+        const selectedBlobbiEvent = events.find(event => {
+          const blobbi = parseBlobbiFromStateEvent(event);
+          return blobbi && blobbi.id === babyId;
+        });
+        
+        if (selectedBlobbiEvent) {
+          const confirmedTags = selectedBlobbiEvent.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
+          
+          setState(prev => {
+            const updatedQuests = prev.questState.babyToAdultQuests.map(quest => {
+              const confirmationTag = `${quest.id}_confirmed`;
+              const isConfirmed = confirmedTags.some(tag => tag[0] === confirmationTag);
+              if (isConfirmed) {
+                console.log(`🧬 Loading confirmed quest for ${babyId}: ${quest.name}`);
+                return { ...quest, completed: true };
+              }
+              return quest;
+            });
+            
+            const selectedBlobbi = prev.blobbis.find(b => b.id === babyId);
+            
+            return {
+              ...prev,
+              questState: {
+                ...prev.questState,
+                babyToAdultQuests: updatedQuests,
+                selectedBlobbi: selectedBlobbi,
+              },
+            };
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load quest confirmations for selected baby:', error);
+      }
+    }
+  }, [state.selectedBabyId, user, nostr]);
 
   // Start quest tracking for selected baby
   const startQuestTracking = useCallback(async () => {
@@ -991,17 +1034,44 @@ export function useBlobbiQuestSystem() {
       return;
     }
 
-    const now = Date.now();
-    setState(prev => ({ ...prev, questStartTime: now }));
-    
-    // Start quest subscription with since timestamp
-    await startQuestSubscription(state.selectedBabyId, now);
-  }, [state.selectedBabyId, startQuestSubscription]);
+    // Prevent multiple listeners using both state and ref (removed questStartTime check)
+    if (state.questSubscriptionActive || activeQuestSubscriptionRef.current || state.isStartingQuestTracking) {
+      console.warn('⚠️ Quest tracking already active or starting, ignoring start request');
+      console.log(`🔍 Current state - questSubscriptionActive: ${state.questSubscriptionActive}, activeRef: ${activeQuestSubscriptionRef.current}, isStarting: ${state.isStartingQuestTracking}`);
+      return;
+    }
+
+    try {
+      console.log('🐣 Starting quest tracking for baby:', state.selectedBabyId);
+      setState(prev => ({ ...prev, isStartingQuestTracking: true }));
+      
+      const now = Date.now();
+      setState(prev => ({ ...prev, questStartTime: now }));
+      
+      // Start quest subscription with since timestamp
+      await startQuestSubscription(state.selectedBabyId, now);
+      
+      setState(prev => ({ ...prev, isStartingQuestTracking: false }));
+      console.log('✅ Quest tracking started successfully');
+    } catch (error) {
+      console.error('❌ Failed to start quest tracking:', error);
+      activeQuestSubscriptionRef.current = false;
+      setState(prev => ({ 
+        ...prev, 
+        isStartingQuestTracking: false,
+        questStartTime: null,
+        questSubscriptionActive: false,
+        questState: { ...prev.questState, isListening: false },
+      }));
+    }
+  }, [state.selectedBabyId, state.questSubscriptionActive, state.isStartingQuestTracking, startQuestSubscription]);
 
   // Stop quest tracking (cleanup)
   const stopQuestTrackingRef = useRef<() => void>();
   
   stopQuestTrackingRef.current = () => {
+    console.log('🛑 Stopping quest tracking...');
+    activeQuestSubscriptionRef.current = false;
     if (questCleanupRef.current) {
       questCleanupRef.current();
       questCleanupRef.current = null;
@@ -1017,6 +1087,29 @@ export function useBlobbiQuestSystem() {
   
   const stopQuestTracking = useCallback(() => {
     stopQuestTrackingRef.current?.();
+  }, []);
+
+  // Reset quest tracking state (for debugging/recovery)
+  const resetQuestTracking = useCallback(() => {
+    console.log('🔄 Resetting quest tracking state...');
+    activeQuestSubscriptionRef.current = false;
+    if (questCleanupRef.current) {
+      questCleanupRef.current();
+      questCleanupRef.current = null;
+    }
+    setState(prev => ({ 
+      ...prev, 
+      questSubscriptionActive: false,
+      questStartTime: null,
+      isStartingQuestTracking: false,
+      questState: { 
+        ...prev.questState, 
+        isListening: false,
+        babyToAdultQuests: [...BABY_TO_ADULT_QUESTS],
+        uniqueReactionTargets: new Set(),
+        uniqueRepostTargets: new Set(),
+      },
+    }));
   }, []);
 
   const questProgress = getQuestProgress();
@@ -1039,6 +1132,7 @@ export function useBlobbiQuestSystem() {
     questSubscriptionActive: state.questSubscriptionActive,
     blobbiHashtagSubscriptionActive: state.blobbiHashtagSubscriptionActive,
     isListening: state.questState.isListening,
+    isStartingQuestTracking: state.isStartingQuestTracking,
     
     // Baby selection and quest tracking
     selectedBabyId: state.selectedBabyId,
@@ -1046,6 +1140,7 @@ export function useBlobbiQuestSystem() {
     selectBaby,
     startQuestTracking,
     stopQuestTracking,
+    resetQuestTracking,
     
     // Controls
     refetchMetadata: fetchBlobbiMetadata,

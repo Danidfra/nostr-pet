@@ -231,7 +231,7 @@ export default function BlobbiDashboard() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Egg className="w-4 h-4 text-yellow-500" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Incubating</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Growing</span>
                 </div>
                 <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.incubatingBlobbis}</Badge>
               </div>
@@ -286,7 +286,7 @@ export default function BlobbiDashboard() {
                   onClick={() => setActiveTab('incubation')}
                 >
                   <Egg className="w-4 h-4" />
-                  View Incubation ({stats.incubatingBlobbis})
+                  View Growth Hub ({stats.incubatingBlobbis})
                 </Button>
               )}
               <Link to="/blobbi/evolution">
@@ -333,7 +333,7 @@ export default function BlobbiDashboard() {
                     value="incubation"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
                   >
-                    Incubation
+                    Growth Hub
                   </TabsTrigger>
                   <TabsTrigger 
                     value="activity"
@@ -372,7 +372,7 @@ export default function BlobbiDashboard() {
                     </div>
                     <div className="text-center p-4 border border-yellow-200 dark:border-yellow-600 rounded-lg bg-yellow-50/50 dark:bg-yellow-900/20">
                       <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.incubatingBlobbis}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">Incubating</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-300">Growing</div>
                     </div>
                     <div className="text-center p-4 border border-purple-200 dark:border-purple-600 rounded-lg bg-purple-50/50 dark:bg-purple-900/20">
                       <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.evolvedBlobbis}</div>
@@ -624,7 +624,7 @@ export default function BlobbiDashboard() {
               <BlobbiMissions />
             </TabsContent>
 
-            {/* Incubation Tab */}
+            {/* Growth Hub Tab */}
             <TabsContent value="incubation">
               <BlobbiIncubationDashboard />
             </TabsContent>

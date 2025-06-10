@@ -111,8 +111,8 @@ export function BlobbiGame() {
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="blobbi">My Blobbi</TabsTrigger>
           <TabsTrigger value="incubation" className="flex items-center gap-2">
-            <Egg className="w-4 h-4" />
-            Incubation
+            <Sparkles className="w-4 h-4" />
+            Growth Hub
           </TabsTrigger>
         </TabsList>
         

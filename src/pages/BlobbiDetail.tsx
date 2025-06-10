@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -85,6 +85,7 @@ export default function BlobbiDetail() {
     isReadyToEvolve,
     metadataSubscriptionActive,
     taskSubscriptionActive,
+    isStartingIncubation,
     selectedEggId,
     incubationStartTime,
     selectEgg,
@@ -102,6 +103,7 @@ export default function BlobbiDetail() {
     questSubscriptionActive,
     blobbiHashtagSubscriptionActive,
     isListening: isQuestListening,
+    isStartingQuestTracking,
     selectedBabyId,
     questStartTime,
     selectBaby,
@@ -115,25 +117,31 @@ export default function BlobbiDetail() {
   const [showStorage, setShowStorage] = useState(false);
   const [activeTab, setActiveTab] = useState('actions');
   
-  // Select the current Blobbi for incubation/evolution tracking
-  useEffect(() => {
-    if (blobbi && blobbiId) {
-      // Select this Blobbi based on its life stage
-      if (blobbi.lifeStage === 'egg') {
-        selectEgg(blobbiId);
-      } else if (blobbi.lifeStage === 'baby') {
-        selectBaby(blobbiId);
-      }
-    }
+  // Handle egg/baby selection when user manually starts listening
+  const handleStartListening = useCallback(() => {
+    if (!blobbi || !blobbiId) return;
     
-    // Cleanup: deselect when leaving the page
-    return () => {
-      selectEgg(null);
-      selectBaby(null);
-      stopIncubation();
-      stopQuestTracking();
-    };
-  }, [blobbi, blobbiId, selectEgg, selectBaby, stopIncubation, stopQuestTracking]);
+    if (blobbi.lifeStage === 'egg') {
+      // Select egg and start incubation
+      selectEgg(blobbiId);
+      // Small delay to ensure selection is processed
+      setTimeout(() => {
+        startIncubation();
+      }, 100);
+    } else if (blobbi.lifeStage === 'baby') {
+      // Select baby and start quest tracking
+      selectBaby(blobbiId);
+      // Small delay to ensure selection is processed
+      setTimeout(() => {
+        startQuestTracking();
+      }, 100);
+    }
+  }, [blobbi, blobbiId, selectEgg, selectBaby, startIncubation, startQuestTracking]);
+
+  // Check if this blobbi is currently selected
+  const isCurrentlySelected = selectedEggId === blobbiId || selectedBabyId === blobbiId;
+  const isCurrentlyListening = (blobbi?.lifeStage === 'egg' && taskSubscriptionActive) || 
+                               (blobbi?.lifeStage === 'baby' && questSubscriptionActive);
   
   if (isLoading) {
     return (
@@ -417,7 +425,7 @@ export default function BlobbiDetail() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-2">
-                <TabsList className="grid w-full grid-cols-5 bg-purple-50/50 dark:bg-purple-900/20">
+                <TabsList className="grid w-full grid-cols-4 bg-purple-50/50 dark:bg-purple-900/20">
                   <TabsTrigger 
                     value="actions"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
@@ -429,12 +437,6 @@ export default function BlobbiDetail() {
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
                   >
                     Overview
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="evolution"
-                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                  >
-                    Evolution
                   </TabsTrigger>
                   <TabsTrigger 
                     value="interactions"
@@ -603,534 +605,7 @@ export default function BlobbiDetail() {
               </Card>
             </TabsContent>
 
-            {/* Evolution Tab */}
-            <TabsContent value="evolution" className="space-y-6">
-              {/* Original Evolution Progress Component */}
-              {isOwner && (
-                <EvolutionProgress 
-                  evolutionProgress={blobbi.evolutionProgress} 
-                  hasEvolved={!!blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi'}
-                />
-              )}
-
-              {/* Evolution System Status */}
-              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-purple-500" />
-                      Evolution System
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge 
-                        variant={metadataSubscriptionActive ? 'default' : 'secondary'} 
-                        className={`flex items-center gap-1 ${
-                          metadataSubscriptionActive 
-                            ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' 
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        {metadataSubscriptionActive ? <Activity className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                        Metadata
-                      </Badge>
-                      {blobbi.lifeStage === 'baby' && (
-                        <Badge 
-                          variant={questSubscriptionActive ? 'default' : 'secondary'} 
-                          className={`flex items-center gap-1 ${
-                            questSubscriptionActive 
-                              ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' 
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          {questSubscriptionActive ? <Activity className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                          Quests
-                        </Badge>
-                      )}
-                      {blobbi.lifeStage === 'egg' && (
-                        <Badge 
-                          variant={taskSubscriptionActive ? 'default' : 'secondary'} 
-                          className={`flex items-center gap-1 ${
-                            taskSubscriptionActive 
-                              ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' 
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          {taskSubscriptionActive ? <Activity className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                          Tasks
-                        </Badge>
-                      )}
-                    </div>
-                  </CardTitle>
-                  <CardDescription className="text-gray-600 dark:text-gray-300">
-                    Track your Blobbi's evolution progress through Nostr interactions
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-
-              {/* Current Stage Progress */}
-              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-5 h-5 text-purple-500" />
-                      {blobbi.name} - {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} Stage
-                    </div>
-                    {/* Start Incubation/Quest Tracking Button */}
-                    {isOwner && blobbi.lifeStage !== 'adult' && (
-                      <>
-                        {blobbi.lifeStage === 'egg' && !taskSubscriptionActive && !incubationStartTime && (
-                          <Button 
-                            onClick={startIncubation}
-                            size="sm"
-                            className="bg-purple-600 hover:bg-purple-700 text-white"
-                          >
-                            <Egg className="w-4 h-4 mr-2" />
-                            Start Listening
-                          </Button>
-                        )}
-                        {blobbi.lifeStage === 'baby' && !questSubscriptionActive && !questStartTime && (
-                          <Button 
-                            onClick={startQuestTracking}
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                          >
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Start Listening
-                          </Button>
-                        )}
-                      </>
-                    )}
-                    {/* Active Status Badges */}
-                    {blobbi.lifeStage === 'egg' && taskSubscriptionActive && (
-                      <Badge className="bg-green-600 text-white">
-                        <Activity className="w-3 h-3 mr-1" />
-                        Listening for events...
-                      </Badge>
-                    )}
-                    {blobbi.lifeStage === 'baby' && questSubscriptionActive && (
-                      <Badge className="bg-green-600 text-white">
-                        <Activity className="w-3 h-3 mr-1" />
-                        Listening for quests...
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    {blobbi.lifeStage === 'egg' && (
-                      !incubationStartTime 
-                        ? "Click 'Start Listening' to begin tracking your Nostr interactions"
-                        : 'Complete these 4 Nostr interactions to hatch your egg'
-                    )}
-                    {blobbi.lifeStage === 'baby' && (
-                      !questStartTime 
-                        ? "Click 'Start Listening' to begin tracking your Nostr interactions for evolution quests"
-                        : 'Complete these 10 social interaction quests to evolve your baby Blobbi to adult'
-                    )}
-                    {blobbi.lifeStage === 'adult' && 'Your Blobbi has reached full maturity!'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Progress Bar */}
-                  {blobbi.lifeStage !== 'adult' && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                        <span>Progress</span>
-                        <span>
-                          {blobbi.lifeStage === 'egg' 
-                            ? `${progress.egg.completed}/${progress.egg.total} tasks`
-                            : `${questProgress.completed}/${questProgress.total} quests`
-                          }
-                        </span>
-                      </div>
-                      <Progress 
-                        value={blobbi.lifeStage === 'egg' ? progress.egg.percentage : questProgress.percentage} 
-                        className="h-3" 
-                      />
-                    </div>
-                  )}
-
-                  {/* Task List for Eggs */}
-                  {blobbi.lifeStage === 'egg' && (
-                    <div className="space-y-3">
-                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Hatching Tasks</h4>
-                      {eggTasks.map((task, index) => (
-                        <div
-                          key={task.id}
-                          className={`flex items-start gap-3 p-4 rounded-lg border transition-colors ${
-                            task.completed
-                              ? 'bg-green-50/80 dark:bg-green-950/50 border-green-200 dark:border-green-800'
-                              : 'bg-gray-50/80 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700'
-                          }`}
-                        >
-                          <div className="mt-0.5">
-                            {task.completed ? (
-                              <CheckCircle className="h-5 w-5 text-green-500" />
-                            ) : (
-                              <Circle className="h-5 w-5 text-gray-400" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h4 className={`font-medium ${task.completed ? 'text-green-800 dark:text-green-200' : 'text-gray-900 dark:text-gray-100'}`}>
-                                {task.name}
-                              </h4>
-                              {task.completed && (
-                                <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
-                                  Completed
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                              {task.description}
-                            </p>
-                            {task.completed && (
-                              <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                Task confirmed on Nostr
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Quest List for Babies */}
-                  {blobbi.lifeStage === 'baby' && (
-                    <div className="space-y-3">
-                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Evolution Quests</h4>
-                      {babyToAdultQuests.map((quest, index) => (
-                        <div
-                          key={quest.id}
-                          className={`flex items-start gap-3 p-4 rounded-lg border transition-colors ${
-                            quest.completed
-                              ? 'bg-blue-50/80 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800'
-                              : 'bg-gray-50/80 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700'
-                          }`}
-                        >
-                          <div className="mt-0.5">
-                            {quest.completed ? (
-                              <CheckCircle className="h-5 w-5 text-blue-500" />
-                            ) : (
-                              <Circle className="h-5 w-5 text-gray-400" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h4 className={`font-medium ${quest.completed ? 'text-blue-800 dark:text-blue-200' : 'text-gray-900 dark:text-gray-100'}`}>
-                                {quest.name}
-                              </h4>
-                              {quest.completed && (
-                                <Badge variant="secondary" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                                  Completed
-                                </Badge>
-                              )}
-                              {'progress' in quest && quest.target && (
-                                <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300">
-                                  {quest.progress || 0}/{quest.target}
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                              {quest.description}
-                            </p>
-                            {quest.completed && (
-                              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                Quest confirmed on Nostr
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Debug Information for Eggs */}
-                  {blobbi.lifeStage === 'egg' && isOwner && (
-                    <div className="p-4 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg">
-                      <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Hatching Status</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-blue-700 dark:text-blue-300">Incubation Tasks:</span>
-                          <span className={`font-medium ${isReadyToHatch ? 'text-green-600' : 'text-orange-600'}`}>
-                            {progress.egg.completed}/{progress.egg.total} {isReadyToHatch ? '✅ Ready!' : '⏳ In Progress'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-blue-700 dark:text-blue-300">Traditional Requirements:</span>
-                          <span className={`font-medium ${eggReadiness?.isReady ? 'text-green-600' : 'text-orange-600'}`}>
-                            {eggReadiness?.isReady ? '✅ Ready!' : '⏳ In Progress'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-blue-700 dark:text-blue-300">Task Subscription:</span>
-                          <span className={`font-medium ${taskSubscriptionActive ? 'text-green-600' : 'text-red-600'}`}>
-                            {taskSubscriptionActive ? '🟢 Active' : '🔴 Inactive'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Debug Information for Babies */}
-                  {blobbi.lifeStage === 'baby' && isOwner && (
-                    <div className="p-4 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg">
-                      <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Evolution Status</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-blue-700 dark:text-blue-300">Quest Progress:</span>
-                          <span className={`font-medium ${isQuestReadyToEvolve ? 'text-green-600' : 'text-orange-600'}`}>
-                            {questProgress.completed}/{questProgress.total} {isQuestReadyToEvolve ? '✅ Ready!' : '⏳ In Progress'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-blue-700 dark:text-blue-300">Traditional Requirements:</span>
-                          <span className={`font-medium ${babyReadiness?.isReady ? 'text-green-600' : 'text-orange-600'}`}>
-                            {babyReadiness?.isReady ? '✅ Ready!' : '⏳ In Progress'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-blue-700 dark:text-blue-300">Quest Subscription:</span>
-                          <span className={`font-medium ${questSubscriptionActive ? 'text-green-600' : 'text-red-600'}`}>
-                            {questSubscriptionActive ? '🟢 Active' : '🔴 Inactive'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-blue-700 dark:text-blue-300">#Blobbi Tracking:</span>
-                          <span className={`font-medium ${blobbiHashtagSubscriptionActive ? 'text-green-600' : 'text-red-600'}`}>
-                            {blobbiHashtagSubscriptionActive ? '🟢 Active' : '🔴 Inactive'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Evolution Button - Incubation System (Eggs) */}
-                  {blobbi.lifeStage === 'egg' && isReadyToHatch && isOwner && (
-                    <Button 
-                      className="w-full bg-green-600 hover:bg-green-700 text-white" 
-                      onClick={() => hatchBlobbi(blobbi.id)}
-                      disabled={isEvolving}
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      {isEvolving ? 'Hatching...' : 'Hatch the Egg'}
-                    </Button>
-                  )}
-
-                  {/* Evolution Button - Quest System (Babies) */}
-                  {blobbi.lifeStage === 'baby' && isQuestReadyToEvolve && isOwner && (
-                    <Button 
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white" 
-                      onClick={() => triggerEvolution()}
-                      disabled={isEvolving}
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      {isEvolving ? 'Evolving...' : 'Evolve to Adult'}
-                    </Button>
-                  )}
-
-                  {/* Evolution Button - Traditional System (Fallback) */}
-                  {((blobbi.lifeStage === 'egg' && eggReadiness?.isReady && !isReadyToHatch) || (blobbi.lifeStage === 'baby' && babyReadiness?.isReady && !isQuestReadyToEvolve)) && isOwner && (
-                    <Button 
-                      className="w-full" 
-                      onClick={() => triggerEvolution()}
-                      disabled={isEvolving}
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      {isEvolving 
-                        ? (blobbi.lifeStage === 'egg' ? 'Hatching...' : 'Evolving...') 
-                        : (blobbi.lifeStage === 'egg' ? 'Hatch Egg (Traditional)' : 'Evolve to Adult (Traditional)')}
-                    </Button>
-                  )}
-
-                  {/* Adult Stage Message */}
-                  {blobbi.lifeStage === 'adult' && (
-                    <div className="text-center py-8">
-                      <Sparkles className="w-12 h-12 mx-auto text-purple-500 mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">Fully Evolved!</h3>
-                      <p className="text-muted-foreground">
-                        Your Blobbi has reached its final evolution stage.
-                        {blobbi.evolutionForm && ` It has become a magnificent ${blobbi.evolutionForm}!`}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Evolution Requirements (Traditional View) */}
-              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5" />
-                    Evolution Requirements
-                  </CardTitle>
-                  <CardDescription>
-                    What your Blobbi needs to reach the next stage
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {blobbi.lifeStage === 'egg' && eggReadiness && (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 border rounded-lg">
-                          <div className="text-sm text-muted-foreground">Days Required</div>
-                          <div className="text-lg font-bold">
-                            {eggReadiness.requirements.daysPassed}/{eggReadiness.requirements.daysRequired}
-                          </div>
-                          <Progress 
-                            value={(eggReadiness.requirements.daysPassed / eggReadiness.requirements.daysRequired) * 100} 
-                            className="mt-2" 
-                          />
-                        </div>
-                        <div className="p-3 border rounded-lg">
-                          <div className="text-sm text-muted-foreground">Care Points</div>
-                          <div className="text-lg font-bold">
-                            {eggReadiness.requirements.carePointsEarned}/{eggReadiness.requirements.carePointsRequired}
-                          </div>
-                          <Progress 
-                            value={(eggReadiness.requirements.carePointsEarned / eggReadiness.requirements.carePointsRequired) * 100} 
-                            className="mt-2" 
-                          />
-                        </div>
-                        <div className="p-3 border rounded-lg">
-                          <div className="text-sm text-muted-foreground">Minimum Health</div>
-                          <div className="text-lg font-bold">
-                            {eggReadiness.requirements.currentHealth}/{eggReadiness.requirements.healthRequirement}
-                          </div>
-                          <Progress 
-                            value={(eggReadiness.requirements.currentHealth / eggReadiness.requirements.healthRequirement) * 100} 
-                            className="mt-2" 
-                          />
-                        </div>
-                        <div className="p-3 border rounded-lg">
-                          <div className="text-sm text-muted-foreground">Care Days</div>
-                          <div className="text-lg font-bold">
-                            {eggReadiness.requirements.distinctCareDays}/{eggReadiness.requirements.distinctCareDaysRequired}
-                          </div>
-                          <Progress 
-                            value={(eggReadiness.requirements.distinctCareDays / eggReadiness.requirements.distinctCareDaysRequired) * 100} 
-                            className="mt-2" 
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {blobbi.lifeStage === 'baby' && babyReadiness && (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 border rounded-lg">
-                          <div className="text-sm text-muted-foreground">Age (Days)</div>
-                          <div className="text-lg font-bold">
-                            {babyReadiness.requirements.currentAge}/{babyReadiness.requirements.ageRequired}
-                          </div>
-                          <Progress 
-                            value={(babyReadiness.requirements.currentAge / babyReadiness.requirements.ageRequired) * 100} 
-                            className="mt-2" 
-                          />
-                        </div>
-                        <div className="p-3 border rounded-lg">
-                          <div className="text-sm text-muted-foreground">Care Score</div>
-                          <div className="text-lg font-bold">
-                            {babyReadiness.requirements.currentCareScore}/{babyReadiness.requirements.careScoreRequired}
-                          </div>
-                          <Progress 
-                            value={(babyReadiness.requirements.currentCareScore / babyReadiness.requirements.careScoreRequired) * 100} 
-                            className="mt-2" 
-                          />
-                        </div>
-                        <div className="p-3 border rounded-lg">
-                          <div className="text-sm text-muted-foreground">Interactions</div>
-                          <div className="text-lg font-bold">
-                            {babyReadiness.requirements.currentInteractions}/{babyReadiness.requirements.interactionsRequired}
-                          </div>
-                          <Progress 
-                            value={(babyReadiness.requirements.currentInteractions / babyReadiness.requirements.interactionsRequired) * 100} 
-                            className="mt-2" 
-                          />
-                        </div>
-                        <div className="p-3 border rounded-lg">
-                          <div className="text-sm text-muted-foreground">Happiness</div>
-                          <div className="text-lg font-bold">
-                            {babyReadiness.requirements.currentHappiness}%/{babyReadiness.requirements.happinessRequired}%
-                          </div>
-                          <Progress 
-                            value={(babyReadiness.requirements.currentHappiness / babyReadiness.requirements.happinessRequired) * 100} 
-                            className="mt-2" 
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {blobbi.lifeStage === 'adult' && (
-                    <div className="text-center py-8">
-                      <Sparkles className="w-12 h-12 mx-auto text-purple-500 mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">Fully Evolved!</h3>
-                      <p className="text-muted-foreground">
-                        Your Blobbi has reached its final evolution stage.
-                        {blobbi.evolutionForm && ` It has become a magnificent ${blobbi.evolutionForm}!`}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Recommended Nostr Clients */}
-              {blobbi.lifeStage !== 'adult' && (
-                <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                      <Users className="h-5 w-5 text-purple-500" />
-                      Recommended Nostr Clients
-                    </CardTitle>
-                    <CardDescription className="text-gray-600 dark:text-gray-300">
-                      Use these clients to complete your {blobbi.lifeStage === 'egg' ? 'hatching' : 'evolution'} tasks
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <a
-                        href="https://ditto.pub"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-4 border border-purple-200 dark:border-purple-600 rounded-lg hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors group"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">Ditto</h4>
-                          <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-purple-500 transition-colors" />
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">ditto.pub</p>
-                      </a>
-                      <a
-                        href="https://gleasonator.dev"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-4 border border-purple-200 dark:border-purple-600 rounded-lg hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors group"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">Gleasonator</h4>
-                          <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-purple-500 transition-colors" />
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">gleasonator.dev</p>
-                      </a>
-                      <a
-                        href="https://cobrafuma.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-4 border border-purple-200 dark:border-purple-600 rounded-lg hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors group"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">Cobrafuma</h4>
-                          <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-purple-500 transition-colors" />
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">cobrafuma.com</p>
-                      </a>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>            {/* Interactions Tab */}
+            {/* Interactions Tab */}
             <TabsContent value="interactions" className="space-y-6">
               <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                 <CardHeader>
