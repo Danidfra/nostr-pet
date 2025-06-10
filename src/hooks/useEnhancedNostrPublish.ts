@@ -153,7 +153,8 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
   for (const statChangeTag of statChangeTags) {
     if (statChangeTag[1]) {
       const [statName, changeStr] = statChangeTag[1].split(':');
-      const changeValue = parseInt(changeStr);
+      // Handle both "+X" and "X" formats, and negative values like "-X"
+      const changeValue = parseInt(changeStr.replace(/^\+/, ''));
       
       if (statName && !isNaN(changeValue)) {
         // Handle egg_temperature separately since it's not part of BlobbiStats
