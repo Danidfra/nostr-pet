@@ -7,10 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useBlobbiAdoption } from '@/hooks/useBlobbiAdoption';
+import { useBlobbiAdoption, ADOPTION_FEE } from '@/hooks/useBlobbiAdoption';
 import { useBlobbonautProfile, useCreateInitialProfile } from '@/hooks/useBlobbonautProfile';
 import { useToast } from '@/hooks/useToast';
-import { Loader2, Heart, Sparkles, User, CheckCircle, Star, Wand2, Baby, ArrowRight, Gift } from 'lucide-react';
+import { Loader2, Heart, Sparkles, User, CheckCircle, Star, Wand2, Baby, ArrowRight, Gift, Coins } from 'lucide-react';
 import { Blobbi } from '@/types/blobbi';
 
 export function BlobbiAdoption() {
@@ -217,6 +217,7 @@ export function BlobbiAdoption() {
 
   const hasProfile = !!blobbonautProfile;
   const currentStep = hasProfile ? 2 : 1;
+  const hasEnoughCoins = hasProfile && blobbonautProfile.coins >= ADOPTION_FEE;
   
   // Show adoption success screen
   if (adoptionSuccess) {
@@ -564,6 +565,15 @@ export function BlobbiAdoption() {
                   </AlertDescription>
                 </Alert>
               )}
+
+              {hasProfile && !hasEnoughCoins && (
+                <Alert variant="destructive" className="border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
+                  <Coins className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  <AlertDescription className="text-red-700 dark:text-red-300">
+                    <strong>Insufficient coins!</strong> You need {ADOPTION_FEE} coins to adopt a Blobbi, but you only have {blobbonautProfile.coins} coins. Earn more coins by caring for your existing Blobbis or completing daily check-ins.
+                  </AlertDescription>
+                </Alert>
+              )}
               
               {/* Blobbi Preview */}
               <div className="relative">
@@ -629,10 +639,52 @@ export function BlobbiAdoption() {
                   <AlertDescription className="text-red-700 dark:text-red-300">{validationError}</AlertDescription>
                 </Alert>
               )}
+
+              {/* Adoption Fee Information */}
+              {hasProfile && (
+                <div className={`p-4 rounded-xl border transition-all duration-300 ${
+                  hasEnoughCoins 
+                    ? 'bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-emerald-200 dark:border-emerald-600' 
+                    : 'bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-red-200 dark:border-red-600'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className={`font-semibold flex items-center gap-2 ${
+                      hasEnoughCoins 
+                        ? 'text-emerald-800 dark:text-emerald-300' 
+                        : 'text-red-800 dark:text-red-300'
+                    }`}>
+                      <Coins className="h-4 w-4" />
+                      Adoption Fee
+                    </h4>
+                    <div className={`text-lg font-bold ${
+                      hasEnoughCoins 
+                        ? 'text-emerald-700 dark:text-emerald-300' 
+                        : 'text-red-700 dark:text-red-300'
+                    }`}>
+                      {ADOPTION_FEE} coins
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className={hasEnoughCoins ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
+                      Your balance: {blobbonautProfile.coins} coins
+                    </span>
+                    {hasEnoughCoins ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                        <CheckCircle className="h-3 w-3" />
+                        Sufficient funds
+                      </span>
+                    ) : (
+                      <span className="text-red-600 dark:text-red-400 font-medium">
+                        Need {ADOPTION_FEE - blobbonautProfile.coins} more coins
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
               
               <Button 
                 onClick={handleAdoption} 
-                disabled={isAdopting || !petName.trim() || !!validationError || !hasProfile}
+                disabled={isAdopting || !petName.trim() || !!validationError || !hasProfile || !hasEnoughCoins}
                 className="w-full bg-gradient-to-r from-pink-500 to-blue-500 hover:from-pink-600 hover:to-blue-600 text-white shadow-lg text-lg py-6"
               >
                 {isAdopting ? (
@@ -643,7 +695,7 @@ export function BlobbiAdoption() {
                 ) : (
                   <>
                     <Heart className="mr-2 h-5 w-5" />
-                    Adopt {petName.trim() || 'My Blobbi'}
+                    Adopt {petName.trim() || 'My Blobbi'} ({ADOPTION_FEE} coins)
                   </>
                 )}
               </Button>

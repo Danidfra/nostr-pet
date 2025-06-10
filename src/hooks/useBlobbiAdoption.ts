@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCreateBlobbi } from '@/hooks/useBlobbiEvents';
-import { useBlobbonautProfile, useAddBlobbi, useCreateInitialProfile } from '@/hooks/useBlobbonautProfile';
+import { useBlobbonautProfile, useCreateInitialProfile, useUpdateBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { createBlobbiWithAdoption, validatePetName } from '@/lib/blobbi-adoption';
 import { Blobbi } from '@/types/blobbi';
 
@@ -9,18 +9,30 @@ export interface AdoptBlobbiParams {
   petName: string;
 }
 
+// Adoption fee in coins
+export const ADOPTION_FEE = 100;
+
 export function useBlobbiAdoption() {
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
   const { createBlobbi } = useCreateBlobbi();
   const { data: blobbonautProfile } = useBlobbonautProfile();
-  const { mutateAsync: addBlobbi } = useAddBlobbi();
   const { mutateAsync: createInitialProfile } = useCreateInitialProfile();
+  const { mutateAsync: updateProfile } = useUpdateBlobbonautProfile();
 
   const adoptBlobbi = useMutation({
     mutationFn: async ({ petName }: AdoptBlobbiParams): Promise<Blobbi> => {
       if (!user) {
         throw new Error('User must be logged in to adopt a Blobbi');
+      }
+
+      // Check if user has a profile and sufficient coins
+      if (!blobbonautProfile) {
+        throw new Error('You must create a Blobganaut profile before adopting a Blobbi');
+      }
+
+      if (blobbonautProfile.coins < ADOPTION_FEE) {
+        throw new Error(`Insufficient coins. You need ${ADOPTION_FEE} coins to adopt a Blobbi, but you only have ${blobbonautProfile.coins} coins.`);
       }
 
       // Validate the pet name
@@ -42,22 +54,26 @@ export function useBlobbiAdoption() {
         birthData: adoptionRecord
       });
       
-      // Update Blobbanaut Profile
+      // Update Blobbanaut Profile to add the Blobbi AND deduct coins in a single transaction
       try {
-        if (!blobbonautProfile) {
-          // Create initial profile if it doesn't exist
-          await createInitialProfile({
-            ownedBlobbis: [createdBlobbi.id],
-            lifetimeBlobbis: 1,
-            starterBlobbi: createdBlobbi.id,
-          });
-        } else {
-          // Add Blobbi to existing profile
-          await addBlobbi(createdBlobbi.id);
+        // Don't add if already owned
+        if (!blobbonautProfile.ownedBlobbis.includes(createdBlobbi.id)) {
+          const updatedProfile = {
+            ...blobbonautProfile,
+            // Deduct adoption fee
+            coins: blobbonautProfile.coins - ADOPTION_FEE,
+            // Add the new Blobbi
+            ownedBlobbis: [...blobbonautProfile.ownedBlobbis, createdBlobbi.id],
+            lifetimeBlobbis: blobbonautProfile.lifetimeBlobbis + 1,
+            // Set as starter Blobbi if this is the first one
+            starterBlobbi: blobbonautProfile.ownedBlobbis.length === 0 ? createdBlobbi.id : blobbonautProfile.starterBlobbi,
+          };
+
+          await updateProfile(updatedProfile);
         }
       } catch (error) {
         console.error('Failed to update Blobbanaut Profile after adoption:', error);
-        // Don't fail the adoption if profile update fails
+        throw new Error(`Failed to complete adoption: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
       
       return createdBlobbi;
