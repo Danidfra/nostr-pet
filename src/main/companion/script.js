@@ -27,6 +27,22 @@ class BlobbiCompanion {
         this.previousState = null; // Store state before angry mode
         this.globalClickListener = null; // Store reference for cleanup
         this.originalMouthPath = null; // Store original mouth for sad state
+        this.originalMouthElement = null; // Store original mouth element for restoration
+        this.angryMouthSVG = null; // Store angry mouth SVG content
+        
+        // Feeding functionality
+        this.isFeedingMode = false;
+        this.feedingClickListener = null;
+        this.charcoalElement = null;
+        this.isEating = false;
+        this.charcoalProximityCheck = null;
+        
+        // Mouse chasing
+        this.lastMousePosition = null;
+        this.cursorProximityCheck = null;
+        
+        // Continuous proximity detection
+        this.continuousProximityCheck = null;
         
         // Default SVG URL
         this.svgUrl = 'https://danidfra.github.io/blobbi-designs/adult-stage/flammi/flammi-base.svg';
@@ -46,6 +62,9 @@ class BlobbiCompanion {
         
         // Initialize position
         this.updatePosition();
+        
+        // Start continuous proximity detection
+        this.startContinuousProximityDetection();
         
         // Start free roam by default after a short delay to let everything load
         setTimeout(() => {
@@ -81,6 +100,28 @@ class BlobbiCompanion {
         }
     }
     
+    async loadAngryMouthSVG() {
+        if (this.angryMouthSVG) return; // Already loaded
+        
+        try {
+            const response = await fetch('/svg-design/angry-mouth.svg');
+            const svgText = await response.text();
+            
+            // Parse the SVG to extract just the mouth elements
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgText, 'image/svg+xml');
+            const angryMouthGroup = doc.querySelector('#g1');
+            
+            if (angryMouthGroup) {
+                this.angryMouthSVG = angryMouthGroup.innerHTML;
+            } else {
+                console.warn('Could not find angry mouth group in SVG');
+            }
+        } catch (error) {
+            console.error('Failed to load angry mouth SVG:', error);
+        }
+    }
+    
     setupEventListeners() {
         // Toggle visibility button
         document.getElementById('toggle-visibility').addEventListener('click', () => {
@@ -97,6 +138,11 @@ class BlobbiCompanion {
             this.toggleFreeRoam();
         });
         
+        // Feed Flammi button
+        document.getElementById('feed-flammi').addEventListener('click', () => {
+            this.toggleFeedingMode();
+        });
+        
         // Click on character for reactions
         this.character.addEventListener('click', () => {
             this.react();
@@ -110,6 +156,11 @@ class BlobbiCompanion {
             if (this.isMoving && !this.isFreeRoaming && !this.container.contains(e.target)) {
                 this.moveToPosition(e.clientX, e.clientY);
             }
+        });
+        
+        // Track mouse position continuously for proximity detection
+        document.addEventListener('mousemove', (e) => {
+            this.lastMousePosition = { x: e.clientX, y: e.clientY };
         });
     }
     
@@ -313,6 +364,14 @@ class BlobbiCompanion {
     startFreeRoam() {
         if (!this.isFreeRoaming) return;
         
+        // Don't start free roaming if Flammi is busy with other activities
+        if (this.isEating || this.isAngry || this.isSad || this.charcoalElement) {
+            console.log('🚫 Free roam blocked - Flammi is busy with other activities');
+            return;
+        }
+        
+        console.log('🎯 Starting free roam');
+        
         // Start with an immediate movement
         this.performFreeRoamMove();
     }
@@ -401,6 +460,44 @@ class BlobbiCompanion {
     updatePosition() {
         this.container.style.right = `${this.position.x}px`;
         this.container.style.bottom = `${this.position.y}px`;
+        
+        // Check proximity after every position update
+        this.checkAllProximities();
+    }
+    
+    checkAllProximities() {
+        // Check cursor proximity if chasing
+        if (this.isChasing && this.isAngry && this.lastMousePosition) {
+            this.checkCursorProximity(this.lastMousePosition.x, this.lastMousePosition.y);
+        }
+        
+        // Charcoal proximity is now handled directly in startFocusedFeeding
+    }
+    
+    startContinuousProximityDetection() {
+        // Run proximity checks every 100ms regardless of state
+        this.continuousProximityCheck = setInterval(() => {
+            // Check cursor proximity if chasing
+            if (this.isChasing && this.isAngry && this.lastMousePosition) {
+                this.checkCursorProximity(this.lastMousePosition.x, this.lastMousePosition.y);
+            }
+            
+            // Check charcoal proximity - but only for discovery, NOT during active eating
+            if (this.charcoalElement && !this.isAngry && !this.isSad && !this.isEating) {
+                const distance = this.getDistanceToCharcoal();
+                if (distance < 120) { // Large detection radius for discovery
+                    console.log('🪨 Flammi noticed charcoal nearby and is getting excited!');
+                    this.startFocusedFeeding();
+                }
+            }
+        }, 100);
+    }
+    
+    stopContinuousProximityDetection() {
+        if (this.continuousProximityCheck) {
+            clearInterval(this.continuousProximityCheck);
+            this.continuousProximityCheck = null;
+        }
     }
     
     react() {
@@ -442,7 +539,7 @@ class BlobbiCompanion {
         document.addEventListener('click', this.globalClickListener, true);
     }
     
-    becomeAngry() {
+    async becomeAngry() {
         if (this.isAngry) return;
         
         console.log('🔥 Flammi is getting angry due to rapid clicking!');
@@ -461,6 +558,10 @@ class BlobbiCompanion {
         // Clear click history
         this.globalClickHistory = [];
         
+        // Clear stored mouth elements for next time
+        this.originalMouthElement = null;
+        this.originalMouthPath = null;
+        
         // Stop current behaviors
         this.stopFreeRoam();
         this.stopMoving();
@@ -468,12 +569,45 @@ class BlobbiCompanion {
         // Add angry class for styling
         this.character.classList.add('angry');
         
+        // Replace mouth with angry mouth
+        await this.replaceWithAngryMouth();
+        
         // Start chasing after a brief angry pause
         setTimeout(() => {
             if (this.isAngry) {
                 this.startChasing();
             }
         }, 800);
+    }
+    
+    async replaceWithAngryMouth() {
+        const svg = this.character.querySelector('svg');
+        if (!svg) return;
+        
+        // Load angry mouth SVG if not already loaded
+        await this.loadAngryMouthSVG();
+        if (!this.angryMouthSVG) return;
+        
+        // Find and store the original mouth element
+        const originalMouth = svg.querySelector('path[d*="Q"]') || svg.querySelector('path[stroke*="#"]');
+        if (originalMouth && !this.originalMouthElement) {
+            this.originalMouthElement = originalMouth.cloneNode(true);
+        }
+        
+        // Remove existing mouth elements
+        const mouthElements = svg.querySelectorAll('path[d*="Q"], path[stroke*="#"], .flammi-mouth, .angry-mouth');
+        mouthElements.forEach(element => element.remove());
+        
+        // Create a group for the angry mouth and position it appropriately
+        const angryMouthGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        angryMouthGroup.classList.add('angry-mouth');
+        
+        // Scale and position the angry mouth to fit Flammi's face
+        // The original angry mouth is quite large, so we need to scale it down and position it
+        angryMouthGroup.setAttribute('transform', 'translate(35, 55) scale(0.3, 0.3)');
+        angryMouthGroup.innerHTML = this.angryMouthSVG;
+        
+        svg.appendChild(angryMouthGroup);
     }
     
     startChasing() {
@@ -504,28 +638,33 @@ class BlobbiCompanion {
                 return;
             }
             
-            // Check if Flammi has reached the cursor
-            const flammiRect = this.character.getBoundingClientRect();
-            const flammiCenterX = flammiRect.left + flammiRect.width / 2;
-            const flammiCenterY = flammiRect.top + flammiRect.height / 2;
-            
-            const distance = Math.sqrt(
-                Math.pow(e.clientX - flammiCenterX, 2) + 
-                Math.pow(e.clientY - flammiCenterY, 2)
-            );
-            
-            // If close enough to cursor (within 50px), catch it!
-            if (distance < 50) {
-                this.catchCursor();
-                document.removeEventListener('mousemove', chaseMouseMove);
-                return;
-            }
-            
-            // Chase the cursor
+            // Chase the cursor (mouse position is already tracked globally)
             this.chaseToPosition(e.clientX, e.clientY);
         };
         
         document.addEventListener('mousemove', chaseMouseMove);
+    }
+    
+    checkCursorProximity(mouseX, mouseY) {
+        // Get Flammi's current position
+        const flammiRect = this.character.getBoundingClientRect();
+        const flammiCenterX = flammiRect.left + flammiRect.width / 2;
+        const flammiCenterY = flammiRect.top + flammiRect.height / 2;
+        
+        // Calculate distance to mouse
+        const distance = Math.sqrt(
+            Math.pow(mouseX - flammiCenterX, 2) + 
+            Math.pow(mouseY - flammiCenterY, 2)
+        );
+        
+        // Proximity detection area (60px radius)
+        if (distance < 60) {
+            this.catchCursor();
+            if (this.cursorProximityCheck) {
+                clearInterval(this.cursorProximityCheck);
+                this.cursorProximityCheck = null;
+            }
+        }
     }
     
     chaseToPosition(targetX, targetY) {
@@ -556,8 +695,9 @@ class BlobbiCompanion {
             
             const distance = Math.sqrt(dx * dx + dy * dy);
             
+            // Stop moving when close, let proximity detection handle the catching
             if (distance < 10) {
-                return; // Close enough, keep chasing
+                return; // Close enough, stop moving but keep proximity checking
             }
             
             const speed = 6; // Faster when angry
@@ -581,7 +721,7 @@ class BlobbiCompanion {
         
         console.log('😈 Flammi caught the cursor!');
         
-        // Stop chasing
+        // Stop chasing and proximity checking
         this.isChasing = false;
         this.stopMoving();
         this.character.classList.remove('chasing');
@@ -638,6 +778,12 @@ class BlobbiCompanion {
         const svg = this.character.querySelector('svg');
         if (!svg) return;
         
+        // Remove any angry mouth first
+        const angryMouth = svg.querySelector('.angry-mouth');
+        if (angryMouth) {
+            angryMouth.remove();
+        }
+        
         // Look for existing mouth path (this will vary based on the SVG structure)
         let mouthPath = svg.querySelector('path[d*="Q"]'); // Look for quadratic curve paths (likely mouth)
         
@@ -665,9 +811,25 @@ class BlobbiCompanion {
         const svg = this.character.querySelector('svg');
         if (!svg) return;
         
-        const mouthPath = svg.querySelector('path[d*="Q"], .flammi-mouth');
-        if (mouthPath && this.originalMouthPath) {
-            mouthPath.setAttribute('d', this.originalMouthPath);
+        // Remove any angry mouth
+        const angryMouth = svg.querySelector('.angry-mouth');
+        if (angryMouth) {
+            angryMouth.remove();
+        }
+        
+        // Remove any custom mouth elements
+        const customMouths = svg.querySelectorAll('.flammi-mouth');
+        customMouths.forEach(mouth => mouth.remove());
+        
+        // Restore original mouth element if we have it
+        if (this.originalMouthElement) {
+            svg.appendChild(this.originalMouthElement.cloneNode(true));
+        } else {
+            // Fallback: restore original mouth path if we have it
+            const mouthPath = svg.querySelector('path[d*="Q"]');
+            if (mouthPath && this.originalMouthPath) {
+                mouthPath.setAttribute('d', this.originalMouthPath);
+            }
         }
     }
     
@@ -823,6 +985,365 @@ class BlobbiCompanion {
         this.globalClickHistory = [];
     }
     
+    // Feeding functionality
+    toggleFeedingMode() {
+        if (this.isAngry || this.isSad || this.isEating) return;
+        
+        this.isFeedingMode = !this.isFeedingMode;
+        const feedBtn = document.getElementById('feed-flammi');
+        
+        if (this.isFeedingMode) {
+            console.log('🪨 Feed mode activated! Click anywhere to place charcoal.');
+            feedBtn.classList.add('active');
+            document.body.style.cursor = 'crosshair';
+            this.setupFeedingClickListener();
+        } else {
+            console.log('🪨 Feed mode deactivated.');
+            feedBtn.classList.remove('active');
+            document.body.style.cursor = 'default';
+            this.removeFeedingClickListener();
+        }
+    }
+    
+    setupFeedingClickListener() {
+        this.feedingClickListener = (e) => {
+            // Don't place charcoal on Flammi's controls
+            if (this.container.contains(e.target)) return;
+            
+            // Don't place charcoal if interactions are disabled
+            if (this.interactionOverlay) return;
+            
+            this.placeCharcoal(e.clientX, e.clientY);
+            this.isFeedingMode = false;
+            
+            const feedBtn = document.getElementById('feed-flammi');
+            feedBtn.classList.remove('active');
+            document.body.style.cursor = 'default';
+            this.removeFeedingClickListener();
+        };
+        
+        document.addEventListener('click', this.feedingClickListener, true);
+    }
+    
+    removeFeedingClickListener() {
+        if (this.feedingClickListener) {
+            document.removeEventListener('click', this.feedingClickListener, true);
+            this.feedingClickListener = null;
+        }
+    }
+    
+    placeCharcoal(x, y) {
+        // Remove any existing charcoal
+        if (this.charcoalElement) {
+            this.charcoalElement.remove();
+            this.charcoalElement = null;
+        }
+        
+        // Create charcoal element
+        this.charcoalElement = document.createElement('div');
+        this.charcoalElement.style.cssText = `
+            position: fixed;
+            left: ${x - 15}px;
+            top: ${y - 15}px;
+            font-size: 30px;
+            z-index: 9998;
+            pointer-events: none;
+            user-select: none;
+            animation: charcoalDrop 0.3s ease-out;
+        `;
+        this.charcoalElement.textContent = '🪨';
+        this.charcoalElement.classList.add('charcoal-food');
+        
+        // Add drop animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes charcoalDrop {
+                from { 
+                    transform: translateY(-20px) scale(0.5); 
+                    opacity: 0; 
+                }
+                to { 
+                    transform: translateY(0) scale(1); 
+                    opacity: 1; 
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(this.charcoalElement);
+        
+        console.log('🪨 Charcoal placed! Flammi is immediately focused on it.');
+        
+        // Start focused feeding behavior
+        this.startFocusedFeeding();
+    }
+    
+    startFocusedFeeding() {
+        if (!this.charcoalElement || this.isEating) return;
+        
+        console.log('🪨 Flammi is now COMPLETELY focused on the charcoal!');
+        
+        // Set eating state and stop ALL other behaviors
+        this.isEating = true;
+        this.stopFreeRoam();
+        this.stopMoving();
+        
+        // Disable free roaming completely during feeding
+        this.isFreeRoaming = false;
+        this.container.classList.remove('free-roaming');
+        
+        this.character.classList.add('walking', 'excited');
+        
+        // Clear any existing movement
+        if (this.moveInterval) {
+            clearInterval(this.moveInterval);
+        }
+        
+        console.log('🎯 Starting persistent charcoal pursuit...');
+        
+        // Persistent movement towards charcoal - recalculates target every frame
+        this.moveInterval = setInterval(() => {
+            // Safety check - if charcoal is gone or we're not eating, stop
+            if (!this.isEating || !this.charcoalElement) {
+                console.log('🛑 Stopping charcoal pursuit - charcoal gone or not eating');
+                this.stopFocusedFeeding();
+                return;
+            }
+            
+            // ALWAYS get fresh charcoal position (this is key!)
+            const charcoalRect = this.charcoalElement.getBoundingClientRect();
+            const charcoalCenterX = charcoalRect.left + charcoalRect.width / 2;
+            const charcoalCenterY = charcoalRect.top + charcoalRect.height / 2;
+            
+            // Get Flammi's current center position
+            const flammiRect = this.character.getBoundingClientRect();
+            const flammiCenterX = flammiRect.left + flammiRect.width / 2;
+            const flammiCenterY = flammiRect.top + flammiRect.height / 2;
+            
+            // Calculate distance and direction to charcoal
+            const dx = charcoalCenterX - flammiCenterX;
+            const dy = charcoalCenterY - flammiCenterY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Check if close enough to eat (generous radius)
+            if (distance < 70) {
+                console.log('🍽️ Flammi reached the charcoal! Starting eating...');
+                this.eatCharcoal();
+                return;
+            }
+            
+            // Move towards charcoal with determination
+            const speed = 6; // Fast and determined
+            const vx = (dx / distance) * speed;
+            const vy = (dy / distance) * speed;
+            
+            // Convert screen movement to position coordinates
+            // Remember: position.x is distance from RIGHT edge, position.y is distance from BOTTOM edge
+            this.position.x -= vx; // Moving right decreases distance from right edge
+            this.position.y -= vy; // Moving down decreases distance from bottom edge
+            
+            // Keep within bounds
+            this.position.x = Math.max(0, Math.min(window.innerWidth - 120, this.position.x));
+            this.position.y = Math.max(0, Math.min(window.innerHeight - 120, this.position.y));
+            
+            this.updatePosition();
+            
+            // Debug log every 50 frames (1 second at 20ms intervals)
+            if (Math.random() < 0.02) {
+                console.log(`🎯 Pursuing charcoal: distance=${Math.round(distance)}px, speed=${speed}`);
+            }
+        }, 20); // Fast update rate for responsive movement
+    }
+    
+    stopFocusedFeeding() {
+        console.log('🛑 Stopping focused feeding');
+        
+        if (this.moveInterval) {
+            clearInterval(this.moveInterval);
+            this.moveInterval = null;
+        }
+        
+        this.character.classList.remove('walking', 'excited');
+        
+        // Only reset eating state if we're not actually eating (i.e., we stopped before reaching charcoal)
+        if (this.isEating && this.charcoalElement) {
+            // Don't reset isEating here - let eatCharcoal handle it
+            return;
+        }
+        
+        this.isEating = false;
+        
+        // Re-enable free roaming
+        this.isFreeRoaming = true;
+        this.container.classList.add('free-roaming');
+        
+        // Resume normal behavior after a short delay
+        setTimeout(() => {
+            if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.charcoalElement) {
+                this.startFreeRoam();
+            }
+        }, 1000);
+    }
+    
+    getDistanceToCharcoal() {
+        if (!this.charcoalElement) return Infinity;
+        
+        // Get Flammi's current position
+        const flammiRect = this.character.getBoundingClientRect();
+        const flammiCenterX = flammiRect.left + flammiRect.width / 2;
+        const flammiCenterY = flammiRect.top + flammiRect.height / 2;
+        
+        // Get charcoal position
+        const charcoalRect = this.charcoalElement.getBoundingClientRect();
+        const charcoalCenterX = charcoalRect.left + charcoalRect.width / 2;
+        const charcoalCenterY = charcoalRect.top + charcoalRect.height / 2;
+        
+        // Calculate distance to charcoal
+        return Math.sqrt(
+            Math.pow(charcoalCenterX - flammiCenterX, 2) + 
+            Math.pow(charcoalCenterY - flammiCenterY, 2)
+        );
+    }
+    
+    // checkCharcoalProximity method removed - now handled directly in startFocusedFeeding
+    
+    eatCharcoal() {
+        if (!this.charcoalElement) return;
+        
+        console.log('😋 Flammi is eating the charcoal!');
+        
+        // Stop focused feeding movement
+        this.stopFocusedFeeding();
+        
+        this.character.classList.remove('walking', 'excited');
+        this.character.classList.add('eating');
+        
+        // Remove charcoal with eating animation
+        this.charcoalElement.style.animation = 'charcoalEaten 0.5s ease-in forwards';
+        
+        // Add eating animation style
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes charcoalEaten {
+                to { 
+                    transform: scale(0) translateY(-10px); 
+                    opacity: 0; 
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Remove charcoal after animation
+        setTimeout(() => {
+            if (this.charcoalElement) {
+                this.charcoalElement.remove();
+                this.charcoalElement = null;
+            }
+            if (style.parentNode) {
+                document.head.removeChild(style);
+            }
+        }, 500);
+        
+        // Show heart emojis
+        setTimeout(() => {
+            this.showHeartEmojis();
+        }, 300);
+        
+        // Return to normal after showing affection
+        setTimeout(() => {
+            this.finishEating();
+        }, 2000);
+    }
+    
+    showHeartEmojis() {
+        const hearts = ['❤️', '💖', '💕', '💗', '💝'];
+        const numHearts = 4 + Math.floor(Math.random() * 3); // 4-6 hearts randomly
+        
+        for (let i = 0; i < numHearts; i++) {
+            setTimeout(() => {
+                this.createHeartEmoji(hearts[Math.floor(Math.random() * hearts.length)]);
+            }, i * 200);
+        }
+    }
+    
+    createHeartEmoji(heartType) {
+        const heart = document.createElement('div');
+        
+        // Get Flammi's current position
+        const flammiRect = this.character.getBoundingClientRect();
+        const flammiCenterX = flammiRect.left + flammiRect.width / 2;
+        const flammiCenterY = flammiRect.top + flammiRect.height / 2;
+        
+        // Random offset around Flammi
+        const offsetX = (Math.random() - 0.5) * 80;
+        const offsetY = (Math.random() - 0.5) * 60;
+        
+        heart.style.cssText = `
+            position: fixed;
+            left: ${flammiCenterX + offsetX - 15}px;
+            top: ${flammiCenterY + offsetY - 15}px;
+            font-size: 24px;
+            z-index: 10000;
+            pointer-events: none;
+            user-select: none;
+            animation: heartFloat 2s ease-out forwards;
+        `;
+        heart.textContent = heartType;
+        heart.classList.add('heart-emoji');
+        
+        // Add heart float animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes heartFloat {
+                0% { 
+                    transform: scale(0) translateY(0); 
+                    opacity: 0; 
+                }
+                20% { 
+                    transform: scale(1.2) translateY(-10px); 
+                    opacity: 1; 
+                }
+                100% { 
+                    transform: scale(0.8) translateY(-50px); 
+                    opacity: 0; 
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(heart);
+        
+        // Remove heart after animation
+        setTimeout(() => {
+            if (heart.parentNode) {
+                document.body.removeChild(heart);
+            }
+            if (style.parentNode) {
+                document.head.removeChild(style);
+            }
+        }, 2000);
+    }
+    
+    finishEating() {
+        this.isEating = false;
+        this.character.classList.remove('eating');
+        
+        console.log('😊 Flammi finished eating and is happy!');
+        
+        // Re-enable free roaming
+        this.isFreeRoaming = true;
+        this.container.classList.add('free-roaming');
+        
+        // Return to normal behavior after a satisfied pause
+        setTimeout(() => {
+            // Double-check that we're not in any other state before resuming free roam
+            if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.charcoalElement) {
+                console.log('🎯 Flammi is satisfied and resuming free roam');
+                this.startFreeRoam();
+            }
+        }, 1500); // Slightly longer pause to show satisfaction
+    }
+    
     // Cleanup method for when companion is removed
     destroy() {
         // Remove global click listener
@@ -831,12 +1352,26 @@ class BlobbiCompanion {
             this.globalClickListener = null;
         }
         
-        // Clear all timeouts
+        // Remove feeding click listener
+        this.removeFeedingClickListener();
+        
+        // Remove charcoal if present
+        if (this.charcoalElement) {
+            this.charcoalElement.remove();
+            this.charcoalElement = null;
+        }
+        
+        // Clear all timeouts and intervals
         if (this.chaseTimeout) clearTimeout(this.chaseTimeout);
         if (this.sadTimeout) clearTimeout(this.sadTimeout);
         if (this.pauseTimeout) clearTimeout(this.pauseTimeout);
         if (this.moveInterval) clearInterval(this.moveInterval);
         if (this.freeRoamInterval) clearInterval(this.freeRoamInterval);
+        if (this.cursorProximityCheck) clearInterval(this.cursorProximityCheck);
+        if (this.charcoalProximityCheck) clearInterval(this.charcoalProximityCheck);
+        
+        // Stop continuous proximity detection
+        this.stopContinuousProximityDetection();
         
         // Enable interactions if disabled
         this.enableInteractions();
