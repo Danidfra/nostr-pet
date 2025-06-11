@@ -41,6 +41,8 @@ import { AppHeader } from '@/components/AppHeader';
 import { formatDistanceToNow } from 'date-fns';
 import { Blobbi, BlobbiLifeStage } from '@/types/blobbi';
 import { isValidSize } from '@/lib/blobbi-egg-validation';
+import { CompanionSelector } from '@/components/CompanionSelector';
+import { SetCompanionButton } from '@/components/SetCompanionButton';
 
 type BlobbiFilter = 'all' | 'active' | 'incubating' | 'evolved' | 'archived';
 
@@ -265,6 +267,7 @@ export default function BlobbiDashboard() {
               <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
+              <CompanionSelector />
               <Link to="/blobbi/adopt">
                 <Button variant="outline" className="w-full justify-start gap-2 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
                   <Heart className="w-4 h-4" />
@@ -542,8 +545,7 @@ export default function BlobbiDashboard() {
                 {filteredBlobbis.map((blobbi) => (
                   <Card 
                     key={blobbi.id}
-                    className="cursor-pointer hover:shadow-lg transition-shadow bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600"
-                    onClick={() => navigate(`/blobbi/${blobbi.id}`)}
+                    className="hover:shadow-lg transition-shadow bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600"
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
@@ -591,6 +593,18 @@ export default function BlobbiDashboard() {
                             </Badge>
                           </div>
                         )}
+                      </div>
+                      
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                          onClick={() => navigate(`/blobbi/${blobbi.id}`)}
+                        >
+                          View Details
+                        </Button>
+                        <SetCompanionButton blobbi={blobbi} size="sm" className="flex-1" />
                       </div>
                     </CardContent>
                   </Card>

@@ -370,6 +370,7 @@ Blobbi pets have three stages: **egg** → **baby** → **adult**
 - `lifetimeBlobbis`: Total Blobbis owned
 - `favoriteBlobbi`: Favorite Blobbi ID
 - `starterBlobbi`: First Blobbi ID
+- `current_companion`: Currently selected companion Blobbi ID
 - `style`: Aesthetic style
 - `background`: Background theme
 - `title`: Custom title

@@ -54,6 +54,7 @@ import { getActionDisplayName } from '@/lib/utils';
 import { BlobbiAction } from '@/types/blobbi';
 import { checkEggHatchingReadiness, checkBabyEvolutionReadiness } from '@/lib/blobbi-evolution';
 import { isValidSize } from '@/lib/blobbi-egg-validation';
+import { SetCompanionButton } from '@/components/SetCompanionButton';
 
 export default function BlobbiDetail() {
   const { blobbiId } = useParams<{ blobbiId: string }>();
@@ -348,6 +349,7 @@ export default function BlobbiDetail() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
+                <SetCompanionButton blobbi={blobbi} className="w-full" />
                 <Button
                   variant="outline"
                   className="w-full justify-start gap-2"

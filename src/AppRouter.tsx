@@ -11,10 +11,12 @@ import { BlobbiAdoptionPage } from "./pages/BlobbiAdoptionPage";
 import { BubblePopGame } from "./pages/games/BubblePopGame";
 import EggDemo from "./pages/EggDemo";
 import VisualEffectsDemo from "./pages/VisualEffectsDemo";
+import { BlobbiCompanionWrapper } from "./components/BlobbiCompanionWrapper";
 
 export function AppRouter() {
   return (
     <BrowserRouter>
+      <BlobbiCompanionWrapper />
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/blobbi" element={<BlobbiDashboard />} />

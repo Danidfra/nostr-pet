@@ -382,6 +382,7 @@ export function createBlobbonautProfileEvent(
   if (profile.style) tags.push(['style', profile.style]);
   if (profile.background) tags.push(['background', profile.background]);
   if (profile.title) tags.push(['title', profile.title]);
+  if (profile.currentCompanion) tags.push(['current_companion', profile.currentCompanion]);
 
   // Add owned Blobbis (multiple 'has' tags)
   profile.ownedBlobbis.forEach(blobbiId => {
@@ -763,6 +764,7 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
       style: getTagValue(tags, 'style'),
       background: getTagValue(tags, 'background'),
       title: getTagValue(tags, 'title'),
+      currentCompanion: getTagValue(tags, 'current_companion'),
       welcomeMissionStatus: (() => {
         const status = getTagValue(tags, 'welcome_mission');
         return status === 'unclaimed' || status === 'claimed' ? status : undefined;
