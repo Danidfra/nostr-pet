@@ -44,6 +44,23 @@ class BlobbiCompanion {
         // Continuous proximity detection
         this.continuousProximityCheck = null;
         
+        // Speech bubble functionality
+        this.speechBubbleElement = null;
+        this.speechBubbleTimeout = null;
+        this.isShowingSpeechBubble = false;
+        this.speechBubbleMessages = [
+            "I'm hungry",
+            "Feed me charcoal!",
+            "Got any rocks?",
+            "I love charcoal!",
+            "*stomach rumbles*",
+            "Charcoal is life!",
+            "More rocks please!",
+            "I could eat a mountain",
+            "Yum yum charcoal",
+            "Rock snacks are the best!"
+        ];
+        
         // Default SVG URL
         this.svgUrl = 'https://danidfra.github.io/blobbi-designs/adult-stage/flammi/flammi-base.svg';
         
@@ -141,6 +158,11 @@ class BlobbiCompanion {
         // Feed Flammi button
         document.getElementById('feed-flammi').addEventListener('click', () => {
             this.toggleFeedingMode();
+        });
+        
+        // Show speech bubble button
+        document.getElementById('show-speech-bubble').addEventListener('click', () => {
+            this.showSpeechBubble();
         });
         
         // Click on character for reactions
@@ -365,7 +387,7 @@ class BlobbiCompanion {
         if (!this.isFreeRoaming) return;
         
         // Don't start free roaming if Flammi is busy with other activities
-        if (this.isEating || this.isAngry || this.isSad || this.charcoalElement) {
+        if (this.isEating || this.isAngry || this.isSad || this.charcoalElement || this.isShowingSpeechBubble) {
             console.log('🚫 Free roam blocked - Flammi is busy with other activities');
             return;
         }
@@ -435,6 +457,12 @@ class BlobbiCompanion {
         
         this.pauseTimeout = setTimeout(() => {
             if (this.isFreeRoaming) {
+                // Check for random speech bubble (5% chance)
+                if (!this.isShowingSpeechBubble && Math.random() < 0.05) {
+                    this.showSpeechBubble();
+                    return; // Speech bubble will handle resuming free roam
+                }
+                
                 // 80% chance to move, 20% chance to pause longer (simulate resting)
                 if (Math.random() < 0.8) {
                     this.performFreeRoamMove();
@@ -1344,6 +1372,109 @@ class BlobbiCompanion {
         }, 1500); // Slightly longer pause to show satisfaction
     }
     
+    // Speech bubble functionality
+    showSpeechBubble(message = null) {
+        // Don't show speech bubble if already showing one or if in certain states
+        if (this.isShowingSpeechBubble || this.isAngry || this.isSad || this.isEating) return;
+        
+        console.log('💬 Showing speech bubble');
+        
+        // Set state
+        this.isShowingSpeechBubble = true;
+        
+        // Stop free roaming while showing speech bubble
+        const wasFreeRoaming = this.isFreeRoaming;
+        if (this.isFreeRoaming) {
+            this.stopFreeRoam();
+        }
+        
+        // Select a random message if none provided
+        if (!message) {
+            message = this.speechBubbleMessages[Math.floor(Math.random() * this.speechBubbleMessages.length)];
+        }
+        
+        // Create speech bubble element
+        this.createSpeechBubble(message);
+        
+        // Clear any existing timeout
+        if (this.speechBubbleTimeout) {
+            clearTimeout(this.speechBubbleTimeout);
+        }
+        
+        // Remove speech bubble after 5 seconds
+        this.speechBubbleTimeout = setTimeout(() => {
+            this.hideSpeechBubble();
+            
+            // Resume free roaming if it was active before
+            if (wasFreeRoaming) {
+                this.isFreeRoaming = true;
+                this.container.classList.add('free-roaming');
+                setTimeout(() => {
+                    if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.charcoalElement) {
+                        this.startFreeRoam();
+                    }
+                }, 500);
+            }
+        }, 5000);
+    }
+    
+    createSpeechBubble(message) {
+        // Remove any existing speech bubble
+        if (this.speechBubbleElement) {
+            this.speechBubbleElement.remove();
+        }
+        
+        // Create speech bubble container
+        this.speechBubbleElement = document.createElement('div');
+        this.speechBubbleElement.className = 'speech-bubble';
+        
+        // Create inner content
+        const content = document.createElement('div');
+        content.className = 'speech-bubble-content';
+        content.textContent = message;
+        
+        // Create tail/arrow pointing down to Flammi
+        const tail = document.createElement('div');
+        tail.className = 'speech-bubble-tail';
+        
+        this.speechBubbleElement.appendChild(content);
+        this.speechBubbleElement.appendChild(tail);
+        
+        // Add to container
+        this.container.appendChild(this.speechBubbleElement);
+        
+        // Trigger fade-in animation
+        setTimeout(() => {
+            this.speechBubbleElement.classList.add('visible');
+        }, 10);
+    }
+    
+    hideSpeechBubble() {
+        if (!this.speechBubbleElement) return;
+        
+        console.log('💬 Hiding speech bubble');
+        
+        // Fade out
+        this.speechBubbleElement.classList.remove('visible');
+        
+        // Remove after animation
+        setTimeout(() => {
+            if (this.speechBubbleElement) {
+                this.speechBubbleElement.remove();
+                this.speechBubbleElement = null;
+            }
+            this.isShowingSpeechBubble = false;
+        }, 300);
+    }
+    
+    // Add random speech bubble triggers
+    scheduleRandomSpeechBubble() {
+        // Random chance to show speech bubble during free roam
+        if (this.isFreeRoaming && !this.isShowingSpeechBubble && Math.random() < 0.1) {
+            this.showSpeechBubble();
+        }
+    }
+    
     // Cleanup method for when companion is removed
     destroy() {
         // Remove global click listener
@@ -1361,10 +1492,17 @@ class BlobbiCompanion {
             this.charcoalElement = null;
         }
         
+        // Remove speech bubble if present
+        if (this.speechBubbleElement) {
+            this.speechBubbleElement.remove();
+            this.speechBubbleElement = null;
+        }
+        
         // Clear all timeouts and intervals
         if (this.chaseTimeout) clearTimeout(this.chaseTimeout);
         if (this.sadTimeout) clearTimeout(this.sadTimeout);
         if (this.pauseTimeout) clearTimeout(this.pauseTimeout);
+        if (this.speechBubbleTimeout) clearTimeout(this.speechBubbleTimeout);
         if (this.moveInterval) clearInterval(this.moveInterval);
         if (this.freeRoamInterval) clearInterval(this.freeRoamInterval);
         if (this.cursorProximityCheck) clearInterval(this.cursorProximityCheck);
@@ -1396,6 +1534,25 @@ class BlobbiCompanion {
     loadCustomSVG(url) {
         this.svgUrl = url;
         this.loadSVG();
+    }
+    
+    // Public method to show speech bubble with custom message
+    speak(message) {
+        this.showSpeechBubble(message);
+    }
+    
+    // Public method to add custom messages to the random pool
+    addSpeechMessage(message) {
+        if (!this.speechBubbleMessages.includes(message)) {
+            this.speechBubbleMessages.push(message);
+        }
+    }
+    
+    // Public method to set all speech messages
+    setSpeechMessages(messages) {
+        if (Array.isArray(messages) && messages.length > 0) {
+            this.speechBubbleMessages = messages;
+        }
     }
 }
 

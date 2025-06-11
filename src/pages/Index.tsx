@@ -252,6 +252,7 @@ const Index = () => {
                   </p>
                   <div className="space-y-2 text-sm">
                     <p className="text-gray-700 dark:text-gray-200">🖱️ <strong>Normal clicks:</strong> Click on Flammi for cute reactions</p>
+                    <p className="text-purple-600 dark:text-purple-400">💬 <strong>Speech bubble:</strong> Click the speech bubble button to hear what Flammi has to say!</p>
                     <p className="text-green-600 dark:text-green-400">🪨 <strong>Feed Flammi:</strong> Click the charcoal button, then click anywhere to place food. Watch him eat and show love!</p>
                     <p className="text-red-600 dark:text-red-400">⚡ <strong>Rapid clicking anywhere (5+ times in 2 seconds):</strong> Flammi gets angry and chases your cursor!</p>
                     <p className="text-blue-600 dark:text-blue-400">😈 <strong>If he catches you:</strong> All clicking is forbidden for 5 seconds!</p>

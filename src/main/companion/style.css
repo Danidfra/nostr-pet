@@ -264,6 +264,88 @@
     }
 }
 
+/* Speech bubble styles - matching card design from main page */
+.speech-bubble {
+    position: absolute;
+    bottom: 130px; /* Position above Flammi */
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 150px;
+    max-width: 250px;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+    z-index: 10001;
+}
+
+.speech-bubble.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-5px);
+}
+
+.speech-bubble-content {
+    /* Match card styling from main page */
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(147, 51, 234, 0.2); /* purple-200 */
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    color: #1f2937; /* gray-800 */
+    font-size: 14px;
+    font-family: system-ui, -apple-system, sans-serif;
+    text-align: center;
+    position: relative;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .speech-bubble-content {
+        background: rgba(31, 41, 55, 0.8); /* gray-800 with opacity */
+        border-color: rgba(147, 51, 234, 0.6); /* purple-600 */
+        color: #f3f4f6; /* gray-100 */
+    }
+}
+
+/* Speech bubble tail/arrow */
+.speech-bubble-tail {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 8px 8px 0 8px;
+    border-color: rgba(255, 255, 255, 0.8) transparent transparent transparent;
+}
+
+/* Dark mode tail */
+@media (prefers-color-scheme: dark) {
+    .speech-bubble-tail {
+        border-color: rgba(31, 41, 55, 0.8) transparent transparent transparent;
+    }
+}
+
+/* Speech bubble tail border (creates outline effect) */
+.speech-bubble-tail::before {
+    content: '';
+    position: absolute;
+    bottom: 1px;
+    left: -9px;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 9px 9px 0 9px;
+    border-color: rgba(147, 51, 234, 0.2) transparent transparent transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+    .speech-bubble-tail::before {
+        border-color: rgba(147, 51, 234, 0.6) transparent transparent transparent;
+    }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .blobbi-character {
@@ -274,5 +356,15 @@
     .blobbi-container {
         bottom: 10px;
         right: 10px;
+    }
+    
+    .speech-bubble {
+        bottom: 90px; /* Adjust for smaller Flammi */
+        max-width: 200px;
+    }
+    
+    .speech-bubble-content {
+        font-size: 12px;
+        padding: 8px 12px;
     }
 }
