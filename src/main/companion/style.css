@@ -166,6 +166,55 @@
     }
 }
 
+/* Angry state animations */
+.blobbi-character.angry {
+    animation: angry-shake 0.3s ease-in-out infinite;
+    filter: hue-rotate(0deg) saturate(1.5) brightness(1.1);
+}
+
+@keyframes angry-shake {
+    0%, 100% {
+        transform: translateX(0) scale(1.05);
+    }
+    25% {
+        transform: translateX(-2px) scale(1.05);
+    }
+    75% {
+        transform: translateX(2px) scale(1.05);
+    }
+}
+
+/* Chasing animation - more intense movement */
+.blobbi-character.chasing {
+    animation: chase-movement 0.2s ease-in-out infinite;
+    filter: hue-rotate(0deg) saturate(1.8) brightness(1.2);
+}
+
+@keyframes chase-movement {
+    0%, 100% {
+        transform: rotate(-8deg) scale(1.1);
+    }
+    50% {
+        transform: rotate(8deg) scale(1.1);
+    }
+}
+
+/* Sad state animation */
+.blobbi-character.sad {
+    animation: sad-droop 2s ease-in-out infinite;
+    filter: saturate(0.5) brightness(0.8);
+    opacity: 0.8;
+}
+
+@keyframes sad-droop {
+    0%, 100% {
+        transform: translateY(5px) scale(0.95);
+    }
+    50% {
+        transform: translateY(8px) scale(0.95);
+    }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .blobbi-character {

@@ -6,6 +6,7 @@ interface BlobbiCompanionAPI {
   hide: () => void;
   setPosition: (x: number, y: number) => void;
   loadCustomSVG: (url: string) => void;
+  destroy: () => void;
 }
 
 declare global {
@@ -73,6 +74,11 @@ export function BlobbiCompanion() {
   useEffect(() => {
     // Cleanup function
     return () => {
+      // Call destroy method if companion exists
+      if (window.blobbiCompanion && typeof window.blobbiCompanion.destroy === 'function') {
+        window.blobbiCompanion.destroy();
+      }
+      
       const companionRoot = document.getElementById('blobbi-companion-root');
       if (companionRoot) {
         companionRoot.remove();
