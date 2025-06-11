@@ -42,7 +42,7 @@ export function BlobbiCompanion() {
       document.body.appendChild(companionContainer);
 
       // Load the companion HTML
-      const response = await fetch('/src/main/companion/index.html');
+      const response = await fetch('/companion/index.html');
       const html = await response.text();
       
       // Extract the body content
@@ -55,12 +55,12 @@ export function BlobbiCompanion() {
       // Load CSS
       const link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = '/src/main/companion/style.css';
+      link.href = '/companion/style.css';
       document.head.appendChild(link);
 
       // Load and execute the script
       const script = document.createElement('script');
-      script.src = '/src/main/companion/script.js';
+      script.src = '/companion/script.js';
       script.onload = () => {
         setIsLoaded(true);
         setIsVisible(true);
