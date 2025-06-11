@@ -29,7 +29,7 @@ class BlobbiCompanion {
         this.originalMouthPath = null; // Store original mouth for sad state
         
         // Default SVG URL
-        this.svgUrl = 'https://danidfra.github.io/blobbi-designs/adult-stage/flammi-base.svg';
+        this.svgUrl = 'https://danidfra.github.io/blobbi-designs/adult-stage/flammi/flammi-base.svg';
         
         this.init();
     }
