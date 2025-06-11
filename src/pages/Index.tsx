@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Heart, Sparkles, Gamepad2, Users } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
+import { BlobbiCompanion } from '@/components/BlobbiCompanion';
 import { useEffect, useState, useRef } from 'react';
 
 const Index = () => {
@@ -79,7 +80,7 @@ const Index = () => {
               Each Nostr account can have one special Blobbi pet!
             </p>
             
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-4 justify-center flex-wrap">
               <Button 
                 size="lg" 
                 onClick={() => navigate(user ? '/blobbi' : '/blobbi/adopt')}
@@ -95,6 +96,7 @@ const Index = () => {
               >
                 Explore Community
               </Button>
+              <BlobbiCompanion />
             </div>
           </div>
 
@@ -301,6 +303,16 @@ const Index = () => {
             </p>
             <p>
               Your pet data is stored permanently on the network and belongs to you.
+            </p>
+            <p className="mt-2">
+              <a 
+                href="https://soapbox.pub/tools/mkstack/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-purple-600 dark:text-purple-400 hover:underline"
+              >
+                Vibed with MKStack
+              </a>
             </p>
           </div>
         </div>
