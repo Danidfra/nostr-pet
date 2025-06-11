@@ -31,11 +31,57 @@ function getBlobbiSvgUrl(blobbi: Blobbi): string {
   return 'https://danidfra.github.io/blobbi-designs/baby-stage/baby/blobbi-baby-base.svg';
 }
 
-// Helper to customize SVG with colors - DISABLED FOR NOW
+// Helper to customize SVG with colors
 function customizeSvg(svgText: string, blobbi: Blobbi): string {
-  // Temporarily disabled SVG modification to prevent parsing errors
-  // Return the original SVG content without any modifications
-  return svgText;
+  let modifiedSvg = svgText;
+
+  // Only apply customizations if we have colors
+  if (!blobbi.baseColor && !blobbi.secondaryColor) {
+    return modifiedSvg;
+  }
+
+  // Find and modify the body gradient
+  const bodyGradientRegex = /<radialGradient[^>]*id=["']blobbiBodyGradient["'][^>]*>([\s\S]*?)<\/radialGradient>/;
+  const bodyGradientMatch = modifiedSvg.match(bodyGradientRegex);
+
+  if (bodyGradientMatch && blobbi.baseColor) {
+    let newGradient = '';
+    
+    if (blobbi.secondaryColor) {
+      // Both base_color and secondary_color are present
+      newGradient = `<radialGradient id="blobbiBodyGradient" cx="0.3" cy="0.25">
+        <stop offset="0%" style="stop-color:${blobbi.secondaryColor}"/>
+        <stop offset="60%" style="stop-color:${lightenColor(blobbi.secondaryColor, 20)}"/>
+        <stop offset="100%" style="stop-color:${blobbi.baseColor}"/>
+      </radialGradient>`;
+    } else {
+      // Only base_color is present
+      newGradient = `<radialGradient id="blobbiBodyGradient" cx="0.3" cy="0.25">
+        <stop offset="0%" style="stop-color:${lightenColor(blobbi.baseColor, 40)}"/>
+        <stop offset="60%" style="stop-color:${lightenColor(blobbi.baseColor, 20)}"/>
+        <stop offset="100%" style="stop-color:${blobbi.baseColor}"/>
+      </radialGradient>`;
+    }
+    
+    modifiedSvg = modifiedSvg.replace(bodyGradientMatch[0], newGradient);
+  }
+
+  // Find and modify the eye gradient if eye color is present
+  if (blobbi.eyeColor) {
+    const eyeGradientRegex = /<radialGradient[^>]*id=["']blobbiPupilGradient["'][^>]*>([\s\S]*?)<\/radialGradient>/;
+    const eyeGradientMatch = modifiedSvg.match(eyeGradientRegex);
+
+    if (eyeGradientMatch) {
+      const newEyeGradient = `<radialGradient id="blobbiPupilGradient" cx="0.3" cy="0.3">
+        <stop offset="0%" style="stop-color:${lightenColor(blobbi.eyeColor, 30)}"/>
+        <stop offset="100%" style="stop-color:${blobbi.eyeColor}"/>
+      </radialGradient>`;
+      
+      modifiedSvg = modifiedSvg.replace(eyeGradientMatch[0], newEyeGradient);
+    }
+  }
+
+  return modifiedSvg;
 }
 
 // Eye animation controller class
@@ -363,16 +409,69 @@ function lightenColor(color: string, percent: number): string {
     (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
 }
 
+// Helper to generate cache key with more specificity
+function getCacheKey(blobbi: Blobbi, blobbiId: string): string {
+  const stage = blobbi.lifeStage;
+  const type = blobbi.evolutionForm || 'baby';
+  const baseColor = blobbi.baseColor || 'default';
+  const secondaryColor = blobbi.secondaryColor || 'none';
+  return `blobbi-svg-${blobbiId}-${stage}-${type}-${baseColor}-${secondaryColor}`;
+}
+
 export function BlobbiCompanionWrapper() {
   const location = useLocation();
   const { data: companionData, isLoading } = useCurrentCompanion();
   const [isCompanionLoaded, setIsCompanionLoaded] = useState(false);
   const [currentBlobbiId, setCurrentBlobbiId] = useState<string | null>(null);
+  const [isLoadingSvg, setIsLoadingSvg] = useState(false);
   const companionInitialized = useRef(false);
   const eyeAnimator = useRef<BlobbiEyeAnimator | null>(null);
+  const updateInProgress = useRef(false);
 
   // Check if we're on a /blobbi route
   const shouldShowCompanion = location.pathname.startsWith('/blobbi');
+
+  // Helper to update SVG in the DOM
+  const updateSvgInDom = (svgContent: string) => {
+    const characterElement = document.getElementById('blobbi-character');
+    if (characterElement) {
+      characterElement.innerHTML = svgContent;
+      
+      // Add class to SVG for styling
+      const svg = characterElement.querySelector('svg');
+      if (svg) {
+        svg.classList.add('blobbi-svg');
+        
+        // Initialize eye animations
+        if (eyeAnimator.current) {
+          eyeAnimator.current.destroy();
+        }
+        
+        // Wait a bit for SVG to be fully rendered
+        setTimeout(() => {
+          eyeAnimator.current = new BlobbiEyeAnimator(svg);
+        }, 100);
+      }
+    }
+  };
+
+  // Helper to show loading placeholder
+  const showLoadingPlaceholder = () => {
+    const characterElement = document.getElementById('blobbi-character');
+    if (characterElement) {
+      characterElement.innerHTML = `
+        <div style="width: 100px; height: 100px; display: flex; align-items: center; justify-content: center;">
+          <div style="width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #7C3AED; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        </div>
+        <style>
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      `;
+    }
+  };
 
   useEffect(() => {
     // Early exit conditions
@@ -388,7 +487,7 @@ export function BlobbiCompanionWrapper() {
     const blobbiId = companionData.blobbiId;
 
     // Check if we need to update the companion
-    if (currentBlobbiId === blobbiId && isCompanionLoaded) {
+    if (currentBlobbiId === blobbiId && isCompanionLoaded && !updateInProgress.current) {
       // Same companion, just show it
       window.blobbiCompanion?.show();
       return;
@@ -397,23 +496,9 @@ export function BlobbiCompanionWrapper() {
     // Load or update companion
     const loadCompanion = async () => {
       try {
-        // Check sessionStorage for cached SVG
-        const cacheKey = `blobbi-svg-${blobbiId}`;
-        let customizedSvg = sessionStorage.getItem(cacheKey);
-
-        if (!customizedSvg) {
-          // Fetch and customize SVG
-          const svgUrl = getBlobbiSvgUrl(blobbi);
-          const response = await fetch(svgUrl);
-          const svgText = await response.text();
-          
-          // Customize the SVG with the Blobbi's colors
-          customizedSvg = customizeSvg(svgText, blobbi);
-          
-          // Cache in sessionStorage
-          sessionStorage.setItem(cacheKey, customizedSvg);
-        }
-
+        // Generate cache key with more specificity
+        const cacheKey = getCacheKey(blobbi, blobbiId);
+        
         // Initialize companion if not already done
         if (!companionInitialized.current) {
           // Create container for the companion
@@ -447,40 +532,57 @@ export function BlobbiCompanionWrapper() {
           });
 
           companionInitialized.current = true;
-        }
-
-        // Wait a bit for the companion to initialize
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // Update the SVG content
-        const characterElement = document.getElementById('blobbi-character');
-        if (characterElement) {
-          characterElement.innerHTML = customizedSvg;
           
-          // Add class to SVG for styling
-          const svg = characterElement.querySelector('svg');
-          if (svg) {
-            svg.classList.add('blobbi-svg');
-            
-            // Initialize eye animations
-            if (eyeAnimator.current) {
-              eyeAnimator.current.destroy();
-            }
-            
-            // Wait a bit for SVG to be fully rendered
-            setTimeout(() => {
-              eyeAnimator.current = new BlobbiEyeAnimator(svg);
-            }, 100);
-          }
+          // Wait a bit for the companion to initialize
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
 
-        // Show the companion
-        window.blobbiCompanion?.show();
+        // Step 1: Try to load from sessionStorage first
+        const cachedSvg = sessionStorage.getItem(cacheKey);
         
+        if (cachedSvg) {
+          // Use cached SVG immediately
+          updateSvgInDom(cachedSvg);
+          window.blobbiCompanion?.show();
+          setIsCompanionLoaded(true);
+          setCurrentBlobbiId(blobbiId);
+        } else {
+          // Show loading placeholder while fetching
+          setIsLoadingSvg(true);
+          showLoadingPlaceholder();
+          window.blobbiCompanion?.show();
+        }
+
+        // Step 2: Fetch and update in parallel (always do this to ensure latest version)
+        updateInProgress.current = true;
+        
+        // Fetch the SVG
+        const svgUrl = getBlobbiSvgUrl(blobbi);
+        const response = await fetch(svgUrl);
+        const svgText = await response.text();
+        
+        // Customize the SVG with the Blobbi's colors
+        const customizedSvg = customizeSvg(svgText, blobbi);
+        
+        // Update sessionStorage with new SVG
+        sessionStorage.setItem(cacheKey, customizedSvg);
+        
+        // Update the DOM with the new SVG (even if we had a cached version)
+        updateSvgInDom(customizedSvg);
+        
+        // Update state
+        setIsLoadingSvg(false);
         setIsCompanionLoaded(true);
         setCurrentBlobbiId(blobbiId);
+        updateInProgress.current = false;
+        
+        // Show the companion if it wasn't already shown
+        window.blobbiCompanion?.show();
+        
       } catch (error) {
         console.error('Failed to load Blobbi Companion:', error);
+        setIsLoadingSvg(false);
+        updateInProgress.current = false;
       }
     };
 

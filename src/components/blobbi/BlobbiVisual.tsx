@@ -395,8 +395,8 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
           <BlobbiVisualEffectGradients patternIdPrefix={patternIdPrefix} />
           <radialGradient id={`${patternIdPrefix}blobbiBodyGradient`} cx="0.3" cy="0.25">
             <stop offset="0%" stopColor={blobbi.baseColor || blobbi.customization.color || "#8b5cf6"} />
-            <stop offset="60%" stopColor={blobbi.customization.color || "#7c3aed"} />
-            <stop offset="100%" stopColor={blobbi.secondaryColor || "#6d28d9"} />
+            <stop offset="60%" stopColor={blobbi.baseColor || blobbi.customization.color || "#7c3aed"} />
+            <stop offset="100%" stopColor={blobbi.secondaryColor || blobbi.baseColor || "#6d28d9"} />
           </radialGradient>
           <radialGradient id={`${patternIdPrefix}blobbiEyeGradient`} cx="0.3" cy="0.3">
             <stop offset="0%" stopColor="#ffffff" />
@@ -404,7 +404,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
           </radialGradient>
           <radialGradient id={`${patternIdPrefix}blobbiPupilGradient`} cx="0.3" cy="0.3">
             <stop offset="0%" stopColor={blobbi.eyeColor || "#374151"} />
-            <stop offset="100%" stopColor={blobbi.eyeColor || "#1e293b"} />
+            <stop offset="100%" stopColor={blobbi.eyeColor ? `${blobbi.eyeColor}dd` : "#1e293b"} />
           </radialGradient>
           <linearGradient id={`${patternIdPrefix}blobbiMouthGradient`} x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="#374151" />

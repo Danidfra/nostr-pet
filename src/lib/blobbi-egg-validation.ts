@@ -56,6 +56,14 @@ export const VALID_TITLES = {
   legendary: ['Defender of the Grove', 'The Primordial']
 } as const;
 
+// Eye color options (generated during hatching)
+export const VALID_EYE_COLORS = {
+  common: ['#2D3748', '#4A5568', '#1A202C'],
+  uncommon: ['#3182CE', '#38A169', '#D69E2E'],
+  rare: ['#9F7AEA', '#ED64A6', '#F56565'],
+  legendary: ['#00F5FF', '#FFD700', '#FF1493']
+} as const;
+
 // Flattened arrays for easy validation
 export const ALL_VALID_BASE_COLORS = [
   ...VALID_BASE_COLORS.common,
@@ -97,6 +105,13 @@ export const ALL_VALID_TITLES = [
   ...VALID_TITLES.legendary
 ] as const;
 
+export const ALL_VALID_EYE_COLORS = [
+  ...VALID_EYE_COLORS.common,
+  ...VALID_EYE_COLORS.uncommon,
+  ...VALID_EYE_COLORS.rare,
+  ...VALID_EYE_COLORS.legendary
+] as const;
+
 // Validation functions
 export function isValidBaseColor(color: string): boolean {
   return (ALL_VALID_BASE_COLORS as readonly string[]).includes(color);
@@ -124,6 +139,10 @@ export function isValidSpecialMark(mark: string): boolean {
 
 export function isValidTitle(title: string): boolean {
   return (ALL_VALID_TITLES as readonly string[]).includes(title);
+}
+
+export function isValidEyeColor(color: string): boolean {
+  return (ALL_VALID_EYE_COLORS as readonly string[]).includes(color);
 }
 
 // Rarity determination functions
@@ -161,6 +180,15 @@ export function getSpecialMarkRarity(mark: string): 'common' | 'uncommon' | 'rar
 export function getTitleRarity(title: string): 'common' | 'uncommon' | 'rare' | 'legendary' | null {
   for (const [rarity, titles] of Object.entries(VALID_TITLES)) {
     if ((titles as readonly string[]).includes(title)) {
+      return rarity as 'common' | 'uncommon' | 'rare' | 'legendary';
+    }
+  }
+  return null;
+}
+
+export function getEyeColorRarity(color: string): 'common' | 'uncommon' | 'rare' | 'legendary' | null {
+  for (const [rarity, colors] of Object.entries(VALID_EYE_COLORS)) {
+    if ((colors as readonly string[]).includes(color)) {
       return rarity as 'common' | 'uncommon' | 'rare' | 'legendary';
     }
   }

@@ -11,7 +11,7 @@ import { BlobbiAdoptionPage } from "./pages/BlobbiAdoptionPage";
 import { BubblePopGame } from "./pages/games/BubblePopGame";
 import EggDemo from "./pages/EggDemo";
 import VisualEffectsDemo from "./pages/VisualEffectsDemo";
-import EyeAnimationDemo from "./pages/EyeAnimationDemo";
+
 import { BlobbiCompanionWrapper } from "./components/BlobbiCompanionWrapper";
 
 export function AppRouter() {
@@ -29,7 +29,7 @@ export function AppRouter() {
         <Route path="/games/bubble-pop" element={<BubblePopGame />} />
         <Route path="/egg-demo" element={<EggDemo />} />
         <Route path="/visual-effects-demo" element={<VisualEffectsDemo />} />
-        <Route path="/eye-animation-demo" element={<EyeAnimationDemo />} />
+
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

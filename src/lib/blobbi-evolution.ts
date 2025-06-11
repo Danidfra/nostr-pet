@@ -336,11 +336,48 @@ export function generateHatchingData(
 
   // Add optional fields based on random chance and existing blobbi data
   
-  // Add appearance data if available
-  if (blobbi.eyeColor) {
-    // Eye color is required in hatching data
-    hatchingData.eyeColor = blobbi.eyeColor;
-  }
+  // Generate eye color during hatching (required field)
+  // Eye color options for hatching
+  const eyeColorOptions = {
+    common: ['#2D3748', '#4A5568', '#1A202C'],
+    uncommon: ['#3182CE', '#38A169', '#D69E2E'],
+    rare: ['#9F7AEA', '#ED64A6', '#F56565'],
+    legendary: ['#00F5FF', '#FFD700', '#FF1493']
+  };
+  
+  // Eye color rarity system (similar to other appearance features)
+  const eyeColorRarity = {
+    common: { probability: 0.5, values: eyeColorOptions.common },
+    uncommon: { probability: 0.3, values: eyeColorOptions.uncommon },
+    rare: { probability: 0.15, values: eyeColorOptions.rare },
+    legendary: { probability: 0.05, values: eyeColorOptions.legendary }
+  };
+  
+  // Select eye color using weighted random selection
+  const selectEyeColor = () => {
+    const roll = Math.random();
+    let cumulative = 0;
+    
+    const tiers = [
+      { tier: eyeColorRarity.common, name: 'common' },
+      { tier: eyeColorRarity.uncommon, name: 'uncommon' },
+      { tier: eyeColorRarity.rare, name: 'rare' },
+      { tier: eyeColorRarity.legendary, name: 'legendary' }
+    ];
+    
+    for (const { tier } of tiers) {
+      cumulative += tier.probability;
+      if (roll <= cumulative) {
+        return tier.values[Math.floor(Math.random() * tier.values.length)];
+      }
+    }
+    
+    // Fallback to common
+    return eyeColorRarity.common.values[0];
+  };
+  
+  // Eye color is required in hatching data - generate if not present
+  hatchingData.eyeColor = blobbi.eyeColor || selectEyeColor();
   
   if (blobbi.baseColor) {
     hatchingData.baseColor = blobbi.baseColor;
@@ -457,6 +494,11 @@ export function generateBabyStateData(
   if (hatchingData.title && blobbi.title === hatchingData.title) {
     babyData.title = hatchingData.title;
   }
+  
+  // Apply eye color from hatching data (required field)
+  if (hatchingData.eyeColor) {
+    babyData.eyeColor = hatchingData.eyeColor;
+  }
 
   // Initialize baby-specific personality if not already set
   if (!blobbi.personality || blobbi.personality.length === 0) {
@@ -517,6 +559,8 @@ export function processHatching(
   const updatedBlobbi: Blobbi = {
     ...blobbi,
     ...babyStateData,
+    // Ensure eye color is applied from hatching record
+    eyeColor: hatchingRecord.eyeColor || babyStateData.eyeColor,
   };
 
   return {
