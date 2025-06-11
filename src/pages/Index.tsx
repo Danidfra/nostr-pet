@@ -96,6 +96,14 @@ const Index = () => {
               >
                 Explore Community
               </Button>
+              <Button 
+                size="lg" 
+                variant="outline"
+                onClick={() => navigate('/eye-animation-demo')}
+                className="border-blue-200 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              >
+                👁️ Eye Animation Demo
+              </Button>
               <BlobbiCompanion />
             </div>
           </div>

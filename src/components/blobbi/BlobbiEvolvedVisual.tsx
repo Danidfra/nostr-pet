@@ -25,15 +25,20 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
     right: { x: 0, y: 0 }
   });
   
+  // Blinking state
+  const [isBlinking, setIsBlinking] = useState(false);
+  const blinkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Check if device has mouse (not touch-only)
   const hasMouseSupport = typeof window !== 'undefined' && 
     window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   
   useEffect(() => {
-    if (!hasMouseSupport || blobbi.state === 'sleeping') return;
+    if (blobbi.state === 'sleeping') return;
     
+    // Mouse tracking
     const handleMouseMove = (e: MouseEvent) => {
-      if (!svgRef.current) return;
+      if (!svgRef.current || !hasMouseSupport) return;
       
       const rect = svgRef.current.getBoundingClientRect();
       const svgCenterX = rect.left + rect.width / 2;
@@ -61,10 +66,31 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       });
     };
     
-    window.addEventListener('mousemove', handleMouseMove);
+    // Blinking logic
+    const scheduleNextBlink = () => {
+      const delay = 3000 + Math.random() * 3000; // 3-6 seconds
+      blinkTimeoutRef.current = setTimeout(() => {
+        setIsBlinking(true);
+        setTimeout(() => {
+          setIsBlinking(false);
+          scheduleNextBlink();
+        }, 150); // Blink duration
+      }, delay);
+    };
+    
+    if (hasMouseSupport) {
+      window.addEventListener('mousemove', handleMouseMove);
+    }
+    
+    scheduleNextBlink();
     
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
+      if (hasMouseSupport) {
+        window.removeEventListener('mousemove', handleMouseMove);
+      }
+      if (blinkTimeoutRef.current) {
+        clearTimeout(blinkTimeoutRef.current);
+      }
     };
   }, [hasMouseSupport, blobbi.state]);
   
@@ -119,30 +145,52 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
       ) : (
         <>
           <g id="left-eye">
-            <ellipse cx="76" cy="90" rx="16" ry="20" fill={`url(#${patternIdPrefix}blobbiEyeSubtle)`} />
-            <g 
+            <ellipse 
+              cx="76" 
+              cy="90" 
+              rx="16" 
+              ry={isBlinking ? "2" : "20"} 
+              fill={`url(#${patternIdPrefix}blobbiEyeSubtle)`}
               style={{
-                transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
-                transition: 'transform 0.1s ease-out'
+                transition: 'ry 0.1s ease-in-out'
               }}
-            >
-              <circle cx="76" cy="92" r="12" fill={`url(#${patternIdPrefix}blobbiPupilSubtle)`} />
-              <circle cx="80" cy="88" r="4" fill="white" />
-              <circle cx="82" cy="90" r="1.5" fill="white" opacity="0.8" />
-            </g>
+            />
+            {!isBlinking && (
+              <g 
+                style={{
+                  transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
+                  transition: 'transform 0.1s ease-out'
+                }}
+              >
+                <circle cx="76" cy="92" r="12" fill={`url(#${patternIdPrefix}blobbiPupilSubtle)`} />
+                <circle cx="80" cy="88" r="4" fill="white" />
+                <circle cx="82" cy="90" r="1.5" fill="white" opacity="0.8" />
+              </g>
+            )}
           </g>
           <g id="right-eye">
-            <ellipse cx="124" cy="90" rx="16" ry="20" fill={`url(#${patternIdPrefix}blobbiEyeSubtle)`} />
-            <g 
+            <ellipse 
+              cx="124" 
+              cy="90" 
+              rx="16" 
+              ry={isBlinking ? "2" : "20"} 
+              fill={`url(#${patternIdPrefix}blobbiEyeSubtle)`}
               style={{
-                transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
-                transition: 'transform 0.1s ease-out'
+                transition: 'ry 0.1s ease-in-out'
               }}
-            >
-              <circle cx="124" cy="92" r="12" fill={`url(#${patternIdPrefix}blobbiPupilSubtle)`} />
-              <circle cx="128" cy="88" r="4" fill="white" />
-              <circle cx="130" cy="90" r="1.5" fill="white" opacity="0.8" />
-            </g>
+            />
+            {!isBlinking && (
+              <g 
+                style={{
+                  transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
+                  transition: 'transform 0.1s ease-out'
+                }}
+              >
+                <circle cx="124" cy="92" r="12" fill={`url(#${patternIdPrefix}blobbiPupilSubtle)`} />
+                <circle cx="128" cy="88" r="4" fill="white" />
+                <circle cx="130" cy="90" r="1.5" fill="white" opacity="0.8" />
+              </g>
+            )}
           </g>
         </>
       )}

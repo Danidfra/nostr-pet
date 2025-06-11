@@ -31,40 +31,322 @@ function getBlobbiSvgUrl(blobbi: Blobbi): string {
   return 'https://danidfra.github.io/blobbi-designs/baby-stage/baby/blobbi-baby-base.svg';
 }
 
-// Helper to customize SVG with colors
+// Helper to customize SVG with colors - DISABLED FOR NOW
 function customizeSvg(svgText: string, blobbi: Blobbi): string {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(svgText, 'image/svg+xml');
-  
-  // Find body gradient
-  const bodyGradient = doc.querySelector('#blobbiBodyGradient');
-  if (bodyGradient && blobbi.baseColor) {
-    const stops = bodyGradient.querySelectorAll('stop');
+  // Temporarily disabled SVG modification to prevent parsing errors
+  // Return the original SVG content without any modifications
+  return svgText;
+}
+
+// Eye animation controller class
+class BlobbiEyeAnimator {
+  private svgElement: SVGElement | null = null;
+  private leftEye: SVGElement | null = null;
+  private rightEye: SVGElement | null = null;
+  private leftPupil: SVGElement | null = null;
+  private rightPupil: SVGElement | null = null;
+  private leftHighlights: SVGElement[] = [];
+  private rightHighlights: SVGElement[] = [];
+  private isBlinking = false;
+  private blinkInterval: NodeJS.Timeout | null = null;
+  private mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
+  private animationFrameId: number | null = null;
+
+  constructor(svgElement: SVGElement) {
+    this.svgElement = svgElement;
+    this.initializeEyes();
+    this.startBlinking();
+    this.startMouseTracking();
+  }
+
+  private initializeEyes() {
+    if (!this.svgElement) return;
+
+    // Find eye elements - try multiple selectors for different SVG structures
+    const eyeSelectors = [
+      '[id*="eye"]',
+      '[class*="eye"]',
+      'circle[r="8"], circle[r="10"], circle[r="12"]', // Common eye sizes
+      'ellipse[rx="8"], ellipse[rx="10"], ellipse[rx="12"]'
+    ];
+
+    const pupilSelectors = [
+      '[id*="pupil"]',
+      '[class*="pupil"]',
+      'circle[r="4"], circle[r="5"], circle[r="6"]', // Common pupil sizes
+      'ellipse[rx="4"], ellipse[rx="5"], ellipse[rx="6"]'
+    ];
+
+    // Find eyes
+    for (const selector of eyeSelectors) {
+      const eyes = this.svgElement.querySelectorAll(selector);
+      if (eyes.length >= 2) {
+        this.leftEye = eyes[0] as SVGElement;
+        this.rightEye = eyes[1] as SVGElement;
+        break;
+      }
+    }
+
+    // Find pupils
+    for (const selector of pupilSelectors) {
+      const pupils = this.svgElement.querySelectorAll(selector);
+      if (pupils.length >= 2) {
+        this.leftPupil = pupils[0] as SVGElement;
+        this.rightPupil = pupils[1] as SVGElement;
+        break;
+      }
+    }
+
+    // If we can't find specific pupils, look for smaller circles/ellipses inside or near eyes
+    if (!this.leftPupil && this.leftEye) {
+      this.leftPupil = this.findPupilNearEye(this.leftEye);
+    }
+    if (!this.rightPupil && this.rightEye) {
+      this.rightPupil = this.findPupilNearEye(this.rightEye);
+    }
+
+    // Find highlights (white circles) near pupils
+    this.findHighlights();
+
+    // Add CSS classes for animations
+    this.addEyeStyles();
+  }
+
+  private findPupilNearEye(eye: SVGElement): SVGElement | null {
+    if (!this.svgElement) return null;
+
+    const eyeRect = eye.getBoundingClientRect();
+    const eyeCenterX = eyeRect.left + eyeRect.width / 2;
+    const eyeCenterY = eyeRect.top + eyeRect.height / 2;
+
+    // Look for smaller circles/ellipses near this eye
+    const allCircles = this.svgElement.querySelectorAll('circle, ellipse');
     
-    if (blobbi.secondaryColor) {
-      // If both colors are present
-      if (stops[0]) stops[0].setAttribute('style', `stop-color:${blobbi.secondaryColor}`);
-      if (stops[1]) stops[1].setAttribute('style', `stop-color:${lightenColor(blobbi.secondaryColor, 20)}`);
-      if (stops[2]) stops[2].setAttribute('style', `stop-color:${blobbi.baseColor}`);
-    } else {
-      // If only base color is present
-      if (stops[0]) stops[0].setAttribute('style', `stop-color:${lightenColor(blobbi.baseColor, 40)}`);
-      if (stops[1]) stops[1].setAttribute('style', `stop-color:${lightenColor(blobbi.baseColor, 20)}`);
-      if (stops[2]) stops[2].setAttribute('style', `stop-color:${blobbi.baseColor}`);
+    for (const circle of allCircles) {
+      if (circle === eye) continue;
+      
+      const circleRect = circle.getBoundingClientRect();
+      const circleCenterX = circleRect.left + circleRect.width / 2;
+      const circleCenterY = circleRect.top + circleRect.height / 2;
+      
+      const distance = Math.sqrt(
+        Math.pow(eyeCenterX - circleCenterX, 2) + 
+        Math.pow(eyeCenterY - circleCenterY, 2)
+      );
+      
+      // If the circle is close to the eye and smaller, it's likely a pupil
+      if (distance < 30 && circleRect.width < eyeRect.width) {
+        return circle as SVGElement;
+      }
+    }
+    
+    return null;
+  }
+
+  private findHighlights() {
+    if (!this.svgElement) return;
+
+    // Find white circles that could be highlights
+    const allCircles = this.svgElement.querySelectorAll('circle, ellipse');
+    
+    for (const circle of allCircles) {
+      const fill = circle.getAttribute('fill');
+      const style = circle.getAttribute('style');
+      
+      // Check if it's white or light colored
+      const isWhite = fill === 'white' || fill === '#ffffff' || fill === '#fff' ||
+                     (style && (style.includes('fill:white') || style.includes('fill:#ffffff') || style.includes('fill:#fff')));
+      
+      if (!isWhite) continue;
+      
+      const circleRect = circle.getBoundingClientRect();
+      
+      // Check if it's near the left pupil
+      if (this.leftPupil) {
+        const leftPupilRect = this.leftPupil.getBoundingClientRect();
+        const leftDistance = Math.sqrt(
+          Math.pow(circleRect.left + circleRect.width / 2 - (leftPupilRect.left + leftPupilRect.width / 2), 2) + 
+          Math.pow(circleRect.top + circleRect.height / 2 - (leftPupilRect.top + leftPupilRect.height / 2), 2)
+        );
+        
+        // If it's close to the left pupil and smaller, it's likely a highlight
+        if (leftDistance < 20 && circleRect.width < leftPupilRect.width) {
+          this.leftHighlights.push(circle as SVGElement);
+          continue;
+        }
+      }
+      
+      // Check if it's near the right pupil
+      if (this.rightPupil) {
+        const rightPupilRect = this.rightPupil.getBoundingClientRect();
+        const rightDistance = Math.sqrt(
+          Math.pow(circleRect.left + circleRect.width / 2 - (rightPupilRect.left + rightPupilRect.width / 2), 2) + 
+          Math.pow(circleRect.top + circleRect.height / 2 - (rightPupilRect.top + rightPupilRect.height / 2), 2)
+        );
+        
+        // If it's close to the right pupil and smaller, it's likely a highlight
+        if (rightDistance < 20 && circleRect.width < rightPupilRect.width) {
+          this.rightHighlights.push(circle as SVGElement);
+        }
+      }
     }
   }
-  
-  // Find eye gradient
-  const eyeGradient = doc.querySelector('#blobbiPupilGradient');
-  if (eyeGradient && blobbi.eyeColor) {
-    const stops = eyeGradient.querySelectorAll('stop');
-    if (stops[0]) stops[0].setAttribute('style', `stop-color:${lightenColor(blobbi.eyeColor, 30)}`);
-    if (stops[1]) stops[1].setAttribute('style', `stop-color:${blobbi.eyeColor}`);
+
+  private addEyeStyles() {
+    // Check if styles already exist
+    if (document.getElementById('blobbi-eye-styles')) return;
+
+    // Add CSS for smooth animations
+    const style = document.createElement('style');
+    style.id = 'blobbi-eye-styles';
+    style.textContent = `
+      .blobbi-eye {
+        transform-origin: center;
+        transition: transform 0.1s ease-out;
+      }
+      
+      .blobbi-pupil {
+        transform-origin: center;
+        transition: transform 0.1s ease-out;
+      }
+      
+      .blobbi-highlight {
+        transform-origin: center;
+        transition: transform 0.1s ease-out;
+      }
+      
+      .blobbi-eye.blinking {
+        animation: blobbi-blink 0.15s ease-in-out;
+      }
+      
+      @keyframes blobbi-blink {
+        0% { transform: scaleY(1); }
+        50% { transform: scaleY(0.1); }
+        100% { transform: scaleY(1); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Apply classes to eye elements
+    if (this.leftEye) {
+      this.leftEye.classList.add('blobbi-eye');
+    }
+    if (this.rightEye) {
+      this.rightEye.classList.add('blobbi-eye');
+    }
+    if (this.leftPupil) {
+      this.leftPupil.classList.add('blobbi-pupil');
+    }
+    if (this.rightPupil) {
+      this.rightPupil.classList.add('blobbi-pupil');
+    }
+    
+    // Apply classes to highlights
+    this.leftHighlights.forEach(highlight => {
+      highlight.classList.add('blobbi-highlight');
+    });
+    
+    this.rightHighlights.forEach(highlight => {
+      highlight.classList.add('blobbi-highlight');
+    });
   }
-  
-  // Serialize back to string
-  const serializer = new XMLSerializer();
-  return serializer.serializeToString(doc);
+
+  private startBlinking() {
+    const blink = () => {
+      if (this.isBlinking) return;
+      
+      this.isBlinking = true;
+      
+      // Add blinking class
+      if (this.leftEye) this.leftEye.classList.add('blinking');
+      if (this.rightEye) this.rightEye.classList.add('blinking');
+      
+      // Remove blinking class after animation
+      setTimeout(() => {
+        if (this.leftEye) this.leftEye.classList.remove('blinking');
+        if (this.rightEye) this.rightEye.classList.remove('blinking');
+        this.isBlinking = false;
+      }, 150);
+    };
+
+    // Blink every 3-6 seconds randomly
+    const scheduleNextBlink = () => {
+      const delay = 3000 + Math.random() * 3000; // 3-6 seconds
+      this.blinkInterval = setTimeout(() => {
+        blink();
+        scheduleNextBlink();
+      }, delay);
+    };
+
+    scheduleNextBlink();
+  }
+
+  private startMouseTracking() {
+    this.mouseMoveHandler = (e: MouseEvent) => {
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+      }
+
+      this.animationFrameId = requestAnimationFrame(() => {
+        this.updatePupilPosition(e.clientX, e.clientY);
+      });
+    };
+
+    document.addEventListener('mousemove', this.mouseMoveHandler);
+  }
+
+  private updatePupilPosition(mouseX: number, mouseY: number) {
+    if (!this.svgElement) return;
+
+    const svgRect = this.svgElement.getBoundingClientRect();
+    const svgCenterX = svgRect.left + svgRect.width / 2;
+    const svgCenterY = svgRect.top + svgRect.height / 2;
+
+    // Calculate angle and distance from SVG center to mouse
+    const angle = Math.atan2(mouseY - svgCenterY, mouseX - svgCenterX);
+    const distance = Math.min(
+      Math.sqrt(Math.pow(mouseX - svgCenterX, 2) + Math.pow(mouseY - svgCenterY, 2)),
+      200 // Max tracking distance
+    ) / 200; // Normalize to 0-1
+
+    // Maximum pupil movement (in pixels relative to SVG size)
+    const maxMovement = Math.min(svgRect.width, svgRect.height) * 0.02; // 2% of SVG size
+    
+    const offsetX = Math.cos(angle) * distance * maxMovement;
+    const offsetY = Math.sin(angle) * distance * maxMovement;
+
+    // Apply movement to pupils
+    if (this.leftPupil) {
+      this.leftPupil.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    }
+    if (this.rightPupil) {
+      this.rightPupil.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    }
+
+    // Apply movement to highlights (they should move with the pupils)
+    this.leftHighlights.forEach(highlight => {
+      highlight.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    });
+    
+    this.rightHighlights.forEach(highlight => {
+      highlight.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    });
+  }
+
+  public destroy() {
+    // Clean up intervals and event listeners
+    if (this.blinkInterval) {
+      clearTimeout(this.blinkInterval);
+    }
+    
+    if (this.mouseMoveHandler) {
+      document.removeEventListener('mousemove', this.mouseMoveHandler);
+    }
+    
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
+  }
 }
 
 // Helper to lighten a color
@@ -87,6 +369,7 @@ export function BlobbiCompanionWrapper() {
   const [isCompanionLoaded, setIsCompanionLoaded] = useState(false);
   const [currentBlobbiId, setCurrentBlobbiId] = useState<string | null>(null);
   const companionInitialized = useRef(false);
+  const eyeAnimator = useRef<BlobbiEyeAnimator | null>(null);
 
   // Check if we're on a /blobbi route
   const shouldShowCompanion = location.pathname.startsWith('/blobbi');
@@ -178,6 +461,16 @@ export function BlobbiCompanionWrapper() {
           const svg = characterElement.querySelector('svg');
           if (svg) {
             svg.classList.add('blobbi-svg');
+            
+            // Initialize eye animations
+            if (eyeAnimator.current) {
+              eyeAnimator.current.destroy();
+            }
+            
+            // Wait a bit for SVG to be fully rendered
+            setTimeout(() => {
+              eyeAnimator.current = new BlobbiEyeAnimator(svg);
+            }, 100);
           }
         }
 
@@ -200,6 +493,12 @@ export function BlobbiCompanionWrapper() {
       // Hide companion when component unmounts
       if (window.blobbiCompanion && isCompanionLoaded) {
         window.blobbiCompanion.hide();
+      }
+      
+      // Cleanup eye animator
+      if (eyeAnimator.current) {
+        eyeAnimator.current.destroy();
+        eyeAnimator.current = null;
       }
     };
   }, [isCompanionLoaded]);
