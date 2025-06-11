@@ -116,6 +116,26 @@
     transition: none;
 }
 
+/* Dragging styles */
+.blobbi-container.dragging {
+    transition: none;
+    z-index: 10000;
+}
+
+.blobbi-container.dragging .blobbi-character {
+    transform: scale(1.1);
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.3));
+    cursor: grabbing;
+}
+
+.blobbi-character {
+    cursor: grab;
+}
+
+.blobbi-character:active {
+    cursor: grabbing;
+}
+
 /* Free roam indicator - more subtle since it's default behavior */
 .blobbi-container.free-roaming .blobbi-character::after {
     content: '✨';

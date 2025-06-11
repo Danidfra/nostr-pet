@@ -116,6 +116,7 @@ class BlobbiCompanion {
     setupDrag() {
         let isDragging = false;
         let startX, startY, initialX, initialY;
+        let dragOffset = { x: 0, y: 0 };
         
         this.character.addEventListener('mousedown', (e) => {
             if (!this.isMoving) {
@@ -130,6 +131,15 @@ class BlobbiCompanion {
                 startY = e.clientY;
                 initialX = this.position.x;
                 initialY = this.position.y;
+                
+                // Calculate the offset between mouse and Flammi's center
+                const rect = this.character.getBoundingClientRect();
+                const flammiCenterX = rect.left + rect.width / 2;
+                const flammiCenterY = rect.top + rect.height / 2;
+                
+                dragOffset.x = e.clientX - flammiCenterX;
+                dragOffset.y = e.clientY - flammiCenterY;
+                
                 this.container.classList.add('dragging');
                 this.wasFreeRoamingBeforeDrag = wasFreeRoaming;
                 e.preventDefault();
@@ -138,10 +148,19 @@ class BlobbiCompanion {
         
         document.addEventListener('mousemove', (e) => {
             if (isDragging) {
-                const dx = e.clientX - startX;
-                const dy = e.clientY - startY;
-                this.position.x = initialX + dx;
-                this.position.y = initialY + dy;
+                // Calculate where Flammi's center should be (mouse position minus offset)
+                const targetCenterX = e.clientX - dragOffset.x;
+                const targetCenterY = e.clientY - dragOffset.y;
+                
+                // Convert to position coordinates (distance from right and bottom edges)
+                // Flammi is 120px wide and tall, so center is 60px from each edge
+                this.position.x = window.innerWidth - targetCenterX - 60;
+                this.position.y = window.innerHeight - targetCenterY - 60;
+                
+                // Keep within bounds
+                this.position.x = Math.max(0, Math.min(window.innerWidth - 120, this.position.x));
+                this.position.y = Math.max(0, Math.min(window.innerHeight - 120, this.position.y));
+                
                 this.updatePosition();
             }
         });
