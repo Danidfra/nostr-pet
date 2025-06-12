@@ -323,15 +323,6 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       // Add coins to Blobbanaut Profile
       await addCoins(amount);
       
-      // Create a memory for earning coins if we have a Blobbi
-      if (currentBlobbi && isOwner) {
-        await createMemory({
-          memoryTitle: 'First coins earned through games',
-          achievement: `earned_${amount}_coins`,
-          memoryDescription: `Earned ${amount} coins through gameplay`,
-        });
-      }
-      
       return amount;
     },
     onSuccess: () => {
