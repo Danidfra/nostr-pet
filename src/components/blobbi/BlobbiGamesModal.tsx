@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Timer, Trophy, Zap, Hash } from 'lucide-react';
+import { Sparkles, Timer, Trophy, Zap, Hash, Grid3X3 } from 'lucide-react';
 
 interface BlobbiGamesModalProps {
   isOpen: boolean;
@@ -41,6 +41,16 @@ const GAMES: GameInfo[] = [
     difficulty: 'Easy',
     rewards: '15-55 coins',
     path: '/games/number-guess',
+    available: true,
+  },
+  {
+    id: 'tic-tac-toe',
+    name: 'Tic-Tac-Toe',
+    description: 'Classic strategy game for two players! Get three in a row to win.',
+    icon: <Grid3X3 className="w-8 h-8 text-purple-500" />,
+    difficulty: 'Easy',
+    rewards: '25-50 coins',
+    path: '/games/tic-tac-toe',
     available: true,
   },
   {

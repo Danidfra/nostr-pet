@@ -10,6 +10,7 @@
     "deploy": "npm run build && npx -y vercel whoami && npx -y vercel --prod --yes"
   },
   "dependencies": {
+    "@fontsource-variable/comfortaa": "^5.2.6",
     "@hookform/resolvers": "^3.9.0",
     "@nostrify/nostrify": "npm:@jsr/nostrify__nostrify@^0.46.1",
     "@nostrify/react": "npm:@jsr/nostrify__react@^0.2.5",
