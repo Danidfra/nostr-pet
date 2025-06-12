@@ -13,6 +13,8 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
   const { updateState } = useBlobbiState(blobbi?.id || '', blobbi?.ownerPubkey || '');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastRecoveryRef = useRef<number>(Date.now());
+  const lastPassiveRecoveryRef = useRef<number>(0);
+  const processedBlobbiRef = useRef<string | null>(null);
 
   // Helper function to get sleep start time from tags
   const getSleepStartTime = useCallback((blobbi: Blobbi): number | null => {
@@ -52,14 +54,33 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
   const applyPassiveRecovery = useCallback(async (blobbi: Blobbi) => {
     if (!blobbi.isSleeping || !isOwner) return;
 
+    // Create a unique key for this recovery session
+    const recoveryKey = `${blobbi.id}-${blobbi.sleepStartedAt || blobbi.lastInteraction}`;
+    
+    // Prevent duplicate recovery for the same sleep session
+    if (processedBlobbiRef.current === recoveryKey) {
+      console.log('Passive recovery already processed for this sleep session');
+      return;
+    }
+
     const recoveryAmount = calculatePassiveRecovery(blobbi);
     if (recoveryAmount <= 0) return;
+
+    // Check if we've already applied this amount of recovery
+    if (recoveryAmount <= lastPassiveRecoveryRef.current) {
+      console.log('Recovery amount not greater than last applied, skipping');
+      return;
+    }
 
     const newEnergy = Math.min(100, blobbi.stats.energy + recoveryAmount);
     const energyGained = newEnergy - blobbi.stats.energy;
 
     if (energyGained > 0) {
       console.log(`Passive sleep recovery: +${energyGained} energy (${recoveryAmount} total calculated)`);
+      
+      // Mark this recovery as processed
+      processedBlobbiRef.current = recoveryKey;
+      lastPassiveRecoveryRef.current = recoveryAmount;
       
       const updatedBlobbi: Blobbi = {
         ...blobbi,
@@ -75,6 +96,9 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
         updatedBlobbi.isSleeping = false;
         updatedBlobbi.state = 'active';
         console.log('Blobbi automatically woke up - energy reached 100%');
+        // Reset recovery tracking when waking up
+        processedBlobbiRef.current = null;
+        lastPassiveRecoveryRef.current = 0;
       }
 
       try {
@@ -82,6 +106,9 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
         queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
       } catch (error) {
         console.error('Failed to apply passive sleep recovery:', error);
+        // Reset tracking on error so it can be retried
+        processedBlobbiRef.current = null;
+        lastPassiveRecoveryRef.current = 0;
       }
     }
   }, [calculatePassiveRecovery, isOwner, updateState, queryClient]);
@@ -116,6 +143,9 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
           updatedBlobbi.isSleeping = false;
           updatedBlobbi.state = 'active';
           console.log('Blobbi automatically woke up - energy reached 100%');
+          // Reset recovery tracking when auto-waking
+          processedBlobbiRef.current = null;
+          lastPassiveRecoveryRef.current = 0;
         }
 
         try {
@@ -134,6 +164,10 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
     if (!blobbi || !isOwner || blobbi.isSleeping) return;
 
     console.log('Putting Blobbi to sleep...');
+    
+    // Reset recovery tracking when starting new sleep session
+    processedBlobbiRef.current = null;
+    lastPassiveRecoveryRef.current = 0;
     
     const currentTime = Math.floor(Date.now() / 1000);
     const updatedBlobbi: Blobbi = {
@@ -159,6 +193,10 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
     if (!blobbi || !isOwner || !blobbi.isSleeping) return;
 
     console.log('Waking up Blobbi...');
+    
+    // Reset recovery tracking when manually waking up
+    processedBlobbiRef.current = null;
+    lastPassiveRecoveryRef.current = 0;
     
     const updatedBlobbi: Blobbi = {
       ...blobbi,
@@ -220,23 +258,39 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
   // Apply passive recovery when blobbi changes (app reopened, etc.)
   useEffect(() => {
     if (blobbi && blobbi.isSleeping && isOwner) {
-      // First migrate if needed
-      if (!blobbi.sleepStartedAt) {
-        migrateSleepingBlobbi(blobbi);
-      } else {
-        applyPassiveRecovery(blobbi);
+      // Create a unique identifier for this Blobbi sleep session
+      const currentRecoveryKey = `${blobbi.id}-${blobbi.sleepStartedAt || blobbi.lastInteraction}`;
+      
+      // Only process if this is a new sleep session or we haven't processed this one yet
+      if (processedBlobbiRef.current !== currentRecoveryKey) {
+        // First migrate if needed
+        if (!blobbi.sleepStartedAt) {
+          migrateSleepingBlobbi(blobbi);
+        } else {
+          applyPassiveRecovery(blobbi);
+        }
       }
     }
-  }, [blobbi?.id, blobbi?.isSleeping, blobbi?.sleepStartedAt, applyPassiveRecovery, migrateSleepingBlobbi, isOwner]); // Only trigger when blobbi ID changes (new load)
+    
+    // Reset tracking when Blobbi is no longer sleeping
+    if (blobbi && !blobbi.isSleeping) {
+      processedBlobbiRef.current = null;
+      lastPassiveRecoveryRef.current = 0;
+    }
+  }, [blobbi?.id, blobbi?.isSleeping, blobbi?.sleepStartedAt, isOwner]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: Functions are intentionally excluded from deps to prevent infinite re-triggering of passive recovery
 
-  // Cleanup on unmount
+  // Cleanup on unmount or when Blobbi changes
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      // Reset tracking when component unmounts or Blobbi changes
+      processedBlobbiRef.current = null;
+      lastPassiveRecoveryRef.current = 0;
     };
-  }, []);
+  }, [blobbi?.id]); // Reset when Blobbi ID changes
 
   return {
     isSleeping: blobbi?.isSleeping || false,
