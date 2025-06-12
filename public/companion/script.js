@@ -49,16 +49,21 @@ class BlobbiCompanion {
         this.speechBubbleTimeout = null;
         this.isShowingSpeechBubble = false;
         this.speechBubbleMessages = [
-            "I'm hungry",
-            "Feed me charcoal!",
-            "Got any rocks?",
-            "I love charcoal!",
-            "*stomach rumbles*",
-            "Charcoal is life!",
-            "More rocks please!",
-            "I could eat a mountain",
-            "Yum yum charcoal",
-            "Rock snacks are the best!"
+            "I'm hungry!",
+            "Got any snacks?",
+            "Feed me something tasty!",
+            "I could really eat right now.",
+            "Mmm... food sounds good.",
+            "*stomach growls*",
+            "Anything to eat?",
+            "I love snacks!",
+            "Yum yum, what's for lunch?",
+            "More food please!",
+            "Delicious things, come to me!",
+            "Feed time!",
+            "I'm craving something yummy.",
+            "Snack attack incoming!",
+            "Do you smell food?",
         ];
         
         // Default SVG URL
@@ -306,6 +311,7 @@ class BlobbiCompanion {
         
         this.targetPosition = { x: targetX, y: targetY };
         this.character.classList.add('walking');
+        this.container.classList.add('walking');
         
         // Clear any existing movement
         if (this.moveInterval) {
@@ -351,6 +357,7 @@ class BlobbiCompanion {
             this.moveInterval = null;
         }
         this.character.classList.remove('walking');
+        this.container.classList.remove('walking');
         
         // If free roaming, schedule next movement after a pause
         if (this.isFreeRoaming) {
@@ -596,6 +603,7 @@ class BlobbiCompanion {
         
         // Add angry class for styling
         this.character.classList.add('angry');
+        this.container.classList.add('angry');
         
         // Replace mouth with angry mouth
         await this.replaceWithAngryMouth();
@@ -700,6 +708,7 @@ class BlobbiCompanion {
         
         this.targetPosition = { x: targetX, y: targetY };
         this.character.classList.add('chasing');
+        this.container.classList.add('chasing');
         
         // Clear any existing movement
         if (this.moveInterval) {
@@ -753,6 +762,7 @@ class BlobbiCompanion {
         this.isChasing = false;
         this.stopMoving();
         this.character.classList.remove('chasing');
+        this.container.classList.remove('chasing');
         
         // Clear chase timeout
         if (this.chaseTimeout) {
@@ -785,6 +795,8 @@ class BlobbiCompanion {
         this.stopMoving();
         this.character.classList.remove('chasing', 'angry');
         this.character.classList.add('sad');
+        this.container.classList.remove('chasing', 'angry');
+        this.container.classList.add('sad');
         
         // Clear chase timeout
         if (this.chaseTimeout) {
@@ -986,6 +998,7 @@ class BlobbiCompanion {
         
         // Remove classes
         this.character.classList.remove('angry', 'sad', 'chasing');
+        this.container.classList.remove('angry', 'sad', 'chasing');
         
         // Enable interactions
         this.enableInteractions();
@@ -1121,6 +1134,7 @@ class BlobbiCompanion {
         this.container.classList.remove('free-roaming');
         
         this.character.classList.add('walking', 'excited');
+        this.container.classList.add('walking', 'excited');
         
         // Clear any existing movement
         if (this.moveInterval) {
@@ -1192,6 +1206,7 @@ class BlobbiCompanion {
         }
         
         this.character.classList.remove('walking', 'excited');
+        this.container.classList.remove('walking', 'excited');
         
         // Only reset eating state if we're not actually eating (i.e., we stopped before reaching charcoal)
         if (this.isEating && this.charcoalElement) {
@@ -1245,6 +1260,8 @@ class BlobbiCompanion {
         
         this.character.classList.remove('walking', 'excited');
         this.character.classList.add('eating');
+        this.container.classList.remove('walking', 'excited');
+        this.container.classList.add('eating');
         
         // Remove charcoal with eating animation
         this.charcoalElement.style.animation = 'charcoalEaten 0.5s ease-in forwards';
@@ -1355,6 +1372,7 @@ class BlobbiCompanion {
     finishEating() {
         this.isEating = false;
         this.character.classList.remove('eating');
+        this.container.classList.remove('eating');
         
         console.log('😊 Flammi finished eating and is happy!');
         
