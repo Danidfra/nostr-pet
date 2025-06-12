@@ -106,6 +106,8 @@ export interface Blobbi {
   lastCheck?: number;
   lastSing?: number;
   lastMedicine?: number;
+  // Sleep system fields
+  sleepStartedAt?: number; // Unix timestamp when sleep began
   // Social
   adoptedBy?: string;
   adoptedFrom?: string;

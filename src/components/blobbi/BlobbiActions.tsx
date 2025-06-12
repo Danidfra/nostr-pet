@@ -10,6 +10,7 @@ import { useBlobbiCareInteraction } from '@/hooks/useBlobbiInteractionWithStateU
 import { useBlobbonautProfile, useCreateInitialProfile } from '@/hooks/useBlobbonautProfile';
 import { useToast } from '@/hooks/useToast';
 import { isActionAvailableForStage } from '@/lib/cooldown-storage';
+import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
 
 interface BlobbiActionsProps {
   blobbi: Blobbi;
@@ -60,6 +61,18 @@ export function BlobbiActions({
   
   // Use the enhanced interaction system that automatically handles both 14919 and 31124 events
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteraction();
+  
+  // Use the sleep system
+  const { 
+    isSleeping, 
+    canSleep, 
+    canWakeUp, 
+    putToSleep, 
+    wakeUp 
+  } = useBlobbiSleepSystem({ 
+    blobbi, 
+    isOwner: true // Assuming this component is only shown to owners
+  });
   
   const handleAction = async (action: BlobbiAction) => {
     // Check if action is available for this stage
@@ -123,13 +136,35 @@ export function BlobbiActions({
       
       setSelectedAction(action);
       setInventoryModalOpen(true);
+    } else if (action === 'rest') {
+      // Handle sleep/wake actions using the sleep system
+      try {
+        if (isSleeping) {
+          await wakeUp();
+        } else {
+          await putToSleep();
+        }
+        // Record the interaction for cooldown tracking
+        await recordInteraction(action);
+        
+        // Log successful interaction
+        const { logInteractionSuccess } = await import('@/lib/interaction-logger');
+        logInteractionSuccess(action, blobbi.id, blobbi.lifeStage, 'sleep_system');
+      } catch (error) {
+        console.error('Failed to perform sleep action:', error);
+        toast({
+          title: "Sleep Action Failed",
+          description: "Unable to change sleep state. Please try again.",
+          variant: "destructive",
+        });
+      }
     } else {
       // For other actions, perform directly using the enhanced interaction system
       // This will automatically send both 14919 and 31124 events
       try {
         await performCareInteraction({
           blobbiId: blobbi.id,
-          action: action as 'warm' | 'check' | 'sing' | 'talk' | 'rest',
+          action: action as 'warm' | 'check' | 'sing' | 'talk',
         });
         // Record the interaction for cooldown tracking
         await recordInteraction(action);
@@ -247,11 +282,11 @@ export function BlobbiActions({
       },
       {
         action: 'rest' as BlobbiAction,
-        icon: blobbi.state === 'sleeping' ? Sun : Moon,
-        label: blobbi.state === 'sleeping' ? 'Wake' : 'Sleep',
+        icon: isSleeping ? Sun : Moon,
+        label: isSleeping ? 'Wake' : 'Sleep',
         color: 'hover:bg-blue-100',
-        disabled: blobbi.state === 'sleeping' ? false : blobbi.stats.energy > 70,
-        tooltip: blobbi.state !== 'sleeping' && blobbi.stats.energy > 70 ? 'Not tired yet' : '',
+        disabled: isSleeping ? !canWakeUp : !canSleep || blobbi.stats.energy > 70,
+        tooltip: isSleeping ? (canWakeUp ? 'Wake up your Blobbi' : 'Cannot wake up') : (blobbi.stats.energy > 70 ? 'Not tired yet' : 'Put your Blobbi to sleep'),
       },
       {
         action: 'medicine' as BlobbiAction,

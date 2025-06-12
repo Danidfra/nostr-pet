@@ -55,6 +55,7 @@ import { BlobbiAction } from '@/types/blobbi';
 import { checkEggHatchingReadiness, checkBabyEvolutionReadiness } from '@/lib/blobbi-evolution';
 import { isValidSize } from '@/lib/blobbi-egg-validation';
 import { SetCompanionButton } from '@/components/SetCompanionButton';
+import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
 
 export default function BlobbiDetail() {
   const { blobbiId } = useParams<{ blobbiId: string }>();
@@ -69,6 +70,16 @@ export default function BlobbiDetail() {
   } = useBlobbi(undefined, blobbiId);
   
   const isOwner = user?.pubkey === blobbi?.ownerPubkey;
+  
+  // Use the sleep system
+  const { 
+    isSleeping, 
+    sleepStartTime,
+    calculatePassiveRecovery 
+  } = useBlobbiSleepSystem({ 
+    blobbi: blobbi || null, 
+    isOwner 
+  });
   
   // Helper function to get valid size for components
   const getValidSize = (size?: string): 'tiny' | 'small' | 'medium' | 'large' => {
@@ -304,8 +315,21 @@ export default function BlobbiDetail() {
                 <span className="text-muted-foreground">State</span>
                 <Badge variant={blobbi.state === 'active' ? 'default' : 'secondary'}>
                   {blobbi.state.charAt(0).toUpperCase() + blobbi.state.slice(1)}
+                  {isSleeping && ' 💤'}
                 </Badge>
               </div>
+              {isSleeping && sleepStartTime && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Sleeping Since</span>
+                  <span className="font-medium">{formatDistanceToNow(sleepStartTime, { addSuffix: true })}</span>
+                </div>
+              )}
+              {isSleeping && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Energy Recovery</span>
+                  <span className="font-medium text-green-600">+{calculatePassiveRecovery()} pending</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Experience</span>
                 <div className="flex items-center gap-1">

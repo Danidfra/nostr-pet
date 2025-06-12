@@ -133,6 +133,9 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
   if (blobbi.hasBuff) tags.push(['has_buff', blobbi.hasBuff]);
   if (blobbi.hasDebuff) tags.push(['has_debuff', blobbi.hasDebuff]);
   if (blobbi.lastInteraction) tags.push(['last_interaction', blobbi.lastInteraction.toString()]);
+  
+  // Add sleep system tags
+  if (blobbi.sleepStartedAt) tags.push(['sleep_started_at', blobbi.sleepStartedAt.toString()]);
 
   // Add last care tracking fields - Unix timestamps in seconds (same format as Nostr's created_at)
   // These fields track when specific actions were last performed and are used for cooldowns and evolution
@@ -491,6 +494,8 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       isDirty: getTagValue(tags, 'is_dirty') === 'true',
       hasBuff: getTagValue(tags, 'has_buff'),
       hasDebuff: getTagValue(tags, 'has_debuff'),
+      // Sleep system fields
+      sleepStartedAt: getTagValue(tags, 'sleep_started_at') ? parseInt(getTagValue(tags, 'sleep_started_at')!) : undefined,
       // Last care tracking fields - Unix timestamps in seconds (same format as Nostr's created_at)
       // These fields track when specific actions were last performed and are used for cooldowns and evolution
       lastMeal: getTagValue(tags, 'last_meal') ? parseInt(getTagValue(tags, 'last_meal')!) : undefined,
