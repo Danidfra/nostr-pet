@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Timer, Trophy, Zap } from 'lucide-react';
+import { Sparkles, Timer, Trophy, Zap, Hash } from 'lucide-react';
 
 interface BlobbiGamesModalProps {
   isOpen: boolean;
@@ -31,6 +31,16 @@ const GAMES: GameInfo[] = [
     difficulty: 'Easy',
     rewards: '10-50 coins',
     path: '/games/bubble-pop',
+    available: true,
+  },
+  {
+    id: 'number-guess',
+    name: 'Number Guessing',
+    description: 'Guess if the next number is higher or lower in this Tamagotchi classic!',
+    icon: <Hash className="w-8 h-8 text-green-500" />,
+    difficulty: 'Easy',
+    rewards: '15-55 coins',
+    path: '/games/number-guess',
     available: true,
   },
   {

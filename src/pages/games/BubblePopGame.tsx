@@ -50,7 +50,12 @@ export function BubblePopGame() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { blobbi, addCoins } = useBlobbi();
+  
+  // Get the specific Blobbi ID from navigation state
+  const blobbiId = location.state?.blobbiId;
+  
+  // Use the specific Blobbi if provided, otherwise fall back to user's Blobbi
+  const { blobbi, addCoins, isLoading } = useBlobbi(undefined, blobbiId);
   const { mutateAsync: recordGameInteraction } = useBlobbiGameInteraction();
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -68,7 +73,8 @@ export function BubblePopGame() {
   });
   const [hasEndedGame, setHasEndedGame] = useState(false);
 
-  const blobbiId = location.state?.blobbiId || blobbi?.id;
+  // Use the passed blobbiId or fall back to the loaded blobbi's ID
+  const effectiveBlobbiId = blobbiId || blobbi?.id;
 
   // Generate random bubble
   const createBubble = useCallback((): Bubble => {
@@ -142,9 +148,9 @@ export function BubblePopGame() {
 
     try {
       // Record the game interaction using enhanced system that automatically handles both 14919 and 31124 events
-      if (blobbi && blobbiId) {
+      if (blobbi && effectiveBlobbiId) {
         await recordGameInteraction({
-          blobbiId,
+          blobbiId: effectiveBlobbiId,
           gameType: 'bubble-pop',
           score: finalScore,
           duration: GAME_DURATION,
@@ -182,7 +188,7 @@ export function BubblePopGame() {
         description: `You scored ${finalScore} points!`,
       });
     }
-  }, [blobbiId, blobbi, recordGameInteraction, toast, addCoins]);
+  }, [effectiveBlobbiId, blobbi, recordGameInteraction, toast, addCoins]);
 
   // Game loop
   useEffect(() => {
@@ -359,6 +365,74 @@ export function BubblePopGame() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Show loading state while Blobbi is being loaded
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 p-4">
+        <div className="max-w-6xl mx-auto">
+          <AppHeader 
+            leftContent={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(-1)}
+                className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </Button>
+            }
+          />
+          <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+            <CardContent className="p-8">
+              <div className="flex items-center justify-center h-[400px]">
+                <div className="text-center space-y-4">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
+                  <p className="text-gray-600 dark:text-gray-400">Loading your Blobbi...</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if no Blobbi is found
+  if (!blobbi) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 p-4">
+        <div className="max-w-6xl mx-auto">
+          <AppHeader 
+            leftContent={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(-1)}
+                className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </Button>
+            }
+          />
+          <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+            <CardContent className="p-8">
+              <div className="flex items-center justify-center h-[400px]">
+                <div className="text-center space-y-4">
+                  <p className="text-gray-600 dark:text-gray-400">No Blobbi found to play with!</p>
+                  <Button onClick={() => navigate(-1)} variant="outline">
+                    Go Back
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 p-4">
