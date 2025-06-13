@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Blobbi } from '@/types/blobbi';
 import { useBlobbiState } from '@/hooks/useBlobbiEvents';
+import { useBlobbiInteractionWithStateUpdate } from '@/hooks/useBlobbiInteractionWithStateUpdate';
 
 interface SleepSystemOptions {
   blobbi: Blobbi | null;
@@ -11,10 +12,13 @@ interface SleepSystemOptions {
 export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
   const queryClient = useQueryClient();
   const { updateState } = useBlobbiState(blobbi?.id || '', blobbi?.ownerPubkey || '');
+  const { mutateAsync: createInteractionWithStateUpdate } = useBlobbiInteractionWithStateUpdate();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastRecoveryRef = useRef<number>(Date.now());
   const lastPassiveRecoveryRef = useRef<number>(0);
   const processedBlobbiRef = useRef<string | null>(null);
+
+  // ✅ Removed localStorage-based tracking since we now use lastSleepUpdate as the reference point
 
   // Helper function to get sleep start time from tags
   const getSleepStartTime = useCallback((blobbi: Blobbi): number | null => {
@@ -31,31 +35,41 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
   }, []);
 
   // Calculate passive recovery (when app was closed)
-  const calculatePassiveRecovery = useCallback((blobbi: Blobbi): number => {
-    const sleepStartTime = getSleepStartTime(blobbi);
-    if (!sleepStartTime || !blobbi.isSleeping) return 0;
+  const calculatePassiveRecovery = useCallback((blobbi: Blobbi): { totalRecovery: number; newBlocks: number } => {
+    if (!blobbi.isSleeping) return { totalRecovery: 0, newBlocks: 0 };
+
+    // ✅ Use lastSleepUpdate as the reference point if available, otherwise fall back to sleepStartedAt
+    const referenceTime = blobbi.lastSleepUpdate 
+      ? blobbi.lastSleepUpdate * 1000  // Convert to milliseconds
+      : getSleepStartTime(blobbi);
+    
+    if (!referenceTime) return { totalRecovery: 0, newBlocks: 0 };
 
     const currentTime = Date.now();
-    const timeDiff = currentTime - sleepStartTime;
+    const timeDiff = currentTime - referenceTime;
     
-    // Handle negative time differences (future sleep start time)
-    if (timeDiff < 0) return 0;
+    // Handle negative time differences (future reference time)
+    if (timeDiff < 0) return { totalRecovery: 0, newBlocks: 0 };
     
     const thirtyMinutesMs = 30 * 60 * 1000; // 30 minutes in milliseconds
     
-    // Calculate how many 30-minute blocks have passed
-    const blocksCompleted = Math.floor(timeDiff / thirtyMinutesMs);
+    // Calculate how many 30-minute blocks have passed since the reference time
+    const newBlocks = Math.floor(timeDiff / thirtyMinutesMs);
     
-    // Each block gives +10 energy, ensure non-negative
-    return Math.max(0, blocksCompleted * 10);
+    // For new calculation approach, we don't need to track "total" vs "new" blocks
+    // since we're always calculating from the last update point
+    return { 
+      totalRecovery: Math.max(0, newBlocks * 10), 
+      newBlocks: newBlocks 
+    };
   }, [getSleepStartTime]);
 
   // Apply passive recovery when blobbi is loaded
   const applyPassiveRecovery = useCallback(async (blobbi: Blobbi) => {
     if (!blobbi.isSleeping || !isOwner) return;
 
-    // Create a unique key for this recovery session
-    const recoveryKey = `${blobbi.id}-${blobbi.sleepStartedAt || blobbi.lastInteraction}`;
+    // ✅ Use a simpler recovery key based on the current state
+    const recoveryKey = `${blobbi.id}-${blobbi.lastSleepUpdate || blobbi.sleepStartedAt || blobbi.lastInteraction}`;
     
     // Prevent duplicate recovery for the same sleep session
     if (processedBlobbiRef.current === recoveryKey) {
@@ -63,101 +77,124 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
       return;
     }
 
-    const recoveryAmount = calculatePassiveRecovery(blobbi);
-    if (recoveryAmount <= 0) return;
-
-    // Check if we've already applied this amount of recovery
-    if (recoveryAmount <= lastPassiveRecoveryRef.current) {
-      console.log('Recovery amount not greater than last applied, skipping');
+    const { totalRecovery, newBlocks } = calculatePassiveRecovery(blobbi);
+    if (newBlocks <= 0) {
+      console.log('No new recovery blocks to apply');
+      // Mark as processed even if no recovery to prevent repeated checks
+      processedBlobbiRef.current = recoveryKey;
       return;
     }
 
-    const newEnergy = Math.min(100, blobbi.stats.energy + recoveryAmount);
+    const energyToAdd = newBlocks * 10;
+    const newEnergy = Math.min(100, blobbi.stats.energy + energyToAdd);
     const energyGained = newEnergy - blobbi.stats.energy;
 
     if (energyGained > 0) {
-      console.log(`Passive sleep recovery: +${energyGained} energy (${recoveryAmount} total calculated)`);
+      console.log(`Passive sleep recovery: +${energyGained} energy (${newBlocks} new blocks, ${totalRecovery} total calculated)`);
       
-      // Mark this recovery as processed
-      processedBlobbiRef.current = recoveryKey;
-      lastPassiveRecoveryRef.current = recoveryAmount;
-      
-      const updatedBlobbi: Blobbi = {
-        ...blobbi,
-        stats: {
-          ...blobbi.stats,
-          energy: newEnergy,
-        },
-        lastInteraction: Math.floor(Date.now() / 1000), // Update last interaction time
-      };
-
-      // Check if energy reached 100 and auto-wake if desired
-      if (newEnergy >= 100) {
-        updatedBlobbi.isSleeping = false;
-        updatedBlobbi.state = 'active';
-        console.log('Blobbi automatically woke up - energy reached 100%');
-        // Reset recovery tracking when waking up
-        processedBlobbiRef.current = null;
-        lastPassiveRecoveryRef.current = 0;
-      }
-
       try {
-        await updateState(updatedBlobbi);
-        queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
-      } catch (error) {
-        console.error('Failed to apply passive sleep recovery:', error);
-        // Reset tracking on error so it can be retried
-        processedBlobbiRef.current = null;
-        lastPassiveRecoveryRef.current = 0;
-      }
-    }
-  }, [calculatePassiveRecovery, isOwner, updateState, queryClient]);
-
-  // Active recovery (while app is open)
-  const performActiveRecovery = useCallback(async () => {
-    if (!blobbi || !blobbi.isSleeping || !isOwner) return;
-
-    const currentTime = Date.now();
-    const timeSinceLastRecovery = currentTime - lastRecoveryRef.current;
-    const thirtyMinutesMs = 30 * 60 * 1000; // 30 minutes in milliseconds
-
-    // Only recover if 30 minutes have passed
-    if (timeSinceLastRecovery >= thirtyMinutesMs) {
-      const newEnergy = Math.min(100, blobbi.stats.energy + 10);
-      const energyGained = newEnergy - blobbi.stats.energy;
-
-      if (energyGained > 0) {
-        console.log(`Active sleep recovery: +${energyGained} energy`);
+        // ⚠️ IMPORTANT: For passive recovery, emit only kind 31124 (state update) with last_sleep_update tag
+        // Do NOT emit kind 14919 (interaction event) for passive recovery
+        const currentTimestamp = Math.floor(Date.now() / 1000);
         
+        // ✅ FIXED: Create a single state update that handles both energy update and wake-up if needed
         const updatedBlobbi: Blobbi = {
           ...blobbi,
           stats: {
             ...blobbi.stats,
             energy: newEnergy,
           },
-          lastInteraction: Math.floor(Date.now() / 1000),
+          lastInteraction: currentTimestamp,
+          // ✅ If energy reaches 100, wake up in the same event
+          isSleeping: newEnergy >= 100 ? false : blobbi.isSleeping,
+          state: newEnergy >= 100 ? 'active' : blobbi.state,
+          sleepStartedAt: newEnergy >= 100 ? undefined : blobbi.sleepStartedAt,
+          lastSleepUpdate: newEnergy >= 100 ? undefined : currentTimestamp, // Remove last_sleep_update when waking up, otherwise update it
         };
 
-        // Check if energy reached 100 and auto-wake if desired
-        if (newEnergy >= 100) {
-          updatedBlobbi.isSleeping = false;
-          updatedBlobbi.state = 'active';
-          console.log('Blobbi automatically woke up - energy reached 100%');
-          // Reset recovery tracking when auto-waking
-          processedBlobbiRef.current = null;
-          lastPassiveRecoveryRef.current = 0;
-        }
+        // Update state directly with a single kind 31124 event
+        await updateState(updatedBlobbi);
 
+        // Mark this recovery as processed
+        processedBlobbiRef.current = `${blobbi.id}-${currentTimestamp}`;
+
+        // Log the result
+        if (newEnergy >= 100) {
+          console.log('Blobbi automatically woke up - energy reached 100% (single event)');
+          // Clear recovery tracking when waking up
+          processedBlobbiRef.current = null;
+        }
+      } catch (error) {
+        console.error('Failed to apply passive sleep recovery:', error);
+        // Reset tracking on error so it can be retried
+        processedBlobbiRef.current = null;
+      }
+    } else {
+      // Mark as processed even if no energy gained to prevent repeated attempts
+      processedBlobbiRef.current = recoveryKey;
+    }
+  }, [calculatePassiveRecovery, isOwner, updateState]);
+
+  // Active recovery (while app is open)
+  const performActiveRecovery = useCallback(async () => {
+    if (!blobbi || !blobbi.isSleeping || !isOwner) return;
+
+    // ✅ Use lastSleepUpdate as reference point for active recovery timing
+    const referenceTime = blobbi.lastSleepUpdate 
+      ? blobbi.lastSleepUpdate * 1000  // Convert to milliseconds
+      : (blobbi.sleepStartedAt ? blobbi.sleepStartedAt * 1000 : lastRecoveryRef.current);
+    
+    const currentTime = Date.now();
+    const timeSinceLastUpdate = currentTime - referenceTime;
+    const thirtyMinutesMs = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+    // Only recover if 30 minutes have passed since last update
+    if (timeSinceLastUpdate >= thirtyMinutesMs) {
+      const newEnergy = Math.min(100, blobbi.stats.energy + 10);
+      const energyGained = newEnergy - blobbi.stats.energy;
+
+      if (energyGained > 0) {
+        console.log(`Active sleep recovery: +${energyGained} energy`);
+        
         try {
+          // ⚠️ IMPORTANT: For active recovery, emit only kind 31124 (state update) with last_sleep_update tag
+          // Do NOT emit kind 14919 (interaction event) for active recovery
+          const currentTimestamp = Math.floor(Date.now() / 1000);
+          
+          // ✅ FIXED: Create a single state update that handles both energy update and wake-up if needed
+          const updatedBlobbi: Blobbi = {
+            ...blobbi,
+            stats: {
+              ...blobbi.stats,
+              energy: newEnergy,
+            },
+            lastInteraction: currentTimestamp,
+            // ✅ If energy reaches 100, wake up in the same event
+            isSleeping: newEnergy >= 100 ? false : blobbi.isSleeping,
+            state: newEnergy >= 100 ? 'active' : blobbi.state,
+            sleepStartedAt: newEnergy >= 100 ? undefined : blobbi.sleepStartedAt,
+            lastSleepUpdate: newEnergy >= 100 ? undefined : currentTimestamp, // Remove last_sleep_update when waking up, otherwise update it
+          };
+
+          // Update state directly with a single kind 31124 event
           await updateState(updatedBlobbi);
-          queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
+
           lastRecoveryRef.current = currentTime;
+
+          // Log the result
+          if (newEnergy >= 100) {
+            console.log('Blobbi automatically woke up - energy reached 100% (single event)');
+            
+            // Reset recovery tracking when auto-waking
+            processedBlobbiRef.current = null;
+            lastPassiveRecoveryRef.current = 0;
+          }
         } catch (error) {
           console.error('Failed to apply active sleep recovery:', error);
         }
       }
     }
-  }, [blobbi, isOwner, updateState, queryClient]);
+  }, [blobbi, isOwner, updateState]);
 
   // Put Blobbi to sleep
   const putToSleep = useCallback(async () => {
@@ -176,6 +213,7 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
       state: 'sleeping',
       lastInteraction: currentTime,
       sleepStartedAt: currentTime, // Set sleep start time
+      lastSleepUpdate: currentTime, // ✅ Initialize last_sleep_update when starting sleep
     };
 
     try {
@@ -198,22 +236,28 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
     processedBlobbiRef.current = null;
     lastPassiveRecoveryRef.current = 0;
     
-    const updatedBlobbi: Blobbi = {
-      ...blobbi,
-      isSleeping: false,
-      state: 'active',
-      lastInteraction: Math.floor(Date.now() / 1000),
-      sleepStartedAt: undefined, // Clear sleep start time
-    };
-
     try {
-      await updateState(updatedBlobbi);
+      // ✅ IMPORTANT: Manual wake-up should emit kind 14919 (interaction event)
+      // This is the ONLY time we emit kind 14919 for sleep-related actions
+      await createInteractionWithStateUpdate({
+        blobbiId: blobbi.id,
+        action: 'rest',
+        actionCategory: 'recovery',
+        statChange: ['energy', 0], // No additional energy change on wake
+        experienceGained: 0,
+        carePoints: 0,
+        customData: {
+          recovery_type: 'manual_wake',
+          wake_action: 'explicit_user_interaction',
+        },
+      });
+
       queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
     } catch (error) {
       console.error('Failed to wake up Blobbi:', error);
       throw error;
     }
-  }, [blobbi, isOwner, updateState, queryClient]);
+  }, [blobbi, isOwner, createInteractionWithStateUpdate, queryClient]);
 
   // Set up active recovery interval when Blobbi is sleeping
   useEffect(() => {
@@ -299,6 +343,6 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
     putToSleep,
     wakeUp,
     sleepStartTime: blobbi ? getSleepStartTime(blobbi) : null,
-    calculatePassiveRecovery: blobbi ? () => calculatePassiveRecovery(blobbi) : () => 0,
+    calculatePassiveRecovery: blobbi ? () => calculatePassiveRecovery(blobbi).totalRecovery : () => 0,
   };
 }

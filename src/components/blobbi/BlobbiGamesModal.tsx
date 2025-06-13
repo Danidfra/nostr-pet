@@ -46,7 +46,7 @@ const GAMES: GameInfo[] = [
   {
     id: 'tic-tac-toe',
     name: 'Tic-Tac-Toe',
-    description: 'Classic strategy game for two players! Get three in a row to win.',
+    description: 'Classic strategy game! Play against a friendly bot or challenge other players.',
     icon: <Grid3X3 className="w-8 h-8 text-purple-500" />,
     difficulty: 'Easy',
     rewards: '25-50 coins',

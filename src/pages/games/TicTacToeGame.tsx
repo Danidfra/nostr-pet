@@ -13,6 +13,7 @@ import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 type Player = 'X' | 'O';
 type CellValue = Player | null;
 type Board = CellValue[];
+type GameMode = 'bot' | 'multiplayer';
 
 interface GameState {
   board: Board;
@@ -23,6 +24,8 @@ interface GameState {
   gameStartTime: number;
   gameStarted: boolean;
   moves: number;
+  gameMode: GameMode | null;
+  isPlayerTurn: boolean; // For bot mode
 }
 
 interface WinLine {
@@ -63,6 +66,8 @@ export function TicTacToeGame() {
     gameStartTime: 0,
     gameStarted: false,
     moves: 0,
+    gameMode: null,
+    isPlayerTurn: true,
   });
   const [hasEndedGame, setHasEndedGame] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(true);
@@ -98,29 +103,70 @@ export function TicTacToeGame() {
     return { winner: null, winLine: null };
   }, []);
 
+  // Bot AI - Simple but not too hard to beat
+  const getBotMove = useCallback((board: Board): number => {
+    const availableMoves = board.map((cell, index) => cell === null ? index : null).filter(val => val !== null) as number[];
+    
+    if (availableMoves.length === 0) return -1;
+
+    // Check if bot can win
+    for (const move of availableMoves) {
+      const testBoard = [...board];
+      testBoard[move] = 'O';
+      const { winner } = checkWinner(testBoard);
+      if (winner === 'O') return move;
+    }
+
+    // Check if bot needs to block player from winning
+    for (const move of availableMoves) {
+      const testBoard = [...board];
+      testBoard[move] = 'X';
+      const { winner } = checkWinner(testBoard);
+      if (winner === 'X') return move;
+    }
+
+    // Take center if available (good strategy but not too aggressive)
+    if (board[4] === null) return 4;
+
+    // Take corners with some randomness (casual difficulty)
+    const corners = [0, 2, 6, 8].filter(i => board[i] === null);
+    if (corners.length > 0 && Math.random() > 0.3) {
+      return corners[Math.floor(Math.random() * corners.length)];
+    }
+
+    // Otherwise, pick a random available move
+    return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+  }, [checkWinner]);
+
   // Make a move
-  const makeMove = useCallback((index: number) => {
+  const makeMove = useCallback((index: number, player?: Player) => {
     if (!gameState.isPlaying || gameState.board[index] || gameState.gameOver) return;
+
+    // In bot mode, only allow moves when it's player's turn (unless it's a bot move)
+    if (gameState.gameMode === 'bot' && !gameState.isPlayerTurn && !player) return;
 
     setGameState(prev => {
       const newBoard = [...prev.board];
-      newBoard[index] = prev.currentPlayer;
+      const currentPlayer = player || prev.currentPlayer;
+      newBoard[index] = currentPlayer;
       
       const { winner, winLine } = checkWinner(newBoard);
+      const nextPlayer = currentPlayer === 'X' ? 'O' : 'X';
       
       return {
         ...prev,
         board: newBoard,
-        currentPlayer: prev.currentPlayer === 'X' ? 'O' : 'X',
+        currentPlayer: nextPlayer,
         winner,
         gameOver: winner !== null,
         moves: prev.moves + 1,
+        isPlayerTurn: prev.gameMode === 'bot' ? nextPlayer === 'X' : true,
       };
     });
-  }, [gameState.isPlaying, gameState.board, gameState.gameOver, checkWinner]);
+  }, [gameState.isPlaying, gameState.board, gameState.gameOver, gameState.gameMode, gameState.isPlayerTurn, checkWinner]);
 
-  // Start game
-  const startGame = useCallback(() => {
+  // Start game with selected mode
+  const startGame = useCallback((mode: GameMode) => {
     setHasEndedGame(false);
     setWinLine(null);
     setGameState({
@@ -132,6 +178,26 @@ export function TicTacToeGame() {
       gameStartTime: Date.now(),
       gameStarted: true,
       moves: 0,
+      gameMode: mode,
+      isPlayerTurn: true, // Player always starts as X
+    });
+  }, []);
+
+  // Reset to mode selection
+  const resetToModeSelection = useCallback(() => {
+    setHasEndedGame(false);
+    setWinLine(null);
+    setGameState({
+      board: Array(9).fill(null),
+      currentPlayer: 'X',
+      winner: null,
+      gameOver: false,
+      isPlaying: false,
+      gameStartTime: 0,
+      gameStarted: false,
+      moves: 0,
+      gameMode: null,
+      isPlayerTurn: true,
     });
   }, []);
 
@@ -200,6 +266,25 @@ export function TicTacToeGame() {
     }
   }, [effectiveBlobbiId, blobbi, recordGameInteraction, toast, addCoins, gameState.gameStartTime]);
 
+  // Handle bot moves
+  useEffect(() => {
+    if (gameState.gameMode === 'bot' && 
+        gameState.isPlaying && 
+        !gameState.isPlayerTurn && 
+        !gameState.gameOver &&
+        gameState.currentPlayer === 'O') {
+      
+      const timer = setTimeout(() => {
+        const botMoveIndex = getBotMove(gameState.board);
+        if (botMoveIndex !== -1) {
+          makeMove(botMoveIndex, 'O');
+        }
+      }, 500); // Small delay to make bot move feel more natural
+
+      return () => clearTimeout(timer);
+    }
+  }, [gameState.gameMode, gameState.isPlaying, gameState.isPlayerTurn, gameState.gameOver, gameState.currentPlayer, gameState.board, getBotMove, makeMove]);
+
   // Handle game over
   useEffect(() => {
     if (gameState.gameOver && !hasEndedGame) {
@@ -221,6 +306,9 @@ export function TicTacToeGame() {
   // Handle canvas click
   const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!gameState.isPlaying || !canvasRef.current) return;
+    
+    // In bot mode, only allow clicks when it's player's turn
+    if (gameState.gameMode === 'bot' && !gameState.isPlayerTurn) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -236,12 +324,15 @@ export function TicTacToeGame() {
     if (index >= 0 && index < 9) {
       makeMove(index);
     }
-  }, [gameState.isPlaying, makeMove]);
+  }, [gameState.isPlaying, gameState.gameMode, gameState.isPlayerTurn, makeMove]);
 
   // Handle touch events for mobile
   const handleCanvasTouch = useCallback((event: React.TouchEvent<HTMLCanvasElement>) => {
     event.preventDefault();
     if (!gameState.isPlaying || !canvasRef.current) return;
+    
+    // In bot mode, only allow touches when it's player's turn
+    if (gameState.gameMode === 'bot' && !gameState.isPlayerTurn) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const touch = event.touches[0];
@@ -258,7 +349,7 @@ export function TicTacToeGame() {
     if (index >= 0 && index < 9) {
       makeMove(index);
     }
-  }, [gameState.isPlaying, makeMove]);
+  }, [gameState.isPlaying, gameState.gameMode, gameState.isPlayerTurn, makeMove]);
 
   // Draw the game board
   useEffect(() => {
@@ -399,8 +490,16 @@ export function TicTacToeGame() {
   const getGameStatusMessage = () => {
     if (gameState.gameOver) {
       if (gameState.winner === 'tie') return "It's a tie!";
+      if (gameState.gameMode === 'bot') {
+        return gameState.winner === 'X' ? "You win!" : "Bot wins!";
+      }
       return `Player ${gameState.winner} wins!`;
     }
+    
+    if (gameState.gameMode === 'bot') {
+      return gameState.currentPlayer === 'X' ? "Your turn" : "Bot's turn";
+    }
+    
     return `Player ${gameState.currentPlayer}'s turn`;
   };
 
@@ -506,7 +605,9 @@ export function TicTacToeGame() {
           <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-purple-600" />
-              <span className="font-bold text-gray-900 dark:text-gray-100">2 Players</span>
+              <span className="font-bold text-gray-900 dark:text-gray-100">
+                {gameState.gameMode === 'bot' ? 'vs Bot' : gameState.gameMode === 'multiplayer' ? 'vs Player' : 'Tic-Tac-Toe'}
+              </span>
             </div>
           </Card>
           
@@ -575,28 +676,38 @@ export function TicTacToeGame() {
                         </div>
                         
                         {/* Reset Button */}
-                        <Button
-                          onClick={startGame}
-                          className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                          New Game
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => gameState.gameMode && startGame(gameState.gameMode)}
+                            className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Play Again
+                          </Button>
+                          <Button
+                            onClick={resetToModeSelection}
+                            variant="outline"
+                            className="flex items-center gap-2 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                            Change Mode
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Welcome Screen */}
+              {/* Mode Selection Screen */}
               {!gameState.gameStarted && !gameState.gameOver && (
                 <div className="absolute inset-0 flex items-center justify-center p-4">
                   <div className="flex flex-col items-center justify-center gap-8 w-full max-w-2xl">
                     {/* Blobbi Character */}
                     {blobbi && (
-                      <div className="flex flex-col items-center gap-4">
+                      <div className="flex flex-col items-center gap-6">
                         <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">
-                          Ready for Tic-Tac-Toe?
+                          Choose Your Game Mode
                         </div>
                         <div className="relative">
                           <style>
@@ -621,15 +732,33 @@ export function TicTacToeGame() {
                           </div>
                         </div>
                         
-                        {/* Start Game Button */}
-                        <Button 
-                          onClick={startGame} 
-                          size="lg" 
-                          className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-3 text-lg font-semibold shadow-lg"
-                        >
-                          <Play className="w-6 h-6" />
-                          Start Game
-                        </Button>
+                        {/* Game Mode Buttons */}
+                        <div className="flex flex-col gap-4 w-full max-w-md">
+                          <Button 
+                            onClick={() => startGame('bot')} 
+                            size="lg" 
+                            className="flex items-center gap-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-4 text-lg font-semibold shadow-lg"
+                          >
+                            <Play className="w-6 h-6" />
+                            Play vs Bot
+                          </Button>
+                          
+                          <Button 
+                            onClick={() => {/* Multiplayer coming soon */}} 
+                            size="lg" 
+                            variant="outline"
+                            disabled
+                            className="flex items-center justify-between gap-3 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 px-8 py-4 text-lg font-semibold opacity-60 cursor-not-allowed"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Users className="w-6 h-6" />
+                              Play vs Another Blobbi/User
+                            </div>
+                            <span className="text-sm bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 px-2 py-1 rounded">
+                              Coming Soon
+                            </span>
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -651,16 +780,28 @@ export function TicTacToeGame() {
                       <div className="text-lg text-gray-900 dark:text-gray-100">
                         {gameState.winner === 'tie' 
                           ? "Great game! Both players played well!" 
-                          : `Congratulations to Player ${gameState.winner}!`
+                          : gameState.gameMode === 'bot'
+                            ? (gameState.winner === 'X' ? "Congratulations! You beat the bot!" : "The bot won this time!")
+                            : `Congratulations to Player ${gameState.winner}!`
                         }
                       </div>
                       <div className="text-gray-600 dark:text-gray-400">
                         You earned {gameState.winner === 'tie' ? 25 : 50} coins!
                       </div>
                       <div className="flex gap-2 justify-center">
-                        <Button onClick={startGame} className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white">
+                        <Button 
+                          onClick={() => gameState.gameMode && startGame(gameState.gameMode)} 
+                          className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                        >
                           <RotateCcw className="w-4 h-4" />
                           Play Again
+                        </Button>
+                        <Button 
+                          onClick={resetToModeSelection} 
+                          variant="outline" 
+                          className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                        >
+                          Change Mode
                         </Button>
                         <Button variant="outline" onClick={() => navigate(-1)} className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
                           Back to Games
@@ -722,6 +863,16 @@ export function TicTacToeGame() {
                 <li>• First to get 3 in a row wins</li>
                 <li>• If all 9 spaces are filled, it's a tie</li>
                 <li>• Works on both desktop and mobile!</li>
+              </ul>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg space-y-2">
+              <h4 className="font-semibold text-blue-800 dark:text-blue-200">Game Modes:</h4>
+              <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                <li>• <strong>vs Bot:</strong> Play against a friendly AI opponent</li>
+                <li>• <strong>vs Player:</strong> Multiplayer mode (coming soon!)</li>
+                <li>• You always play as X and go first</li>
+                <li>• The bot is casual difficulty - fun but beatable!</li>
               </ul>
             </div>
 

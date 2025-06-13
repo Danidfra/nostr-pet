@@ -108,6 +108,7 @@ export interface Blobbi {
   lastMedicine?: number;
   // Sleep system fields
   sleepStartedAt?: number; // Unix timestamp when sleep began
+  lastSleepUpdate?: number; // Unix timestamp of last rest-based energy update (only present during sleep)
   // Social
   adoptedBy?: string;
   adoptedFrom?: string;

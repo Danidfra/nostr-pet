@@ -223,6 +223,22 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
     shellIntegrity: updatedShellIntegrity,
   };
 
+  // ⚠️ IMPORTANT: Handle last_sleep_update tag logic
+  // If this is a manual wake action (kind 14919), remove the lastSleepUpdate field
+  // This ensures the tag is not present in the next kind 31124 state event
+  if (action === 'rest' && tags.find(tag => tag[0] === 'wake_action' && tag[1] === 'explicit_user_interaction')) {
+    // Manual wake - remove lastSleepUpdate to remove the tag from future state events
+    updatedBlobbi.lastSleepUpdate = undefined;
+    updatedBlobbi.isSleeping = false;
+    updatedBlobbi.state = 'active';
+    updatedBlobbi.sleepStartedAt = undefined;
+  }
+  // If this is a passive rest recovery, update lastSleepUpdate timestamp
+  else if (action === 'rest' && tags.find(tag => tag[0] === 'recovery_type' && (tag[1] === 'passive_sleep' || tag[1] === 'active_sleep'))) {
+    // Passive recovery - update lastSleepUpdate to current timestamp
+    updatedBlobbi.lastSleepUpdate = currentTimestamp;
+  }
+
   // Update corresponding last_* timestamp based on action type
   switch (action) {
     case 'warm':
