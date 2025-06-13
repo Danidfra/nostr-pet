@@ -33,9 +33,10 @@ class BlobbiCompanion {
         // Feeding functionality
         this.isFeedingMode = false;
         this.feedingClickListener = null;
-        this.charcoalElement = null;
+        this.foodElement = null;
         this.isEating = false;
-        this.charcoalProximityCheck = null;
+        this.foodProximityCheck = null;
+        this.currentFood = null;
         
         // Mouse chasing
         this.lastMousePosition = null;
@@ -78,6 +79,9 @@ class BlobbiCompanion {
         
         // Set up event listeners
         this.setupEventListeners();
+        
+        // Set up food placement listener
+        this.setupFoodPlacementListener();
         
         // Set up global click detection
         this.setupGlobalClickDetection();
@@ -162,7 +166,7 @@ class BlobbiCompanion {
         
         // Feed Flammi button
         document.getElementById('feed-flammi').addEventListener('click', () => {
-            this.toggleFeedingMode();
+            this.openFeedModal();
         });
         
         // Show speech bubble button
@@ -394,7 +398,7 @@ class BlobbiCompanion {
         if (!this.isFreeRoaming) return;
         
         // Don't start free roaming if Flammi is busy with other activities
-        if (this.isEating || this.isAngry || this.isSad || this.charcoalElement || this.isShowingSpeechBubble) {
+        if (this.isEating || this.isAngry || this.isSad || this.foodElement || this.isShowingSpeechBubble) {
             console.log('🚫 Free roam blocked - Flammi is busy with other activities');
             return;
         }
@@ -517,11 +521,11 @@ class BlobbiCompanion {
                 this.checkCursorProximity(this.lastMousePosition.x, this.lastMousePosition.y);
             }
             
-            // Check charcoal proximity - but only for discovery, NOT during active eating
-            if (this.charcoalElement && !this.isAngry && !this.isSad && !this.isEating) {
-                const distance = this.getDistanceToCharcoal();
+            // Check food proximity - but only for discovery, NOT during active eating
+            if (this.foodElement && !this.isAngry && !this.isSad && !this.isEating) {
+                const distance = this.getDistanceToFood();
                 if (distance < 120) { // Large detection radius for discovery
-                    console.log('🪨 Flammi noticed charcoal nearby and is getting excited!');
+                    console.log('🍽️ Flammi noticed food nearby and is getting excited!');
                     this.startFocusedFeeding();
                 }
             }
@@ -1026,7 +1030,42 @@ class BlobbiCompanion {
         this.globalClickHistory = [];
     }
     
-    // Feeding functionality
+    // New feeding functionality with React integration
+    openFeedModal() {
+        if (this.isAngry || this.isSad || this.isEating) return;
+        
+        console.log('🍽️ Opening feed modal...');
+        
+        // Trigger React modal opening
+        if (window.openFeedModal) {
+            window.openFeedModal();
+        } else {
+            // Fallback to old feeding mode if React integration not available
+            this.toggleFeedingMode();
+        }
+    }
+    
+    // Setup listener for food placement from React
+    setupFoodPlacementListener() {
+        window.addEventListener('food-placed', (event) => {
+            const { element, food, x, y } = event.detail;
+            this.handleFoodPlaced(element, food, x, y);
+        });
+    }
+    
+    // Handle food placement from React
+    handleFoodPlaced(foodElement, foodData, x, y) {
+        console.log('🍽️ Food placed by React:', foodData);
+        
+        // Store food element and data
+        this.foodElement = foodElement;
+        this.currentFood = foodData;
+        
+        // Start focused feeding behavior
+        this.startFocusedFeeding();
+    }
+    
+    // Legacy feeding functionality (fallback)
     toggleFeedingMode() {
         if (this.isAngry || this.isSad || this.isEating) return;
         
@@ -1054,7 +1093,7 @@ class BlobbiCompanion {
             // Don't place charcoal if interactions are disabled
             if (this.interactionOverlay) return;
             
-            this.placeCharcoal(e.clientX, e.clientY);
+            this.placeFood(e.clientX, e.clientY);
             this.isFeedingMode = false;
             
             const feedBtn = document.getElementById('feed-flammi');
@@ -1073,16 +1112,16 @@ class BlobbiCompanion {
         }
     }
     
-    placeCharcoal(x, y) {
-        // Remove any existing charcoal
-        if (this.charcoalElement) {
-            this.charcoalElement.remove();
-            this.charcoalElement = null;
+    placeFood(x, y) {
+        // Remove any existing food
+        if (this.foodElement) {
+            this.foodElement.remove();
+            this.foodElement = null;
         }
         
-        // Create charcoal element
-        this.charcoalElement = document.createElement('div');
-        this.charcoalElement.style.cssText = `
+        // Create food element (fallback for legacy mode)
+        this.foodElement = document.createElement('div');
+        this.foodElement.style.cssText = `
             position: fixed;
             left: ${x - 15}px;
             top: ${y - 15}px;
@@ -1090,15 +1129,15 @@ class BlobbiCompanion {
             z-index: 9998;
             pointer-events: none;
             user-select: none;
-            animation: charcoalDrop 0.3s ease-out;
+            animation: foodDrop 0.3s ease-out;
         `;
-        this.charcoalElement.textContent = '🪨';
-        this.charcoalElement.classList.add('charcoal-food');
+        this.foodElement.textContent = '🪨'; // Default to charcoal for legacy mode
+        this.foodElement.classList.add('companion-food');
         
         // Add drop animation
         const style = document.createElement('style');
         style.textContent = `
-            @keyframes charcoalDrop {
+            @keyframes foodDrop {
                 from { 
                     transform: translateY(-20px) scale(0.5); 
                     opacity: 0; 
@@ -1111,18 +1150,18 @@ class BlobbiCompanion {
         `;
         document.head.appendChild(style);
         
-        document.body.appendChild(this.charcoalElement);
+        document.body.appendChild(this.foodElement);
         
-        console.log('🪨 Charcoal placed! Flammi is immediately focused on it.');
+        console.log('🍽️ Food placed! Flammi is immediately focused on it.');
         
         // Start focused feeding behavior
         this.startFocusedFeeding();
     }
     
     startFocusedFeeding() {
-        if (!this.charcoalElement || this.isEating) return;
+        if (!this.foodElement || this.isEating) return;
         
-        console.log('🪨 Flammi is now COMPLETELY focused on the charcoal!');
+        console.log('🍽️ Flammi is now COMPLETELY focused on the food!');
         
         // Set eating state and stop ALL other behaviors
         this.isEating = true;
@@ -1141,40 +1180,40 @@ class BlobbiCompanion {
             clearInterval(this.moveInterval);
         }
         
-        console.log('🎯 Starting persistent charcoal pursuit...');
+        console.log('🎯 Starting persistent food pursuit...');
         
-        // Persistent movement towards charcoal - recalculates target every frame
+        // Persistent movement towards food - recalculates target every frame
         this.moveInterval = setInterval(() => {
-            // Safety check - if charcoal is gone or we're not eating, stop
-            if (!this.isEating || !this.charcoalElement) {
-                console.log('🛑 Stopping charcoal pursuit - charcoal gone or not eating');
+            // Safety check - if food is gone or we're not eating, stop
+            if (!this.isEating || !this.foodElement) {
+                console.log('🛑 Stopping food pursuit - food gone or not eating');
                 this.stopFocusedFeeding();
                 return;
             }
             
-            // ALWAYS get fresh charcoal position (this is key!)
-            const charcoalRect = this.charcoalElement.getBoundingClientRect();
-            const charcoalCenterX = charcoalRect.left + charcoalRect.width / 2;
-            const charcoalCenterY = charcoalRect.top + charcoalRect.height / 2;
+            // ALWAYS get fresh food position (this is key!)
+            const foodRect = this.foodElement.getBoundingClientRect();
+            const foodCenterX = foodRect.left + foodRect.width / 2;
+            const foodCenterY = foodRect.top + foodRect.height / 2;
             
             // Get Flammi's current center position
             const flammiRect = this.character.getBoundingClientRect();
             const flammiCenterX = flammiRect.left + flammiRect.width / 2;
             const flammiCenterY = flammiRect.top + flammiRect.height / 2;
             
-            // Calculate distance and direction to charcoal
-            const dx = charcoalCenterX - flammiCenterX;
-            const dy = charcoalCenterY - flammiCenterY;
+            // Calculate distance and direction to food
+            const dx = foodCenterX - flammiCenterX;
+            const dy = foodCenterY - flammiCenterY;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
             // Check if close enough to eat (generous radius)
             if (distance < 70) {
-                console.log('🍽️ Flammi reached the charcoal! Starting eating...');
-                this.eatCharcoal();
+                console.log('🍽️ Flammi reached the food! Starting eating...');
+                this.eatFood();
                 return;
             }
             
-            // Move towards charcoal with determination
+            // Move towards food with determination
             const speed = 6; // Fast and determined
             const vx = (dx / distance) * speed;
             const vy = (dy / distance) * speed;
@@ -1192,7 +1231,7 @@ class BlobbiCompanion {
             
             // Debug log every 50 frames (1 second at 20ms intervals)
             if (Math.random() < 0.02) {
-                console.log(`🎯 Pursuing charcoal: distance=${Math.round(distance)}px, speed=${speed}`);
+                console.log(`🎯 Pursuing food: distance=${Math.round(distance)}px, speed=${speed}`);
             }
         }, 20); // Fast update rate for responsive movement
     }
@@ -1208,9 +1247,9 @@ class BlobbiCompanion {
         this.character.classList.remove('walking', 'excited');
         this.container.classList.remove('walking', 'excited');
         
-        // Only reset eating state if we're not actually eating (i.e., we stopped before reaching charcoal)
-        if (this.isEating && this.charcoalElement) {
-            // Don't reset isEating here - let eatCharcoal handle it
+        // Only reset eating state if we're not actually eating (i.e., we stopped before reaching food)
+        if (this.isEating && this.foodElement) {
+            // Don't reset isEating here - let eatFood handle it
             return;
         }
         
@@ -1222,38 +1261,38 @@ class BlobbiCompanion {
         
         // Resume normal behavior after a short delay
         setTimeout(() => {
-            if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.charcoalElement) {
+            if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.foodElement) {
                 this.startFreeRoam();
             }
         }, 1000);
     }
     
-    getDistanceToCharcoal() {
-        if (!this.charcoalElement) return Infinity;
+    getDistanceToFood() {
+        if (!this.foodElement) return Infinity;
         
         // Get Flammi's current position
         const flammiRect = this.character.getBoundingClientRect();
         const flammiCenterX = flammiRect.left + flammiRect.width / 2;
         const flammiCenterY = flammiRect.top + flammiRect.height / 2;
         
-        // Get charcoal position
-        const charcoalRect = this.charcoalElement.getBoundingClientRect();
-        const charcoalCenterX = charcoalRect.left + charcoalRect.width / 2;
-        const charcoalCenterY = charcoalRect.top + charcoalRect.height / 2;
+        // Get food position
+        const foodRect = this.foodElement.getBoundingClientRect();
+        const foodCenterX = foodRect.left + foodRect.width / 2;
+        const foodCenterY = foodRect.top + foodRect.height / 2;
         
-        // Calculate distance to charcoal
+        // Calculate distance to food
         return Math.sqrt(
-            Math.pow(charcoalCenterX - flammiCenterX, 2) + 
-            Math.pow(charcoalCenterY - flammiCenterY, 2)
+            Math.pow(foodCenterX - flammiCenterX, 2) + 
+            Math.pow(foodCenterY - flammiCenterY, 2)
         );
     }
     
     // checkCharcoalProximity method removed - now handled directly in startFocusedFeeding
     
-    eatCharcoal() {
-        if (!this.charcoalElement) return;
+    eatFood() {
+        if (!this.foodElement) return;
         
-        console.log('😋 Flammi is eating the charcoal!');
+        console.log('😋 Flammi is eating the food!');
         
         // Stop focused feeding movement
         this.stopFocusedFeeding();
@@ -1263,13 +1302,13 @@ class BlobbiCompanion {
         this.container.classList.remove('walking', 'excited');
         this.container.classList.add('eating');
         
-        // Remove charcoal with eating animation
-        this.charcoalElement.style.animation = 'charcoalEaten 0.5s ease-in forwards';
+        // Remove food with eating animation
+        this.foodElement.style.animation = 'foodEaten 0.5s ease-in forwards';
         
         // Add eating animation style
         const style = document.createElement('style');
         style.textContent = `
-            @keyframes charcoalEaten {
+            @keyframes foodEaten {
                 to { 
                     transform: scale(0) translateY(-10px); 
                     opacity: 0; 
@@ -1278,15 +1317,24 @@ class BlobbiCompanion {
         `;
         document.head.appendChild(style);
         
-        // Remove charcoal after animation
+        // Notify React component that food was reached (this will trigger Nostr events)
+        if (this.currentFood) {
+            window.dispatchEvent(new CustomEvent('companion-food-reached', {
+                detail: { food: this.currentFood }
+            }));
+        }
+        
+        // Remove food after animation
         setTimeout(() => {
-            if (this.charcoalElement) {
-                this.charcoalElement.remove();
-                this.charcoalElement = null;
+            if (this.foodElement) {
+                this.foodElement.remove();
+                this.foodElement = null;
             }
             if (style.parentNode) {
                 document.head.removeChild(style);
             }
+            // Clear current food data
+            this.currentFood = null;
         }, 500);
         
         // Show heart emojis
@@ -1383,7 +1431,7 @@ class BlobbiCompanion {
         // Return to normal behavior after a satisfied pause
         setTimeout(() => {
             // Double-check that we're not in any other state before resuming free roam
-            if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.charcoalElement) {
+            if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.foodElement) {
                 console.log('🎯 Flammi is satisfied and resuming free roam');
                 this.startFreeRoam();
             }
@@ -1428,7 +1476,7 @@ class BlobbiCompanion {
                 this.isFreeRoaming = true;
                 this.container.classList.add('free-roaming');
                 setTimeout(() => {
-                    if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.charcoalElement) {
+                    if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.foodElement) {
                         this.startFreeRoam();
                     }
                 }, 500);
@@ -1504,10 +1552,10 @@ class BlobbiCompanion {
         // Remove feeding click listener
         this.removeFeedingClickListener();
         
-        // Remove charcoal if present
-        if (this.charcoalElement) {
-            this.charcoalElement.remove();
-            this.charcoalElement = null;
+        // Remove food if present
+        if (this.foodElement) {
+            this.foodElement.remove();
+            this.foodElement = null;
         }
         
         // Remove speech bubble if present
@@ -1524,7 +1572,7 @@ class BlobbiCompanion {
         if (this.moveInterval) clearInterval(this.moveInterval);
         if (this.freeRoamInterval) clearInterval(this.freeRoamInterval);
         if (this.cursorProximityCheck) clearInterval(this.cursorProximityCheck);
-        if (this.charcoalProximityCheck) clearInterval(this.charcoalProximityCheck);
+        if (this.foodProximityCheck) clearInterval(this.foodProximityCheck);
         
         // Stop continuous proximity detection
         this.stopContinuousProximityDetection();

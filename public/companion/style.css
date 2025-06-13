@@ -7,6 +7,11 @@
     user-select: none;
 }
 
+/* Ensure companion stays behind modals */
+body:has([role="dialog"]) .blobbi-container {
+    z-index: 9998;
+}
+
 .blobbi-character {
     width: 120px;
     height: 120px;

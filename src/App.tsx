@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { ThemeProvider } from "@/components/theme-provider";
 import { RelayProvider, useRelayContext } from '@/contexts/RelayContext';
+import { BlobbiCompanionIntegration } from '@/components/blobbi/BlobbiCompanionIntegration';
 import AppRouter from './AppRouter';
 
 // Component that connects relay context to NostrProvider
@@ -68,6 +69,7 @@ export function App() {
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
+                <BlobbiCompanionIntegration />
                 <AppRouter />
               </TooltipProvider>
             </QueryClientProvider>

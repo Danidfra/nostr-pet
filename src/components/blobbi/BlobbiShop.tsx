@@ -14,9 +14,10 @@ import { SHOP_ITEMS, getShopItemsByType } from '@/lib/shop-items';
 interface BlobbiShopProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultTab?: string;
 }
 
-export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
+export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopProps) {
   const { blobbi, isOwner, purchaseItem } = useBlobbi();
   const { data: blobbonautProfile } = useBlobbonautProfile();
   const { toast } = useToast();
@@ -78,7 +79,7 @@ export function BlobbiShop({ isOpen, onClose }: BlobbiShopProps) {
             </DialogTitle>
           </DialogHeader>
           
-          <Tabs defaultValue="food" className="w-full">
+          <Tabs defaultValue={defaultTab} className="w-full">
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-2">
                 <TabsList className="grid w-full grid-cols-5 bg-purple-50/50 dark:bg-purple-900/20">
