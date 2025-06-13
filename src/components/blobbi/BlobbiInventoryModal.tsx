@@ -146,87 +146,110 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }
   
   return (
     <Dialog open={isOpen} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {ActionIcon && <ActionIcon className="w-5 h-5" />}
+      <DialogContent className="max-w-md bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+            {ActionIcon && (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                <ActionIcon className="w-4 h-4 text-white" />
+              </div>
+            )}
             {getActionTitle()}
           </DialogTitle>
         </DialogHeader>
         
         {isProfileLoading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
             <p className="text-muted-foreground">Loading your inventory...</p>
           </div>
         ) : inventoryItems.length === 0 ? (
-          <div className="text-center py-8 space-y-4">
-            <p className="text-muted-foreground mb-4">
-              You need {itemType} items to perform this action.
-            </p>
-            <p className="text-sm text-muted-foreground mb-4">
-              Purchase {itemType} items from the shop to use this action.
-            </p>
-            <div className="flex flex-col gap-2">
-              <Button variant="outline" onClick={() => {
+          <div className="text-center py-12 space-y-6">
+            <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 flex items-center justify-center">
+              {ActionIcon && <ActionIcon className="w-8 h-8 text-blue-500" />}
+            </div>
+            <div className="space-y-2">
+              <p className="text-gray-900 dark:text-gray-100 font-medium">
+                No {itemType} items available
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Purchase {itemType} items from the shop to use this action.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={() => {
                   if (onOpenShop) {
                     onClose(false); // Close inventory modal first
                     onOpenShop(); // Then open shop modal
                   } else {
                     onClose(false); // Fallback: just close the modal
                   }
-                }}>
+                }}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0"
+              >
                 Go to Shop
               </Button>
-              <Button variant="secondary" onClick={() => onClose(false)}>
+              <Button 
+                variant="outline" 
+                onClick={() => onClose(false)}
+                className="border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
                 Cancel
               </Button>
-
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="grid gap-2 max-h-[300px] overflow-y-auto">
+          <div className="space-y-6">
+            <div className="grid gap-3 max-h-[300px] overflow-y-auto">
               {inventoryItems.map((item) => (
                 <Card 
                   key={item.id}
-                  className={`cursor-pointer transition-colors ${
-                    selectedItem?.id === item.id ? 'ring-2 ring-primary' : ''
-                  }`}
+                  className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+                    selectedItem?.id === item.id 
+                      ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20' 
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                  } bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl`}
                   onClick={() => setSelectedItem(item)}
                 >
-                  <CardContent className="p-3">
+                  <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl">{item.icon}</span>
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 flex items-center justify-center">
+                          <span className="text-xl">{item.icon}</span>
+                        </div>
                         <div>
-                          <h4 className="font-medium text-sm">{item.name}</h4>
+                          <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{item.name}</h4>
                           <div className="flex gap-2 mt-1">
                             {item.effect && Object.entries(item.effect)
                               .filter(([stat]) => stat !== 'shell_integrity') // Hide shell_integrity from UI, show only health
                               .map(([stat, value]) => (
-                              <Badge key={stat} variant="secondary" className="text-xs">
+                              <Badge key={stat} variant="secondary" className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
                                 {formatStatName(stat)} {value >= 0 ? '+' : ''}{value}
                               </Badge>
                             ))}
                           </div>
                         </div>
                       </div>
-                      <Badge variant="outline">x{item.quantity}</Badge>
+                      <Badge variant="outline" className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">x{item.quantity}</Badge>
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
             
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => onClose(false)} className="flex-1">
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => onClose(false)} 
+                className="flex-1 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
                 Cancel
               </Button>
               <Button 
                 onClick={handleUseItem} 
                 disabled={!selectedItem || isUsingItem}
-                className="flex-1"
+                className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 disabled:opacity-50"
               >
                 {isUsingItem ? 'Using...' : 'Use Item'}
               </Button>

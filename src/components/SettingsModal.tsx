@@ -147,45 +147,53 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-gray-500 to-slate-500 flex items-center justify-center">
+              <Settings className="w-4 h-4 text-white" />
+            </div>
             Settings
           </DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="relays" className="w-full">
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-            <CardContent className="p-2">
-              <TabsList className="grid w-full grid-cols-1 bg-purple-50/50 dark:bg-purple-900/20">
-                <TabsTrigger 
-                  value="relays" 
-                  className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                >
-                  <Globe className="w-4 h-4" />
-                  Relay Management
-                </TabsTrigger>
-              </TabsList>
-            </CardContent>
-          </Card>
+          <div className="mb-6">
+            <TabsList className="grid w-full grid-cols-1 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50">
+              <TabsTrigger 
+                value="relays" 
+                className="flex items-center gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+              >
+                <Globe className="w-4 h-4" />
+                Relay Management
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="relays" className="space-y-4 max-h-[60vh] overflow-y-auto">
             {/* Relay Overview */}
-            <Card>
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl">
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
+                <CardTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
                   <span className="flex items-center gap-2">
-                    <Wifi className="w-5 h-5" />
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 flex items-center justify-center">
+                      <Wifi className="w-4 h-4 text-green-600" />
+                    </div>
                     Relay Status
                   </span>
-                  <Badge variant={connectedCount > 0 ? 'default' : 'destructive'}>
+                  <Badge 
+                    variant={connectedCount > 0 ? 'default' : 'destructive'}
+                    className={connectedCount > 0 
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700' 
+                      : ''
+                    }
+                  >
                     {connectedCount}/{totalCount} Connected
                   </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   Relays are servers that store and distribute your Nostr events. 
                   Connect to multiple relays for better reliability and reach.
                 </p>
@@ -193,27 +201,34 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </Card>
 
             {/* Add New Relay */}
-            <Card>
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="w-5 h-5" />
+                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 flex items-center justify-center">
+                    <Plus className="w-4 h-4 text-blue-600" />
+                  </div>
                   Add New Relay
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <div className="flex-1">
-                    <Label htmlFor="new-relay">Relay URL</Label>
+                    <Label htmlFor="new-relay" className="text-gray-700 dark:text-gray-300">Relay URL</Label>
                     <Input
                       id="new-relay"
                       placeholder="wss://relay.example.com"
                       value={newRelayUrl}
                       onChange={(e) => setNewRelayUrl(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddRelay()}
+                      className="mt-1 border-purple-200 dark:border-purple-600 focus:border-purple-400 focus:ring-purple-400/50"
                     />
                   </div>
                   <div className="flex items-end">
-                    <Button onClick={handleAddRelay} disabled={!newRelayUrl.trim()}>
+                    <Button 
+                      onClick={handleAddRelay} 
+                      disabled={!newRelayUrl.trim()}
+                      className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                    >
                       <Plus className="w-4 h-4 mr-2" />
                       Add
                     </Button>
@@ -223,44 +238,50 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </Card>
 
             {/* Relay List */}
-            <Card>
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl">
               <CardHeader>
-                <CardTitle>Connected Relays</CardTitle>
+                <CardTitle className="text-gray-900 dark:text-gray-100">Connected Relays</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
                   <div className="space-y-3">
                     {[...Array(3)].map((_, i) => (
                       <div key={i} className="animate-pulse">
-                        <div className="h-16 bg-muted rounded-lg"></div>
+                        <div className="h-16 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-xl"></div>
                       </div>
                     ))}
                   </div>
                 ) : relays.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Globe className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No relays configured. Add a relay to get started.</p>
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+                      <Globe className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400">No relays configured. Add a relay to get started.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {relays.map((relay) => (
                       <div
                         key={relay.url}
-                        className="flex items-center justify-between p-4 border rounded-lg"
+                        className="flex items-center justify-between p-4 border border-purple-200/50 dark:border-purple-600/50 rounded-xl bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-700 hover:shadow-md transition-all duration-200"
                       >
                         <div className="flex items-center gap-3 flex-1">
                           {getStatusIcon(relay)}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="font-medium truncate">{relay.url}</p>
+                              <p className="font-medium truncate text-gray-900 dark:text-gray-100">{relay.url}</p>
                               <Badge 
                                 variant={relay.connected ? 'default' : 'secondary'}
-                                className="text-xs"
+                                className={`text-xs ${
+                                  relay.connected 
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700' 
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                                }`}
                               >
                                 {getStatusText(relay)}
                               </Badge>
                             </div>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                            <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mt-1">
                               <span>Last: {formatLastConnected(relay.lastConnected)}</span>
                               {relay.messageCount !== undefined && (
                                 <span>Messages: {relay.messageCount}</span>
@@ -269,7 +290,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <Switch
                             checked={relay.enabled}
                             onCheckedChange={(enabled) => handleToggleRelay(relay.url, enabled)}
@@ -279,7 +300,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRemoveRelay(relay.url)}
-                            className="text-red-500 hover:text-red-700"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -292,11 +313,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </Card>
 
             {/* Quick Actions */}
-            <Card>
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl">
               <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
+                <CardTitle className="text-gray-900 dark:text-gray-100">Quick Actions</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
                 <Button
                   variant="outline"
                   onClick={async () => {
@@ -313,7 +334,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       });
                     }
                   }}
-                  className="w-full"
+                  className="w-full border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-900 dark:text-gray-100"
                 >
                   Add Popular Relays
                 </Button>
@@ -335,7 +356,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       });
                     }
                   }}
-                  className="w-full"
+                  className="w-full border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-900 dark:text-gray-100"
                   disabled={isLoading || relays.every(r => r.connected)}
                 >
                   {isLoading ? 'Connecting...' : 'Connect All Relays'}
@@ -345,12 +366,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </TabsContent>
         </Tabs>
 
-        <Separator />
-        
-        <div className="flex justify-end">
-          <Button onClick={onClose}>
-            Close
-          </Button>
+        <div className="border-t border-purple-200/50 dark:border-purple-600/50 pt-6">
+          <div className="flex justify-end">
+            <Button 
+              onClick={onClose}
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0"
+            >
+              Close
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

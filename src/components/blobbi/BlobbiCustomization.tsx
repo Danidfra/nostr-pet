@@ -119,10 +119,12 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Palette className="w-5 h-5" />
+      <DialogContent className="max-w-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+              <Palette className="w-4 h-4 text-white" />
+            </div>
             Customize Your Blobbi
           </DialogTitle>
         </DialogHeader>
@@ -130,9 +132,9 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
         <div className="grid md:grid-cols-2 gap-6">
           {/* Preview */}
           <div className="space-y-4">
-            <Card>
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">
+                <CardTitle className="text-sm text-gray-900 dark:text-gray-100">
                   Preview
                   {previewBlobbi.evolutionForm && (
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
@@ -142,7 +144,7 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-center transition-all duration-500 min-h-[200px] p-6 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
+                <div className="flex items-center justify-center transition-all duration-500 min-h-[200px] p-6 bg-gradient-to-br from-purple-50/60 to-pink-50/60 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl border-2 border-purple-100/50 dark:border-purple-600/30">
                   {previewBlobbi.evolutionForm ? (
                     <BlobbiEvolvedVisual 
                       key={`${selectedColor}-${selectedPattern}`}
@@ -164,9 +166,9 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
           {/* Customization Options */}
           <div className="space-y-6">
             {/* Color Selection */}
-            <div className="space-y-3">
-              <Label>Body Color</Label>
-              <div className="grid grid-cols-4 gap-2">
+            <div className="space-y-4">
+              <Label className="text-gray-900 dark:text-gray-100 font-medium">Body Color</Label>
+              <div className="grid grid-cols-4 gap-3">
                 {COLORS.map((color) => (
                   <button
                     key={color.value}
@@ -174,10 +176,10 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
                       setSelectedColor(color.value);
                     }}
                     className={`
-                      w-full h-12 rounded-md border-2 transition-all
+                      w-full h-12 rounded-xl border-2 transition-all duration-200 hover:scale-105
                       ${selectedColor === color.value 
-                        ? 'border-primary ring-2 ring-primary ring-offset-2' 
-                        : 'border-border hover:border-primary/50'
+                        ? 'border-purple-500 ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-900 shadow-lg' 
+                        : 'border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500'
                       }
                     `}
                     style={{ backgroundColor: color.value }}
@@ -206,14 +208,17 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
             </div> */}
             
             {/* Future Accessories */}
-            <div className="space-y-3">
-              <Label className="flex items-center gap-2">
+            <div className="space-y-4">
+              <Label className="flex items-center gap-2 text-gray-900 dark:text-gray-100 font-medium">
                 <Sparkles className="w-4 h-4" />
                 Accessories
               </Label>
-              <Card>
-                <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground text-center">
+              <Card className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-600 rounded-xl">
+                <CardContent className="p-6 text-center">
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-800/30 dark:to-pink-800/30 flex items-center justify-center">
+                    <Sparkles className="w-6 h-6 text-purple-500" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
                     Accessories coming soon! Earn more coins to unlock hats, glasses, and more.
                   </p>
                 </CardContent>
@@ -222,13 +227,18 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
           </div>
         </div>
         
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="pt-6">
+          <Button 
+            variant="outline" 
+            onClick={onClose}
+            className="border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
             Cancel
           </Button>
           <Button 
             onClick={handleSave} 
             disabled={!hasChanges || isUpdatingCustomization}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 disabled:opacity-50"
           >
             {isUpdatingCustomization ? 'Saving...' : 'Save Changes'}
           </Button>

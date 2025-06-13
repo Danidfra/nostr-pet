@@ -100,10 +100,12 @@ export function BlobbiGamesModal({ isOpen, onClose, blobbiId }: BlobbiGamesModal
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Trophy className="w-5 h-5" />
+      <DialogContent className="max-w-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
+              <Trophy className="w-4 h-4 text-white" />
+            </div>
             Blobbi Games
           </DialogTitle>
         </DialogHeader>
@@ -112,35 +114,37 @@ export function BlobbiGamesModal({ isOpen, onClose, blobbiId }: BlobbiGamesModal
           {GAMES.map((game) => (
             <Card
               key={game.id}
-              className={`cursor-pointer transition-all ${
+              className={`cursor-pointer transition-all duration-200 ${
                 game.available
-                  ? 'hover:shadow-lg hover:scale-105'
-                  : 'opacity-60 cursor-not-allowed'
-              }`}
+                  ? 'hover:shadow-lg hover:scale-105 bg-white/80 dark:bg-gray-800/80'
+                  : 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800/50'
+              } backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl`}
               onClick={() => handleGameSelect(game)}
             >
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  {game.icon}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center">
+                    {game.icon}
+                  </div>
                   <Badge
                     variant="secondary"
-                    className={getDifficultyColor(game.difficulty)}
+                    className={`${getDifficultyColor(game.difficulty)} border`}
                   >
                     {game.difficulty}
                   </Badge>
                 </div>
-                <CardTitle className="text-lg">{game.name}</CardTitle>
-                <CardDescription className="text-sm">
+                <CardTitle className="text-lg text-gray-900 dark:text-gray-100">{game.name}</CardTitle>
+                <CardDescription className="text-sm text-gray-600 dark:text-gray-400">
                   {game.description}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between text-sm mb-3">
                   <span className="text-muted-foreground">Rewards:</span>
-                  <span className="font-medium">{game.rewards}</span>
+                  <span className="font-medium text-yellow-600 dark:text-yellow-400">{game.rewards}</span>
                 </div>
                 {!game.available && (
-                  <Badge variant="outline" className="mt-2 w-full justify-center">
+                  <Badge variant="outline" className="mt-2 w-full justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600">
                     Coming Soon
                   </Badge>
                 )}
@@ -149,8 +153,13 @@ export function BlobbiGamesModal({ isOpen, onClose, blobbiId }: BlobbiGamesModal
           ))}
         </div>
 
-        <div className="mt-4 text-center text-sm text-muted-foreground">
-          Play games to earn coins and keep your Blobbi entertained!
+        <div className="mt-6 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-full border border-purple-200 dark:border-purple-600">
+            <Trophy className="w-4 h-4 text-purple-500" />
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Play games to earn coins and keep your Blobbi entertained!
+            </span>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

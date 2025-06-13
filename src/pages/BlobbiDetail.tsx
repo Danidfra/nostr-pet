@@ -394,6 +394,7 @@ export default function BlobbiDetail() {
                   variant="outline"
                   className="w-full justify-start gap-2"
                   onClick={() => setShowCustomization(true)}
+                  disabled
                 >
                   <Palette className="w-4 h-4" />
                   Customize
