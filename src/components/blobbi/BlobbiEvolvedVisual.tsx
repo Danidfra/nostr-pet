@@ -11,8 +11,8 @@ interface BlobbiEvolvedVisualProps {
 }
 
 export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClick }: BlobbiEvolvedVisualProps) {
-  // Use blobbi size if available, otherwise use prop
-  const displaySize = blobbi.size || size;
+  // Always use medium size for visual consistency across all Blobbis
+  const displaySize = 'medium';
   const mood = getBlobbiMood(blobbi.stats, blobbi.state);
   const svgRef = useRef<SVGSVGElement>(null);
   
@@ -95,10 +95,10 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
   }, [hasMouseSupport, blobbi.state]);
   
   const sizeClasses = {
-    tiny: 'w-20 h-20',
-    small: 'w-24 h-24',
+    tiny: 'w-48 h-48',
+    small: 'w-48 h-48',
     medium: 'w-48 h-48',
-    large: 'w-64 h-64',
+    large: 'w-48 h-48',
   };
   
   // Animation classes based on state

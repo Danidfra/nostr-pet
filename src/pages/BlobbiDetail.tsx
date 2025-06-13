@@ -249,20 +249,20 @@ export default function BlobbiDetail() {
                 {blobbi.lifeStage === 'egg' ? (
                   <EggGraphic 
                     blobbi={blobbi} // Pass the full blobbi object for unique characteristics
-                    size={getValidSize(blobbi.size)} 
+                    size="medium" 
                     animated={true}
                     warmth={blobbi.eggTemperature || 60}
                   />
                 ) : blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
                   <BlobbiEvolvedVisual 
                     blobbi={blobbi} 
-                    size={getValidSize(blobbi.size)}
+                    size="medium"
                     onClick={() => isOwner && performAction('play')}
                   />
                 ) : (
                   <BlobbiVisual 
                     blobbi={blobbi} 
-                    size={getValidSize(blobbi.size)}
+                    size="medium"
                     onClick={() => isOwner && performAction('play')}
                   />
                 )}
@@ -452,7 +452,7 @@ export default function BlobbiDetail() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-2">
-                <TabsList className="grid w-full grid-cols-4 bg-purple-50/50 dark:bg-purple-900/20">
+                <TabsList className="grid w-full grid-cols-5 bg-purple-50/50 dark:bg-purple-900/20">
                   <TabsTrigger 
                     value="actions"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
@@ -464,6 +464,12 @@ export default function BlobbiDetail() {
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
                   >
                     Overview
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="info"
+                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                  >
+                    Info
                   </TabsTrigger>
                   <TabsTrigger 
                     value="interactions"
@@ -627,6 +633,108 @@ export default function BlobbiDetail() {
                         No recent interactions
                       </div>
                     )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Info Tab */}
+            <TabsContent value="info" className="space-y-6">
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                    <Settings className="w-5 h-5" />
+                    Blobbi Information
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 dark:text-gray-300">
+                    Detailed metadata and characteristics
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Basic Information */}
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3">Basic Information</h4>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">ID</span>
+                          <span className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                            {blobbi.id.slice(0, 8)}...{blobbi.id.slice(-8)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Size</span>
+                          <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">
+                            {blobbi.size || 'medium'}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Base Color</span>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-600"
+                              style={{ backgroundColor: blobbi.baseColor || '#8B5CF6' }}
+                            />
+                            <span className="font-mono text-xs">{blobbi.baseColor || '#8B5CF6'}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Birth Time</span>
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            {new Date(blobbi.birthTime).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Owner</span>
+                          <span className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                            {blobbi.ownerPubkey.slice(0, 8)}...{blobbi.ownerPubkey.slice(-8)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Advanced Information */}
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3">Advanced Information</h4>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Care Streak</span>
+                          <span className="font-medium text-gray-900 dark:text-gray-100">{blobbi.careStreak || 0} days</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Total Interactions</span>
+                          <span className="font-medium text-gray-900 dark:text-gray-100">{blobbi.evolutionProgress?.careSessions?.reduce((total, session) => total + (session.actions || 0), 0) || 0}</span>
+                        </div>
+                        {blobbi.evolutionTime && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">Evolution Time</span>
+                            <span className="text-xs text-gray-600 dark:text-gray-400">
+                              {new Date(blobbi.evolutionTime).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                        {blobbi.eggTemperature && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">Egg Temperature</span>
+                            <span className="font-medium text-gray-900 dark:text-gray-100">{blobbi.eggTemperature}°</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Version</span>
+                          <span className="text-xs text-gray-600 dark:text-gray-400">v1.0</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Raw Data Section */}
+                  <div className="mt-6 pt-6 border-t border-purple-100 dark:border-purple-600/30">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3">Raw Data</h4>
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 overflow-x-auto">
+                      <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                        {JSON.stringify(blobbi, null, 2)}
+                      </pre>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

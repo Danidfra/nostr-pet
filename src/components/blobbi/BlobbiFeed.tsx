@@ -57,8 +57,11 @@ export function BlobbiFeed() {
           <BlobbiCard
             key={blobbi.id}
             blobbi={blobbi}
+            size="lg"
             onClick={() => navigate(`/blobbi/${blobbi.ownerPubkey}`)}
             showRank={index < 3 ? index + 1 : undefined}
+            showStats={true}
+            showStatus={true}
           />
         ))}
       </div>

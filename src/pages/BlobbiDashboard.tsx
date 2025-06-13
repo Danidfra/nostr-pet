@@ -28,8 +28,7 @@ import {
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
-import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
-import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
+import { BlobbiCard } from '@/components/blobbi/BlobbiCard';
 import { BlobbonautProfileCard } from '@/components/blobbi/BlobbonautProfileCard';
 
 import { BlobbiIncubationDashboard } from '@/components/blobbi/BlobbiIncubationDashboard';
@@ -40,7 +39,6 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AppHeader } from '@/components/AppHeader';
 import { formatDistanceToNow } from 'date-fns';
 import { Blobbi, BlobbiLifeStage } from '@/types/blobbi';
-import { isValidSize } from '@/lib/blobbi-egg-validation';
 import { CompanionSelector } from '@/components/CompanionSelector';
 import { SetCompanionButton } from '@/components/SetCompanionButton';
 
@@ -63,14 +61,7 @@ export default function BlobbiDashboard() {
   const [filter, setFilter] = useState<BlobbiFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
-  
-  // Helper function to get valid size for components
-  const getValidSize = (size?: string): 'tiny' | 'small' | 'medium' | 'large' => {
-    if (size && isValidSize(size)) {
-      return size as 'tiny' | 'small' | 'medium' | 'large';
-    }
-    return 'medium'; // Default fallback
-  };
+
 
   // Redirect to adoption page if user doesn't have a profile (kind 31125)
   useEffect(() => {
@@ -368,7 +359,7 @@ export default function BlobbiDashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="text-center p-4 border border-green-200 dark:border-green-600 rounded-lg bg-green-50/50 dark:bg-green-900/20">
                       <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.activeBlobbis}</div>
                       <div className="text-sm text-gray-600 dark:text-gray-300">Active Blobbis</div>
@@ -398,31 +389,18 @@ export default function BlobbiDashboard() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {mostLikedBlobbis.map((blobbi, index) => (
-                        <div 
+                        <BlobbiCard
                           key={blobbi.id}
-                          className="p-4 border border-purple-200 dark:border-purple-600 rounded-lg cursor-pointer hover:shadow-md transition-shadow bg-white/60 dark:bg-gray-700/60"
+                          blobbi={blobbi}
+                          size="sm"
                           onClick={() => navigate(`/blobbi/${blobbi.id}`)}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium text-gray-900 dark:text-gray-100">{blobbi.name}</h4>
-                            {index === 0 && <Crown className="w-4 h-4 text-yellow-500" />}
-                          </div>
-                          <div className="flex items-center justify-center transition-all duration-500 min-h-[100px] p-3 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50 mb-2">
-                            {blobbi.evolutionForm ? (
-                              <BlobbiEvolvedVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
-                            ) : (
-                              <BlobbiVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
-                            )}
-                          </div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{blobbi.experience} XP</div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400">
-                              {blobbi.lifeStage} • {formatDistanceToNow(blobbi.lastInteraction * 1000, { addSuffix: true })}
-                            </div>
-                          </div>
-                        </div>
+                          showRank={index === 0 ? 1 : undefined}
+                          showStats={false}
+                          showStatus={true}
+                          className="h-full"
+                        />
                       ))}
                     </div>
                   </CardContent>
@@ -438,37 +416,41 @@ export default function BlobbiDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {recentActivity.map(({ blobbi, lastActivity, type }) => (
-                      <div 
-                        key={blobbi.id}
-                        className="flex items-center gap-3 p-3 border border-purple-200 dark:border-purple-600 rounded-lg cursor-pointer hover:bg-purple-50/50 dark:hover:bg-purple-900/20"
-                        onClick={() => navigate(`/blobbi/${blobbi.id}`)}
-                      >
-                        <div className="flex-shrink-0 flex items-center justify-center transition-all duration-500 min-h-[80px] min-w-[80px] p-2 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
-                          {blobbi.evolutionForm ? (
-                            <BlobbiEvolvedVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
-                          ) : (
-                            <BlobbiVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
-                          )}
+                      <div key={blobbi.id} className="relative">
+                        <BlobbiCard
+                          blobbi={blobbi}
+                          size="sm"
+                          onClick={() => navigate(`/blobbi/${blobbi.id}`)}
+                          showStats={false}
+                          showStatus={true}
+                          showActions={true}
+                          onViewDetails={() => navigate(`/blobbi/${blobbi.id}`)}
+                          className="h-full"
+                          footerContent={
+                            <div className="text-xs text-gray-600 dark:text-gray-400 text-center bg-purple-50/50 dark:bg-purple-900/20 rounded-lg p-2">
+                              Last activity: {formatDistanceToNow(lastActivity, { addSuffix: true })}
+                            </div>
+                          }
+                        />
+                        {/* Activity Overlay */}
+                        <div className="absolute top-2 right-2 z-10">
+                          <Badge 
+                            variant="secondary" 
+                            className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 text-xs"
+                          >
+                            {type === 'incubating' ? 'Incubating' : 'Active'}
+                          </Badge>
                         </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900 dark:text-gray-100">{blobbi.name}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {type === 'incubating' ? 'Incubating' : 'Last interaction'} • {formatDistanceToNow(lastActivity, { addSuffix: true })}
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">
-                          {blobbi.lifeStage}
-                        </Badge>
                       </div>
                     ))}
-                    {recentActivity.length === 0 && (
-                      <div className="text-center py-8 text-gray-600 dark:text-gray-400">
-                        No recent activity. Adopt a Blobbi to get started!
-                      </div>
-                    )}
                   </div>
+                  {recentActivity.length === 0 && (
+                    <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                      No recent activity. Adopt a Blobbi to get started!
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -541,73 +523,19 @@ export default function BlobbiDashboard() {
               </Card>
 
               {/* Blobbis Grid */}
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredBlobbis.map((blobbi) => (
-                  <Card 
+                  <BlobbiCard
                     key={blobbi.id}
-                    className="hover:shadow-lg transition-shadow bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600"
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg text-gray-900 dark:text-gray-100">{blobbi.name}</CardTitle>
-                        <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">
-                          {blobbi.lifeStage}
-                        </Badge>
-                      </div>
-                      <CardDescription className="text-gray-600 dark:text-gray-400">
-                        Born {formatDistanceToNow(blobbi.birthTime, { addSuffix: true })}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-center transition-all duration-500 min-h-[160px] p-6 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50 mb-4">
-                        {blobbi.evolutionForm ? (
-                          <BlobbiEvolvedVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
-                        ) : (
-                          <BlobbiVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
-                        )}
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600 dark:text-gray-400">Experience</span>
-                          <span className="font-medium text-gray-900 dark:text-gray-100">{blobbi.experience} XP</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600 dark:text-gray-400">State</span>
-                          <Badge variant={blobbi.state === 'active' ? 'default' : 'secondary'} className={blobbi.state === 'active' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}>
-                            {blobbi.state}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600 dark:text-gray-400">Last Care</span>
-                          <span className="text-xs text-gray-600 dark:text-gray-400">
-                            {formatDistanceToNow(blobbi.lastInteraction * 1000, { addSuffix: true })}
-                          </span>
-                        </div>
-                        {blobbi.evolutionForm && (
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600 dark:text-gray-400">Evolution</span>
-                            <Badge variant="default" className="gap-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
-                              <Sparkles className="w-3 h-3" />
-                              {blobbi.evolutionForm}
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex gap-2 mt-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                          onClick={() => navigate(`/blobbi/${blobbi.id}`)}
-                        >
-                          View Details
-                        </Button>
-                        <SetCompanionButton blobbi={blobbi} size="sm" className="flex-1" />
-                      </div>
-                    </CardContent>
-                  </Card>
+                    blobbi={blobbi}
+                    size="md"
+                    onClick={() => navigate(`/blobbi/${blobbi.id}`)}
+                    showStats={true}
+                    showStatus={true}
+                    showActions={true}
+                    onViewDetails={() => navigate(`/blobbi/${blobbi.id}`)}
+                    className="h-full"
+                  />
                 ))}
               </div>
 
@@ -653,43 +581,48 @@ export default function BlobbiDashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {recentActivity.map(({ blobbi, lastActivity, type }) => (
-                      <div key={blobbi.id} className="flex items-start gap-4 p-4 border border-purple-200 dark:border-purple-600 rounded-lg bg-white/60 dark:bg-gray-700/60">
-                        <div className="flex-shrink-0 flex items-center justify-center min-h-[80px] min-w-[80px] p-2 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-lg border border-purple-100/50">
-                          {blobbi.evolutionForm ? (
-                            <BlobbiEvolvedVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
-                          ) : (
-                            <BlobbiVisual blobbi={blobbi} size={getValidSize(blobbi.size)} />
-                          )}
+                      <div key={blobbi.id} className="relative">
+                        <BlobbiCard
+                          blobbi={blobbi}
+                          size="md"
+                          onClick={() => navigate(`/blobbi/${blobbi.id}`)}
+                          showStats={true}
+                          showStatus={true}
+                          showActions={true}
+                          onViewDetails={() => navigate(`/blobbi/${blobbi.id}`)}
+                          className="h-full"
+                          footerContent={
+                            <div className="text-xs text-gray-600 dark:text-gray-400 text-center bg-purple-50/50 dark:bg-purple-900/20 rounded-lg p-2">
+                              Last activity: {formatDistanceToNow(lastActivity, { addSuffix: true })}
+                            </div>
+                          }
+                        />
+                        {/* Activity Overlay */}
+                        <div className="absolute top-2 right-2 z-10">
+                          <Badge 
+                            variant="secondary" 
+                            className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 text-xs"
+                          >
+                            {type === 'incubating' ? 'Incubating' : 'Active'}
+                          </Badge>
                         </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900 dark:text-gray-100">{blobbi.name}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                            {type === 'incubating' ? 'Incubating in egg form' : 'Had an interaction'}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            {formatDistanceToNow(lastActivity, { addSuffix: true })}
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">
-                          {blobbi.lifeStage}
-                        </Badge>
                       </div>
                     ))}
-                    {recentActivity.length === 0 && (
-                      <div className="text-center py-8 text-gray-600 dark:text-gray-400">
-                        No recent activity to show.
-                      </div>
-                    )}
                   </div>
+                  {recentActivity.length === 0 && (
+                    <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                      No recent activity to show.
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
             {/* Statistics Tab */}
             <TabsContent value="stats" className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">

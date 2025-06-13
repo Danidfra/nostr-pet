@@ -53,8 +53,10 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
   cracking = false,
   warmth = 50,
 }) => {
-  // Use blobbi size if available, otherwise use prop
-  const eggSize = blobbi?.size || size;
+  // Always use medium size for visual consistency across all Blobbis
+  // Store the original size for data purposes but always display as medium
+  const originalSize = blobbi?.size || size;
+  const displaySize = 'medium';
   
   // Initialize special mark hook for dynamic rendering
   const specialMarkHook = useSpecialMark(blobbi?.specialMark || null, {
@@ -64,20 +66,20 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
   });
   
   const sizeClasses = {
-    tiny: 'w-12 h-15',
-    small: 'w-16 h-20',
+    tiny: 'w-32 h-40',
+    small: 'w-32 h-40',
     medium: 'w-32 h-40',
-    large: 'w-48 h-60',
+    large: 'w-32 h-40',
   };
 
   const baseSize = {
-    tiny: 48,
-    small: 64,
+    tiny: 128,
+    small: 128,
     medium: 128,
-    large: 192,
+    large: 128,
   };
 
-  const currentSize = baseSize[eggSize as keyof typeof baseSize];
+  const currentSize = baseSize['medium'];
   const eggWidth = currentSize;
   const eggHeight = currentSize * 1.25;
 
@@ -181,7 +183,7 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
     <div 
       className={cn(
         'relative flex items-center justify-center',
-        sizeClasses[eggSize as keyof typeof sizeClasses],
+        sizeClasses.medium,
         className
       )}
     >
@@ -334,7 +336,7 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
             style={{
               color: baseColor,
               textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-              fontSize: eggSize === 'tiny' ? '8px' : eggSize === 'small' ? '10px' : '12px',
+              fontSize: '12px', // Always use medium size font
             }}
           >
             {blobbi.title}

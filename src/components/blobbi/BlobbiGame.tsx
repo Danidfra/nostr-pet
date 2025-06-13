@@ -85,7 +85,7 @@ export function BlobbiGame() {
         <CardContent className="flex flex-col items-center gap-4">
           <div className="flex items-center justify-center py-8">
             <EggGraphic 
-              size="large" 
+              size="medium" 
               animated={true}
               warmth={60}
             />
@@ -191,7 +191,7 @@ export function BlobbiGame() {
                     ) : blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
                       <BlobbiEvolvedVisual 
                         blobbi={blobbi} 
-                        size={blobbi.lifeStage === 'baby' ? 'medium' : 'large'}
+                        size="medium"
                         onClick={() => isOwner && performAction('play')}
                       />
                     ) : (

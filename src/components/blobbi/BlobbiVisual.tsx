@@ -115,31 +115,31 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
     );
   }
   
-  // Determine the display size - use the Blobbi's size tag if available, otherwise fall back to the size prop or default
-  const displaySize = blobbi.size || size || 'medium';
+  // Always use medium size for visual consistency across all Blobbis
+  const displaySize = 'medium';
   
-  // Container sizes that scale proportionally with the Blobbi size
+  // Container sizes - always use medium size for consistency
   const sizeClasses = {
-    tiny: 'w-20 h-20',      // Compact UI
-    small: 'w-32 h-32',     // Small UI
+    tiny: 'w-48 h-48',      // Use medium size for consistency
+    small: 'w-48 h-48',     // Use medium size for consistency
     medium: 'w-48 h-48',    // Standard UI
-    large: 'w-72 h-72',     // Large UI with more presence
+    large: 'w-48 h-48',     // Use medium size for consistency
   };
   
-  // Padding/spacing that scales with size
+  // Padding/spacing - always use medium size for consistency
   const paddingClasses = {
-    tiny: 'p-1',
-    small: 'p-2', 
+    tiny: 'p-4',
+    small: 'p-4', 
     medium: 'p-4',
-    large: 'p-6',
+    large: 'p-4',
   };
   
-  // Shadow intensity that scales with size
+  // Shadow intensity - always use medium size for consistency
   const shadowClasses = {
-    tiny: 'drop-shadow-sm',
-    small: 'drop-shadow-md',
+    tiny: 'drop-shadow-lg',
+    small: 'drop-shadow-lg',
     medium: 'drop-shadow-lg', 
-    large: 'drop-shadow-2xl',
+    large: 'drop-shadow-lg',
   };
   
   const lifeStageScale = {
@@ -148,15 +148,16 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
     adult: 1,
   };
   
-  // Additional size scaling based on the Blobbi's size tag
+  // Size scaling - always use medium size for visual consistency
   const sizeScale = {
-    tiny: 0.7,    // Slightly larger for better visibility in compact UI
-    small: 0.85,  // Adjusted for proportional scaling
-    medium: 1.0,
-    large: 1.2,   // Slightly reduced to fit better in larger container
+    tiny: 1.0,    // Use medium size for consistency
+    small: 1.0,   // Use medium size for consistency
+    medium: 1.0,  // Standard size
+    large: 1.0,   // Use medium size for consistency
   };
   
-  const scale = lifeStageScale[blobbi.lifeStage] * sizeScale[displaySize as keyof typeof sizeScale];
+  // Only use lifeStageScale for visual differentiation, ignore the size tag for visual scaling
+  const scale = lifeStageScale[blobbi.lifeStage];
   
   // Eye expressions based on mood
   const eyeExpressions = {

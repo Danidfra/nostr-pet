@@ -93,17 +93,17 @@ export function SetCompanionButton({
     >
       {isLoading ? (
         <>
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin mr-2" />
           {isCurrentCompanion ? 'Removing...' : 'Setting...'}
         </>
       ) : isCurrentCompanion ? (
         <>
-          <Check className="h-4 w-4" />
+          <Check className="h-4 w-4 mr-2" />
           Current Companion
         </>
       ) : (
         <>
-          <Sparkles className="h-4 w-4" />
+          <Sparkles className="h-4 w-4 mr-2" />
           Set as Companion
         </>
       )}
