@@ -9,12 +9,8 @@ interface BlobbiCompanionAPI {
   setPosition: (x: number, y: number) => void;
   loadCustomSVG: (url: string) => void;
   destroy: () => void;
-}
-
-declare global {
-  interface Window {
-    blobbiCompanion?: BlobbiCompanionAPI;
-  }
+  openFeed?: () => void;
+  toggleMovementMode?: () => void;
 }
 
 // Helper to determine SVG URL based on Blobbi type and stage

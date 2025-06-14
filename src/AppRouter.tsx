@@ -15,11 +15,13 @@ import EggDemo from "./pages/EggDemo";
 import VisualEffectsDemo from "./pages/VisualEffectsDemo";
 
 import { BlobbiCompanionWrapper } from "./components/BlobbiCompanionWrapper";
+import { BlobbiFloatingActionMenu } from "./components/BlobbiFloatingActionMenu";
 
 export function AppRouter() {
   return (
     <BrowserRouter>
       <BlobbiCompanionWrapper />
+      <BlobbiFloatingActionMenu />
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/blobbi" element={<BlobbiDashboard />} />

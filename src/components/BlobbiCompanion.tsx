@@ -7,6 +7,8 @@ interface BlobbiCompanionAPI {
   setPosition: (x: number, y: number) => void;
   loadCustomSVG: (url: string) => void;
   destroy: () => void;
+  openFeed?: () => void;
+  toggleMovementMode?: () => void;
 }
 
 declare global {

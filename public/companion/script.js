@@ -149,31 +149,6 @@ class BlobbiCompanion {
     }
     
     setupEventListeners() {
-        // Toggle visibility button
-        document.getElementById('toggle-visibility').addEventListener('click', () => {
-            this.toggleVisibility();
-        });
-        
-        // Toggle movement button
-        document.getElementById('toggle-movement').addEventListener('click', () => {
-            this.toggleMovement();
-        });
-        
-        // Toggle free roam button
-        document.getElementById('toggle-free-roam').addEventListener('click', () => {
-            this.toggleFreeRoam();
-        });
-        
-        // Feed Flammi button
-        document.getElementById('feed-flammi').addEventListener('click', () => {
-            this.openFeedModal();
-        });
-        
-        // Show speech bubble button
-        document.getElementById('show-speech-bubble').addEventListener('click', () => {
-            this.showSpeechBubble();
-        });
-        
         // Click on character for reactions
         this.character.addEventListener('click', () => {
             this.react();
@@ -272,8 +247,6 @@ class BlobbiCompanion {
     
     toggleMovement() {
         this.isMoving = !this.isMoving;
-        const moveBtn = document.getElementById('toggle-movement');
-        const freeRoamBtn = document.getElementById('toggle-free-roam');
         
         if (this.isMoving) {
             // Disable free roam when manual movement is enabled
@@ -283,23 +256,16 @@ class BlobbiCompanion {
                 this.stopFreeRoam();
             }
             
-            // Show the free roam button when manual movement is active
-            freeRoamBtn.style.display = 'flex';
-            
             this.container.classList.add('moving');
             document.body.style.cursor = 'crosshair';
-            moveBtn.classList.add('active');
         } else {
             this.container.classList.remove('moving');
             document.body.style.cursor = 'default';
-            moveBtn.classList.remove('active');
             this.stopMoving();
             
-            // Re-enable free roam and hide the button when manual movement is disabled
+            // Re-enable free roam when manual movement is disabled
             this.isFreeRoaming = true;
             this.container.classList.add('free-roaming');
-            freeRoamBtn.style.display = 'none';
-            freeRoamBtn.classList.remove('active');
             
             // Start free roam after a short delay
             setTimeout(() => {
@@ -371,25 +337,20 @@ class BlobbiCompanion {
     
     toggleFreeRoam() {
         this.isFreeRoaming = !this.isFreeRoaming;
-        const freeRoamBtn = document.getElementById('toggle-free-roam');
         
         if (this.isFreeRoaming) {
             // Disable manual movement when free roam is enabled
             if (this.isMoving) {
                 this.isMoving = false;
-                const moveBtn = document.getElementById('toggle-movement');
                 this.container.classList.remove('moving');
                 document.body.style.cursor = 'default';
-                moveBtn.classList.remove('active');
                 this.stopMoving();
             }
             
             this.container.classList.add('free-roaming');
-            freeRoamBtn.classList.add('active');
             this.startFreeRoam();
         } else {
             this.container.classList.remove('free-roaming');
-            freeRoamBtn.classList.remove('active');
             this.stopFreeRoam();
         }
     }
@@ -1070,16 +1031,13 @@ class BlobbiCompanion {
         if (this.isAngry || this.isSad || this.isEating) return;
         
         this.isFeedingMode = !this.isFeedingMode;
-        const feedBtn = document.getElementById('feed-flammi');
         
         if (this.isFeedingMode) {
             console.log('🪨 Feed mode activated! Click anywhere to place charcoal.');
-            feedBtn.classList.add('active');
             document.body.style.cursor = 'crosshair';
             this.setupFeedingClickListener();
         } else {
             console.log('🪨 Feed mode deactivated.');
-            feedBtn.classList.remove('active');
             document.body.style.cursor = 'default';
             this.removeFeedingClickListener();
         }
@@ -1096,8 +1054,6 @@ class BlobbiCompanion {
             this.placeFood(e.clientX, e.clientY);
             this.isFeedingMode = false;
             
-            const feedBtn = document.getElementById('feed-flammi');
-            feedBtn.classList.remove('active');
             document.body.style.cursor = 'default';
             this.removeFeedingClickListener();
         };
@@ -1619,6 +1575,16 @@ class BlobbiCompanion {
         if (Array.isArray(messages) && messages.length > 0) {
             this.speechBubbleMessages = messages;
         }
+    }
+    
+    // Public method to toggle movement mode
+    toggleMovementMode() {
+        this.toggleMovement();
+    }
+    
+    // Public method to open feed modal
+    openFeed() {
+        this.openFeedModal();
     }
 }
 
