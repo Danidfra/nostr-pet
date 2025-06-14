@@ -109,6 +109,12 @@ export function TicTacToeGame() {
     
     if (availableMoves.length === 0) return -1;
 
+    const mistakeProbability = 0.5; // 50% chance of making a suboptimal move
+    if (Math.random() < mistakeProbability) {
+      // Make a random move instead of a smart one
+      return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+    }
+
     // Check if bot can win
     for (const move of availableMoves) {
       const testBoard = [...board];
