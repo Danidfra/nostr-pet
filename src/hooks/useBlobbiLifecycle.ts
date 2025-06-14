@@ -86,52 +86,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
         // The createBlobbiStateEvent function should filter out egg-specific tags
         await updateState(updatedBlobbi);
 
-        // Check and update Blobbanaut Profile with welcome_mission tag if needed
-        try {
-          console.log('🎯 Checking for welcome_mission tag...');
-          
-          // Import the profile parsing function
-          const { parseBlobbonautProfileFromEvent, createBlobbonautProfileEvent } = await import('@/lib/blobbi-events');
-          
-          // Fetch current Blobbanaut Profile
-          const signal = AbortSignal.timeout(5000);
-          const profileId = `Blobbanaut-${user.pubkey.slice(0, 8)}`;
-          const profileEvents = await nostr.query([{
-            kinds: [31125], // Blobbanaut Profile
-            '#d': [profileId],
-            limit: 1,
-          }], { signal });
 
-          if (profileEvents.length > 0) {
-            const currentProfileEvent = profileEvents[0];
-            const currentProfile = parseBlobbonautProfileFromEvent(currentProfileEvent);
-            
-            if (currentProfile && !currentProfile.welcomeMissionStatus) {
-              console.log('🎯 Adding welcome_mission tag to profile...');
-              
-              // Update the profile with welcome_mission status
-              const updatedProfile = {
-                ...currentProfile,
-                welcomeMissionStatus: 'unclaimed' as const,
-              };
-
-              // Create the updated profile event
-              const profileEventTemplate = createBlobbonautProfileEvent(updatedProfile);
-
-              // Publish updated profile
-              await publishEvent(profileEventTemplate);
-
-              console.log('✅ Successfully added welcome_mission tag to profile');
-            } else {
-              console.log('ℹ️ User already has welcome_mission tag');
-            }
-          } else {
-            console.log('⚠️ No Blobbanaut Profile found, skipping welcome_mission tag');
-          }
-        } catch (profileError) {
-          console.error('⚠️ Failed to update profile with welcome_mission tag:', profileError);
-          // Don't fail the entire hatch process if profile update fails
-        }
 
         console.log('✅ Hatching process completed for:', blobbi.name);
         return { updatedBlobbi, evolutionRecord: hatchingRecord };

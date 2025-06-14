@@ -42,13 +42,9 @@ export function BlobbiMissions() {
   const [completedMission, setCompletedMission] = useState<Mission | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
 
-  // Check if user has welcome_mission tag and its status
-  const welcomeMissionStatus = profile?.welcomeMissionStatus;
-  const hasUnclaimedWelcomeMission = welcomeMissionStatus === 'unclaimed';
-  const hasClaimedWelcomeMission = welcomeMissionStatus === 'claimed';
-
-  // Check if user has hatched their first egg
   const hasHatchedFirstEgg = userBlobbis.some(blobbi => blobbi.lifeStage !== 'egg');
+  const hasClaimedWelcomeMission = profile?.achievements.includes('welcome_mission') ?? false;
+
 
   // Define missions
   const missions: Mission[] = [
@@ -59,7 +55,7 @@ export function BlobbiMissions() {
       reward: 900,
       icon: <Baby className="w-6 h-6 text-blue-500" />,
       isCompleted: hasClaimedWelcomeMission,
-      canComplete: hasUnclaimedWelcomeMission,
+      canComplete: hasHatchedFirstEgg && !hasClaimedWelcomeMission,
       completionText: 'Congratulations on hatching your first Blobbi!',
       tagName: 'welcome_mission'
     }
@@ -77,13 +73,11 @@ export function BlobbiMissions() {
 
     try {
       if (mission.id === 'welcome_mission') {
-        // Special handling for welcome mission - update welcome_mission tag to "claimed" and add coins
         const updatedProfile = {
           ...profile,
           coins: profile.coins + mission.reward,
-          welcomeMissionStatus: 'claimed' as const,
+          achievements: [...profile.achievements, 'welcome_mission'],
         };
-
         await updateProfile(updatedProfile);
       } else {
         // Regular mission handling - add to achievements
@@ -209,43 +203,13 @@ export function BlobbiMissions() {
                       {/* Mission Progress */}
                       <div className="mb-4">
                         {mission.id === 'welcome_mission' && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600 dark:text-gray-400">Progress:</span>
-                              <span className={`font-medium ${
-                                hasUnclaimedWelcomeMission 
-                                  ? 'text-green-600 dark:text-green-400' 
-                                  : hasClaimedWelcomeMission
-                                  ? 'text-blue-600 dark:text-blue-400'
-                                  : 'text-gray-600 dark:text-gray-400'
-                              }`}>
-                                {hasUnclaimedWelcomeMission 
-                                  ? 'Ready to claim!' 
-                                  : hasClaimedWelcomeMission
-                                  ? 'Already claimed'
-                                  : 'Hatch your first egg'}
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div 
-                                className={`h-2 rounded-full transition-all duration-500 ${
-                                  hasUnclaimedWelcomeMission || hasClaimedWelcomeMission
-                                    ? 'bg-green-500 w-full' 
-                                    : 'bg-purple-500 w-0'
-                                }`}
-                              />
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                              <Egg className="w-4 h-4" />
-                              <span>
-                                {hasUnclaimedWelcomeMission 
-                                  ? 'You have successfully hatched your first Blobbi! Click to claim your reward.' 
-                                  : hasClaimedWelcomeMission
-                                  ? 'You have already claimed your welcome mission reward!'
-                                  : 'Keep caring for your egg until it hatches'
-                                }
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <Egg className="w-4 h-4" />
+                            <span>
+                              {hasHatchedFirstEgg
+                                ? 'You have a hatched Blobbi! You can claim your reward.'
+                                : 'Hatch an egg to claim this reward.'}
+                            </span>
                           </div>
                         )}
                       </div>

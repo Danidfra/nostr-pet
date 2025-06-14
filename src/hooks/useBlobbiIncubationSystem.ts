@@ -488,62 +488,7 @@ export function useBlobbiIncubationSystem() {
         ...stateEventData,
       });
 
-      // Check and update Blobbanaut Profile with welcome_mission tag if needed
-      try {
-        console.log('🎯 Checking for welcome_mission tag...');
-        
-        // Fetch current Blobbanaut Profile
-        const signal = AbortSignal.timeout(5000);
-        const profileId = `Blobbanaut-${user.pubkey.slice(0, 8)}`;
-        const profileEvents = await nostr.query([{
-          kinds: [31125], // Blobbanaut Profile
-          '#d': [profileId],
-          limit: 1,
-        }], { signal });
 
-        if (profileEvents.length > 0) {
-          const currentProfileEvent = profileEvents[0];
-          const existingTags = currentProfileEvent.tags;
-          
-          // Check if welcome_mission tag already exists
-          const hasWelcomeMission = existingTags.some(tag => 
-            tag[0] === 'welcome_mission'
-          );
-
-          if (!hasWelcomeMission) {
-            console.log('🎯 Adding welcome_mission tag to profile...');
-            
-            // Add the welcome_mission tag with "unclaimed" status
-            const updatedTags = [
-              ...existingTags,
-              ['welcome_mission', 'unclaimed']
-            ];
-
-            // Publish updated profile
-            await publishEvent({
-              kind: 31125,
-              content: currentProfileEvent.content,
-              tags: updatedTags,
-            });
-
-            console.log('✅ Successfully added welcome_mission tag to profile');
-            
-            // Show additional success message for mission availability
-            toast({
-              title: "🎯 Mission Available!",
-              description: "Welcome mission is now available! Check your missions tab to claim your reward.",
-              variant: "default",
-            });
-          } else {
-            console.log('ℹ️ User already has welcome_mission tag');
-          }
-        } else {
-          console.log('⚠️ No Blobbanaut Profile found, skipping welcome_mission tag');
-        }
-      } catch (profileError) {
-        console.error('⚠️ Failed to update profile with welcome_mission tag:', profileError);
-        // Don't fail the entire hatch process if profile update fails
-      }
       
       console.log(`✅ Successfully hatched Blobbi ${blobbiId}`);
       

@@ -403,10 +403,6 @@ export function createBlobbonautProfileEvent(
     tags.push(['achievements', achievement]);
   });
 
-  // Add welcome_mission tag if it exists in the profile
-  if (profile.welcomeMissionStatus) {
-    tags.push(['welcome_mission', profile.welcomeMissionStatus]);
-  }
 
   // Add storage items (multiple 'storage' tags in format "item_id:quantity")
   profile.storage.forEach(storageItem => {
@@ -777,10 +773,7 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
       background: getTagValue(tags, 'background'),
       title: getTagValue(tags, 'title'),
       currentCompanion: getTagValue(tags, 'current_companion'),
-      welcomeMissionStatus: (() => {
-        const status = getTagValue(tags, 'welcome_mission');
-        return status === 'unclaimed' || status === 'claimed' ? status : undefined;
-      })(),
+
     };
 
     return profile;
