@@ -452,18 +452,12 @@ export default function BlobbiDetail() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-2">
-                <TabsList className="grid w-full grid-cols-5 bg-purple-50/50 dark:bg-purple-900/20">
+                <TabsList className="grid w-full grid-cols-4 bg-purple-50/50 dark:bg-purple-900/20">
                   <TabsTrigger 
                     value="actions"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
                   >
                     Actions
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="overview"
-                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                  >
-                    Overview
                   </TabsTrigger>
                   <TabsTrigger 
                     value="info"
@@ -515,127 +509,6 @@ export default function BlobbiDetail() {
                   </CardContent>
                 </Card>
               )}
-            </TabsContent>
-
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
-              {/* Evolution Path */}
-              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5" />
-                    Evolution Path
-                  </CardTitle>
-                  <CardDescription>
-                    Track your Blobbi's journey from egg to adult
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        blobbi.lifeStage !== 'egg' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        ✓
-                      </div>
-                      <span className="text-sm font-medium">Egg</span>
-                    </div>
-                    <div className="flex-1 h-0.5 bg-gray-200 mx-4">
-                      <div className={`h-full transition-all duration-500 ${
-                        blobbi.lifeStage !== 'egg' ? 'bg-green-500 w-full' : 'bg-gray-200 w-0'
-                      }`} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        blobbi.lifeStage === 'adult' ? 'bg-green-100 text-green-600' : 
-                        blobbi.lifeStage === 'baby' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {blobbi.lifeStage === 'adult' ? '✓' : blobbi.lifeStage === 'baby' ? '○' : '○'}
-                      </div>
-                      <span className="text-sm font-medium">Baby</span>
-                    </div>
-                    <div className="flex-1 h-0.5 bg-gray-200 mx-4">
-                      <div className={`h-full transition-all duration-500 ${
-                        blobbi.lifeStage === 'adult' ? 'bg-green-500 w-full' : 'bg-gray-200 w-0'
-                      }`} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        blobbi.lifeStage === 'adult' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {blobbi.lifeStage === 'adult' ? '✓' : '○'}
-                      </div>
-                      <span className="text-sm font-medium">Adult</span>
-                    </div>
-                  </div>
-                  
-                  {/* Current Stage Info */}
-                  <div className="p-4 bg-muted rounded-lg">
-                    <h4 className="font-medium mb-2">Current Stage: {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)}</h4>
-                    {blobbi.lifeStage === 'egg' && eggReadiness && (
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-2">{eggReadiness.message}</p>
-                        <div className="space-y-1 text-xs">
-                          <div>Days: {eggReadiness.requirements.daysPassed}/{eggReadiness.requirements.daysRequired}</div>
-                          <div>Care Points: {eggReadiness.requirements.carePointsEarned}/{eggReadiness.requirements.carePointsRequired}</div>
-                          <div>Health: {eggReadiness.requirements.currentHealth}%/{eggReadiness.requirements.healthRequirement}%</div>
-                        </div>
-                      </div>
-                    )}
-                    {blobbi.lifeStage === 'baby' && babyReadiness && (
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-2">{babyReadiness.message}</p>
-                        <div className="space-y-1 text-xs">
-                          <div>Age: {babyReadiness.requirements.currentAge}/{babyReadiness.requirements.ageRequired} days</div>
-                          <div>Care Score: {babyReadiness.requirements.currentCareScore}/{babyReadiness.requirements.careScoreRequired}</div>
-                          <div>Interactions: {babyReadiness.requirements.currentInteractions}/{babyReadiness.requirements.interactionsRequired}</div>
-                        </div>
-                      </div>
-                    )}
-                    {blobbi.lifeStage === 'adult' && (
-                      <p className="text-sm text-muted-foreground">
-                        Your Blobbi has reached full maturity! {blobbi.evolutionForm && `It evolved into a ${blobbi.evolutionForm}.`}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Recent Activity Summary */}
-              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
-                    Recent Activity
-                  </CardTitle>
-                  <CardDescription>
-                    Latest interactions and care activities
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {interactionHistory.slice(0, 3).map((interaction) => (
-                      <div key={interaction.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                          <Activity className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium">{getActionDisplayName(interaction.action)}</div>
-                          <div className="text-sm text-muted-foreground">{interaction.result}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(interaction.timestamp, { addSuffix: true })}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {interactionHistory.length === 0 && (
-                      <div className="text-center py-4 text-muted-foreground">
-                        No recent interactions
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
 
             {/* Info Tab */}

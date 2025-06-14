@@ -19,7 +19,7 @@ export function AppHeader({
   className = ""
 }: AppHeaderProps) {
   return (
-    <div className={`flex justify-between items-center mb-8 ${className}`}>
+    <div className={`flex flex-wrap justify-between items-center mb-8 gap-4 ${className}`}>
       <div className="flex items-center gap-4">
         {leftContent}
         {showLeftControls && (
@@ -29,11 +29,11 @@ export function AppHeader({
         )}
         {title && (
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
               {title}
             </h1>
             {subtitle && (
-              <p className="text-gray-600 dark:text-gray-300 mt-2">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1 sm:mt-2">
                 {subtitle}
               </p>
             )}

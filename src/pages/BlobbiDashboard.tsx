@@ -41,6 +41,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Blobbi, BlobbiLifeStage } from '@/types/blobbi';
 import { CompanionSelector } from '@/components/CompanionSelector';
 import { SetCompanionButton } from '@/components/SetCompanionButton';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 type BlobbiFilter = 'all' | 'active' | 'incubating' | 'evolved' | 'archived';
 
@@ -60,7 +61,7 @@ export default function BlobbiDashboard() {
 
   const [filter, setFilter] = useState<BlobbiFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('blobbis');
 
 
   // Redirect to adoption page if user doesn't have a profile (kind 31125)
@@ -304,156 +305,43 @@ export default function BlobbiDashboard() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-2">
-                <TabsList className="grid w-full grid-cols-6 bg-purple-50/50 dark:bg-purple-900/20 ">
-                  <TabsTrigger 
-                    value="overview"
-                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                  >
-                    Overview
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="blobbis"
-                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                  >
-                    My Blobbies
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="missions"
-                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                  >
-                    Missions
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="incubation"
-                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                  >
-                    Growth Hub
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="activity"
-                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                  >
-                    Activity
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="stats"
-                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                  >
-                    Statistics
-                  </TabsTrigger>
-                </TabsList>
+                <ScrollArea>
+                  <TabsList className="grid w-full grid-cols-5 bg-purple-50/50 dark:bg-purple-900/20 ">
+                    <TabsTrigger 
+                      value="blobbis"
+                      className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                    >
+                      My Blobbies
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="missions"
+                      className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                    >
+                      Missions
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="incubation"
+                      className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                    >
+                      Growth Hub
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="activity"
+                      className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                    >
+                      Activity
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="stats"
+                      className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                    >
+                      Statistics
+                    </TabsTrigger>
+                  </TabsList>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
               </CardContent>
             </Card>
-
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
-              {/* Welcome Section */}
-              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                    <Crown className="w-5 h-5 text-yellow-500" />
-                    Welcome back, {profile?.name}!
-                  </CardTitle>
-                  <CardDescription className="text-gray-600 dark:text-gray-300">
-                    Here's what's happening with your Blobbis
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="text-center p-4 border border-green-200 dark:border-green-600 rounded-lg bg-green-50/50 dark:bg-green-900/20">
-                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.activeBlobbis}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">Active Blobbis</div>
-                    </div>
-                    <div className="text-center p-4 border border-yellow-200 dark:border-yellow-600 rounded-lg bg-yellow-50/50 dark:bg-yellow-900/20">
-                      <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.incubatingBlobbis}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">Growing</div>
-                    </div>
-                    <div className="text-center p-4 border border-purple-200 dark:border-purple-600 rounded-lg bg-purple-50/50 dark:bg-purple-900/20">
-                      <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.evolvedBlobbis}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">Evolved</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Most Liked Blobbis */}
-              {mostLikedBlobbis.length > 0 && (
-                <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                      <TrendingUp className="w-5 h-5" />
-                      Top Performing Blobbis
-                    </CardTitle>
-                    <CardDescription className="text-gray-600 dark:text-gray-300">
-                      Your most experienced Blobbis
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {mostLikedBlobbis.map((blobbi, index) => (
-                        <BlobbiCard
-                          key={blobbi.id}
-                          blobbi={blobbi}
-                          size="sm"
-                          onClick={() => navigate(`/blobbi/${blobbi.id}`)}
-                          showRank={index === 0 ? 1 : undefined}
-                          showStats={false}
-                          showStatus={true}
-                          className="h-full"
-                        />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Recent Activity */}
-              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                    <Clock className="w-5 h-5" />
-                    Recent Activity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {recentActivity.map(({ blobbi, lastActivity, type }) => (
-                      <div key={blobbi.id} className="relative">
-                        <BlobbiCard
-                          blobbi={blobbi}
-                          size="sm"
-                          onClick={() => navigate(`/blobbi/${blobbi.id}`)}
-                          showStats={false}
-                          showStatus={true}
-                          showActions={true}
-                          onViewDetails={() => navigate(`/blobbi/${blobbi.id}`)}
-                          className="h-full"
-                          footerContent={
-                            <div className="text-xs text-gray-600 dark:text-gray-400 text-center bg-purple-50/50 dark:bg-purple-900/20 rounded-lg p-2">
-                              Last activity: {formatDistanceToNow(lastActivity, { addSuffix: true })}
-                            </div>
-                          }
-                        />
-                        {/* Activity Overlay */}
-                        <div className="absolute top-2 right-2 z-10">
-                          <Badge 
-                            variant="secondary" 
-                            className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 text-xs"
-                          >
-                            {type === 'incubating' ? 'Incubating' : 'Active'}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {recentActivity.length === 0 && (
-                    <div className="text-center py-8 text-gray-600 dark:text-gray-400">
-                      No recent activity. Adopt a Blobbi to get started!
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
 
             {/* My Blobbies Tab */}
             <TabsContent value="blobbis" className="space-y-6">
@@ -472,7 +360,7 @@ export default function BlobbiDashboard() {
                         />
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         variant={filter === 'all' ? 'default' : 'outline'}
                         size="sm"
