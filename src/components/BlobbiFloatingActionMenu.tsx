@@ -3,6 +3,9 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/components/theme-provider';
+import blobBlack from '/blob-black.svg';
+import blobWhite from '/blob-white.svg';
 
 declare global {
   interface Window {
@@ -40,6 +43,22 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const [isDraggingState, setIsDraggingState] = useState(false);
   const dragRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<DragStartInfo | null>(null);
+  const { theme } = useTheme();
+  const [resolvedTheme, setResolvedTheme] = useState(theme);
+
+  useEffect(() => {
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const getSystemTheme = () => (mediaQuery.matches ? 'dark' : 'light');
+      setResolvedTheme(getSystemTheme());
+
+      const handleChange = () => setResolvedTheme(getSystemTheme());
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    } else {
+      setResolvedTheme(theme);
+    }
+  }, [theme]);
 
   const shouldShow = location.pathname.startsWith('/blobbi') && 
                     location.pathname !== '/' &&
@@ -190,6 +209,8 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
 
   if (!shouldShow) return null;
 
+  const iconSrc = resolvedTheme === 'dark' ? blobWhite : blobBlack;
+
   const menuItems = [
     { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi },
     { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility },
@@ -234,7 +255,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
       >
         <div className="absolute inset-0 flex items-center justify-center">
           <img 
-            src="/blob.png" 
+            src={iconSrc} 
             alt="Blobbi" 
             className="w-8 h-8 object-contain"
             draggable={false}
