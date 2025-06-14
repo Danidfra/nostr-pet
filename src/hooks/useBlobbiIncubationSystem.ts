@@ -510,7 +510,7 @@ export function useBlobbiIncubationSystem() {
 
   // Publish task confirmation event
   const publishTaskConfirmation = useCallback(async (taskName: string) => {
-    if (!user || !nostr) return;
+    if (!user || !nostr || !state.selectedEggId) return;
 
     try {
       // Find the task ID from both egg and evolution tasks
@@ -520,54 +520,57 @@ export function useBlobbiIncubationSystem() {
 
       if (!taskId) return;
 
-      // Fetch current Blobbi events to update them
+      // Fetch the current Blobbi event to update it
       const signal = AbortSignal.timeout(5000);
       const currentBlobbiEvents = await nostr.query([{
         kinds: [31124],
         authors: [user.pubkey],
-        limit: 10,
+        '#d': [state.selectedEggId],
+        limit: 1,
       }], { signal });
 
-      // Update ALL Blobbi events with task confirmation (not just eggs)
-      for (const currentEvent of currentBlobbiEvents) {
-        // Parse the Blobbi to get its info
-        const blobbi = parseBlobbiFromStateEvent(currentEvent);
-        
-        if (!blobbi) {
-          console.log(`⏭️ Skipping invalid Blobbi event`);
-          continue;
-        }
-
-        console.log(`📝 Adding task confirmation for ${blobbi.name} (${blobbi.lifeStage}): ${taskId}_confirmed`);
-
-        const existingTags = currentEvent.tags.map(tag => [tag[0] || '', tag[1] || '']) as Array<[string, string]>;
-        
-        // Create the correct confirmation tag format: ["<task_id>_confirmed", "true"]
-        const confirmationTag: [string, string] = [`${taskId}_confirmed`, 'true'];
-
-        // Remove any existing confirmation tags for this task (both old and new formats)
-        const filteredTags = existingTags.filter(tag => 
-          tag[0] !== `${taskId}_confirmed` && 
-          tag[0] !== `(${taskId})_confirmed` && 
-          !(tag[0] === 'task_completed' && tag[1] === taskId)
-        );
-
-        // Add the new confirmation tag
-        const enrichedTags = [...filteredTags, confirmationTag];
-
-        // Publish the enriched event
-        await publishEvent({
-          kind: 31124,
-          content: currentEvent.content,
-          tags: enrichedTags,
-        });
+      if (currentBlobbiEvents.length === 0) {
+        console.warn(`⚠️ Could not find event for selected Blobbi: ${state.selectedEggId}`);
+        return;
       }
+
+      const currentEvent = currentBlobbiEvents[0];
+      const blobbi = parseBlobbiFromStateEvent(currentEvent);
+
+      if (!blobbi) {
+        console.warn(`⚠️ Could not parse event for selected Blobbi: ${state.selectedEggId}`);
+        return;
+      }
+
+      console.log(`📝 Adding task confirmation for ${blobbi.name} (${blobbi.lifeStage}): ${taskId}_confirmed`);
+
+      const existingTags = currentEvent.tags.map(tag => [tag[0] || '', tag[1] || '']) as Array<[string, string]>;
       
-      console.log(`✅ Published task confirmation for all Blobbis: ${taskId}_confirmed`);
+      // Create the correct confirmation tag format: ["<task_id>_confirmed", "true"]
+      const confirmationTag: [string, string] = [`${taskId}_confirmed`, 'true'];
+
+      // Remove any existing confirmation tags for this task (both old and new formats)
+      const filteredTags = existingTags.filter(tag => 
+        tag[0] !== `${taskId}_confirmed` && 
+        tag[0] !== `(${taskId})_confirmed` && 
+        !(tag[0] === 'task_completed' && tag[1] === taskId)
+      );
+
+      // Add the new confirmation tag
+      const enrichedTags = [...filteredTags, confirmationTag];
+
+      // Publish the enriched event
+      await publishEvent({
+        kind: 31124,
+        content: currentEvent.content,
+        tags: enrichedTags,
+      });
+      
+      console.log(`✅ Published task confirmation for ${blobbi.name} only: ${taskId}_confirmed`);
     } catch (error) {
       console.error('Failed to publish task confirmation:', error);
     }
-  }, [user, nostr, state.incubationState, publishEvent]);
+  }, [user, nostr, state.selectedEggId, state.incubationState, publishEvent]);
 
   // Process incoming task events
   const processTaskEvent = useCallback(async (event: NostrEvent) => {
