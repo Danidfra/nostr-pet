@@ -42,7 +42,6 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
     blobbiError,
     eggTasks,
     evolutionTasks,
-    progress,
     isReadyToHatch,
     isReadyToEvolve,
     isBlobbiReadyToHatch,
@@ -57,6 +56,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
     hatchBlobbi,
     refetchMetadata,
     debugInfo,
+    getProgress,
   } = useBlobbiIncubationSystem();
 
   // New quest system for Baby to Adult evolution
@@ -102,6 +102,8 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
       }
     }
   }, [showEggList, showEvolvedList, selectedBlobbi, selectEgg]);
+
+  const selectedBlobbiProgress = getProgress(selectedEggId);
 
   // Show loading state
   if (isLoadingBlobbis) {
@@ -296,7 +298,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                               blobbi={blobbi} // Pass the full blobbi object for unique characteristics
                               size="medium" 
                               animated={true}
-                              warmth={blobbi.eggTemperature || (60 + (progress.egg.percentage * 0.4))} // Use blobbi's specific temperature or fallback
+                              warmth={blobbi.eggTemperature || (60 + (getProgress(blobbi.id).egg.percentage * 0.4))} // Use blobbi's specific temperature or fallback
                             />
                             {selectedEggId === blobbi.id && (
                               <div className="absolute -top-1 -right-1">
@@ -314,30 +316,35 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                             </p>
                           </div>
 
-                          <div className="w-full space-y-2">
-                            <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                              <span>Hatching Progress</span>
-                              <span>{progress.egg.completed}/{progress.egg.total}</span>
-                            </div>
-                            <Progress value={progress.egg.percentage} className="h-2" />
-                            {isBlobbiReadyToHatch(blobbi) ? (
-                              <Button 
-                                className="w-full bg-green-600 hover:bg-green-700 text-white"
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Prevent card selection when clicking button
-                                  hatchBlobbi(blobbi.id);
-                                }}
-                              >
-                                <Zap className="w-3 h-3 mr-1" />
-                                Hatch {blobbi.name}
-                              </Button>
-                            ) : (
-                              <Badge className="w-full justify-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                                <Clock className="w-3 h-3 mr-1" />
-                                Incubating...
-                              </Badge>
-                            )}
-                          </div>
+                          {(() => {
+                            const blobbiProgress = getProgress(blobbi.id);
+                            return (
+                              <div className="w-full space-y-2">
+                                <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                                  <span>Hatching Progress</span>
+                                  <span>{blobbiProgress.egg.completed}/{blobbiProgress.egg.total}</span>
+                                </div>
+                                <Progress value={blobbiProgress.egg.percentage} className="h-2" />
+                                {isBlobbiReadyToHatch(blobbi) ? (
+                                  <Button 
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                    onClick={(e) => {
+                                      e.stopPropagation(); // Prevent card selection when clicking button
+                                      hatchBlobbi(blobbi.id);
+                                    }}
+                                  >
+                                    <Zap className="w-3 h-3 mr-1" />
+                                    Hatch {blobbi.name}
+                                  </Button>
+                                ) : (
+                                  <Badge className="w-full justify-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    Incubating...
+                                  </Badge>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           {selectedEggId === blobbi.id && (
                             <div className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400">
@@ -408,9 +415,9 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
                 <span>Progress</span>
-                <span>{progress.egg.completed}/{progress.egg.total} tasks</span>
+                <span>{selectedBlobbiProgress.egg.completed}/{selectedBlobbiProgress.egg.total} tasks</span>
               </div>
-              <Progress value={progress.egg.percentage} className="h-3" />
+              <Progress value={selectedBlobbiProgress.egg.percentage} className="h-3" />
             </div>
 
             {/* Task List */}
@@ -887,7 +894,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                   <div className="flex items-center justify-between">
                     <span>Egg Progress:</span>
                     <Badge variant="outline" className="border-yellow-200 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300">
-                      {progress.egg.percentage.toFixed(1)}%
+                      {selectedBlobbiProgress.egg.percentage.toFixed(1)}%
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">

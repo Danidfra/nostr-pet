@@ -53,6 +53,7 @@ export interface Blobbi {
   ownerPubkey: string;  // Nostr pubkey of the owner
   name: string;         // Pet's name
   birthTime: number;    // Unix timestamp of creation (milliseconds)
+  hatchTime?: number;   // Unix timestamp of hatching (milliseconds)
   lastInteraction: number; // Unix timestamp of last interaction (seconds, same as Nostr created_at)
   lifeStage: BlobbiLifeStage;
   state: BlobbiState;
