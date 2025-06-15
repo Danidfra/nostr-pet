@@ -56,7 +56,7 @@ export function CompanionSelector() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" className="gap-2 w-full justify-start">
           <Sparkles className="h-4 w-4" />
           {currentCompanion ? `Companion: ${currentCompanion.name}` : 'Select Companion'}
         </Button>

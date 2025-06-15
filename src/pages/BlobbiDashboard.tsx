@@ -258,7 +258,7 @@ export default function BlobbiDashboard() {
             <CardHeader>
               <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Quick Actions</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="flex flex-col space-y-2">
               <CompanionSelector />
               <Link to="/blobbi/adopt">
                 <Button variant="outline" className="w-full justify-start gap-2 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
