@@ -204,12 +204,7 @@ export default function BlobbiDetail() {
   const eggReadiness = blobbi.lifeStage === 'egg' ? checkEggHatchingReadiness(blobbi) : null;
   const babyReadiness = blobbi.lifeStage === 'baby' ? checkBabyEvolutionReadiness(blobbi) : null;
 
-  // Mock interaction history (in a real app, this would come from Nostr events)
-  const interactionHistory: Array<{ id: string; action: BlobbiAction; timestamp: number; result: string }> = [
-    { id: '1', action: 'feed', timestamp: Date.now() - 3600000, result: 'Blobbi enjoyed the meal!' },
-    { id: '2', action: 'play', timestamp: Date.now() - 7200000, result: 'Blobbi had fun playing!' },
-    { id: '3', action: 'clean', timestamp: Date.now() - 10800000, result: 'Blobbi feels fresh and clean!' },
-  ];
+
 
   // Mock zaps received (in a real app, this would come from Nostr events)
   const zapsReceived = [
@@ -436,6 +431,7 @@ export default function BlobbiDetail() {
                     variant="outline"
                     className="w-full justify-start gap-2"
                     onClick={() => {/* Archive logic */}}
+                    disabled
                   >
                     <Archive className="w-4 h-4" />
                     Archive
@@ -451,7 +447,7 @@ export default function BlobbiDetail() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-2">
-                <TabsList className="grid w-full grid-cols-4 bg-purple-50/50 dark:bg-purple-900/20">
+                <TabsList className="grid w-full grid-cols-3 bg-purple-50/50 dark:bg-purple-900/20">
                   <TabsTrigger 
                     value="actions"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
@@ -464,12 +460,7 @@ export default function BlobbiDetail() {
                   >
                     Info
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="interactions"
-                    className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-                  >
-                    Interactions
-                  </TabsTrigger>
+
                   <TabsTrigger 
                     value="social"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
@@ -612,45 +603,7 @@ export default function BlobbiDetail() {
               </Card>
             </TabsContent>
 
-            {/* Interactions Tab */}
-            <TabsContent value="interactions" className="space-y-6">
-              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="w-5 h-5" />
-                    Interaction History
-                  </CardTitle>
-                  <CardDescription>
-                    Complete history of interactions with this Blobbi
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {interactionHistory.map((interaction) => (
-                      <div key={interaction.id} className="flex items-start gap-3 p-4 border rounded-lg">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <Activity className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="font-medium">{getActionDisplayName(interaction.action)}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(interaction.timestamp, { addSuffix: true })}
-                            </div>
-                          </div>
-                          <div className="text-sm text-muted-foreground">{interaction.result}</div>
-                        </div>
-                      </div>
-                    ))}
-                    {interactionHistory.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        No interactions recorded yet
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+
 
             {/* Social Tab */}
             <TabsContent value="social" className="space-y-6">
