@@ -185,7 +185,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
       {/* System Status */}
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
+        <CardTitle className="flex flex-col items-center justify-between text-gray-900 dark:text-gray-100 sm:flex-row">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-500" />
               Blobbi Growth Hub

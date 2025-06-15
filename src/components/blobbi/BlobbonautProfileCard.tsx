@@ -51,7 +51,7 @@ export function BlobbonautProfileCard({
   if (!profile) {
     return (
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-        <CardContent className="p-6 text-center">
+        <CardContent className="p-4">
           <p className="text-gray-600 dark:text-gray-400">No Blobbanaut Profile found</p>
         </CardContent>
       </Card>
@@ -70,14 +70,14 @@ export function BlobbonautProfileCard({
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Avatar className="w-16 h-16 border-2 border-purple-200 dark:border-purple-600">
+            <Avatar className="w-12 h-12 border-2 border-purple-200 dark:border-purple-600">
               <AvatarImage src={profileImage} alt={displayName} />
               <AvatarFallback className="text-lg bg-gradient-to-r from-purple-400 to-pink-400 text-white">
                 {displayName.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
-              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+              <CardTitle className="flex items-center gap-2 text-base text-gray-900 dark:text-gray-100">
                 {displayName}
                 {profile.title && (
                   <Badge variant="secondary" className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
@@ -95,9 +95,9 @@ export function BlobbonautProfileCard({
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4">
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex items-center space-x-2">
             <Coins className="w-5 h-5 text-yellow-600" />
             <div>
