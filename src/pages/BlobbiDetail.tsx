@@ -244,7 +244,7 @@ export default function BlobbiDetail() {
           {/* Blobbi Visual */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <CardContent className="p-8">
-              <div className="flex items-center justify-center transition-all duration-500 min-h-[380px] p-12 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
+              <div className="flex items-center justify-center transition-all duration-500 min-h-[380px] sm:p-12 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
                 {blobbi.lifeStage === 'egg' ? (
                   <EggGraphic 
                     blobbi={blobbi} // Pass the full blobbi object for unique characteristics
@@ -523,7 +523,7 @@ export default function BlobbiDetail() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 gap-6">
                     {/* Basic Information */}
                     <div className="space-y-4">
                       <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3">Basic Information</h4>
@@ -602,8 +602,8 @@ export default function BlobbiDetail() {
                   {/* Raw Data Section */}
                   <div className="mt-6 pt-6 border-t border-purple-100 dark:border-purple-600/30">
                     <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3">Raw Data</h4>
-                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 overflow-x-auto">
-                      <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 overflow-x-auto max-w-[290px] sm:max-w-full">
+                      <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words sm:break-normal">
                         {JSON.stringify(blobbi, null, 2)}
                       </pre>
                     </div>
