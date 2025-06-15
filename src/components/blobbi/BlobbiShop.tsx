@@ -68,8 +68,8 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
-          <DialogHeader className="pb-4">
+        <DialogContent className="max-w-2xl p-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
+          <DialogHeader className="p-6 pb-4 sticky top-0 bg-white/95 dark:bg-gray-900/95 z-10 rounded-t-2xl">
             <DialogTitle className="flex items-center justify-between text-xl font-semibold text-gray-900 dark:text-gray-100">
               <span className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
@@ -84,116 +84,118 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
             </DialogTitle>
           </DialogHeader>
           
-          <Tabs defaultValue={defaultTab} className="w-full">
-            <div className="mb-6">
-              <TabsList className="grid w-full grid-cols-5 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50">
-                <TabsTrigger 
-                  value="food"
-                  className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
-                >
-                  Food
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="toys"
-                  className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
-                >
-                  Toys
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="medicine"
-                  className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
-                >
-                  Medicine
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="hygiene"
-                  className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
-                >
-                  Hygiene
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="accessories"
-                  className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
-                >
-                  Accessories
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            
-            <TabsContent value="food" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {getShopItemsByType('food').map(item => (
-                  <ShopItemCard 
-                    key={item.id} 
-                    item={item} 
-                    canAfford={blobbonautProfile.coins >= item.price}
-                    onPurchase={handlePurchase}
-                  />
-                ))}
+          <div className="overflow-y-auto max-h-[calc(100vh-8rem)] sm:max-h-[60vh] p-6 pt-0">
+            <Tabs defaultValue={defaultTab} className="w-full">
+              <div className="mb-6">
+                <TabsList className="h-auto flex flex-wrap justify-center sm:grid sm:w-full sm:grid-cols-5 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50">
+                  <TabsTrigger 
+                    value="food"
+                    className="basis-1/3 sm:basis-auto rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+                  >
+                    Food
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="toys"
+                    className="basis-1/3 sm:basis-auto rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+                  >
+                    Toys
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="medicine"
+                    className="basis-1/3 sm:basis-auto rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+                  >
+                    Medicine
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="hygiene"
+                    className="basis-1/2 sm:basis-auto rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+                  >
+                    Hygiene
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="accessories"
+                    className="basis-1/2 sm:basis-auto rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+                  >
+                    Accessories
+                  </TabsTrigger>
+                </TabsList>
               </div>
-            </TabsContent>
-            
-            <TabsContent value="toys" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {getShopItemsByType('toy').map(item => (
-                  <ShopItemCard 
-                    key={item.id} 
-                    item={item} 
-                    canAfford={blobbonautProfile.coins >= item.price}
-                    onPurchase={handlePurchase}
-                  />
-                ))}
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="medicine" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {getShopItemsByType('medicine').map(item => (
-                  <ShopItemCard 
-                    key={item.id} 
-                    item={item} 
-                    canAfford={blobbonautProfile.coins >= item.price}
-                    onPurchase={handlePurchase}
-                  />
-                ))}
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="hygiene" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {getShopItemsByType('hygiene').map(item => (
-                  <ShopItemCard 
-                    key={item.id} 
-                    item={item} 
-                    canAfford={blobbonautProfile.coins >= item.price}
-                    onPurchase={handlePurchase}
-                  />
-                ))}
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="accessories" className="space-y-4">
-              <div className="text-center py-8">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center">
-                  <Palette className="w-8 h-8 text-purple-500" />
+              
+              <TabsContent value="food" className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {getShopItemsByType('food').map(item => (
+                    <ShopItemCard 
+                      key={item.id} 
+                      item={item} 
+                      canAfford={blobbonautProfile.coins >= item.price}
+                      onPurchase={handlePurchase}
+                    />
+                  ))}
                 </div>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Accessories coming soon! Customize your Blobbi's appearance.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                {getShopItemsByType('accessory').map(item => (
-                  <ShopItemCard 
-                    key={item.id} 
-                    item={item} 
-                    canAfford={blobbonautProfile.coins >= item.price}
-                    onPurchase={handlePurchase}
-                    disabled
-                  />
-                ))}
-              </div>
-            </TabsContent>
-          </Tabs>
+              </TabsContent>
+              
+              <TabsContent value="toys" className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {getShopItemsByType('toy').map(item => (
+                    <ShopItemCard 
+                      key={item.id} 
+                      item={item} 
+                      canAfford={blobbonautProfile.coins >= item.price}
+                      onPurchase={handlePurchase}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="medicine" className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {getShopItemsByType('medicine').map(item => (
+                    <ShopItemCard 
+                      key={item.id} 
+                      item={item} 
+                      canAfford={blobbonautProfile.coins >= item.price}
+                      onPurchase={handlePurchase}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="hygiene" className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {getShopItemsByType('hygiene').map(item => (
+                    <ShopItemCard 
+                      key={item.id} 
+                      item={item} 
+                      canAfford={blobbonautProfile.coins >= item.price}
+                      onPurchase={handlePurchase}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="accessories" className="space-y-4">
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center">
+                    <Palette className="w-8 h-8 text-purple-500" />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Accessories coming soon! Customize your Blobbi's appearance.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {getShopItemsByType('accessory').map(item => (
+                    <ShopItemCard 
+                      key={item.id} 
+                      item={item} 
+                      canAfford={blobbonautProfile.coins >= item.price}
+                      onPurchase={handlePurchase}
+                      disabled
+                    />
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         </DialogContent>
       </Dialog>
       
