@@ -135,25 +135,12 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     if (dragStartRef.current?.isDragging) {
       savePosition(position);
     } else {
-      if (isMobile) {
-        setIsMenuOpen(prev => !prev);
-      }
+      // Toggle menu on tap/click
+      setIsMenuOpen(prev => !prev);
     }
 
     dragStartRef.current = null;
     setIsDraggingState(false);
-  };
-
-  const handleMouseEnter = () => {
-    if (!isMobile && !isDraggingState) {
-      setIsMenuOpen(true);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (!isMobile) {
-      setIsMenuOpen(false);
-    }
   };
 
   useEffect(() => {
@@ -235,8 +222,6 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
       <motion.div
         className={cn(

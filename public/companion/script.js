@@ -171,73 +171,114 @@ class BlobbiCompanion {
     }
     
     setupDrag() {
-        let isDragging = false;
-        let startX, startY, initialX, initialY;
-        let dragOffset = { x: 0, y: 0 };
-        
+        const dragState = {
+            isDragging: false,
+            isConfirmed: false,
+            startX: 0,
+            startY: 0,
+            offsetX: 0,
+            offsetY: 0,
+        };
+        const dragThreshold = 10; // Pixels to move before a drag is confirmed
+
+        const onPointerDown = (clientX, clientY) => {
+            if (this.isMoving) return;
+
+            Object.assign(dragState, { isDragging: true, isConfirmed: false, startX: clientX, startY: clientY });
+
+            this.wasFreeRoamingBeforeDrag = this.isFreeRoaming;
+            if (this.isFreeRoaming) {
+                this.stopFreeRoam();
+            }
+        };
+
+        const onPointerMove = (clientX, clientY) => {
+            if (!dragState.isDragging) return;
+
+            const deltaX = clientX - dragState.startX;
+            const deltaY = clientY - dragState.startY;
+
+            if (!dragState.isConfirmed) {
+                if (Math.abs(deltaX) < dragThreshold && Math.abs(deltaY) < dragThreshold) {
+                    return; // Not moved enough to determine intent
+                }
+
+                if (Math.abs(deltaY) > Math.abs(deltaX)) {
+                    // Vertical movement is greater, so it's a scroll. Cancel the drag.
+                    dragState.isDragging = false;
+                    if (this.wasFreeRoamingBeforeDrag) {
+                        this.startFreeRoam();
+                    }
+                    return;
+                } else {
+                    // Horizontal movement is greater. Confirm the drag.
+                    dragState.isConfirmed = true;
+                    this.container.classList.add('dragging');
+                    const rect = this.character.getBoundingClientRect();
+                    dragState.offsetX = clientX - rect.left;
+                    dragState.offsetY = clientY - rect.top;
+                }
+            }
+
+            // If we've reached this point, the drag is confirmed.
+            const newX = clientX - dragState.offsetX;
+            const newY = clientY - dragState.offsetY;
+
+            this.position.x = window.innerWidth - newX - this.container.offsetWidth;
+            this.position.y = window.innerHeight - newY - this.container.offsetHeight;
+
+            this.position.x = Math.max(0, Math.min(window.innerWidth - this.container.offsetWidth, this.position.x));
+            this.position.y = Math.max(0, Math.min(window.innerHeight - this.container.offsetHeight, this.position.y));
+
+            this.updatePosition();
+        };
+
+        const onPointerUp = () => {
+            if (dragState.isDragging && !dragState.isConfirmed) {
+                // If the gesture was too small to be a drag, it was a tap.
+                // We can restore free roam immediately.
+                if (this.wasFreeRoamingBeforeDrag) {
+                    this.startFreeRoam();
+                }
+            }
+
+            if (dragState.isConfirmed) {
+                // If it was a confirmed drag, wait a moment before resuming free roam.
+                if (this.wasFreeRoamingBeforeDrag) {
+                    setTimeout(() => this.startFreeRoam(), 1000);
+                }
+            }
+            
+            this.container.classList.remove('dragging');
+            Object.assign(dragState, { isDragging: false, isConfirmed: false });
+        };
+
+        // Mouse Events
         this.character.addEventListener('mousedown', (e) => {
-            if (!this.isMoving) {
-                // Stop free roam when dragging but keep the state
-                const wasFreeRoaming = this.isFreeRoaming;
-                if (this.isFreeRoaming) {
-                    this.stopFreeRoam();
+            onPointerDown(e.clientX, e.clientY);
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', (e) => onPointerMove(e.clientX, e.clientY));
+        document.addEventListener('mouseup', onPointerUp);
+
+        // Touch Events
+        this.character.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            onPointerDown(touch.clientX, touch.clientY);
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            if (dragState.isDragging && e.touches.length > 0) {
+                const touch = e.touches[0];
+                onPointerMove(touch.clientX, touch.clientY);
+                if (dragState.isConfirmed) {
+                    e.preventDefault();
                 }
-                
-                isDragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                initialX = this.position.x;
-                initialY = this.position.y;
-                
-                // Calculate the offset between mouse and Flammi's center
-                const rect = this.character.getBoundingClientRect();
-                const flammiCenterX = rect.left + rect.width / 2;
-                const flammiCenterY = rect.top + rect.height / 2;
-                
-                dragOffset.x = e.clientX - flammiCenterX;
-                dragOffset.y = e.clientY - flammiCenterY;
-                
-                this.container.classList.add('dragging');
-                this.wasFreeRoamingBeforeDrag = wasFreeRoaming;
-                e.preventDefault();
             }
-        });
-        
-        document.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                // Calculate where Flammi's center should be (mouse position minus offset)
-                const targetCenterX = e.clientX - dragOffset.x;
-                const targetCenterY = e.clientY - dragOffset.y;
-                
-                // Convert to position coordinates (distance from right and bottom edges)
-                // Flammi is 120px wide and tall, so center is 60px from each edge
-                this.position.x = window.innerWidth - targetCenterX - 60;
-                this.position.y = window.innerHeight - targetCenterY - 60;
-                
-                // Keep within bounds
-                this.position.x = Math.max(0, Math.min(window.innerWidth - 120, this.position.x));
-                this.position.y = Math.max(0, Math.min(window.innerHeight - 120, this.position.y));
-                
-                this.updatePosition();
-            }
-        });
-        
-        document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                this.container.classList.remove('dragging');
-                
-                // Resume free roam if it was active before dragging
-                if (this.wasFreeRoamingBeforeDrag && this.isFreeRoaming) {
-                    setTimeout(() => {
-                        if (this.isFreeRoaming) {
-                            this.startFreeRoam();
-                        }
-                    }, 1000); // Give a moment before resuming
-                }
-                this.wasFreeRoamingBeforeDrag = false;
-            }
-        });
+        }, { passive: false });
+
+        document.addEventListener('touchend', onPointerUp);
+        document.addEventListener('touchcancel', onPointerUp);
     }
     
     toggleVisibility() {
