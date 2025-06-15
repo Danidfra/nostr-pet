@@ -224,63 +224,61 @@ export default function BlobbiDetail() {
         <div className="container mx-auto py-8 px-4">
         {/* Header */}
         <AppHeader 
-          title={blobbi.name}
-          subtitle={`${blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} • Born ${formatDistanceToNow(blobbi.birthTime, { addSuffix: true })}`}
-          leftContent={
-            <Button variant="outline" size="sm" onClick={() => navigate('/blobbi')} className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-          }
-        />
+        logo='/blobbilogo.svg'
+        logoClassName='w-40 sm:w-60'
+            title={blobbi.name}
+            subtitle={`${blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} • Born ${formatDistanceToNow(blobbi.birthTime, { addSuffix: true })}`}
+            leftContent={
+              <Button variant="outline" size="sm" onClick={() => navigate('/blobbi')} className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            }
+          />
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left Column - Visual and Stats */}
         <div className="lg:col-span-1 space-y-4">
           {/* Blobbi Visual */}
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-            <CardContent className="p-8">
-              <div className="flex items-center justify-center transition-all duration-500 min-h-[380px] sm:p-12 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
-                {blobbi.lifeStage === 'egg' ? (
-                  <EggGraphic 
-                    blobbi={blobbi} // Pass the full blobbi object for unique characteristics
-                    size="medium" 
-                    animated={true}
-                    warmth={blobbi.eggTemperature || 60}
-                  />
-                ) : blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
-                  <BlobbiEvolvedVisual 
-                    blobbi={blobbi} 
-                    size="medium"
-                    onClick={() => isOwner && performAction('play')}
-                  />
-                ) : (
-                  <BlobbiVisual 
-                    blobbi={blobbi} 
-                    size="medium"
-                    onClick={() => isOwner && performAction('play')}
-                  />
-                )}
-              </div>
-              
-              {blobbi.state === 'hibernating' && (
-                <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-4">
-                  Your Blobbi is hibernating. Interact with it to wake it up!
-                </p>
-              )}
-
-              {blobbi.evolutionForm && (
-                <div className="text-center mt-4 space-y-1">
-                  <div className="flex items-center justify-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                    <Sparkles className="w-4 h-4" />
-                    <span>Evolved into {blobbi.evolutionForm.charAt(0).toUpperCase() + blobbi.evolutionForm.slice(1)}</span>
-                  </div>
-                  {blobbi.evolutionTime && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {formatDistanceToNow(blobbi.evolutionTime, { addSuffix: true })}
-                    </p>
+          <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 group">
+            <CardContent className="p-4 sm:p-6">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 transition-all duration-300 z-0"></div>
+              <div className="relative z-10">
+                <div className="text-center mb-4">
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100 capitalize">{blobbi.name}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} • {formatDistanceToNow(blobbi.birthTime, { addSuffix: true })}
+                  </p>
+                </div>
+                <div className="flex items-center justify-center transition-all duration-500 min-h-[300px] sm:min-h-[380px]">
+                  {blobbi.lifeStage === 'egg' ? (
+                    <EggGraphic 
+                      blobbi={blobbi}
+                      size="medium" 
+                      animated={true}
+                      warmth={blobbi.eggTemperature || 60}
+                    />
+                  ) : blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
+                    <BlobbiEvolvedVisual 
+                      blobbi={blobbi} 
+                      size="medium"
+                      onClick={() => isOwner && performAction('play')}
+                    />
+                  ) : (
+                    <BlobbiVisual 
+                      blobbi={blobbi} 
+                      size="medium"
+                      onClick={() => isOwner && performAction('play')}
+                    />
                   )}
                 </div>
-              )}
+                
+                {blobbi.state === 'hibernating' && (
+                  <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-4">
+                    Your Blobbi is hibernating. Interact with it to wake it up!
+                  </p>
+                )}
+
+              </div>
             </CardContent>
           </Card>
           

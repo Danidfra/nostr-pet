@@ -15,7 +15,6 @@ export default function BlobbiEvolutionPage() {
             <Link to="/blobbi">
               <Button variant="ghost" size="sm" className="gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20">
                 <ArrowLeft className="w-4 h-4" />
-                Back to Game
               </Button>
             </Link>
           }

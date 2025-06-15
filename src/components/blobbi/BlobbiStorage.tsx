@@ -78,7 +78,7 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
           <>
             <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
               <div className="mb-6">
-                <TabsList className="grid grid-cols-3 lg:grid-cols-6 w-full bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50">
+                <TabsList className="grid h-auto grid-cols-3 lg:grid-cols-6 w-full bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50">
                   {categories.map((category) => {
                     const Icon = category.icon;
                     const itemCount = getItemsByCategory(category.id).length;

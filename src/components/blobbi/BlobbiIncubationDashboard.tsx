@@ -285,15 +285,16 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                     {eggBlobbis.map((blobbi) => (
                       <div
                         key={blobbi.id}
-                        className={`p-4 border rounded-lg cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-105 ${
+                        className={`group transition-all duration-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border shadow-sm hover:shadow-xl hover:shadow-purple-200/20 dark:hover:shadow-purple-900/20 rounded-2xl cursor-pointer hover:scale-[1.02] ${
                           selectedEggId === blobbi.id
-                            ? 'border-purple-400 dark:border-purple-500 bg-purple-50/50 dark:bg-purple-900/20 shadow-md scale-105 ring-2 ring-purple-200 dark:ring-purple-600'
-                            : 'border-purple-200 dark:border-purple-600 bg-white/60 dark:bg-gray-700/60 hover:border-purple-300 dark:hover:border-purple-500'
+                            ? 'border-purple-400 dark:border-purple-500 bg-purple-50/50 dark:bg-purple-900/20 shadow-md scale-[1.02] ring-2 ring-purple-200 dark:ring-purple-600'
+                            : 'border-purple-200/60 dark:border-purple-600/60 hover:border-purple-300 dark:hover:border-purple-500'
                         }`}
                         onClick={() => selectEgg(selectedEggId === blobbi.id ? null : blobbi.id)}
                       >
-                        <div className="flex flex-col items-center space-y-3">
-                          <div className="relative">
+                        <div className="flex flex-col items-center space-y-3 p-4">
+                          {/* Updated Blobbi Visual Container */}
+                          <div className="flex items-center justify-center transition-all duration-500 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border-2 border-purple-100/60 dark:border-purple-600/30 group-hover:border-purple-200/80 dark:group-hover:border-purple-500/50 min-h-[200px] p-6 relative">
                             <EggGraphic 
                               blobbi={blobbi} // Pass the full blobbi object for unique characteristics
                               size="medium" 
@@ -507,16 +508,17 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                   {babyBlobbis.map((blobbi) => (
                     <div
                       key={blobbi.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-105 ${
+                      className={`group transition-all duration-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border shadow-sm hover:shadow-xl hover:shadow-blue-200/20 dark:hover:shadow-blue-900/20 rounded-2xl cursor-pointer hover:scale-[1.02] ${
                         selectedBabyId === blobbi.id
-                          ? 'border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 shadow-md scale-105 ring-2 ring-blue-200 dark:ring-blue-600'
-                          : 'border-blue-200 dark:border-blue-600 bg-white/60 dark:bg-gray-700/60 hover:border-blue-300 dark:hover:border-blue-500'
+                          ? 'border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 shadow-md scale-[1.02] ring-2 ring-blue-200 dark:ring-blue-600'
+                          : 'border-blue-200/60 dark:border-blue-600/60 hover:border-blue-300 dark:hover:border-blue-500'
                       }`}
                       onClick={() => selectBaby(selectedBabyId === blobbi.id ? null : blobbi.id)}
                     >
-                      <div className="flex flex-col items-center space-y-3">
-                        <div className="relative flex items-center justify-center transition-all duration-500 min-h-[120px] p-4 bg-gradient-to-br from-blue-50/60 to-cyan-50/60 rounded-3xl border-2 border-blue-100/50">
-                          <BlobbiVisual blobbi={blobbi} size="small" />
+                      <div className="flex flex-col items-center space-y-3 p-4">
+                        {/* Updated Blobbi Visual Container */}
+                        <div className="flex items-center justify-center transition-all duration-500 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-2xl border-2 border-blue-100/60 dark:border-blue-600/30 group-hover:border-blue-200/80 dark:group-hover:border-blue-500/50 min-h-[200px] p-6 relative">
+                          <BlobbiVisual blobbi={blobbi} size="medium" />
                           {selectedBabyId === blobbi.id && (
                             <div className="absolute -top-1 -right-1">
                               <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse">
@@ -732,10 +734,11 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                   {adultBlobbis.map((blobbi) => (
                     <div
                       key={blobbi.id}
-                      className="p-4 border border-yellow-200 dark:border-yellow-600 bg-gradient-to-br from-yellow-50/60 to-orange-50/60 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-lg transition-all duration-300 hover:shadow-md hover:scale-105"
+                      className="group transition-all duration-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border shadow-sm hover:shadow-xl hover:shadow-yellow-200/20 dark:hover:shadow-yellow-900/20 rounded-2xl hover:scale-[1.02] border-yellow-200/60 dark:border-yellow-600/60 hover:border-yellow-300 dark:hover:border-yellow-500"
                     >
-                      <div className="flex flex-col items-center space-y-3">
-                        <div className="relative flex items-center justify-center transition-all duration-500 min-h-[120px] p-4 bg-gradient-to-br from-yellow-50/60 to-orange-50/60 rounded-3xl border-2 border-yellow-100/50">
+                      <div className="flex flex-col items-center space-y-3 p-4">
+                        {/* Updated Blobbi Visual Container */}
+                        <div className="flex items-center justify-center transition-all duration-500 bg-gradient-to-br from-yellow-50/80 to-orange-50/80 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-2xl border-2 border-yellow-100/60 dark:border-yellow-600/30 group-hover:border-yellow-200/80 dark:group-hover:border-yellow-500/50 min-h-[200px] p-6 relative">
                           {blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
                             <BlobbiEvolvedVisual blobbi={blobbi} size="medium" />
                           ) : (

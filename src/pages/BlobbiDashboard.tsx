@@ -77,8 +77,7 @@ export default function BlobbiDashboard() {
         <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
           <div className="container mx-auto py-8 px-4">
             <AppHeader 
-              title="Blobbi Dashboard"
-              subtitle="Log in with your Nostr account to access your Blobbi dashboard"
+              logo="/blobbilogo.svg"
             />
             
             <Card className="max-w-2xl mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
@@ -110,8 +109,7 @@ export default function BlobbiDashboard() {
         <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
           <div className="container mx-auto py-8 px-4">
             <AppHeader 
-              title="Blobbi Dashboard"
-              subtitle="Loading your profile..."
+              logo="/blobbilogo.svg"
             />
             
             <Card className="max-w-2xl mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
@@ -189,12 +187,12 @@ export default function BlobbiDashboard() {
   return (
     <BlobbiLayout>
       <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
-        <div className="container mx-auto py-8 px-4">
+        <div className="container mx-auto pt-2 pb-8 px-4">
           {/* Header */}
           <AppHeader 
-            title="Blobbi Dashboard"
-            subtitle="Manage your virtual pets and track their evolution"
-            showLeftControls={true}
+            logo="/blobbilogo.svg"
+            logoClassName='w-48 sm:w-60'
+            className='!mb-0'
           />
 
       <div className="grid lg:grid-cols-4 gap-6">
