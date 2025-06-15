@@ -69,9 +69,7 @@ const Index = () => {
         <div className="max-w-4xl mx-auto space-y-12">
           {/* Hero Section */}
           <div className="text-center space-y-6">
-            <h1 className="text-6xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
-              Blobbi
-            </h1>
+          <img src="/blobbilogo.svg" alt="Blobbi Logo" className="h-60 mx-auto " />
             <p className="text-2xl text-gray-700 dark:text-gray-200">
               Your Virtual Pet on the Nostr Network
             </p>
