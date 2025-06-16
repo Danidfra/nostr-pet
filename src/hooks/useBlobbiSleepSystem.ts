@@ -207,16 +207,28 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
     lastPassiveRecoveryRef.current = 0;
     
     const currentTime = Math.floor(Date.now() / 1000);
-    const updatedBlobbi: Blobbi = {
-      ...blobbi,
-      isSleeping: true,
-      state: 'sleeping',
-      lastInteraction: currentTime,
-      sleepStartedAt: currentTime, // Set sleep start time
-      lastSleepUpdate: currentTime, // ✅ Initialize last_sleep_update when starting sleep
-    };
 
     try {
+      // First, emit the "rest" interaction event
+      await createInteractionWithStateUpdate({
+        blobbiId: blobbi.id,
+        action: 'rest',
+        actionCategory: 'recovery',
+        statChange: ['energy', 0], // No stat change, just marks the action
+        experienceGained: 0,
+        carePoints: 0,
+      });
+
+      // Then, update the state to sleeping
+      const updatedBlobbi: Blobbi = {
+        ...blobbi,
+        isSleeping: true,
+        state: 'sleeping',
+        lastInteraction: currentTime,
+        sleepStartedAt: currentTime, // Set sleep start time
+        lastSleepUpdate: currentTime, // ✅ Initialize last_sleep_update when starting sleep
+      };
+
       await updateState(updatedBlobbi);
       queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
       lastRecoveryRef.current = Date.now(); // Reset recovery timer
@@ -224,7 +236,7 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
       console.error('Failed to put Blobbi to sleep:', error);
       throw error;
     }
-  }, [blobbi, isOwner, updateState, queryClient]);
+  }, [blobbi, isOwner, updateState, queryClient, createInteractionWithStateUpdate]);
 
   // Wake up Blobbi
   const wakeUp = useCallback(async () => {
@@ -237,19 +249,15 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
     lastPassiveRecoveryRef.current = 0;
     
     try {
-      // ✅ IMPORTANT: Manual wake-up should emit kind 14919 (interaction event)
-      // This is the ONLY time we emit kind 14919 for sleep-related actions
+      const statChange: [string, number] = blobbi.stats.energy >= 50 ? ['happiness', 5] : ['happiness', -5];
+
       await createInteractionWithStateUpdate({
         blobbiId: blobbi.id,
-        action: 'rest',
+        action: 'wake',
         actionCategory: 'recovery',
-        statChange: ['energy', 0], // No additional energy change on wake
-        experienceGained: 0,
-        carePoints: 0,
-        customData: {
-          recovery_type: 'manual_wake',
-          wake_action: 'explicit_user_interaction',
-        },
+        statChange,
+        experienceGained: 2,
+        carePoints: 1,
       });
 
       queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });

@@ -18,7 +18,7 @@ export type BlobbiState = 'active' | 'sleeping' | 'hibernating';
 export type BlobbiRecordType = 'birth' | 'hatched' | 'evolution' | 'memory' | 'adoption';
 
 // Interaction types for Kind 14919 events
-export type BlobbiInteractionType = 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar';
+export type BlobbiInteractionType = 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar' | 'wake';
 
 export interface BlobbiCustomization {
   color: string;

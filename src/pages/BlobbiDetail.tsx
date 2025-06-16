@@ -75,11 +75,19 @@ export default function BlobbiDetail() {
   const { 
     isSleeping, 
     sleepStartTime,
-    calculatePassiveRecovery 
+    calculatePassiveRecovery,
+    wakeUp
   } = useBlobbiSleepSystem({ 
     blobbi: blobbi || null, 
     isOwner 
   });
+
+  useEffect(() => {
+    if (blobbi && blobbi.stats.energy === 100 && isSleeping && isOwner) {
+      wakeUp();
+    }
+  }, [blobbi, isSleeping, isOwner, wakeUp]);
+  
   
   // Helper function to get valid size for components
   const getValidSize = (size?: string): 'tiny' | 'small' | 'medium' | 'large' => {
@@ -418,7 +426,7 @@ export default function BlobbiDetail() {
                   <Button
                     variant="outline"
                     className="w-full justify-start gap-2"
-                    onClick={() => performAction('check')}
+                    onClick={wakeUp}
                   >
                     <Activity className="w-4 h-4" />
                     Wake Up

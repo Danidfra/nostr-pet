@@ -223,6 +223,13 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
     shellIntegrity: updatedShellIntegrity,
   };
 
+  if (action === 'wake') {
+    updatedBlobbi.isSleeping = false;
+    updatedBlobbi.state = 'active';
+    updatedBlobbi.sleepStartedAt = undefined;
+    updatedBlobbi.lastSleepUpdate = undefined;
+  }
+
   // ⚠️ IMPORTANT: Handle last_sleep_update tag logic
   // If this is a manual wake action (kind 14919), remove the lastSleepUpdate field
   // This ensures the tag is not present in the next kind 31124 state event
