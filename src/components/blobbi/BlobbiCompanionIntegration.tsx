@@ -6,6 +6,7 @@ import { useBlobbi } from '@/hooks/useBlobbi';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
 import { useRemoveFromStorage } from '@/hooks/useBlobbonautProfile';
+import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
 
 export function BlobbiCompanionIntegration() {
   const [isFeedModalOpen, setIsFeedModalOpen] = useState(false);
@@ -18,6 +19,10 @@ export function BlobbiCompanionIntegration() {
   const { blobbi, performAction } = useBlobbi();
   const { toast } = useToast();
   const { mutateAsync: removeFromStorage } = useRemoveFromStorage();
+  const { putToSleep, wakeUp, isSleeping } = useBlobbiSleepSystem({ 
+    blobbi, 
+    isOwner: !!user && blobbi?.ownerPubkey === user.pubkey 
+  });
 
   // Set up global event listeners for companion interactions
   useEffect(() => {
@@ -126,10 +131,62 @@ export function BlobbiCompanionIntegration() {
       }
     };
 
+    // Function to handle sleep state changes from companion
+    const handleSleepChange = async (event: CustomEvent) => {
+      console.log('😴 React: Sleep change event triggered', { 
+        blobbi: !!blobbi, 
+        user: !!user, 
+        shouldSleep: event.detail.shouldSleep,
+        currentSleepState: isSleeping
+      });
+      
+      if (!blobbi || !user) {
+        console.log('🚫 React: Sleep change blocked - missing requirements', {
+          blobbi: !!blobbi,
+          user: !!user
+        });
+        return;
+      }
+
+      const { shouldSleep } = event.detail;
+
+      try {
+        if (shouldSleep && !isSleeping) {
+          // Put Blobbi to sleep
+          console.log('😴 React: Putting Blobbi to sleep...');
+          await putToSleep();
+          console.log('✅ React: Blobbi is now sleeping');
+          
+          toast({
+            title: "Blobbi is Sleeping",
+            description: "Your Blobbi has settled down on the bed for a nap!",
+          });
+        } else if (!shouldSleep && isSleeping) {
+          // Wake up Blobbi
+          console.log('😊 React: Waking up Blobbi...');
+          await wakeUp();
+          console.log('✅ React: Blobbi is now awake');
+          
+          toast({
+            title: "Blobbi Woke Up",
+            description: "Your Blobbi is refreshed and ready to play!",
+          });
+        }
+      } catch (error) {
+        console.error('❌ React: Failed to change sleep state:', error);
+        toast({
+          title: "Sleep Action Failed",
+          description: error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+
     // Add global event listeners
     window.addEventListener('companion-feed-click', handleFeedClick);
     window.addEventListener('companion-food-placement', handleFoodPlacement as EventListener);
     window.addEventListener('companion-food-reached', handleFoodReached as EventListener);
+    window.addEventListener('companion-sleep-change', handleSleepChange as EventListener);
 
     // Expose functions to global scope for companion script
     (window as unknown as { openFeedModal: () => void }).openFeedModal = handleFeedClick;
@@ -138,9 +195,20 @@ export function BlobbiCompanionIntegration() {
       window.removeEventListener('companion-feed-click', handleFeedClick);
       window.removeEventListener('companion-food-placement', handleFoodPlacement as EventListener);
       window.removeEventListener('companion-food-reached', handleFoodReached as EventListener);
+      window.removeEventListener('companion-sleep-change', handleSleepChange as EventListener);
       delete (window as unknown as { openFeedModal?: () => void }).openFeedModal;
     };
-  }, [selectedFood, blobbi, user, isPlacingFood, performAction, toast, removeFromStorage]);
+  }, [selectedFood, blobbi, user, isPlacingFood, performAction, toast, removeFromStorage, putToSleep, wakeUp, isSleeping]);
+
+  // Notify companion when sleep state changes from React side
+  useEffect(() => {
+    if (blobbi) {
+      // Notify companion about current sleep state
+      window.dispatchEvent(new CustomEvent('react-sleep-state-change', {
+        detail: { isSleeping: blobbi.isSleeping }
+      }));
+    }
+  }, [blobbi?.isSleeping]);
 
   // Function to create food element on screen
   const createFoodElement = (food: BlobbiItem, x: number, y: number) => {

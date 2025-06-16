@@ -316,6 +316,39 @@ body:has([role="dialog"]) .blobbi-container {
     }
 }
 
+/* Sleeping animation */
+.blobbi-character.sleeping {
+    animation: sleeping-rest 4s ease-in-out infinite;
+    filter: saturate(0.7) brightness(0.9);
+    opacity: 0.9;
+}
+
+/* Sleeping shadow - very subtle and stable */
+.blobbi-container.sleeping .blobbi-shadow {
+    animation: shadow-sleeping 4s ease-in-out infinite;
+}
+
+@keyframes sleeping-rest {
+    0%, 100% {
+        transform: scale(0.95) translateY(2px);
+    }
+    50% {
+        transform: scale(0.95) translateY(5px);
+    }
+}
+
+/* Sleeping shadow animation - very gentle */
+@keyframes shadow-sleeping {
+    0%, 100% {
+        transform: translateX(-50%) scale(0.8);
+        opacity: 0.5;
+    }
+    50% {
+        transform: translateX(-50%) scale(0.7);
+        opacity: 0.3;
+    }
+}
+
 /* Speech bubble styles - matching card design from main page */
 .speech-bubble {
     position: absolute;

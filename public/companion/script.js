@@ -45,6 +45,15 @@ class BlobbiCompanion {
         // Continuous proximity detection
         this.continuousProximityCheck = null;
         
+        // Bed proximity and sleep functionality
+        this.bedElement = null;
+        this.isSleeping = false;
+        this.isAttachedToBed = false;
+        this.bedProximityCheck = null;
+        this.bedAttachmentOffset = { x: 0, y: 0 };
+        this.bedMoveListener = null;
+        this.bedObserver = null;
+        
         // Speech bubble functionality
         this.speechBubbleElement = null;
         this.speechBubbleTimeout = null;
@@ -91,6 +100,9 @@ class BlobbiCompanion {
         
         // Start continuous proximity detection
         this.startContinuousProximityDetection();
+        
+        // Start bed proximity detection
+        this.startBedProximityDetection();
         
         // Start free roam by default after a short delay to let everything load
         setTimeout(() => {
@@ -400,7 +412,7 @@ class BlobbiCompanion {
         if (!this.isFreeRoaming) return;
         
         // Don't start free roaming if Flammi is busy with other activities
-        if (this.isEating || this.isAngry || this.isSad || this.foodElement || this.isShowingSpeechBubble) {
+        if (this.isEating || this.isAngry || this.isSad || this.isSleeping || this.foodElement || this.isShowingSpeechBubble) {
             console.log('🚫 Free roam blocked - Flammi is busy with other activities');
             return;
         }
@@ -425,7 +437,7 @@ class BlobbiCompanion {
     }
     
     performFreeRoamMove() {
-        if (!this.isFreeRoaming) return;
+        if (!this.isFreeRoaming || this.isSleeping) return;
         
         // Generate random target within viewport bounds
         const margin = 80; // Margin to keep fully visible
@@ -463,7 +475,7 @@ class BlobbiCompanion {
     }
     
     scheduleNextFreeRoamMove() {
-        if (!this.isFreeRoaming) return;
+        if (!this.isFreeRoaming || this.isSleeping) return;
         
         // Random pause between 0.5-3 seconds
         const pauseDuration = 500 + Math.random() * 2500;
@@ -524,7 +536,7 @@ class BlobbiCompanion {
             }
             
             // Check food proximity - but only for discovery, NOT during active eating
-            if (this.foodElement && !this.isAngry && !this.isSad && !this.isEating) {
+            if (this.foodElement && !this.isAngry && !this.isSad && !this.isEating && !this.isSleeping) {
                 const distance = this.getDistanceToFood();
                 if (distance < 120) { // Large detection radius for discovery
                     console.log('🍽️ Flammi noticed food nearby and is getting excited!');
@@ -541,9 +553,326 @@ class BlobbiCompanion {
         }
     }
     
+    startBedProximityDetection() {
+        // Check for bed proximity every 200ms
+        this.bedProximityCheck = setInterval(() => {
+            // Only check bed proximity if not already sleeping and not in other busy states
+            if (!this.isSleeping && !this.isAngry && !this.isSad && !this.isEating) {
+                this.checkBedProximity();
+            }
+        }, 200);
+    }
+    
+    stopBedProximityDetection() {
+        if (this.bedProximityCheck) {
+            clearInterval(this.bedProximityCheck);
+            this.bedProximityCheck = null;
+        }
+    }
+    
+    findBedElement() {
+        // Look for the bed element in the DOM
+        // The bed should be an img element with src containing 'bed.png'
+        const bedImages = document.querySelectorAll('img[src*="bed.png"]');
+        if (bedImages.length > 0) {
+            return bedImages[0]; // Return the first bed found
+        }
+        return null;
+    }
+    
+    checkBedProximity() {
+        // Find the bed element if we don't have it
+        if (!this.bedElement) {
+            this.bedElement = this.findBedElement();
+            if (!this.bedElement) {
+                return; // No bed found
+            }
+        }
+        
+        // Check if bed element still exists in DOM
+        if (!document.body.contains(this.bedElement)) {
+            this.bedElement = this.findBedElement();
+            if (!this.bedElement) {
+                return; // Bed was removed
+            }
+        }
+        
+        // Get Blobbi's current position
+        const blobbiRect = this.character.getBoundingClientRect();
+        const blobbiCenterX = blobbiRect.left + blobbiRect.width / 2;
+        const blobbiCenterY = blobbiRect.top + blobbiRect.height / 2;
+        
+        // Get bed position and dimensions
+        const bedRect = this.bedElement.getBoundingClientRect();
+        const bedCenterX = bedRect.left + bedRect.width / 2;
+        const bedCenterY = bedRect.top + bedRect.height / 2;
+        
+        // Calculate distance to bed center
+        const distance = Math.sqrt(
+            Math.pow(blobbiCenterX - bedCenterX, 2) + 
+            Math.pow(blobbiCenterY - bedCenterY, 2)
+        );
+        
+        // Check if Blobbi is within the bed's bounds (not just touching from far away)
+        const isWithinBedBounds = (
+            blobbiCenterX >= bedRect.left && 
+            blobbiCenterX <= bedRect.right &&
+            blobbiCenterY >= bedRect.top && 
+            blobbiCenterY <= bedRect.bottom
+        );
+        
+        // Trigger sleep if Blobbi is clearly on the bed (within bounds and close to center)
+        if (isWithinBedBounds && distance < 80) {
+            console.log('🛏️ Blobbi is on the bed! Entering sleep mode...');
+            this.enterSleepMode();
+        }
+    }
+    
+    enterSleepMode() {
+        if (this.isSleeping || this.isAngry || this.isSad || this.isEating) return;
+        
+        console.log('😴 Blobbi is entering sleep mode on the bed');
+        
+        // Set sleep state
+        this.isSleeping = true;
+        
+        // Stop all current behaviors
+        this.stopFreeRoam();
+        this.stopMoving();
+        this.stopFocusedFeeding();
+        
+        // Disable free roaming completely during sleep
+        this.isFreeRoaming = false;
+        this.container.classList.remove('free-roaming');
+        
+        // Add sleeping visual state
+        this.character.classList.add('sleeping');
+        this.container.classList.add('sleeping');
+        
+        // Position Blobbi at the center of the bed
+        this.attachToBed();
+        
+        // Notify React component to trigger sleep in Nostr
+        this.notifyReactSleepMode(true);
+    }
+    
+    attachToBed() {
+        if (!this.bedElement) return;
+        
+        console.log('🔗 Attaching Blobbi to the bed');
+        
+        // Get bed position and center Blobbi on it
+        const bedRect = this.bedElement.getBoundingClientRect();
+        const bedCenterX = bedRect.left + bedRect.width / 2;
+        const bedCenterY = bedRect.top + bedRect.height / 2;
+        
+        // Calculate where Blobbi should be positioned (centered on bed)
+        const targetScreenX = bedCenterX;
+        const targetScreenY = bedCenterY;
+        
+        // Convert screen position to our position system (distance from right/bottom)
+        this.position.x = window.innerWidth - targetScreenX - 60; // 60 is half of Blobbi's width
+        this.position.y = window.innerHeight - targetScreenY - 60; // 60 is half of Blobbi's height
+        
+        // Keep within bounds
+        this.position.x = Math.max(0, Math.min(window.innerWidth - 120, this.position.x));
+        this.position.y = Math.max(0, Math.min(window.innerHeight - 120, this.position.y));
+        
+        this.updatePosition();
+        
+        // Calculate offset from bed center for maintaining relative position
+        this.bedAttachmentOffset.x = targetScreenX - bedCenterX;
+        this.bedAttachmentOffset.y = targetScreenY - bedCenterY;
+        
+        // Set attachment state
+        this.isAttachedToBed = true;
+        
+        // Set up bed movement tracking
+        this.setupBedMovementTracking();
+    }
+    
+    setupBedMovementTracking() {
+        if (!this.bedElement || this.bedMoveListener) return;
+        
+        console.log('👀 Setting up bed movement tracking');
+        
+        // Use MutationObserver to track bed position changes
+        const bedObserver = new MutationObserver(() => {
+            if (this.isAttachedToBed && this.isSleeping) {
+                this.updatePositionWithBed();
+            }
+        });
+        
+        // Observe the bed element's parent for style changes
+        const bedParent = this.bedElement.parentElement;
+        if (bedParent) {
+            bedObserver.observe(bedParent, {
+                attributes: true,
+                attributeFilter: ['style'],
+                subtree: true
+            });
+        }
+        
+        // Also track with a periodic check as fallback
+        this.bedMoveListener = setInterval(() => {
+            if (this.isAttachedToBed && this.isSleeping && this.bedElement) {
+                this.updatePositionWithBed();
+            }
+        }, 100);
+        
+        // Store observer for cleanup
+        this.bedObserver = bedObserver;
+    }
+    
+    updatePositionWithBed() {
+        if (!this.bedElement || !this.isAttachedToBed) return;
+        
+        // Get current bed position
+        const bedRect = this.bedElement.getBoundingClientRect();
+        const bedCenterX = bedRect.left + bedRect.width / 2;
+        const bedCenterY = bedRect.top + bedRect.height / 2;
+        
+        // Calculate new Blobbi position (centered on bed with offset)
+        const targetScreenX = bedCenterX + this.bedAttachmentOffset.x;
+        const targetScreenY = bedCenterY + this.bedAttachmentOffset.y;
+        
+        // Convert to our position system
+        const newX = window.innerWidth - targetScreenX - 60;
+        const newY = window.innerHeight - targetScreenY - 60;
+        
+        // Only update if position actually changed (avoid unnecessary updates)
+        if (Math.abs(this.position.x - newX) > 1 || Math.abs(this.position.y - newY) > 1) {
+            this.position.x = Math.max(0, Math.min(window.innerWidth - 120, newX));
+            this.position.y = Math.max(0, Math.min(window.innerHeight - 120, newY));
+            this.updatePosition();
+        }
+    }
+    
+    exitSleepMode() {
+        if (!this.isSleeping) return;
+        
+        console.log('😊 Blobbi is waking up from the bed');
+        
+        // Clear sleep state
+        this.isSleeping = false;
+        this.isAttachedToBed = false;
+        
+        // Remove sleeping visual state
+        this.character.classList.remove('sleeping');
+        this.container.classList.remove('sleeping');
+        
+        // Clean up bed movement tracking
+        this.cleanupBedTracking();
+        
+        // Re-enable free roaming
+        this.isFreeRoaming = true;
+        this.container.classList.add('free-roaming');
+        
+        // Notify React component to wake up in Nostr
+        this.notifyReactSleepMode(false);
+        
+        // Resume normal behavior after a short delay
+        setTimeout(() => {
+            if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.isSleeping) {
+                this.startFreeRoam();
+            }
+        }, 1000);
+    }
+    
+    cleanupBedTracking() {
+        // Clear bed movement listener
+        if (this.bedMoveListener) {
+            clearInterval(this.bedMoveListener);
+            this.bedMoveListener = null;
+        }
+        
+        // Disconnect bed observer
+        if (this.bedObserver) {
+            this.bedObserver.disconnect();
+            this.bedObserver = null;
+        }
+    }
+    
+    notifyReactSleepMode(shouldSleep) {
+        // Notify React component about sleep state change
+        window.dispatchEvent(new CustomEvent('companion-sleep-change', {
+            detail: { shouldSleep }
+        }));
+    }
+    
+    handleReactSleepStateChange(reactSleepState) {
+        console.log('🔄 Companion: React sleep state changed', { 
+            reactSleepState, 
+            companionSleepState: this.isSleeping 
+        });
+        
+        // Sync companion state with React state
+        if (reactSleepState && !this.isSleeping) {
+            // React says Blobbi should be sleeping, but companion isn't sleeping
+            console.log('😴 Companion: Syncing to sleep state from React');
+            this.syncToSleepState();
+        } else if (!reactSleepState && this.isSleeping) {
+            // React says Blobbi should be awake, but companion is sleeping
+            console.log('😊 Companion: Syncing to awake state from React');
+            this.syncToAwakeState();
+        }
+    }
+    
+    syncToSleepState() {
+        // Sync companion to sleep state without triggering React events
+        this.isSleeping = true;
+        
+        // Stop all current behaviors
+        this.stopFreeRoam();
+        this.stopMoving();
+        this.stopFocusedFeeding();
+        
+        // Disable free roaming completely during sleep
+        this.isFreeRoaming = false;
+        this.container.classList.remove('free-roaming');
+        
+        // Add sleeping visual state
+        this.character.classList.add('sleeping');
+        this.container.classList.add('sleeping');
+        
+        // Try to attach to bed if available
+        if (this.findBedElement()) {
+            this.bedElement = this.findBedElement();
+            this.attachToBed();
+        }
+        
+        console.log('😴 Companion: Synced to sleep state');
+    }
+    
+    syncToAwakeState() {
+        // Sync companion to awake state without triggering React events
+        this.isSleeping = false;
+        this.isAttachedToBed = false;
+        
+        // Remove sleeping visual state
+        this.character.classList.remove('sleeping');
+        this.container.classList.remove('sleeping');
+        
+        // Clean up bed movement tracking
+        this.cleanupBedTracking();
+        
+        // Re-enable free roaming
+        this.isFreeRoaming = true;
+        this.container.classList.add('free-roaming');
+        
+        // Resume normal behavior after a short delay
+        setTimeout(() => {
+            if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.isSleeping) {
+                this.startFreeRoam();
+            }
+        }, 1000);
+        
+        console.log('😊 Companion: Synced to awake state');
+    }
+    
     react() {
-        // Don't react normally if angry or sad
-        if (this.isAngry || this.isSad) return;
+        // Don't react normally if angry, sad, or sleeping
+        if (this.isAngry || this.isSad || this.isSleeping) return;
         
         const reactions = ['happy', 'spin'];
         const reaction = reactions[Math.floor(Math.random() * reactions.length)];
@@ -557,8 +886,8 @@ class BlobbiCompanion {
     setupGlobalClickDetection() {
         // Set up global click listener for rapid click detection
         this.globalClickListener = (e) => {
-            // Don't process clicks if already angry, sad, or if interactions are disabled
-            if (this.isAngry || this.isSad || this.interactionOverlay) return;
+            // Don't process clicks if already angry, sad, sleeping, or if interactions are disabled
+            if (this.isAngry || this.isSad || this.isSleeping || this.interactionOverlay) return;
             
             // Don't count clicks on Flammi's controls
             if (this.container.contains(e.target)) return;
@@ -1019,7 +1348,7 @@ class BlobbiCompanion {
                 this.isFreeRoaming = true;
                 this.container.classList.add('free-roaming');
                 setTimeout(() => {
-                    if (this.isFreeRoaming && !this.isAngry && !this.isSad) {
+                    if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isSleeping) {
                         this.startFreeRoam();
                     }
                 }, 1000);
@@ -1034,7 +1363,7 @@ class BlobbiCompanion {
     
     // New feeding functionality with React integration
     openFeedModal() {
-        if (this.isAngry || this.isSad || this.isEating) return;
+        if (this.isAngry || this.isSad || this.isEating || this.isSleeping) return;
         
         console.log('🍽️ Opening feed modal...');
         
@@ -1053,6 +1382,12 @@ class BlobbiCompanion {
             const { element, food, x, y } = event.detail;
             this.handleFoodPlaced(element, food, x, y);
         });
+        
+        // Listen for sleep state changes from React
+        window.addEventListener('react-sleep-state-change', (event) => {
+            const { isSleeping: reactSleepState } = event.detail;
+            this.handleReactSleepStateChange(reactSleepState);
+        });
     }
     
     // Handle food placement from React
@@ -1069,7 +1404,7 @@ class BlobbiCompanion {
     
     // Legacy feeding functionality (fallback)
     toggleFeedingMode() {
-        if (this.isAngry || this.isSad || this.isEating) return;
+        if (this.isAngry || this.isSad || this.isEating || this.isSleeping) return;
         
         this.isFeedingMode = !this.isFeedingMode;
         
@@ -1156,7 +1491,7 @@ class BlobbiCompanion {
     }
     
     startFocusedFeeding() {
-        if (!this.foodElement || this.isEating) return;
+        if (!this.foodElement || this.isEating || this.isSleeping) return;
         
         console.log('🍽️ Flammi is now COMPLETELY focused on the food!');
         
@@ -1438,7 +1773,7 @@ class BlobbiCompanion {
     // Speech bubble functionality
     showSpeechBubble(message = null) {
         // Don't show speech bubble if already showing one or if in certain states
-        if (this.isShowingSpeechBubble || this.isAngry || this.isSad || this.isEating) return;
+        if (this.isShowingSpeechBubble || this.isAngry || this.isSad || this.isEating || this.isSleeping) return;
         
         console.log('💬 Showing speech bubble');
         
@@ -1573,6 +1908,10 @@ class BlobbiCompanion {
         
         // Stop continuous proximity detection
         this.stopContinuousProximityDetection();
+        
+        // Stop bed proximity detection and cleanup bed tracking
+        this.stopBedProximityDetection();
+        this.cleanupBedTracking();
         
         // Enable interactions if disabled
         this.enableInteractions();

@@ -11,6 +11,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { ThemeProvider } from "@/components/theme-provider";
 import { RelayProvider, useRelayContext } from '@/contexts/RelayContext';
 import { BlobbiCompanionIntegration } from '@/components/blobbi/BlobbiCompanionIntegration';
+import { BedProvider } from '@/contexts/BedContext';
 import AppRouter from './AppRouter';
 
 // Component that connects relay context to NostrProvider
@@ -67,10 +68,12 @@ export function App() {
           <NostrProviderWithRelays fallbackRelays={defaultRelays}>
             <QueryClientProvider client={queryClient}>
               <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BlobbiCompanionIntegration />
-                <AppRouter />
+                <BedProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BlobbiCompanionIntegration />
+                  <AppRouter />
+                </BedProvider>
               </TooltipProvider>
             </QueryClientProvider>
           </NostrProviderWithRelays>

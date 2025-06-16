@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
+import { useBed } from '@/contexts/BedContext';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
 import blobBlack from '/blob-black.svg';
@@ -37,6 +38,7 @@ const DRAG_THRESHOLD = 5; // pixels
 export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps) {
   const location = useLocation();
   const { data: companionData, isLoading } = useCurrentCompanion();
+  const { isBedVisible, toggleBed } = useBed();
   const [position, setPosition] = useState<Position>(DEFAULT_POSITION);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -181,11 +183,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   });
 
   const handleSleep = createActionHandler(() => {
-    window.blobbiCompanion?.hide();
-  });
-  
-  const handleWake = createActionHandler(() => {
-    window.blobbiCompanion?.show();
+    toggleBed();
   });
 
   const handleFollowMe = createActionHandler(() => {
@@ -201,8 +199,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const menuItems = [
     { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi },
     { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility },
-    { icon: '😴', label: 'Sleep', action: handleSleep },
-    { icon: '😊', label: 'Wake', action: handleWake },
+    { icon: isBedVisible ? '🛏️' : '😴', label: isBedVisible ? 'Remove Bed' : 'Sleep', action: handleSleep },
     { icon: '🚶', label: 'Follow Me', action: handleFollowMe },
   ];
 
