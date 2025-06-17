@@ -664,11 +664,16 @@ class BlobbiCompanion {
         // Get bed position and center Blobbi on it
         const bedRect = this.bedElement.getBoundingClientRect();
         const bedCenterX = bedRect.left + bedRect.width / 2;
-        const bedCenterY = bedRect.top + bedRect.height / 2;
         
-        // Calculate where Blobbi should be positioned (centered on bed)
-        const targetScreenX = bedCenterX;
-        const targetScreenY = bedCenterY;
+        // Position Blobbi horizontally centered, and vertically slightly above center
+        let targetScreenX = bedCenterX + 12;
+        let targetScreenY = bedRect.top + bedRect.height * 0.15;
+
+        // Mobile-specific adjustments
+        if (window.innerWidth < 768) {
+            targetScreenX -= 30; // Move 15px to the left
+            targetScreenY -= 25; // Move 10px upward
+        }
         
         // Convert screen position to our position system (distance from right/bottom)
         this.position.x = window.innerWidth - targetScreenX - 60; // 60 is half of Blobbi's width
@@ -680,9 +685,9 @@ class BlobbiCompanion {
         
         this.updatePosition();
         
-        // Calculate offset from bed center for maintaining relative position
-        this.bedAttachmentOffset.x = targetScreenX - bedCenterX;
-        this.bedAttachmentOffset.y = targetScreenY - bedCenterY;
+        // Calculate offset from bed's top-left for maintaining relative position
+        this.bedAttachmentOffset.x = targetScreenX - bedRect.left;
+        this.bedAttachmentOffset.y = targetScreenY - bedRect.top;
         
         // Set attachment state
         this.isAttachedToBed = true;
@@ -729,12 +734,10 @@ class BlobbiCompanion {
         
         // Get current bed position
         const bedRect = this.bedElement.getBoundingClientRect();
-        const bedCenterX = bedRect.left + bedRect.width / 2;
-        const bedCenterY = bedRect.top + bedRect.height / 2;
         
-        // Calculate new Blobbi position (centered on bed with offset)
-        const targetScreenX = bedCenterX + this.bedAttachmentOffset.x;
-        const targetScreenY = bedCenterY + this.bedAttachmentOffset.y;
+        // Calculate new Blobbi position based on bed's top-left and the stored offset
+        const targetScreenX = bedRect.left + this.bedAttachmentOffset.x;
+        const targetScreenY = bedRect.top + this.bedAttachmentOffset.y;
         
         // Convert to our position system
         const newX = window.innerWidth - targetScreenX - 60;

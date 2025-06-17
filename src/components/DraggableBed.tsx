@@ -25,11 +25,20 @@ interface DraggableBedProps {
 const STORAGE_KEY = 'blobbi-bed-position';
 const DRAG_THRESHOLD = 5; // pixels
 
-// Default position: bottom-right corner with some margin
-const getDefaultPosition = (): Position => ({
-  x: window.innerWidth - 120 - 20, // bed width + margin
-  y: window.innerHeight - 80 - 20, // bed height + margin
-});
+const getBedDimensions = () => {
+  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    return { width: 120, height: 80 }; // Smaller size for mobile
+  }
+  return { width: 220, height: 140 }; // Default size for larger screens
+};
+
+const getDefaultPosition = (): Position => {
+  const { width, height } = getBedDimensions();
+  return {
+    x: window.innerWidth - width - 20, // bed width + margin
+    y: window.innerHeight - height - 20, // bed height + margin
+  };
+};
 
 export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
   ({ isVisible, onClose, className, onDrop }, ref) => {
@@ -44,11 +53,9 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
       if (savedPosition) {
         try {
           const parsed = JSON.parse(savedPosition);
-          // Validate the position is still within bounds
-          const bedWidth = 120;
-          const bedHeight = 80;
-          const maxX = window.innerWidth - bedWidth;
-          const maxY = window.innerHeight - bedHeight;
+          const { width, height } = getBedDimensions();
+          const maxX = window.innerWidth - width;
+          const maxY = window.innerHeight - height;
           
           setPosition({
             x: Math.max(0, Math.min(maxX, parsed.x)),
@@ -64,10 +71,9 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
     // Update position when window resizes to keep bed in bounds
     useEffect(() => {
       const handleResize = () => {
-        const bedWidth = 120;
-        const bedHeight = 80;
-        const maxX = window.innerWidth - bedWidth;
-        const maxY = window.innerHeight - bedHeight;
+        const { width, height } = getBedDimensions();
+        const maxX = window.innerWidth - width;
+        const maxY = window.innerHeight - height;
         
         setPosition(prev => ({
           x: Math.max(0, Math.min(maxX, prev.x)),
@@ -84,14 +90,12 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
     };
 
     const handlePointerDown = (e: React.PointerEvent) => {
-      // Don't start drag if clicking on close button or other interactive elements
       if ((e.target as HTMLElement).closest('button')) return;
       
       e.preventDefault();
       e.stopPropagation();
       dragRef.current?.setPointerCapture(e.pointerId);
       
-      // Use clientX/Y for mouse events, or first touch for touch events
       const clientX = e.clientX;
       const clientY = e.clientY;
       
@@ -107,14 +111,12 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
     const handlePointerMove = (e: React.PointerEvent) => {
       if (!dragStartRef.current) return;
 
-      // Use clientX/Y for mouse events, or first touch for touch events
       const clientX = e.clientX;
       const clientY = e.clientY;
 
       const deltaX = clientX - dragStartRef.current.x;
       const deltaY = clientY - dragStartRef.current.y;
 
-      // Check if we've moved enough to start dragging
       if (!dragStartRef.current.isDragging && 
           (Math.abs(deltaX) > DRAG_THRESHOLD || Math.abs(deltaY) > DRAG_THRESHOLD)) {
         dragStartRef.current.isDragging = true;
@@ -122,12 +124,11 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
       }
 
       if (dragStartRef.current.isDragging) {
-        const bedWidth = 120;
-        const bedHeight = 80;
+        const { width, height } = getBedDimensions();
         const newX = dragStartRef.current.startX + deltaX;
         const newY = dragStartRef.current.startY + deltaY;
-        const maxX = window.innerWidth - bedWidth;
-        const maxY = window.innerHeight - bedHeight;
+        const maxX = window.innerWidth - width;
+        const maxY = window.innerHeight - height;
 
         setPosition({
           x: Math.max(0, Math.min(maxX, newX)),
@@ -164,7 +165,7 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
           left: position.x,
           top: position.y,
           touchAction: 'none',
-          pointerEvents: 'auto', // Ensure the bed can be interacted with
+          pointerEvents: 'auto',
         }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -178,11 +179,10 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
         transition={{ duration: 0.3 }}
       >
         <div className="relative" ref={ref}>
-          {/* Bed Image */}
           <motion.img 
             src="/bed.png" 
             alt="Blobbi's bed" 
-            className="w-[220px] object-contain"
+            className="w-[120px] md:w-[220px] object-contain"
             draggable={false}
             animate={{
               y: [0, -2, 0],
