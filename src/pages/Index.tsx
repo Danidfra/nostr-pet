@@ -327,6 +327,9 @@ const Index = () => {
               Your pet data is stored permanently on the network and belongs to you.
             </p>
             <p className="mt-2">
+              Always <a href="https://github.com/Danidfra/nostr-pet" target="_blank" rel="noopener noreferrer" className="text-purple-600 dark:text-purple-400 underline">open source</a>. Steal <a href="https://github.com/Danidfra/nostr-pet" target="_blank" rel="noopener noreferrer" className="text-purple-600 dark:text-purple-400 underline">this code</a> and make it better! 💖
+            </p>
+            <p className="mt-2">
               <a 
                 href="https://soapbox.pub/tools/mkstack/" 
                 target="_blank" 
