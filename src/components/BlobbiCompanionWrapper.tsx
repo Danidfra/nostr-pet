@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { useBed } from '@/contexts/BedContext';
@@ -437,7 +437,7 @@ export function BlobbiCompanionWrapper() {
   const shouldShowCompanion = location.pathname.startsWith('/blobbi');
 
   // ✅ NEW: Helper function to position Blobbi on bed when sleeping
-  const positionBlobbiOnBed = (blobbiId: string) => {
+  const positionBlobbiOnBed = useCallback((blobbiId: string, retryCount: number = 0) => {
     // Only position if we haven't already positioned this Blobbi for sleep
     if (positionedForSleep.current === blobbiId) {
       return;
@@ -447,7 +447,13 @@ export function BlobbiCompanionWrapper() {
     setTimeout(() => {
       const bedElement = document.querySelector('img[src*="bed.png"]') as HTMLElement;
       if (!bedElement || !window.blobbiCompanion) {
-        console.log('🛏️ Bed or companion not found for positioning');
+        // ✅ ENHANCED: Retry positioning up to 3 times with increasing delays
+        if (retryCount < 3) {
+          console.log(`🛏️ Bed or companion not found for positioning, retrying... (${retryCount + 1}/3)`);
+          positionBlobbiOnBed(blobbiId, retryCount + 1);
+          return;
+        }
+        console.log('🛏️ Bed or companion not found for positioning after retries');
         return;
       }
 
@@ -478,8 +484,8 @@ export function BlobbiCompanionWrapper() {
       
       console.log(`🛏️ Positioned sleeping Blobbi on bed at (${boundedX}, ${boundedY})`);
       positionedForSleep.current = blobbiId;
-    }, 300); // Wait 300ms for bed to be rendered
-  };
+    }, 300 + (retryCount * 200)); // Increase delay with each retry
+  }, []);
 
   // Helper to update SVG in the DOM
   const updateSvgInDom = (svgContent: string) => {
@@ -688,7 +694,7 @@ export function BlobbiCompanionWrapper() {
     };
 
     loadCompanion();
-  }, [shouldShowCompanion, isLoading, companionData, currentBlobbiId, isCompanionLoaded]);
+  }, [shouldShowCompanion, isLoading, companionData, currentBlobbiId, isCompanionLoaded, setCompanionLoaded, positionBlobbiOnBed]);
 
   // ✅ FIXED: Handle sleep state changes and update SVG accordingly
   useEffect(() => {
@@ -745,7 +751,32 @@ export function BlobbiCompanionWrapper() {
         fetchAndUpdateSvg();
       }
     }
-  }, [companionData?.blobbi?.isSleeping, companionData?.blobbi?.id, isCompanionLoaded]);
+  }, [companionData?.blobbi?.isSleeping, companionData?.blobbi?.id, isCompanionLoaded, positionBlobbiOnBed]);
+
+  // ✅ NEW: Handle positioning when bed becomes available and Blobbi is already sleeping
+  useEffect(() => {
+    // Only run this effect when companion is loaded and we have companion data
+    if (!isCompanionLoaded || !companionData?.blobbi) return;
+
+    const blobbi = companionData.blobbi;
+    const blobbiId = companionData.blobbiId;
+
+    // If Blobbi is sleeping but hasn't been positioned yet, try to position it
+    if (blobbi.isSleeping && positionedForSleep.current !== blobbiId) {
+      console.log('🛏️ Companion loaded and sleeping, checking for bed to position');
+      
+      // Check if bed is available immediately
+      const bedElement = document.querySelector('img[src*="bed.png"]') as HTMLElement;
+      if (bedElement && window.blobbiCompanion) {
+        console.log('🛏️ Bed found immediately, positioning sleeping Blobbi');
+        positionBlobbiOnBed(blobbiId);
+      } else {
+        // Wait for bed to become available
+        console.log('🛏️ Bed not found, will retry positioning');
+        positionBlobbiOnBed(blobbiId);
+      }
+    }
+  }, [isCompanionLoaded, companionData?.blobbi?.isSleeping, companionData?.blobbiId, positionBlobbiOnBed]);
 
   // Cleanup on unmount
   useEffect(() => {

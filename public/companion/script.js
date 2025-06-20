@@ -161,9 +161,13 @@ class BlobbiCompanion {
     }
     
     setupEventListeners() {
-        // Click on character for reactions
+        // Click on character for reactions or wake-up
         this.character.addEventListener('click', () => {
-            this.react();
+            if (this.isSleeping) {
+                this.handleWakeUpClick();
+            } else {
+                this.react();
+            }
         });
         
         // Drag functionality
@@ -873,6 +877,31 @@ class BlobbiCompanion {
         console.log('😊 Companion: Synced to awake state');
     }
     
+    handleWakeUpClick() {
+        if (!this.isSleeping) return;
+        
+        console.log('☀️ Companion: Wake-up click detected');
+        this.triggerWakeUp();
+    }
+    
+    handleWakeUpRequest() {
+        if (!this.isSleeping) return;
+        
+        console.log('☀️ Companion: Wake-up request from floating menu');
+        this.triggerWakeUp();
+    }
+    
+    triggerWakeUp() {
+        if (!this.isSleeping) return;
+        
+        console.log('☀️ Companion: Triggering wake-up sequence');
+        
+        // Notify React component to handle the wake-up logic
+        window.dispatchEvent(new CustomEvent('companion-sleep-change', {
+            detail: { shouldSleep: false }
+        }));
+    }
+    
     react() {
         // Don't react normally if angry, sad, or sleeping
         if (this.isAngry || this.isSad || this.isSleeping) return;
@@ -1390,6 +1419,11 @@ class BlobbiCompanion {
         window.addEventListener('react-sleep-state-change', (event) => {
             const { isSleeping: reactSleepState } = event.detail;
             this.handleReactSleepStateChange(reactSleepState);
+        });
+        
+        // Listen for wake-up requests from floating menu
+        window.addEventListener('companion-wake-up-request', () => {
+            this.handleWakeUpRequest();
         });
     }
     

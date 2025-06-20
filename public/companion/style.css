@@ -321,6 +321,14 @@ body:has([role="dialog"]) .blobbi-container {
     animation: sleeping-rest 4s ease-in-out infinite;
     filter: saturate(0.7) brightness(0.9);
     opacity: 0.9;
+    cursor: pointer; /* Show pointer cursor when sleeping to indicate clickability */
+    transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+/* Hover effect for sleeping Blobbi to indicate it's clickable */
+.blobbi-character.sleeping:hover {
+    filter: saturate(0.8) brightness(1.0);
+    opacity: 1.0;
 }
 
 /* Sleeping shadow - very subtle and stable */

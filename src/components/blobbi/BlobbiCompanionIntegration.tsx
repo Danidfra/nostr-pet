@@ -176,6 +176,60 @@ export function BlobbiCompanionIntegration() {
       }
     };
 
+    // Function to handle wake-up request from floating menu
+    const handleWakeUpRequest = async () => {
+      console.log('☀️ React: Wake-up request triggered', { 
+        blobbi: !!blobbi, 
+        user: !!user, 
+        companionData: !!companionData,
+        isCurrentCompanion: companionData?.blobbiId === blobbi?.id,
+        currentSleepState: isSleeping
+      });
+      
+      if (!blobbi || !user || !companionData || !isSleeping) {
+        console.log('🚫 React: Wake-up blocked - missing requirements or not sleeping', {
+          blobbi: !!blobbi,
+          user: !!user,
+          companionData: !!companionData,
+          isSleeping
+        });
+        return;
+      }
+
+      // ✅ FIXED: Ensure we're interacting with the current companion
+      if (companionData.blobbiId !== blobbi.id) {
+        console.log('🚫 React: Wake-up blocked - Blobbi ID mismatch', {
+          companionId: companionData.blobbiId,
+          blobbiId: blobbi.id
+        });
+        toast({
+          title: "Error",
+          description: "Cannot wake up - companion mismatch. Please refresh the page.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        // Wake up Blobbi (bed visibility will be handled automatically by BedContext)
+        console.log('😊 React: Waking up Blobbi from floating menu...');
+        await wakeUp();
+        console.log('✅ React: Blobbi is now awake');
+        
+        toast({
+          title: "Blobbi Woke Up",
+          description: "Your Blobbi is refreshed and ready to play!",
+        });
+      } catch (error) {
+        console.error('❌ React: Failed to wake up Blobbi:', error);
+        toast({
+          title: "Wake Up Failed",
+          description: error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+
     // Function to handle sleep state changes from companion
     const handleSleepChange = async (event: CustomEvent) => {
       console.log('😴 React: Sleep change event triggered', { 
@@ -249,6 +303,7 @@ export function BlobbiCompanionIntegration() {
     window.addEventListener('companion-food-placement', handleFoodPlacement as EventListener);
     window.addEventListener('companion-food-reached', handleFoodReached as EventListener);
     window.addEventListener('companion-sleep-change', handleSleepChange as EventListener);
+    window.addEventListener('companion-wake-up-request', handleWakeUpRequest);
 
     // Expose functions to global scope for companion script
     (window as unknown as { openFeedModal: () => void }).openFeedModal = handleFeedClick;
@@ -258,6 +313,7 @@ export function BlobbiCompanionIntegration() {
       window.removeEventListener('companion-food-placement', handleFoodPlacement as EventListener);
       window.removeEventListener('companion-food-reached', handleFoodReached as EventListener);
       window.removeEventListener('companion-sleep-change', handleSleepChange as EventListener);
+      window.removeEventListener('companion-wake-up-request', handleWakeUpRequest);
       delete (window as unknown as { openFeedModal?: () => void }).openFeedModal;
     };
   }, [selectedFood, blobbi, user, isPlacingFood, performAction, toast, removeFromStorage, putToSleep, wakeUp, isSleeping, companionData]);

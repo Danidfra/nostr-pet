@@ -16,12 +16,17 @@ import VisualEffectsDemo from "./pages/VisualEffectsDemo";
 
 import { BlobbiCompanionWrapper } from "./components/BlobbiCompanionWrapper";
 import { BlobbiFloatingActionMenu } from "./components/BlobbiFloatingActionMenu";
+import { DraggableBed } from "./components/DraggableBed";
+import { useBed } from "./contexts/BedContext";
 
 export function AppRouter() {
+  const { shouldRenderBed, hideBed } = useBed();
+
   return (
     <BrowserRouter>
       <BlobbiCompanionWrapper />
       <BlobbiFloatingActionMenu />
+      <DraggableBed isVisible={shouldRenderBed} onClose={hideBed} />
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/blobbi" element={<BlobbiDashboard />} />
