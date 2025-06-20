@@ -209,7 +209,9 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
     const currentTime = Math.floor(Date.now() / 1000);
 
     try {
-      // First, emit the "rest" interaction event
+      // ✅ FIXED: Emit events in the correct order with proper dispatch logic
+      
+      // 1. First, emit the "rest" interaction event (kind 14919)
       await createInteractionWithStateUpdate({
         blobbiId: blobbi.id,
         action: 'rest',
@@ -219,7 +221,7 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
         carePoints: 0,
       });
 
-      // Then, update the state to sleeping
+      // 2. Then, update the state to sleeping (kind 31124)
       const updatedBlobbi: Blobbi = {
         ...blobbi,
         isSleeping: true,

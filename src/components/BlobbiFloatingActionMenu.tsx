@@ -183,7 +183,17 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   });
 
   const handleSleep = createActionHandler(() => {
+    // Check if Blobbi is sleeping - if so, prevent hiding the bed
+    if (isBedVisible && companionData?.blobbi?.isSleeping) {
+      // Don't allow hiding the bed when Blobbi is sleeping
+      return;
+    }
     toggleBed();
+  });
+
+  const handleWakeUp = createActionHandler(() => {
+    // Trigger wake-up logic for the Blobbi Companion
+    window.dispatchEvent(new CustomEvent('companion-wake-up-request'));
   });
 
   const handleFollowMe = createActionHandler(() => {
@@ -196,11 +206,22 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
 
   const iconSrc = resolvedTheme === 'dark' ? blobWhite : blobBlack;
 
+  // Check if Blobbi is sleeping to determine bed action availability
+  const isBlobbiSleeping = companionData?.blobbi?.isSleeping || false;
+  const canRemoveBed = isBedVisible && !isBlobbiSleeping;
+  
   const menuItems = [
-    { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi },
-    { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility },
-    { icon: isBedVisible ? '🛏️' : '😴', label: isBedVisible ? 'Remove Bed' : 'Sleep', action: handleSleep },
-    { icon: '🚶', label: 'Follow Me', action: handleFollowMe },
+    { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi, disabled: false },
+    { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility, disabled: false },
+    { 
+      icon: isBedVisible ? '🛏️' : '😴', 
+      label: isBedVisible ? (isBlobbiSleeping ? 'Bed Required (Sleeping)' : 'Remove Bed') : 'Show Bed', 
+      action: handleSleep,
+      disabled: isBedVisible && isBlobbiSleeping
+    },
+    // Add wake-up option when Blobbi is sleeping
+    ...(isBlobbiSleeping ? [{ icon: '☀️', label: 'Wake Up', action: handleWakeUp, disabled: false }] : []),
+    { icon: '🚶', label: 'Follow Me', action: handleFollowMe, disabled: false },
   ];
 
   return (
@@ -271,20 +292,25 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
                 key={item.label}
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-md",
-                  "text-sm font-medium text-gray-700 dark:text-gray-200",
-                  "hover:bg-purple-100 dark:hover:bg-purple-900/50",
-                  "transition-colors duration-150",
-                  isMobile ? "justify-start min-w-[140px]" : "justify-center min-w-[40px]"
+                  "text-sm font-medium transition-colors duration-150",
+                  isMobile ? "justify-start min-w-[140px]" : "justify-center min-w-[40px]",
+                  item.disabled 
+                    ? "text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60" 
+                    : "text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-purple-900/50"
                 )}
-                onClick={item.action}
+                onClick={item.disabled ? undefined : item.action}
+                disabled={item.disabled}
                 initial={{ opacity: 0, x: isMobile ? -20 : 0, y: isMobile ? 0 : -20 }}
                 animate={{ opacity: 1, x: 0, y: 0 }}
                 transition={{ delay: index * 0.05, duration: 0.15 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={item.disabled ? {} : { scale: 1.05 }}
+                whileTap={item.disabled ? {} : { scale: 0.95 }}
                 title={item.label}
               >
-                <span className="text-lg">{item.icon}</span>
+                <span className={cn(
+                  "text-lg",
+                  item.disabled && "grayscale"
+                )}>{item.icon}</span>
                 {isMobile && <span>{item.label}</span>}
               </motion.button>
             ))}

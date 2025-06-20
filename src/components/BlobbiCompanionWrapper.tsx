@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
+import { useBed } from '@/contexts/BedContext';
 import { Blobbi } from '@/types/blobbi';
 
 interface BlobbiCompanionAPI {
@@ -14,12 +15,17 @@ interface BlobbiCompanionAPI {
 }
 
 // Helper to determine SVG URL based on Blobbi type and stage
-function getBlobbiSvgUrl(blobbi: Blobbi): string {
+function getBlobbiSvgUrl(blobbi: Blobbi, isSleeping: boolean = false): string {
+  // ✅ FIXED: Handle sleeping SVG for baby stage
   if (blobbi.lifeStage === 'baby') {
+    if (isSleeping) {
+      return 'https://danidfra.github.io/blobbi-designs/baby-stage/baby/blobbi-baby-sleeping.svg';
+    }
     return 'https://danidfra.github.io/blobbi-designs/baby-stage/baby/blobbi-baby-base.svg';
   }
   
   if (blobbi.lifeStage === 'adult' && blobbi.evolutionForm) {
+    // Note: For adult forms, we use the base SVG even when sleeping (no sleeping variants available)
     return `https://danidfra.github.io/blobbi-designs/adult-stage/${blobbi.evolutionForm}/${blobbi.evolutionForm}-base.svg`;
   }
   
@@ -28,7 +34,7 @@ function getBlobbiSvgUrl(blobbi: Blobbi): string {
 }
 
 // Helper to customize SVG with colors
-function customizeSvg(svgText: string, blobbi: Blobbi): string {
+function customizeSvg(svgText: string, blobbi: Blobbi, isSleeping: boolean = false): string {
   let modifiedSvg = svgText;
 
   // Only apply customizations if we have colors
@@ -62,8 +68,8 @@ function customizeSvg(svgText: string, blobbi: Blobbi): string {
     modifiedSvg = modifiedSvg.replace(bodyGradientMatch[0], newGradient);
   }
 
-  // Find and modify the eye gradient if eye color is present
-  if (blobbi.eyeColor) {
+  // ✅ FIXED: Skip eye color customization for sleeping SVGs (eyes are closed)
+  if (blobbi.eyeColor && !isSleeping) {
     const eyeGradientRegex = /<radialGradient[^>]*id=["']blobbiPupilGradient["'][^>]*>([\s\S]*?)<\/radialGradient>/;
     const eyeGradientMatch = modifiedSvg.match(eyeGradientRegex);
 
@@ -406,26 +412,80 @@ function lightenColor(color: string, percent: number): string {
 }
 
 // Helper to generate cache key with more specificity
-function getCacheKey(blobbi: Blobbi, blobbiId: string): string {
+function getCacheKey(blobbi: Blobbi, blobbiId: string, isSleeping: boolean = false): string {
   const stage = blobbi.lifeStage;
   const type = blobbi.evolutionForm || 'baby';
   const baseColor = blobbi.baseColor || 'default';
   const secondaryColor = blobbi.secondaryColor || 'none';
-  return `blobbi-svg-${blobbiId}-${stage}-${type}-${baseColor}-${secondaryColor}`;
+  const sleepState = isSleeping ? 'sleeping' : 'awake';
+  return `blobbi-svg-${blobbiId}-${stage}-${type}-${baseColor}-${secondaryColor}-${sleepState}`;
 }
 
 export function BlobbiCompanionWrapper() {
   const location = useLocation();
   const { data: companionData, isLoading } = useCurrentCompanion();
+  const { setCompanionLoaded } = useBed();
   const [isCompanionLoaded, setIsCompanionLoaded] = useState(false);
   const [currentBlobbiId, setCurrentBlobbiId] = useState<string | null>(null);
   const [isLoadingSvg, setIsLoadingSvg] = useState(false);
   const companionInitialized = useRef(false);
   const eyeAnimator = useRef<BlobbiEyeAnimator | null>(null);
   const updateInProgress = useRef(false);
+  const positionedForSleep = useRef<string | null>(null); // Track which Blobbi was positioned for sleep
 
   // Check if we're on a /blobbi route
   const shouldShowCompanion = location.pathname.startsWith('/blobbi');
+
+  // ✅ NEW: Helper function to position Blobbi on bed when sleeping
+  const positionBlobbiOnBed = useCallback((blobbiId: string, retryCount: number = 0) => {
+    // Only position if we haven't already positioned this Blobbi for sleep
+    if (positionedForSleep.current === blobbiId) {
+      return;
+    }
+
+    // Wait a bit for bed to be rendered
+    setTimeout(() => {
+      const bedElement = document.querySelector('img[src*="bed.png"]') as HTMLElement;
+      if (!bedElement || !window.blobbiCompanion) {
+        // ✅ ENHANCED: Retry positioning up to 3 times with increasing delays
+        if (retryCount < 3) {
+          console.log(`🛏️ Bed or companion not found for positioning, retrying... (${retryCount + 1}/3)`);
+          positionBlobbiOnBed(blobbiId, retryCount + 1);
+          return;
+        }
+        console.log('🛏️ Bed or companion not found for positioning after retries');
+        return;
+      }
+
+      // Get bed position and center Blobbi on it
+      const bedRect = bedElement.getBoundingClientRect();
+      const bedCenterX = bedRect.left + bedRect.width / 2;
+      
+      // Position Blobbi horizontally centered, and vertically slightly above center
+      let targetScreenX = bedCenterX + 12;
+      let targetScreenY = bedRect.top + bedRect.height * 0.15; // Slightly above center vertically
+
+      // Mobile-specific adjustments (shift 15px left and 10px up)
+      if (window.innerWidth < 768) {
+        targetScreenX -= 30; // Move 15px to the left
+        targetScreenY -= 25; // Move 10px upward
+      }
+      
+      // Convert screen position to companion's position system (distance from right/bottom)
+      const positionX = window.innerWidth - targetScreenX - 60; // 60 is half of Blobbi's width
+      const positionY = window.innerHeight - targetScreenY - 60; // 60 is half of Blobbi's height
+      
+      // Keep within bounds
+      const boundedX = Math.max(0, Math.min(window.innerWidth - 120, positionX));
+      const boundedY = Math.max(0, Math.min(window.innerHeight - 120, positionY));
+
+      // Position the companion
+      window.blobbiCompanion.setPosition(boundedX, boundedY);
+      
+      console.log(`🛏️ Positioned sleeping Blobbi on bed at (${boundedX}, ${boundedY})`);
+      positionedForSleep.current = blobbiId;
+    }, 300 + (retryCount * 200)); // Increase delay with each retry
+  }, []);
 
   // Helper to update SVG in the DOM
   const updateSvgInDom = (svgContent: string) => {
@@ -476,6 +536,14 @@ export function BlobbiCompanionWrapper() {
       if (window.blobbiCompanion && isCompanionLoaded) {
         window.blobbiCompanion.hide();
       }
+      
+      // ✅ NEW: Notify bed context that companion is not available
+      if (isCompanionLoaded) {
+        setCompanionLoaded(false);
+        setIsCompanionLoaded(false);
+        positionedForSleep.current = null;
+      }
+      
       return;
     }
 
@@ -486,14 +554,25 @@ export function BlobbiCompanionWrapper() {
     if (currentBlobbiId === blobbiId && isCompanionLoaded && !updateInProgress.current) {
       // Same companion, just show it
       window.blobbiCompanion?.show();
+      
+      // ✅ NEW: Check if we need to position for sleep
+      if (blobbi.isSleeping && positionedForSleep.current !== blobbiId) {
+        console.log('🛏️ Same companion but now sleeping, positioning on bed');
+        positionBlobbiOnBed(blobbiId);
+      } else if (!blobbi.isSleeping) {
+        // Reset positioning tracking if not sleeping
+        positionedForSleep.current = null;
+      }
+      
       return;
     }
 
     // Load or update companion
     const loadCompanion = async () => {
       try {
-        // Generate cache key with more specificity
-        const cacheKey = getCacheKey(blobbi, blobbiId);
+        // ✅ FIXED: Determine current sleep state and generate appropriate cache keys
+        const isSleeping = blobbi.isSleeping || false;
+        const currentCacheKey = getCacheKey(blobbi, blobbiId, isSleeping);
         
         // Initialize companion if not already done
         if (!companionInitialized.current) {
@@ -534,7 +613,7 @@ export function BlobbiCompanionWrapper() {
         }
 
         // Step 1: Try to load from sessionStorage first
-        const cachedSvg = sessionStorage.getItem(cacheKey);
+        const cachedSvg = sessionStorage.getItem(currentCacheKey);
         
         if (cachedSvg) {
           // Use cached SVG immediately
@@ -552,19 +631,39 @@ export function BlobbiCompanionWrapper() {
         // Step 2: Fetch and update in parallel (always do this to ensure latest version)
         updateInProgress.current = true;
         
-        // Fetch the SVG
-        const svgUrl = getBlobbiSvgUrl(blobbi);
+        // ✅ FIXED: Fetch the appropriate SVG based on sleep state
+        const svgUrl = getBlobbiSvgUrl(blobbi, isSleeping);
         const response = await fetch(svgUrl);
         const svgText = await response.text();
         
-        // Customize the SVG with the Blobbi's colors
-        const customizedSvg = customizeSvg(svgText, blobbi);
+        // ✅ FIXED: Customize the SVG with the Blobbi's colors, considering sleep state
+        const customizedSvg = customizeSvg(svgText, blobbi, isSleeping);
         
         // Update sessionStorage with new SVG
-        sessionStorage.setItem(cacheKey, customizedSvg);
+        sessionStorage.setItem(currentCacheKey, customizedSvg);
         
         // Update the DOM with the new SVG (even if we had a cached version)
         updateSvgInDom(customizedSvg);
+        
+        // ✅ FIXED: Preload both awake and sleeping SVGs for quick switching (baby stage only)
+        if (blobbi.lifeStage === 'baby') {
+          try {
+            const alternateSleepState = !isSleeping;
+            const alternateCacheKey = getCacheKey(blobbi, blobbiId, alternateSleepState);
+            
+            // Only preload if not already cached
+            if (!sessionStorage.getItem(alternateCacheKey)) {
+              const alternateSvgUrl = getBlobbiSvgUrl(blobbi, alternateSleepState);
+              const alternateResponse = await fetch(alternateSvgUrl);
+              const alternateSvgText = await alternateResponse.text();
+              const alternateCustomizedSvg = customizeSvg(alternateSvgText, blobbi, alternateSleepState);
+              sessionStorage.setItem(alternateCacheKey, alternateCustomizedSvg);
+              console.log(`✅ Preloaded ${alternateSleepState ? 'sleeping' : 'awake'} SVG for quick switching`);
+            }
+          } catch (preloadError) {
+            console.warn('Failed to preload alternate SVG state:', preloadError);
+          }
+        }
         
         // Update state
         setIsLoadingSvg(false);
@@ -572,8 +671,20 @@ export function BlobbiCompanionWrapper() {
         setCurrentBlobbiId(blobbiId);
         updateInProgress.current = false;
         
+        // ✅ NEW: Notify bed context that companion is loaded
+        setCompanionLoaded(true);
+        
         // Show the companion if it wasn't already shown
         window.blobbiCompanion?.show();
+
+        // ✅ NEW: If Blobbi is sleeping, position it on the bed after a short delay
+        if (blobbi.isSleeping) {
+          console.log('🛏️ Blobbi is sleeping, will position on bed');
+          positionBlobbiOnBed(blobbiId);
+        } else {
+          // Reset positioning tracking if not sleeping
+          positionedForSleep.current = null;
+        }
         
       } catch (error) {
         console.error('Failed to load Blobbi Companion:', error);
@@ -583,7 +694,89 @@ export function BlobbiCompanionWrapper() {
     };
 
     loadCompanion();
-  }, [shouldShowCompanion, isLoading, companionData, currentBlobbiId, isCompanionLoaded]);
+  }, [shouldShowCompanion, isLoading, companionData, currentBlobbiId, isCompanionLoaded, setCompanionLoaded, positionBlobbiOnBed]);
+
+  // ✅ FIXED: Handle sleep state changes and update SVG accordingly
+  useEffect(() => {
+    if (!companionData?.blobbi || !isCompanionLoaded) return;
+
+    const blobbi = companionData.blobbi;
+    const blobbiId = companionData.blobbiId;
+    const isSleeping = blobbi.isSleeping || false;
+
+    // Only handle SVG switching for baby stage (adult forms don't have sleeping variants)
+    if (blobbi.lifeStage === 'baby') {
+      const currentCacheKey = getCacheKey(blobbi, blobbiId, isSleeping);
+      const cachedSvg = sessionStorage.getItem(currentCacheKey);
+
+      if (cachedSvg) {
+        // Quick switch using cached SVG
+        updateSvgInDom(cachedSvg);
+        console.log(`✅ Switched to ${isSleeping ? 'sleeping' : 'awake'} SVG from cache`);
+        
+        // ✅ NEW: Position Blobbi on bed if now sleeping
+        if (isSleeping && positionedForSleep.current !== blobbiId) {
+          console.log('🛏️ Blobbi switched to sleeping, positioning on bed');
+          positionBlobbiOnBed(blobbiId);
+        } else if (!isSleeping) {
+          // Reset positioning tracking if not sleeping
+          positionedForSleep.current = null;
+        }
+      } else {
+        // Fallback: fetch the SVG if not cached
+        const fetchAndUpdateSvg = async () => {
+          try {
+            const svgUrl = getBlobbiSvgUrl(blobbi, isSleeping);
+            const response = await fetch(svgUrl);
+            const svgText = await response.text();
+            const customizedSvg = customizeSvg(svgText, blobbi, isSleeping);
+            
+            sessionStorage.setItem(currentCacheKey, customizedSvg);
+            updateSvgInDom(customizedSvg);
+            console.log(`✅ Fetched and switched to ${isSleeping ? 'sleeping' : 'awake'} SVG`);
+            
+            // ✅ NEW: Position Blobbi on bed if now sleeping
+            if (isSleeping && positionedForSleep.current !== blobbiId) {
+              console.log('🛏️ Blobbi switched to sleeping, positioning on bed');
+              positionBlobbiOnBed(blobbiId);
+            } else if (!isSleeping) {
+              // Reset positioning tracking if not sleeping
+              positionedForSleep.current = null;
+            }
+          } catch (error) {
+            console.error('Failed to fetch alternate SVG state:', error);
+          }
+        };
+
+        fetchAndUpdateSvg();
+      }
+    }
+  }, [companionData?.blobbi?.isSleeping, companionData?.blobbi?.id, isCompanionLoaded, positionBlobbiOnBed]);
+
+  // ✅ NEW: Handle positioning when bed becomes available and Blobbi is already sleeping
+  useEffect(() => {
+    // Only run this effect when companion is loaded and we have companion data
+    if (!isCompanionLoaded || !companionData?.blobbi) return;
+
+    const blobbi = companionData.blobbi;
+    const blobbiId = companionData.blobbiId;
+
+    // If Blobbi is sleeping but hasn't been positioned yet, try to position it
+    if (blobbi.isSleeping && positionedForSleep.current !== blobbiId) {
+      console.log('🛏️ Companion loaded and sleeping, checking for bed to position');
+      
+      // Check if bed is available immediately
+      const bedElement = document.querySelector('img[src*="bed.png"]') as HTMLElement;
+      if (bedElement && window.blobbiCompanion) {
+        console.log('🛏️ Bed found immediately, positioning sleeping Blobbi');
+        positionBlobbiOnBed(blobbiId);
+      } else {
+        // Wait for bed to become available
+        console.log('🛏️ Bed not found, will retry positioning');
+        positionBlobbiOnBed(blobbiId);
+      }
+    }
+  }, [isCompanionLoaded, companionData?.blobbi?.isSleeping, companionData?.blobbiId, positionBlobbiOnBed]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -593,13 +786,19 @@ export function BlobbiCompanionWrapper() {
         window.blobbiCompanion.hide();
       }
       
+      // ✅ NEW: Notify bed context that companion is unloaded
+      setCompanionLoaded(false);
+      
       // Cleanup eye animator
       if (eyeAnimator.current) {
         eyeAnimator.current.destroy();
         eyeAnimator.current = null;
       }
+      
+      // Reset positioning tracking
+      positionedForSleep.current = null;
     };
-  }, [isCompanionLoaded]);
+  }, [isCompanionLoaded, setCompanionLoaded]);
 
   // This component doesn't render anything visible
   return null;

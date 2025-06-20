@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef, forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
+import { useToast } from '@/hooks/useToast';
 
 interface Position {
   x: number;
@@ -46,6 +50,17 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
     const [isDraggingState, setIsDraggingState] = useState(false);
     const dragRef = useRef<HTMLDivElement>(null);
     const dragStartRef = useRef<DragStartInfo | null>(null);
+    
+    // Hooks for wake-up functionality
+    const { data: companionData } = useCurrentCompanion();
+    const { user } = useCurrentUser();
+    const { toast } = useToast();
+    
+    // Sleep system hook for the current companion
+    const { wakeUp, canWakeUp } = useBlobbiSleepSystem({
+      blobbi: companionData?.blobbi || null,
+      isOwner: !!user && companionData?.blobbi?.ownerPubkey === user.pubkey
+    });
 
     // Load saved position on mount
     useEffect(() => {
@@ -145,10 +160,69 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
         if (onDrop && dragRef.current) {
           onDrop(dragRef.current.getBoundingClientRect());
         }
+      } else {
+        // Handle click (not drag) - trigger wake-up if companion is sleeping
+        handleBedClick();
       }
 
       dragStartRef.current = null;
       setIsDraggingState(false);
+    };
+
+    // Handle bed click for wake-up interaction
+    const handleBedClick = async () => {
+      // Check if we have a sleeping companion and user is the owner
+      if (!companionData?.blobbi || !user) {
+        return;
+      }
+
+      const blobbi = companionData.blobbi;
+      
+      // Only trigger wake-up if the companion is sleeping
+      if (!blobbi.isSleeping) {
+        return;
+      }
+
+      // Check if user is the owner
+      if (blobbi.ownerPubkey !== user.pubkey) {
+        toast({
+          title: "Cannot Wake Up",
+          description: "You can only wake up your own Blobbi companion.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if wake-up is available
+      if (!canWakeUp) {
+        toast({
+          title: "Cannot Wake Up",
+          description: "Your Blobbi cannot be woken up right now.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        console.log('🛏️ Bed clicked - triggering wake-up sequence for:', blobbi.name);
+        
+        // Trigger the wake-up sequence
+        await wakeUp();
+        
+        toast({
+          title: "Blobbi Woke Up!",
+          description: `${blobbi.name} has been gently woken up from their nap.`,
+        });
+        
+        console.log('✅ Wake-up sequence completed successfully');
+      } catch (error) {
+        console.error('❌ Failed to wake up Blobbi:', error);
+        toast({
+          title: "Wake Up Failed",
+          description: error instanceof Error ? error.message : "Failed to wake up your Blobbi. Please try again.",
+          variant: "destructive",
+        });
+      }
     };
 
     if (!isVisible) return null;
@@ -182,7 +256,11 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
           <motion.img 
             src="/bed.png" 
             alt="Blobbi's bed" 
-            className="w-[120px] md:w-[220px] object-contain"
+            className={cn(
+              "w-[120px] md:w-[220px] object-contain",
+              // Add visual feedback for clickable state when companion is sleeping
+              companionData?.blobbi?.isSleeping && canWakeUp && "cursor-pointer hover:brightness-110 transition-all"
+            )}
             draggable={false}
             animate={{
               y: [0, -2, 0],
