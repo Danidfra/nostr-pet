@@ -665,11 +665,11 @@ class BlobbiCompanion {
         const bedRect = this.bedElement.getBoundingClientRect();
         const bedCenterX = bedRect.left + bedRect.width / 2;
         
-        // Position Blobbi horizontally centered, and vertically slightly above center
+        // ✅ FIXED: Position Blobbi horizontally centered, and vertically slightly above center
         let targetScreenX = bedCenterX + 12;
-        let targetScreenY = bedRect.top + bedRect.height * 0.15;
+        let targetScreenY = bedRect.top + bedRect.height * 0.15; // Slightly above center vertically
 
-        // Mobile-specific adjustments
+        // ✅ FIXED: Mobile-specific adjustments (shift 30px left and 25px up)
         if (window.innerWidth < 768) {
             targetScreenX -= 30; // Move 15px to the left
             targetScreenY -= 25; // Move 10px upward

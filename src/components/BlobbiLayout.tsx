@@ -7,12 +7,13 @@ interface BlobbiLayoutProps {
 }
 
 export function BlobbiLayout({ children }: BlobbiLayoutProps) {
-  const { isBedVisible, hideBed } = useBed();
+  const { shouldRenderBed, hideBed } = useBed();
 
   return (
     <div className="relative min-h-screen">
       {children}
-      <DraggableBed isVisible={isBedVisible} onClose={hideBed} />
+      {/* ✅ FIXED: Only render bed when companion is loaded and bed should be visible */}
+      <DraggableBed isVisible={shouldRenderBed} onClose={hideBed} />
     </div>
   );
 }
