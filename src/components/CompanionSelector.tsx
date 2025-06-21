@@ -14,8 +14,9 @@ import {
 } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Heart, Baby } from 'lucide-react';
+import { Sparkles, Heart, Baby, Egg, Info } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { canBlobbiBeCompanion, filterValidCompanions, getCompanionValidationMessage } from '@/lib/blobbi-companion-validation';
 
 export function CompanionSelector() {
   const { user } = useCurrentUser();
@@ -33,6 +34,19 @@ export function CompanionSelector() {
   const currentCompanion = blobbis?.find(b => b.id === currentCompanionId);
 
   const handleSelectCompanion = (blobbiId: string | null) => {
+    // If setting a companion, validate it first
+    if (blobbiId && blobbis) {
+      const selectedBlobbi = blobbis.find(b => b.id === blobbiId);
+      if (selectedBlobbi && !canBlobbiBeCompanion(selectedBlobbi)) {
+        toast({
+          title: "Cannot Set as Companion",
+          description: getCompanionValidationMessage(selectedBlobbi),
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setCompanion(blobbiId, {
       onSuccess: () => {
         toast({
@@ -66,6 +80,8 @@ export function CompanionSelector() {
           <DialogTitle>Select Your Companion</DialogTitle>
           <DialogDescription>
             Choose a Blobbi to accompany you as you browse the site. Your companion will appear on all Blobbi pages.
+            <br />
+            <span className="text-orange-600 font-medium">Note: Blobbis in egg stage cannot be selected as companions.</span>
           </DialogDescription>
         </DialogHeader>
         
@@ -74,49 +90,63 @@ export function CompanionSelector() {
             <div className="text-center py-8">Loading your Blobbis...</div>
           ) : blobbis && blobbis.length > 0 ? (
             <>
-              {blobbis.map((blobbi) => (
-                <Card 
-                  key={blobbi.id}
-                  className={`cursor-pointer transition-all hover:shadow-md ${
-                    currentCompanionId === blobbi.id ? 'ring-2 ring-primary' : ''
-                  }`}
-                  onClick={() => handleSelectCompanion(blobbi.id)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="text-3xl">
-                          {blobbi.lifeStage === 'egg' ? '🥚' : 
-                           blobbi.lifeStage === 'baby' ? '👶' : '🎭'}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold">{blobbi.name}</h3>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Badge variant="secondary" className="text-xs">
-                              {blobbi.lifeStage}
-                            </Badge>
-                            {blobbi.evolutionForm && (
-                              <Badge variant="outline" className="text-xs">
-                                {blobbi.evolutionForm}
+              {blobbis.map((blobbi) => {
+                const canBeCompanion = canBlobbiBeCompanion(blobbi);
+                const isEgg = blobbi.lifeStage === 'egg';
+                
+                return (
+                  <Card 
+                    key={blobbi.id}
+                    className={`transition-all ${
+                      canBeCompanion 
+                        ? `cursor-pointer hover:shadow-md ${currentCompanionId === blobbi.id ? 'ring-2 ring-primary' : ''}` 
+                        : 'opacity-60 cursor-not-allowed'
+                    }`}
+                    onClick={() => canBeCompanion && handleSelectCompanion(blobbi.id)}
+                    title={!canBeCompanion ? getCompanionValidationMessage(blobbi) : undefined}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="text-3xl">
+                            {blobbi.lifeStage === 'egg' ? '🥚' : 
+                             blobbi.lifeStage === 'baby' ? '👶' : '🎭'}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold">{blobbi.name}</h3>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Badge variant={isEgg ? "destructive" : "secondary"} className="text-xs">
+                                {blobbi.lifeStage}
                               </Badge>
-                            )}
+                              {blobbi.evolutionForm && (
+                                <Badge variant="outline" className="text-xs">
+                                  {blobbi.evolutionForm}
+                                </Badge>
+                              )}
+                              {isEgg && (
+                                <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
+                                  <Egg className="h-3 w-3 mr-1" />
+                                  Cannot be companion
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="flex items-center gap-1">
-                          <Heart className="h-4 w-4 text-red-500" />
-                          <span>{Math.round(blobbi.stats.happiness)}%</span>
+                        
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1">
+                            <Heart className="h-4 w-4 text-red-500" />
+                            <span>{Math.round(blobbi.stats.happiness)}%</span>
+                          </div>
+                          {currentCompanionId === blobbi.id && (
+                            <Badge>Current</Badge>
+                          )}
                         </div>
-                        {currentCompanionId === blobbi.id && (
-                          <Badge>Current</Badge>
-                        )}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
               
               {currentCompanionId && (
                 <Button

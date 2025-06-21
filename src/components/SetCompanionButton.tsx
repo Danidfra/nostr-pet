@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Check, Loader2 } from 'lucide-react';
+import { Sparkles, Check, Loader2, Egg } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useSetCurrentCompanion } from '@/hooks/useSetCurrentCompanion';
 import { useToast } from '@/hooks/useToast';
 import { Blobbi } from '@/types/blobbi';
+import { canBlobbiBeCompanion, getCompanionValidationMessage } from '@/lib/blobbi-companion-validation';
 
 interface SetCompanionButtonProps {
   blobbi: Blobbi;
@@ -32,12 +33,23 @@ export function SetCompanionButton({
 
   const isCurrentCompanion = profile.currentCompanion === blobbi.id;
   const ownsThisBlobbi = profile.ownedBlobbis.includes(blobbi.id);
+  const canBeCompanion = canBlobbiBeCompanion(blobbi);
 
   if (!ownsThisBlobbi) {
     return null; // Don't show the button if user doesn't own this Blobbi
   }
 
   const handleSetCompanion = async () => {
+    // Check if this Blobbi can be a companion before attempting to set
+    if (!isCurrentCompanion && !canBeCompanion) {
+      toast({
+        title: "Cannot Set as Companion",
+        description: getCompanionValidationMessage(blobbi),
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (isCurrentCompanion) {
       // If already companion, remove it
       setIsUpdating(true);
@@ -82,14 +94,32 @@ export function SetCompanionButton({
   };
 
   const isLoading = isPending || isUpdating;
+  const isDisabled = isLoading || (!isCurrentCompanion && !canBeCompanion);
+
+  // Show different content for egg-stage Blobbis
+  if (!canBeCompanion && blobbi.lifeStage === 'egg') {
+    return (
+      <Button
+        variant="outline"
+        size={size}
+        disabled={true}
+        className={`gap-2 opacity-60 ${className}`}
+        title={getCompanionValidationMessage(blobbi)}
+      >
+        <Egg className="h-4 w-4 mr-2" />
+        Egg Stage
+      </Button>
+    );
+  }
 
   return (
     <Button
       variant={isCurrentCompanion ? 'default' : variant}
       size={size}
       onClick={handleSetCompanion}
-      disabled={isLoading}
+      disabled={isDisabled}
       className={`gap-2 ${isCurrentCompanion ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white' : ''} ${className}`}
+      title={!canBeCompanion ? getCompanionValidationMessage(blobbi) : undefined}
     >
       {isLoading ? (
         <>

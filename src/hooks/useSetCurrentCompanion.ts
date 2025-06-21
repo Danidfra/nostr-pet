@@ -5,6 +5,7 @@ import { useBlobbonautProfile } from './useBlobbonautProfile';
 import { useNostrPublish } from './useNostrPublish';
 import { BlobbonautProfile } from '@/types/blobbi';
 import { BLOBBI_EVENT_KINDS, createBlobbonautProfileEvent } from '@/lib/blobbi-events';
+import { canBlobbiBeCompanion, getCompanionValidationMessage } from '@/lib/blobbi-companion-validation';
 
 export function useSetCurrentCompanion() {
   const { user } = useCurrentUser();
@@ -22,6 +23,37 @@ export function useSetCurrentCompanion() {
       // Validate that the user owns this Blobbi
       if (blobbiId && !currentProfile.ownedBlobbis.includes(blobbiId)) {
         throw new Error('You do not own this Blobbi');
+      }
+
+      // If setting a companion, validate that the Blobbi can be a companion
+      if (blobbiId) {
+        // Fetch the Blobbi to check its life stage
+        const blobbiEvents = await nostr.query(
+          [{
+            kinds: [BLOBBI_EVENT_KINDS.STATE],
+            '#d': [blobbiId],
+            authors: [user.pubkey],
+            limit: 1
+          }],
+          { signal: AbortSignal.timeout(5000) }
+        );
+
+        if (blobbiEvents.length === 0) {
+          throw new Error('Could not find Blobbi data');
+        }
+
+        // Parse the Blobbi from the state event
+        const { parseBlobbiFromStateEvent } = await import('@/lib/blobbi-events');
+        const blobbi = parseBlobbiFromStateEvent(blobbiEvents[0]);
+        
+        if (!blobbi) {
+          throw new Error('Could not parse Blobbi data');
+        }
+
+        // Validate that this Blobbi can be a companion
+        if (!canBlobbiBeCompanion(blobbi)) {
+          throw new Error(getCompanionValidationMessage(blobbi));
+        }
       }
 
       // Fetch the latest profile event to ensure we have all tags
