@@ -25,7 +25,10 @@ function getBlobbiSvgUrl(blobbi: Blobbi, isSleeping: boolean = false): string {
   }
   
   if (blobbi.lifeStage === 'adult' && blobbi.evolutionForm) {
-    // Note: For adult forms, we use the base SVG even when sleeping (no sleeping variants available)
+    // ✅ NEW: Handle sleeping SVG for adult stage
+    if (isSleeping) {
+      return `https://danidfra.github.io/blobbi-designs/adult-stage/${blobbi.evolutionForm}/${blobbi.evolutionForm}-sleeping.svg`;
+    }
     return `https://danidfra.github.io/blobbi-designs/adult-stage/${blobbi.evolutionForm}/${blobbi.evolutionForm}-base.svg`;
   }
   
@@ -645,8 +648,8 @@ export function BlobbiCompanionWrapper() {
         // Update the DOM with the new SVG (even if we had a cached version)
         updateSvgInDom(customizedSvg);
         
-        // ✅ FIXED: Preload both awake and sleeping SVGs for quick switching (baby stage only)
-        if (blobbi.lifeStage === 'baby') {
+        // ✅ FIXED: Preload both awake and sleeping SVGs for quick switching (baby and adult stages)
+        if (blobbi.lifeStage === 'baby' || (blobbi.lifeStage === 'adult' && blobbi.evolutionForm)) {
           try {
             const alternateSleepState = !isSleeping;
             const alternateCacheKey = getCacheKey(blobbi, blobbiId, alternateSleepState);
@@ -704,8 +707,8 @@ export function BlobbiCompanionWrapper() {
     const blobbiId = companionData.blobbiId;
     const isSleeping = blobbi.isSleeping || false;
 
-    // Only handle SVG switching for baby stage (adult forms don't have sleeping variants)
-    if (blobbi.lifeStage === 'baby') {
+    // Handle SVG switching for both baby and adult stages (both now have sleeping variants)
+    if (blobbi.lifeStage === 'baby' || (blobbi.lifeStage === 'adult' && blobbi.evolutionForm)) {
       const currentCacheKey = getCacheKey(blobbi, blobbiId, isSleeping);
       const cachedSvg = sessionStorage.getItem(currentCacheKey);
 
