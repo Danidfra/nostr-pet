@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { BlobbiSettingsModal } from './BlobbiSettingsModal';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { useBed } from '@/contexts/BedContext';
 import { cn } from '@/lib/utils';
@@ -41,6 +42,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const { isBedVisible, toggleBed } = useBed();
   const [position, setPosition] = useState<Position>(DEFAULT_POSITION);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isDraggingState, setIsDraggingState] = useState(false);
   const dragRef = useRef<HTMLDivElement>(null);
@@ -202,7 +204,12 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     }
   });
 
-  if (!shouldShow) return null;
+  const handleOpenSettings = createActionHandler(() => {
+    setIsSettingsModalOpen(true);
+  });
+
+  if (!shouldShow || !companionData?.blobbi?.id) return null;
+
 
   const iconSrc = resolvedTheme === 'dark' ? blobWhite : blobBlack;
 
@@ -222,101 +229,120 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     // Add wake-up option when Blobbi is sleeping
     ...(isBlobbiSleeping ? [{ icon: '☀️', label: 'Wake Up', action: handleWakeUp, disabled: false }] : []),
     { icon: '🚶', label: 'Follow Me', action: handleFollowMe, disabled: false },
+    {
+      icon: (
+        <img
+          src={resolvedTheme === 'dark' ? blobWhite : blobBlack}
+          alt="Settings"
+          className="w-5 h-5"
+        />
+      ),
+      label: 'Settings',
+      action: handleOpenSettings,
+      disabled: false,
+    },
   ];
 
   return (
-    <div
-      ref={dragRef}
-      className={cn(
-        "fixed z-[10000] select-none",
-        isDraggingState && "cursor-grabbing",
-        className
-      )}
-      style={{
-        left: position.x,
-        top: position.y,
-        touchAction: 'none'
-      }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-    >
-      <motion.div
+    <>
+      <div
+        ref={dragRef}
         className={cn(
-          "relative w-14 h-14 rounded-full shadow-lg",
-          "bg-white dark:bg-gray-800 border-2 border-purple-200 dark:border-purple-600",
-          "hover:shadow-xl transition-shadow duration-200",
-          isDraggingState ? "cursor-grabbing scale-110" : "cursor-grab"
+          "fixed z-[10000] select-none",
+          isDraggingState && "cursor-grabbing",
+          className
         )}
-        whileHover={{ scale: isDraggingState ? 1.1 : 1.05 }}
-        whileTap={{ scale: isDraggingState ? 1.1 : 0.95 }}
-        animate={{
-          scale: isDraggingState ? 1.1 : 1,
-          rotate: isMenuOpen ? 180 : 0
+        style={{
+          left: position.x,
+          top: position.y,
+          touchAction: 'none'
         }}
-        transition={{ duration: 0.2 }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
       >
-        <div className="absolute inset-0 flex items-center justify-center">
-          <img 
-            src={iconSrc} 
-            alt="Blobbi" 
-            className="w-8 h-8 object-contain"
-            draggable={false}
-          />
-        </div>
-        {!isDraggingState && (
-          <motion.div
-            className="absolute inset-0 rounded-full bg-purple-400 dark:bg-purple-500 opacity-20"
-            animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.1, 0.2] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          />
-        )}
-      </motion.div>
+        <motion.div
+          className={cn(
+            "relative w-14 h-14 rounded-full shadow-lg",
+            "bg-white dark:bg-gray-800 border-2 border-purple-200 dark:border-purple-600",
+            "hover:shadow-xl transition-shadow duration-200",
+            isDraggingState ? "cursor-grabbing scale-110" : "cursor-grab"
+          )}
+          whileHover={{ scale: isDraggingState ? 1.1 : 1.05 }}
+          whileTap={{ scale: isDraggingState ? 1.1 : 0.95 }}
+          animate={{
+            scale: isDraggingState ? 1.1 : 1,
+            rotate: isMenuOpen ? 180 : 0
+          }}
+          transition={{ duration: 0.2 }}
+        >
+          <div className="absolute inset-0 flex items-center justify-center">
+            <img 
+              src={iconSrc} 
+              alt="Blobbi" 
+              className="w-8 h-8 object-contain"
+              draggable={false}
+            />
+          </div>
+          {!isDraggingState && (
+            <motion.div
+              className="absolute inset-0 rounded-full bg-purple-400 dark:bg-purple-500 opacity-20"
+              animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.1, 0.2] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            />
+          )}
+        </motion.div>
 
-      <AnimatePresence>
-        {isMenuOpen && (
-          <motion.div
-            className={cn(
-              "absolute flex gap-2 p-2 rounded-lg",
-              "bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm",
-              "border border-purple-200 dark:border-purple-600 shadow-lg",
-              isMobile ? "flex-col top-16 left-0" : "flex-row top-0 left-16"
-            )}
-            initial={{ opacity: 0, scale: 0.8, x: isMobile ? 0 : -10, y: isMobile ? -10 : 0 }}
-            animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, x: isMobile ? 0 : -10, y: isMobile ? -10 : 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            {menuItems.map((item, index) => (
-              <motion.button
-                key={item.label}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-md",
-                  "text-sm font-medium transition-colors duration-150",
-                  isMobile ? "justify-start min-w-[140px]" : "justify-center min-w-[40px]",
-                  item.disabled 
-                    ? "text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60" 
-                    : "text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-purple-900/50"
-                )}
-                onClick={item.disabled ? undefined : item.action}
-                disabled={item.disabled}
-                initial={{ opacity: 0, x: isMobile ? -20 : 0, y: isMobile ? 0 : -20 }}
-                animate={{ opacity: 1, x: 0, y: 0 }}
-                transition={{ delay: index * 0.05, duration: 0.15 }}
-                whileHover={item.disabled ? {} : { scale: 1.05 }}
-                whileTap={item.disabled ? {} : { scale: 0.95 }}
-                title={item.label}
-              >
-                <span className={cn(
-                  "text-lg",
-                  item.disabled && "grayscale"
-                )}>{item.icon}</span>
-                {isMobile && <span>{item.label}</span>}
-              </motion.button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div
+              className={cn(
+                "absolute flex gap-2 p-2 rounded-lg",
+                "bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm",
+                "border border-purple-200 dark:border-purple-600 shadow-lg",
+                isMobile ? "flex-col top-16 left-0" : "flex-row top-0 left-16"
+              )}
+              initial={{ opacity: 0, scale: 0.8, x: isMobile ? 0 : -10, y: isMobile ? -10 : 0 }}
+              animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, x: isMobile ? 0 : -10, y: isMobile ? -10 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {menuItems.map((item, index) => (
+                <motion.button
+                  key={item.label}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-md",
+                    "text-sm font-medium transition-colors duration-150",
+                    isMobile ? "justify-start min-w-[140px]" : "justify-center min-w-[40px]",
+                    item.disabled 
+                      ? "text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60" 
+                      : "text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                  )}
+                  onClick={item.disabled ? undefined : item.action}
+                  disabled={item.disabled}
+                  initial={{ opacity: 0, x: isMobile ? -20 : 0, y: isMobile ? 0 : -20 }}
+                  animate={{ opacity: 1, x: 0, y: 0 }}
+                  transition={{ delay: index * 0.05, duration: 0.15 }}
+                  whileHover={item.disabled ? {} : { scale: 1.05 }}
+                  whileTap={item.disabled ? {} : { scale: 0.95 }}
+                  title={item.label}
+                >
+                  <span className={cn(
+                    "text-lg",
+                    item.disabled && "grayscale"
+                  )}>{item.icon}</span>
+                  {isMobile && <span>{item.label}</span>}
+                </motion.button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      <BlobbiSettingsModal 
+        blobbiId={companionData.blobbi.id}
+        isOpen={isSettingsModalOpen}
+        onOpenChange={setIsSettingsModalOpen}
+      />
+    </>
   );
 }

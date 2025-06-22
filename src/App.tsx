@@ -11,6 +11,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { ThemeProvider } from "@/components/theme-provider";
 import { RelayProvider, useRelayContext } from '@/contexts/RelayContext';
 import { BlobbiCompanionIntegration } from '@/components/blobbi/BlobbiCompanionIntegration';
+import { AudioProvider } from '@/contexts/AudioContext';
 import { BedProvider } from '@/contexts/BedContext';
 import { BlobbiFakeInventoryProvider } from '@/contexts/BlobbiFakeInventoryContext';
 import { BlobbiFakeStatusProvider } from '@/contexts/BlobbiFakeStatusContext';
@@ -72,12 +73,14 @@ export function App() {
               <BlobbiFakeStatusProvider>
                 <BlobbiFakeInventoryProvider>
                   <TooltipProvider>
-                    <BedProvider>
-                      <Toaster />
-                      <Sonner />
-                      <BlobbiCompanionIntegration />
-                      <AppRouter />
-                    </BedProvider>
+                    <AudioProvider>
+                      <BedProvider>
+                        <Toaster />
+                        <Sonner />
+                        <BlobbiCompanionIntegration />
+                        <AppRouter />
+                      </BedProvider>
+                    </AudioProvider>
                   </TooltipProvider>
                 </BlobbiFakeInventoryProvider>
               </BlobbiFakeStatusProvider>

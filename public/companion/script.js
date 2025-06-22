@@ -29,6 +29,32 @@ class BlobbiCompanion {
         this.originalMouthPath = null; // Store original mouth for sad state
         this.originalMouthElement = null; // Store original mouth element for restoration
         this.angryMouthSVG = null; // Store angry mouth SVG content
+        this.angryObservationTimeout = null;
+        this.mouseMoveListener = null;
+        
+        // ✅ ENHANCED: Centralized audio management system
+        this.audioManager = {
+            // Audio instances
+            grumble: null,
+            sleeping: null,
+            oneShot: null, // For eating, angry, etc.
+            
+            // Audio settings
+            volume: this.getStoredVolume(),
+            isMuted: this.getStoredMuteState(),
+            
+            // Audio file paths
+            sounds: {
+                grumble: '/companion/sounds/grumble.mp3',
+                sleeping: '/companion/sounds/sleeping.mp3',
+                eating: '/companion/sounds/eating.mp3',
+                angry: '/companion/sounds/angry.mp3',
+                fart: '/companion/sounds/fart.mp3'
+            }
+        };
+        
+        // Audio settings check interval
+        this.audioSettingsCheckInterval = null;
         
         // Feeding functionality
         this.isFeedingMode = false;
@@ -81,6 +107,229 @@ class BlobbiCompanion {
         
         this.init();
     }
+
+    // ✅ NEW: Helper methods for audio settings
+    getStoredVolume() {
+        const stored = localStorage.getItem('blobbi_audio_volume');
+        return stored ? Math.max(0, Math.min(1, parseFloat(stored))) : 0.5; // Clamp between 0-1
+    }
+
+    getStoredMuteState() {
+        return localStorage.getItem('blobbi_audio_muted') === 'true';
+    }
+
+    // ✅ NEW: Update audio settings and apply to all active sounds
+    updateAudioSettings() {
+        const newVolume = this.getStoredVolume();
+        const newMuteState = this.getStoredMuteState();
+        
+        console.log('🎵 Companion: Updating audio settings', { 
+            oldVolume: this.audioManager.volume, 
+            newVolume, 
+            oldMuted: this.audioManager.isMuted, 
+            newMuted: newMuteState 
+        });
+        
+        this.audioManager.volume = newVolume;
+        this.audioManager.isMuted = newMuteState;
+        
+        // Apply settings to all active audio instances
+        this.applyVolumeToActiveAudio();
+    }
+
+    // ✅ NEW: Apply current volume and mute settings to all active audio
+    applyVolumeToActiveAudio() {
+        const effectiveVolume = this.audioManager.isMuted ? 0 : this.audioManager.volume;
+        
+        // Apply to looping sounds
+        if (this.audioManager.grumble) {
+            this.audioManager.grumble.volume = effectiveVolume;
+            console.log(`🎵 Applied volume ${effectiveVolume} to grumble audio`);
+        }
+        
+        if (this.audioManager.sleeping) {
+            this.audioManager.sleeping.volume = effectiveVolume;
+            console.log(`🎵 Applied volume ${effectiveVolume} to sleeping audio`);
+        }
+        
+        // Apply to one-shot sounds (if currently playing)
+        if (this.audioManager.oneShot && !this.audioManager.oneShot.ended) {
+            this.audioManager.oneShot.volume = effectiveVolume;
+            console.log(`🎵 Applied volume ${effectiveVolume} to one-shot audio`);
+        }
+    }
+
+    // ✅ NEW: Centralized method to play any sound
+    playAudio(soundName, options = {}) {
+        const { loop = false, replace = false } = options;
+        
+        console.log(`🎵 Companion: playAudio called`, { 
+            soundName, 
+            loop, 
+            replace,
+            currentVolume: this.audioManager.volume,
+            isMuted: this.audioManager.isMuted 
+        });
+        
+        // Update settings from localStorage in case they changed
+        this.updateAudioSettings();
+        
+        const soundPath = this.audioManager.sounds[soundName];
+        if (!soundPath) {
+            console.error(`🎵 Unknown sound: ${soundName}`);
+            return null;
+        }
+        
+        const effectiveVolume = this.audioManager.isMuted ? 0 : this.audioManager.volume;
+        
+        if (loop) {
+            // Handle looping sounds (grumble, sleeping)
+            const audioKey = soundName; // Use soundName as key
+            
+            // Stop existing instance if replace is true or if it's already playing
+            if (this.audioManager[audioKey]) {
+                console.log(`🎵 Stopping existing ${soundName} audio`);
+                this.audioManager[audioKey].pause();
+                this.audioManager[audioKey].currentTime = 0;
+                this.audioManager[audioKey] = null;
+            }
+            
+            // Don't start new audio if we're just stopping
+            if (replace && effectiveVolume === 0 && this.audioManager.isMuted) {
+                console.log(`🎵 Not starting ${soundName} - muted`);
+                return null;
+            }
+            
+            console.log(`🎵 Starting ${soundName} loop with volume ${effectiveVolume}`);
+            const audio = new Audio(soundPath);
+            audio.volume = effectiveVolume;
+            audio.loop = true;
+            
+            audio.play()
+                .then(() => console.log(`✅ ${soundName} audio started successfully`))
+                .catch(error => console.error(`❌ Error playing ${soundName}:`, error));
+            
+            this.audioManager[audioKey] = audio;
+            return audio;
+        } else {
+            // Handle one-shot sounds (eating, angry, fart)
+            
+            // Stop previous one-shot if still playing and replace is true
+            if (replace && this.audioManager.oneShot && !this.audioManager.oneShot.ended) {
+                this.audioManager.oneShot.pause();
+                this.audioManager.oneShot.currentTime = 0;
+            }
+            
+            // Don't play if muted (but still create the audio object for consistency)
+            if (this.audioManager.isMuted) {
+                console.log(`🔇 Not playing ${soundName} - muted`);
+                return null;
+            }
+            
+            console.log(`🎵 Playing ${soundName} one-shot with volume ${effectiveVolume}`);
+            const audio = new Audio(soundPath);
+            audio.volume = effectiveVolume;
+            
+            audio.play()
+                .then(() => console.log(`✅ ${soundName} audio played successfully`))
+                .catch(error => console.error(`❌ Error playing ${soundName}:`, error));
+            
+            // Store reference for volume updates (will be cleared when audio ends)
+            this.audioManager.oneShot = audio;
+            
+            // Clear reference when audio ends
+            audio.addEventListener('ended', () => {
+                if (this.audioManager.oneShot === audio) {
+                    this.audioManager.oneShot = null;
+                }
+            });
+            
+            return audio;
+        }
+    }
+
+    // ✅ NEW: Stop specific looping audio
+    stopAudio(soundName) {
+        console.log(`🎵 Companion: stopAudio called for ${soundName}`);
+        
+        const audioKey = soundName;
+        if (this.audioManager[audioKey]) {
+            console.log(`🛑 Stopping ${soundName} audio`);
+            this.audioManager[audioKey].pause();
+            this.audioManager[audioKey].currentTime = 0;
+            this.audioManager[audioKey] = null;
+        }
+    }
+
+    // ✅ NEW: Stop all audio
+    stopAllAudio() {
+        console.log('🛑 Companion: Stopping all audio');
+        
+        // Stop looping sounds
+        this.stopAudio('grumble');
+        this.stopAudio('sleeping');
+        
+        // Stop one-shot sound if playing
+        if (this.audioManager.oneShot && !this.audioManager.oneShot.ended) {
+            this.audioManager.oneShot.pause();
+            this.audioManager.oneShot.currentTime = 0;
+            this.audioManager.oneShot = null;
+        }
+    }
+
+    // ✅ NEW: Set up listener for localStorage changes to update audio immediately
+    setupAudioSettingsListener() {
+        // Listen for storage events (when settings change in other tabs/components)
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'blobbi_audio_volume' || e.key === 'blobbi_audio_muted') {
+                console.log('🎵 Companion: Audio settings changed via storage event', { 
+                    key: e.key, 
+                    oldValue: e.oldValue, 
+                    newValue: e.newValue 
+                });
+                this.updateAudioSettings();
+            }
+        });
+        
+        // Also check for changes periodically (fallback for same-tab changes)
+        this.audioSettingsCheckInterval = setInterval(() => {
+            const currentVolume = this.getStoredVolume();
+            const currentMuted = this.getStoredMuteState();
+            
+            if (currentVolume !== this.audioManager.volume || currentMuted !== this.audioManager.isMuted) {
+                console.log('🎵 Companion: Audio settings changed (periodic check)');
+                this.updateAudioSettings();
+            }
+        }, 500); // Check every 500ms
+    }
+
+    // ✅ REFACTORED: Simplified sound methods using centralized audio manager
+    playSound(sound) {
+        this.playAudio(sound, { loop: false, replace: true });
+    }
+
+    playGrumble() {
+        // Only start if not already playing
+        if (!this.audioManager.grumble) {
+            this.playAudio('grumble', { loop: true, replace: false });
+        }
+    }
+
+    stopGrumble() {
+        this.stopAudio('grumble');
+    }
+
+    playSleepingSound() {
+        // Only start if not already playing
+        if (!this.audioManager.sleeping) {
+            this.playAudio('sleeping', { loop: true, replace: false });
+        }
+    }
+
+    stopSleepingSound() {
+        this.stopAudio('sleeping');
+    }
+    
     
     async init() {
         // Load SVG
@@ -103,6 +352,9 @@ class BlobbiCompanion {
         
         // Start bed proximity detection
         this.startBedProximityDetection();
+        
+        // ✅ NEW: Set up storage listener for immediate volume/mute updates
+        this.setupAudioSettingsListener();
         
         // Start free roam by default after a short delay to let everything load
         setTimeout(() => {
@@ -658,6 +910,10 @@ class BlobbiCompanion {
         
         // Notify React component to trigger sleep in Nostr
         this.notifyReactSleepMode(true);
+        
+        // ✅ ENHANCED: Ensure audio settings are current before starting sleeping sound
+        this.updateAudioSettings();
+        this.playSleepingSound();
     }
     
     attachToBed() {
@@ -775,6 +1031,8 @@ class BlobbiCompanion {
         this.isFreeRoaming = true;
         this.container.classList.add('free-roaming');
         
+        this.stopSleepingSound();
+
         // Notify React component to wake up in Nostr
         this.notifyReactSleepMode(false);
         
@@ -816,12 +1074,21 @@ class BlobbiCompanion {
         // Sync companion state with React state
         if (reactSleepState && !this.isSleeping) {
             // React says Blobbi should be sleeping, but companion isn't sleeping
-            console.log('😴 Companion: Syncing to sleep state from React');
+            console.log('😴 Companion: Syncing to sleep state from React (will start sleeping audio)');
             this.syncToSleepState();
         } else if (!reactSleepState && this.isSleeping) {
             // React says Blobbi should be awake, but companion is sleeping
-            console.log('😊 Companion: Syncing to awake state from React');
+            console.log('😊 Companion: Syncing to awake state from React (will stop sleeping audio)');
             this.syncToAwakeState();
+        } else if (reactSleepState && this.isSleeping) {
+            // Both React and companion agree Blobbi should be sleeping
+            // ✅ FIXED: Force restart sleeping audio to ensure it's playing (important for initial load)
+            console.log('😴 Companion: Both states agree - sleeping. Force restarting sleeping audio.');
+            this.updateAudioSettings(); // Ensure current volume settings
+            this.stopSleepingSound(); // Stop any existing instance
+            this.playSleepingSound(); // Start fresh
+        } else {
+            console.log('😊 Companion: Both states agree - awake. No action needed.');
         }
     }
     
@@ -848,7 +1115,15 @@ class BlobbiCompanion {
             this.attachToBed();
         }
         
-        console.log('😴 Companion: Synced to sleep state');
+        // ✅ ENHANCED: Ensure audio settings are current before starting sleeping sound
+        this.updateAudioSettings();
+        
+        // ✅ FIXED: Force start sleeping sound even if already "playing" (for initial load)
+        console.log('😴 Companion: Syncing to sleep state - forcing sleeping audio start');
+        this.stopSleepingSound(); // Stop any existing instance first
+        this.playSleepingSound(); // Start fresh
+        
+        console.log('😴 Companion: Synced to sleep state with current audio settings');
     }
     
     syncToAwakeState() {
@@ -867,6 +1142,8 @@ class BlobbiCompanion {
         this.isFreeRoaming = true;
         this.container.classList.add('free-roaming');
         
+        this.stopSleepingSound();
+
         // Resume normal behavior after a short delay
         setTimeout(() => {
             if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.isSleeping) {
@@ -943,44 +1220,44 @@ class BlobbiCompanion {
     
     async becomeAngry() {
         if (this.isAngry) return;
-        
+
         console.log('🔥 Flammi is getting angry due to rapid clicking!');
-        
-        // Store previous state
+        this.playSound('angry');
+
         this.previousState = {
             isMoving: this.isMoving,
             isFreeRoaming: this.isFreeRoaming
         };
-        
-        // Set angry state
+
         this.isAngry = true;
         this.isChasing = false;
-        this.chaseStartTime = null;
-        
-        // Clear click history
         this.globalClickHistory = [];
-        
-        // Clear stored mouth elements for next time
         this.originalMouthElement = null;
         this.originalMouthPath = null;
-        
-        // Stop current behaviors
+
         this.stopFreeRoam();
         this.stopMoving();
-        
-        // Add angry class for styling
+
         this.character.classList.add('angry');
         this.container.classList.add('angry');
-        
-        // Replace mouth with angry mouth
+
         await this.replaceWithAngryMouth();
-        
-        // Start chasing after a brief angry pause
-        setTimeout(() => {
-            if (this.isAngry) {
-                this.startChasing();
-            }
-        }, 800);
+
+        this.mouseMoveListener = () => {
+            console.log('🐭 Mouse moved! Flammi starts chasing.');
+            document.removeEventListener('mousemove', this.mouseMoveListener);
+            clearTimeout(this.angryObservationTimeout);
+            this.playGrumble();
+            this.startChasing();
+        };
+
+        document.addEventListener('mousemove', this.mouseMoveListener);
+
+        this.angryObservationTimeout = setTimeout(() => {
+            console.log('😌 Mouse not moved, Flammi is calming down.');
+            document.removeEventListener('mousemove', this.mouseMoveListener);
+            this.returnToNormal();
+        }, 5000);
     }
     
     async replaceWithAngryMouth() {
@@ -1124,6 +1401,7 @@ class BlobbiCompanion {
         if (!this.isAngry) return;
         
         console.log('😈 Flammi caught the cursor!');
+        this.stopGrumble();
         
         // Stop chasing and proximity checking
         this.isChasing = false;
@@ -1153,6 +1431,7 @@ class BlobbiCompanion {
         if (!this.isAngry) return;
         
         console.log('😢 Flammi gave up chasing and is now sad...');
+        this.stopGrumble();
         
         // Stop chasing
         this.isChasing = false;
@@ -1347,6 +1626,16 @@ class BlobbiCompanion {
     
     returnToNormal() {
         console.log('😌 Flammi is returning to normal...');
+        this.stopGrumble();
+
+        if (this.angryObservationTimeout) {
+            clearTimeout(this.angryObservationTimeout);
+            this.angryObservationTimeout = null;
+        }
+        if (this.mouseMoveListener) {
+            document.removeEventListener('mousemove', this.mouseMoveListener);
+            this.mouseMoveListener = null;
+        }
         
         // Clear all angry/sad states
         this.isAngry = false;
@@ -1949,6 +2238,15 @@ class BlobbiCompanion {
         // Stop bed proximity detection and cleanup bed tracking
         this.stopBedProximityDetection();
         this.cleanupBedTracking();
+        
+        // ✅ ENHANCED: Stop all audio and cleanup audio system
+        this.stopAllAudio();
+        
+        // Clear audio settings check interval
+        if (this.audioSettingsCheckInterval) {
+            clearInterval(this.audioSettingsCheckInterval);
+            this.audioSettingsCheckInterval = null;
+        }
         
         // Enable interactions if disabled
         this.enableInteractions();

@@ -754,7 +754,7 @@ export function BlobbiCompanionWrapper() {
         fetchAndUpdateSvg();
       }
     }
-  }, [companionData?.blobbi?.isSleeping, companionData?.blobbi?.id, isCompanionLoaded, positionBlobbiOnBed]);
+  }, [companionData?.blobbi, companionData?.blobbiId, isCompanionLoaded, positionBlobbiOnBed]);
 
   // ✅ NEW: Handle positioning when bed becomes available and Blobbi is already sleeping
   useEffect(() => {
@@ -779,7 +779,7 @@ export function BlobbiCompanionWrapper() {
         positionBlobbiOnBed(blobbiId);
       }
     }
-  }, [isCompanionLoaded, companionData?.blobbi?.isSleeping, companionData?.blobbiId, positionBlobbiOnBed]);
+  }, [isCompanionLoaded, companionData?.blobbi, companionData?.blobbiId, positionBlobbiOnBed]);
 
   // Cleanup on unmount
   useEffect(() => {

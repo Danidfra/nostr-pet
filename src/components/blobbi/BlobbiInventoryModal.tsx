@@ -8,6 +8,7 @@ import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbiCareInteractionWithFakeStatus } from '@/hooks/useBlobbiInteractionWithFakeStatus';
 import { useBlobbonautProfileWithFakeInventory } from '@/hooks/useBlobbonautProfileWithFakeInventory';
 import { useToast } from '@/hooks/useToast';
+import { useAudio } from '@/contexts/AudioContext';
 import { Utensils, Gamepad2, Pill, Bath, Sparkles } from 'lucide-react';
 import { SHOP_ITEMS } from '@/lib/shop-items';
 
@@ -49,6 +50,7 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }
   const { data: blobbonautProfile, isLoading: isProfileLoading, removeFromStorage } = useBlobbonautProfileWithFakeInventory();
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteractionWithFakeStatus();
   const { toast } = useToast();
+  const { playSound } = useAudio();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
   const [isUsingItem, setIsUsingItem] = useState(false);
   
@@ -80,6 +82,11 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }
     setIsUsingItem(true);
     
     try {
+      // Play sound first
+      if (actionType === 'feed') {
+        playSound('eating');
+      }
+
       // First, remove the item from storage
       await removeFromStorage({
         itemId: selectedItem.id,

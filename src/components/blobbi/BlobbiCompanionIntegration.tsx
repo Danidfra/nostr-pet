@@ -7,6 +7,8 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { useBlobbonautProfileWithFakeInventory } from '@/hooks/useBlobbonautProfileWithFakeInventory';
 import { useToast } from '@/hooks/useToast';
+import { getBlobbiMood } from '@/lib/blobbi';
+import { useAudio } from '@/contexts/AudioContext';
 import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
 
 export function BlobbiCompanionIntegration() {
@@ -26,6 +28,7 @@ export function BlobbiCompanionIntegration() {
   );
   
   const { toast } = useToast();
+  const { playSound } = useAudio();
   const { removeFromStorage } = useBlobbonautProfileWithFakeInventory();
   const { putToSleep, wakeUp, isSleeping } = useBlobbiSleepSystem({ 
     blobbi, 
@@ -140,6 +143,9 @@ export function BlobbiCompanionIntegration() {
       console.log('🍽️ React: Blobbi reached food, emitting Nostr events...', food);
 
       try {
+        // Play sound first
+        playSound('eating');
+
         // First, remove the food item from storage (emit kind 31125)
         console.log('📤 React: Removing food from storage...', { itemId: food.id, quantity: 1 });
         await removeFromStorage({
@@ -321,12 +327,51 @@ export function BlobbiCompanionIntegration() {
   // Notify companion when sleep state changes from React side
   useEffect(() => {
     if (blobbi) {
-      // Notify companion about current sleep state
-      window.dispatchEvent(new CustomEvent('react-sleep-state-change', {
-        detail: { isSleeping: blobbi.isSleeping }
-      }));
+      // ✅ FIXED: Add a small delay to ensure companion script is fully initialized
+      // This is especially important for the initial load when Blobbi is already sleeping
+      const notifyCompanion = () => {
+        window.dispatchEvent(new CustomEvent('react-sleep-state-change', {
+          detail: { isSleeping: blobbi.isSleeping }
+        }));
+        
+        // ✅ FIXED: Log for debugging
+        console.log(`🔄 React: Notified companion of sleep state: ${blobbi.isSleeping ? 'sleeping' : 'awake'}`);
+      };
+      
+      // Check if companion is available, if not wait a bit
+      if (window.blobbiCompanion) {
+        notifyCompanion();
+      } else {
+        // ✅ ENHANCED: Wait longer and retry multiple times for initial load
+        let retryCount = 0;
+        const maxRetries = 10;
+        const retryInterval = 300;
+        
+        const retryNotify = () => {
+          if (window.blobbiCompanion) {
+            notifyCompanion();
+          } else if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`🔄 React: Waiting for companion to initialize (attempt ${retryCount}/${maxRetries})`);
+            setTimeout(retryNotify, retryInterval);
+          } else {
+            console.warn('🔄 React: Companion failed to initialize after maximum retries');
+          }
+        };
+        
+        setTimeout(retryNotify, retryInterval);
+      }
     }
-  }, [blobbi?.isSleeping]);
+  }, [blobbi]);
+
+  useEffect(() => {
+    if (blobbi) {
+      const mood = getBlobbiMood(blobbi.stats, blobbi.state);
+      if (mood === 'sad') {
+        playSound('angry');
+      }
+    }
+  }, [blobbi, playSound]);
 
   // Function to create food element on screen
   const createFoodElement = (food: BlobbiItem, x: number, y: number) => {
