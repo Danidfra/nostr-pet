@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 import { useBlobbiQuestSystem } from '@/hooks/useBlobbiQuestSystem';
-import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { EggGraphic } from './EggGraphic';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
@@ -78,7 +78,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
   } = useBlobbiQuestSystem();
 
   // Get evolution function for the selected baby
-  const { triggerEvolution, isEvolving } = useBlobbi(undefined, selectedBabyId || undefined);
+  const { triggerEvolution, isEvolving } = useBlobbiWithFakeStatus(undefined, selectedBabyId || undefined);
 
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [showEggList, setShowEggList] = useState(true);

@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Coins, Trophy, Calendar, Heart, ShoppingBag, Palette, Sparkles, Package, Egg } from 'lucide-react';
-import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiInteractionSystem } from '@/hooks/useBlobbiInteractionSystem';
+import { BlobbiFakeStatusIndicator } from './BlobbiFakeStatusIndicator';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { BlobbiStats } from './BlobbiStats';
@@ -29,8 +30,11 @@ export function BlobbiGame() {
     isLoading, 
     performAction, 
     isPerformingAction,
-    isOwner 
-  } = useBlobbi();
+    hasPendingInteractions,
+    pendingInteractionCount
+  } = useBlobbiInteractionSystem();
+  
+  const isOwner = user?.pubkey === blobbi?.ownerPubkey;
   
   const [showShop, setShowShop] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
@@ -122,7 +126,13 @@ export function BlobbiGame() {
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <CardTitle className="text-2xl">{blobbi.name}</CardTitle>
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="text-2xl">{blobbi.name}</CardTitle>
+                    <BlobbiFakeStatusIndicator 
+                      hasFakeStatus={hasPendingInteractions()}
+                      pendingInteractionCount={pendingInteractionCount}
+                    />
+                  </div>
                   <CardDescription>
                     {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} • 
                     Born {formatDistanceToNow(blobbi.birthTime, { addSuffix: true })}

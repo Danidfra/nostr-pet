@@ -4,8 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowLeft, Play, RotateCcw, Trophy, TrendingUp, TrendingDown, HelpCircle } from 'lucide-react';
-import { useBlobbi } from '@/hooks/useBlobbi';
-import { useBlobbiGameInteraction } from '@/hooks/useBlobbiInteractionWithStateUpdate';
+import { useBlobbiGameSystem } from '@/hooks/useBlobbiInteractionSystem';
 import { useToast } from '@/hooks/useToast';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
@@ -38,8 +37,7 @@ export function NumberGuessGame() {
   const blobbiId = location.state?.blobbiId;
   
   // Use the specific Blobbi if provided, otherwise fall back to user's Blobbi
-  const { blobbi, addCoins, isLoading } = useBlobbi(undefined, blobbiId);
-  const { mutateAsync: recordGameInteraction } = useBlobbiGameInteraction();
+  const { blobbi, playGame, isPlaying, isLoading } = useBlobbiGameSystem(blobbiId);
   
   const [gameState, setGameState] = useState<GameState>({
     currentNumber: Math.floor(Math.random() * 9) + 1,
@@ -135,42 +133,20 @@ export function NumberGuessGame() {
     const gameDuration = Math.floor((Date.now() - gameState.gameStartTime) / 1000);
 
     try {
-      // Record the game interaction
+      // Record the game interaction using the new system
       if (blobbi && effectiveBlobbiId) {
-        await recordGameInteraction({
-          blobbiId: effectiveBlobbiId,
-          gameType: 'number-guess',
-          score: finalScore,
-          duration: gameDuration,
-          energyCost: 10,
-        });
+        await playGame('number-guess', finalScore, gameDuration, 10);
       }
 
-      // Award coins based on performance
+      // Award coins based on performance (handled automatically by the game system)
       const baseCoins = won ? 30 : 10; // Bonus for winning
       const bonusCoins = finalScore * 5; // 5 coins per correct guess
       const totalCoins = baseCoins + bonusCoins;
 
-      if (totalCoins > 0 && blobbi && addCoins) {
-        try {
-          await addCoins(totalCoins);
-          toast({
-            title: won ? 'You Won!' : 'Game Over!',
-            description: `You got ${finalScore}/${TOTAL_ROUNDS} correct and earned ${totalCoins} coins!`,
-          });
-        } catch (error) {
-          console.error('Failed to add coins:', error);
-          toast({
-            title: won ? 'You Won!' : 'Game Over!',
-            description: `You got ${finalScore}/${TOTAL_ROUNDS} correct!`,
-          });
-        }
-      } else {
-        toast({
-          title: won ? 'You Won!' : 'Game Over!',
-          description: `You got ${finalScore}/${TOTAL_ROUNDS} correct!`,
-        });
-      }
+      toast({
+        title: won ? 'You Won!' : 'Game Over!',
+        description: `You got ${finalScore}/${TOTAL_ROUNDS} correct and earned ${totalCoins} coins!`,
+      });
     } catch (error) {
       console.error('Failed to record game interaction:', error);
       // Still show game over message even if recording fails
@@ -179,7 +155,7 @@ export function NumberGuessGame() {
         description: `You got ${finalScore}/${TOTAL_ROUNDS} correct!`,
       });
     }
-  }, [effectiveBlobbiId, blobbi, recordGameInteraction, toast, addCoins, gameState.gameStartTime]);
+  }, [effectiveBlobbiId, blobbi, playGame, toast, gameState.gameStartTime]);
 
   // Handle game over
   useEffect(() => {

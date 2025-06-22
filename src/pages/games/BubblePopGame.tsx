@@ -3,8 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Play, RotateCcw, Trophy } from 'lucide-react';
-import { useBlobbi } from '@/hooks/useBlobbi';
-import { useBlobbiGameInteraction } from '@/hooks/useBlobbiInteractionWithStateUpdate';
+import { useBlobbiGameSystem } from '@/hooks/useBlobbiInteractionSystem';
 import { useToast } from '@/hooks/useToast';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
@@ -55,8 +54,7 @@ export function BubblePopGame() {
   const blobbiId = location.state?.blobbiId;
   
   // Use the specific Blobbi if provided, otherwise fall back to user's Blobbi
-  const { blobbi, addCoins, isLoading } = useBlobbi(undefined, blobbiId);
-  const { mutateAsync: recordGameInteraction } = useBlobbiGameInteraction();
+  const { blobbi, playGame, isPlaying, isLoading } = useBlobbiGameSystem(blobbiId);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
@@ -149,37 +147,15 @@ export function BubblePopGame() {
     try {
       // Record the game interaction using enhanced system that automatically handles both 14919 and 31124 events
       if (blobbi && effectiveBlobbiId) {
-        await recordGameInteraction({
-          blobbiId: effectiveBlobbiId,
-          gameType: 'bubble-pop',
-          score: finalScore,
-          duration: GAME_DURATION,
-          energyCost: 10,
-        });
+        await playGame('bubble-pop', finalScore, GAME_DURATION, 10);
       }
 
-      // Award coins based on score
+      // Award coins based on score (this is now handled automatically by the game system)
       const coinsEarned = Math.floor(finalScore / 10);
-      if (coinsEarned > 0 && blobbi && addCoins) {
-        try {
-          await addCoins(coinsEarned);
-          toast({
-            title: 'Game Over!',
-            description: `You scored ${finalScore} points and earned ${coinsEarned} coins!`,
-          });
-        } catch (error) {
-          console.error('Failed to add coins:', error);
-          toast({
-            title: 'Game Over!',
-            description: `You scored ${finalScore} points!`,
-          });
-        }
-      } else {
-        toast({
-          title: 'Game Over!',
-          description: `You scored ${finalScore} points!`,
-        });
-      }
+      toast({
+        title: 'Game Over!',
+        description: `You scored ${finalScore} points and earned ${coinsEarned} coins!`,
+      });
     } catch (error) {
       console.error('Failed to record game interaction:', error);
       // Still show game over message even if recording fails
@@ -188,7 +164,7 @@ export function BubblePopGame() {
         description: `You scored ${finalScore} points!`,
       });
     }
-  }, [effectiveBlobbiId, blobbi, recordGameInteraction, toast, addCoins]);
+  }, [effectiveBlobbiId, blobbi, playGame, toast]);
 
   // Game loop
   useEffect(() => {

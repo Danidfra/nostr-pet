@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { BlobbiStats as Stats, BlobbiLifeStage, Blobbi } from '@/types/blobbi';
 import { Heart, Utensils, Zap, Sparkles, Smile, Thermometer, Shield, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BlobbiFakeStatusIndicator } from './BlobbiFakeStatusIndicator';
 
 interface BlobbiStatsProps {
   stats: Stats;
@@ -11,7 +12,7 @@ interface BlobbiStatsProps {
   className?: string;
 }
 
-export function BlobbiStats({ stats, lifeStage, blobbi, className }: BlobbiStatsProps) {
+export function BlobbiStats({ stats, lifeStage, blobbi, className, hasFakeStatus = false, pendingInteractionCount = 0 }: BlobbiStatsProps & { hasFakeStatus?: boolean; pendingInteractionCount?: number }) {
   // Get egg temperature, default to 50 if not available
   const eggTemperature = blobbi?.eggTemperature ?? 50;
   // Get shell integrity, default to 100 if not available

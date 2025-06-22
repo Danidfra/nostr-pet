@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Coins, Palette, Sparkles, Heart, Utensils, Gamepad2, ShoppingBag } from 'lucide-react';
 import { BlobbiItem } from '@/types/blobbi';
-import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useToast } from '@/hooks/useToast';
 import { SHOP_ITEMS, getShopItemsByType } from '@/lib/shop-items';
@@ -18,7 +18,7 @@ interface BlobbiShopProps {
 }
 
 export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopProps) {
-  const { blobbi, isOwner, purchaseItem } = useBlobbi();
+  const { blobbi, isOwner, purchaseItem } = useBlobbiWithFakeStatus();
   const { data: blobbonautProfile } = useBlobbonautProfile();
   const { toast } = useToast();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);

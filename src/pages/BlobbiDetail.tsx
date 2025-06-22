@@ -32,7 +32,7 @@ import {
   ExternalLink,
   Egg
 } from 'lucide-react';
-import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbiById } from '@/hooks/useUserBlobbis';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 import { useBlobbiQuestSystem } from '@/hooks/useBlobbiQuestSystem';
@@ -67,7 +67,7 @@ export default function BlobbiDetail() {
     isPerformingAction,
     triggerEvolution,
     isEvolving 
-  } = useBlobbi(undefined, blobbiId);
+  } = useBlobbiWithFakeStatus(undefined, blobbiId);
   
   const isOwner = user?.pubkey === blobbi?.ownerPubkey;
   

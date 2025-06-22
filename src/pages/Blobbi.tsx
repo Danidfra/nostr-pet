@@ -4,7 +4,7 @@ import { DailyCheckIn } from '@/components/blobbi/DailyCheckIn';
 import { BlobbonautProfileCard } from '@/components/blobbi/BlobbonautProfileCard';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { SettingsButton } from '@/components/SettingsButton';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Sparkles } from 'lucide-react';
 
 export default function Blobbi() {
   const { user } = useCurrentUser();
-  const { blobbi } = useBlobbi();
+  const { blobbi } = useBlobbiWithFakeStatus();
   
   return (
     <div className="container mx-auto py-8 px-4">

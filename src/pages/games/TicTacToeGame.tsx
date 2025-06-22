@@ -4,8 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowLeft, Play, RotateCcw, Trophy, Users, HelpCircle } from 'lucide-react';
-import { useBlobbi } from '@/hooks/useBlobbi';
-import { useBlobbiGameInteraction } from '@/hooks/useBlobbiInteractionWithStateUpdate';
+import { useBlobbiGameSystem } from '@/hooks/useBlobbiInteractionSystem';
 import { useToast } from '@/hooks/useToast';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
@@ -51,8 +50,7 @@ export function TicTacToeGame() {
   const blobbiId = location.state?.blobbiId;
   
   // Use the specific Blobbi if provided, otherwise fall back to user's Blobbi
-  const { blobbi, addCoins, isLoading } = useBlobbi(undefined, blobbiId);
-  const { mutateAsync: recordGameInteraction } = useBlobbiGameInteraction();
+  const { blobbi, playGame, isPlaying, isLoading } = useBlobbiGameSystem(blobbiId);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
@@ -215,13 +213,7 @@ export function TicTacToeGame() {
       // Record the game interaction
       if (blobbi && effectiveBlobbiId) {
         const score = winner === 'X' ? 100 : winner === 'O' ? 50 : winner === 'tie' ? 75 : 0;
-        await recordGameInteraction({
-          blobbiId: effectiveBlobbiId,
-          gameType: 'tic-tac-toe',
-          score,
-          duration: gameDuration,
-          energyCost: 10,
-        });
+        await playGame('tic-tac-toe', score, gameDuration, 10);
       }
 
       // Award coins based on outcome
@@ -242,26 +234,10 @@ export function TicTacToeGame() {
         message = 'Game completed! You earned 10 coins!';
       }
 
-      if (coinsEarned > 0 && blobbi && addCoins) {
-        try {
-          await addCoins(coinsEarned);
-          toast({
-            title: 'Game Over!',
-            description: message,
-          });
-        } catch (error) {
-          console.error('Failed to add coins:', error);
-          toast({
-            title: 'Game Over!',
-            description: winner === 'X' ? 'Player X wins!' : winner === 'O' ? 'Player O wins!' : winner === 'tie' ? "It's a tie!" : 'Game completed!',
-          });
-        }
-      } else {
-        toast({
-          title: 'Game Over!',
-          description: winner === 'X' ? 'Player X wins!' : winner === 'O' ? 'Player O wins!' : winner === 'tie' ? "It's a tie!" : 'Game completed!',
-        });
-      }
+      toast({
+        title: 'Game Over!',
+        description: message,
+      });
     } catch (error) {
       console.error('Failed to record game interaction:', error);
       // Still show game over message even if recording fails
@@ -270,7 +246,7 @@ export function TicTacToeGame() {
         description: winner === 'X' ? 'Player X wins!' : winner === 'O' ? 'Player O wins!' : winner === 'tie' ? "It's a tie!" : 'Game completed!',
       });
     }
-  }, [effectiveBlobbiId, blobbi, recordGameInteraction, toast, addCoins, gameState.gameStartTime]);
+  }, [effectiveBlobbiId, blobbi, playGame, toast, gameState.gameStartTime]);
 
   // Handle bot moves
   useEffect(() => {

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Package, Sparkles, Apple, Palette, Home, Heart, Droplets } from 'lucide-react';
-import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { SHOP_ITEMS } from '@/lib/shop-items';
 import { useToast } from '@/hooks/useToast';
@@ -18,7 +18,7 @@ interface BlobbiStorageProps {
 }
 
 export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
-  const { blobbi } = useBlobbi();
+  const { blobbi } = useBlobbiWithFakeStatus();
   const { data: blobbonautProfile } = useBlobbonautProfile();
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState('all');

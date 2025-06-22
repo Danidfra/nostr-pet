@@ -1,11 +1,11 @@
 import BlobbiEvolution from '@/components/BlobbiEvolution';
 import { BlobbiTimeline } from '@/components/blobbi/BlobbiTimeline';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 
 export function BlobbiPage() {
   const { user } = useCurrentUser();
-  const { blobbi } = useBlobbi();
+  const { blobbi } = useBlobbiWithFakeStatus();
 
   return (
     <div className="container mx-auto py-8">

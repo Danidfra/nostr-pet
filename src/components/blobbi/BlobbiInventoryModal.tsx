@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BlobbiItem, BlobbiAction } from '@/types/blobbi';
-import { useBlobbi } from '@/hooks/useBlobbi';
-import { useBlobbiCareInteraction } from '@/hooks/useBlobbiInteractionWithStateUpdate';
+import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
+import { useBlobbiCareInteractionWithFakeStatus } from '@/hooks/useBlobbiInteractionWithFakeStatus';
 import { useBlobbonautProfile, useRemoveFromStorage } from '@/hooks/useBlobbonautProfile';
 import { useToast } from '@/hooks/useToast';
 import { Utensils, Gamepad2, Pill, Bath, Sparkles } from 'lucide-react';
@@ -45,9 +45,9 @@ const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: strin
 };
 
 export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }: BlobbiInventoryModalProps) {
-  const { blobbi } = useBlobbi();
+  const { blobbi } = useBlobbiWithFakeStatus();
   const { data: blobbonautProfile, isLoading: isProfileLoading } = useBlobbonautProfile();
-  const { mutateAsync: performCareInteraction } = useBlobbiCareInteraction();
+  const { mutateAsync: performCareInteraction } = useBlobbiCareInteractionWithFakeStatus();
   const { mutateAsync: removeFromStorage } = useRemoveFromStorage();
   const { toast } = useToast();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
@@ -93,6 +93,7 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }
         action: actionType,
         itemEffects: selectedItem.effect,
         itemUsed: selectedItem.name,
+        currentBlobbi: blobbi,
       });
       
       toast({

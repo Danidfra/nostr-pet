@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CreateBlobbiDialog } from '@/components/blobbi/CreateBlobbiDialog';
-import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 interface PetForm {
@@ -116,7 +116,7 @@ const BlobbiEvolution: React.FC = () => {
   const [selectedForm, setSelectedForm] = useState<number | null>(null);
   const [showAccessory, setShowAccessory] = useState(false);
   const { user } = useCurrentUser();
-  const { blobbi } = useBlobbi();
+  const { blobbi } = useBlobbiWithFakeStatus();
 
   const renderBlobbi = () => (
     <svg viewBox="0 0 200 200" className="w-full h-full">

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BlobbiFeedModal } from './BlobbiFeedModal';
 import { BlobbiShop } from './BlobbiShop';
 import { BlobbiItem } from '@/types/blobbi';
-import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { useToast } from '@/hooks/useToast';
@@ -20,7 +20,7 @@ export function BlobbiCompanionIntegration() {
   const { data: companionData } = useCurrentCompanion();
   
   // ✅ FIXED: Use the current companion's Blobbi ID instead of falling back to user's first Blobbi
-  const { blobbi, performAction } = useBlobbi(
+  const { blobbi, performAction } = useBlobbiWithFakeStatus(
     companionData?.blobbi?.ownerPubkey, 
     companionData?.blobbiId
   );

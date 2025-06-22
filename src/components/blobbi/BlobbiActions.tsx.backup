@@ -3,12 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BlobbiAction, Blobbi, BlobbiInteractionType } from '@/types/blobbi';
 import { Utensils, Gamepad2, Bath, Moon, Sun, Pill, Trophy, Thermometer, Eye, Music, MessageCircle, RefreshCw, Heart } from 'lucide-react';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';\nimport { BlobbiFakeStatusIndicator } from './BlobbiFakeStatusIndicator';\nimport { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
 import { BlobbiInventoryModal } from './BlobbiInventoryModal';
 import { useBlobbiCooldowns } from '@/hooks/useBlobbiCooldowns';
 import { useBlobbiCareInteractionWithFakeStatus } from '@/hooks/useBlobbiInteractionWithFakeStatus';
-import { BlobbiFakeStatusIndicator } from './BlobbiFakeStatusIndicator';
-import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
 import { useBlobbonautProfile, useCreateInitialProfile } from '@/hooks/useBlobbonautProfile';
 import { useToast } from '@/hooks/useToast';
 import { isActionAvailableForStage } from '@/lib/cooldown-storage';
@@ -41,9 +39,7 @@ export function BlobbiActions({
   lifecycleStatus,
   onEvolution 
 }: BlobbiActionsProps) {
-  // Get fake status information
-  const { hasFakeStatus, getPendingInteractionCount } = useBlobbiFakeStatus();
-  const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
+  // Get fake status information\n  const { hasFakeStatus, getPendingInteractionCount } = useBlobbiFakeStatus();\n  const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<BlobbiAction | null>(null);
   
   // Check if user has a profile, create one if needed
@@ -63,7 +59,7 @@ export function BlobbiActions({
     isActionAvailable,
   } = useBlobbiCooldowns(blobbi);
   
-  // Use the enhanced interaction system that automatically handles both 14919 and 31124 events
+  // Use the enhanced interaction system with fake status that automatically handles both 14919 and 31124 events
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteractionWithFakeStatus();
   
   // Use the sleep system
@@ -164,12 +160,11 @@ export function BlobbiActions({
       }
     } else {
       // For other actions, perform directly using the enhanced interaction system
-      // This will automatically send both 14919 and 31124 events with fake status updates
+      // This will automatically send both 14919 and 31124 events
       try {
         await performCareInteraction({
           blobbiId: blobbi.id,
           action: action as 'warm' | 'check' | 'sing' | 'talk',
-          currentBlobbi: blobbi, // Pass current blobbi for fake status updates
         });
         // Record the interaction for cooldown tracking
         await recordInteraction(action);
@@ -327,11 +322,7 @@ export function BlobbiActions({
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Gamepad2 className="w-5 h-5" />
-              Actions
-              <BlobbiFakeStatusIndicator 
-                hasFakeStatus={hasFakeStatus(blobbi.id)} 
-                pendingInteractionCount={getPendingInteractionCount(blobbi.id)}
-              />
+              Actions\n              <BlobbiFakeStatusIndicator \n                hasFakeStatus={hasFakeStatus(blobbi.id)} \n                pendingInteractionCount={getPendingInteractionCount(blobbi.id)}\n              />
             </CardTitle>
             {cooldownError && (
               <Button

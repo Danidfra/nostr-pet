@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Palette, Sparkles } from 'lucide-react';
-import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { useToast } from '@/hooks/useToast';
@@ -33,7 +33,7 @@ interface BlobbiCustomizationProps {
 }
 
 export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProps) {
-  const { blobbi, updateCustomization, isUpdatingCustomization, isLoading } = useBlobbi();
+  const { blobbi, updateCustomization, isUpdatingCustomization, isLoading } = useBlobbiWithFakeStatus();
   const { toast } = useToast();
   
   // Initialize state - will be set properly when dialog opens

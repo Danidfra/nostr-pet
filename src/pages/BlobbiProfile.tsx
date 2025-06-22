@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Coins, Trophy, Calendar } from 'lucide-react';
 import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { AppHeader } from '@/components/AppHeader';
-import { useBlobbi } from '@/hooks/useBlobbi';
+import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useAuthor } from '@/hooks/useAuthor';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiStats } from '@/components/blobbi/BlobbiStats';
@@ -22,7 +22,7 @@ export default function BlobbiProfile() {
     performAction, 
     isPerformingAction,
     isOwner 
-  } = useBlobbi(pubkey);
+  } = useBlobbiWithFakeStatus(pubkey);
   
   const author = useAuthor(pubkey || '');
   const displayName = author.data?.metadata?.name || pubkey?.slice(0, 8) || 'Unknown';

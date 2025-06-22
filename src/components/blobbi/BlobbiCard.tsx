@@ -9,6 +9,8 @@ import { Blobbi } from '@/types/blobbi';
 import { formatDistanceToNow } from 'date-fns';
 import { Heart, Sparkles, Zap, Smile, Crown, Activity, Eye } from 'lucide-react';
 import { getBlobbiMood } from '@/lib/blobbi';
+import { BlobbiFakeStatusIndicator } from './BlobbiFakeStatusIndicator';
+import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
 import { cn } from '@/lib/utils';
 import { isValidSize } from '@/lib/blobbi-egg-validation';
 
@@ -40,6 +42,8 @@ export function BlobbiCard({
   footerContent
 }: BlobbiCardProps) {
   const mood = getBlobbiMood(blobbi.stats, blobbi.state);
+  const { hasFakeStatus, getPendingInteractionCount } = useBlobbiFakeStatus();
+  const pendingCount = getPendingInteractionCount(blobbi.id);
   const overallHealth = Math.round(
     (blobbi.stats.health + blobbi.stats.happiness + blobbi.stats.energy + blobbi.stats.hygiene) / 4
   );
@@ -110,6 +114,10 @@ export function BlobbiCard({
               <CardTitle className={cn(config.titleSize, "text-gray-900 dark:text-gray-100 truncate")}>
                 {blobbi.name}
               </CardTitle>
+              <BlobbiFakeStatusIndicator 
+                hasFakeStatus={hasFakeStatus(blobbi.id)}
+                pendingInteractionCount={pendingCount}
+              />
               {showRank && (
                 <Badge variant="default" className={cn(
                   config.badgeSize,
