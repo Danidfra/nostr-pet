@@ -162,7 +162,7 @@ export default function BlobbiProfile() {
               </CardContent>
             </Card>
             
-            <BlobbiStats stats={blobbi.stats} lifeStage={blobbi.lifeStage} blobbi={blobbi} />
+            <BlobbiStats blobbi={blobbi} />
           </div>
           
           {/* Right column - Actions and info */}

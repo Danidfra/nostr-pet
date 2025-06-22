@@ -234,7 +234,7 @@ export function BlobbiGame() {
                 </CardContent>
               </Card>
               
-              <BlobbiStats stats={blobbi.stats} lifeStage={blobbi.lifeStage} blobbi={blobbi} />
+              <BlobbiStats blobbi={blobbi} />
               
               {/* Evolution Progress - show for owner only */}
               {isOwner && (

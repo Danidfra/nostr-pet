@@ -6,13 +6,12 @@ import { cn } from '@/lib/utils';
 import { BlobbiFakeStatusIndicator } from './BlobbiFakeStatusIndicator';
 
 interface BlobbiStatsProps {
-  stats: Stats;
-  lifeStage: BlobbiLifeStage;
-  blobbi?: Blobbi; // Optional blobbi object for egg-specific properties
+  blobbi: Blobbi;
   className?: string;
 }
 
-export function BlobbiStats({ stats, lifeStage, blobbi, className, hasFakeStatus = false, pendingInteractionCount = 0 }: BlobbiStatsProps & { hasFakeStatus?: boolean; pendingInteractionCount?: number }) {
+export function BlobbiStats({ blobbi, className, hasFakeStatus = false, pendingInteractionCount = 0 }: BlobbiStatsProps & { hasFakeStatus?: boolean; pendingInteractionCount?: number }) {
+  const { stats, lifeStage } = blobbi;
   // Get egg temperature, default to 50 if not available
   const eggTemperature = blobbi?.eggTemperature ?? 50;
   // Get shell integrity, default to 100 if not available
