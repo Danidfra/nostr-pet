@@ -5,8 +5,8 @@ import { BlobbiItem } from '@/types/blobbi';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
+import { useBlobbonautProfileWithFakeInventory } from '@/hooks/useBlobbonautProfileWithFakeInventory';
 import { useToast } from '@/hooks/useToast';
-import { useRemoveFromStorage } from '@/hooks/useBlobbonautProfile';
 import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
 
 export function BlobbiCompanionIntegration() {
@@ -26,7 +26,7 @@ export function BlobbiCompanionIntegration() {
   );
   
   const { toast } = useToast();
-  const { mutateAsync: removeFromStorage } = useRemoveFromStorage();
+  const { removeFromStorage } = useBlobbonautProfileWithFakeInventory();
   const { putToSleep, wakeUp, isSleeping } = useBlobbiSleepSystem({ 
     blobbi, 
     isOwner: !!user && blobbi?.ownerPubkey === user.pubkey 

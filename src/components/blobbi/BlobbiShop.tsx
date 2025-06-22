@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Coins, Palette, Sparkles, Heart, Utensils, Gamepad2, ShoppingBag } from 'lucide-react';
 import { BlobbiItem } from '@/types/blobbi';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
-import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
+import { useBlobbonautProfileWithFakeInventory } from '@/hooks/useBlobbonautProfileWithFakeInventory';
 import { useToast } from '@/hooks/useToast';
 import { SHOP_ITEMS, getShopItemsByType } from '@/lib/shop-items';
 
@@ -18,8 +18,8 @@ interface BlobbiShopProps {
 }
 
 export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopProps) {
-  const { blobbi, isOwner, purchaseItem } = useBlobbiWithFakeStatus();
-  const { data: blobbonautProfile } = useBlobbonautProfile();
+  const { blobbi, isOwner } = useBlobbiWithFakeStatus();
+  const { data: blobbonautProfile, purchaseItem } = useBlobbonautProfileWithFakeInventory();
   const { toast } = useToast();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
@@ -45,7 +45,7 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
     
     try {
       // Purchase the item (this will update coins and inventory)
-      await purchaseItem(selectedItem);
+      await purchaseItem({ itemId: selectedItem.id, price: selectedItem.price });
       
       toast({
         title: "Purchase Successful!",
@@ -212,7 +212,7 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
             <div className="space-y-3 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
               <p className="text-sm font-medium text-green-800 dark:text-green-300">Effects:</p>
               <div className="space-y-2">
-                {Object.entries(selectedItem.effect).map(([stat, value]) => (
+                {Object.entries(selectedItem.effect).map(([stat, value]: [string, number]) => (
                   <div key={stat} className="flex items-center gap-2 text-sm">
                     <span className="capitalize text-gray-700 dark:text-gray-300">{stat}:</span>
                     <span className="text-green-600 dark:text-green-400 font-medium">+{value}</span>
@@ -265,7 +265,7 @@ function ShopItemCard({ item, canAfford, onPurchase, disabled }: ShopItemCardPro
         <h4 className="font-medium text-sm mb-2 text-gray-900 dark:text-gray-100">{item.name}</h4>
         {item.effect && (
           <div className="flex flex-wrap gap-1 mb-3">
-            {Object.entries(item.effect).map(([stat, value]) => (
+            {Object.entries(item.effect).map(([stat, value]: [string, number]) => (
               <Badge key={stat} variant="secondary" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700">
                 {stat} +{value}
               </Badge>

@@ -773,7 +773,7 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
       background: getTagValue(tags, 'background'),
       title: getTagValue(tags, 'title'),
       currentCompanion: getTagValue(tags, 'current_companion'),
-
+      lastModified: event.created_at,
     };
 
     return profile;

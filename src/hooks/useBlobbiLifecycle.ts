@@ -314,6 +314,26 @@ export function useBlobbiLifecycle(blobbiId: string) {
     },
   });
 
+  const updateCustomizationMutation = useMutation({
+    mutationFn: async (customization: Partial<Blobbi['customization']>) => {
+      if (!user || !blobbi) throw new Error('Invalid state for customization');
+      
+      const updatedBlobbi: Blobbi = {
+        ...blobbi,
+        customization: {
+          ...blobbi.customization,
+          ...customization,
+        },
+      };
+      
+      await updateState(updatedBlobbi);
+      return updatedBlobbi;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blobbi-state', blobbiId] });
+    },
+  });
+
   return {
     // State
     blobbi,
@@ -328,11 +348,13 @@ export function useBlobbiLifecycle(blobbiId: string) {
     performCare: performCareMutation.mutateAsync,
     evolve: evolveMutation.mutateAsync,
     createMemory: createMemoryMutation.mutateAsync,
+    updateCustomization: updateCustomizationMutation.mutateAsync,
     
     // Action states
     isPerformingCare: performCareMutation.isPending,
     isEvolving: evolveMutation.isPending,
     isCreatingMemory: createMemoryMutation.isPending,
+    isUpdatingCustomization: updateCustomizationMutation.isPending,
   };
 }
 

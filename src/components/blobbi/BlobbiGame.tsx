@@ -29,7 +29,7 @@ export function BlobbiGame() {
     blobbi, 
     isLoading, 
     performAction, 
-    isPerformingAction,
+    isPerformingCareAction: isPerformingAction,
     hasPendingInteractions,
     pendingInteractionCount
   } = useBlobbiInteractionSystem();

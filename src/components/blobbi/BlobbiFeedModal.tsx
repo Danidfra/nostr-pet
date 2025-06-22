@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { BlobbiItem } from '@/types/blobbi';
-import { useBlobbonautProfile, useRemoveFromStorage } from '@/hooks/useBlobbonautProfile';
+import { BlobbiItem, BlobbiAction } from '@/types/blobbi';
+import { useBlobbonautProfileWithFakeInventory } from '@/hooks/useBlobbonautProfileWithFakeInventory';
 import { useToast } from '@/hooks/useToast';
 import { Utensils } from 'lucide-react';
 import { SHOP_ITEMS } from '@/lib/shop-items';
@@ -18,8 +18,7 @@ interface BlobbiFeedModalProps {
 }
 
 export function BlobbiFeedModal({ isOpen, onClose, onOpenShop, onFoodSelected, isCompanionMode = false }: BlobbiFeedModalProps) {
-  const { data: blobbonautProfile, isLoading: isProfileLoading } = useBlobbonautProfile();
-  const { mutateAsync: removeFromStorage } = useRemoveFromStorage();
+  const { data: blobbonautProfile, isLoading: isProfileLoading, removeFromStorage } = useBlobbonautProfileWithFakeInventory();
   const { toast } = useToast();
   const [selectedFood, setSelectedFood] = useState<BlobbiItem | null>(null);
   const [isUsingFood, setIsUsingFood] = useState(false);
@@ -169,7 +168,7 @@ export function BlobbiFeedModal({ isOpen, onClose, onOpenShop, onFoodSelected, i
                           <div className="flex gap-2 mt-1">
                             {food.effect && Object.entries(food.effect)
                               .filter(([stat]) => stat !== 'shell_integrity') // Hide shell_integrity from UI
-                              .map(([stat, value]) => (
+                              .map(([stat, value]: [string, number]) => (
                               <Badge key={stat} variant="secondary" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700">
                                 {stat.charAt(0).toUpperCase() + stat.slice(1)} {value >= 0 ? '+' : ''}{value}
                               </Badge>

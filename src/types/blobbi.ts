@@ -176,6 +176,7 @@ export interface BlobbonautProfile {
   background?: string; // Background/theme
   title?: string; // Custom title or role
   currentCompanion?: string; // Currently selected companion Blobbi ID
+  lastModified: number; // Unix timestamp of last modification
 }
 
 // Action types for interacting with Blobbi (updated to match spec)

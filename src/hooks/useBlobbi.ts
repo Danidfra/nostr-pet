@@ -3,7 +3,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbiLifecycle } from '@/hooks/useBlobbiLifecycle';
 import { useBlobbiState, useBlobbiRecords, useCreateBlobbi } from '@/hooks/useBlobbiEvents';
 import { useUserBlobbi } from '@/hooks/useUserBlobbi';
-import { useBlobbonautProfile, useAddCoins, usePurchaseItem } from '@/hooks/useBlobbonautProfile';
+import { useBlobbonautProfile, useAddCoins } from '@/hooks/useBlobbonautProfile';
 import { Blobbi, BlobbiAction, BlobbiItem, BlobbiStats, BlobbiInteractionType } from '@/types/blobbi';
 import { calculateStatDegradation, clampStat } from '@/lib/blobbi-events';
 
@@ -61,7 +61,6 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
   const queryClient = useQueryClient();
   const { data: blobbonautProfile } = useBlobbonautProfile();
   const { mutateAsync: addCoins } = useAddCoins();
-  const { mutateAsync: purchaseItemFromProfile } = usePurchaseItem();
   
   // Use provided pubkey or current user's pubkey
   const targetPubkey = pubkey || user?.pubkey;
@@ -83,6 +82,8 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
     createMemory,
     isPerformingCare,
     isEvolving,
+    updateCustomization,
+    isUpdatingCustomization,
   } = useBlobbiLifecycle(effectiveBlobbiId || '');
   
   // Combine loading states
@@ -294,26 +295,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
     },
   });
 
-  // Purchase item with Blobbanaut Profile integration (only emits kind 31125)
-  const purchaseItemMutation = useMutation({
-    mutationFn: async (item: BlobbiItem) => {
-      if (!user) throw new Error('Must be logged in to purchase items');
-      if (!blobbonautProfile) throw new Error('Blobbanaut Profile not found');
-      
-      // Purchase item (spend coins and add to storage in single kind 31125 event)
-      await purchaseItemFromProfile({ 
-        itemId: item.id, 
-        price: item.price, 
-        quantity: 1 
-      });
-      
-      return { item };
-    },
-    onSuccess: () => {
-      // Only invalidate Blobbanaut Profile queries since we're only updating kind 31125
-      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile'] });
-    },
-  });
+
 
   // Add coins (for game rewards) - now integrates with Blobbanaut Profile
   const addCoinsMutation = useMutation({
@@ -344,18 +326,12 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
     createBlobbi: createBlobbiMutation.mutateAsync,
     performAction: (action: BlobbiAction, itemEffect?: Partial<BlobbiStats>) => 
       performActionMutation.mutateAsync({ action, itemEffect }),
+    updateCustomization,
     triggerEvolution: triggerEvolutionMutation.mutateAsync,
     createMemory: createMemoryMutation.mutateAsync,
-    updateCustomization: updateCustomizationMutation.mutateAsync,
-    purchaseItem: purchaseItemMutation.mutateAsync,
-    addCoins: addCoinsMutation.mutateAsync,
-    
-    // Loading states
-    isCreating: createBlobbiMutation.isPending,
-    isPerformingAction: isPerformingCare || performActionMutation.isPending,
-    isEvolving: isEvolving || triggerEvolutionMutation.isPending,
-    isUpdatingCustomization: updateCustomizationMutation.isPending,
-    isPurchasing: purchaseItemMutation.isPending,
+    isPerformingAction: isPerformingCare,
+    isEvolving,
+    isUpdatingCustomization,
     isAddingCoins: addCoinsMutation.isPending,
     isCreatingMemory: createMemoryMutation.isPending,
   };

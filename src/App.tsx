@@ -12,6 +12,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { RelayProvider, useRelayContext } from '@/contexts/RelayContext';
 import { BlobbiCompanionIntegration } from '@/components/blobbi/BlobbiCompanionIntegration';
 import { BedProvider } from '@/contexts/BedContext';
+import { BlobbiFakeInventoryProvider } from '@/contexts/BlobbiFakeInventoryContext';
 import { BlobbiFakeStatusProvider } from '@/contexts/BlobbiFakeStatusContext';
 import AppRouter from './AppRouter';
 
@@ -69,14 +70,16 @@ export function App() {
           <NostrProviderWithRelays fallbackRelays={defaultRelays}>
             <QueryClientProvider client={queryClient}>
               <BlobbiFakeStatusProvider>
-                <TooltipProvider>
-                  <BedProvider>
-                    <Toaster />
-                    <Sonner />
-                    <BlobbiCompanionIntegration />
-                    <AppRouter />
-                  </BedProvider>
-                </TooltipProvider>
+                <BlobbiFakeInventoryProvider>
+                  <TooltipProvider>
+                    <BedProvider>
+                      <Toaster />
+                      <Sonner />
+                      <BlobbiCompanionIntegration />
+                      <AppRouter />
+                    </BedProvider>
+                  </TooltipProvider>
+                </BlobbiFakeInventoryProvider>
               </BlobbiFakeStatusProvider>
             </QueryClientProvider>
           </NostrProviderWithRelays>

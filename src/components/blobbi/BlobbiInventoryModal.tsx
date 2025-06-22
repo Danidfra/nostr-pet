@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { BlobbiItem, BlobbiAction } from '@/types/blobbi';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbiCareInteractionWithFakeStatus } from '@/hooks/useBlobbiInteractionWithFakeStatus';
-import { useBlobbonautProfile, useRemoveFromStorage } from '@/hooks/useBlobbonautProfile';
+import { useBlobbonautProfileWithFakeInventory } from '@/hooks/useBlobbonautProfileWithFakeInventory';
 import { useToast } from '@/hooks/useToast';
 import { Utensils, Gamepad2, Pill, Bath, Sparkles } from 'lucide-react';
 import { SHOP_ITEMS } from '@/lib/shop-items';
@@ -46,9 +46,8 @@ const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: strin
 
 export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }: BlobbiInventoryModalProps) {
   const { blobbi } = useBlobbiWithFakeStatus();
-  const { data: blobbonautProfile, isLoading: isProfileLoading } = useBlobbonautProfile();
+  const { data: blobbonautProfile, isLoading: isProfileLoading, removeFromStorage } = useBlobbonautProfileWithFakeInventory();
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteractionWithFakeStatus();
-  const { mutateAsync: removeFromStorage } = useRemoveFromStorage();
   const { toast } = useToast();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
   const [isUsingItem, setIsUsingItem] = useState(false);
@@ -224,7 +223,7 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }
                           <div className="flex gap-2 mt-1">
                             {item.effect && Object.entries(item.effect)
                               .filter(([stat]) => stat !== 'shell_integrity') // Hide shell_integrity from UI, show only health
-                              .map(([stat, value]) => (
+                              .map(([stat, value]: [string, number]) => (
                               <Badge key={stat} variant="secondary" className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
                                 {formatStatName(stat)} {value >= 0 ? '+' : ''}{value}
                               </Badge>

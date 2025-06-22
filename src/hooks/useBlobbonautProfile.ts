@@ -1,3 +1,12 @@
+// Hook to get storage item quantity
+export function useStorageItemQuantity(itemId: string): number {
+  const { data: currentProfile } = useBlobbonautProfile();
+  
+  if (!currentProfile) return 0;
+  
+  const storageItem = currentProfile.storage.find(item => item.itemId === itemId);
+  return storageItem?.quantity || 0;
+}
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 
@@ -14,31 +23,30 @@ import {
 export function useBlobbonautProfile(profileId?: string) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  
-  // Use provided profileId or generate default one from user pubkey
-  const actualProfileId = profileId || (user ? `Blobbanaut-${user.pubkey.slice(0, 8)}` : undefined);
+  const effectiveProfileId = profileId || (user ? `Blobbanaut-${user.pubkey.slice(0, 8)}` : undefined);
 
   return useQuery({
-    queryKey: ['blobbanaut-profile', actualProfileId],
+    queryKey: ['blobbanaut-profile', effectiveProfileId],
     queryFn: async ({ signal }) => {
-      if (!actualProfileId) return null;
-      
+      if (!effectiveProfileId) return null;
+
       const events = await nostr.query(
         [{ 
           kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE], 
-          '#d': [actualProfileId],
-          limit: 1 
+          '#d': [effectiveProfileId],
+          limit: 1, // We only need the latest one
         }], 
         { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
       );
 
       if (events.length === 0) return null;
-      
-      // Get the most recent event (should be only one due to NIP-33 replaceable)
+
+      // Assuming the first event is the latest due to relay sorting, but we can sort just in case
       const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
+      
       return parseBlobbonautProfileFromEvent(latestEvent);
     },
-    enabled: !!actualProfileId,
+    enabled: !!effectiveProfileId,
   });
 }
 
@@ -335,6 +343,7 @@ export function useCreateInitialProfile() {
         lifetimeBlobbis: 0,
         achievements: [],
         storage: [], // Initialize empty storage
+        lastModified: Math.floor(Date.now() / 1000),
         ...customizations,
       };
 
@@ -397,132 +406,4 @@ export function useAddToStorage() {
       });
     },
   });
-}
-
-// Hook to remove items from storage
-export function useRemoveFromStorage() {
-  const { data: currentProfile } = useBlobbonautProfile();
-  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
-  const { user } = useCurrentUser();
-
-  return useMutation({
-    mutationFn: async ({ itemId, quantity = 1 }: { itemId: string; quantity?: number }) => {
-      if (!user || !currentProfile) {
-        throw new Error('User must be logged in and have a profile');
-      }
-
-      if (quantity <= 0) {
-        throw new Error('Quantity must be positive');
-      }
-
-      // Find existing item in storage
-      const existingItemIndex = currentProfile.storage.findIndex(item => item.itemId === itemId);
-      
-      if (existingItemIndex < 0) {
-        throw new Error(`Item ${itemId} not found in storage`);
-      }
-
-      const existingItem = currentProfile.storage[existingItemIndex];
-      
-      if (existingItem.quantity < quantity) {
-        throw new Error(`Insufficient quantity. Have ${existingItem.quantity}, trying to remove ${quantity}`);
-      }
-
-      let updatedStorage: BlobbonautStorageItem[];
-      
-      if (existingItem.quantity === quantity) {
-        // Remove item completely if quantity becomes 0
-        updatedStorage = currentProfile.storage.filter((_, index) => index !== existingItemIndex);
-      } else {
-        // Reduce quantity
-        updatedStorage = [...currentProfile.storage];
-        updatedStorage[existingItemIndex] = {
-          ...existingItem,
-          quantity: existingItem.quantity - quantity,
-        };
-      }
-
-      const updatedProfile: BlobbonautProfile = {
-        ...currentProfile,
-        storage: updatedStorage,
-      };
-
-      return new Promise<void>((resolve, reject) => {
-        updateProfile(updatedProfile, {
-          onSuccess: () => resolve(),
-          onError: reject,
-        });
-      });
-    },
-  });
-}
-
-// Hook to purchase items (spend coins and add to storage in single transaction)
-export function usePurchaseItem() {
-  const { data: currentProfile } = useBlobbonautProfile();
-  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
-  const { user } = useCurrentUser();
-
-  return useMutation({
-    mutationFn: async ({ itemId, price, quantity = 1 }: { itemId: string; price: number; quantity?: number }) => {
-      if (!user || !currentProfile) {
-        throw new Error('User must be logged in and have a profile');
-      }
-
-      if (quantity <= 0) {
-        throw new Error('Quantity must be positive');
-      }
-
-      const totalCost = price * quantity;
-
-      // Check if user has enough coins
-      if (currentProfile.coins < totalCost) {
-        throw new Error(`Insufficient coins. Need ${totalCost}, have ${currentProfile.coins}`);
-      }
-
-      // Find existing item in storage
-      const existingItemIndex = currentProfile.storage.findIndex(item => item.itemId === itemId);
-      
-      let updatedStorage: BlobbonautStorageItem[];
-      
-      if (existingItemIndex >= 0) {
-        // Update existing item quantity
-        updatedStorage = [...currentProfile.storage];
-        updatedStorage[existingItemIndex] = {
-          ...updatedStorage[existingItemIndex],
-          quantity: updatedStorage[existingItemIndex].quantity + quantity,
-        };
-      } else {
-        // Add new item to storage
-        updatedStorage = [
-          ...currentProfile.storage,
-          { itemId, quantity },
-        ];
-      }
-
-      // Update profile with both coin deduction and storage addition
-      const updatedProfile: BlobbonautProfile = {
-        ...currentProfile,
-        coins: currentProfile.coins - totalCost,
-        storage: updatedStorage,
-      };
-
-      return new Promise<void>((resolve, reject) => {
-        updateProfile(updatedProfile, {
-          onSuccess: () => resolve(),
-          onError: reject,
-        });
-      });
-    },
-  });
-}
-
-// Hook to get storage item quantity
-export function useStorageItemQuantity(itemId: string): number {
-  const { data: currentProfile } = useBlobbonautProfile();
-  
-  if (!currentProfile) return 0;
-  
-  const storageItem = currentProfile.storage.find(item => item.itemId === itemId);
-  return storageItem?.quantity || 0;
 }

@@ -85,14 +85,37 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
     }
   };
 
+  const updateCustomizationWithFakeStatus = async (customization: Partial<Blobbi['customization']>) => {
+    if (!effectiveBlobbiId) return originalHook.updateCustomization(customization);
+
+    const currentBlobbi = fakeStatus || originalHook.blobbi;
+    if (!currentBlobbi) return originalHook.updateCustomization(customization);
+
+    const updatedBlobbi = {
+      ...currentBlobbi,
+      customization: {
+        ...currentBlobbi.customization,
+        ...customization,
+      },
+      lastInteraction: Math.floor(Date.now() / 1000),
+    };
+
+    setFakeStatus(effectiveBlobbiId, updatedBlobbi);
+    incrementPendingInteractions(effectiveBlobbiId);
+
+    try {
+      await originalHook.updateCustomization(customization);
+    } catch (error) {
+      console.error('Real customization update failed, but fake status was updated:', error);
+    }
+  };
+
   return {
     ...originalHook,
     blobbi: fakeStatus || originalHook.blobbi,
     performAction: performActionWithFakeStatus,
+    updateCustomization: updateCustomizationWithFakeStatus,
     hasFakeStatus: !!fakeStatus,
     pendingInteractionCount,
-    // Additional methods for compatibility
-    addCoins: originalHook.addCoins,
-    isLoading: originalHook.isLoading,
   };
 }
