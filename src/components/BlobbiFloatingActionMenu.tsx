@@ -46,6 +46,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isMedicineModalOpen, setIsMedicineModalOpen] = useState(false);
+  const [isCleaningModalOpen, setIsCleaningModalOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isDraggingState, setIsDraggingState] = useState(false);
   const dragRef = useRef<HTMLDivElement>(null);
@@ -224,6 +225,19 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     }
   };
 
+  const handleOpenCleaning = createActionHandler(() => {
+    setIsCleaningModalOpen(true);
+  });
+
+  const handleCleaningModalClose = (actionPerformed?: boolean) => {
+    setIsCleaningModalOpen(false);
+    // If an action was performed, we could add additional logic here if needed
+    if (actionPerformed) {
+      // The fake status system will handle the UI updates automatically
+      console.log('Cleaning action performed on companion');
+    }
+  };
+
   if (!shouldShow || !companionData?.blobbi?.id) return null;
 
 
@@ -236,6 +250,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const menuItems = [
     { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi, disabled: false },
     { icon: '💊', label: 'Medicine', action: handleOpenMedicine, disabled: false },
+    { icon: '🧼', label: 'Clean Blobbi', action: handleOpenCleaning, disabled: false },
     { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility, disabled: false },
     { 
       icon: isBedVisible ? '🛏️' : '😴', 
@@ -364,6 +379,12 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
         isOpen={isMedicineModalOpen}
         onClose={handleMedicineModalClose}
         actionType="medicine"
+        blobbi={companionData?.blobbi || undefined}
+      />
+      <BlobbiInventoryModal
+        isOpen={isCleaningModalOpen}
+        onClose={handleCleaningModalClose}
+        actionType="clean"
         blobbi={companionData?.blobbi || undefined}
       />
     </>

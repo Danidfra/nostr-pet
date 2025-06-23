@@ -44,3 +44,17 @@ export function getShopItemById(id: string): BlobbiItem | undefined {
 export function getShopItemsByType(type: BlobbiItem['type']): BlobbiItem[] {
   return SHOP_ITEMS.filter(item => item.type === type);
 }
+
+// Helper function to get medicine sound based on item ID
+export function getMedicineSoundForItem(itemId: string): 'swallow' | 'ouch' | null {
+  switch (itemId) {
+    case 'med_vitamins':
+    case 'med_elixir':
+      return 'swallow';
+    case 'med_bandage':
+    case 'med_super':
+      return 'ouch';
+    default:
+      return null; // No specific sound for other medicine items
+  }
+}

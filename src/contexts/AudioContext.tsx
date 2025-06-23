@@ -6,7 +6,7 @@ interface AudioContextType {
   isMuted: boolean;
   setVolume: (volume: number) => void;
   setIsMuted: (isMuted: boolean) => void;
-  playSound: (sound: 'angry' | 'eating') => void;
+  playSound: (sound: 'angry' | 'eating' | 'swallow' | 'ouch' | 'cleaning') => void;
 }
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
@@ -79,7 +79,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   }, [isMuted, volume]);
 
   // ✅ ENHANCED: Improved playSound with better volume handling
-  const playSound = useCallback((sound: 'angry' | 'eating') => {
+  const playSound = useCallback((sound: 'angry' | 'eating' | 'swallow' | 'ouch' | 'cleaning') => {
     console.log('🎵 React AudioContext: Playing sound', { 
       sound, 
       volume, 

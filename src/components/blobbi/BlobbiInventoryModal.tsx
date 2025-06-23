@@ -10,7 +10,7 @@ import { useBlobbonautProfileWithFakeInventory } from '@/hooks/useBlobbonautProf
 import { useToast } from '@/hooks/useToast';
 import { useAudio } from '@/contexts/AudioContext';
 import { Utensils, Gamepad2, Pill, Bath, Sparkles } from 'lucide-react';
-import { SHOP_ITEMS } from '@/lib/shop-items';
+import { SHOP_ITEMS, getMedicineSoundForItem } from '@/lib/shop-items';
 
 interface BlobbiInventoryModalProps {
   isOpen: boolean;
@@ -86,9 +86,16 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
     setIsUsingItem(true);
     
     try {
-      // Play sound first
+      // Play sound first based on action type and item
       if (actionType === 'feed') {
         playSound('eating');
+      } else if (actionType === 'medicine') {
+        const medicineSound = getMedicineSoundForItem(selectedItem.id);
+        if (medicineSound) {
+          playSound(medicineSound);
+        }
+      } else if (actionType === 'clean') {
+        playSound('cleaning');
       }
 
       // First, remove the item from storage
