@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { useBlobbiFakeStatus, applyStatChangesToBlobbi } from '@/contexts/BlobbiFakeStatusContext';
-import { Blobbi } from '@/types/blobbi';
+import { Blobbi, BlobbiState } from '@/types/blobbi';
 
 export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
   const originalHook = useBlobbi(pubkey, blobbiId);
@@ -110,11 +110,29 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
     }
   };
 
+  const setSleepStateOptimistic = (isSleeping: boolean) => {
+    if (!effectiveBlobbiId) return;
+
+    const currentBlobbi = fakeStatus || originalHook.blobbi;
+    if (!currentBlobbi) return;
+
+    const updatedBlobbi = {
+      ...currentBlobbi,
+      isSleeping,
+      state: (isSleeping ? 'sleeping' : 'active') as BlobbiState,
+      lastInteraction: Math.floor(Date.now() / 1000),
+    };
+
+    setFakeStatus(effectiveBlobbiId, updatedBlobbi);
+    // We don't increment pending interactions here because the sleep system handles the real update.
+  };
+
   return {
     ...originalHook,
     blobbi: fakeStatus || originalHook.blobbi,
     performAction: performActionWithFakeStatus,
     updateCustomization: updateCustomizationWithFakeStatus,
+    setSleepStateOptimistic,
     hasFakeStatus: !!fakeStatus,
     pendingInteractionCount,
   };

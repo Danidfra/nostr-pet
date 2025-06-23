@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useUserBlobbis } from './useUserBlobbis';
+import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
 import { BLOBBI_EVENT_KINDS, parseBlobbiFromStateEvent } from '@/lib/blobbi-events';
 import { Blobbi } from '@/types/blobbi';
 
@@ -14,8 +15,9 @@ export function useCurrentCompanion() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { data: userBlobbis, isLoading: isBlobbisLoading } = useUserBlobbis();
+  const { getFakeStatus } = useBlobbiFakeStatus();
 
-  return useQuery({
+  const queryResult = useQuery({
     queryKey: ['current-companion', user?.pubkey],
     queryFn: async ({ signal }) => {
       if (!user) return null;
@@ -71,4 +73,21 @@ export function useCurrentCompanion() {
     enabled: !!user && !isBlobbisLoading,
     staleTime: 30000, // Consider data stale after 30 seconds
   });
+
+  // Optimistic update logic
+  const originalData = queryResult.data;
+  if (originalData && originalData.blobbiId) {
+    const fakeStatus = getFakeStatus(originalData.blobbiId);
+    if (fakeStatus) {
+      return {
+        ...queryResult,
+        data: {
+          ...originalData,
+          blobbi: fakeStatus,
+        },
+      };
+    }
+  }
+
+  return queryResult;
 }
