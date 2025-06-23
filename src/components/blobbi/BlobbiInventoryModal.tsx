@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { BlobbiItem, BlobbiAction } from '@/types/blobbi';
+import { BlobbiItem, BlobbiAction, Blobbi } from '@/types/blobbi';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbiCareInteractionWithFakeStatus } from '@/hooks/useBlobbiInteractionWithFakeStatus';
 import { useBlobbonautProfileWithFakeInventory } from '@/hooks/useBlobbonautProfileWithFakeInventory';
@@ -17,6 +17,7 @@ interface BlobbiInventoryModalProps {
   onClose: (actionPerformed?: boolean, action?: BlobbiAction) => void;
   actionType: BlobbiAction;
   onOpenShop?: () => void;
+  blobbi?: Blobbi; // Optional blobbi prop for companion usage
 }
 
 const ACTION_TYPE_MAP: Record<BlobbiAction, string> = {
@@ -45,14 +46,17 @@ const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: strin
   cruzar: null,
 };
 
-export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop }: BlobbiInventoryModalProps) {
-  const { blobbi } = useBlobbiWithFakeStatus();
+export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, blobbi: propBlobbi }: BlobbiInventoryModalProps) {
+  const { blobbi: contextBlobbi } = useBlobbiWithFakeStatus();
   const { data: blobbonautProfile, isLoading: isProfileLoading, removeFromStorage } = useBlobbonautProfileWithFakeInventory();
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteractionWithFakeStatus();
   const { toast } = useToast();
   const { playSound } = useAudio();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
   const [isUsingItem, setIsUsingItem] = useState(false);
+  
+  // Use prop blobbi if provided (for companion), otherwise use context blobbi
+  const blobbi = propBlobbi || contextBlobbi;
   
   if (!blobbi) return null;
   

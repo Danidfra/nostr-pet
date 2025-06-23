@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BlobbiSettingsModal } from './BlobbiSettingsModal';
+import { BlobbiInventoryModal } from './blobbi/BlobbiInventoryModal';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { useBed } from '@/contexts/BedContext';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
+import { Blobbi } from '@/types/blobbi';
 import blobBlack from '/blob-black.svg';
 import blobWhite from '/blob-white.svg';
 
@@ -43,6 +45,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const [position, setPosition] = useState<Position>(DEFAULT_POSITION);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isMedicineModalOpen, setIsMedicineModalOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isDraggingState, setIsDraggingState] = useState(false);
   const dragRef = useRef<HTMLDivElement>(null);
@@ -208,6 +211,19 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     setIsSettingsModalOpen(true);
   });
 
+  const handleOpenMedicine = createActionHandler(() => {
+    setIsMedicineModalOpen(true);
+  });
+
+  const handleMedicineModalClose = (actionPerformed?: boolean) => {
+    setIsMedicineModalOpen(false);
+    // If an action was performed, we could add additional logic here if needed
+    if (actionPerformed) {
+      // The fake status system will handle the UI updates automatically
+      console.log('Medicine action performed on companion');
+    }
+  };
+
   if (!shouldShow || !companionData?.blobbi?.id) return null;
 
 
@@ -219,6 +235,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   
   const menuItems = [
     { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi, disabled: false },
+    { icon: '💊', label: 'Medicine', action: handleOpenMedicine, disabled: false },
     { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility, disabled: false },
     { 
       icon: isBedVisible ? '🛏️' : '😴', 
@@ -342,6 +359,12 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
         blobbiId={companionData.blobbi.id}
         isOpen={isSettingsModalOpen}
         onOpenChange={setIsSettingsModalOpen}
+      />
+      <BlobbiInventoryModal
+        isOpen={isMedicineModalOpen}
+        onClose={handleMedicineModalClose}
+        actionType="medicine"
+        blobbi={companionData?.blobbi || undefined}
       />
     </>
   );
