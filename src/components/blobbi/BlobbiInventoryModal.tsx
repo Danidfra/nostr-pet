@@ -86,36 +86,44 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
     setIsUsingItem(true);
     
     try {
-      // Play sound first based on action type and item
-      if (actionType === 'feed') {
-        playSound('eating');
-      } else if (actionType === 'medicine') {
-        const medicineSound = getMedicineSoundForItem(selectedItem.id);
-        if (medicineSound) {
-          playSound(medicineSound);
+      // ✅ NEW: Handle toy placement differently from other items
+      if (actionType === 'play' && selectedItem.type === 'toy') {
+        // For toys, place them in the companion and trigger physics
+        await placeToyInCompanion(selectedItem);
+      } else {
+        // Handle other items normally (food, medicine, hygiene)
+        
+        // Play sound first based on action type and item
+        if (actionType === 'feed') {
+          playSound('eating');
+        } else if (actionType === 'medicine') {
+          const medicineSound = getMedicineSoundForItem(selectedItem.id);
+          if (medicineSound) {
+            playSound(medicineSound);
+          }
+        } else if (actionType === 'clean') {
+          playSound('cleaning');
         }
-      } else if (actionType === 'clean') {
-        playSound('cleaning');
-      }
 
-      // First, remove the item from storage
-      await removeFromStorage({
-        itemId: selectedItem.id,
-        quantity: 1,
-      });
-      
-      // Then use the enhanced care interaction system with item effects
-      await performCareInteraction({
-        blobbiId: blobbi.id,
-        action: actionType,
-        itemEffects: selectedItem.effect,
-        itemUsed: selectedItem.name,
-        currentBlobbi: blobbi,
-      });
+        // First, remove the item from storage
+        await removeFromStorage({
+          itemId: selectedItem.id,
+          quantity: 1,
+        });
+        
+        // Then use the enhanced care interaction system with item effects
+        await performCareInteraction({
+          blobbiId: blobbi.id,
+          action: actionType,
+          itemEffects: selectedItem.effect,
+          itemUsed: selectedItem.name,
+          currentBlobbi: blobbi,
+        });
+      }
       
       toast({
         title: "Item Used!",
-        description: `${blobbi.name} used ${selectedItem.name}!`,
+        description: `${blobbi.name || 'Your Blobbi'} ${actionType === 'play' ? 'is playing with' : 'used'} ${selectedItem.name}!`,
       });
       
       // Close with action performed flag
@@ -130,6 +138,60 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
     } finally {
       setIsUsingItem(false);
     }
+  };
+
+  const placeToyInCompanion = async (toy: BlobbiItem) => {
+    console.log('🎾 Placing toy in companion:', toy);
+    
+    // First, remove the toy from storage
+    await removeFromStorage({
+      itemId: toy.id,
+      quantity: 1,
+    });
+    
+    // Create toy element
+    const toyElement = document.createElement('div');
+    toyElement.className = `companion-toy ${toy.id.replace('toy_', '')}`;
+    toyElement.style.cssText = `
+      position: fixed;
+      left: ${window.innerWidth / 2 - 30}px;
+      top: ${window.innerHeight / 3}px;
+      font-size: ${toy.id === 'toy_teddy' ? '60px' : '40px'};
+      z-index: 9997;
+      pointer-events: auto;
+      user-select: none;
+      animation: toyDrop 0.5s ease-out;
+    `;
+    
+    // ✅ UPDATED: Set toy icon based on type with correct sizes
+    if (toy.id === 'toy_ball') {
+      toyElement.innerHTML = `<img src="/companion/assets/toys/ball.png" alt="Ball" style="width: 40px; height: 40px;" />`;
+    } else if (toy.id === 'toy_teddy') {
+      toyElement.innerHTML = `<img src="/companion/assets/toys/bear.png" alt="Teddy Bear" style="width: 120px; height: 120px;" />`;
+    } else {
+      toyElement.textContent = toy.icon || '🎾';
+    }
+    
+    document.body.appendChild(toyElement);
+    
+    // Dispatch toy-placed event to companion
+    window.dispatchEvent(new CustomEvent('toy-placed', {
+      detail: {
+        element: toyElement,
+        toy: toy,
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 3
+      }
+    }));
+    
+    // Apply toy effects to Blobbi stats
+    await performCareInteraction({
+      blobbiId: blobbi.id,
+      action: actionType,
+      itemEffects: toy.effect,
+      itemUsed: toy.name,
+      currentBlobbi: blobbi,
+    });
   };
 
 

@@ -439,6 +439,76 @@ body:has([role="dialog"]) .blobbi-container {
     }
 }
 
+/* ✅ NEW: Play mode and toy physics styles */
+.blobbi-container.play-mode {
+    transition: none;
+}
+
+.blobbi-container.falling .blobbi-character {
+    animation: falling 0.3s ease-in;
+}
+
+.blobbi-container.landed .blobbi-character {
+    animation: landed-bounce 0.5s ease-out;
+}
+
+@keyframes falling {
+    0% {
+        transform: translateY(0) rotate(0deg);
+    }
+    100% {
+        transform: translateY(10px) rotate(5deg);
+    }
+}
+
+@keyframes landed-bounce {
+    0% {
+        transform: scale(1.1) translateY(-5px);
+    }
+    50% {
+        transform: scale(0.95) translateY(2px);
+    }
+    100% {
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Toy element styles */
+.companion-toy {
+    position: fixed;
+    z-index: 9997;
+    user-select: none;
+    cursor: pointer;
+    transition: none;
+}
+
+.companion-toy.ball {
+    font-size: 40px;
+    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+}
+
+.companion-toy.teddy {
+    font-size: 60px;
+    filter: drop-shadow(3px 3px 6px rgba(0,0,0,0.3));
+    cursor: grab;
+}
+
+.companion-toy.teddy:active {
+    cursor: grabbing;
+}
+
+/* Toy drop animation */
+@keyframes toyDrop {
+    from { 
+        transform: translateY(-30px) scale(0.3) rotate(-10deg); 
+        opacity: 0; 
+    }
+    to { 
+        transform: translateY(0) scale(1) rotate(0deg); 
+        opacity: 1; 
+    }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .blobbi-character {
@@ -466,5 +536,14 @@ body:has([role="dialog"]) .blobbi-container {
     .speech-bubble-content {
         font-size: 12px;
         padding: 8px 12px;
+    }
+    
+    /* Smaller toys on mobile */
+    .companion-toy.ball {
+        font-size: 30px;
+    }
+    
+    .companion-toy.teddy {
+        font-size: 45px;
     }
 }
