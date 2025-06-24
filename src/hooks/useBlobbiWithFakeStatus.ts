@@ -121,10 +121,21 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
       isSleeping,
       state: (isSleeping ? 'sleeping' : 'active') as BlobbiState,
       lastInteraction: Math.floor(Date.now() / 1000),
+      // Add sleep-specific fields when going to sleep
+      ...(isSleeping && {
+        sleepStartedAt: Math.floor(Date.now() / 1000),
+        lastSleepUpdate: Math.floor(Date.now() / 1000),
+      }),
+      // Clear sleep-specific fields when waking up
+      ...(!isSleeping && {
+        sleepStartedAt: undefined,
+        lastSleepUpdate: undefined,
+      }),
     };
 
     setFakeStatus(effectiveBlobbiId, updatedBlobbi);
     // We don't increment pending interactions here because the sleep system handles the real update.
+    // The optimistic state should persist until the real sleep state update completes.
   };
 
   return {
