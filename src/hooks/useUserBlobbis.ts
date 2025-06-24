@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
 import { BLOBBI_EVENT_KINDS, parseBlobbiFromStateEvent } from '@/lib/blobbi-events';
 import { calculateStatDegradation, clampStat } from '@/lib/blobbi-events';
 import { Blobbi } from '@/types/blobbi';
@@ -11,8 +12,9 @@ import { Blobbi } from '@/types/blobbi';
 export function useUserBlobbis() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const { getFakeStatus } = useBlobbiFakeStatus();
 
-  return useQuery({
+  const queryResult = useQuery({
     queryKey: ['user-blobbis', user?.pubkey],
     queryFn: async () => {
       if (!user) return [];
@@ -67,6 +69,22 @@ export function useUserBlobbis() {
     enabled: !!user,
     refetchInterval: 60000, // Refetch every minute
   });
+
+  // Optimistic update logic
+  const originalData = queryResult.data;
+  if (originalData) {
+    const optimisticData = originalData.map(blobbi => {
+      const fakeStatus = getFakeStatus(blobbi.id);
+      return fakeStatus || blobbi;
+    });
+
+    return {
+      ...queryResult,
+      data: optimisticData,
+    };
+  }
+
+  return queryResult;
 }
 
 /**
