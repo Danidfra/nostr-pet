@@ -12,8 +12,8 @@ export const SHOP_ITEMS: BlobbiItem[] = [
   { id: 'toy_ball', name: 'Ball', type: 'toy', price: 30, effect: { happiness: 25, energy: -10, hygiene: -5 }, icon: '⚽' },
   { id: 'toy_teddy', name: 'Teddy Bear', type: 'toy', price: 60, effect: { happiness: 40, energy: -15 }, icon: '🧸' },
   { id: 'toy_blocks', name: 'Building Blocks', type: 'toy', price: 40, effect: { happiness: 30, energy: -10 }, icon: '🧱' },
-  { id: 'toy_puzzle', name: 'Puzzle', type: 'toy', price: 50, effect: { happiness: 35, energy: -15 }, icon: '🧩' },
-  
+  // { id: 'toy_puzzle', name: 'Puzzle', type: 'toy', price: 50, effect: { happiness: 35, energy: -15 }, icon: '🧩' },
+
   // Medicine - boost health (automatically converts to shell_integrity for eggs)
   { id: 'med_vitamins', name: 'Vitamins', type: 'medicine', price: 40, effect: { health: 20 }, icon: '💊' },
   { id: 'med_super', name: 'Super Medicine', type: 'medicine', price: 100, effect: { health: 50, energy: 20, happiness: -10 }, icon: '💉' },
