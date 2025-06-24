@@ -45,6 +45,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const [position, setPosition] = useState<Position>(DEFAULT_POSITION);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isPlayModalOpen, setIsPlayModalOpen] = useState(false);
   const [isMedicineModalOpen, setIsMedicineModalOpen] = useState(false);
   const [isCleaningModalOpen, setIsCleaningModalOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -212,6 +213,17 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     setIsSettingsModalOpen(true);
   });
 
+  const handleOpenPlay = createActionHandler(() => {
+    setIsPlayModalOpen(true);
+  });
+
+  const handlePlayModalClose = (actionPerformed?: boolean) => {
+    setIsPlayModalOpen(false);
+    if (actionPerformed) {
+      console.log('Play action performed on companion');
+    }
+  };
+
   const handleOpenMedicine = createActionHandler(() => {
     setIsMedicineModalOpen(true);
   });
@@ -249,6 +261,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   
   const menuItems = [
     { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi, disabled: false },
+    { icon: '🎾', label: 'Play with Blobbi', action: handleOpenPlay, disabled: false },
     { icon: '💊', label: 'Medicine', action: handleOpenMedicine, disabled: false },
     { icon: '🧼', label: 'Clean Blobbi', action: handleOpenCleaning, disabled: false },
     { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility, disabled: false },
@@ -374,6 +387,12 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
         blobbiId={companionData.blobbi.id}
         isOpen={isSettingsModalOpen}
         onOpenChange={setIsSettingsModalOpen}
+      />
+      <BlobbiInventoryModal
+        isOpen={isPlayModalOpen}
+        onClose={handlePlayModalClose}
+        actionType="play"
+        blobbi={companionData?.blobbi || undefined}
       />
       <BlobbiInventoryModal
         isOpen={isMedicineModalOpen}
