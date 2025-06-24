@@ -12,8 +12,8 @@ export const SHOP_ITEMS: BlobbiItem[] = [
   { id: 'toy_ball', name: 'Ball', type: 'toy', price: 30, effect: { happiness: 25, energy: -10, hygiene: -5 }, icon: '⚽' },
   { id: 'toy_teddy', name: 'Teddy Bear', type: 'toy', price: 60, effect: { happiness: 40, energy: -15 }, icon: '🧸' },
   { id: 'toy_blocks', name: 'Building Blocks', type: 'toy', price: 40, effect: { happiness: 30, energy: -10 }, icon: '🧱' },
-  { id: 'toy_puzzle', name: 'Puzzle', type: 'toy', price: 50, effect: { happiness: 35, energy: -15 }, icon: '🧩' },
-  
+  // { id: 'toy_puzzle', name: 'Puzzle', type: 'toy', price: 50, effect: { happiness: 35, energy: -15 }, icon: '🧩' },
+
   // Medicine - boost health (automatically converts to shell_integrity for eggs)
   { id: 'med_vitamins', name: 'Vitamins', type: 'medicine', price: 40, effect: { health: 20 }, icon: '💊' },
   { id: 'med_super', name: 'Super Medicine', type: 'medicine', price: 100, effect: { health: 50, energy: 20, happiness: -10 }, icon: '💉' },
@@ -43,4 +43,18 @@ export function getShopItemById(id: string): BlobbiItem | undefined {
 // Helper function to get items by type
 export function getShopItemsByType(type: BlobbiItem['type']): BlobbiItem[] {
   return SHOP_ITEMS.filter(item => item.type === type);
+}
+
+// Helper function to get medicine sound based on item ID
+export function getMedicineSoundForItem(itemId: string): 'swallow' | 'ouch' | null {
+  switch (itemId) {
+    case 'med_vitamins':
+    case 'med_elixir':
+      return 'swallow';
+    case 'med_bandage':
+    case 'med_super':
+      return 'ouch';
+    default:
+      return null; // No specific sound for other medicine items
+  }
 }
