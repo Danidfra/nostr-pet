@@ -452,6 +452,40 @@ body:has([role="dialog"]) .blobbi-container {
     animation: landed-bounce 0.5s ease-out;
 }
 
+/* ✅ NEW: Enhanced bottom area movement styles */
+.blobbi-container.bottom-area .blobbi-character {
+    /* Ensure Blobbi stays grounded during bottom area movement */
+    animation: none;
+}
+
+.blobbi-container.bottom-area.walking .blobbi-character {
+    animation: bottom-walk 0.5s ease-in-out infinite;
+}
+
+.blobbi-container.bottom-area.excited .blobbi-character {
+    animation: excited-approach 0.4s ease-in-out infinite;
+}
+
+/* ✅ NEW: Bottom area walking animation - more grounded */
+@keyframes bottom-walk {
+    0%, 100% {
+        transform: rotate(-3deg) translateY(0);
+    }
+    50% {
+        transform: rotate(3deg) translateY(-2px);
+    }
+}
+
+/* ✅ NEW: Excited approach animation for toy interactions */
+@keyframes excited-approach {
+    0%, 100% {
+        transform: scale(1) translateY(0);
+    }
+    50% {
+        transform: scale(1.05) translateY(-3px);
+    }
+}
+
 @keyframes falling {
     0% {
         transform: translateY(0) rotate(0deg);
@@ -473,18 +507,59 @@ body:has([role="dialog"]) .blobbi-container {
     }
 }
 
-/* Toy element styles */
+/* ✅ ENHANCED: Toy element styles with comprehensive drag prevention */
 .companion-toy {
     position: fixed;
     z-index: 9997;
     user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
     cursor: pointer;
+    transition: transform 0.15s ease-out, filter 0.15s ease-out;
+    touch-action: none; /* Prevent default touch behaviors */
+}
+
+/* Prevent any child elements from being draggable */
+.companion-toy * {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+    pointer-events: none;
+    touch-action: none;
+}
+
+/* ✅ NEW: Enhanced ball rolling animation styles */
+.companion-toy.ball img {
+    transition: filter 0.2s ease-out;
+    transform-origin: center center;
+    will-change: transform, filter; /* Optimize for smooth animations */
+}
+
+/* ✅ NEW: Disable transitions during physics simulation for smooth movement */
+.companion-toy.physics-active {
+    transition: none;
+}
+
+.companion-toy.physics-active * {
     transition: none;
 }
 
 .companion-toy.ball {
     font-size: 40px;
     filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+    cursor: pointer;
+}
+
+.companion-toy.ball:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(3px 3px 6px rgba(0,0,0,0.4));
+}
+
+.companion-toy.ball:active {
+    transform: scale(1.1);
+    filter: drop-shadow(4px 4px 8px rgba(0,0,0,0.5));
 }
 
 .companion-toy.teddy {
@@ -493,8 +568,31 @@ body:has([role="dialog"]) .blobbi-container {
     cursor: grab;
 }
 
+.companion-toy.teddy:hover {
+    transform: scale(1.02);
+    filter: drop-shadow(4px 4px 8px rgba(0,0,0,0.4));
+}
+
 .companion-toy.teddy:active {
     cursor: grabbing;
+}
+
+/* ✅ NEW: Dragging state styles for smooth visual feedback */
+.companion-toy.dragging {
+    transform: scale(1.05);
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4));
+    z-index: 9999;
+    cursor: grabbing;
+    transition: none; /* Disable transitions during drag for smooth movement */
+}
+
+/* ✅ NEW: Prevent text selection during toy interactions */
+.companion-toy::selection {
+    background: transparent;
+}
+
+.companion-toy::-moz-selection {
+    background: transparent;
 }
 
 /* Toy drop animation */
@@ -507,6 +605,27 @@ body:has([role="dialog"]) .blobbi-container {
         transform: translateY(0) scale(1) rotate(0deg); 
         opacity: 1; 
     }
+}
+
+/* ✅ NEW: Global drag prevention during toy interactions */
+body.toy-interaction-active {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+body.toy-interaction-active * {
+    -webkit-user-drag: none;
+}
+
+/* ✅ NEW: Prevent image dragging globally for toy assets */
+img[src*="/companion/assets/toys/"] {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+    pointer-events: none;
+    touch-action: none;
 }
 
 /* Responsive adjustments */
@@ -538,12 +657,21 @@ body:has([role="dialog"]) .blobbi-container {
         padding: 8px 12px;
     }
     
-    /* Smaller toys on mobile */
+    /* ✅ ENHANCED: Better mobile toy sizes and touch targets */
     .companion-toy.ball {
         font-size: 30px;
+        min-width: 44px; /* Minimum touch target size */
+        min-height: 44px;
     }
     
     .companion-toy.teddy {
         font-size: 45px;
+        min-width: 44px; /* Minimum touch target size */
+        min-height: 44px;
+    }
+    
+    /* ✅ NEW: Enhanced mobile touch handling */
+    .companion-toy {
+        touch-action: manipulation; /* Allow only pan and zoom, prevent double-tap zoom */
     }
 }

@@ -149,9 +149,11 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
       quantity: 1,
     });
     
-    // Create toy element
+    // Create toy element with enhanced drag prevention
     const toyElement = document.createElement('div');
     toyElement.className = `companion-toy ${toy.id.replace('toy_', '')}`;
+    
+    // ✅ ENHANCED: Comprehensive drag prevention and smooth interaction setup
     toyElement.style.cssText = `
       position: fixed;
       left: ${window.innerWidth / 2 - 30}px;
@@ -160,16 +162,96 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
       z-index: 9997;
       pointer-events: auto;
       user-select: none;
+      -webkit-user-select: none;
+      -webkit-user-drag: none;
+      -webkit-touch-callout: none;
       animation: toyDrop 0.5s ease-out;
+      transition: transform 0.15s ease-out, filter 0.15s ease-out;
     `;
     
-    // ✅ UPDATED: Set toy icon based on type with correct sizes
+    // ✅ ENHANCED: Prevent default drag behavior at element level
+    toyElement.draggable = false;
+    toyElement.setAttribute('draggable', 'false');
+    
+    // ✅ UPDATED: Set toy icon based on type with correct sizes and drag prevention
     if (toy.id === 'toy_ball') {
-      toyElement.innerHTML = `<img src="/companion/assets/toys/ball.png" alt="Ball" style="width: 40px; height: 40px;" />`;
+      const img = document.createElement('img');
+      img.src = '/companion/assets/toys/ball.png';
+      img.alt = 'Ball';
+      img.style.cssText = `
+        width: 40px; 
+        height: 40px;
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-user-drag: none;
+        -webkit-touch-callout: none;
+      `;
+      img.draggable = false;
+      img.setAttribute('draggable', 'false');
+      
+      // Prevent image-specific drag events
+      img.addEventListener('dragstart', (e) => {
+        e.preventDefault();
+        return false;
+      });
+      
+      toyElement.appendChild(img);
     } else if (toy.id === 'toy_teddy') {
-      toyElement.innerHTML = `<img src="/companion/assets/toys/bear.png" alt="Teddy Bear" style="width: 120px; height: 120px;" />`;
+      const img = document.createElement('img');
+      img.src = '/companion/assets/toys/bear.png';
+      img.alt = 'Teddy Bear';
+      img.style.cssText = `
+        width: 120px; 
+        height: 120px;
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-user-drag: none;
+        -webkit-touch-callout: none;
+      `;
+      img.draggable = false;
+      img.setAttribute('draggable', 'false');
+      
+      // Prevent image-specific drag events
+      img.addEventListener('dragstart', (e) => {
+        e.preventDefault();
+        return false;
+      });
+      
+      toyElement.appendChild(img);
     } else {
       toyElement.textContent = toy.icon || '🎾';
+    }
+    
+    // ✅ NEW: Add comprehensive event prevention for the toy element
+    toyElement.addEventListener('dragstart', (e) => {
+      e.preventDefault();
+      return false;
+    });
+    
+    toyElement.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      return false;
+    });
+    
+    // ✅ NEW: Add drop animation keyframes if not already present
+    if (!document.querySelector('#toy-drop-animation')) {
+      const style = document.createElement('style');
+      style.id = 'toy-drop-animation';
+      style.textContent = `
+        @keyframes toyDrop {
+          from { 
+            transform: translateY(-20px) scale(0.8); 
+            opacity: 0; 
+          }
+          to { 
+            transform: translateY(0) scale(1); 
+            opacity: 1; 
+          }
+        }
+      `;
+      document.head.appendChild(style);
     }
     
     document.body.appendChild(toyElement);
