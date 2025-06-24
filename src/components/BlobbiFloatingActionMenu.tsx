@@ -50,6 +50,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const [isCleaningModalOpen, setIsCleaningModalOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isDraggingState, setIsDraggingState] = useState(false);
+  const [isPlayModeActive, setIsPlayModeActive] = useState(false);
   const dragRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<DragStartInfo | null>(null);
   const { theme } = useTheme();
@@ -79,6 +80,25 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // ✅ NEW: Listen for play mode state changes
+  useEffect(() => {
+    const handleToyPlaced = () => {
+      setIsPlayModeActive(true);
+    };
+
+    const handleToyInteractionEnded = () => {
+      setIsPlayModeActive(false);
+    };
+
+    window.addEventListener('toy-placed', handleToyPlaced);
+    window.addEventListener('companion-toy-interaction-ended', handleToyInteractionEnded);
+
+    return () => {
+      window.removeEventListener('toy-placed', handleToyPlaced);
+      window.removeEventListener('companion-toy-interaction-ended', handleToyInteractionEnded);
+    };
   }, []);
 
   useEffect(() => {
@@ -213,6 +233,13 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     setIsSettingsModalOpen(true);
   });
 
+  // ✅ NEW: Handle stop playing action
+  const handleStopPlaying = createActionHandler(() => {
+    // Trigger toy removal event to companion
+    window.dispatchEvent(new CustomEvent('toy-remove-request'));
+    setIsPlayModeActive(false);
+  });
+
   const handleOpenPlay = createActionHandler(() => {
     setIsPlayModalOpen(true);
   });
@@ -261,7 +288,11 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   
   const menuItems = [
     { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi, disabled: false },
-    { icon: '🎾', label: 'Play with Blobbi', action: handleOpenPlay, disabled: false },
+    // ✅ UPDATED: Show "Play with Blobbi" or "Stop Playing" based on play mode state
+    ...(isPlayModeActive 
+      ? [{ icon: '🛑', label: 'Stop Playing', action: handleStopPlaying, disabled: false }]
+      : [{ icon: '🎾', label: 'Play with Blobbi', action: handleOpenPlay, disabled: false }]
+    ),
     { icon: '💊', label: 'Medicine', action: handleOpenMedicine, disabled: false },
     { icon: '🧼', label: 'Clean Blobbi', action: handleOpenCleaning, disabled: false },
     { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility, disabled: false },

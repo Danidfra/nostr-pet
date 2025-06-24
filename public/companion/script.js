@@ -2735,7 +2735,7 @@ class BlobbiCompanion {
     exitPlayMode() {
         if (!this.isPlayMode) return;
         
-        console.log('🎮 Exiting play mode');
+        console.log('🎮 Exiting play mode - returning to normal behavior');
         
         // Clear play mode state
         this.isPlayMode = false;
@@ -2752,6 +2752,12 @@ class BlobbiCompanion {
             this.pauseTimeout = null;
         }
         
+        // ✅ NEW: Clear any active movement intervals
+        if (this.moveInterval) {
+            clearInterval(this.moveInterval);
+            this.moveInterval = null;
+        }
+        
         // Remove toy element
         if (this.toyElement) {
             this.toyElement.remove();
@@ -2762,21 +2768,39 @@ class BlobbiCompanion {
         this.currentToy = null;
         
         // ✅ UPDATED: Remove all play mode classes including bottom-area
-        this.container.classList.remove('falling', 'play-mode', 'landed', 'bottom-area');
+        this.container.classList.remove('falling', 'play-mode', 'landed', 'bottom-area', 'walking');
+        this.character.classList.remove('walking');
         
-        // Re-enable free roaming
+        // ✅ NEW: Reset Blobbi to normal position if stuck at bottom
+        // Move Blobbi to a more central position to resume normal roaming
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        
+        // Convert screen position to our position system (distance from right/bottom)
+        this.position.x = window.innerWidth - centerX - 60; // 60 is half of Blobbi's width
+        this.position.y = window.innerHeight - centerY - 60; // 60 is half of Blobbi's height
+        
+        // Keep within bounds
+        this.position.x = Math.max(0, Math.min(window.innerWidth - 120, this.position.x));
+        this.position.y = Math.max(0, Math.min(window.innerHeight - 120, this.position.y));
+        
+        this.updatePosition();
+        
+        // Re-enable free roaming across entire screen
         this.isFreeRoaming = true;
         this.container.classList.add('free-roaming');
         
         // Notify React component that toy interaction ended
         window.dispatchEvent(new CustomEvent('companion-toy-interaction-ended'));
         
-        // Resume normal behavior after a short delay
+        console.log('🎯 Blobbi is now free to roam the entire screen again!');
+        
+        // Resume normal behavior immediately
         setTimeout(() => {
             if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.isSleeping) {
                 this.startFreeRoam();
             }
-        }, 1000);
+        }, 500); // Shorter delay for more responsive feel
     }
     
     // Speech bubble functionality
