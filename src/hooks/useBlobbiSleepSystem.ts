@@ -7,9 +7,10 @@ import { useBlobbiInteractionWithStateUpdate } from '@/hooks/useBlobbiInteractio
 interface SleepSystemOptions {
   blobbi: Blobbi | null;
   isOwner: boolean;
+  setOptimisticSleepState?: (isSleeping: boolean) => void;
 }
 
-export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
+export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState }: SleepSystemOptions) {
   const queryClient = useQueryClient();
   const { updateState } = useBlobbiState(blobbi?.id || '', blobbi?.ownerPubkey || '');
   const { mutateAsync: createInteractionWithStateUpdate } = useBlobbiInteractionWithStateUpdate();
@@ -201,7 +202,8 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
     if (!blobbi || !isOwner || blobbi.isSleeping) return;
 
     console.log('Putting Blobbi to sleep...');
-    
+    setOptimisticSleepState?.(true);
+
     // Reset recovery tracking when starting new sleep session
     processedBlobbiRef.current = null;
     lastPassiveRecoveryRef.current = 0;
@@ -236,15 +238,17 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
       lastRecoveryRef.current = Date.now(); // Reset recovery timer
     } catch (error) {
       console.error('Failed to put Blobbi to sleep:', error);
+      setOptimisticSleepState?.(false);
       throw error;
     }
-  }, [blobbi, isOwner, updateState, queryClient, createInteractionWithStateUpdate]);
+  }, [blobbi, isOwner, updateState, queryClient, createInteractionWithStateUpdate, setOptimisticSleepState]);
 
   // Wake up Blobbi
   const wakeUp = useCallback(async () => {
     if (!blobbi || !isOwner || !blobbi.isSleeping) return;
 
     console.log('Waking up Blobbi...');
+    setOptimisticSleepState?.(false);
     
     // Reset recovery tracking when manually waking up
     processedBlobbiRef.current = null;
@@ -265,9 +269,10 @@ export function useBlobbiSleepSystem({ blobbi, isOwner }: SleepSystemOptions) {
       queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
     } catch (error) {
       console.error('Failed to wake up Blobbi:', error);
+      setOptimisticSleepState?.(true);
       throw error;
     }
-  }, [blobbi, isOwner, createInteractionWithStateUpdate, queryClient]);
+  }, [blobbi, isOwner, createInteractionWithStateUpdate, queryClient, setOptimisticSleepState]);
 
   // Set up active recovery interval when Blobbi is sleeping
   useEffect(() => {

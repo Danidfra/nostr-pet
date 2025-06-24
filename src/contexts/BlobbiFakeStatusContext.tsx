@@ -197,6 +197,28 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
     const fakeData = fakeStatusMap.get(blobbiId);
     if (!fakeData) return;
     
+    // Special handling for sleep state: only sync if the real sleep state matches the fake sleep state
+    // This prevents intermediate events (like "rest" interactions) from overriding optimistic sleep state
+    const fakeIsSleeping = fakeData.blobbi.isSleeping;
+    const realIsSleeping = realBlobbi.isSleeping;
+    
+    // If we have an optimistic sleep state that doesn't match reality, keep the fake state
+    // until the real sleep state catches up
+    if (fakeIsSleeping !== realIsSleeping) {
+      // Only clear fake status if real data is significantly newer (indicating the sleep operation completed)
+      // and the sleep states now match, or if enough time has passed that we should give up
+      const timeSinceFakeUpdate = Date.now() - fakeData.lastFakeUpdate;
+      const shouldGiveUpOnOptimisticState = timeSinceFakeUpdate > 30000; // 30 seconds timeout
+      
+      if (shouldGiveUpOnOptimisticState) {
+        console.log('Giving up on optimistic sleep state after timeout');
+        clearFakeStatus(blobbiId);
+      }
+      // Otherwise, keep the optimistic state
+      return;
+    }
+    
+    // If sleep states match, proceed with normal sync logic
     // If real data is newer than our fake data, and no pending interactions, clear fake status
     if (realBlobbi.lastInteraction > fakeData.blobbi.lastInteraction && fakeData.pendingInteractions === 0) {
       clearFakeStatus(blobbiId);

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { useBlobbiFakeStatus, applyStatChangesToBlobbi } from '@/contexts/BlobbiFakeStatusContext';
-import { Blobbi } from '@/types/blobbi';
+import { Blobbi, BlobbiState } from '@/types/blobbi';
 
 export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
   const originalHook = useBlobbi(pubkey, blobbiId);
@@ -110,11 +110,40 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
     }
   };
 
+  const setSleepStateOptimistic = (isSleeping: boolean) => {
+    if (!effectiveBlobbiId) return;
+
+    const currentBlobbi = fakeStatus || originalHook.blobbi;
+    if (!currentBlobbi) return;
+
+    const updatedBlobbi = {
+      ...currentBlobbi,
+      isSleeping,
+      state: (isSleeping ? 'sleeping' : 'active') as BlobbiState,
+      lastInteraction: Math.floor(Date.now() / 1000),
+      // Add sleep-specific fields when going to sleep
+      ...(isSleeping && {
+        sleepStartedAt: Math.floor(Date.now() / 1000),
+        lastSleepUpdate: Math.floor(Date.now() / 1000),
+      }),
+      // Clear sleep-specific fields when waking up
+      ...(!isSleeping && {
+        sleepStartedAt: undefined,
+        lastSleepUpdate: undefined,
+      }),
+    };
+
+    setFakeStatus(effectiveBlobbiId, updatedBlobbi);
+    // We don't increment pending interactions here because the sleep system handles the real update.
+    // The optimistic state should persist until the real sleep state update completes.
+  };
+
   return {
     ...originalHook,
     blobbi: fakeStatus || originalHook.blobbi,
     performAction: performActionWithFakeStatus,
     updateCustomization: updateCustomizationWithFakeStatus,
+    setSleepStateOptimistic,
     hasFakeStatus: !!fakeStatus,
     pendingInteractionCount,
   };
