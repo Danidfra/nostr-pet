@@ -85,11 +85,27 @@ class BlobbiCompanion {
         this.physicsInterval = null;
         this.wasInPlayMode = false;
         
+        // ✅ NEW: Blobbi physics system for play mode
+        this.blobbiPhysics = {
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            gravity: 0.5,
+            bounce: 0.6,
+            friction: 0.98,
+            groundY: 0,
+            isDragging: false,
+            isPhysicsActive: false
+        };
+        this.blobbiPhysicsInterval = null;
+        
         // ✅ NEW: Toy interaction behavior system
         this.toyInteractionInterval = null;
         this.isApproachingToy = false;
         this.toyInteractionCooldown = false;
         this.lastToyInteractionTime = 0;
+        this.lastCollisionTime = 0; // ✅ NEW: For collision debouncing
         
         // Mouse chasing
         this.lastMousePosition = null;
@@ -485,6 +501,11 @@ class BlobbiCompanion {
             if (this.isFreeRoaming) {
                 this.stopFreeRoam();
             }
+
+            // ✅ NEW: Stop Blobbi physics if in play mode
+            if (this.isPlayMode) {
+                this.stopBlobbiPhysics();
+            }
         };
 
         const onPointerMove = (clientX, clientY) => {
@@ -504,6 +525,10 @@ class BlobbiCompanion {
                     if (this.wasFreeRoamingBeforeDrag) {
                         this.startFreeRoam();
                     }
+                    // ✅ NEW: Resume Blobbi physics if in play mode
+                    if (this.isPlayMode) {
+                        this.startBlobbiPhysics();
+                    }
                     return;
                 } else {
                     // Horizontal movement is greater. Confirm the drag.
@@ -512,6 +537,11 @@ class BlobbiCompanion {
                     const rect = this.character.getBoundingClientRect();
                     dragState.offsetX = clientX - rect.left;
                     dragState.offsetY = clientY - rect.top;
+
+                    // ✅ NEW: Set Blobbi as being dragged in play mode
+                    if (this.isPlayMode) {
+                        this.blobbiPhysics.isDragging = true;
+                    }
                 }
             }
 
@@ -525,6 +555,18 @@ class BlobbiCompanion {
             this.position.x = Math.max(0, Math.min(window.innerWidth - this.container.offsetWidth, this.position.x));
             this.position.y = Math.max(0, Math.min(window.innerHeight - this.container.offsetHeight, this.position.y));
 
+            // ✅ NEW: Update Blobbi physics position if in play mode
+            if (this.isPlayMode && this.blobbiPhysics.isDragging) {
+                // Convert position to physics coordinates (center-based)
+                const centerX = window.innerWidth - this.position.x - 60; // 60 is half of Blobbi's width
+                const centerY = window.innerHeight - this.position.y - 60; // 60 is half of Blobbi's height
+                
+                this.blobbiPhysics.x = centerX;
+                this.blobbiPhysics.y = centerY;
+                this.blobbiPhysics.vx = 0; // Reset velocity while dragging
+                this.blobbiPhysics.vy = 0;
+            }
+
             this.updatePosition();
         };
 
@@ -535,12 +577,26 @@ class BlobbiCompanion {
                 if (this.wasFreeRoamingBeforeDrag) {
                     this.startFreeRoam();
                 }
+                // ✅ NEW: Resume Blobbi physics if in play mode
+                if (this.isPlayMode) {
+                    this.startBlobbiPhysics();
+                }
             }
 
             if (dragState.isConfirmed) {
-                // If it was a confirmed drag, wait a moment before resuming free roam.
-                if (this.wasFreeRoamingBeforeDrag) {
-                    setTimeout(() => this.startFreeRoam(), 1000);
+                // ✅ FIXED: Handle Blobbi physics release in play mode
+                if (this.isPlayMode) {
+                    this.blobbiPhysics.isDragging = false;
+                    // ✅ FIXED: Ensure physics simulation is running after release
+                    if (!this.blobbiPhysicsInterval) {
+                        this.startBlobbiPhysics();
+                    }
+                    console.log('🌍 Blobbi released - gravity will take effect!');
+                } else {
+                    // Normal mode - wait before resuming free roam
+                    if (this.wasFreeRoamingBeforeDrag) {
+                        setTimeout(() => this.startFreeRoam(), 1000);
+                    }
                 }
             }
             
@@ -2174,243 +2230,83 @@ class BlobbiCompanion {
     }
     
     applyGravityToBlobbi() {
-        console.log('🌍 Applying gravity to Blobbi - falling to bottom!');
+        console.log('🌍 Applying gravity to Blobbi - enabling physics!');
         
         // Disable free roaming completely during play mode
         this.isFreeRoaming = false;
         this.container.classList.remove('free-roaming');
-        this.container.classList.add('falling', 'play-mode');
+        this.container.classList.add('play-mode');
         
-        // ✅ UPDATED: Calculate target position to touch the bottom edge
-        const blobbiHeight = 120; // Blobbi's height
-        const targetY = blobbiHeight / 2; // Distance from bottom edge so Blobbi touches the ground
+        // ✅ NEW: Initialize Blobbi physics system
+        this.initializeBlobbiPhysics();
         
-        // Animate falling to bottom
-        this.animateFallToBottom(targetY);
+        // ✅ NEW: Start Blobbi physics simulation
+        this.startBlobbiPhysics();
     }
     
-    animateFallToBottom(targetY) {
-        const fallSpeed = 8;
-        const fallInterval = setInterval(() => {
-            // Move towards bottom
-            if (this.position.y > targetY) {
-                this.position.y -= fallSpeed;
-                this.updatePosition();
-            } else {
-                // Reached bottom - stop falling
-                this.position.y = targetY;
-                this.updatePosition();
-                clearInterval(fallInterval);
-                
-                // Add landed state and enable bottom area movement
-                this.container.classList.remove('falling');
-                this.container.classList.add('landed', 'bottom-area');
-                
-                console.log('🎯 Blobbi landed at bottom! Can now move freely in bottom area and interact with toys.');
-                
-                // ✅ ENHANCED: Enable movement within bottom area and toy interactions
-                this.enableBottomAreaMovement();
-                this.startToyInteractionBehavior();
-            }
-        }, 20);
-    }
+
     
-    // ✅ NEW: Enable Blobbi to move freely within the bottom area during play mode
-    enableBottomAreaMovement() {
-        console.log('🎮 Enabling bottom area movement for Blobbi');
-        
-        // Start a modified free roam that keeps Blobbi in the bottom area
-        this.startBottomAreaRoam();
-    }
+
     
-    // ✅ NEW: Modified free roam that constrains movement to bottom area
-    startBottomAreaRoam() {
-        if (!this.isPlayMode) return;
-        
-        console.log('🎯 Starting bottom area roam');
-        
-        // Start with an immediate movement
-        this.performBottomAreaMove();
-    }
-    
-    // ✅ NEW: Perform movement within bottom area only
-    performBottomAreaMove() {
-        if (!this.isPlayMode) return;
-        
-        // ✅ UPDATED: Define bottom area constraints to keep Blobbi on the ground
-        const blobbiHeight = 120;
-        const bottomMargin = blobbiHeight / 2; // Blobbi touches the ground
-        const topLimit = 150; // Don't go too high from bottom
-        const sideMargin = 80; // Margin from sides
-        
-        // Generate random target within bottom area bounds
-        const maxDistance = 200; // Maximum distance per move
-        
-        // Get current center position
-        const currentCenterX = window.innerWidth - this.position.x - 60;
-        const currentCenterY = window.innerHeight - this.position.y - 60;
-        
-        // Generate a target within bottom area
-        let targetX, targetY;
-        let attempts = 0;
-        
-        do {
-            const angle = Math.random() * 2 * Math.PI;
-            const distance = 50 + Math.random() * maxDistance;
-            
-            targetX = currentCenterX + Math.cos(angle) * distance;
-            targetY = currentCenterY + Math.sin(angle) * distance;
-            
-            attempts++;
-        } while (
-            (targetX < sideMargin || targetX > window.innerWidth - sideMargin ||
-             targetY < window.innerHeight - topLimit || targetY > window.innerHeight - bottomMargin) &&
-            attempts < 10
-        );
-        
-        // Fallback to random position within bottom area if we can't find a good nearby one
-        if (attempts >= 10) {
-            targetX = sideMargin + Math.random() * (window.innerWidth - 2 * sideMargin);
-            targetY = window.innerHeight - topLimit + Math.random() * (topLimit - bottomMargin);
-        }
-        
-        this.moveToPositionInBottomArea(targetX, targetY);
-    }
-    
-    // ✅ NEW: Move to position but constrained to bottom area
-    moveToPositionInBottomArea(targetX, targetY) {
-        if (!this.isPlayMode) return;
-        
-        this.targetPosition = { x: targetX, y: targetY };
-        this.character.classList.add('walking');
-        this.container.classList.add('walking');
-        
-        // Clear any existing movement
-        if (this.moveInterval) {
-            clearInterval(this.moveInterval);
-        }
-        
-        // Move towards target
-        this.moveInterval = setInterval(() => {
-            // Calculate current center position of Blobbi
-            const currentCenterX = window.innerWidth - this.position.x - 60;
-            const currentCenterY = window.innerHeight - this.position.y - 60;
-            
-            // Calculate distance to target
-            const dx = this.targetPosition.x - currentCenterX;
-            const dy = this.targetPosition.y - currentCenterY;
-            
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance < 5) {
-                this.stopBottomAreaMoving();
-                return;
-            }
-            
-            const speed = 3;
-            const vx = (dx / distance) * speed;
-            const vy = (dy / distance) * speed;
-            
-            // Update position (remember: position.x is distance from right edge, position.y is distance from bottom)
-            this.position.x -= vx; // Subtract because x is measured from right
-            this.position.y -= vy; // Subtract because y is measured from bottom
-            
-            // ✅ UPDATED: Keep within bottom area bounds with proper ground positioning
-            const blobbiHeight = 120;
-            const bottomMargin = blobbiHeight / 2; // Blobbi touches the ground
-            const topLimit = 150;
-            const sideMargin = 20;
-            
-            this.position.x = Math.max(sideMargin, Math.min(window.innerWidth - 120 - sideMargin, this.position.x));
-            this.position.y = Math.max(bottomMargin, Math.min(topLimit, this.position.y));
-            
-            this.updatePosition();
-        }, 30);
-    }
-    
-    // ✅ NEW: Stop bottom area movement
-    stopBottomAreaMoving() {
-        if (this.moveInterval) {
-            clearInterval(this.moveInterval);
-            this.moveInterval = null;
-        }
-        this.character.classList.remove('walking');
-        this.container.classList.remove('walking');
-        
-        // Schedule next movement in bottom area
-        if (this.isPlayMode) {
-            this.scheduleNextBottomAreaMove();
-        }
-    }
-    
-    // ✅ NEW: Schedule next movement in bottom area
-    scheduleNextBottomAreaMove() {
-        if (!this.isPlayMode || this.isApproachingToy) return;
-        
-        // Random pause between 1-4 seconds
-        const pauseDuration = 1000 + Math.random() * 3000;
-        
-        this.pauseTimeout = setTimeout(() => {
-            if (this.isPlayMode && !this.isApproachingToy) {
-                // 70% chance to move normally, 20% chance to interact with toy, 10% chance to pause longer
-                const action = Math.random();
-                
-                if (action < 0.7) {
-                    this.performBottomAreaMove();
-                } else if (action < 0.9 && this.shouldInteractWithToy()) {
-                    this.approachAndInteractWithToy();
-                } else {
-                    // Longer pause (2-5 seconds)
-                    const longPause = 2000 + Math.random() * 3000;
-                    
-                    this.pauseTimeout = setTimeout(() => {
-                        if (this.isPlayMode && !this.isApproachingToy) {
-                            this.performBottomAreaMove();
-                        }
-                    }, longPause);
-                }
-            }
-        }, pauseDuration);
-    }
-    
-    // ✅ NEW: Start toy interaction behavior system
+    // ✅ FIXED: More natural toy interaction behavior system
     startToyInteractionBehavior() {
         if (!this.isPlayMode || this.toyInteractionInterval) return;
         
         console.log('🎮 Starting toy interaction behavior system');
         
-        // Check for toy interactions every 3-8 seconds
+        // ✅ FIXED: More frequent checks with natural timing
         this.toyInteractionInterval = setInterval(() => {
             if (this.isPlayMode && !this.isApproachingToy && this.shouldInteractWithToy()) {
-                // 30% chance to interact with toy during each check
-                if (Math.random() < 0.3) {
-                    this.approachAndInteractWithToy();
-                }
+                // ✅ FIXED: Higher chance to interact when conditions are met
+                // The shouldInteractWithToy() method already handles probability based on distance
+                this.approachAndInteractWithToy();
             }
-        }, 3000 + Math.random() * 5000);
+        }, 2000 + Math.random() * 3000); // Check every 2-5 seconds
     }
     
-    // ✅ NEW: Check if Blobbi should interact with toy
+    // ✅ FIXED: More natural toy interaction timing
     shouldInteractWithToy() {
         if (!this.toyElement || !this.currentToy || this.toyInteractionCooldown) return false;
         
         // Don't interact if toy is being dragged
         if (this.toyPhysics.isDragging) return false;
         
-        // Don't interact too frequently (minimum 10 seconds between interactions)
+        // ✅ FIXED: More reasonable interaction frequency (5-8 seconds between interactions)
         const now = Date.now();
-        if (now - this.lastToyInteractionTime < 10000) return false;
+        const minInteractionInterval = 5000 + Math.random() * 3000; // 5-8 seconds
+        if (now - this.lastToyInteractionTime < minInteractionInterval) return false;
         
-        // Don't interact if toy is moving too fast
+        // ✅ FIXED: More lenient speed check for ball interactions
         if (this.currentToy.id === 'toy_ball') {
             const speed = Math.sqrt(this.toyPhysics.vx * this.toyPhysics.vx + this.toyPhysics.vy * this.toyPhysics.vy);
-            if (speed > 2) return false; // Ball is moving too fast
+            if (speed > 3) return false; // Allow interaction with faster moving balls
         }
         
-        return true;
+        // ✅ NEW: Distance-based interaction probability (closer = more likely to interact)
+        const blobbiRect = this.character.getBoundingClientRect();
+        const blobbiCenterX = blobbiRect.left + blobbiRect.width / 2;
+        const blobbiCenterY = blobbiRect.top + blobbiRect.height / 2;
+        
+        const toyRect = this.toyElement.getBoundingClientRect();
+        const toyCenterX = toyRect.left + toyRect.width / 2;
+        const toyCenterY = toyRect.top + toyRect.height / 2;
+        
+        const distance = Math.sqrt(
+            Math.pow(blobbiCenterX - toyCenterX, 2) + 
+            Math.pow(blobbiCenterY - toyCenterY, 2)
+        );
+        
+        // Higher probability when closer to toy
+        const maxInteractionDistance = 300;
+        if (distance > maxInteractionDistance) return false;
+        
+        const proximityFactor = 1 - (distance / maxInteractionDistance);
+        const interactionProbability = 0.3 + (proximityFactor * 0.4); // 30-70% chance based on distance
+        
+        return Math.random() < interactionProbability;
     }
     
-    // ✅ NEW: Approach and interact with the current toy
+    // ✅ FIXED: Approach toy using physics impulses instead of movement system
     approachAndInteractWithToy() {
         if (!this.toyElement || !this.currentToy || this.isApproachingToy) return;
         
@@ -2419,110 +2315,53 @@ class BlobbiCompanion {
         this.isApproachingToy = true;
         this.lastToyInteractionTime = Date.now();
         
-        // Stop current movement
-        if (this.moveInterval) {
-            clearInterval(this.moveInterval);
-            this.moveInterval = null;
-        }
-        
-        if (this.pauseTimeout) {
-            clearTimeout(this.pauseTimeout);
-            this.pauseTimeout = null;
-        }
-        
         // Add excited state
         this.character.classList.add('excited');
         this.container.classList.add('excited');
         
-        // Move towards toy
-        this.moveTowardsToy();
+        // ✅ FIXED: Use physics impulse to move towards toy
+        this.moveTowardsToyWithPhysics();
     }
     
-    // ✅ NEW: Move Blobbi towards the toy
-    moveTowardsToy() {
+    // ✅ NEW: Move Blobbi towards toy using physics impulses
+    moveTowardsToyWithPhysics() {
         if (!this.toyElement || !this.isApproachingToy) return;
         
         // Get toy position
         const toyRect = this.toyElement.getBoundingClientRect();
         const toyCenterX = toyRect.left + toyRect.width / 2;
-        const toyCenterY = toyRect.top + toyRect.height / 2;
         
-        // Calculate approach position (slightly away from toy to avoid constant collision)
-        const approachDistance = 80; // Distance to maintain from toy
+        // Get Blobbi's current position
         const blobbiRect = this.character.getBoundingClientRect();
         const blobbiCenterX = blobbiRect.left + blobbiRect.width / 2;
         
-        // Determine which side to approach from
-        const approachFromLeft = blobbiCenterX < toyCenterX;
-        const approachX = approachFromLeft ? 
-            toyCenterX - approachDistance : 
-            toyCenterX + approachDistance;
+        // Calculate direction to toy
+        const dx = toyCenterX - blobbiCenterX;
+        const distance = Math.abs(dx);
         
-        // Keep Blobbi on the ground level
-        const blobbiHeight = 120;
-        const approachY = window.innerHeight - blobbiHeight / 2;
-        
-        console.log(`🎯 Moving to approach position: (${approachX}, ${approachY})`);
-        
-        // Move to approach position
-        this.moveToPositionInBottomArea(approachX, approachY, () => {
-            // Callback when reached approach position
-            this.performToyInteraction();
-        });
-    }
-    
-    // ✅ NEW: Enhanced move to position with callback support
-    moveToPositionInBottomArea(targetX, targetY, onComplete = null) {
-        if (!this.isPlayMode) return;
-        
-        this.targetPosition = { x: targetX, y: targetY };
-        this.character.classList.add('walking');
-        this.container.classList.add('walking');
-        
-        // Clear any existing movement
-        if (this.moveInterval) {
-            clearInterval(this.moveInterval);
+        // If close enough, perform interaction
+        if (distance < 80) {
+            console.log('🎮 Blobbi reached the toy! Performing interaction...');
+            setTimeout(() => {
+                this.performToyInteraction();
+            }, 500);
+            return;
         }
         
-        // Move towards target
-        this.moveInterval = setInterval(() => {
-            // Calculate current center position of Blobbi
-            const currentCenterX = window.innerWidth - this.position.x - 60;
-            const currentCenterY = window.innerHeight - this.position.y - 60;
-            
-            // Calculate distance to target
-            const dx = this.targetPosition.x - currentCenterX;
-            const dy = this.targetPosition.y - currentCenterY;
-            
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance < 10) {
-                this.stopBottomAreaMoving();
-                if (onComplete) {
-                    onComplete();
-                }
-                return;
+        // Apply physics impulse towards toy
+        const direction = dx > 0 ? 1 : -1;
+        const impulseStrength = Math.min(distance / 100, 3); // Scale impulse based on distance
+        
+        this.blobbiPhysics.vx += direction * impulseStrength;
+        
+        console.log(`🎯 Applied physics impulse towards toy: ${direction * impulseStrength}`);
+        
+        // Check again after a short delay
+        setTimeout(() => {
+            if (this.isApproachingToy) {
+                this.moveTowardsToyWithPhysics();
             }
-            
-            const speed = this.isApproachingToy ? 4 : 3; // Faster when approaching toy
-            const vx = (dx / distance) * speed;
-            const vy = (dy / distance) * speed;
-            
-            // Update position (remember: position.x is distance from right edge, position.y is distance from bottom)
-            this.position.x -= vx; // Subtract because x is measured from right
-            this.position.y -= vy; // Subtract because y is measured from bottom
-            
-            // ✅ UPDATED: Keep within bottom area bounds with proper ground positioning
-            const blobbiHeight = 120;
-            const bottomMargin = blobbiHeight / 2; // Blobbi touches the ground
-            const topLimit = 150;
-            const sideMargin = 20;
-            
-            this.position.x = Math.max(sideMargin, Math.min(window.innerWidth - 120 - sideMargin, this.position.x));
-            this.position.y = Math.max(bottomMargin, Math.min(topLimit, this.position.y));
-            
-            this.updatePosition();
-        }, 30);
+        }, 1000);
     }
     
     // ✅ NEW: Perform specific interaction based on toy type
@@ -2622,7 +2461,7 @@ class BlobbiCompanion {
         }, 1500);
     }
     
-    // ✅ NEW: Finish toy interaction and return to normal behavior
+    // ✅ FIXED: More natural toy interaction completion with physics
     finishToyInteraction() {
         console.log('😊 Blobbi finished playing with the toy!');
         
@@ -2632,18 +2471,27 @@ class BlobbiCompanion {
         this.character.classList.remove('excited');
         this.container.classList.remove('excited');
         
-        // Set cooldown to prevent immediate re-interaction
+        // ✅ FIXED: More reasonable cooldown timing
         this.toyInteractionCooldown = true;
         setTimeout(() => {
             this.toyInteractionCooldown = false;
-        }, 5000 + Math.random() * 10000); // 5-15 second cooldown
+        }, 3000 + Math.random() * 4000); // 3-7 second cooldown
         
-        // Resume normal bottom area movement after a short pause
+        // ✅ FIXED: Show satisfaction reaction
+        setTimeout(() => {
+            if (this.isPlayMode) {
+                this.react(); // Show happiness after playing
+            }
+        }, 500);
+        
+        // ✅ FIXED: Add a small random impulse to keep Blobbi moving naturally
         setTimeout(() => {
             if (this.isPlayMode && !this.isApproachingToy) {
-                this.scheduleNextBottomAreaMove();
+                // Add small random movement impulse
+                this.blobbiPhysics.vx += (Math.random() - 0.5) * 2;
+                console.log('🎯 Added post-interaction movement impulse');
             }
-        }, 1000 + Math.random() * 2000);
+        }, 1500 + Math.random() * 1000); // 1.5-2.5 second pause
     }
     
     initializeToyPhysics() {
@@ -2674,6 +2522,12 @@ class BlobbiCompanion {
     setupToySpecificBehavior() {
         if (!this.currentToy) return;
         
+        // ✅ NEW: Add generic toy attributes for all toy types
+        if (this.toyElement) {
+            this.toyElement.setAttribute('data-toy', this.currentToy.id.replace('toy_', ''));
+            this.toyElement.classList.add('companion-toy');
+        }
+        
         switch (this.currentToy.id) {
             case 'toy_ball':
                 this.setupBallBehavior();
@@ -2682,11 +2536,10 @@ class BlobbiCompanion {
                 this.setupTeddyBearBehavior();
                 break;
             case 'toy_blocks':
-                // Not implemented yet as per requirements
-                console.log('🧱 Building blocks not implemented yet');
+                this.setupBlocksBehavior();
                 break;
             default:
-                console.log('🎾 Unknown toy type, using default physics');
+                this.setupGenericToyBehavior();
         }
     }
     
@@ -2776,9 +2629,11 @@ class BlobbiCompanion {
                 y: e.clientY - ballRect.top
             };
             
-            // ✅ NEW: Set cursor to grabbing immediately
-            document.body.style.cursor = 'grabbing';
-            this.toyElement.style.cursor = 'grabbing';
+            // ✅ FIXED: Let CSS handle cursor during play mode
+            if (!document.body.classList.contains('play-mode-active')) {
+                document.body.style.cursor = 'grabbing';
+                this.toyElement.style.cursor = 'grabbing';
+            }
             
             // ✅ NEW: Add visual feedback for interaction start
             this.toyElement.style.transform = 'scale(1.05)';
@@ -2851,9 +2706,11 @@ class BlobbiCompanion {
             
             isDragging = false;
             
-            // ✅ NEW: Reset cursor and visual state
-            document.body.style.cursor = '';
-            this.toyElement.style.cursor = 'grab';
+            // ✅ FIXED: Let CSS handle cursor during play mode
+            if (!document.body.classList.contains('play-mode-active')) {
+                document.body.style.cursor = '';
+                this.toyElement.style.cursor = 'grab';
+            }
             this.toyElement.style.transform = '';
             this.toyElement.style.zIndex = '';
             this.toyElement.style.filter = '';
@@ -3039,9 +2896,11 @@ class BlobbiCompanion {
                 y: e.clientY - toyRect.top
             };
             
-            // ✅ NEW: Set cursor to grabbing immediately
-            document.body.style.cursor = 'grabbing';
-            this.toyElement.style.cursor = 'grabbing';
+            // ✅ FIXED: Let CSS handle cursor during play mode
+            if (!document.body.classList.contains('play-mode-active')) {
+                document.body.style.cursor = 'grabbing';
+                this.toyElement.style.cursor = 'grabbing';
+            }
             
             console.log('🧸 Pointer down on teddy bear');
         };
@@ -3102,9 +2961,11 @@ class BlobbiCompanion {
             
             isDragging = false;
             
-            // ✅ NEW: Reset cursor and visual state
-            document.body.style.cursor = '';
-            this.toyElement.style.cursor = 'grab';
+            // ✅ FIXED: Let CSS handle cursor during play mode
+            if (!document.body.classList.contains('play-mode-active')) {
+                document.body.style.cursor = '';
+                this.toyElement.style.cursor = 'grab';
+            }
             this.toyElement.style.transform = '';
             this.toyElement.style.zIndex = '';
             this.toyElement.style.filter = '';
@@ -3161,13 +3022,245 @@ class BlobbiCompanion {
             }
         }, { passive: false });
         
-        // ✅ NEW: Set initial cursor style
-        this.toyElement.style.cursor = 'grab';
+        // ✅ FIXED: Let CSS handle cursor during play mode
+        if (!document.body.classList.contains('play-mode-active')) {
+            this.toyElement.style.cursor = 'grab';
+        }
     }
     
     setupTeddyHeartInteraction() {
         // This will be called during physics simulation to check for Blobbi collision
         // Implementation in the physics loop
+    }
+    
+    // ✅ NEW: Setup behavior for building blocks
+    setupBlocksBehavior() {
+        console.log('🧱 Setting up building blocks physics and interactions');
+        
+        // ✅ NEW: Building blocks should be stackable and affected by gravity
+        this.toyPhysics.gravity = 0.5; // Normal gravity
+        this.toyPhysics.bounce = 0.2; // Low bounce for stability
+        this.toyPhysics.friction = 0.9; // High friction for stacking
+        
+        // ✅ NEW: Scale blocks to be similar to ball size
+        if (this.toyElement) {
+            this.toyElement.style.width = '40px';
+            this.toyElement.style.height = '40px';
+            
+            // ✅ NEW: Add specific data attribute for blocks
+            this.toyElement.setAttribute('data-toy', 'blocks');
+            this.toyElement.classList.add('companion-toy', 'blocks');
+        }
+        
+        // ✅ UPDATED: Update ground level for blocks size
+        this.toyPhysics.groundY = window.innerHeight - 20; // Blocks touch the bottom edge
+        
+        // Make blocks draggable like teddy bear
+        this.setupBlocksDragInteraction();
+        
+        // Update toy element position
+        this.updateToyPosition();
+    }
+    
+    // ✅ NEW: Setup drag interaction for blocks (similar to teddy)
+    setupBlocksDragInteraction() {
+        if (!this.toyElement) return;
+        
+        // Use the same drag interaction as teddy bear
+        this.setupGenericDragInteraction();
+    }
+    
+    // ✅ NEW: Setup behavior for generic/unknown toys
+    setupGenericToyBehavior() {
+        console.log('🎾 Setting up generic toy physics and interactions');
+        
+        // ✅ NEW: Generic toys should have balanced physics
+        this.toyPhysics.gravity = 0.5; // Normal gravity
+        this.toyPhysics.bounce = 0.5; // Medium bounce
+        this.toyPhysics.friction = 0.95; // Medium friction
+        
+        // ✅ NEW: Scale generic toys to medium size
+        if (this.toyElement) {
+            this.toyElement.style.width = '60px';
+            this.toyElement.style.height = '60px';
+            
+            // ✅ NEW: Add generic data attribute
+            this.toyElement.setAttribute('data-toy', 'generic');
+            this.toyElement.classList.add('companion-toy', 'generic');
+        }
+        
+        // ✅ UPDATED: Update ground level for generic toy size
+        this.toyPhysics.groundY = window.innerHeight - 30; // Generic toy touches the bottom edge
+        
+        // Make generic toys draggable
+        this.setupGenericDragInteraction();
+        
+        // Update toy element position
+        this.updateToyPosition();
+    }
+    
+    // ✅ NEW: Generic drag interaction for toys that don't need special behavior
+    setupGenericDragInteraction() {
+        if (!this.toyElement) return;
+        
+        let isDragging = false;
+        let dragStarted = false;
+        let startX = 0;
+        let startY = 0;
+        const dragThreshold = 5; // Minimum pixels to move before starting drag
+        
+        // ✅ ENHANCED: Prevent default browser drag behavior
+        this.toyElement.style.userSelect = 'none';
+        this.toyElement.style.webkitUserSelect = 'none';
+        this.toyElement.style.webkitUserDrag = 'none';
+        this.toyElement.style.webkitTouchCallout = 'none';
+        this.toyElement.draggable = false;
+        
+        // Prevent context menu on long press (mobile)
+        this.toyElement.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            return false;
+        });
+        
+        // Prevent image drag specifically
+        this.toyElement.addEventListener('dragstart', (e) => {
+            e.preventDefault();
+            return false;
+        });
+        
+        const onPointerDown = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            isDragging = true;
+            dragStarted = false;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            const toyRect = this.toyElement.getBoundingClientRect();
+            this.toyPhysics.dragOffset = {
+                x: e.clientX - toyRect.left,
+                y: e.clientY - toyRect.top
+            };
+            
+            // ✅ FIXED: Let CSS handle cursor during play mode
+            if (!document.body.classList.contains('play-mode-active')) {
+                document.body.style.cursor = 'grabbing';
+                this.toyElement.style.cursor = 'grabbing';
+            }
+            
+            console.log('🎾 Pointer down on generic toy');
+        };
+        
+        const onPointerMove = (e) => {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            
+            if (!dragStarted && distance > dragThreshold) {
+                dragStarted = true;
+                this.toyPhysics.isDragging = true;
+                
+                this.toyPhysics.vx = 0;
+                this.toyPhysics.vy = 0;
+                
+                this.toyElement.classList.add('dragging');
+                this.toyElement.style.transform = 'scale(1.05)';
+                this.toyElement.style.zIndex = '9999';
+                this.toyElement.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))';
+                
+                console.log('🎾 Started dragging generic toy');
+            }
+            
+            if (dragStarted) {
+                const newX = e.clientX - this.toyPhysics.dragOffset.x + this.toyElement.offsetWidth / 2;
+                const newY = e.clientY - this.toyPhysics.dragOffset.y + this.toyElement.offsetHeight / 2;
+                
+                const minX = this.toyElement.offsetWidth / 2;
+                const maxX = window.innerWidth - this.toyElement.offsetWidth / 2;
+                const minY = this.toyElement.offsetHeight / 2;
+                const maxY = window.innerHeight - this.toyElement.offsetHeight / 2;
+                
+                this.toyPhysics.x = Math.max(minX, Math.min(maxX, newX));
+                this.toyPhysics.y = Math.max(minY, Math.min(maxY, newY));
+                
+                this.updateToyPosition();
+            }
+        };
+        
+        const onPointerUp = (e) => {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            isDragging = false;
+            
+            // ✅ FIXED: Let CSS handle cursor during play mode
+            if (!document.body.classList.contains('play-mode-active')) {
+                document.body.style.cursor = '';
+                this.toyElement.style.cursor = 'grab';
+            }
+            this.toyElement.style.transform = '';
+            this.toyElement.style.zIndex = '';
+            this.toyElement.style.filter = '';
+            
+            if (dragStarted) {
+                this.toyPhysics.isDragging = false;
+                dragStarted = false;
+                
+                this.toyElement.classList.remove('dragging');
+                
+                console.log('🎾 Stopped dragging generic toy');
+            }
+        };
+        
+        // Add event listeners
+        this.toyElement.addEventListener('pointerdown', onPointerDown, { passive: false });
+        document.addEventListener('pointermove', onPointerMove, { passive: false });
+        document.addEventListener('pointerup', onPointerUp, { passive: false });
+        
+        // Touch events fallback
+        this.toyElement.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                onPointerDown({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length === 1) {
+                const touch = e.touches[0];
+                onPointerMove({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchend', (e) => {
+            if (isDragging) {
+                onPointerUp({
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+        
+        // Set initial cursor style
+        this.toyElement.style.cursor = 'grab';
     }
     
     startPhysicsSimulation() {
@@ -3186,6 +3279,144 @@ class BlobbiCompanion {
             this.updateToyPhysics();
             this.checkToyCollisions();
         }, 16); // ~60 FPS
+    }
+
+    // ✅ NEW: Initialize Blobbi physics system
+    initializeBlobbiPhysics() {
+        // Get current Blobbi position and convert to physics coordinates
+        const blobbiRect = this.character.getBoundingClientRect();
+        const centerX = blobbiRect.left + blobbiRect.width / 2;
+        const centerY = blobbiRect.top + blobbiRect.height / 2;
+        
+        // Initialize Blobbi physics state
+        this.blobbiPhysics = {
+            x: centerX,
+            y: centerY,
+            vx: 0,
+            vy: 0,
+            gravity: 0.5,
+            bounce: 0.6,
+            friction: 0.98,
+            groundY: window.innerHeight - 60, // Blobbi touches the bottom edge (120px height / 2)
+            isDragging: false,
+            isPhysicsActive: true
+        };
+        
+        console.log('🎯 Blobbi physics initialized at:', { x: centerX, y: centerY, groundY: this.blobbiPhysics.groundY });
+    }
+
+    // ✅ NEW: Start Blobbi physics simulation
+    startBlobbiPhysics() {
+        if (this.blobbiPhysicsInterval) {
+            clearInterval(this.blobbiPhysicsInterval);
+        }
+        
+        if (!this.blobbiPhysics.isPhysicsActive) return;
+        
+        console.log('🌍 Starting Blobbi physics simulation');
+        
+        // Add physics class to Blobbi
+        this.container.classList.add('physics-active');
+        
+        this.blobbiPhysicsInterval = setInterval(() => {
+            this.updateBlobbiPhysics();
+        }, 16); // ~60 FPS
+    }
+
+    // ✅ NEW: Stop Blobbi physics simulation
+    stopBlobbiPhysics() {
+        if (this.blobbiPhysicsInterval) {
+            clearInterval(this.blobbiPhysicsInterval);
+            this.blobbiPhysicsInterval = null;
+        }
+        
+        console.log('🛑 Stopped Blobbi physics simulation');
+    }
+
+    // ✅ NEW: Update Blobbi physics
+    updateBlobbiPhysics() {
+        if (!this.blobbiPhysics.isPhysicsActive || this.blobbiPhysics.isDragging) return;
+        
+        // Apply gravity
+        this.blobbiPhysics.vy += this.blobbiPhysics.gravity;
+        
+        // Apply velocity
+        this.blobbiPhysics.x += this.blobbiPhysics.vx;
+        this.blobbiPhysics.y += this.blobbiPhysics.vy;
+        
+        // Apply friction
+        this.blobbiPhysics.vx *= this.blobbiPhysics.friction;
+        
+        // Ground collision
+        if (this.blobbiPhysics.y >= this.blobbiPhysics.groundY) {
+            this.blobbiPhysics.y = this.blobbiPhysics.groundY;
+            this.blobbiPhysics.vy *= -this.blobbiPhysics.bounce;
+            
+            // Stop small bounces
+            if (Math.abs(this.blobbiPhysics.vy) < 1) {
+                this.blobbiPhysics.vy = 0;
+                
+                // ✅ FIXED: When Blobbi lands and stops bouncing, enable toy interactions but keep physics
+                if (Math.abs(this.blobbiPhysics.vx) < 0.5 && !this.toyInteractionInterval) {
+                    this.transitionToBottomAreaMovement();
+                }
+            }
+            
+            // ✅ NEW: Add occasional random movement impulses when on ground to keep things interesting
+            if (this.blobbiPhysics.vy === 0 && Math.abs(this.blobbiPhysics.vx) < 0.5) {
+                // 1% chance per frame to add a small random impulse
+                if (Math.random() < 0.01) {
+                    this.blobbiPhysics.vx += (Math.random() - 0.5) * 2; // Small random horizontal impulse
+                    console.log('🎯 Blobbi got a random movement impulse while on ground');
+                }
+            }
+        }
+        
+        // Wall collisions
+        const blobbiWidth = 120;
+        if (this.blobbiPhysics.x <= blobbiWidth / 2) {
+            this.blobbiPhysics.x = blobbiWidth / 2;
+            this.blobbiPhysics.vx *= -this.blobbiPhysics.bounce;
+        } else if (this.blobbiPhysics.x >= window.innerWidth - blobbiWidth / 2) {
+            this.blobbiPhysics.x = window.innerWidth - blobbiWidth / 2;
+            this.blobbiPhysics.vx *= -this.blobbiPhysics.bounce;
+        }
+        
+        // Update Blobbi's visual position
+        this.updateBlobbiPosition();
+    }
+
+    // ✅ NEW: Update Blobbi's visual position from physics
+    updateBlobbiPosition() {
+        // Convert physics coordinates back to position system
+        // position.x is distance from right edge, position.y is distance from bottom edge
+        this.position.x = window.innerWidth - this.blobbiPhysics.x - 60; // 60 is half of Blobbi's width
+        this.position.y = window.innerHeight - this.blobbiPhysics.y - 60; // 60 is half of Blobbi's height
+        
+        // Keep within bounds
+        this.position.x = Math.max(0, Math.min(window.innerWidth - 120, this.position.x));
+        this.position.y = Math.max(0, Math.min(window.innerHeight - 120, this.position.y));
+        
+        this.updatePosition();
+    }
+
+    // ✅ FIXED: Keep physics active but enable toy interactions
+    transitionToBottomAreaMovement() {
+        console.log('🎯 Blobbi landed! Physics stays active, enabling toy interactions');
+        
+        // ✅ FIXED: Keep physics simulation running - don't stop it!
+        // this.stopBlobbiPhysics(); // REMOVED - keep physics active
+        // this.blobbiPhysics.isPhysicsActive = false; // REMOVED - keep physics active
+        
+        // Remove falling class but keep physics-active
+        this.container.classList.remove('falling');
+        this.container.classList.add('landed', 'bottom-area');
+        
+        // ✅ FIXED: Don't enable bottom area movement - physics handles movement now
+        // this.enableBottomAreaMovement(); // REMOVED - physics handles movement
+        
+        // Enable toy interactions
+        this.startToyInteractionBehavior();
     }
     
     updateToyPhysics() {
@@ -3278,6 +3509,7 @@ class BlobbiCompanion {
         }
     }
     
+    // ✅ FIXED: Reliable collision detection with debouncing
     checkToyCollisions() {
         if (!this.toyElement || !this.currentToy) return;
         
@@ -3297,13 +3529,22 @@ class BlobbiCompanion {
             Math.pow(blobbiCenterY - toyCenterY, 2)
         );
         
-        // ✅ UPDATED: Check for collision (adjust threshold based on new toy sizes)
-        const collisionThreshold = this.currentToy.id === 'toy_teddy' ? 100 : 60; // Slightly larger threshold for better interaction
+        // ✅ FIXED: Improved collision thresholds and debouncing
+        const collisionThreshold = this.currentToy.id === 'toy_teddy' ? 90 : 55;
+        
+        // ✅ FIXED: Add collision debouncing to prevent flickering
+        const now = Date.now();
+        const collisionCooldown = 1000; // 1 second between collision triggers
         
         if (distance < collisionThreshold) {
-            // ✅ NEW: Don't trigger collision if Blobbi is intentionally approaching toy
-            if (!this.isApproachingToy) {
+            // ✅ FIXED: Don't trigger collision if intentionally approaching or in cooldown
+            if (!this.isApproachingToy && 
+                (!this.lastCollisionTime || now - this.lastCollisionTime > collisionCooldown)) {
+                
+                this.lastCollisionTime = now;
                 this.handleToyCollision();
+                
+                console.log(`💥 Collision detected! Distance: ${Math.round(distance)}px, Threshold: ${collisionThreshold}px`);
             }
         }
     }
@@ -3436,6 +3677,7 @@ class BlobbiCompanion {
         }, 2500);
     }
     
+    // ✅ FIXED: Clean exit from play mode with proper state restoration
     exitPlayMode() {
         if (!this.isPlayMode) return;
         
@@ -3447,7 +3689,11 @@ class BlobbiCompanion {
         // ✅ NEW: Remove global class to restore normal drag behavior
         document.body.classList.remove('toy-interaction-active');
         
-        // Stop physics simulation
+        // ✅ NEW: Stop Blobbi physics simulation
+        this.stopBlobbiPhysics();
+        this.blobbiPhysics.isPhysicsActive = false;
+        
+        // Stop toy physics simulation
         if (this.physicsInterval) {
             clearInterval(this.physicsInterval);
             this.physicsInterval = null;
@@ -3458,27 +3704,13 @@ class BlobbiCompanion {
             this.toyElement.classList.remove('physics-active');
         }
         
-        // ✅ NEW: Clear bottom area movement timers
-        if (this.pauseTimeout) {
-            clearTimeout(this.pauseTimeout);
-            this.pauseTimeout = null;
-        }
-        
-        // ✅ NEW: Clear any active movement intervals
-        if (this.moveInterval) {
-            clearInterval(this.moveInterval);
-            this.moveInterval = null;
-        }
-        
-        // ✅ NEW: Clean up toy interaction behavior system
-        if (this.toyInteractionInterval) {
-            clearInterval(this.toyInteractionInterval);
-            this.toyInteractionInterval = null;
-        }
+        // ✅ NEW: Clear all play mode timers and intervals
+        this.cleanupPlayModeTimers();
         
         // Reset toy interaction state
         this.isApproachingToy = false;
         this.toyInteractionCooldown = false;
+        this.lastCollisionTime = 0;
         
         // Remove toy element
         if (this.toyElement) {
@@ -3489,40 +3721,65 @@ class BlobbiCompanion {
         // Clear toy data
         this.currentToy = null;
         
-        // ✅ UPDATED: Remove all play mode classes including bottom-area
-        this.container.classList.remove('falling', 'play-mode', 'landed', 'bottom-area', 'walking');
-        this.character.classList.remove('walking');
+        // ✅ FIXED: Remove all play mode classes and restore normal state
+        this.container.classList.remove('falling', 'play-mode', 'landed', 'bottom-area', 'walking', 'excited', 'physics-active');
+        this.character.classList.remove('walking', 'excited');
         
-        // ✅ NEW: Reset Blobbi to normal position if stuck at bottom
-        // Move Blobbi to a more central position to resume normal roaming
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
-        
-        // Convert screen position to our position system (distance from right/bottom)
-        this.position.x = window.innerWidth - centerX - 60; // 60 is half of Blobbi's width
-        this.position.y = window.innerHeight - centerY - 60; // 60 is half of Blobbi's height
-        
-        // Keep within bounds
-        this.position.x = Math.max(0, Math.min(window.innerWidth - 120, this.position.x));
-        this.position.y = Math.max(0, Math.min(window.innerHeight - 120, this.position.y));
-        
-        this.updatePosition();
-        
-        // Re-enable free roaming across entire screen
-        this.isFreeRoaming = true;
-        this.container.classList.add('free-roaming');
+        // ✅ FIXED: Smooth transition back to normal roaming position
+        this.transitionToNormalMode();
         
         // Notify React component that toy interaction ended
         window.dispatchEvent(new CustomEvent('companion-toy-interaction-ended'));
         
-        console.log('🎯 Blobbi is now free to roam the entire screen again!');
+        console.log('🎯 Blobbi is transitioning back to normal roaming behavior!');
+    }
+    
+    // ✅ NEW: Clean up all play mode timers and intervals
+    cleanupPlayModeTimers() {
+        if (this.pauseTimeout) {
+            clearTimeout(this.pauseTimeout);
+            this.pauseTimeout = null;
+        }
         
-        // Resume normal behavior immediately
+        if (this.moveInterval) {
+            clearInterval(this.moveInterval);
+            this.moveInterval = null;
+        }
+        
+        if (this.toyInteractionInterval) {
+            clearInterval(this.toyInteractionInterval);
+            this.toyInteractionInterval = null;
+        }
+        
+        // ✅ NEW: Clean up Blobbi physics
+        if (this.blobbiPhysicsInterval) {
+            clearInterval(this.blobbiPhysicsInterval);
+            this.blobbiPhysicsInterval = null;
+        }
+    }
+    
+    // ✅ NEW: Smooth transition back to normal mode
+    transitionToNormalMode() {
+        // ✅ FIXED: Don't force position change - let Blobbi transition naturally
+        // Re-enable free roaming across entire screen
+        this.isFreeRoaming = true;
+        this.container.classList.add('free-roaming');
+        
+        // ✅ NEW: Add transition class for smooth visual change
+        this.container.classList.add('transitioning-to-normal');
+        
+        // Remove transition class after animation
+        setTimeout(() => {
+            this.container.classList.remove('transitioning-to-normal');
+        }, 1000);
+        
+        // Resume normal behavior with a natural delay
         setTimeout(() => {
             if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.isSleeping) {
+                console.log('🎯 Resuming normal free roam behavior');
                 this.startFreeRoam();
             }
-        }, 500); // Shorter delay for more responsive feel
+        }, 1200); // Slightly longer delay for smoother transition
     }
     
     // Speech bubble functionality
@@ -3664,6 +3921,7 @@ class BlobbiCompanion {
         if (this.cursorProximityCheck) clearInterval(this.cursorProximityCheck);
         if (this.foodProximityCheck) clearInterval(this.foodProximityCheck);
         if (this.toyInteractionInterval) clearInterval(this.toyInteractionInterval);
+        if (this.blobbiPhysicsInterval) clearInterval(this.blobbiPhysicsInterval);
         
         // Stop continuous proximity detection
         this.stopContinuousProximityDetection();

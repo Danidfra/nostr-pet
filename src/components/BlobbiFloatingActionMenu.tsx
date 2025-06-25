@@ -101,6 +101,20 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     };
   }, []);
 
+  // ✅ NEW: Manage body class for play mode
+  useEffect(() => {
+    if (isPlayModeActive) {
+      document.body.classList.add('play-mode-active');
+    } else {
+      document.body.classList.remove('play-mode-active');
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('play-mode-active');
+    };
+  }, [isPlayModeActive]);
+
   useEffect(() => {
     const savedPosition = localStorage.getItem(STORAGE_KEY);
     if (savedPosition) {
@@ -287,24 +301,24 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const canRemoveBed = isBedVisible && !isBlobbiSleeping;
   
   const menuItems = [
-    { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi, disabled: false },
+    { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi, disabled: isPlayModeActive },
     // ✅ UPDATED: Show "Play with Blobbi" or "Stop Playing" based on play mode state
     ...(isPlayModeActive 
       ? [{ icon: '🛑', label: 'Stop Playing', action: handleStopPlaying, disabled: false }]
       : [{ icon: '🎾', label: 'Play with Blobbi', action: handleOpenPlay, disabled: false }]
     ),
-    { icon: '💊', label: 'Medicine', action: handleOpenMedicine, disabled: false },
-    { icon: '🧼', label: 'Clean Blobbi', action: handleOpenCleaning, disabled: false },
-    { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility, disabled: false },
+    { icon: '💊', label: 'Medicine', action: handleOpenMedicine, disabled: isPlayModeActive },
+    { icon: '🧼', label: 'Clean Blobbi', action: handleOpenCleaning, disabled: isPlayModeActive },
+    { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility, disabled: isPlayModeActive },
     { 
       icon: isBedVisible ? '🛏️' : '😴', 
       label: isBedVisible ? (isBlobbiSleeping ? 'Bed Required (Sleeping)' : 'Remove Bed') : 'Show Bed', 
       action: handleSleep,
-      disabled: isBedVisible && isBlobbiSleeping
+      disabled: isPlayModeActive || (isBedVisible && isBlobbiSleeping)
     },
     // Add wake-up option when Blobbi is sleeping
-    ...(isBlobbiSleeping ? [{ icon: '☀️', label: 'Wake Up', action: handleWakeUp, disabled: false }] : []),
-    { icon: '🚶', label: 'Follow Me', action: handleFollowMe, disabled: false },
+    ...(isBlobbiSleeping ? [{ icon: '☀️', label: 'Wake Up', action: handleWakeUp, disabled: isPlayModeActive }] : []),
+    { icon: '🚶', label: 'Follow Me', action: handleFollowMe, disabled: isPlayModeActive },
     {
       icon: (
         <img
@@ -315,14 +329,17 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
       ),
       label: 'Settings',
       action: handleOpenSettings,
-      disabled: false,
+      disabled: isPlayModeActive,
     },
   ];
 
   return (
     <>
+
+      
       <div
         ref={dragRef}
+        data-floating-menu="true"
         className={cn(
           "fixed z-[10000] select-none",
           isDraggingState && "cursor-grabbing",
@@ -344,6 +361,12 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
             "hover:shadow-xl transition-shadow duration-200",
             isDraggingState ? "cursor-grabbing scale-110" : "cursor-grab"
           )}
+          style={{
+            // ✅ FIXED: Let CSS handle cursor behavior during play mode
+            ...(isPlayModeActive ? {} : {
+              cursor: isDraggingState ? 'grabbing' : 'grab'
+            })
+          }}
           whileHover={{ scale: isDraggingState ? 1.1 : 1.05 }}
           whileTap={{ scale: isDraggingState ? 1.1 : 0.95 }}
           animate={{
@@ -383,33 +406,46 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
               exit={{ opacity: 0, scale: 0.8, x: isMobile ? 0 : -10, y: isMobile ? -10 : 0 }}
               transition={{ duration: 0.2 }}
             >
-              {menuItems.map((item, index) => (
-                <motion.button
-                  key={item.label}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-md",
-                    "text-sm font-medium transition-colors duration-150",
-                    isMobile ? "justify-start min-w-[140px]" : "justify-center min-w-[40px]",
-                    item.disabled 
-                      ? "text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60" 
-                      : "text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-purple-900/50"
-                  )}
-                  onClick={item.disabled ? undefined : item.action}
-                  disabled={item.disabled}
-                  initial={{ opacity: 0, x: isMobile ? -20 : 0, y: isMobile ? 0 : -20 }}
-                  animate={{ opacity: 1, x: 0, y: 0 }}
-                  transition={{ delay: index * 0.05, duration: 0.15 }}
-                  whileHover={item.disabled ? {} : { scale: 1.05 }}
-                  whileTap={item.disabled ? {} : { scale: 0.95 }}
-                  title={item.label}
-                >
-                  <span className={cn(
-                    "text-lg",
-                    item.disabled && "grayscale"
-                  )}>{item.icon}</span>
-                  {isMobile && <span>{item.label}</span>}
-                </motion.button>
-              ))}
+              {menuItems.map((item, index) => {
+                // ✅ NEW: During play mode, only allow "Stop Playing" button to be interactive
+                const isStopPlayingButton = item.label === 'Stop Playing';
+                const isInteractiveInPlayMode = !isPlayModeActive || isStopPlayingButton;
+                const effectivelyDisabled = item.disabled || (isPlayModeActive && !isStopPlayingButton);
+                
+                return (
+                  <motion.button
+                    key={item.label}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-md",
+                      "text-sm font-medium transition-colors duration-150",
+                      isMobile ? "justify-start min-w-[140px]" : "justify-center min-w-[40px]",
+                      effectivelyDisabled 
+                        ? "text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60" 
+                        : "text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                    )}
+                    onClick={effectivelyDisabled ? undefined : item.action}
+                    disabled={effectivelyDisabled}
+                    style={{
+                      // ✅ FIXED: Let CSS handle cursor behavior during play mode
+                      ...(isPlayModeActive ? {} : {
+                        cursor: effectivelyDisabled ? 'default' : 'pointer'
+                      })
+                    }}
+                    initial={{ opacity: 0, x: isMobile ? -20 : 0, y: isMobile ? 0 : -20 }}
+                    animate={{ opacity: 1, x: 0, y: 0 }}
+                    transition={{ delay: index * 0.05, duration: 0.15 }}
+                    whileHover={effectivelyDisabled ? {} : { scale: 1.05 }}
+                    whileTap={effectivelyDisabled ? {} : { scale: 0.95 }}
+                    title={item.label}
+                  >
+                    <span className={cn(
+                      "text-lg",
+                      effectivelyDisabled && "grayscale"
+                    )}>{item.icon}</span>
+                    {isMobile && <span>{item.label}</span>}
+                  </motion.button>
+                );
+              })}
             </motion.div>
           )}
         </AnimatePresence>
