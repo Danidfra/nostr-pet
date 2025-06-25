@@ -2,7 +2,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Blobbi } from '@/types/blobbi';
 import { useBlobbiState } from '@/hooks/useBlobbiEvents';
-import { useBlobbiInteractionWithStateUpdate } from '@/hooks/useBlobbiInteractionWithStateUpdate';
+import { useEnhancedNostrPublish } from '@/hooks/useEnhancedNostrPublish';
+import { createBlobbiInteractionEvent } from '@/lib/blobbi-events';
 
 interface SleepSystemOptions {
   blobbi: Blobbi | null;
@@ -13,7 +14,7 @@ interface SleepSystemOptions {
 export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState }: SleepSystemOptions) {
   const queryClient = useQueryClient();
   const { updateState } = useBlobbiState(blobbi?.id || '', blobbi?.ownerPubkey || '');
-  const { mutateAsync: createInteractionWithStateUpdate } = useBlobbiInteractionWithStateUpdate();
+  const { mutateAsync: publishEvent } = useEnhancedNostrPublish();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastRecoveryRef = useRef<number>(Date.now());
   const lastPassiveRecoveryRef = useRef<number>(0);
@@ -211,17 +212,22 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
     const currentTime = Math.floor(Date.now() / 1000);
 
     try {
-      // ✅ FIXED: Emit events in the correct order with proper dispatch logic
+      // ✅ FIXED: Emit only the necessary events to prevent bombardment
       
-      // 1. First, emit the "rest" interaction event (kind 14919)
-      await createInteractionWithStateUpdate({
-        blobbiId: blobbi.id,
+      // 1. First, emit the "rest" interaction event (kind 14919) with special tag to prevent auto-state-generation
+      const interactionEventData = createBlobbiInteractionEvent(blobbi.id, {
         action: 'rest',
         actionCategory: 'recovery',
-        statChange: ['energy', 0], // No stat change, just marks the action
+        statChange: ['energy', '0'], // No stat change, just marks the action
         experienceGained: 0,
         carePoints: 0,
+        timeOfDay: getTimeOfDay(),
       });
+
+      // Add special tag to prevent automatic state generation by enhanced publish hook
+      interactionEventData.tags.push(['no_auto_state', 'true']);
+
+      await publishEvent(interactionEventData);
 
       // 2. Then, update the state to sleeping (kind 31124)
       const updatedBlobbi: Blobbi = {
@@ -241,7 +247,7 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
       setOptimisticSleepState?.(false);
       throw error;
     }
-  }, [blobbi, isOwner, updateState, queryClient, createInteractionWithStateUpdate, setOptimisticSleepState]);
+  }, [blobbi, isOwner, updateState, queryClient, publishEvent, setOptimisticSleepState]);
 
   // Wake up Blobbi
   const wakeUp = useCallback(async () => {
@@ -255,24 +261,50 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
     lastPassiveRecoveryRef.current = 0;
     
     try {
-      const statChange: [string, number] = blobbi.stats.energy >= 50 ? ['happiness', 5] : ['happiness', -5];
+      const statChange: [string, string] = blobbi.stats.energy >= 50 ? ['happiness', '+5'] : ['happiness', '-5'];
 
-      await createInteractionWithStateUpdate({
-        blobbiId: blobbi.id,
+      // ✅ FIXED: Emit only the necessary events to prevent bombardment
+      
+      // 1. First, emit the "wake" interaction event (kind 14919) with special tag to prevent auto-state-generation
+      const interactionEventData = createBlobbiInteractionEvent(blobbi.id, {
         action: 'wake',
         actionCategory: 'recovery',
         statChange,
         experienceGained: 2,
         carePoints: 1,
+        timeOfDay: getTimeOfDay(),
       });
 
+      // Add special tag to prevent automatic state generation by enhanced publish hook
+      interactionEventData.tags.push(['no_auto_state', 'true']);
+
+      await publishEvent(interactionEventData);
+
+      // 2. Then, update the state to awake (kind 31124)
+      const currentTime = Math.floor(Date.now() / 1000);
+      const updatedBlobbi: Blobbi = {
+        ...blobbi,
+        isSleeping: false,
+        state: 'active',
+        lastInteraction: currentTime,
+        sleepStartedAt: undefined, // Clear sleep start time
+        lastSleepUpdate: undefined, // Clear last sleep update
+        stats: {
+          ...blobbi.stats,
+          happiness: Math.max(0, Math.min(100, blobbi.stats.happiness + (blobbi.stats.energy >= 50 ? 5 : -5))),
+        },
+        experience: blobbi.experience + 2,
+        careStreak: blobbi.careStreak + 1,
+      };
+
+      await updateState(updatedBlobbi);
       queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
     } catch (error) {
       console.error('Failed to wake up Blobbi:', error);
       setOptimisticSleepState?.(true);
       throw error;
     }
-  }, [blobbi, isOwner, createInteractionWithStateUpdate, queryClient, setOptimisticSleepState]);
+  }, [blobbi, isOwner, publishEvent, queryClient, updateState, setOptimisticSleepState]);
 
   // Set up active recovery interval when Blobbi is sleeping
   useEffect(() => {
@@ -360,4 +392,13 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
     sleepStartTime: blobbi ? getSleepStartTime(blobbi) : null,
     calculatePassiveRecovery: blobbi ? () => calculatePassiveRecovery(blobbi).totalRecovery : () => 0,
   };
+}
+
+// Helper function
+function getTimeOfDay(): string {
+  const hour = new Date().getHours();
+  if (hour < 6) return 'night';
+  if (hour < 12) return 'morning';
+  if (hour < 18) return 'afternoon';
+  return 'evening';
 }

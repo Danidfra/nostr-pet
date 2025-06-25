@@ -45,7 +45,8 @@ export function useEnhancedNostrPublish() {
       await nostr.event(event, { signal: AbortSignal.timeout(5000) });
 
       // If this is an interaction event (kind 14919), automatically generate/update state event
-      if (t.kind === BLOBBI_EVENT_KINDS.INTERACTION) {
+      // unless it has the no_auto_state tag (used by sleep system to prevent duplicate state events)
+      if (t.kind === BLOBBI_EVENT_KINDS.INTERACTION && !tags.some(tag => tag[0] === 'no_auto_state')) {
         await handleInteractionStateUpdate(event, nostr, user);
       }
 
