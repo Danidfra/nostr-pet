@@ -439,68 +439,167 @@ body:has([role="dialog"]) .blobbi-container {
     }
 }
 
-/* ✅ NEW: Play mode and toy physics styles */
+/* ✅ FIXED: Play mode and toy physics styles with improved stability */
 .blobbi-container.play-mode {
     transition: none;
 }
 
+/* ✅ FIXED: Physics-active state allows natural movement while disabling conflicting animations */
+.blobbi-container.physics-active {
+    transition: none;
+}
+
+.blobbi-container.physics-active .blobbi-character {
+    /* ✅ FIXED: Allow natural reactions but disable floating and walking animations */
+    animation: none !important;
+    transition: none !important;
+}
+
+/* ✅ FIXED: Allow excited and reaction animations even during physics mode */
+.blobbi-container.physics-active .blobbi-character.excited {
+    animation: excited-bounce 0.4s ease-in-out infinite !important;
+}
+
+.blobbi-container.physics-active .blobbi-character.happy {
+    animation: bounce 0.5s ease !important;
+}
+
+.blobbi-container.physics-active .blobbi-character.spin {
+    animation: spin 0.5s ease !important;
+}
+
+.blobbi-container.physics-active .blobbi-shadow {
+    animation: shadow-physics 0.5s ease-in-out infinite;
+}
+
+/* ✅ NEW: Physics shadow animation - subtle and stable */
+@keyframes shadow-physics {
+    0%, 100% {
+        transform: translateX(-50%) scale(1);
+        opacity: 0.7;
+    }
+    50% {
+        transform: translateX(-50%) scale(0.95);
+        opacity: 0.5;
+    }
+}
+
 .blobbi-container.falling .blobbi-character {
-    animation: falling 0.3s ease-in;
+    animation: falling 0.4s ease-in;
 }
 
 .blobbi-container.landed .blobbi-character {
-    animation: landed-bounce 0.5s ease-out;
+    animation: landed-bounce 0.6s ease-out;
 }
 
-/* ✅ NEW: Enhanced bottom area movement styles */
+/* ✅ FIXED: Enhanced bottom area movement styles for stability */
 .blobbi-container.bottom-area .blobbi-character {
     /* Ensure Blobbi stays grounded during bottom area movement */
     animation: none;
+    /* ✅ NEW: Prevent floating animation in play mode */
+    transform: translateY(0) !important;
+}
+
+.blobbi-container.bottom-area .blobbi-shadow {
+    /* ✅ NEW: Keep shadow stable during play mode */
+    animation: shadow-grounded 2s ease-in-out infinite;
 }
 
 .blobbi-container.bottom-area.walking .blobbi-character {
-    animation: bottom-walk 0.5s ease-in-out infinite;
+    animation: bottom-walk 0.6s ease-in-out infinite;
 }
 
 .blobbi-container.bottom-area.excited .blobbi-character {
-    animation: excited-approach 0.4s ease-in-out infinite;
+    animation: excited-approach 0.5s ease-in-out infinite;
 }
 
-/* ✅ NEW: Bottom area walking animation - more grounded */
+/* ✅ FIXED: Bottom area walking animation - more stable and grounded */
 @keyframes bottom-walk {
     0%, 100% {
-        transform: rotate(-3deg) translateY(0);
+        transform: rotate(-2deg) translateY(0);
     }
     50% {
-        transform: rotate(3deg) translateY(-2px);
+        transform: rotate(2deg) translateY(-1px);
     }
 }
 
-/* ✅ NEW: Excited approach animation for toy interactions */
+/* ✅ FIXED: Excited approach animation for toy interactions - more subtle */
 @keyframes excited-approach {
     0%, 100% {
         transform: scale(1) translateY(0);
     }
     50% {
-        transform: scale(1.05) translateY(-3px);
+        transform: scale(1.03) translateY(-2px);
     }
 }
 
+/* ✅ NEW: Grounded shadow animation for play mode */
+@keyframes shadow-grounded {
+    0%, 100% {
+        transform: translateX(-50%) scale(1);
+        opacity: 0.8;
+    }
+    50% {
+        transform: translateX(-50%) scale(0.95);
+        opacity: 0.6;
+    }
+}
+
+/* ✅ NEW: Smooth transition back to normal mode */
+.blobbi-container.transitioning-to-normal .blobbi-character {
+    animation: transition-to-normal 1s ease-out;
+}
+
+.blobbi-container.transitioning-to-normal .blobbi-shadow {
+    animation: shadow-transition-to-normal 1s ease-out;
+}
+
+@keyframes transition-to-normal {
+    0% {
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        transform: translateY(-5px) scale(1.02);
+    }
+    100% {
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes shadow-transition-to-normal {
+    0% {
+        transform: translateX(-50%) scale(1);
+        opacity: 0.8;
+    }
+    50% {
+        transform: translateX(-50%) scale(0.9);
+        opacity: 0.5;
+    }
+    100% {
+        transform: translateX(-50%) scale(1);
+        opacity: 1;
+    }
+}
+
+/* ✅ FIXED: Improved falling and landing animations */
 @keyframes falling {
     0% {
         transform: translateY(0) rotate(0deg);
     }
     100% {
-        transform: translateY(10px) rotate(5deg);
+        transform: translateY(8px) rotate(3deg);
     }
 }
 
 @keyframes landed-bounce {
     0% {
-        transform: scale(1.1) translateY(-5px);
+        transform: scale(1.08) translateY(-3px);
     }
-    50% {
-        transform: scale(0.95) translateY(2px);
+    30% {
+        transform: scale(0.98) translateY(1px);
+    }
+    60% {
+        transform: scale(1.02) translateY(-1px);
     }
     100% {
         transform: scale(1) translateY(0);
@@ -510,7 +609,7 @@ body:has([role="dialog"]) .blobbi-container {
 /* ✅ ENHANCED: Toy element styles with comprehensive drag prevention */
 .companion-toy {
     position: fixed;
-    z-index: 9997;
+    z-index: 10001; /* ✅ FIXED: Higher z-index to ensure toys are always on top */
     user-select: none;
     -webkit-user-select: none;
     -webkit-user-drag: none;
@@ -577,6 +676,36 @@ body:has([role="dialog"]) .blobbi-container {
     cursor: grabbing;
 }
 
+.companion-toy.blocks {
+    font-size: 40px;
+    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+    cursor: grab;
+}
+
+.companion-toy.blocks:hover {
+    transform: scale(1.02);
+    filter: drop-shadow(3px 3px 6px rgba(0,0,0,0.4));
+}
+
+.companion-toy.blocks:active {
+    cursor: grabbing;
+}
+
+.companion-toy.generic {
+    font-size: 50px;
+    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+    cursor: grab;
+}
+
+.companion-toy.generic:hover {
+    transform: scale(1.02);
+    filter: drop-shadow(3px 3px 6px rgba(0,0,0,0.4));
+}
+
+.companion-toy.generic:active {
+    cursor: grabbing;
+}
+
 /* ✅ NEW: Dragging state styles for smooth visual feedback */
 .companion-toy.dragging {
     transform: scale(1.05);
@@ -616,6 +745,143 @@ body.toy-interaction-active {
 
 body.toy-interaction-active * {
     -webkit-user-drag: none;
+}
+
+/* ✅ FIXED: Play mode interaction blocking - comprehensive approach with proper cursor behavior */
+
+/* Default state: disable all pointer events and set default cursor */
+body.play-mode-active * {
+    pointer-events: none !important;
+    cursor: default !important;
+}
+
+/* Re-enable pointer events for allowed interactive elements */
+
+/* 1. Blobbi companion - always interactive during play mode */
+body.play-mode-active #blobbi-companion,
+body.play-mode-active #blobbi-companion * {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* 2. Toys - fully interactive during play mode with proper hover cursors */
+body.play-mode-active .companion-toy,
+body.play-mode-active .companion-toy *,
+body.play-mode-active [data-toy],
+body.play-mode-active [data-toy] * {
+    pointer-events: auto !important;
+}
+
+/* Specific cursor states for different toy types - including hover states */
+body.play-mode-active .companion-toy.ball,
+body.play-mode-active [data-toy="ball"],
+body.play-mode-active .companion-toy.ball *,
+body.play-mode-active [data-toy="ball"] * {
+    cursor: pointer !important;
+}
+
+body.play-mode-active .companion-toy.teddy,
+body.play-mode-active [data-toy="teddy"],
+body.play-mode-active .companion-toy.blocks,
+body.play-mode-active [data-toy="blocks"],
+body.play-mode-active .companion-toy.generic,
+body.play-mode-active [data-toy="generic"],
+body.play-mode-active .companion-toy.teddy *,
+body.play-mode-active [data-toy="teddy"] *,
+body.play-mode-active .companion-toy.blocks *,
+body.play-mode-active [data-toy="blocks"] *,
+body.play-mode-active .companion-toy.generic *,
+body.play-mode-active [data-toy="generic"] * {
+    cursor: grab !important;
+}
+
+/* Active/dragging states for draggable toys */
+body.play-mode-active .companion-toy.teddy:active,
+body.play-mode-active .companion-toy.teddy.dragging,
+body.play-mode-active [data-toy="teddy"]:active,
+body.play-mode-active [data-toy="teddy"].dragging,
+body.play-mode-active .companion-toy.blocks:active,
+body.play-mode-active .companion-toy.blocks.dragging,
+body.play-mode-active [data-toy="blocks"]:active,
+body.play-mode-active [data-toy="blocks"].dragging,
+body.play-mode-active .companion-toy.generic:active,
+body.play-mode-active .companion-toy.generic.dragging,
+body.play-mode-active [data-toy="generic"]:active,
+body.play-mode-active [data-toy="generic"].dragging,
+body.play-mode-active .companion-toy.teddy:active *,
+body.play-mode-active .companion-toy.teddy.dragging *,
+body.play-mode-active [data-toy="teddy"]:active *,
+body.play-mode-active [data-toy="teddy"].dragging *,
+body.play-mode-active .companion-toy.blocks:active *,
+body.play-mode-active .companion-toy.blocks.dragging *,
+body.play-mode-active [data-toy="blocks"]:active *,
+body.play-mode-active [data-toy="blocks"].dragging *,
+body.play-mode-active .companion-toy.generic:active *,
+body.play-mode-active .companion-toy.generic.dragging *,
+body.play-mode-active [data-toy="generic"]:active *,
+body.play-mode-active [data-toy="generic"].dragging * {
+    cursor: grabbing !important;
+}
+
+/* 3. Floating menu - interactive but with selective button enabling */
+body.play-mode-active [data-floating-menu],
+body.play-mode-active [data-floating-menu] * {
+    pointer-events: auto !important;
+}
+
+/* Floating menu main button (Blobbi icon) - always interactive */
+body.play-mode-active [data-floating-menu] > div,
+body.play-mode-active [data-floating-menu] > div * {
+    cursor: grab !important;
+}
+
+body.play-mode-active [data-floating-menu] > div:active,
+body.play-mode-active [data-floating-menu] > div:active * {
+    cursor: grabbing !important;
+}
+
+/* Floating menu buttons - only enabled ones get pointer cursor */
+body.play-mode-active [data-floating-menu] button:not(:disabled),
+body.play-mode-active [data-floating-menu] button:not(:disabled) * {
+    cursor: pointer !important;
+}
+
+body.play-mode-active [data-floating-menu] button:disabled,
+body.play-mode-active [data-floating-menu] button:disabled * {
+    cursor: default !important;
+}
+
+/* ✅ NEW: Ensure hover states work properly for interactive elements */
+body.play-mode-active #blobbi-companion:hover,
+body.play-mode-active #blobbi-companion:hover * {
+    cursor: pointer !important;
+}
+
+body.play-mode-active .companion-toy.ball:hover,
+body.play-mode-active [data-toy="ball"]:hover,
+body.play-mode-active .companion-toy.ball:hover *,
+body.play-mode-active [data-toy="ball"]:hover * {
+    cursor: pointer !important;
+}
+
+body.play-mode-active .companion-toy.teddy:hover,
+body.play-mode-active [data-toy="teddy"]:hover,
+body.play-mode-active .companion-toy.blocks:hover,
+body.play-mode-active [data-toy="blocks"]:hover,
+body.play-mode-active .companion-toy.generic:hover,
+body.play-mode-active [data-toy="generic"]:hover,
+body.play-mode-active .companion-toy.teddy:hover *,
+body.play-mode-active [data-toy="teddy"]:hover *,
+body.play-mode-active .companion-toy.blocks:hover *,
+body.play-mode-active [data-toy="blocks"]:hover *,
+body.play-mode-active .companion-toy.generic:hover *,
+body.play-mode-active [data-toy="generic"]:hover * {
+    cursor: grab !important;
+}
+
+body.play-mode-active [data-floating-menu] button:not(:disabled):hover,
+body.play-mode-active [data-floating-menu] button:not(:disabled):hover * {
+    cursor: pointer !important;
 }
 
 /* ✅ NEW: Prevent image dragging globally for toy assets */
