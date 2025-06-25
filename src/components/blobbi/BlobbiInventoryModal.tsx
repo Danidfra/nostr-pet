@@ -149,7 +149,33 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
       quantity: 1,
     });
     
-    // Create toy element with enhanced drag prevention
+    // ✅ NEW: Handle Build Blocks differently - don't create a toy element
+    if (toy.id === 'toy_blocks') {
+      console.log('🧱 Build Blocks selected - will trigger block selection menu');
+      
+      // Dispatch toy-placed event with null element to trigger block selection menu
+      window.dispatchEvent(new CustomEvent('toy-placed', {
+        detail: {
+          element: null, // No element for blocks - menu will be opened instead
+          toy: toy,
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 3
+        }
+      }));
+      
+      // Apply toy effects to Blobbi stats
+      await performCareInteraction({
+        blobbiId: blobbi.id,
+        action: actionType,
+        itemEffects: toy.effect,
+        itemUsed: toy.name,
+        currentBlobbi: blobbi,
+      });
+      
+      return; // Exit early for blocks
+    }
+    
+    // Create toy element with enhanced drag prevention for other toys
     const toyElement = document.createElement('div');
     toyElement.className = `companion-toy ${toy.id.replace('toy_', '')}`;
     

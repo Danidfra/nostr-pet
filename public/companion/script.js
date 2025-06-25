@@ -107,6 +107,23 @@ class BlobbiCompanion {
         this.lastToyInteractionTime = 0;
         this.lastCollisionTime = 0; // ✅ NEW: For collision debouncing
         
+        // ✅ NEW: Block selection system
+        this.blockSelectionMenu = null;
+        this.spawnedBlocks = new Map(); // Track spawned blocks by type
+        this.maxBlocksPerType = 5; // Increased limit for more building possibilities
+        this.blockMenuOpen = false; // Track menu state
+        this.blockSizes = {
+            'p-1': { height: 60 },
+            'p-2': { height: 60 },
+            'p-3': { height: 60 },
+            'p-4': { height: 60 },
+            'p-5': { height: 60 },
+            'p-6': { height: 120 },
+            'p-7': { height: 60 },
+            'p-8': { height: 180 },
+            'p-9': { height: 60 }
+        }; // ✅ UPDATED: Only height specified, width will auto-adjust to preserve aspect ratio
+        
         // Mouse chasing
         this.lastMousePosition = null;
         this.cursorProximityCheck = null;
@@ -1798,6 +1815,12 @@ class BlobbiCompanion {
             this.handleWakeUpRequest();
         });
         
+        // ✅ NEW: Listen for toy box interactions (for removing blocks)
+        window.addEventListener('toy-box-interaction', (event) => {
+            const { element } = event.detail;
+            this.handleToyBoxInteraction(element);
+        });
+        
         // ✅ NEW: Listen for toy placement from React
         window.addEventListener('toy-placed', (event) => {
             const { element, toy, x, y } = event.detail;
@@ -2194,11 +2217,32 @@ class BlobbiCompanion {
     handleToyPlaced(toyElement, toyData, x, y) {
         console.log('🎾 Toy placed by React:', toyData);
         
-        // Store toy element and data
+        // ✅ NEW: Handle Build Blocks differently - create floating menu instead of spawning
+        if (toyData.id === 'toy_blocks') {
+            console.log('🧱 Build Blocks selected - creating floating block selection menu');
+            
+            // Remove the placeholder toy element since we're using a floating menu (if it exists)
+            if (toyElement && toyElement.parentNode) {
+                toyElement.remove();
+            }
+            
+            // Store toy data for blocks
+            this.currentToy = toyData;
+            this.toyElement = null; // No single toy element for blocks
+            
+            // Trigger play action events as usual
+            this.enterPlayMode();
+            
+            // Create floating block selection menu instead of spawning a block
+            this.createFloatingBlockMenu();
+            return;
+        }
+        
+        // Store toy element and data for other toys
         this.toyElement = toyElement;
         this.currentToy = toyData;
         
-        // Enter play mode with physics
+        // Enter play mode with physics for other toys
         this.enterPlayMode();
     }
     
@@ -3677,6 +3721,1377 @@ class BlobbiCompanion {
         }, 2500);
     }
     
+    // ✅ NEW: Floating block selection menu methods
+    createFloatingBlockMenu() {
+        console.log('🧱 Creating floating block selection menu');
+        
+        // Remove any existing menu
+        if (this.blockSelectionMenu) {
+            this.blockSelectionMenu.remove();
+        }
+        
+        // Create floating menu container similar to main floating menu
+        this.blockSelectionMenu = document.createElement('div');
+        this.blockSelectionMenu.className = 'floating-block-menu';
+        this.blockSelectionMenu.setAttribute('data-floating-block-menu', 'true');
+        
+        // ✅ NEW: Load saved position or use default
+        const savedPosition = this.getBlockMenuPosition();
+        
+        // Position it on the left side of the screen
+        this.blockSelectionMenu.style.cssText = `
+            position: fixed;
+            left: ${savedPosition.x}px;
+            top: ${savedPosition.y}px;
+            z-index: 10000;
+            user-select: none;
+            touch-action: none;
+        `;
+        
+        // Create main menu button (blocks icon)
+        const mainButton = this.createMainBlockButton();
+        this.blockSelectionMenu.appendChild(mainButton);
+        
+        // Create expandable menu container
+        const menuContainer = this.createBlockMenuContainer();
+        this.blockSelectionMenu.appendChild(menuContainer);
+        
+        // ✅ NEW: Make the menu draggable
+        this.setupBlockMenuDrag();
+        
+        document.body.appendChild(this.blockSelectionMenu);
+        
+        console.log('🧱 Floating block menu created and positioned');
+    }
+    
+    // ✅ NEW: Get saved block menu position or default
+    getBlockMenuPosition() {
+        const saved = localStorage.getItem('blobbi-block-menu-position');
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch (error) {
+                console.error('Failed to parse saved block menu position:', error);
+            }
+        }
+        return { x: 20, y: window.innerHeight / 2 - 28 }; // Default position
+    }
+    
+    // ✅ NEW: Save block menu position
+    saveBlockMenuPosition(position) {
+        localStorage.setItem('blobbi-block-menu-position', JSON.stringify(position));
+    }
+    
+    // ✅ NEW: Setup drag functionality for block menu
+    setupBlockMenuDrag() {
+        if (!this.blockSelectionMenu) return;
+        
+        let isDragging = false;
+        let dragStarted = false;
+        let startX = 0;
+        let startY = 0;
+        let startMenuX = 0;
+        let startMenuY = 0;
+        const dragThreshold = 5;
+        
+        const onPointerDown = (e) => {
+            // Only allow dragging from the main button, not the menu items
+            if (!e.target.closest('.block-menu-main-button')) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            isDragging = true;
+            dragStarted = false;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            const rect = this.blockSelectionMenu.getBoundingClientRect();
+            startMenuX = rect.left;
+            startMenuY = rect.top;
+            
+            this.blockSelectionMenu.style.cursor = 'grabbing';
+            console.log('🧱 Started dragging block menu');
+        };
+        
+        const onPointerMove = (e) => {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            
+            if (!dragStarted && distance > dragThreshold) {
+                dragStarted = true;
+                console.log('🧱 Block menu drag confirmed');
+                
+                // Close menu if open during drag
+                this.toggleBlockMenu(false);
+            }
+            
+            if (dragStarted) {
+                const newX = startMenuX + deltaX;
+                const newY = startMenuY + deltaY;
+                
+                // Keep within screen bounds
+                const menuWidth = 56; // Main button width
+                const menuHeight = 56; // Main button height
+                const maxX = window.innerWidth - menuWidth;
+                const maxY = window.innerHeight - menuHeight;
+                
+                const boundedX = Math.max(0, Math.min(maxX, newX));
+                const boundedY = Math.max(0, Math.min(maxY, newY));
+                
+                this.blockSelectionMenu.style.left = `${boundedX}px`;
+                this.blockSelectionMenu.style.top = `${boundedY}px`;
+            }
+        };
+        
+        const onPointerUp = (e) => {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            isDragging = false;
+            this.blockSelectionMenu.style.cursor = '';
+            
+            if (dragStarted) {
+                // Save new position
+                const rect = this.blockSelectionMenu.getBoundingClientRect();
+                this.saveBlockMenuPosition({ x: rect.left, y: rect.top });
+                dragStarted = false;
+                console.log('🧱 Block menu drag completed and position saved');
+            } else {
+                // This was a click, not a drag - let the button handle it
+                console.log('🧱 Block menu clicked (not dragged)');
+            }
+        };
+        
+        // Add event listeners
+        this.blockSelectionMenu.addEventListener('pointerdown', onPointerDown, { passive: false });
+        document.addEventListener('pointermove', onPointerMove, { passive: false });
+        document.addEventListener('pointerup', onPointerUp, { passive: false });
+        
+        // Touch events fallback
+        this.blockSelectionMenu.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                onPointerDown({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    target: e.target,
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length === 1) {
+                const touch = e.touches[0];
+                onPointerMove({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchend', (e) => {
+            if (isDragging) {
+                onPointerUp({
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+    }
+    
+    createMainBlockButton() {
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'block-menu-main-button';
+        buttonContainer.style.cssText = `
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(147, 51, 234, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            transition: all 0.2s ease;
+            position: relative;
+        `;
+        
+        // ✅ NEW: Use p-5.svg as the icon instead of emoji
+        const icon = document.createElement('img');
+        icon.src = '/companion/assets/toys/pieces/p-5.svg';
+        icon.alt = 'Build Blocks';
+        icon.style.cssText = `
+            width: 28px;
+            height: 28px;
+            pointer-events: none;
+            user-select: none;
+        `;
+        icon.draggable = false;
+        buttonContainer.appendChild(icon);
+        
+        // Add pulsing animation
+        const pulseRing = document.createElement('div');
+        pulseRing.style.cssText = `
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: rgba(147, 51, 234, 0.2);
+            animation: blockMenuPulse 2s infinite ease-in-out;
+        `;
+        buttonContainer.appendChild(pulseRing);
+        
+        // Add pulse animation keyframes
+        if (!document.querySelector('#block-menu-pulse-animation')) {
+            const style = document.createElement('style');
+            style.id = 'block-menu-pulse-animation';
+            style.textContent = `
+                @keyframes blockMenuPulse {
+                    0%, 100% { transform: scale(1); opacity: 0.2; }
+                    50% { transform: scale(1.2); opacity: 0.1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // ✅ FIXED: Improved click handling to prevent conflicts with drag
+        let clickTimeout = null;
+        
+        buttonContainer.addEventListener('click', (e) => {
+            // Only handle click if it's not part of a drag operation
+            if (!e.target.closest('.block-menu-main-button')) return;
+            
+            // Clear any existing timeout
+            if (clickTimeout) {
+                clearTimeout(clickTimeout);
+            }
+            
+            // Delay the toggle to allow drag detection to work
+            clickTimeout = setTimeout(() => {
+                this.blockMenuOpen = !this.blockMenuOpen;
+                this.toggleBlockMenu(this.blockMenuOpen);
+                clickTimeout = null;
+            }, 50);
+        });
+        
+        // ✅ ENHANCED: Better hover effects with grab cursor
+        buttonContainer.addEventListener('mouseenter', () => {
+            buttonContainer.style.transform = 'scale(1.05)';
+            buttonContainer.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.15)';
+            buttonContainer.style.cursor = 'grab';
+        });
+        
+        buttonContainer.addEventListener('mouseleave', () => {
+            buttonContainer.style.transform = 'scale(1)';
+            buttonContainer.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+        });
+        
+        // ✅ NEW: Handle active state for grabbing cursor
+        buttonContainer.addEventListener('mousedown', () => {
+            buttonContainer.style.cursor = 'grabbing';
+        });
+        
+        buttonContainer.addEventListener('mouseup', () => {
+            buttonContainer.style.cursor = 'grab';
+        });
+        
+        return buttonContainer;
+    }
+    
+    createBlockMenuContainer() {
+        const container = document.createElement('div');
+        container.className = 'block-menu-container';
+        container.style.cssText = `
+            position: absolute;
+            left: 70px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(147, 51, 234, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: none;
+            opacity: 0;
+            transition: all 0.3s ease;
+        `;
+        
+        // Create grid for block buttons
+        const grid = document.createElement('div');
+        grid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        `;
+        
+        // Add block buttons (p-1 to p-9)
+        for (let i = 1; i <= 9; i++) {
+            const blockButton = this.createFloatingBlockButton(i);
+            grid.appendChild(blockButton);
+        }
+        
+        container.appendChild(grid);
+        return container;
+    }
+    
+    createFloatingBlockButton(blockNumber) {
+        const button = document.createElement('button');
+        button.className = `floating-block-button block-${blockNumber}`;
+        
+        const blockType = `p-${blockNumber}`;
+        const spawnedCount = this.spawnedBlocks.get(blockType) || 0;
+        const isDisabled = spawnedCount >= this.maxBlocksPerType;
+        
+        button.style.cssText = `
+            width: 44px;
+            height: 44px;
+            border: 2px solid ${isDisabled ? '#d1d5db' : '#8b5cf6'};
+            border-radius: 8px;
+            background: ${isDisabled ? '#f3f4f6' : 'white'};
+            cursor: ${isDisabled ? 'not-allowed' : 'pointer'};
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            opacity: ${isDisabled ? '0.5' : '1'};
+            padding: 0;
+            margin: 0;
+            outline: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-user-drag: none;
+            -webkit-touch-callout: none;
+            touch-action: manipulation;
+        `;
+        
+        // Add block image
+        const img = document.createElement('img');
+        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.svg`;
+        img.alt = `Block ${blockNumber}`;
+        img.style.cssText = `
+            width: 32px;
+            height: 32px;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-user-drag: none;
+            -webkit-touch-callout: none;
+            padding: 0;
+            margin: 0;
+            border: none;
+            outline: none;
+            display: block;
+        `;
+        img.draggable = false;
+        
+        button.appendChild(img);
+        
+        // Add count badge if any blocks are spawned
+        if (spawnedCount > 0) {
+            const countBadge = document.createElement('div');
+            countBadge.textContent = `${spawnedCount}`;
+            countBadge.style.cssText = `
+                position: absolute;
+                top: -6px;
+                right: -6px;
+                background: ${isDisabled ? '#ef4444' : '#10b981'};
+                color: white;
+                border-radius: 8px;
+                padding: 2px 4px;
+                font-size: 10px;
+                font-weight: 600;
+                min-width: 16px;
+                text-align: center;
+                line-height: 1;
+                pointer-events: none;
+            `;
+            button.appendChild(countBadge);
+        }
+        
+        if (!isDisabled) {
+            // ✅ ENHANCED: Better event handling to prevent conflicts
+            button.addEventListener('mouseenter', () => {
+                button.style.background = '#f3f4f6';
+                button.style.transform = 'scale(1.05)';
+            });
+            button.addEventListener('mouseleave', () => {
+                button.style.background = 'white';
+                button.style.transform = 'scale(1)';
+            });
+            
+            // ✅ FIXED: Improved click handling with proper event management
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log(`🧱 Spawning block ${blockNumber}`);
+                this.spawnBlock(blockNumber);
+                
+                // ✅ UPDATED: Don't auto-close menu after spawning - let user continue building
+                // Menu will stay open until user clicks outside or clicks the main button again
+            });
+            
+            // ✅ NEW: Add touch event handling for better mobile support
+            button.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                button.style.background = '#e5e7eb';
+                button.style.transform = 'scale(0.95)';
+            });
+            
+            button.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                button.style.background = '#f3f4f6';
+                button.style.transform = 'scale(1.05)';
+                
+                // Trigger the spawn action
+                setTimeout(() => {
+                    console.log(`🧱 Spawning block ${blockNumber} (touch)`);
+                    this.spawnBlock(blockNumber);
+                    // ✅ UPDATED: Don't auto-close menu on touch either
+                }, 50);
+            });
+        }
+        
+        return button;
+    }
+    
+    toggleBlockMenu(isOpen) {
+        const container = this.blockSelectionMenu.querySelector('.block-menu-container');
+        if (!container) return;
+        
+        if (isOpen) {
+            container.style.display = 'block';
+            // Update button states before showing
+            this.updateFloatingBlockMenu();
+            setTimeout(() => {
+                container.style.opacity = '1';
+                container.style.transform = 'translateY(-50%) scale(1)';
+            }, 10);
+            
+            // ✅ NEW: Add click outside listener to close menu
+            this.setupBlockMenuOutsideClickListener();
+        } else {
+            container.style.opacity = '0';
+            container.style.transform = 'translateY(-50%) scale(0.9)';
+            setTimeout(() => {
+                container.style.display = 'none';
+            }, 300);
+            
+            // ✅ NEW: Remove click outside listener
+            this.removeBlockMenuOutsideClickListener();
+        }
+    }
+    
+    // ✅ NEW: Setup click outside listener for block menu
+    setupBlockMenuOutsideClickListener() {
+        // Remove any existing listener first
+        this.removeBlockMenuOutsideClickListener();
+        
+        this.blockMenuOutsideClickListener = (e) => {
+            // Check if click is outside the block menu
+            if (!this.blockSelectionMenu.contains(e.target)) {
+                this.blockMenuOpen = false;
+                this.toggleBlockMenu(false);
+            }
+        };
+        
+        // Add listener with a small delay to prevent immediate closure
+        setTimeout(() => {
+            document.addEventListener('click', this.blockMenuOutsideClickListener, true);
+        }, 100);
+    }
+    
+    // ✅ NEW: Remove click outside listener for block menu
+    removeBlockMenuOutsideClickListener() {
+        if (this.blockMenuOutsideClickListener) {
+            document.removeEventListener('click', this.blockMenuOutsideClickListener, true);
+            this.blockMenuOutsideClickListener = null;
+        }
+    }
+    
+    updateFloatingBlockMenu() {
+        if (!this.blockSelectionMenu) return;
+        
+        // Update all block buttons
+        for (let i = 1; i <= 9; i++) {
+            const button = this.blockSelectionMenu.querySelector(`.block-${i}`);
+            if (button) {
+                const blockType = `p-${i}`;
+                const spawnedCount = this.spawnedBlocks.get(blockType) || 0;
+                const isDisabled = spawnedCount >= this.maxBlocksPerType;
+                
+                // Update button appearance
+                button.style.border = `2px solid ${isDisabled ? '#d1d5db' : '#8b5cf6'}`;
+                button.style.background = isDisabled ? '#f3f4f6' : 'white';
+                button.style.cursor = isDisabled ? 'not-allowed' : 'pointer';
+                button.style.opacity = isDisabled ? '0.5' : '1';
+                button.disabled = isDisabled;
+                
+                // Update or add count badge
+                let countBadge = button.querySelector('.count-badge');
+                if (spawnedCount > 0) {
+                    if (!countBadge) {
+                        countBadge = document.createElement('div');
+                        countBadge.className = 'count-badge';
+                        countBadge.style.cssText = `
+                            position: absolute;
+                            top: -6px;
+                            right: -6px;
+                            color: white;
+                            border-radius: 8px;
+                            padding: 2px 4px;
+                            font-size: 10px;
+                            font-weight: 600;
+                            min-width: 16px;
+                            text-align: center;
+                            line-height: 1;
+                        `;
+                        button.appendChild(countBadge);
+                    }
+                    countBadge.textContent = spawnedCount;
+                    countBadge.style.background = isDisabled ? '#ef4444' : '#10b981';
+                } else if (countBadge) {
+                    countBadge.remove();
+                }
+            }
+        }
+    }
+    
+    createBlockButton(blockNumber) {
+        const button = document.createElement('button');
+        button.className = `block-button block-${blockNumber}`;
+        
+        // Check how many of this block type are already spawned
+        const spawnedCount = this.spawnedBlocks.get(`p-${blockNumber}`) || 0;
+        const isDisabled = spawnedCount >= this.maxBlocksPerType;
+        
+        button.style.cssText = `
+            width: 60px;
+            height: 60px;
+            border: 2px solid ${isDisabled ? '#d1d5db' : '#8b5cf6'};
+            border-radius: 8px;
+            background: ${isDisabled ? '#f3f4f6' : 'white'};
+            cursor: ${isDisabled ? 'not-allowed' : 'pointer'};
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            opacity: ${isDisabled ? '0.5' : '1'};
+        `;
+        
+        // Add block image
+        const img = document.createElement('img');
+        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.svg`;
+        img.alt = `Block ${blockNumber}`;
+        img.style.cssText = `
+            width: 40px;
+            height: 40px;
+            pointer-events: none;
+            user-select: none;
+        `;
+        img.draggable = false;
+        
+        button.appendChild(img);
+        
+        // Add count indicator if any blocks are spawned
+        if (spawnedCount > 0) {
+            const countBadge = document.createElement('div');
+            countBadge.textContent = `${spawnedCount}/${this.maxBlocksPerType}`;
+            countBadge.style.cssText = `
+                position: absolute;
+                top: -8px;
+                right: -8px;
+                background: ${isDisabled ? '#ef4444' : '#10b981'};
+                color: white;
+                border-radius: 10px;
+                padding: 2px 6px;
+                font-size: 10px;
+                font-weight: 600;
+                min-width: 20px;
+                text-align: center;
+            `;
+            button.appendChild(countBadge);
+        }
+        
+        if (!isDisabled) {
+            button.addEventListener('mouseenter', () => {
+                button.style.background = '#f3f4f6';
+                button.style.transform = 'scale(1.05)';
+            });
+            button.addEventListener('mouseleave', () => {
+                button.style.background = 'white';
+                button.style.transform = 'scale(1)';
+            });
+            button.addEventListener('click', () => {
+                this.spawnBlock(blockNumber);
+            });
+        }
+        
+        return button;
+    }
+    
+    spawnBlock(blockNumber) {
+        const blockType = `p-${blockNumber}`;
+        const spawnedCount = this.spawnedBlocks.get(blockType) || 0;
+        
+        if (spawnedCount >= this.maxBlocksPerType) {
+            console.log(`🧱 Cannot spawn more ${blockType} blocks - limit reached`);
+            return;
+        }
+        
+        console.log(`🧱 Spawning block ${blockType}`);
+        
+        // ✅ UPDATED: Get custom size for this block type (only height specified)
+        const blockHeight = this.blockSizes[blockType]?.height || 60;
+        
+        // Create block element
+        const blockElement = document.createElement('div');
+        blockElement.className = `companion-block ${blockType}`;
+        blockElement.setAttribute('data-block-type', blockType);
+        
+        // ✅ UPDATED: Only set height, let width auto-adjust to preserve aspect ratio
+        blockElement.style.cssText = `
+            position: fixed;
+            height: ${blockHeight}px;
+            z-index: 9997;
+            pointer-events: auto;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-user-drag: none;
+            -webkit-touch-callout: none;
+            animation: blockDrop 0.5s ease-out;
+            transition: transform 0.15s ease-out, filter 0.15s ease-out;
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+            cursor: grab;
+            padding: 0;
+            margin: 0;
+            border: none;
+            outline: none;
+        `;
+        
+        blockElement.draggable = false;
+        
+        // Add block image
+        const img = document.createElement('img');
+        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.svg`;
+        img.alt = `Block ${blockNumber}`;
+        img.style.cssText = `
+            width: auto;
+            height: 100%;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-user-drag: none;
+            -webkit-touch-callout: none;
+            padding: 0;
+            margin: 0;
+            border: none;
+            outline: none;
+            display: block;
+        `;
+        img.draggable = false;
+        
+        // Prevent drag events
+        img.addEventListener('dragstart', (e) => {
+            e.preventDefault();
+            return false;
+        });
+        
+        blockElement.appendChild(img);
+        
+        // Prevent drag events on block element
+        blockElement.addEventListener('dragstart', (e) => {
+            e.preventDefault();
+            return false;
+        });
+        
+        blockElement.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            return false;
+        });
+        
+        // Add drop animation if not already present
+        if (!document.querySelector('#block-drop-animation')) {
+            const style = document.createElement('style');
+            style.id = 'block-drop-animation';
+            style.textContent = `
+                @keyframes blockDrop {
+                    from { 
+                        transform: translateY(-20px) scale(0.8); 
+                        opacity: 0; 
+                    }
+                    to { 
+                        transform: translateY(0) scale(1); 
+                        opacity: 1; 
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(blockElement);
+        
+        // ✅ UPDATED: Wait for image to load to get actual dimensions, then position and setup physics
+        img.onload = () => {
+            const actualWidth = blockElement.offsetWidth;
+            const actualHeight = blockElement.offsetHeight;
+            
+            // Position block in center of screen initially
+            const startX = window.innerWidth / 2 - (actualWidth / 2);
+            const startY = window.innerHeight / 3;
+            
+            blockElement.style.left = `${startX}px`;
+            blockElement.style.top = `${startY}px`;
+            
+            // Set up physics for this block with actual dimensions
+            this.setupBlockPhysics(blockElement, blockType, startX + (actualWidth / 2), startY + (actualHeight / 2));
+        };
+        
+        // Fallback if image fails to load
+        img.onerror = () => {
+            // Use default dimensions
+            const defaultWidth = blockHeight; // Square fallback
+            const startX = window.innerWidth / 2 - (defaultWidth / 2);
+            const startY = window.innerHeight / 3;
+            
+            blockElement.style.left = `${startX}px`;
+            blockElement.style.top = `${startY}px`;
+            blockElement.style.width = `${defaultWidth}px`;
+            
+            this.setupBlockPhysics(blockElement, blockType, startX + (defaultWidth / 2), startY + (blockHeight / 2));
+        };
+        
+        // Update spawned blocks count
+        this.spawnedBlocks.set(blockType, spawnedCount + 1);
+        
+        // Update the floating menu to reflect new count
+        this.updateFloatingBlockMenu();
+    }
+    
+    setupBlockPhysics(blockElement, blockType, x, y) {
+        // ✅ UPDATED: Get actual dimensions from the rendered element
+        const actualWidth = blockElement.offsetWidth;
+        const actualHeight = blockElement.offsetHeight;
+        
+        // Create physics object for this block
+        const blockPhysics = {
+            element: blockElement,
+            type: blockType,
+            x: x,
+            y: y,
+            vx: 0,
+            vy: 0,
+            gravity: 0.5,
+            bounce: 0.15, // ✅ REDUCED: Lower bounce for better stacking stability
+            friction: 0.92, // ✅ ENHANCED: Higher friction for more realistic block behavior
+            groundY: window.innerHeight - (actualHeight / 2),
+            isDragging: false,
+            dragOffset: { x: 0, y: 0 },
+            width: actualWidth,
+            height: actualHeight,
+            isResting: false, // ✅ NEW: Track if block is at rest for optimization
+            restThreshold: 0.3 // ✅ NEW: Velocity threshold for considering block at rest
+        };
+        
+        // Store physics object on the element for easy access
+        blockElement._physics = blockPhysics;
+        
+        // Set up drag interaction for this block
+        this.setupBlockDragInteraction(blockElement, blockPhysics);
+        
+        // Add this block to the physics simulation
+        if (!this.blockPhysicsObjects) {
+            this.blockPhysicsObjects = [];
+        }
+        this.blockPhysicsObjects.push(blockPhysics);
+        
+        // Start block physics simulation if not already running
+        if (!this.blockPhysicsInterval) {
+            this.startBlockPhysicsSimulation();
+        }
+        
+        // Update initial position
+        this.updateBlockPosition(blockPhysics);
+    }
+    
+    setupBlockDragInteraction(blockElement, blockPhysics) {
+        let isDragging = false;
+        let dragStarted = false;
+        let startX = 0;
+        let startY = 0;
+        const dragThreshold = 5;
+        
+        // Prevent default browser drag behavior
+        blockElement.style.userSelect = 'none';
+        blockElement.style.webkitUserSelect = 'none';
+        blockElement.style.webkitUserDrag = 'none';
+        blockElement.style.webkitTouchCallout = 'none';
+        blockElement.draggable = false;
+        
+        const onPointerDown = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            isDragging = true;
+            dragStarted = false;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            const blockRect = blockElement.getBoundingClientRect();
+            blockPhysics.dragOffset = {
+                x: e.clientX - blockRect.left,
+                y: e.clientY - blockRect.top
+            };
+            
+            blockElement.style.cursor = 'grabbing';
+            console.log(`🧱 Pointer down on block ${blockPhysics.type}`);
+        };
+        
+        const onPointerMove = (e) => {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            
+            if (!dragStarted && distance > dragThreshold) {
+                dragStarted = true;
+                blockPhysics.isDragging = true;
+                
+                blockPhysics.vx = 0;
+                blockPhysics.vy = 0;
+                blockPhysics.isResting = false; // ✅ NEW: Wake up block when dragging starts
+                
+                blockElement.classList.add('dragging');
+                blockElement.style.transform = 'scale(1.05)';
+                blockElement.style.zIndex = '9999';
+                blockElement.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))';
+                
+                console.log(`🧱 Started dragging block ${blockPhysics.type}`);
+            }
+            
+            if (dragStarted) {
+                const newX = e.clientX - blockPhysics.dragOffset.x + blockPhysics.width / 2;
+                const newY = e.clientY - blockPhysics.dragOffset.y + blockPhysics.height / 2;
+                
+                const minX = blockPhysics.width / 2;
+                const maxX = window.innerWidth - blockPhysics.width / 2;
+                const minY = blockPhysics.height / 2;
+                const maxY = window.innerHeight - blockPhysics.height / 2;
+                
+                blockPhysics.x = Math.max(minX, Math.min(maxX, newX));
+                blockPhysics.y = Math.max(minY, Math.min(maxY, newY));
+                
+                this.updateBlockPosition(blockPhysics);
+            }
+        };
+        
+        const onPointerUp = (e) => {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            isDragging = false;
+            
+            blockElement.style.cursor = 'grab';
+            blockElement.style.transform = '';
+            blockElement.style.zIndex = '';
+            blockElement.style.filter = '';
+            
+            if (dragStarted) {
+                blockPhysics.isDragging = false;
+                dragStarted = false;
+                
+                blockElement.classList.remove('dragging');
+                
+                console.log(`🧱 Stopped dragging block ${blockPhysics.type}`);
+            }
+        };
+        
+        // Add event listeners
+        blockElement.addEventListener('pointerdown', onPointerDown, { passive: false });
+        document.addEventListener('pointermove', onPointerMove, { passive: false });
+        document.addEventListener('pointerup', onPointerUp, { passive: false });
+        
+        // Touch events fallback
+        blockElement.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                onPointerDown({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length === 1) {
+                const touch = e.touches[0];
+                onPointerMove({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchend', (e) => {
+            if (isDragging) {
+                onPointerUp({
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+        
+        blockElement.style.cursor = 'grab';
+    }
+    
+    startBlockPhysicsSimulation() {
+        if (this.blockPhysicsInterval) {
+            clearInterval(this.blockPhysicsInterval);
+        }
+        
+        console.log('🧱 Starting block physics simulation');
+        
+        this.blockPhysicsInterval = setInterval(() => {
+            if (this.blockPhysicsObjects) {
+                this.blockPhysicsObjects.forEach(blockPhysics => {
+                    this.updateBlockPhysics(blockPhysics);
+                });
+                
+                // ✅ NEW: Check collisions between blocks and Blobbi
+                this.checkBlockCollisions();
+            }
+        }, 16); // ~60 FPS
+    }
+    
+    // ✅ NEW: Check collisions between blocks and Blobbi
+    checkBlockCollisions() {
+        if (!this.blockPhysicsObjects || !this.isPlayMode) return;
+        
+        // Get Blobbi's position
+        const blobbiRect = this.character.getBoundingClientRect();
+        const blobbiCenterX = blobbiRect.left + blobbiRect.width / 2;
+        const blobbiCenterY = blobbiRect.top + blobbiRect.height / 2;
+        const blobbiRadius = 60; // Blobbi's collision radius
+        
+        this.blockPhysicsObjects.forEach(blockPhysics => {
+            if (blockPhysics.isDragging) return; // Skip dragged blocks
+            
+            // Get block position
+            const blockCenterX = blockPhysics.x;
+            const blockCenterY = blockPhysics.y;
+            const blockRadius = Math.max(blockPhysics.width, blockPhysics.height) / 2;
+            
+            // Calculate distance
+            const distance = Math.sqrt(
+                Math.pow(blobbiCenterX - blockCenterX, 2) + 
+                Math.pow(blobbiCenterY - blockCenterY, 2)
+            );
+            
+            const collisionThreshold = blobbiRadius + blockRadius - 10; // Slight overlap allowed
+            
+            if (distance < collisionThreshold) {
+                this.handleBlobbiBlockCollision(blockPhysics, blobbiCenterX, blobbiCenterY, distance);
+            }
+        });
+        
+        // ✅ NEW: Check collisions between blocks themselves
+        this.checkBlockToBlockCollisions();
+    }
+    
+    // ✅ ENHANCED: More dynamic Blobbi-block interactions with physics-based responses
+    handleBlobbiBlockCollision(blockPhysics, blobbiX, blobbiY, distance) {
+        // Calculate collision response
+        const dx = blockPhysics.x - blobbiX;
+        const dy = blockPhysics.y - blobbiY;
+        
+        if (distance === 0) return; // Prevent division by zero
+        
+        // Normalize collision vector
+        const normalX = dx / distance;
+        const normalY = dy / distance;
+        
+        // ✅ ENHANCED: More varied interaction types based on Blobbi's velocity and position
+        const blobbiSpeed = Math.sqrt(this.blobbiPhysics.vx * this.blobbiPhysics.vx + this.blobbiPhysics.vy * this.blobbiPhysics.vy);
+        const isMovingFast = blobbiSpeed > 2;
+        const isAboveBlock = blobbiY < blockPhysics.y;
+        
+        // ✅ NEW: Different interaction types
+        if (isMovingFast) {
+            // Fast collision - strong push
+            const pushStrength = 2 + Math.random() * 3;
+            blockPhysics.vx += normalX * pushStrength;
+            blockPhysics.vy += normalY * pushStrength;
+            
+            // Add upward impulse for dramatic effect
+            blockPhysics.vy -= 1 + Math.random() * 2;
+            
+            // Blobbi bounces back
+            this.blobbiPhysics.vx -= normalX * (1 + Math.random());
+            this.blobbiPhysics.vy -= normalY * (1 + Math.random());
+            
+            console.log('🧱💥 Blobbi crashed into a block with force!');
+            
+            // Show excited reaction
+            if (Math.random() < 0.6) {
+                this.react();
+            }
+        } else if (isAboveBlock && Math.abs(this.blobbiPhysics.vy) < 1) {
+            // Gentle landing on top of block
+            const gentlePush = 0.2 + Math.random() * 0.3;
+            blockPhysics.vy += gentlePush;
+            
+            // Blobbi settles on top
+            this.blobbiPhysics.vy = 0;
+            this.blobbiPhysics.y = blockPhysics.y - (blockPhysics.height / 2) - 60; // Position on top
+            
+            console.log('🧱🎯 Blobbi landed gently on a block!');
+            
+            // Occasional happy reaction
+            if (Math.random() < 0.3) {
+                setTimeout(() => this.react(), 500);
+            }
+        } else {
+            // Normal collision - moderate push with randomness
+            const pushStrength = 0.8 + Math.random() * 1.5;
+            const shouldPush = Math.random() < 0.8; // 80% chance to push
+            
+            if (shouldPush) {
+                blockPhysics.vx += normalX * pushStrength;
+                blockPhysics.vy += normalY * pushStrength;
+                
+                // Small upward impulse for liveliness
+                blockPhysics.vy -= 0.3 + Math.random() * 0.7;
+                
+                console.log('🧱 Blobbi nudged a block!');
+                
+                // Occasional reaction
+                if (Math.random() < 0.2) {
+                    this.react();
+                }
+            }
+            
+            // Blobbi sometimes bounces off
+            if (Math.random() < 0.5) {
+                const bounceStrength = 0.5 + Math.random() * 1;
+                this.blobbiPhysics.vx -= normalX * bounceStrength;
+                this.blobbiPhysics.vy -= normalY * bounceStrength;
+            }
+        }
+        
+        // ✅ NEW: Add some randomness to make interactions feel more alive
+        if (Math.random() < 0.1) { // 10% chance for extra random movement
+            blockPhysics.vx += (Math.random() - 0.5) * 2;
+            blockPhysics.vy -= Math.random() * 1;
+            console.log('🧱✨ Block got an extra random impulse!');
+        }
+    }
+    
+    // ✅ ENHANCED: Improved block-to-block collision detection with better stacking support
+    checkBlockToBlockCollisions() {
+        if (!this.blockPhysicsObjects || this.blockPhysicsObjects.length < 2) return;
+        
+        for (let i = 0; i < this.blockPhysicsObjects.length; i++) {
+            for (let j = i + 1; j < this.blockPhysicsObjects.length; j++) {
+                const block1 = this.blockPhysicsObjects[i];
+                const block2 = this.blockPhysicsObjects[j];
+                
+                // Skip if either block is being dragged
+                if (block1.isDragging || block2.isDragging) continue;
+                
+                // ✅ ENHANCED: Use rectangular collision detection for better stacking
+                if (this.checkRectangularCollision(block1, block2)) {
+                    this.handleBlockToBlockCollision(block1, block2);
+                }
+            }
+        }
+    }
+    
+    // ✅ NEW: Rectangular collision detection for better block stacking
+    checkRectangularCollision(block1, block2) {
+        const block1Left = block1.x - block1.width / 2;
+        const block1Right = block1.x + block1.width / 2;
+        const block1Top = block1.y - block1.height / 2;
+        const block1Bottom = block1.y + block1.height / 2;
+        
+        const block2Left = block2.x - block2.width / 2;
+        const block2Right = block2.x + block2.width / 2;
+        const block2Top = block2.y - block2.height / 2;
+        const block2Bottom = block2.y + block2.height / 2;
+        
+        // Check for overlap
+        return !(block1Right < block2Left || 
+                 block1Left > block2Right || 
+                 block1Bottom < block2Top || 
+                 block1Top > block2Bottom);
+    }
+    
+    // ✅ ENHANCED: Improved block-to-block collision handling with better stacking physics
+    handleBlockToBlockCollision(block1, block2) {
+        // Calculate overlap amounts
+        const block1Left = block1.x - block1.width / 2;
+        const block1Right = block1.x + block1.width / 2;
+        const block1Top = block1.y - block1.height / 2;
+        const block1Bottom = block1.y + block1.height / 2;
+        
+        const block2Left = block2.x - block2.width / 2;
+        const block2Right = block2.x + block2.width / 2;
+        const block2Top = block2.y - block2.height / 2;
+        const block2Bottom = block2.y + block2.height / 2;
+        
+        // Calculate overlap amounts
+        const overlapX = Math.min(block1Right - block2Left, block2Right - block1Left);
+        const overlapY = Math.min(block1Bottom - block2Top, block2Bottom - block1Top);
+        
+        // Determine collision direction (resolve along smallest overlap)
+        if (overlapX < overlapY) {
+            // Horizontal collision
+            const centerDiff = block2.x - block1.x;
+            const separationX = overlapX * 0.5;
+            
+            if (centerDiff > 0) {
+                // block2 is to the right of block1
+                block1.x -= separationX;
+                block2.x += separationX;
+            } else {
+                // block2 is to the left of block1
+                block1.x += separationX;
+                block2.x -= separationX;
+            }
+            
+            // ✅ ENHANCED: Improved velocity exchange for horizontal collisions
+            const relativeVx = block2.vx - block1.vx;
+            const restitution = 0.2; // Low bounce for stable stacking
+            
+            if ((centerDiff > 0 && relativeVx < 0) || (centerDiff < 0 && relativeVx > 0)) {
+                const impulse = relativeVx * restitution * 0.5;
+                block1.vx += impulse;
+                block2.vx -= impulse;
+            }
+        } else {
+            // Vertical collision (stacking)
+            const centerDiff = block2.y - block1.y;
+            const separationY = overlapY * 0.5;
+            
+            if (centerDiff > 0) {
+                // block2 is below block1
+                block1.y -= separationY;
+                block2.y += separationY;
+            } else {
+                // block2 is above block1
+                block1.y += separationY;
+                block2.y -= separationY;
+            }
+            
+            // ✅ ENHANCED: Special handling for vertical stacking
+            const relativeVy = block2.vy - block1.vy;
+            const restitution = 0.1; // Very low bounce for stable stacking
+            
+            if ((centerDiff > 0 && relativeVy < 0) || (centerDiff < 0 && relativeVy > 0)) {
+                const impulse = relativeVy * restitution * 0.5;
+                block1.vy += impulse;
+                block2.vy -= impulse;
+                
+                // ✅ NEW: Stop small vertical movements for stable stacking
+                if (Math.abs(block1.vy) < 0.5) block1.vy = 0;
+                if (Math.abs(block2.vy) < 0.5) block2.vy = 0;
+            }
+        }
+        
+        // ✅ NEW: Add friction between touching blocks for stability
+        const frictionCoefficient = 0.95;
+        block1.vx *= frictionCoefficient;
+        block1.vy *= frictionCoefficient;
+        block2.vx *= frictionCoefficient;
+        block2.vy *= frictionCoefficient;
+    }
+    
+    updateBlockPhysics(blockPhysics) {
+        if (blockPhysics.isDragging) return;
+        
+        // ✅ NEW: Skip physics updates for resting blocks to improve performance
+        const totalVelocity = Math.abs(blockPhysics.vx) + Math.abs(blockPhysics.vy);
+        if (blockPhysics.isResting && totalVelocity < blockPhysics.restThreshold) {
+            return; // Block is at rest, skip physics
+        }
+        
+        // Apply gravity
+        blockPhysics.vy += blockPhysics.gravity;
+        
+        // Apply velocity
+        blockPhysics.x += blockPhysics.vx;
+        blockPhysics.y += blockPhysics.vy;
+        
+        // Apply friction
+        blockPhysics.vx *= blockPhysics.friction;
+        
+        // Ground collision
+        if (blockPhysics.y >= blockPhysics.groundY) {
+            blockPhysics.y = blockPhysics.groundY;
+            blockPhysics.vy *= -blockPhysics.bounce;
+            
+            // ✅ ENHANCED: Better resting detection
+            if (Math.abs(blockPhysics.vy) < 0.8) {
+                blockPhysics.vy = 0;
+                
+                // ✅ NEW: Mark as resting if both velocities are low
+                if (Math.abs(blockPhysics.vx) < blockPhysics.restThreshold) {
+                    blockPhysics.isResting = true;
+                }
+            }
+        }
+        
+        // Wall collisions using stored dimensions
+        const blockWidth = blockPhysics.width;
+        if (blockPhysics.x <= blockWidth / 2) {
+            blockPhysics.x = blockWidth / 2;
+            blockPhysics.vx *= -blockPhysics.bounce;
+        } else if (blockPhysics.x >= window.innerWidth - blockWidth / 2) {
+            blockPhysics.x = window.innerWidth - blockWidth / 2;
+            blockPhysics.vx *= -blockPhysics.bounce;
+        }
+        
+        // ✅ NEW: Wake up block if it starts moving again
+        if (totalVelocity > blockPhysics.restThreshold) {
+            blockPhysics.isResting = false;
+        }
+        
+        this.updateBlockPosition(blockPhysics);
+    }
+    
+    updateBlockPosition(blockPhysics) {
+        if (!blockPhysics.element) return;
+        
+        const blockWidth = blockPhysics.width;
+        const blockHeight = blockPhysics.height;
+        
+        blockPhysics.element.style.left = `${blockPhysics.x - blockWidth / 2}px`;
+        blockPhysics.element.style.top = `${blockPhysics.y - blockHeight / 2}px`;
+    }
+    
+
+    
+    removeBlock(blockElement) {
+        if (!blockElement || !blockElement._physics) return;
+        
+        const blockType = blockElement._physics.type;
+        console.log(`🧱 Removing block ${blockType}`);
+        
+        // Update spawned blocks count
+        const currentCount = this.spawnedBlocks.get(blockType) || 0;
+        if (currentCount > 0) {
+            this.spawnedBlocks.set(blockType, currentCount - 1);
+        }
+        
+        // Remove from physics objects array
+        if (this.blockPhysicsObjects) {
+            const index = this.blockPhysicsObjects.indexOf(blockElement._physics);
+            if (index > -1) {
+                this.blockPhysicsObjects.splice(index, 1);
+            }
+        }
+        
+        // Remove element from DOM
+        blockElement.remove();
+        
+        // Update floating menu
+        this.updateFloatingBlockMenu();
+        
+        // Stop block physics simulation if no blocks remain
+        if (!this.blockPhysicsObjects || this.blockPhysicsObjects.length === 0) {
+            if (this.blockPhysicsInterval) {
+                clearInterval(this.blockPhysicsInterval);
+                this.blockPhysicsInterval = null;
+            }
+        }
+    }
+    
+    removeAllBlocks() {
+        console.log('🧱 Removing all blocks');
+        
+        // Remove all block elements
+        const allBlocks = document.querySelectorAll('.companion-block');
+        allBlocks.forEach(block => {
+            if (block._physics) {
+                // Remove from physics objects array
+                if (this.blockPhysicsObjects) {
+                    const index = this.blockPhysicsObjects.indexOf(block._physics);
+                    if (index > -1) {
+                        this.blockPhysicsObjects.splice(index, 1);
+                    }
+                }
+            }
+            block.remove();
+        });
+        
+        // Clear spawned blocks tracking
+        this.spawnedBlocks.clear();
+        
+        // Clear physics objects
+        this.blockPhysicsObjects = [];
+        
+        // Stop physics simulation
+        if (this.blockPhysicsInterval) {
+            clearInterval(this.blockPhysicsInterval);
+            this.blockPhysicsInterval = null;
+        }
+        
+        // Remove floating block menu
+        this.removeFloatingBlockMenu();
+    }
+    
+    removeFloatingBlockMenu() {
+        if (this.blockSelectionMenu) {
+            this.blockSelectionMenu.remove();
+            this.blockSelectionMenu = null;
+        }
+    }
+    
+    // ✅ NEW: Handle toy box interactions for removing blocks
+    handleToyBoxInteraction(element) {
+        // Check if the element is a block
+        if (element && element.classList.contains('companion-block')) {
+            console.log('🧱 Block dragged into toy box - removing');
+            this.removeBlock(element);
+            
+            // Show feedback
+            if (window.flammiToast) {
+                window.flammiToast(
+                    "Block removed and returned to inventory!",
+                    "🧱 Block Stored"
+                );
+            }
+        }
+    }
+
     // ✅ FIXED: Clean exit from play mode with proper state restoration
     exitPlayMode() {
         if (!this.isPlayMode) return;
@@ -3703,6 +5118,9 @@ class BlobbiCompanion {
         if (this.toyElement) {
             this.toyElement.classList.remove('physics-active');
         }
+        
+        // ✅ NEW: Clean up all blocks and block selection menu
+        this.removeAllBlocks();
         
         // ✅ NEW: Clear all play mode timers and intervals
         this.cleanupPlayModeTimers();
@@ -3755,6 +5173,12 @@ class BlobbiCompanion {
         if (this.blobbiPhysicsInterval) {
             clearInterval(this.blobbiPhysicsInterval);
             this.blobbiPhysicsInterval = null;
+        }
+        
+        // ✅ NEW: Clean up block physics
+        if (this.blockPhysicsInterval) {
+            clearInterval(this.blockPhysicsInterval);
+            this.blockPhysicsInterval = null;
         }
     }
     
@@ -3902,8 +5326,12 @@ class BlobbiCompanion {
             this.foodElement = null;
         }
         
-        // ✅ NEW: Clean up toy physics system
+        // ✅ NEW: Clean up toy physics system and blocks
         this.exitPlayMode();
+        this.removeAllBlocks();
+        
+        // ✅ NEW: Clean up block menu outside click listener
+        this.removeBlockMenuOutsideClickListener();
         
         // Remove speech bubble if present
         if (this.speechBubbleElement) {
