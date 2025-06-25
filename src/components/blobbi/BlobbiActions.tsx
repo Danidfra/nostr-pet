@@ -42,7 +42,7 @@ export function BlobbiActions({
   onEvolution 
 }: BlobbiActionsProps) {
   // Get fake status information
-  const { hasFakeStatus, getPendingInteractionCount } = useBlobbiFakeStatus();
+  const { hasFakeStatus, getPendingInteractionCount, updateFakeStatus } = useBlobbiFakeStatus();
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<BlobbiAction | null>(null);
   
@@ -66,7 +66,26 @@ export function BlobbiActions({
   // Use the enhanced interaction system that automatically handles both 14919 and 31124 events
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteractionWithFakeStatus();
   
-  // Use the sleep system
+  // Create optimistic sleep state updater for immediate UI feedback
+  const setOptimisticSleepState = (isSleeping: boolean) => {
+    updateFakeStatus(blobbi.id, {
+      isSleeping,
+      state: isSleeping ? 'sleeping' : 'active',
+      lastInteraction: Math.floor(Date.now() / 1000),
+      // Add sleep-specific fields when going to sleep
+      ...(isSleeping && {
+        sleepStartedAt: Math.floor(Date.now() / 1000),
+        lastSleepUpdate: Math.floor(Date.now() / 1000),
+      }),
+      // Clear sleep-specific fields when waking up
+      ...(!isSleeping && {
+        sleepStartedAt: undefined,
+        lastSleepUpdate: undefined,
+      }),
+    });
+  };
+
+  // Use the sleep system with optimistic updates
   const { 
     isSleeping, 
     canSleep, 
@@ -75,7 +94,8 @@ export function BlobbiActions({
     wakeUp 
   } = useBlobbiSleepSystem({ 
     blobbi, 
-    isOwner: true // Assuming this component is only shown to owners
+    isOwner: true, // Assuming this component is only shown to owners
+    setOptimisticSleepState, // Enable optimistic updates for immediate UI feedback
   });
   
   const handleAction = async (action: BlobbiAction) => {
