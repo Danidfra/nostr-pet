@@ -2247,7 +2247,7 @@ class BlobbiCompanion {
     }
     
     enterPlayMode() {
-        if (this.isPlayMode || !this.toyElement || !this.currentToy) return;
+        if (this.isPlayMode || (!this.toyElement && this.currentToy?.id !== 'toy_blocks') || !this.currentToy) return;
         
         console.log('🎮 Entering play mode with physics!');
         
@@ -2267,10 +2267,14 @@ class BlobbiCompanion {
         this.applyGravityToBlobbi();
         
         // Initialize toy physics
-        this.initializeToyPhysics();
+        if (this.toyElement) {
+            this.initializeToyPhysics();
+        }
         
         // Start physics simulation
-        this.startPhysicsSimulation();
+        if (this.toyElement) {
+            this.startPhysicsSimulation();
+        }
     }
     
     applyGravityToBlobbi() {
@@ -4082,7 +4086,7 @@ class BlobbiCompanion {
         
         // Add block image
         const img = document.createElement('img');
-        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.svg`;
+        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.png`;
         img.alt = `Block ${blockNumber}`;
         img.style.cssText = `
             width: 32px;
@@ -4300,7 +4304,7 @@ class BlobbiCompanion {
         
         // Add block image
         const img = document.createElement('img');
-        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.svg`;
+        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.png`;
         img.alt = `Block ${blockNumber}`;
         img.style.cssText = `
             width: 40px;
@@ -4392,7 +4396,7 @@ class BlobbiCompanion {
         
         // Add block image
         const img = document.createElement('img');
-        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.svg`;
+        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.png`;
         img.alt = `Block ${blockNumber}`;
         img.style.cssText = `
             width: auto;
@@ -5035,44 +5039,86 @@ class BlobbiCompanion {
     }
     
     removeAllBlocks() {
-        console.log('🧱 Removing all blocks');
+        console.log('🧱 Removing all blocks from screen and physics engine');
         
-        // Remove all block elements
-        const allBlocks = document.querySelectorAll('.companion-block');
-        allBlocks.forEach(block => {
+        // ✅ ENHANCED: More thorough block removal with multiple selectors
+        const allBlocks = document.querySelectorAll('.companion-block, [data-block-type], .companion-toy.blocks');
+        console.log(`🧱 Found ${allBlocks.length} blocks to remove`);
+        
+        allBlocks.forEach((block, index) => {
+            console.log(`🧱 Removing block ${index + 1}: ${block.className}`);
+            
+            // Remove from Matter.js physics if enabled
+            if (this.physicsEnabled && block._matterBody && this.matterEngine) {
+                Matter.World.remove(this.matterEngine.world, block._matterBody);
+                this.matterBodies.delete(block);
+            }
+            
+            // Remove from custom physics system
             if (block._physics) {
-                // Remove from physics objects array
                 if (this.blockPhysicsObjects) {
                     const index = this.blockPhysicsObjects.indexOf(block._physics);
                     if (index > -1) {
                         this.blockPhysicsObjects.splice(index, 1);
+                        console.log(`🧱 Removed block from physics objects array at index ${index}`);
                     }
                 }
             }
+            
+            // Remove from DOM
             block.remove();
         });
         
-        // Clear spawned blocks tracking
+        // ✅ ENHANCED: Clear all block-related data structures
         this.spawnedBlocks.clear();
-        
-        // Clear physics objects
         this.blockPhysicsObjects = [];
         
-        // Stop physics simulation
+        // Clear Matter.js bodies if they exist
+        if (this.matterBodies) {
+            this.matterBodies.clear();
+        }
+        
+        // ✅ ENHANCED: Stop all physics simulations
         if (this.blockPhysicsInterval) {
             clearInterval(this.blockPhysicsInterval);
             this.blockPhysicsInterval = null;
+            console.log('🧱 Stopped block physics simulation');
         }
         
-        // Remove floating block menu
-        this.removeFloatingBlockMenu();
+        // Stop Matter.js physics if running
+        if (this.matterRunner && this.matterRunner.enabled) {
+            this.stopMatterPhysics();
+        }
+        if (this.matterUpdateInterval) {
+            clearInterval(this.matterUpdateInterval);
+            this.matterUpdateInterval = null;
+        }
+        
+        console.log('🧱 All blocks successfully removed from screen and physics engine');
     }
     
     removeFloatingBlockMenu() {
+        console.log('🧱 Removing floating block selection menu from DOM');
+        
+        // ✅ ENHANCED: Remove the menu element if it exists
         if (this.blockSelectionMenu) {
             this.blockSelectionMenu.remove();
             this.blockSelectionMenu = null;
+            console.log('🧱 Block selection menu removed');
         }
+        
+        // ✅ ENHANCED: Also search for and remove any orphaned block menus
+        const orphanedMenus = document.querySelectorAll('[data-floating-block-menu="true"], .floating-block-menu');
+        orphanedMenus.forEach((menu, index) => {
+            console.log(`🧱 Removing orphaned block menu ${index + 1}`);
+            menu.remove();
+        });
+        
+        // ✅ ENHANCED: Reset menu state
+        this.blockMenuOpen = false;
+        this.removeBlockMenuOutsideClickListener();
+        
+        console.log('🧱 Floating block menu completely removed from DOM/UI');
     }
     
     // ✅ NEW: Handle toy box interactions for removing blocks
@@ -5119,8 +5165,9 @@ class BlobbiCompanion {
             this.toyElement.classList.remove('physics-active');
         }
         
-        // ✅ NEW: Clean up all blocks and block selection menu
+        // ✅ ENHANCED: Complete cleanup of all toys and UI elements
         this.removeAllBlocks();
+        this.removeFloatingBlockMenu();
         
         // ✅ NEW: Clear all play mode timers and intervals
         this.cleanupPlayModeTimers();
@@ -5139,6 +5186,10 @@ class BlobbiCompanion {
         // Clear toy data
         this.currentToy = null;
         
+        // ✅ ENHANCED: Reset block menu state
+        this.blockMenuOpen = false;
+        this.removeBlockMenuOutsideClickListener();
+        
         // ✅ FIXED: Remove all play mode classes and restore normal state
         this.container.classList.remove('falling', 'play-mode', 'landed', 'bottom-area', 'walking', 'excited', 'physics-active');
         this.character.classList.remove('walking', 'excited');
@@ -5152,40 +5203,100 @@ class BlobbiCompanion {
         console.log('🎯 Blobbi is transitioning back to normal roaming behavior!');
     }
     
-    // ✅ NEW: Clean up all play mode timers and intervals
+    // ✅ ENHANCED: Clean up all play mode timers and intervals
     cleanupPlayModeTimers() {
+        console.log('🧹 Cleaning up all play mode timers and intervals');
+        
+        // Clear movement and pause timers
         if (this.pauseTimeout) {
             clearTimeout(this.pauseTimeout);
             this.pauseTimeout = null;
+            console.log('🧹 Cleared pause timeout');
         }
         
         if (this.moveInterval) {
             clearInterval(this.moveInterval);
             this.moveInterval = null;
+            console.log('🧹 Cleared move interval');
         }
         
+        // Clear toy interaction timers
         if (this.toyInteractionInterval) {
             clearInterval(this.toyInteractionInterval);
             this.toyInteractionInterval = null;
+            console.log('🧹 Cleared toy interaction interval');
         }
         
-        // ✅ NEW: Clean up Blobbi physics
+        // ✅ ENHANCED: Clean up Blobbi physics
         if (this.blobbiPhysicsInterval) {
             clearInterval(this.blobbiPhysicsInterval);
             this.blobbiPhysicsInterval = null;
+            console.log('🧹 Cleared Blobbi physics interval');
         }
         
-        // ✅ NEW: Clean up block physics
+        // ✅ ENHANCED: Clean up block physics
         if (this.blockPhysicsInterval) {
             clearInterval(this.blockPhysicsInterval);
             this.blockPhysicsInterval = null;
+            console.log('🧹 Cleared block physics interval');
         }
+        
+        // ✅ ENHANCED: Clean up physics simulation
+        if (this.physicsInterval) {
+            clearInterval(this.physicsInterval);
+            this.physicsInterval = null;
+            console.log('🧹 Cleared main physics interval');
+        }
+        
+        // ✅ ENHANCED: Reset interaction states
+        this.isApproachingToy = false;
+        this.toyInteractionCooldown = false;
+        this.lastToyInteractionTime = 0;
+        this.lastCollisionTime = 0;
+        
+        console.log('🧹 All play mode timers and intervals cleaned up');
     }
     
-    // ✅ NEW: Smooth transition back to normal mode
+    // ✅ ENHANCED: Smooth transition back to normal mode with proper position restoration
     transitionToNormalMode() {
-        // ✅ FIXED: Don't force position change - let Blobbi transition naturally
-        // Re-enable free roaming across entire screen
+        console.log('🎯 Transitioning Blobbi back to normal free-roaming behavior');
+        
+        // ✅ ENHANCED: Reset Blobbi physics completely
+        this.blobbiPhysics = {
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            gravity: 0.5,
+            bounce: 0.6,
+            friction: 0.98,
+            groundY: 0,
+            isDragging: false,
+            isPhysicsActive: false
+        };
+        
+        // ✅ ENHANCED: Move Blobbi away from bottom edge to a more natural position
+        const currentCenterX = window.innerWidth - this.position.x - 60;
+        const currentCenterY = window.innerHeight - this.position.y - 60;
+        
+        // If Blobbi is stuck at the bottom, move to a better position
+        if (currentCenterY > window.innerHeight - 150) {
+            console.log('🎯 Blobbi was at bottom edge, moving to center area');
+            const newCenterX = Math.max(100, Math.min(window.innerWidth - 100, currentCenterX));
+            const newCenterY = window.innerHeight / 2; // Move to middle of screen
+            
+            // Convert to position coordinates
+            this.position.x = window.innerWidth - newCenterX - 60;
+            this.position.y = window.innerHeight - newCenterY - 60;
+            
+            // Keep within bounds
+            this.position.x = Math.max(0, Math.min(window.innerWidth - 120, this.position.x));
+            this.position.y = Math.max(0, Math.min(window.innerHeight - 120, this.position.y));
+            
+            this.updatePosition();
+        }
+        
+        // ✅ ENHANCED: Re-enable free roaming across entire screen
         this.isFreeRoaming = true;
         this.container.classList.add('free-roaming');
         
@@ -5197,11 +5308,20 @@ class BlobbiCompanion {
             this.container.classList.remove('transitioning-to-normal');
         }, 1000);
         
-        // Resume normal behavior with a natural delay
+        // ✅ ENHANCED: Resume normal behavior with proper state checks
         setTimeout(() => {
-            if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.isSleeping) {
-                console.log('🎯 Resuming normal free roam behavior');
+            if (this.isFreeRoaming && !this.isAngry && !this.isSad && !this.isEating && !this.isSleeping && !this.isPlayMode) {
+                console.log('🎯 Resuming normal free roam behavior - Blobbi is free to walk around the entire screen!');
                 this.startFreeRoam();
+            } else {
+                console.log('🎯 Free roam not started due to current state:', {
+                    isFreeRoaming: this.isFreeRoaming,
+                    isAngry: this.isAngry,
+                    isSad: this.isSad,
+                    isEating: this.isEating,
+                    isSleeping: this.isSleeping,
+                    isPlayMode: this.isPlayMode
+                });
             }
         }, 1200); // Slightly longer delay for smoother transition
     }
