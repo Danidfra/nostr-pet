@@ -85,6 +85,18 @@ class BlobbiCompanion {
         this.physicsInterval = null;
         this.wasInPlayMode = false;
         
+        // ✅ NEW: Build Blocks specific physics system (completely isolated)
+        this.buildBlocksSystem = {
+            isActive: false,
+            blocks: new Map(), // Track all build blocks with their physics state
+            animationFrame: null,
+            gravity: 0.8, // Pixels per frame
+            friction: 0.98,
+            bounceReduction: 0.3,
+            stackTolerance: 5, // Pixels tolerance for stacking
+            groundLevel: null
+        };
+        
         // ✅ NEW: Blobbi physics system for play mode
         this.blobbiPhysics = {
             x: 0,
@@ -110,18 +122,18 @@ class BlobbiCompanion {
         // ✅ NEW: Block selection system
         this.blockSelectionMenu = null;
         this.spawnedBlocks = new Map(); // Track spawned blocks by type
-        this.maxBlocksPerType = 5; // Increased limit for more building possibilities
+        this.maxBlocksPerType = 2; // Increased limit for more building possibilities
         this.blockMenuOpen = false; // Track menu state
         this.blockSizes = {
-            'p-1': { height: 60 },
-            'p-2': { height: 60 },
-            'p-3': { height: 60 },
-            'p-4': { height: 60 },
-            'p-5': { height: 60 },
-            'p-6': { height: 120 },
-            'p-7': { height: 60 },
-            'p-8': { height: 180 },
-            'p-9': { height: 60 }
+            'p-1': { height: 160 },
+            'p-2': { height: 80 },
+            'p-3': { height: 80 },
+            'p-4': { height: 80 },
+            'p-5': { height: 80 },
+            'p-6': { height: 160 },
+            'p-7': { height: 80 },
+            'p-8': { height: 240 },
+            'p-9': { height: 80 }
         }; // ✅ UPDATED: Only height specified, width will auto-adjust to preserve aspect ratio
         
         // Mouse chasing
@@ -2219,7 +2231,7 @@ class BlobbiCompanion {
         
         // ✅ NEW: Handle Build Blocks differently - create floating menu instead of spawning
         if (toyData.id === 'toy_blocks') {
-            console.log('🧱 Build Blocks selected - creating floating block selection menu');
+            console.log('🧱 Build Blocks selected - activating isolated Build Blocks system');
             
             // Remove the placeholder toy element since we're using a floating menu (if it exists)
             if (toyElement && toyElement.parentNode) {
@@ -2230,8 +2242,8 @@ class BlobbiCompanion {
             this.currentToy = toyData;
             this.toyElement = null; // No single toy element for blocks
             
-            // Trigger play action events as usual
-            this.enterPlayMode();
+            // ✅ NEW: Activate Build Blocks specific system (isolated)
+            this.activateBuildBlocksSystem();
             
             // Create floating block selection menu instead of spawning a block
             this.createFloatingBlockMenu();
@@ -4086,7 +4098,7 @@ class BlobbiCompanion {
         
         // Add block image
         const img = document.createElement('img');
-        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.png`;
+        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.svg`;
         img.alt = `Block ${blockNumber}`;
         img.style.cssText = `
             width: 32px;
@@ -4304,7 +4316,7 @@ class BlobbiCompanion {
         
         // Add block image
         const img = document.createElement('img');
-        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.png`;
+        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.svg`;
         img.alt = `Block ${blockNumber}`;
         img.style.cssText = `
             width: 40px;
@@ -4353,6 +4365,587 @@ class BlobbiCompanion {
         return button;
     }
     
+    // ✅ NEW: Build Blocks System - Isolated physics and collision logic
+    activateBuildBlocksSystem() {
+        console.log('🧱 Activating Build Blocks System (isolated from other toys)');
+        
+        // Set play mode state
+        this.isPlayMode = true;
+        this.wasInPlayMode = true;
+        
+        // Stop all current behaviors
+        this.stopFreeRoam();
+        this.stopMoving();
+        this.stopFocusedFeeding();
+        
+        // Initialize Build Blocks system
+        this.buildBlocksSystem.isActive = true;
+        this.buildBlocksSystem.groundLevel = window.innerHeight;
+        
+        // Apply gravity to Blobbi using existing Planck.js system
+        this.applyGravityToBlobbi();
+        
+        // Start Build Blocks specific animation loop
+        this.startBuildBlocksLoop();
+    }
+
+    // ✅ NEW: Build Blocks specific animation loop
+    startBuildBlocksLoop() {
+        if (this.buildBlocksSystem.animationFrame) {
+            cancelAnimationFrame(this.buildBlocksSystem.animationFrame);
+        }
+        
+        console.log('🧱 Starting Build Blocks animation loop');
+        
+        const loop = () => {
+            if (!this.buildBlocksSystem.isActive) return;
+            
+            // Update all build blocks
+            this.updateAllBuildBlocks();
+            
+            // Check collisions between all build blocks
+            this.checkBuildBlocksCollisions();
+            
+            // Continue the loop
+            this.buildBlocksSystem.animationFrame = requestAnimationFrame(loop);
+        };
+        
+        this.buildBlocksSystem.animationFrame = requestAnimationFrame(loop);
+    }
+
+    // ✅ NEW: Update all build blocks physics
+    updateAllBuildBlocks() {
+        this.buildBlocksSystem.blocks.forEach((blockData) => {
+            if (!blockData.isDragging) {
+                // ✅ NEW: Continuously check if static blocks are still supported
+                if (blockData.isStatic) {
+                    this.checkBlockSupport(blockData);
+                }
+                
+                this.updateBuildBlockPhysics(blockData);
+            }
+        });
+    }
+
+    // ✅ NEW: Continuously check if a static block is still supported by another block
+    checkBlockSupport(blockData) {
+        // Only check static blocks that are not on the ground
+        if (!blockData.isStatic || blockData.y >= this.buildBlocksSystem.groundLevel - blockData.height) {
+            return; // Block is on ground or not static, no need to check
+        }
+        
+        // Check if this block is still touching the top of another block
+        const isStillSupported = this.isBlockStillSupported(blockData);
+        
+        if (!isStillSupported) {
+            // Block is no longer supported - reactivate gravity
+            console.log(`🧱 Block ${blockData.type} is no longer supported - reactivating gravity!`);
+            blockData.isStatic = false;
+            blockData.supportedBy = null;
+            // Give it a small initial downward velocity to start falling
+            blockData.vy = 0.1;
+        }
+    }
+
+    // ✅ NEW: Check if a block is still supported by another block below it
+    isBlockStillSupported(blockData) {
+        const blockRect = {
+            left: blockData.x,
+            right: blockData.x + blockData.width,
+            top: blockData.y,
+            bottom: blockData.y + blockData.height
+        };
+        
+        // Check against all other blocks to see if any are supporting this one
+        let hasSupport = false;
+        
+        this.buildBlocksSystem.blocks.forEach((otherBlock) => {
+            if (otherBlock === blockData || otherBlock.isDragging) return;
+            
+            const otherRect = {
+                left: otherBlock.x,
+                right: otherBlock.x + otherBlock.width,
+                top: otherBlock.y,
+                bottom: otherBlock.y + otherBlock.height
+            };
+            
+            // Check if this block's bottom is touching (or very close to) the other block's top
+            const horizontalOverlap = blockRect.right > otherRect.left && blockRect.left < otherRect.right;
+            const verticalContact = Math.abs(blockRect.bottom - otherRect.top) <= this.buildBlocksSystem.stackTolerance;
+            
+            // Also check that this block is actually above the other block
+            const isAbove = blockRect.bottom <= otherRect.top + this.buildBlocksSystem.stackTolerance;
+            
+            if (horizontalOverlap && verticalContact && isAbove) {
+                hasSupport = true;
+                return; // Found support, can exit early
+            }
+        });
+        
+        return hasSupport;
+    }
+
+    // ✅ IMPROVED: Enhanced build block physics with precise stacking detection
+    updateBuildBlockPhysics(blockData) {
+        // Skip physics if block is static (grounded or resting on another block)
+        if (blockData.isStatic) {
+            return; // Completely skip physics for static blocks
+        }
+        
+        // Apply gravity
+        blockData.vy += this.buildBlocksSystem.gravity;
+        
+        // Apply velocity
+        blockData.x += blockData.vx;
+        blockData.y += blockData.vy;
+        
+        // Apply friction
+        blockData.vx *= this.buildBlocksSystem.friction;
+        
+        // ✅ NEW: Check for stacking collision BEFORE updating position
+        const stackingCollision = this.checkBlockStackingCollision(blockData);
+        if (stackingCollision) {
+            // Block is landing on another block - make it static immediately
+            blockData.y = stackingCollision.landingY;
+            blockData.vy = 0;
+            blockData.vx = 0;
+            blockData.isStatic = true;
+            blockData.supportedBy = stackingCollision.supportBlock;
+            
+            console.log(`🧱 Block ${blockData.type} landed on ${stackingCollision.supportBlock.type} and became static`);
+        }
+        
+        // Ground collision detection
+        const groundY = this.buildBlocksSystem.groundLevel - blockData.height;
+        if (blockData.y >= groundY) {
+            blockData.y = groundY;
+            blockData.vy = 0;
+            blockData.vx = 0;
+            blockData.isStatic = true;
+            
+            console.log(`🧱 Block ${blockData.type} landed on ground and became static`);
+        }
+        
+        // Wall collisions
+        if (blockData.x <= 0) {
+            blockData.x = 0;
+            blockData.vx = 0;
+        } else if (blockData.x >= window.innerWidth - blockData.width) {
+            blockData.x = window.innerWidth - blockData.width;
+            blockData.vx = 0;
+        }
+        
+        // Update visual position
+        blockData.element.style.left = `${blockData.x}px`;
+        blockData.element.style.top = `${blockData.y}px`;
+    }
+
+    // ✅ IMPROVED: Enhanced collision detection with precise stacking logic
+    checkBuildBlocksCollisions() {
+        // Check Blobbi vs build blocks collisions
+        if (this.blobbiPhysics && this.blobbiPhysics.isPhysicsActive) {
+            this.checkBlobbiVsBuildBlocks();
+        }
+        
+        // ✅ NEW: Check for side-to-side collisions between blocks (not stacking)
+        const blockArray = Array.from(this.buildBlocksSystem.blocks.values());
+        
+        for (let i = 0; i < blockArray.length; i++) {
+            for (let j = i + 1; j < blockArray.length; j++) {
+                const block1 = blockArray[i];
+                const block2 = blockArray[j];
+                
+                // Skip if either block is being dragged
+                if (block1.isDragging || block2.isDragging) continue;
+                
+                // Check for horizontal (side-to-side) collisions only
+                if (this.checkHorizontalBlockCollision(block1, block2)) {
+                    this.handleHorizontalBlockCollision(block1, block2);
+                }
+            }
+        }
+    }
+
+    // ✅ NEW: Check if a falling block should land on another block
+    checkBlockStackingCollision(fallingBlock) {
+        // Only check for blocks that are falling (have downward velocity)
+        if (fallingBlock.vy <= 0 || fallingBlock.isStatic) {
+            return null;
+        }
+        
+        const fallingRect = {
+            left: fallingBlock.x,
+            right: fallingBlock.x + fallingBlock.width,
+            top: fallingBlock.y,
+            bottom: fallingBlock.y + fallingBlock.height
+        };
+        
+        let bestLanding = null;
+        let highestSupportY = this.buildBlocksSystem.groundLevel;
+        
+        // Check against all other blocks
+        this.buildBlocksSystem.blocks.forEach((otherBlock) => {
+            if (otherBlock === fallingBlock || otherBlock.isDragging) return;
+            
+            const otherRect = {
+                left: otherBlock.x,
+                right: otherBlock.x + otherBlock.width,
+                top: otherBlock.y,
+                bottom: otherBlock.y + otherBlock.height
+            };
+            
+            // Check if falling block's bottom is touching or overlapping other block's top
+            const horizontalOverlap = fallingRect.right > otherRect.left && fallingRect.left < otherRect.right;
+            const verticalContact = fallingRect.bottom >= otherRect.top && fallingRect.top < otherRect.top;
+            
+            if (horizontalOverlap && verticalContact) {
+                // This block can support the falling block
+                const landingY = otherRect.top - fallingBlock.height;
+                
+                // Find the highest (closest to top) support
+                if (otherRect.top < highestSupportY) {
+                    highestSupportY = otherRect.top;
+                    bestLanding = {
+                        landingY: landingY,
+                        supportBlock: otherBlock
+                    };
+                }
+            }
+        });
+        
+        return bestLanding;
+    }
+
+    // ✅ NEW: Check for horizontal (side-to-side) collisions between blocks
+    checkHorizontalBlockCollision(block1, block2) {
+        const rect1 = {
+            left: block1.x,
+            right: block1.x + block1.width,
+            top: block1.y,
+            bottom: block1.y + block1.height
+        };
+        
+        const rect2 = {
+            left: block2.x,
+            right: block2.x + block2.width,
+            top: block2.y,
+            bottom: block2.y + block2.height
+        };
+        
+        // Check for overlap
+        const horizontalOverlap = rect1.right > rect2.left && rect1.left < rect2.right;
+        const verticalOverlap = rect1.bottom > rect2.top && rect1.top < rect2.bottom;
+        
+        if (!horizontalOverlap || !verticalOverlap) return false;
+        
+        // Determine if this is a side-to-side collision (not stacking)
+        const centerY1 = rect1.top + (rect1.bottom - rect1.top) / 2;
+        const centerY2 = rect2.top + (rect2.bottom - rect2.top) / 2;
+        const verticalDistance = Math.abs(centerY1 - centerY2);
+        const combinedHalfHeights = (rect1.bottom - rect1.top) / 2 + (rect2.bottom - rect2.top) / 2;
+        
+        // If vertical centers are close, this is a side-to-side collision
+        return verticalDistance < combinedHalfHeights * 0.8;
+    }
+
+    // ✅ NEW: Handle horizontal (side-to-side) collisions between blocks
+    handleHorizontalBlockCollision(block1, block2) {
+        const dx = (block2.x + block2.width/2) - (block1.x + block1.width/2);
+        const distance = Math.abs(dx);
+        const minDistance = (block1.width + block2.width) / 2;
+        const overlap = minDistance - distance;
+        
+        if (overlap <= 0) return;
+        
+        // Separate blocks horizontally
+        const separationX = overlap / 2;
+        const direction = dx > 0 ? 1 : -1;
+        
+        // Only move non-static blocks
+        if (!block1.isStatic) {
+            block1.x -= direction * separationX;
+            block1.vx = 0;
+        }
+        if (!block2.isStatic) {
+            block2.x += direction * separationX;
+            block2.vx = 0;
+        }
+        
+        // Keep blocks within screen bounds
+        block1.x = Math.max(0, Math.min(window.innerWidth - block1.width, block1.x));
+        block2.x = Math.max(0, Math.min(window.innerWidth - block2.width, block2.x));
+        
+        // Update visual positions
+        block1.element.style.left = `${block1.x}px`;
+        block2.element.style.left = `${block2.x}px`;
+    }
+
+    // ✅ NEW: Build Blocks specific collision detection
+    buildBlocksElementsOverlap(elem1, elem2) {
+        const rect1 = elem1.getBoundingClientRect();
+        const rect2 = elem2.getBoundingClientRect();
+        return !(
+            rect1.right < rect2.left || 
+            rect2.right < rect1.left || 
+            rect1.bottom < rect2.top || 
+            rect2.bottom < rect1.top
+        );
+    }
+
+
+
+    // ✅ NEW: Check Blobbi vs build blocks collisions
+    checkBlobbiVsBuildBlocks() {
+        const blobbiRect = this.character.getBoundingClientRect();
+        
+        this.buildBlocksSystem.blocks.forEach((blockData) => {
+            if (this.buildBlocksElementsOverlap(this.character, blockData.element)) {
+                this.handleBlobbiBuildBlockCollision(blockData, blobbiRect);
+            }
+        });
+    }
+
+    // ✅ IMPROVED: Handle Blobbi vs build block collision with static block support
+    handleBlobbiBuildBlockCollision(blockData, blobbiRect) {
+        const blobbiCenterX = blobbiRect.left + blobbiRect.width / 2;
+        const blobbiCenterY = blobbiRect.top + blobbiRect.height / 2;
+        
+        // Calculate collision response
+        const dx = blockData.x + (blockData.width / 2) - blobbiCenterX;
+        const dy = blockData.y + (blockData.height / 2) - blobbiCenterY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance === 0) return;
+        
+        // Normalize collision vector
+        const normalX = dx / distance;
+        const normalY = dy / distance;
+        
+        // ✅ NEW: Only push block if it's not static, or if Blobbi hits it with enough force
+        const blobbiSpeed = Math.sqrt(this.blobbiPhysics.vx * this.blobbiPhysics.vx + this.blobbiPhysics.vy * this.blobbiPhysics.vy);
+        const strongHit = blobbiSpeed > 3;
+        
+        if (!blockData.isStatic || strongHit) {
+            // Wake up the block and make it movable
+            blockData.isStatic = false;
+            blockData.supportedBy = null;
+            
+            // Push block away from Blobbi
+            const pushStrength = strongHit ? 4 : 2;
+            blockData.vx += normalX * pushStrength;
+            blockData.vy += normalY * pushStrength;
+            
+            console.log(`🧱 Blobbi ${strongHit ? 'strongly' : 'gently'} pushed a build block!`);
+        }
+        
+        // Blobbi bounces back slightly
+        if (this.blobbiPhysics) {
+            this.blobbiPhysics.vx -= normalX * 1;
+            this.blobbiPhysics.vy -= normalY * 1;
+        }
+        
+        // Show reaction
+        if (Math.random() < 0.3) {
+            this.react();
+        }
+    }
+
+    // ✅ NEW: Setup Build Block entity (isolated system)
+    setupBuildBlockEntity(blockElement, blockType, x, y, width, height) {
+        console.log(`🧱 Setting up Build Block entity: ${blockType} with Build Blocks System`);
+        
+        // Create entity object for this block
+        const blockData = {
+            element: blockElement,
+            type: blockType,
+            x: x,
+            y: y,
+            vx: 0,
+            vy: 0,
+            width: width,
+            height: height,
+            isDragging: false,
+            isStatic: false, // ✅ NEW: Track if block is static (not affected by gravity)
+            supportedBy: null, // ✅ NEW: Track which block is supporting this one
+            dragOffset: { x: 0, y: 0 }
+        };
+        
+        // Store entity object on the element for easy access
+        blockElement._buildBlockData = blockData;
+        
+        // Add to Build Blocks system
+        this.buildBlocksSystem.blocks.set(blockElement, blockData);
+        
+        // Set up drag interaction for this block
+        this.setupBuildBlockDragInteraction(blockElement, blockData);
+        
+        // Update initial position
+        blockElement.style.left = `${x}px`;
+        blockElement.style.top = `${y}px`;
+        
+        console.log(`🧱 Build Block entity created at: ${x}, ${y}`);
+    }
+
+    // ✅ NEW: Setup drag interaction for Build Blocks (isolated system)
+    setupBuildBlockDragInteraction(blockElement, blockData) {
+        let isDragging = false;
+        let dragStarted = false;
+        let startX = 0;
+        let startY = 0;
+        const dragThreshold = 5;
+        
+        // Prevent default browser drag behavior
+        blockElement.style.userSelect = 'none';
+        blockElement.style.webkitUserSelect = 'none';
+        blockElement.style.webkitUserDrag = 'none';
+        blockElement.style.webkitTouchCallout = 'none';
+        blockElement.draggable = false;
+        
+        const onPointerDown = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            isDragging = true;
+            dragStarted = false;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            const blockRect = blockElement.getBoundingClientRect();
+            blockData.dragOffset = {
+                x: e.clientX - blockRect.left,
+                y: e.clientY - blockRect.top
+            };
+            
+            blockElement.style.cursor = 'grabbing';
+            console.log(`🧱 Pointer down on Build Block ${blockData.type}`);
+        };
+        
+        const onPointerMove = (e) => {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            
+            if (!dragStarted && distance > dragThreshold) {
+                dragStarted = true;
+                blockData.isDragging = true;
+                
+                // ✅ NEW: Wake up block when dragging starts
+                blockData.vx = 0;
+                blockData.vy = 0;
+                blockData.isStatic = false; // Block is no longer static when being dragged
+                blockData.supportedBy = null; // No longer supported by another block
+                
+                blockElement.classList.add('dragging');
+                blockElement.style.transform = 'scale(1.05)';
+                blockElement.style.zIndex = '9999';
+                blockElement.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))';
+                
+                console.log(`🧱 Started dragging Build Block ${blockData.type}`);
+            }
+            
+            if (dragStarted) {
+                const newX = e.clientX - blockData.dragOffset.x;
+                const newY = e.clientY - blockData.dragOffset.y;
+                
+                const minX = 0;
+                const maxX = window.innerWidth - blockData.width;
+                const minY = 0;
+                const maxY = window.innerHeight - blockData.height;
+                
+                blockData.x = Math.max(minX, Math.min(maxX, newX));
+                blockData.y = Math.max(minY, Math.min(maxY, newY));
+                
+                // Update visual position immediately
+                blockElement.style.left = `${blockData.x}px`;
+                blockElement.style.top = `${blockData.y}px`;
+            }
+        };
+        
+        const onPointerUp = (e) => {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            isDragging = false;
+            
+            blockElement.style.cursor = 'grab';
+            blockElement.style.transform = '';
+            blockElement.style.zIndex = '';
+            blockElement.style.filter = '';
+            
+            if (dragStarted) {
+                blockData.isDragging = false;
+                dragStarted = false;
+                
+                blockElement.classList.remove('dragging');
+                
+                console.log(`🧱 Stopped dragging Build Block ${blockData.type}`);
+            }
+        };
+        
+        // Add event listeners
+        blockElement.addEventListener('pointerdown', onPointerDown, { passive: false });
+        document.addEventListener('pointermove', onPointerMove, { passive: false });
+        document.addEventListener('pointerup', onPointerUp, { passive: false });
+        
+        // Touch events fallback
+        blockElement.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                onPointerDown({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length === 1) {
+                const touch = e.touches[0];
+                onPointerMove({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchend', (e) => {
+            if (isDragging) {
+                onPointerUp({
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation()
+                });
+            }
+        }, { passive: false });
+        
+        blockElement.style.cursor = 'grab';
+    }
+
+    // ✅ NEW: Stop Build Blocks system
+    stopBuildBlocksSystem() {
+        console.log('🧱 Stopping Build Blocks System');
+        
+        this.buildBlocksSystem.isActive = false;
+        
+        if (this.buildBlocksSystem.animationFrame) {
+            cancelAnimationFrame(this.buildBlocksSystem.animationFrame);
+            this.buildBlocksSystem.animationFrame = null;
+        }
+        
+        // Clear all build blocks
+        this.buildBlocksSystem.blocks.clear();
+    }
+
     spawnBlock(blockNumber) {
         const blockType = `p-${blockNumber}`;
         const spawnedCount = this.spawnedBlocks.get(blockType) || 0;
@@ -4362,7 +4955,7 @@ class BlobbiCompanion {
             return;
         }
         
-        console.log(`🧱 Spawning block ${blockType}`);
+        console.log(`🧱 Spawning block ${blockType} with Build Blocks System`);
         
         // ✅ UPDATED: Get custom size for this block type (only height specified)
         const blockHeight = this.blockSizes[blockType]?.height || 60;
@@ -4396,7 +4989,7 @@ class BlobbiCompanion {
         
         // Add block image
         const img = document.createElement('img');
-        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.png`;
+        img.src = `/companion/assets/toys/pieces/p-${blockNumber}.svg`;
         img.alt = `Block ${blockNumber}`;
         img.style.cssText = `
             width: auto;
@@ -4466,8 +5059,13 @@ class BlobbiCompanion {
             blockElement.style.left = `${startX}px`;
             blockElement.style.top = `${startY}px`;
             
-            // Set up physics for this block with actual dimensions
-            this.setupBlockPhysics(blockElement, blockType, startX + (actualWidth / 2), startY + (actualHeight / 2));
+            // ✅ NEW: Use Build Blocks system if current toy is blocks
+            if (this.currentToy && this.currentToy.id === 'toy_blocks' && this.buildBlocksSystem.isActive) {
+                this.setupBuildBlockEntity(blockElement, blockType, startX, startY, actualWidth, actualHeight);
+            } else {
+                // Use legacy system for other toys
+                this.setupBlockPhysics(blockElement, blockType, startX + (actualWidth / 2), startY + (actualHeight / 2));
+            }
         };
         
         // Fallback if image fails to load
@@ -4481,7 +5079,13 @@ class BlobbiCompanion {
             blockElement.style.top = `${startY}px`;
             blockElement.style.width = `${defaultWidth}px`;
             
-            this.setupBlockPhysics(blockElement, blockType, startX + (defaultWidth / 2), startY + (blockHeight / 2));
+            // ✅ NEW: Use Build Blocks system if current toy is blocks
+            if (this.currentToy && this.currentToy.id === 'toy_blocks' && this.buildBlocksSystem.isActive) {
+                this.setupBuildBlockEntity(blockElement, blockType, startX, startY, defaultWidth, blockHeight);
+            } else {
+                // Use legacy system for other toys
+                this.setupBlockPhysics(blockElement, blockType, startX + (defaultWidth / 2), startY + (blockHeight / 2));
+            }
         };
         
         // Update spawned blocks count
@@ -5004,23 +5608,37 @@ class BlobbiCompanion {
 
     
     removeBlock(blockElement) {
-        if (!blockElement || !blockElement._physics) return;
+        let blockType = null;
         
-        const blockType = blockElement._physics.type;
-        console.log(`🧱 Removing block ${blockType}`);
+        // ✅ NEW: Handle both Build Blocks system and legacy system
+        if (blockElement._buildBlockData) {
+            // Build Blocks system
+            blockType = blockElement._buildBlockData.type;
+            console.log(`🧱 Removing Build Block ${blockType}`);
+            
+            // Remove from Build Blocks system
+            this.buildBlocksSystem.blocks.delete(blockElement);
+        } else if (blockElement._physics) {
+            // Legacy system
+            blockType = blockElement._physics.type;
+            console.log(`🧱 Removing legacy block ${blockType}`);
+            
+            // Remove from physics objects array
+            if (this.blockPhysicsObjects) {
+                const index = this.blockPhysicsObjects.indexOf(blockElement._physics);
+                if (index > -1) {
+                    this.blockPhysicsObjects.splice(index, 1);
+                }
+            }
+        } else {
+            console.log('🧱 Cannot remove block - no physics data found');
+            return;
+        }
         
         // Update spawned blocks count
         const currentCount = this.spawnedBlocks.get(blockType) || 0;
         if (currentCount > 0) {
             this.spawnedBlocks.set(blockType, currentCount - 1);
-        }
-        
-        // Remove from physics objects array
-        if (this.blockPhysicsObjects) {
-            const index = this.blockPhysicsObjects.indexOf(blockElement._physics);
-            if (index > -1) {
-                this.blockPhysicsObjects.splice(index, 1);
-            }
         }
         
         // Remove element from DOM
@@ -5029,7 +5647,12 @@ class BlobbiCompanion {
         // Update floating menu
         this.updateFloatingBlockMenu();
         
-        // Stop block physics simulation if no blocks remain
+        // Stop physics simulations if no blocks remain
+        if (this.buildBlocksSystem.blocks.size === 0 && this.buildBlocksSystem.isActive) {
+            // No need to stop Build Blocks system completely, just let it run empty
+            console.log('🧱 No Build Blocks remaining, but keeping system active');
+        }
+        
         if (!this.blockPhysicsObjects || this.blockPhysicsObjects.length === 0) {
             if (this.blockPhysicsInterval) {
                 clearInterval(this.blockPhysicsInterval);
@@ -5039,7 +5662,7 @@ class BlobbiCompanion {
     }
     
     removeAllBlocks() {
-        console.log('🧱 Removing all blocks from screen and physics engine');
+        console.log('🧱 Removing all blocks from screen and physics engines');
         
         // ✅ ENHANCED: More thorough block removal with multiple selectors
         const allBlocks = document.querySelectorAll('.companion-block, [data-block-type], .companion-toy.blocks');
@@ -5048,19 +5671,25 @@ class BlobbiCompanion {
         allBlocks.forEach((block, index) => {
             console.log(`🧱 Removing block ${index + 1}: ${block.className}`);
             
+            // ✅ NEW: Remove from Build Blocks system
+            if (block._buildBlockData) {
+                this.buildBlocksSystem.blocks.delete(block);
+                console.log(`🧱 Removed block from Build Blocks system`);
+            }
+            
             // Remove from Matter.js physics if enabled
             if (this.physicsEnabled && block._matterBody && this.matterEngine) {
                 Matter.World.remove(this.matterEngine.world, block._matterBody);
                 this.matterBodies.delete(block);
             }
             
-            // Remove from custom physics system
+            // Remove from legacy physics system
             if (block._physics) {
                 if (this.blockPhysicsObjects) {
                     const index = this.blockPhysicsObjects.indexOf(block._physics);
                     if (index > -1) {
                         this.blockPhysicsObjects.splice(index, 1);
-                        console.log(`🧱 Removed block from physics objects array at index ${index}`);
+                        console.log(`🧱 Removed block from legacy physics objects array at index ${index}`);
                     }
                 }
             }
@@ -5073,6 +5702,9 @@ class BlobbiCompanion {
         this.spawnedBlocks.clear();
         this.blockPhysicsObjects = [];
         
+        // ✅ NEW: Clear Build Blocks system
+        this.buildBlocksSystem.blocks.clear();
+        
         // Clear Matter.js bodies if they exist
         if (this.matterBodies) {
             this.matterBodies.clear();
@@ -5082,7 +5714,7 @@ class BlobbiCompanion {
         if (this.blockPhysicsInterval) {
             clearInterval(this.blockPhysicsInterval);
             this.blockPhysicsInterval = null;
-            console.log('🧱 Stopped block physics simulation');
+            console.log('🧱 Stopped legacy block physics simulation');
         }
         
         // Stop Matter.js physics if running
@@ -5094,7 +5726,7 @@ class BlobbiCompanion {
             this.matterUpdateInterval = null;
         }
         
-        console.log('🧱 All blocks successfully removed from screen and physics engine');
+        console.log('🧱 All blocks successfully removed from screen and all physics engines');
     }
     
     removeFloatingBlockMenu() {
@@ -5168,6 +5800,9 @@ class BlobbiCompanion {
         // ✅ ENHANCED: Complete cleanup of all toys and UI elements
         this.removeAllBlocks();
         this.removeFloatingBlockMenu();
+        
+        // ✅ NEW: Stop Build Blocks system
+        this.stopBuildBlocksSystem();
         
         // ✅ NEW: Clear all play mode timers and intervals
         this.cleanupPlayModeTimers();
