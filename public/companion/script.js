@@ -49,7 +49,9 @@ class BlobbiCompanion {
                 sleeping: '/companion/sounds/sleeping.mp3',
                 eating: '/companion/sounds/eating.mp3',
                 angry: '/companion/sounds/angry.mp3',
-                fart: '/companion/sounds/fart.mp3'
+                fart: '/companion/sounds/fart.mp3',
+                'ball-kick': '/companion/sounds/ball-kick.mp3'
+
             }
         };
         
@@ -80,7 +82,9 @@ class BlobbiCompanion {
             isDragging: false,
             dragOffset: { x: 0, y: 0 },
             rotation: 0, // ✅ NEW: Track rotation for rolling animation
-            rotationSpeed: 0 // ✅ NEW: Track rotation speed
+            rotationSpeed: 0, // ✅ NEW: Track rotation speed
+            soundIntensity: 1.0,
+
         };
         this.physicsInterval = null;
         this.wasInPlayMode = false;
@@ -233,7 +237,7 @@ class BlobbiCompanion {
 
     // ✅ NEW: Centralized method to play any sound
     playAudio(soundName, options = {}) {
-        const { loop = false, replace = false } = options;
+        const { loop = false, replace = false, volume = null } = options;
         
         console.log(`🎵 Companion: playAudio called`, { 
             soundName, 
@@ -252,7 +256,7 @@ class BlobbiCompanion {
             return null;
         }
         
-        const effectiveVolume = this.audioManager.isMuted ? 0 : this.audioManager.volume;
+        const effectiveVolume = this.audioManager.isMuted ? 0 : (volume !== null ? volume : this.audioManager.volume);
         
         if (loop) {
             // Handle looping sounds (grumble, sleeping)
@@ -293,7 +297,7 @@ class BlobbiCompanion {
             }
             
             // Don't play if muted (but still create the audio object for consistency)
-            if (this.audioManager.isMuted) {
+            if (this.audioManager.isMuted && volume === null) {
                 console.log(`🔇 Not playing ${soundName} - muted`);
                 return null;
             }
@@ -348,6 +352,12 @@ class BlobbiCompanion {
             this.audioManager.oneShot = null;
         }
     }
+
+    playBallKickSound(intensity) {
+        const volume = Math.min(1, Math.max(0, intensity));
+        this.playAudio('ball-kick', { volume });
+    }
+
 
     // ✅ NEW: Set up listener for localStorage changes to update audio immediately
     setupAudioSettingsListener() {
@@ -3509,6 +3519,10 @@ class BlobbiCompanion {
         const groundY = window.innerHeight - toyHeight / 2; // Toy touches the bottom edge
         
         if (this.toyPhysics.y >= groundY) {
+            const collisionIntensity = Math.abs(this.toyPhysics.vy) / 10;
+            if (collisionIntensity > 0.1) {
+                this.playBallKickSound(collisionIntensity);
+            }
             this.toyPhysics.y = groundY;
             this.toyPhysics.vy *= -this.toyPhysics.bounce;
             
@@ -3526,9 +3540,17 @@ class BlobbiCompanion {
         // Wall collisions
         const toyWidth = this.toyElement.offsetWidth;
         if (this.toyPhysics.x <= toyWidth / 2) {
+            const collisionIntensity = Math.abs(this.toyPhysics.vx) / 10;
+            if (collisionIntensity > 0.1) {
+                this.playBallKickSound(collisionIntensity);
+            }
             this.toyPhysics.x = toyWidth / 2;
             this.toyPhysics.vx *= -this.toyPhysics.bounce;
         } else if (this.toyPhysics.x >= window.innerWidth - toyWidth / 2) {
+            const collisionIntensity = Math.abs(this.toyPhysics.vx) / 10;
+            if (collisionIntensity > 0.1) {
+                this.playBallKickSound(collisionIntensity);
+            }
             this.toyPhysics.x = window.innerWidth - toyWidth / 2;
             this.toyPhysics.vx *= -this.toyPhysics.bounce;
         }
@@ -3639,6 +3661,9 @@ class BlobbiCompanion {
         this.toyPhysics.vx = kickDirection * (4 + Math.random() * 2);
         this.toyPhysics.vy = -3 - Math.random() * 2;
         
+        const collisionIntensity = Math.sqrt(this.toyPhysics.vx * this.toyPhysics.vx + this.toyPhysics.vy * this.toyPhysics.vy) / 10;
+        this.playBallKickSound(collisionIntensity);
+
         // Add some randomness to make it more fun
         this.toyPhysics.vx += (Math.random() - 0.5) * 2;
         
