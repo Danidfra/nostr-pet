@@ -50,7 +50,8 @@ class BlobbiCompanion {
                 eating: '/companion/sounds/eating.mp3',
                 angry: '/companion/sounds/angry.mp3',
                 fart: '/companion/sounds/fart.mp3',
-                'ball-kick': '/companion/sounds/ball-kick.mp3'
+                'ball-kick': '/companion/sounds/ball-kick.mp3',
+                'wood-block': '/companion/sounds/wood-block.mp3'
 
             }
         };
@@ -356,6 +357,11 @@ class BlobbiCompanion {
     playBallKickSound(intensity) {
         const volume = Math.min(1, Math.max(0, intensity));
         this.playAudio('ball-kick', { volume });
+    }
+
+    playWoodBlockSound(intensity = 1.0) {
+        const volume = Math.min(1, Math.max(0, intensity));
+        this.playAudio('wood-block', { volume });
     }
 
 
@@ -4532,6 +4538,13 @@ class BlobbiCompanion {
         if (stackingCollision) {
             // Block is landing on another block - make it static immediately
             blockData.y = stackingCollision.landingY;
+            
+            // ✅ NEW: Play wood-block sound when block lands on another block
+            const collisionIntensity = Math.abs(blockData.vy) / 10;
+            if (collisionIntensity > 0.1) {
+                this.playWoodBlockSound(collisionIntensity);
+            }
+            
             blockData.vy = 0;
             blockData.vx = 0;
             blockData.isStatic = true;
@@ -4544,6 +4557,13 @@ class BlobbiCompanion {
         const groundY = this.buildBlocksSystem.groundLevel - blockData.height;
         if (blockData.y >= groundY) {
             blockData.y = groundY;
+            
+            // ✅ NEW: Play wood-block sound when block hits ground
+            const collisionIntensity = Math.abs(blockData.vy) / 10;
+            if (collisionIntensity > 0.1) {
+                this.playWoodBlockSound(collisionIntensity);
+            }
+            
             blockData.vy = 0;
             blockData.vx = 0;
             blockData.isStatic = true;
@@ -4554,9 +4574,23 @@ class BlobbiCompanion {
         // Wall collisions
         if (blockData.x <= 0) {
             blockData.x = 0;
+            
+            // ✅ NEW: Play wood-block sound when block hits left wall
+            const collisionIntensity = Math.abs(blockData.vx) / 10;
+            if (collisionIntensity > 0.1) {
+                this.playWoodBlockSound(collisionIntensity);
+            }
+            
             blockData.vx = 0;
         } else if (blockData.x >= window.innerWidth - blockData.width) {
             blockData.x = window.innerWidth - blockData.width;
+            
+            // ✅ NEW: Play wood-block sound when block hits right wall
+            const collisionIntensity = Math.abs(blockData.vx) / 10;
+            if (collisionIntensity > 0.1) {
+                this.playWoodBlockSound(collisionIntensity);
+            }
+            
             blockData.vx = 0;
         }
         
@@ -4681,6 +4715,13 @@ class BlobbiCompanion {
         const overlap = minDistance - distance;
         
         if (overlap <= 0) return;
+        
+        // ✅ NEW: Play wood-block sound for block-to-block collision
+        const relativeVelocity = Math.abs(block1.vx - block2.vx);
+        const collisionIntensity = relativeVelocity / 10;
+        if (collisionIntensity > 0.1) {
+            this.playWoodBlockSound(collisionIntensity);
+        }
         
         // Separate blocks horizontally
         const separationX = overlap / 2;
@@ -5504,6 +5545,15 @@ class BlobbiCompanion {
         const overlapX = Math.min(block1Right - block2Left, block2Right - block1Left);
         const overlapY = Math.min(block1Bottom - block2Top, block2Bottom - block1Top);
         
+        // ✅ NEW: Play wood-block sound for legacy block-to-block collision
+        const relativeVelocity = Math.sqrt(
+            Math.pow(block1.vx - block2.vx, 2) + Math.pow(block1.vy - block2.vy, 2)
+        );
+        const collisionIntensity = relativeVelocity / 10;
+        if (collisionIntensity > 0.1) {
+            this.playWoodBlockSound(collisionIntensity);
+        }
+        
         // Determine collision direction (resolve along smallest overlap)
         if (overlapX < overlapY) {
             // Horizontal collision
@@ -5589,6 +5639,13 @@ class BlobbiCompanion {
         // Ground collision
         if (blockPhysics.y >= blockPhysics.groundY) {
             blockPhysics.y = blockPhysics.groundY;
+            
+            // ✅ NEW: Play wood-block sound when legacy block hits ground
+            const collisionIntensity = Math.abs(blockPhysics.vy) / 10;
+            if (collisionIntensity > 0.1) {
+                this.playWoodBlockSound(collisionIntensity);
+            }
+            
             blockPhysics.vy *= -blockPhysics.bounce;
             
             // ✅ ENHANCED: Better resting detection
@@ -5606,9 +5663,23 @@ class BlobbiCompanion {
         const blockWidth = blockPhysics.width;
         if (blockPhysics.x <= blockWidth / 2) {
             blockPhysics.x = blockWidth / 2;
+            
+            // ✅ NEW: Play wood-block sound when legacy block hits left wall
+            const collisionIntensity = Math.abs(blockPhysics.vx) / 10;
+            if (collisionIntensity > 0.1) {
+                this.playWoodBlockSound(collisionIntensity);
+            }
+            
             blockPhysics.vx *= -blockPhysics.bounce;
         } else if (blockPhysics.x >= window.innerWidth - blockWidth / 2) {
             blockPhysics.x = window.innerWidth - blockWidth / 2;
+            
+            // ✅ NEW: Play wood-block sound when legacy block hits right wall
+            const collisionIntensity = Math.abs(blockPhysics.vx) / 10;
+            if (collisionIntensity > 0.1) {
+                this.playWoodBlockSound(collisionIntensity);
+            }
+            
             blockPhysics.vx *= -blockPhysics.bounce;
         }
         
