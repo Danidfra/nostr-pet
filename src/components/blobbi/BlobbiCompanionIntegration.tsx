@@ -25,6 +25,12 @@ export function BlobbiCompanionIntegration() {
   const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialCheckRef = useRef<boolean>(false);
 
+  // Health monitoring state
+  const healthIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastHealthLevelRef = useRef<number | null>(null);
+  const healthTitleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitialHealthCheckRef = useRef<boolean>(false);
+
   const { user } = useCurrentUser();
   const { data: companionData } = useCurrentCompanion();
 
@@ -450,6 +456,107 @@ export function BlobbiCompanionIntegration() {
     };
   }, [blobbi?.stats.hunger, blobbi?.id, companionData?.blobbiId]); // Dependencies: hunger level, blobbi ID, and companion ID
 
+  // Health monitoring system for current companion
+  useEffect(() => {
+    // Clear any existing interval
+    if (healthIntervalRef.current) {
+      clearInterval(healthIntervalRef.current);
+      healthIntervalRef.current = null;
+    }
+
+    // Only monitor health if we have a current companion Blobbi
+    if (!blobbi || !companionData || companionData.blobbiId !== blobbi.id) {
+      console.log('🏥 Health Monitor: No current companion or ID mismatch, stopping monitoring');
+      lastHealthLevelRef.current = null;
+      hasInitialHealthCheckRef.current = false;
+      // Restore title when companion is removed or changed
+      restoreHealthTitle();
+      return;
+    }
+
+    const currentHealth = blobbi.stats.health;
+    const previousHealth = lastHealthLevelRef.current;
+    const isInitialLoad = !hasInitialHealthCheckRef.current;
+
+    console.log('🏥 Health Monitor: Current companion health level:', currentHealth, isInitialLoad ? '(initial load)' : '');
+
+    // Update the last known health level
+    lastHealthLevelRef.current = currentHealth;
+    hasInitialHealthCheckRef.current = true;
+
+    // Determine health alert behavior
+    let shouldAlert = false;
+    let alertInterval = 0;
+    let alertMessage = '';
+
+    if (currentHealth < 30) {
+      // Critical health - every 20 seconds
+      shouldAlert = true;
+      alertInterval = 20000; // 20 seconds
+      alertMessage = 'Blobbi needs urgent medical attention!';
+      console.log('🏥 Health Monitor: Critical health below 30, starting urgent sick sounds (20s interval)');
+    } else if (currentHealth < 60) {
+      // Low health - every 60 seconds
+      shouldAlert = true;
+      alertInterval = 60000; // 60 seconds
+      alertMessage = 'Blobbi is feeling unwell!';
+      console.log('🏥 Health Monitor: Low health below 60, starting sick sounds (60s interval)');
+    }
+
+    if (shouldAlert) {
+      // Play the first sound immediately (especially important on initial load)
+      playSickSound();
+      showHealthNotification(alertMessage);
+
+      // Set up interval to play sound at appropriate frequency
+      healthIntervalRef.current = setInterval(() => {
+        // Double-check that health is still low and we still have the same companion
+        if (blobbi && companionData && companionData.blobbiId === blobbi.id) {
+          const currentHealthInInterval = blobbi.stats.health;
+
+          // Determine if we should still alert and at what frequency
+          if (currentHealthInInterval < 30) {
+            console.log('🏥 Health Monitor: Playing critical sick sound (health:', currentHealthInInterval, ')');
+            playSickSound();
+            showHealthNotification('Blobbi needs urgent medical attention!');
+          } else if (currentHealthInInterval < 60) {
+            console.log('🏥 Health Monitor: Playing sick sound (health:', currentHealthInInterval, ')');
+            playSickSound();
+            showHealthNotification('Blobbi is feeling unwell!');
+          } else {
+            console.log('🏥 Health Monitor: Health recovered, stopping sick sounds');
+            if (healthIntervalRef.current) {
+              clearInterval(healthIntervalRef.current);
+              healthIntervalRef.current = null;
+            }
+            restoreHealthTitle();
+          }
+        } else {
+          console.log('🏥 Health Monitor: Stopping scheduled sounds - conditions no longer met');
+          if (healthIntervalRef.current) {
+            clearInterval(healthIntervalRef.current);
+            healthIntervalRef.current = null;
+          }
+        }
+      }, alertInterval);
+    } else {
+      // Health is 60 or above, make sure no sounds are playing
+      if (previousHealth !== null && previousHealth < 60) {
+        console.log('🏥 Health Monitor: Health recovered above 60, stopping sick sounds');
+      }
+      // Clear any existing title notification when health recovers
+      restoreHealthTitle();
+    }
+
+    // Cleanup function
+    return () => {
+      if (healthIntervalRef.current) {
+        clearInterval(healthIntervalRef.current);
+        healthIntervalRef.current = null;
+      }
+    };
+  }, [blobbi?.stats.health, blobbi?.id, companionData?.blobbiId]); // Dependencies: health level, blobbi ID, and companion ID
+
   // Function to play stomach rumble sound
   const playStomachRumbleSound = () => {
     try {
@@ -525,7 +632,82 @@ export function BlobbiCompanionIntegration() {
     }
   };
 
-  // Cleanup hunger monitoring on component unmount
+  // Function to play sick sound
+  const playSickSound = () => {
+    try {
+      // Create audio element and play sick.mp3
+      const audio = new Audio('/companion/sounds/sick.mp3');
+
+      // Get current audio settings from the audio context
+      const volume = localStorage.getItem('blobbi_audio_volume');
+      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
+
+      // Set volume based on user settings
+      if (isMuted) {
+        audio.volume = 0;
+      } else {
+        audio.volume = volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5;
+      }
+
+      console.log('🏥 Health Monitor: Playing sick sound with volume:', audio.volume);
+
+      audio.play()
+        .then(() => console.log('✅ Sick sound played successfully'))
+        .catch(error => console.error('❌ Error playing sick sound:', error));
+    } catch (error) {
+      console.error('❌ Error creating sick audio:', error);
+    }
+  };
+
+  // Function to show health notification in browser tab
+  const showHealthNotification = (message: string) => {
+    try {
+      // Store original title if not already stored
+      if (originalTitleRef.current === null) {
+        originalTitleRef.current = document.title;
+        console.log('🏥 Tab Notification: Stored original title:', originalTitleRef.current);
+      }
+
+      // Clear any existing health title timeout
+      if (healthTitleTimeoutRef.current) {
+        clearTimeout(healthTitleTimeoutRef.current);
+        healthTitleTimeoutRef.current = null;
+      }
+
+      // Set health notification title
+      const healthTitle = `🏥 ${message}`;
+      document.title = healthTitle;
+      console.log('🏥 Tab Notification: Changed title to:', healthTitle);
+
+      // Restore original title after 8 seconds
+      healthTitleTimeoutRef.current = setTimeout(() => {
+        restoreHealthTitle();
+        healthTitleTimeoutRef.current = null;
+      }, 8000); // 8 seconds
+    } catch (error) {
+      console.error('❌ Error showing health notification:', error);
+    }
+  };
+
+  // Function to restore original tab title from health notifications
+  const restoreHealthTitle = () => {
+    try {
+      if (originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+        console.log('🏥 Tab Notification: Restored original title:', originalTitleRef.current);
+      }
+
+      // Clear health title timeout if it exists
+      if (healthTitleTimeoutRef.current) {
+        clearTimeout(healthTitleTimeoutRef.current);
+        healthTitleTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error('❌ Error restoring original title from health notification:', error);
+    }
+  };
+
+  // Cleanup hunger and health monitoring on component unmount
   useEffect(() => {
     return () => {
       if (hungerIntervalRef.current) {
@@ -534,10 +716,17 @@ export function BlobbiCompanionIntegration() {
         hungerIntervalRef.current = null;
       }
 
+      if (healthIntervalRef.current) {
+        console.log('🏥 Health Monitor: Component unmounting, cleaning up interval');
+        clearInterval(healthIntervalRef.current);
+        healthIntervalRef.current = null;
+      }
+
       // Restore original title on unmount
       restoreOriginalTitle();
+      restoreHealthTitle();
 
-      console.log('🍽️ Hunger Monitor: Component unmounted, all cleanup completed');
+      console.log('🍽️🏥 Monitors: Component unmounted, all cleanup completed');
     };
   }, []);
 
