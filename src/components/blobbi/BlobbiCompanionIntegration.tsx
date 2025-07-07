@@ -31,6 +31,12 @@ export function BlobbiCompanionIntegration() {
   const healthTitleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialHealthCheckRef = useRef<boolean>(false);
 
+  // Energy monitoring state
+  const energyIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastEnergyLevelRef = useRef<number | null>(null);
+  const energyTitleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitialEnergyCheckRef = useRef<boolean>(false);
+
   const { user } = useCurrentUser();
   const { data: companionData } = useCurrentCompanion();
 
@@ -557,6 +563,127 @@ export function BlobbiCompanionIntegration() {
     };
   }, [blobbi?.stats.health, blobbi?.id, companionData?.blobbiId]); // Dependencies: health level, blobbi ID, and companion ID
 
+  // Energy monitoring system for current companion
+  useEffect(() => {
+    // Clear any existing interval
+    if (energyIntervalRef.current) {
+      clearInterval(energyIntervalRef.current);
+      energyIntervalRef.current = null;
+    }
+
+    // Only monitor energy if we have a current companion Blobbi
+    if (!blobbi || !companionData || companionData.blobbiId !== blobbi.id) {
+      console.log('⚡ Energy Monitor: No current companion or ID mismatch, stopping monitoring');
+      lastEnergyLevelRef.current = null;
+      hasInitialEnergyCheckRef.current = false;
+      // Restore title when companion is removed or changed
+      restoreEnergyTitle();
+      return;
+    }
+
+    const currentEnergy = blobbi.stats.energy;
+    const isAwake = !blobbi.isSleeping;
+    const previousEnergy = lastEnergyLevelRef.current;
+    const isInitialLoad = !hasInitialEnergyCheckRef.current;
+
+    console.log('⚡ Energy Monitor: Current companion energy level:', currentEnergy, 'awake:', isAwake, isInitialLoad ? '(initial load)' : '');
+
+    // Update the last known energy level
+    lastEnergyLevelRef.current = currentEnergy;
+    hasInitialEnergyCheckRef.current = true;
+
+    // Determine energy alert behavior - only if awake and energy is low
+    let shouldAlert = false;
+    let alertInterval = 0;
+    let alertMessage = '';
+
+    if (isAwake && currentEnergy < 30) {
+      // Very low energy - every 20 seconds (only if awake)
+      shouldAlert = true;
+      alertInterval = 20000; // 20 seconds
+      alertMessage = 'Blobbi is exhausted!';
+      console.log('⚡ Energy Monitor: Very low energy below 30 and awake, starting tired sounds (20s interval)');
+    } else if (isAwake && currentEnergy < 60) {
+      // Low energy - every 60 seconds (only if awake)
+      shouldAlert = true;
+      alertInterval = 60000; // 60 seconds
+      alertMessage = 'Blobbi is getting tired!';
+      console.log('⚡ Energy Monitor: Low energy below 60 and awake, starting tired sounds (60s interval)');
+    } else if (!isAwake && currentEnergy < 60) {
+      // Energy is low but Blobbi is sleeping - don't play sounds but show message
+      console.log('⚡ Energy Monitor: Energy is low but Blobbi is sleeping, no sounds will play');
+    }
+
+    if (shouldAlert) {
+      // Play the first sound immediately (especially important on initial load or when waking up)
+      playTiredSound();
+      showEnergyNotification(alertMessage);
+
+      // Set up interval to play sound at appropriate frequency
+      energyIntervalRef.current = setInterval(() => {
+        // Double-check that energy is still low, Blobbi is awake, and we still have the same companion
+        if (blobbi && companionData && companionData.blobbiId === blobbi.id) {
+          const currentEnergyInInterval = blobbi.stats.energy;
+          const isAwakeInInterval = !blobbi.isSleeping;
+
+          // Only play sounds if Blobbi is awake
+          if (isAwakeInInterval) {
+            // Determine if we should still alert and at what frequency
+            if (currentEnergyInInterval < 30) {
+              console.log('⚡ Energy Monitor: Playing tired sound - exhausted (energy:', currentEnergyInInterval, ', awake: true)');
+              playTiredSound();
+              showEnergyNotification('Blobbi is exhausted!');
+            } else if (currentEnergyInInterval < 60) {
+              console.log('⚡ Energy Monitor: Playing tired sound - getting tired (energy:', currentEnergyInInterval, ', awake: true)');
+              playTiredSound();
+              showEnergyNotification('Blobbi is getting tired!');
+            } else {
+              console.log('⚡ Energy Monitor: Energy recovered, stopping tired sounds');
+              if (energyIntervalRef.current) {
+                clearInterval(energyIntervalRef.current);
+                energyIntervalRef.current = null;
+              }
+              restoreEnergyTitle();
+            }
+          } else {
+            // Blobbi fell asleep, stop the alert loop
+            console.log('⚡ Energy Monitor: Blobbi fell asleep, stopping tired sounds');
+            if (energyIntervalRef.current) {
+              clearInterval(energyIntervalRef.current);
+              energyIntervalRef.current = null;
+            }
+            restoreEnergyTitle();
+          }
+        } else {
+          console.log('⚡ Energy Monitor: Stopping scheduled sounds - conditions no longer met');
+          if (energyIntervalRef.current) {
+            clearInterval(energyIntervalRef.current);
+            energyIntervalRef.current = null;
+          }
+        }
+      }, alertInterval);
+    } else {
+      // Energy is 60 or above, or Blobbi is sleeping - make sure no sounds are playing
+      if (previousEnergy !== null && previousEnergy < 60) {
+        if (!isAwake) {
+          console.log('⚡ Energy Monitor: Blobbi is sleeping, stopping tired sounds');
+        } else {
+          console.log('⚡ Energy Monitor: Energy recovered above 60, stopping tired sounds');
+        }
+      }
+      // Clear any existing title notification when energy recovers or Blobbi sleeps
+      restoreEnergyTitle();
+    }
+
+    // Cleanup function
+    return () => {
+      if (energyIntervalRef.current) {
+        clearInterval(energyIntervalRef.current);
+        energyIntervalRef.current = null;
+      }
+    };
+  }, [blobbi?.stats.energy, blobbi?.isSleeping, blobbi?.id, companionData?.blobbiId]); // Dependencies: energy level, sleep state, blobbi ID, and companion ID
+
   // Function to play stomach rumble sound
   const playStomachRumbleSound = () => {
     try {
@@ -707,7 +834,82 @@ export function BlobbiCompanionIntegration() {
     }
   };
 
-  // Cleanup hunger and health monitoring on component unmount
+  // Function to play tired sound
+  const playTiredSound = () => {
+    try {
+      // Create audio element and play tired.mp3
+      const audio = new Audio('/companion/sounds/tired.mp3');
+
+      // Get current audio settings from the audio context
+      const volume = localStorage.getItem('blobbi_audio_volume');
+      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
+
+      // Set volume based on user settings
+      if (isMuted) {
+        audio.volume = 0;
+      } else {
+        audio.volume = volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5;
+      }
+
+      console.log('⚡ Energy Monitor: Playing tired sound with volume:', audio.volume);
+
+      audio.play()
+        .then(() => console.log('✅ Tired sound played successfully'))
+        .catch(error => console.error('❌ Error playing tired sound:', error));
+    } catch (error) {
+      console.error('❌ Error creating tired audio:', error);
+    }
+  };
+
+  // Function to show energy notification in browser tab
+  const showEnergyNotification = (message: string) => {
+    try {
+      // Store original title if not already stored
+      if (originalTitleRef.current === null) {
+        originalTitleRef.current = document.title;
+        console.log('⚡ Tab Notification: Stored original title:', originalTitleRef.current);
+      }
+
+      // Clear any existing energy title timeout
+      if (energyTitleTimeoutRef.current) {
+        clearTimeout(energyTitleTimeoutRef.current);
+        energyTitleTimeoutRef.current = null;
+      }
+
+      // Set energy notification title
+      const energyTitle = `⚡ ${message}`;
+      document.title = energyTitle;
+      console.log('⚡ Tab Notification: Changed title to:', energyTitle);
+
+      // Restore original title after 8 seconds
+      energyTitleTimeoutRef.current = setTimeout(() => {
+        restoreEnergyTitle();
+        energyTitleTimeoutRef.current = null;
+      }, 8000); // 8 seconds
+    } catch (error) {
+      console.error('❌ Error showing energy notification:', error);
+    }
+  };
+
+  // Function to restore original tab title from energy notifications
+  const restoreEnergyTitle = () => {
+    try {
+      if (originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+        console.log('⚡ Tab Notification: Restored original title:', originalTitleRef.current);
+      }
+
+      // Clear energy title timeout if it exists
+      if (energyTitleTimeoutRef.current) {
+        clearTimeout(energyTitleTimeoutRef.current);
+        energyTitleTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error('❌ Error restoring original title from energy notification:', error);
+    }
+  };
+
+  // Cleanup hunger, health, and energy monitoring on component unmount
   useEffect(() => {
     return () => {
       if (hungerIntervalRef.current) {
@@ -722,11 +924,18 @@ export function BlobbiCompanionIntegration() {
         healthIntervalRef.current = null;
       }
 
+      if (energyIntervalRef.current) {
+        console.log('⚡ Energy Monitor: Component unmounting, cleaning up interval');
+        clearInterval(energyIntervalRef.current);
+        energyIntervalRef.current = null;
+      }
+
       // Restore original title on unmount
       restoreOriginalTitle();
       restoreHealthTitle();
+      restoreEnergyTitle();
 
-      console.log('🍽️🏥 Monitors: Component unmounted, all cleanup completed');
+      console.log('🍽️🏥⚡ Monitors: Component unmounted, all cleanup completed');
     };
   }, []);
 
