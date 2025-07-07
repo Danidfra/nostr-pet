@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BlobbiFeedModal } from './BlobbiFeedModal';
 import { BlobbiShop } from './BlobbiShop';
 import { BlobbiItem } from '@/types/blobbi';
@@ -17,21 +17,28 @@ export function BlobbiCompanionIntegration() {
   const [shopActiveTab, setShopActiveTab] = useState<string>('food');
   const [selectedFood, setSelectedFood] = useState<BlobbiItem | null>(null);
   const [isPlacingFood, setIsPlacingFood] = useState(false);
-  
+
+  // Hunger monitoring state
+  const hungerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastHungerLevelRef = useRef<number | null>(null);
+  const originalTitleRef = useRef<string | null>(null);
+  const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitialCheckRef = useRef<boolean>(false);
+
   const { user } = useCurrentUser();
   const { data: companionData } = useCurrentCompanion();
-  
+
   // ✅ FIXED: Use the current companion's Blobbi ID instead of falling back to user's first Blobbi
   const { blobbi, performAction, setSleepStateOptimistic } = useBlobbiWithFakeStatus(
-    companionData?.blobbi?.ownerPubkey, 
+    companionData?.blobbi?.ownerPubkey,
     companionData?.blobbiId
   );
-  
+
   const { toast } = useToast();
   const { playSound } = useAudio();
   const { removeFromStorage } = useBlobbonautProfileWithFakeInventory();
-  const { putToSleep, wakeUp, isSleeping } = useBlobbiSleepSystem({ 
-    blobbi, 
+  const { putToSleep, wakeUp, isSleeping } = useBlobbiSleepSystem({
+    blobbi,
     isOwner: !!user && blobbi?.ownerPubkey === user.pubkey,
     setOptimisticSleepState: setSleepStateOptimistic,
   });
@@ -45,14 +52,14 @@ export function BlobbiCompanionIntegration() {
 
     // Function to handle food placement
     const handleFoodPlacement = async (event: CustomEvent) => {
-      console.log('🍽️ React: Food placement triggered', { 
-        selectedFood, 
-        blobbi: !!blobbi, 
+      console.log('🍽️ React: Food placement triggered', {
+        selectedFood,
+        blobbi: !!blobbi,
         user: !!user,
         companionData: !!companionData,
         isCurrentCompanion: companionData?.blobbiId === blobbi?.id
       });
-      
+
       if (!selectedFood || !blobbi || !user || !companionData) {
         console.log('🚫 React: Food placement blocked - missing requirements');
         return;
@@ -73,18 +80,18 @@ export function BlobbiCompanionIntegration() {
       }
 
       const { x, y } = event.detail;
-      
+
       try {
         // Create food element on screen
         createFoodElement(selectedFood, x, y);
-        
+
         // Set placing food state
         setIsPlacingFood(true);
         console.log('✅ React: Food placement state set to true');
-        
+
         // Store the food data for later use (don't clear selectedFood yet)
         // We'll clear it when Blobbi reaches the food
-        
+
         toast({
           title: "Food Placed!",
           description: `${selectedFood.name} placed on screen. Your Blobbi will walk to it!`,
@@ -101,15 +108,15 @@ export function BlobbiCompanionIntegration() {
 
     // Function to handle when Blobbi reaches food
     const handleFoodReached = async (event: CustomEvent) => {
-      console.log('🍽️ React: Food reached event triggered', { 
-        blobbi: !!blobbi, 
-        user: !!user, 
+      console.log('🍽️ React: Food reached event triggered', {
+        blobbi: !!blobbi,
+        user: !!user,
         isPlacingFood,
         companionData: !!companionData,
         isCurrentCompanion: companionData?.blobbiId === blobbi?.id,
-        eventDetail: event.detail 
+        eventDetail: event.detail
       });
-      
+
       if (!blobbi || !user || !isPlacingFood || !companionData) {
         console.log('🚫 React: Food reached blocked - missing requirements', {
           blobbi: !!blobbi,
@@ -153,20 +160,20 @@ export function BlobbiCompanionIntegration() {
           itemId: food.id,
           quantity: 1,
         });
-        
+
         console.log('✅ Kind 31125 emitted: Removed food from inventory');
-        
+
         // Then, perform the feed action with the food's effects (emit kind 31124)
         console.log('📤 React: Performing feed action...', { action: 'feed', effects: food.effect });
         await performAction('feed', food.effect);
-        
+
         console.log('✅ Kind 31124 emitted: Updated Blobbi stats');
-        
+
         toast({
           title: "Blobbi Fed!",
           description: `Your Blobbi enjoyed the ${food.name}!`,
         });
-        
+
         // Clear placing food state and selected food
         setIsPlacingFood(false);
         setSelectedFood(null);
@@ -185,14 +192,14 @@ export function BlobbiCompanionIntegration() {
 
     // Function to handle wake-up request from floating menu
     const handleWakeUpRequest = async () => {
-      console.log('☀️ React: Wake-up request triggered', { 
-        blobbi: !!blobbi, 
-        user: !!user, 
+      console.log('☀️ React: Wake-up request triggered', {
+        blobbi: !!blobbi,
+        user: !!user,
         companionData: !!companionData,
         isCurrentCompanion: companionData?.blobbiId === blobbi?.id,
         currentSleepState: isSleeping
       });
-      
+
       if (!blobbi || !user || !companionData || !isSleeping) {
         console.log('🚫 React: Wake-up blocked - missing requirements or not sleeping', {
           blobbi: !!blobbi,
@@ -222,7 +229,7 @@ export function BlobbiCompanionIntegration() {
         console.log('😊 React: Waking up Blobbi from floating menu...');
         await wakeUp();
         console.log('✅ React: Blobbi is now awake');
-        
+
         toast({
           title: "Blobbi Woke Up",
           description: "Your Blobbi is refreshed and ready to play!",
@@ -239,15 +246,15 @@ export function BlobbiCompanionIntegration() {
 
     // Function to handle sleep state changes from companion
     const handleSleepChange = async (event: CustomEvent) => {
-      console.log('😴 React: Sleep change event triggered', { 
-        blobbi: !!blobbi, 
-        user: !!user, 
+      console.log('😴 React: Sleep change event triggered', {
+        blobbi: !!blobbi,
+        user: !!user,
         companionData: !!companionData,
         isCurrentCompanion: companionData?.blobbiId === blobbi?.id,
         shouldSleep: event.detail.shouldSleep,
         currentSleepState: isSleeping
       });
-      
+
       if (!blobbi || !user || !companionData) {
         console.log('🚫 React: Sleep change blocked - missing requirements', {
           blobbi: !!blobbi,
@@ -279,7 +286,7 @@ export function BlobbiCompanionIntegration() {
           console.log('😴 React: Putting Blobbi to sleep...');
           await putToSleep();
           console.log('✅ React: Blobbi is now sleeping');
-          
+
           toast({
             title: "Blobbi is Sleeping",
             description: "Your Blobbi has settled down on the bed for a nap!",
@@ -289,7 +296,7 @@ export function BlobbiCompanionIntegration() {
           console.log('😊 React: Waking up Blobbi...');
           await wakeUp();
           console.log('✅ React: Blobbi is now awake');
-          
+
           toast({
             title: "Blobbi Woke Up",
             description: "Your Blobbi is refreshed and ready to play!",
@@ -334,11 +341,11 @@ export function BlobbiCompanionIntegration() {
         window.dispatchEvent(new CustomEvent('react-sleep-state-change', {
           detail: { isSleeping: blobbi.isSleeping }
         }));
-        
+
         // ✅ FIXED: Log for debugging
         console.log(`🔄 React: Notified companion of sleep state: ${blobbi.isSleeping ? 'sleeping' : 'awake'}`);
       };
-      
+
       // Check if companion is available, if not wait a bit
       if (window.blobbiCompanion) {
         notifyCompanion();
@@ -347,7 +354,7 @@ export function BlobbiCompanionIntegration() {
         let retryCount = 0;
         const maxRetries = 10;
         const retryInterval = 300;
-        
+
         const retryNotify = () => {
           if (window.blobbiCompanion) {
             notifyCompanion();
@@ -359,7 +366,7 @@ export function BlobbiCompanionIntegration() {
             console.warn('🔄 React: Companion failed to initialize after maximum retries');
           }
         };
-        
+
         setTimeout(retryNotify, retryInterval);
       }
     }
@@ -373,6 +380,166 @@ export function BlobbiCompanionIntegration() {
       }
     }
   }, [blobbi, playSound]);
+
+  // Hunger monitoring system for current companion
+  useEffect(() => {
+    // Clear any existing interval
+    if (hungerIntervalRef.current) {
+      clearInterval(hungerIntervalRef.current);
+      hungerIntervalRef.current = null;
+    }
+
+    // Only monitor hunger if we have a current companion Blobbi
+    if (!blobbi || !companionData || companionData.blobbiId !== blobbi.id) {
+      console.log('🍽️ Hunger Monitor: No current companion or ID mismatch, stopping monitoring');
+      lastHungerLevelRef.current = null;
+      hasInitialCheckRef.current = false;
+      // Restore title when companion is removed or changed
+      restoreOriginalTitle();
+      return;
+    }
+
+    const currentHunger = blobbi.stats.hunger;
+    const previousHunger = lastHungerLevelRef.current;
+    const isInitialLoad = !hasInitialCheckRef.current;
+
+    console.log('🍽️ Hunger Monitor: Current companion hunger level:', currentHunger, isInitialLoad ? '(initial load)' : '');
+
+    // Update the last known hunger level
+    lastHungerLevelRef.current = currentHunger;
+    hasInitialCheckRef.current = true;
+
+    // Check if hunger is below 30
+    if (currentHunger < 30) {
+      console.log('🍽️ Hunger Monitor: Hunger below 30, starting stomach rumble sounds');
+
+      // Play the first sound immediately (especially important on initial load)
+      playStomachRumbleSound();
+      showHungerNotification();
+
+      // Set up interval to play sound every 60 seconds
+      hungerIntervalRef.current = setInterval(() => {
+        // Double-check that hunger is still below 30 and we still have the same companion
+        if (blobbi && companionData && companionData.blobbiId === blobbi.id && blobbi.stats.hunger < 30) {
+          console.log('🍽️ Hunger Monitor: Playing scheduled stomach rumble (hunger:', blobbi.stats.hunger, ')');
+          playStomachRumbleSound();
+          showHungerNotification();
+        } else {
+          console.log('🍽️ Hunger Monitor: Stopping scheduled sounds - conditions no longer met');
+          if (hungerIntervalRef.current) {
+            clearInterval(hungerIntervalRef.current);
+            hungerIntervalRef.current = null;
+          }
+        }
+      }, 20000); // 60 seconds = 60,000 milliseconds
+    } else {
+      // Hunger is 30 or above, make sure no sounds are playing
+      if (previousHunger !== null && previousHunger < 30) {
+        console.log('🍽️ Hunger Monitor: Hunger recovered above 30, stopping stomach rumble sounds');
+      }
+      // Clear any existing title notification when hunger recovers
+      restoreOriginalTitle();
+    }
+
+    // Cleanup function
+    return () => {
+      if (hungerIntervalRef.current) {
+        clearInterval(hungerIntervalRef.current);
+        hungerIntervalRef.current = null;
+      }
+    };
+  }, [blobbi?.stats.hunger, blobbi?.id, companionData?.blobbiId]); // Dependencies: hunger level, blobbi ID, and companion ID
+
+  // Function to play stomach rumble sound
+  const playStomachRumbleSound = () => {
+    try {
+      // Create audio element and play stomach-rumble.mp3
+      const audio = new Audio('/companion/sounds/stomach-rumble.mp3');
+
+      // Get current audio settings from the audio context
+      const volume = localStorage.getItem('blobbi_audio_volume');
+      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
+
+      // Set volume based on user settings
+      if (isMuted) {
+        audio.volume = 0;
+      } else {
+        audio.volume = volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5;
+      }
+
+      console.log('🍽️ Hunger Monitor: Playing stomach rumble sound with volume:', audio.volume);
+
+      audio.play()
+        .then(() => console.log('✅ Stomach rumble sound played successfully'))
+        .catch(error => console.error('❌ Error playing stomach rumble sound:', error));
+    } catch (error) {
+      console.error('❌ Error creating stomach rumble audio:', error);
+    }
+  };
+
+  // Function to show hunger notification in browser tab
+  const showHungerNotification = () => {
+    try {
+      // Store original title if not already stored
+      if (originalTitleRef.current === null) {
+        originalTitleRef.current = document.title;
+        console.log('🍽️ Tab Notification: Stored original title:', originalTitleRef.current);
+      }
+
+      // Clear any existing title timeout
+      if (titleTimeoutRef.current) {
+        clearTimeout(titleTimeoutRef.current);
+        titleTimeoutRef.current = null;
+      }
+
+      // Set hungry notification title
+      const hungryTitle = '🍽️ Blobbi is hungry!';
+      document.title = hungryTitle;
+      console.log('🍽️ Tab Notification: Changed title to:', hungryTitle);
+
+      // Restore original title after 8 seconds
+      titleTimeoutRef.current = setTimeout(() => {
+        restoreOriginalTitle();
+        titleTimeoutRef.current = null;
+      }, 8000); // 8 seconds
+    } catch (error) {
+      console.error('❌ Error showing hunger notification:', error);
+    }
+  };
+
+  // Function to restore original tab title
+  const restoreOriginalTitle = () => {
+    try {
+      if (originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+        console.log('🍽️ Tab Notification: Restored original title:', originalTitleRef.current);
+      }
+
+      // Clear title timeout if it exists
+      if (titleTimeoutRef.current) {
+        clearTimeout(titleTimeoutRef.current);
+        titleTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error('❌ Error restoring original title:', error);
+    }
+  };
+
+  // Cleanup hunger monitoring on component unmount
+  useEffect(() => {
+    return () => {
+      if (hungerIntervalRef.current) {
+        console.log('🍽️ Hunger Monitor: Component unmounting, cleaning up interval');
+        clearInterval(hungerIntervalRef.current);
+        hungerIntervalRef.current = null;
+      }
+
+      // Restore original title on unmount
+      restoreOriginalTitle();
+
+      console.log('🍽️ Hunger Monitor: Component unmounted, all cleanup completed');
+    };
+  }, []);
 
   // Function to create food element on screen
   const createFoodElement = (food: BlobbiItem, x: number, y: number) => {
@@ -401,13 +568,13 @@ export function BlobbiCompanionIntegration() {
     const style = document.createElement('style');
     style.textContent = `
       @keyframes foodDrop {
-        from { 
-          transform: translateY(-20px) scale(0.5); 
-          opacity: 0; 
+        from {
+          transform: translateY(-20px) scale(0.5);
+          opacity: 0;
         }
-        to { 
-          transform: translateY(0) scale(1); 
-          opacity: 1; 
+        to {
+          transform: translateY(0) scale(1);
+          opacity: 1;
         }
       }
     `;
@@ -422,19 +589,19 @@ export function BlobbiCompanionIntegration() {
     };
 
     // Notify companion script that food is placed
-    window.dispatchEvent(new CustomEvent('food-placed', { 
-      detail: { 
-        element: foodElement, 
+    window.dispatchEvent(new CustomEvent('food-placed', {
+      detail: {
+        element: foodElement,
         food: food,
         x: x,
         y: y
-      } 
+      }
     }));
   };
 
   const handleFoodSelected = (food: BlobbiItem) => {
     setSelectedFood(food);
-    
+
     // Enable food placement mode
     toast({
       title: "Food Ready!",
@@ -444,7 +611,7 @@ export function BlobbiCompanionIntegration() {
     // Set up click listener for food placement
     const handleClick = (e: MouseEvent) => {
       // Don't place food on UI elements
-      if ((e.target as Element).closest('.blobbi-container') || 
+      if ((e.target as Element).closest('.blobbi-container') ||
           (e.target as Element).closest('[role="dialog"]') ||
           (e.target as Element).closest('button')) {
         return;
