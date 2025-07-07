@@ -43,6 +43,12 @@ export function BlobbiCompanionIntegration() {
   const hygieneTitleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialHygieneCheckRef = useRef<boolean>(false);
 
+  // Happiness monitoring state
+  const happinessIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastHappinessLevelRef = useRef<number | null>(null);
+  const happinessTitleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitialHappinessCheckRef = useRef<boolean>(false);
+
   const { user } = useCurrentUser();
   const { data: companionData } = useCurrentCompanion();
 
@@ -791,6 +797,107 @@ export function BlobbiCompanionIntegration() {
     };
   }, [blobbi?.stats.hygiene, blobbi?.id, companionData?.blobbiId]); // Dependencies: hygiene level, blobbi ID, and companion ID
 
+  // Happiness monitoring system for current companion
+  useEffect(() => {
+    // Clear any existing interval
+    if (happinessIntervalRef.current) {
+      clearInterval(happinessIntervalRef.current);
+      happinessIntervalRef.current = null;
+    }
+
+    // Only monitor happiness if we have a current companion Blobbi
+    if (!blobbi || !companionData || companionData.blobbiId !== blobbi.id) {
+      console.log('😢 Happiness Monitor: No current companion or ID mismatch, stopping monitoring');
+      lastHappinessLevelRef.current = null;
+      hasInitialHappinessCheckRef.current = false;
+      // Restore title when companion is removed or changed
+      restoreHappinessTitle();
+      return;
+    }
+
+    const currentHappiness = blobbi.stats.happiness;
+    const previousHappiness = lastHappinessLevelRef.current;
+    const isInitialLoad = !hasInitialHappinessCheckRef.current;
+
+    console.log('😢 Happiness Monitor: Current companion happiness level:', currentHappiness, isInitialLoad ? '(initial load)' : '');
+
+    // Update the last known happiness level
+    lastHappinessLevelRef.current = currentHappiness;
+    hasInitialHappinessCheckRef.current = true;
+
+    // Determine happiness alert behavior
+    let shouldAlert = false;
+    let alertInterval = 0;
+    let alertMessage = '';
+
+    if (currentHappiness < 30) {
+      // Very low happiness - every 20 seconds
+      shouldAlert = true;
+      alertInterval = 20000; // 20 seconds
+      alertMessage = 'Blobbi is very sad!';
+      console.log('😢 Happiness Monitor: Very low happiness below 30, starting sad sounds (20s interval)');
+    } else if (currentHappiness < 60) {
+      // Low happiness - every 60 seconds
+      shouldAlert = true;
+      alertInterval = 60000; // 60 seconds
+      alertMessage = 'Blobbi is feeling down!';
+      console.log('😢 Happiness Monitor: Low happiness below 60, starting sad sounds (60s interval)');
+    }
+
+    if (shouldAlert) {
+      // Play the first sound immediately (especially important on initial load)
+      playSadSound();
+      showHappinessNotification(alertMessage);
+
+      // Set up interval to play sound at appropriate frequency
+      happinessIntervalRef.current = setInterval(() => {
+        // Double-check that happiness is still low and we still have the same companion
+        if (blobbi && companionData && companionData.blobbiId === blobbi.id) {
+          const currentHappinessInInterval = blobbi.stats.happiness;
+
+          // Determine if we should still alert and at what frequency
+          if (currentHappinessInInterval < 30) {
+            console.log('😢 Happiness Monitor: Playing sad sound - very sad (happiness:', currentHappinessInInterval, ')');
+            playSadSound();
+            showHappinessNotification('Blobbi is very sad!');
+          } else if (currentHappinessInInterval < 60) {
+            console.log('😢 Happiness Monitor: Playing sad sound - feeling down (happiness:', currentHappinessInInterval, ')');
+            playSadSound();
+            showHappinessNotification('Blobbi is feeling down!');
+          } else {
+            console.log('😢 Happiness Monitor: Happiness recovered, stopping sad sounds');
+            if (happinessIntervalRef.current) {
+              clearInterval(happinessIntervalRef.current);
+              happinessIntervalRef.current = null;
+            }
+            restoreHappinessTitle();
+          }
+        } else {
+          console.log('😢 Happiness Monitor: Stopping scheduled sounds - conditions no longer met');
+          if (happinessIntervalRef.current) {
+            clearInterval(happinessIntervalRef.current);
+            happinessIntervalRef.current = null;
+          }
+        }
+      }, alertInterval);
+    } else {
+      // Happiness is 60 or above, make sure no sounds are playing
+      if (previousHappiness !== null && previousHappiness < 60) {
+        console.log('😢 Happiness Monitor: Happiness recovered above 60, stopping sad sounds');
+      }
+      // Clear any existing title notification when happiness recovers
+      restoreHappinessTitle();
+    }
+
+    // Cleanup function
+    return () => {
+      if (happinessIntervalRef.current) {
+        clearInterval(happinessIntervalRef.current);
+        happinessIntervalRef.current = null;
+      }
+    };
+  }, [blobbi?.stats.happiness, blobbi?.id, companionData?.blobbiId]); // Dependencies: happiness level, blobbi ID, and companion ID
+
   // Function to play stomach rumble sound
   const playStomachRumbleSound = () => {
     try {
@@ -1091,7 +1198,82 @@ export function BlobbiCompanionIntegration() {
     }
   };
 
-  // Cleanup hunger, health, energy, and hygiene monitoring on component unmount
+  // Function to play sad sound
+  const playSadSound = () => {
+    try {
+      // Create audio element and play sad.mp3
+      const audio = new Audio('/companion/sounds/sad.mp3');
+
+      // Get current audio settings from the audio context
+      const volume = localStorage.getItem('blobbi_audio_volume');
+      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
+
+      // Set volume based on user settings
+      if (isMuted) {
+        audio.volume = 0;
+      } else {
+        audio.volume = volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5;
+      }
+
+      console.log('😢 Happiness Monitor: Playing sad sound with volume:', audio.volume);
+
+      audio.play()
+        .then(() => console.log('✅ Sad sound played successfully'))
+        .catch(error => console.error('❌ Error playing sad sound:', error));
+    } catch (error) {
+      console.error('❌ Error creating sad audio:', error);
+    }
+  };
+
+  // Function to show happiness notification in browser tab
+  const showHappinessNotification = (message: string) => {
+    try {
+      // Store original title if not already stored
+      if (originalTitleRef.current === null) {
+        originalTitleRef.current = document.title;
+        console.log('😢 Tab Notification: Stored original title:', originalTitleRef.current);
+      }
+
+      // Clear any existing happiness title timeout
+      if (happinessTitleTimeoutRef.current) {
+        clearTimeout(happinessTitleTimeoutRef.current);
+        happinessTitleTimeoutRef.current = null;
+      }
+
+      // Set happiness notification title
+      const happinessTitle = `😢 ${message}`;
+      document.title = happinessTitle;
+      console.log('😢 Tab Notification: Changed title to:', happinessTitle);
+
+      // Restore original title after 8 seconds
+      happinessTitleTimeoutRef.current = setTimeout(() => {
+        restoreHappinessTitle();
+        happinessTitleTimeoutRef.current = null;
+      }, 8000); // 8 seconds
+    } catch (error) {
+      console.error('❌ Error showing happiness notification:', error);
+    }
+  };
+
+  // Function to restore original tab title from happiness notifications
+  const restoreHappinessTitle = () => {
+    try {
+      if (originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+        console.log('😢 Tab Notification: Restored original title:', originalTitleRef.current);
+      }
+
+      // Clear happiness title timeout if it exists
+      if (happinessTitleTimeoutRef.current) {
+        clearTimeout(happinessTitleTimeoutRef.current);
+        happinessTitleTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error('❌ Error restoring original title from happiness notification:', error);
+    }
+  };
+
+  // Cleanup hunger, health, energy, hygiene, and happiness monitoring on component unmount
   useEffect(() => {
     return () => {
       if (hungerIntervalRef.current) {
@@ -1118,13 +1300,20 @@ export function BlobbiCompanionIntegration() {
         hygieneIntervalRef.current = null;
       }
 
+      if (happinessIntervalRef.current) {
+        console.log('😢 Happiness Monitor: Component unmounting, cleaning up interval');
+        clearInterval(happinessIntervalRef.current);
+        happinessIntervalRef.current = null;
+      }
+
       // Restore original title on unmount
       restoreOriginalTitle();
       restoreHealthTitle();
       restoreEnergyTitle();
       restoreHygieneTitle();
+      restoreHappinessTitle();
 
-      console.log('🍽️🏥⚡🧼 Monitors: Component unmounted, all cleanup completed');
+      console.log('🍽️🏥⚡🧼😢 Monitors: Component unmounted, all cleanup completed');
     };
   }, []);
 
