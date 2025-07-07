@@ -37,6 +37,12 @@ export function BlobbiCompanionIntegration() {
   const energyTitleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialEnergyCheckRef = useRef<boolean>(false);
 
+  // Hygiene monitoring state
+  const hygieneIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastHygieneLevelRef = useRef<number | null>(null);
+  const hygieneTitleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitialHygieneCheckRef = useRef<boolean>(false);
+
   const { user } = useCurrentUser();
   const { data: companionData } = useCurrentCompanion();
 
@@ -684,6 +690,107 @@ export function BlobbiCompanionIntegration() {
     };
   }, [blobbi?.stats.energy, blobbi?.isSleeping, blobbi?.id, companionData?.blobbiId]); // Dependencies: energy level, sleep state, blobbi ID, and companion ID
 
+  // Hygiene monitoring system for current companion
+  useEffect(() => {
+    // Clear any existing interval
+    if (hygieneIntervalRef.current) {
+      clearInterval(hygieneIntervalRef.current);
+      hygieneIntervalRef.current = null;
+    }
+
+    // Only monitor hygiene if we have a current companion Blobbi
+    if (!blobbi || !companionData || companionData.blobbiId !== blobbi.id) {
+      console.log('🧼 Hygiene Monitor: No current companion or ID mismatch, stopping monitoring');
+      lastHygieneLevelRef.current = null;
+      hasInitialHygieneCheckRef.current = false;
+      // Restore title when companion is removed or changed
+      restoreHygieneTitle();
+      return;
+    }
+
+    const currentHygiene = blobbi.stats.hygiene;
+    const previousHygiene = lastHygieneLevelRef.current;
+    const isInitialLoad = !hasInitialHygieneCheckRef.current;
+
+    console.log('🧼 Hygiene Monitor: Current companion hygiene level:', currentHygiene, isInitialLoad ? '(initial load)' : '');
+
+    // Update the last known hygiene level
+    lastHygieneLevelRef.current = currentHygiene;
+    hasInitialHygieneCheckRef.current = true;
+
+    // Determine hygiene alert behavior
+    let shouldAlert = false;
+    let alertInterval = 0;
+    let alertMessage = '';
+
+    if (currentHygiene < 30) {
+      // Very low hygiene - every 20 seconds
+      shouldAlert = true;
+      alertInterval = 20000; // 20 seconds
+      alertMessage = 'Blobbi is very dirty!';
+      console.log('🧼 Hygiene Monitor: Very low hygiene below 30, starting yuck sounds (20s interval)');
+    } else if (currentHygiene < 60) {
+      // Low hygiene - every 60 seconds
+      shouldAlert = true;
+      alertInterval = 60000; // 60 seconds
+      alertMessage = 'Blobbi needs cleaning!';
+      console.log('🧼 Hygiene Monitor: Low hygiene below 60, starting yuck sounds (60s interval)');
+    }
+
+    if (shouldAlert) {
+      // Play the first sound immediately (especially important on initial load)
+      playYuckSound();
+      showHygieneNotification(alertMessage);
+
+      // Set up interval to play sound at appropriate frequency
+      hygieneIntervalRef.current = setInterval(() => {
+        // Double-check that hygiene is still low and we still have the same companion
+        if (blobbi && companionData && companionData.blobbiId === blobbi.id) {
+          const currentHygieneInInterval = blobbi.stats.hygiene;
+
+          // Determine if we should still alert and at what frequency
+          if (currentHygieneInInterval < 30) {
+            console.log('🧼 Hygiene Monitor: Playing yuck sound - very dirty (hygiene:', currentHygieneInInterval, ')');
+            playYuckSound();
+            showHygieneNotification('Blobbi is very dirty!');
+          } else if (currentHygieneInInterval < 60) {
+            console.log('🧼 Hygiene Monitor: Playing yuck sound - needs cleaning (hygiene:', currentHygieneInInterval, ')');
+            playYuckSound();
+            showHygieneNotification('Blobbi needs cleaning!');
+          } else {
+            console.log('🧼 Hygiene Monitor: Hygiene recovered, stopping yuck sounds');
+            if (hygieneIntervalRef.current) {
+              clearInterval(hygieneIntervalRef.current);
+              hygieneIntervalRef.current = null;
+            }
+            restoreHygieneTitle();
+          }
+        } else {
+          console.log('🧼 Hygiene Monitor: Stopping scheduled sounds - conditions no longer met');
+          if (hygieneIntervalRef.current) {
+            clearInterval(hygieneIntervalRef.current);
+            hygieneIntervalRef.current = null;
+          }
+        }
+      }, alertInterval);
+    } else {
+      // Hygiene is 60 or above, make sure no sounds are playing
+      if (previousHygiene !== null && previousHygiene < 60) {
+        console.log('🧼 Hygiene Monitor: Hygiene recovered above 60, stopping yuck sounds');
+      }
+      // Clear any existing title notification when hygiene recovers
+      restoreHygieneTitle();
+    }
+
+    // Cleanup function
+    return () => {
+      if (hygieneIntervalRef.current) {
+        clearInterval(hygieneIntervalRef.current);
+        hygieneIntervalRef.current = null;
+      }
+    };
+  }, [blobbi?.stats.hygiene, blobbi?.id, companionData?.blobbiId]); // Dependencies: hygiene level, blobbi ID, and companion ID
+
   // Function to play stomach rumble sound
   const playStomachRumbleSound = () => {
     try {
@@ -909,7 +1016,82 @@ export function BlobbiCompanionIntegration() {
     }
   };
 
-  // Cleanup hunger, health, and energy monitoring on component unmount
+  // Function to play yuck sound
+  const playYuckSound = () => {
+    try {
+      // Create audio element and play yuck.mp3
+      const audio = new Audio('/companion/sounds/yuck.mp3');
+
+      // Get current audio settings from the audio context
+      const volume = localStorage.getItem('blobbi_audio_volume');
+      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
+
+      // Set volume based on user settings
+      if (isMuted) {
+        audio.volume = 0;
+      } else {
+        audio.volume = volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5;
+      }
+
+      console.log('🧼 Hygiene Monitor: Playing yuck sound with volume:', audio.volume);
+
+      audio.play()
+        .then(() => console.log('✅ Yuck sound played successfully'))
+        .catch(error => console.error('❌ Error playing yuck sound:', error));
+    } catch (error) {
+      console.error('❌ Error creating yuck audio:', error);
+    }
+  };
+
+  // Function to show hygiene notification in browser tab
+  const showHygieneNotification = (message: string) => {
+    try {
+      // Store original title if not already stored
+      if (originalTitleRef.current === null) {
+        originalTitleRef.current = document.title;
+        console.log('🧼 Tab Notification: Stored original title:', originalTitleRef.current);
+      }
+
+      // Clear any existing hygiene title timeout
+      if (hygieneTitleTimeoutRef.current) {
+        clearTimeout(hygieneTitleTimeoutRef.current);
+        hygieneTitleTimeoutRef.current = null;
+      }
+
+      // Set hygiene notification title
+      const hygieneTitle = `🧼 ${message}`;
+      document.title = hygieneTitle;
+      console.log('🧼 Tab Notification: Changed title to:', hygieneTitle);
+
+      // Restore original title after 8 seconds
+      hygieneTitleTimeoutRef.current = setTimeout(() => {
+        restoreHygieneTitle();
+        hygieneTitleTimeoutRef.current = null;
+      }, 8000); // 8 seconds
+    } catch (error) {
+      console.error('❌ Error showing hygiene notification:', error);
+    }
+  };
+
+  // Function to restore original tab title from hygiene notifications
+  const restoreHygieneTitle = () => {
+    try {
+      if (originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+        console.log('🧼 Tab Notification: Restored original title:', originalTitleRef.current);
+      }
+
+      // Clear hygiene title timeout if it exists
+      if (hygieneTitleTimeoutRef.current) {
+        clearTimeout(hygieneTitleTimeoutRef.current);
+        hygieneTitleTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error('❌ Error restoring original title from hygiene notification:', error);
+    }
+  };
+
+  // Cleanup hunger, health, energy, and hygiene monitoring on component unmount
   useEffect(() => {
     return () => {
       if (hungerIntervalRef.current) {
@@ -930,12 +1112,19 @@ export function BlobbiCompanionIntegration() {
         energyIntervalRef.current = null;
       }
 
+      if (hygieneIntervalRef.current) {
+        console.log('🧼 Hygiene Monitor: Component unmounting, cleaning up interval');
+        clearInterval(hygieneIntervalRef.current);
+        hygieneIntervalRef.current = null;
+      }
+
       // Restore original title on unmount
       restoreOriginalTitle();
       restoreHealthTitle();
       restoreEnergyTitle();
+      restoreHygieneTitle();
 
-      console.log('🍽️🏥⚡ Monitors: Component unmounted, all cleanup completed');
+      console.log('🍽️🏥⚡🧼 Monitors: Component unmounted, all cleanup completed');
     };
   }, []);
 
