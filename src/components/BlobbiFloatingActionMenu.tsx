@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BlobbiSettingsModal } from './BlobbiSettingsModal';
 import { BlobbiInventoryModal } from './blobbi/BlobbiInventoryModal';
+import { BlobbiShop } from './blobbi/BlobbiShop';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { useBed } from '@/contexts/BedContext';
 import { cn } from '@/lib/utils';
@@ -51,6 +52,8 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const [isMobile, setIsMobile] = useState(false);
   const [isDraggingState, setIsDraggingState] = useState(false);
   const [isPlayModeActive, setIsPlayModeActive] = useState(false);
+  const [isShopModalOpen, setIsShopModalOpen] = useState(false);
+  const [shopDefaultTab, setShopDefaultTab] = useState('food');
   const dragRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<DragStartInfo | null>(null);
   const { theme } = useTheme();
@@ -70,9 +73,9 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     }
   }, [theme]);
 
-  const shouldShow = location.pathname.startsWith('/blobbi') && 
+  const shouldShow = location.pathname.startsWith('/blobbi') &&
                     location.pathname !== '/' &&
-                    !isLoading && 
+                    !isLoading &&
                     companionData?.blobbi;
 
   useEffect(() => {
@@ -115,6 +118,21 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     };
   }, [isPlayModeActive]);
 
+  // ✅ NEW: Listen for global shop open events
+  useEffect(() => {
+    const handleOpenShop = (event: CustomEvent) => {
+      const { defaultTab = 'food' } = event.detail || {};
+      setShopDefaultTab(defaultTab);
+      setIsShopModalOpen(true);
+    };
+
+    window.addEventListener('open-shop', handleOpenShop as EventListener);
+
+    return () => {
+      window.removeEventListener('open-shop', handleOpenShop as EventListener);
+    };
+  }, []);
+
   useEffect(() => {
     const savedPosition = localStorage.getItem(STORAGE_KEY);
     if (savedPosition) {
@@ -132,7 +150,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
-    
+
     e.preventDefault();
     dragRef.current?.setPointerCapture(e.pointerId);
     dragStartRef.current = {
@@ -299,20 +317,20 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   // Check if Blobbi is sleeping to determine bed action availability
   const isBlobbiSleeping = companionData?.blobbi?.isSleeping || false;
   const canRemoveBed = isBedVisible && !isBlobbiSleeping;
-  
+
   const menuItems = [
     { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi, disabled: isPlayModeActive },
     // ✅ UPDATED: Show "Play with Blobbi" or "Stop Playing" based on play mode state
-    ...(isPlayModeActive 
+    ...(isPlayModeActive
       ? [{ icon: '🛑', label: 'Stop Playing', action: handleStopPlaying, disabled: false }]
       : [{ icon: '🎾', label: 'Play with Blobbi', action: handleOpenPlay, disabled: false }]
     ),
     { icon: '💊', label: 'Medicine', action: handleOpenMedicine, disabled: isPlayModeActive },
     { icon: '🧼', label: 'Clean Blobbi', action: handleOpenCleaning, disabled: isPlayModeActive },
     { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility, disabled: isPlayModeActive },
-    { 
-      icon: isBedVisible ? '🛏️' : '😴', 
-      label: isBedVisible ? (isBlobbiSleeping ? 'Bed Required (Sleeping)' : 'Remove Bed') : 'Show Bed', 
+    {
+      icon: isBedVisible ? '🛏️' : '😴',
+      label: isBedVisible ? (isBlobbiSleeping ? 'Bed Required (Sleeping)' : 'Remove Bed') : 'Show Bed',
       action: handleSleep,
       disabled: isPlayModeActive || (isBedVisible && isBlobbiSleeping)
     },
@@ -336,7 +354,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   return (
     <>
 
-      
+
       <div
         ref={dragRef}
         data-floating-menu="true"
@@ -376,9 +394,9 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
           transition={{ duration: 0.2 }}
         >
           <div className="absolute inset-0 flex items-center justify-center">
-            <img 
-              src={iconSrc} 
-              alt="Blobbi" 
+            <img
+              src={iconSrc}
+              alt="Blobbi"
               className="w-8 h-8 object-contain"
               draggable={false}
             />
@@ -411,7 +429,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
                 const isStopPlayingButton = item.label === 'Stop Playing';
                 const isInteractiveInPlayMode = !isPlayModeActive || isStopPlayingButton;
                 const effectivelyDisabled = item.disabled || (isPlayModeActive && !isStopPlayingButton);
-                
+
                 return (
                   <motion.button
                     key={item.label}
@@ -419,8 +437,8 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
                       "flex items-center gap-2 px-3 py-2 rounded-md",
                       "text-sm font-medium transition-colors duration-150",
                       isMobile ? "justify-start min-w-[140px]" : "justify-center min-w-[40px]",
-                      effectivelyDisabled 
-                        ? "text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60" 
+                      effectivelyDisabled
+                        ? "text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
                         : "text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-purple-900/50"
                     )}
                     onClick={effectivelyDisabled ? undefined : item.action}
@@ -450,7 +468,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
           )}
         </AnimatePresence>
       </div>
-      <BlobbiSettingsModal 
+      <BlobbiSettingsModal
         blobbiId={companionData.blobbi.id}
         isOpen={isSettingsModalOpen}
         onOpenChange={setIsSettingsModalOpen}
@@ -460,18 +478,35 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
         onClose={handlePlayModalClose}
         actionType="play"
         blobbi={companionData?.blobbi || undefined}
+        onOpenShop={() => {
+          setShopDefaultTab('toys');
+          setIsShopModalOpen(true);
+        }}
       />
       <BlobbiInventoryModal
         isOpen={isMedicineModalOpen}
         onClose={handleMedicineModalClose}
         actionType="medicine"
         blobbi={companionData?.blobbi || undefined}
+        onOpenShop={() => {
+          setShopDefaultTab('medicine');
+          setIsShopModalOpen(true);
+        }}
       />
       <BlobbiInventoryModal
         isOpen={isCleaningModalOpen}
         onClose={handleCleaningModalClose}
         actionType="clean"
         blobbi={companionData?.blobbi || undefined}
+        onOpenShop={() => {
+          setShopDefaultTab('hygiene');
+          setIsShopModalOpen(true);
+        }}
+      />
+      <BlobbiShop
+        isOpen={isShopModalOpen}
+        onClose={() => setIsShopModalOpen(false)}
+        defaultTab={shopDefaultTab}
       />
     </>
   );
