@@ -97,7 +97,7 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[80vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-4xl max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
           <DialogHeader className="pb-4">
             <DialogTitle className="flex items-center justify-between text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
               <span className="flex items-center gap-2">
@@ -149,7 +149,7 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
               </TabsList>
             </div>
 
-            <ScrollArea className="h-[400px] mt-4">
+            <ScrollArea className="h-[500px] mt-4">
               <TabsContent value="food" className="mt-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {getShopItemsByType('food').map(item => (
@@ -247,7 +247,7 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
           setSelectedQuantity(1); // Reset quantity when dialog closes
         }
       }}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-md bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
           <DialogHeader className="pb-4">
             <DialogTitle className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Confirm Purchase</DialogTitle>
             <DialogDescription className="text-sm sm:text-base text-gray-600 dark:text-gray-400">

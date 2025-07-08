@@ -8,15 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/useToast';
 import { useRelayContext } from '@/contexts/RelayContext';
-import { 
-  Settings, 
-  Wifi, 
-  WifiOff, 
-  Plus, 
-  Trash2, 
-  AlertCircle, 
+import {
+  Settings,
+  Wifi,
+  WifiOff,
+  Plus,
+  Trash2,
+  AlertCircle,
   CheckCircle,
   Globe,
   Zap
@@ -29,14 +30,14 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { toast } = useToast();
-  const { 
-    relays, 
-    isLoading, 
-    toggleRelay, 
-    addRelay, 
-    removeRelay, 
-    connectToAllEnabled, 
-    addDefaultRelays 
+  const {
+    relays,
+    isLoading,
+    toggleRelay,
+    addRelay,
+    removeRelay,
+    connectToAllEnabled,
+    addDefaultRelays
   } = useRelayContext();
   const [newRelayUrl, setNewRelayUrl] = useState('');
 
@@ -68,8 +69,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
       toast({
         title: 'Relay added',
-        description: success 
-          ? `Successfully connected to ${newRelayUrl}` 
+        description: success
+          ? `Successfully connected to ${newRelayUrl}`
           : `Added ${newRelayUrl} but connection failed`,
         variant: success ? 'default' : 'destructive',
       });
@@ -86,7 +87,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const handleRemoveRelay = async (url: string) => {
     try {
       await removeRelay(url);
-      
+
       toast({
         title: 'Relay removed',
         description: `Removed ${url} from your relay list`,
@@ -129,7 +130,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const formatLastConnected = (timestamp?: number) => {
     if (!timestamp) return 'Never';
-    
+
     const now = Date.now();
     const diff = now - timestamp;
     const minutes = Math.floor(diff / 60000);
@@ -147,7 +148,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-5xl max-h-[85vh] overflow-hidden bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
         <DialogHeader className="pb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
             <div className="w-8 h-8 rounded-full bg-gradient-to-r from-gray-500 to-slate-500 flex items-center justify-center">
@@ -160,8 +161,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <Tabs defaultValue="relays" className="w-full">
           <div className="mb-6">
             <TabsList className="grid w-full grid-cols-1 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50">
-              <TabsTrigger 
-                value="relays" 
+              <TabsTrigger
+                value="relays"
                 className="flex items-center gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
               >
                 <Globe className="w-4 h-4" />
@@ -170,7 +171,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </TabsList>
           </div>
 
-          <TabsContent value="relays" className="space-y-4 max-h-[60vh] overflow-y-auto">
+          <TabsContent value="relays" className="space-y-4">
+            <ScrollArea className="h-[500px] pr-2">
             {/* Relay Overview */}
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl">
               <CardHeader>
@@ -181,10 +183,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </div>
                     Relay Status
                   </span>
-                  <Badge 
+                  <Badge
                     variant={connectedCount > 0 ? 'default' : 'destructive'}
-                    className={connectedCount > 0 
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700' 
+                    className={connectedCount > 0
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700'
                       : ''
                     }
                   >
@@ -194,7 +196,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Relays are servers that store and distribute your Nostr events. 
+                  Relays are servers that store and distribute your Nostr events.
                   Connect to multiple relays for better reliability and reach.
                 </p>
               </CardContent>
@@ -224,8 +226,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     />
                   </div>
                   <div className="flex items-end">
-                    <Button 
-                      onClick={handleAddRelay} 
+                    <Button
+                      onClick={handleAddRelay}
                       disabled={!newRelayUrl.trim()}
                       className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
                     >
@@ -270,11 +272,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="font-medium truncate text-gray-900 dark:text-gray-100">{relay.url}</p>
-                              <Badge 
+                              <Badge
                                 variant={relay.connected ? 'default' : 'secondary'}
                                 className={`text-xs ${
-                                  relay.connected 
-                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700' 
+                                  relay.connected
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700'
                                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                                 }`}
                               >
@@ -289,7 +291,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-3">
                           <Switch
                             checked={relay.enabled}
@@ -338,7 +340,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 >
                   Add Popular Relays
                 </Button>
-                
+
                 <Button
                   variant="outline"
                   onClick={async () => {
@@ -363,12 +365,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </Button>
               </CardContent>
             </Card>
+            </ScrollArea>
           </TabsContent>
         </Tabs>
 
         <div className="border-t border-purple-200/50 dark:border-purple-600/50 pt-6">
           <div className="flex justify-end">
-            <Button 
+            <Button
               onClick={onClose}
               className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0"
             >

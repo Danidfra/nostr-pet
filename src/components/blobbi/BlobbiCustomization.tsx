@@ -35,11 +35,11 @@ interface BlobbiCustomizationProps {
 export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProps) {
   const { blobbi, updateCustomization, isUpdatingCustomization, isLoading } = useBlobbiWithFakeStatus();
   const { toast } = useToast();
-  
+
   // Initialize state - will be set properly when dialog opens
   const [selectedColor, setSelectedColor] = useState('#7C3AED');
   const [selectedPattern, setSelectedPattern] = useState('');
-  
+
   // Reset state to current blobbi customization only when dialog opens
   React.useEffect(() => {
     if (isOpen && blobbi) {
@@ -48,7 +48,7 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]); // Only reset when dialog opens/closes
-  
+
   // Set initial values when blobbi first loads
   React.useEffect(() => {
     if (blobbi && !isOpen) {
@@ -57,9 +57,9 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blobbi?.id]); // Only run when blobbi ID changes
-  
+
   if (!isOpen) return null;
-  
+
   if (isLoading || !blobbi) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -77,7 +77,7 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
       </Dialog>
     );
   }
-  
+
   // Create a preview blobbi with the selected customizations
   const previewBlobbi = {
     ...blobbi,
@@ -87,7 +87,7 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
       pattern: selectedPattern,
     },
   };
-  
+
   const handleSave = async () => {
     try {
       await updateCustomization({
@@ -95,12 +95,12 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
         pattern: selectedPattern,
         accessories: blobbi.customization.accessories || [], // Preserve existing accessories
       });
-      
+
       toast({
         title: "Customization Saved!",
         description: "Your Blobbi looks great with its new style!",
       });
-      
+
       onClose();
     } catch (error) {
       console.error('Failed to save customization:', error);
@@ -111,15 +111,15 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
       });
     }
   };
-  
-  const hasChanges = 
+
+  const hasChanges =
     selectedColor !== (blobbi.customization?.color || '#7C3AED');
     // Pattern changes removed from UI but data preserved
     // selectedPattern !== (blobbi.customization?.pattern || '');
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-4xl max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
         <DialogHeader className="pb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
             <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
@@ -128,8 +128,8 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
             Customize Your Blobbi
           </DialogTitle>
         </DialogHeader>
-        
-        <div className="grid md:grid-cols-2 gap-6">
+
+        <div className="grid lg:grid-cols-2 gap-6 h-full max-h-[500px] overflow-hidden">
           {/* Preview */}
           <div className="space-y-4">
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl">
@@ -146,25 +146,25 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
               <CardContent>
                 <div className="flex items-center justify-center transition-all duration-500 min-h-[200px] p-6 bg-gradient-to-br from-purple-50/60 to-pink-50/60 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl border-2 border-purple-100/50 dark:border-purple-600/30">
                   {previewBlobbi.evolutionForm ? (
-                    <BlobbiEvolvedVisual 
+                    <BlobbiEvolvedVisual
                       key={`${selectedColor}-${selectedPattern}`}
-                      blobbi={previewBlobbi} 
-                      size={previewBlobbi.lifeStage === 'baby' ? 'small' : 'medium'} 
+                      blobbi={previewBlobbi}
+                      size={previewBlobbi.lifeStage === 'baby' ? 'small' : 'medium'}
                     />
                   ) : (
-                    <BlobbiVisual 
+                    <BlobbiVisual
                       key={`${selectedColor}-${selectedPattern}`}
-                      blobbi={previewBlobbi} 
-                      size={previewBlobbi.lifeStage === 'baby' ? 'small' : 'medium'} 
+                      blobbi={previewBlobbi}
+                      size={previewBlobbi.lifeStage === 'baby' ? 'small' : 'medium'}
                     />
                   )}
                 </div>
               </CardContent>
             </Card>
           </div>
-          
+
           {/* Customization Options */}
-          <div className="space-y-6">
+          <div className="space-y-6 overflow-y-auto pr-2">
             {/* Color Selection */}
             <div className="space-y-4">
               <Label className="text-gray-900 dark:text-gray-100 font-medium">Body Color</Label>
@@ -177,8 +177,8 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
                     }}
                     className={`
                       w-full h-12 rounded-xl border-2 transition-all duration-200 hover:scale-105
-                      ${selectedColor === color.value 
-                        ? 'border-purple-500 ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-900 shadow-lg' 
+                      ${selectedColor === color.value
+                        ? 'border-purple-500 ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-900 shadow-lg'
                         : 'border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500'
                       }
                     `}
@@ -188,7 +188,7 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
                 ))}
               </div>
             </div>
-            
+
             {/* Pattern Selection - HIDDEN FROM UI BUT DATA PRESERVED */}
             {/* <div className="space-y-3">
               <Label>Pattern</Label>
@@ -196,8 +196,8 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
                 {PATTERNS.map((pattern) => (
                   <div key={pattern.value} className="flex items-center space-x-2">
                     <RadioGroupItem value={pattern.value} id={pattern.value || 'none'} />
-                    <Label 
-                      htmlFor={pattern.value || 'none'} 
+                    <Label
+                      htmlFor={pattern.value || 'none'}
                       className="cursor-pointer"
                     >
                       {pattern.name}
@@ -206,7 +206,7 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
                 ))}
               </RadioGroup>
             </div> */}
-            
+
             {/* Future Accessories */}
             <div className="space-y-4">
               <Label className="flex items-center gap-2 text-gray-900 dark:text-gray-100 font-medium">
@@ -226,17 +226,17 @@ export function BlobbiCustomization({ isOpen, onClose }: BlobbiCustomizationProp
             </div>
           </div>
         </div>
-        
+
         <DialogFooter className="pt-6">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={onClose}
             className="border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleSave} 
+          <Button
+            onClick={handleSave}
             disabled={!hasChanges || isUpdatingCustomization}
             className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 disabled:opacity-50"
           >

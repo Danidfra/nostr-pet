@@ -58,7 +58,7 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
   const { data: currentProfile, isLoading } = useBlobbonautProfile(profileId);
   const { mutate: updateProfile, isPending: isUpdating } = useUpdateBlobbonautProfile();
   const { toast } = useToast();
-  
+
   const [formData, setFormData] = useState<Partial<BlobbonautProfile>>({});
   const [newAchievement, setNewAchievement] = useState('');
   const [showAddAchievement, setShowAddAchievement] = useState(false);
@@ -129,7 +129,7 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
 
   const handleAddAchievement = () => {
     if (!newAchievement.trim()) return;
-    
+
     const achievementId = newAchievement.toLowerCase().replace(/\s+/g, '-');
     if (currentProfile.achievements.includes(achievementId)) {
       toast({
@@ -189,7 +189,7 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>Edit Blobbanaut Profile</DialogTitle>
           <DialogDescription>
@@ -246,8 +246,8 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="style">Style</Label>
-                  <Select 
-                    value={formData.style || ''} 
+                  <Select
+                    value={formData.style || ''}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, style: value }))}
                   >
                     <SelectTrigger>
@@ -266,8 +266,8 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
 
                 <div>
                   <Label htmlFor="background">Background</Label>
-                  <Select 
-                    value={formData.background || ''} 
+                  <Select
+                    value={formData.background || ''}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, background: value }))}
                   >
                     <SelectTrigger>
@@ -287,8 +287,8 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
 
               <div>
                 <Label htmlFor="title">Title</Label>
-                <Select 
-                  value={formData.title || ''} 
+                <Select
+                  value={formData.title || ''}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, title: value }))}
                 >
                   <SelectTrigger>
@@ -307,8 +307,8 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
 
               <div>
                 <Label htmlFor="favoriteBlobbi">Favorite Blobbi</Label>
-                <Select 
-                  value={formData.favoriteBlobbi || ''} 
+                <Select
+                  value={formData.favoriteBlobbi || ''}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, favoriteBlobbi: value }))}
                 >
                   <SelectTrigger>
@@ -332,9 +332,9 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
             <CardHeader>
               <CardTitle className="text-lg flex items-center justify-between">
                 Achievements
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => setShowAddAchievement(true)}
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -345,9 +345,9 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
             <CardContent>
               <div className="flex flex-wrap gap-2">
                 {currentProfile.achievements.map((achievement, index) => (
-                  <Badge 
-                    key={index} 
-                    variant="secondary" 
+                  <Badge
+                    key={index}
+                    variant="secondary"
                     className="text-xs cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
                     onClick={() => handleRemoveAchievement(achievement)}
                   >

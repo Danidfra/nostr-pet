@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,13 +22,13 @@ export const CreateBlobbiDialog: React.FC<CreateBlobbiDialogProps> = ({ children
   const [stage, setStage] = useState<BlobbiLifeStage>('egg');
   const [origin, setOrigin] = useState('wild');
   const [rarity, setRarity] = useState('common');
-  
+
   const { createBlobbi, isCreating } = useCreateBlobbi();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim()) {
       toast({
         title: 'Name Required',
@@ -75,7 +76,7 @@ export const CreateBlobbiDialog: React.FC<CreateBlobbiDialogProps> = ({ children
 
   const getInitialTraits = (rarity: string): string[] => {
     const baseTraits = ['curious', 'friendly'];
-    
+
     switch (rarity) {
       case 'uncommon':
         return [...baseTraits, 'energetic'];
@@ -147,11 +148,16 @@ export const CreateBlobbiDialog: React.FC<CreateBlobbiDialogProps> = ({ children
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Create Your Blobbi</DialogTitle>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+              <Plus className="w-4 h-4 text-white" />
+            </div>
+            Create Your Blobbi
+          </DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Name Input */}
           <div className="space-y-2">
@@ -170,11 +176,11 @@ export const CreateBlobbiDialog: React.FC<CreateBlobbiDialogProps> = ({ children
             <Label>Starting Life Stage</Label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {(['egg', 'baby', 'adult'] as BlobbiLifeStage[]).map((stageOption) => (
-                <Card 
+                <Card
                   key={stageOption}
                   className={`cursor-pointer transition-all ${
-                    stage === stageOption 
-                      ? 'ring-2 ring-primary bg-primary/5' 
+                    stage === stageOption
+                      ? 'ring-2 ring-primary bg-primary/5'
                       : 'hover:bg-muted/50'
                   }`}
                   onClick={() => setStage(stageOption)}
@@ -217,11 +223,11 @@ export const CreateBlobbiDialog: React.FC<CreateBlobbiDialogProps> = ({ children
             <Label>Rarity</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {['common', 'uncommon', 'rare', 'epic', 'legendary'].map((rarityOption) => (
-                <Card 
+                <Card
                   key={rarityOption}
                   className={`cursor-pointer transition-all ${
-                    rarity === rarityOption 
-                      ? 'ring-2 ring-primary bg-primary/5' 
+                    rarity === rarityOption
+                      ? 'ring-2 ring-primary bg-primary/5'
                       : 'hover:bg-muted/50'
                   }`}
                   onClick={() => setRarity(rarityOption)}

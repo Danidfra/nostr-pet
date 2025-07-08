@@ -26,16 +26,16 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
   // Get items by category from Blobbanaut Profile storage
   const getItemsByCategory = (category: string) => {
     if (!blobbonautProfile || !blobbonautProfile.storage) return [];
-    
+
     const storageItems = blobbonautProfile.storage.map(storageItem => {
       const shopItem = SHOP_ITEMS.find(item => item.id === storageItem.itemId);
       return shopItem ? { ...shopItem, quantity: storageItem.quantity } : null;
     }).filter((item): item is BlobbiItem & { quantity: number } => item !== null);
-    
+
     if (category === 'all') {
       return storageItems;
     }
-    
+
     return storageItems.filter(item => item.type === category);
   };
 
@@ -60,7 +60,7 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-4xl max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
         <DialogHeader className="pb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
             <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center">
@@ -83,8 +83,8 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
                     const Icon = category.icon;
                     const itemCount = getItemsByCategory(category.id).length;
                     return (
-                      <TabsTrigger 
-                        key={category.id} 
+                      <TabsTrigger
+                        key={category.id}
                         value={category.id}
                         className="flex items-center gap-1 text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
                       >
@@ -101,7 +101,7 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
                 </TabsList>
               </div>
 
-              <ScrollArea className="h-[400px] mt-4">
+              <ScrollArea className="h-[500px] mt-4">
                 <TabsContent value={selectedCategory} className="mt-0">
                   {items.length === 0 ? (
                     <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl">
@@ -154,7 +154,7 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
                                 ))}
                               </div>
                             )}
-                            
+
                             {item.type === 'accessory' && (
                               <Button
                                 size="sm"
@@ -165,7 +165,7 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
                                 Equip
                               </Button>
                             )}
-                            
+
                             {(item.type === 'food' || item.type === 'medicine' || item.type === 'toy' || item.type === 'hygiene') && (
                               <div className="text-center p-2 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
                                 <p className="text-xs text-blue-600 dark:text-blue-400">
@@ -188,8 +188,8 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
                   {blobbonautProfile.storage?.reduce((sum, item) => sum + item.quantity, 0) || 0}
                 </span>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={onClose}
                 className="border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
               >

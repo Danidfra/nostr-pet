@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Timer, Trophy, Zap, Hash, Grid3X3 } from 'lucide-react';
 
@@ -80,7 +81,7 @@ export function BlobbiGamesModal({ isOpen, onClose, blobbiId }: BlobbiGamesModal
 
   const handleGameSelect = (game: GameInfo) => {
     if (!game.available) return;
-    
+
     onClose();
     navigate(game.path, { state: { blobbiId } });
   };
@@ -100,7 +101,7 @@ export function BlobbiGamesModal({ isOpen, onClose, blobbiId }: BlobbiGamesModal
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-4xl max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
         <DialogHeader className="pb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
             <div className="w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
@@ -110,8 +111,9 @@ export function BlobbiGamesModal({ isOpen, onClose, blobbiId }: BlobbiGamesModal
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {GAMES.map((game) => (
+        <ScrollArea className="h-[500px]">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pr-2">
+            {GAMES.map((game) => (
             <Card
               key={game.id}
               className={`cursor-pointer transition-all duration-200 ${
@@ -150,8 +152,9 @@ export function BlobbiGamesModal({ isOpen, onClose, blobbiId }: BlobbiGamesModal
                 )}
               </CardContent>
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
+        </ScrollArea>
 
         <div className="mt-6 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-full border border-purple-200 dark:border-purple-600">
