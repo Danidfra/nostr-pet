@@ -319,15 +319,15 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const canRemoveBed = isBedVisible && !isBlobbiSleeping;
 
   const menuItems = [
-    { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi, disabled: isPlayModeActive },
+    { icon: '🍽️', label: 'Feed Blobbi', action: handleFeedBlobbi, disabled: isPlayModeActive || isBlobbiSleeping },
     // ✅ UPDATED: Show "Play with Blobbi" or "Stop Playing" based on play mode state
     ...(isPlayModeActive
       ? [{ icon: '🛑', label: 'Stop Playing', action: handleStopPlaying, disabled: false }]
-      : [{ icon: '🎾', label: 'Play with Blobbi', action: handleOpenPlay, disabled: false }]
+      : [{ icon: '🎾', label: 'Play with Blobbi', action: handleOpenPlay, disabled: isBlobbiSleeping }]
     ),
-    { icon: '💊', label: 'Medicine', action: handleOpenMedicine, disabled: isPlayModeActive },
-    { icon: '🧼', label: 'Clean Blobbi', action: handleOpenCleaning, disabled: isPlayModeActive },
-    { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility, disabled: isPlayModeActive },
+    { icon: '💊', label: 'Medicine', action: handleOpenMedicine, disabled: isPlayModeActive || isBlobbiSleeping },
+    { icon: '🧼', label: 'Clean Blobbi', action: handleOpenCleaning, disabled: isPlayModeActive || isBlobbiSleeping },
+    { icon: '👁️', label: 'Show/Hide Blobbi', action: handleToggleVisibility, disabled: isPlayModeActive || isBlobbiSleeping },
     {
       icon: isBedVisible ? '🛏️' : '😴',
       label: isBedVisible ? (isBlobbiSleeping ? 'Bed Required (Sleeping)' : 'Remove Bed') : 'Show Bed',
@@ -336,7 +336,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     },
     // Add wake-up option when Blobbi is sleeping
     ...(isBlobbiSleeping ? [{ icon: '☀️', label: 'Wake Up', action: handleWakeUp, disabled: isPlayModeActive }] : []),
-    { icon: '🚶', label: 'Follow Me', action: handleFollowMe, disabled: isPlayModeActive },
+    { icon: '🚶', label: 'Follow Me', action: handleFollowMe, disabled: isPlayModeActive || isBlobbiSleeping },
     {
       icon: (
         <img
@@ -347,7 +347,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
       ),
       label: 'Settings',
       action: handleOpenSettings,
-      disabled: isPlayModeActive,
+      disabled: isPlayModeActive || isBlobbiSleeping,
     },
   ];
 
