@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { 
-  Coins, 
-  Trophy, 
-  Calendar, 
-  Heart, 
-  Sparkles, 
+import {
+  Coins,
+  Trophy,
+  Calendar,
+  Heart,
+  Sparkles,
   Filter,
   Search,
   TrendingUp,
@@ -23,13 +23,17 @@ import {
   Activity,
   BarChart3,
   Settings,
-  Target
+  Target,
+  ShoppingCart,
+  Package,
 } from 'lucide-react';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 import { BlobbiCard } from '@/components/blobbi/BlobbiCard';
 import { BlobbonautProfileCard } from '@/components/blobbi/BlobbonautProfileCard';
+import { BlobbiShop } from '@/components/blobbi/BlobbiShop';
+import { BlobbiStorage } from '@/components/blobbi/BlobbiStorage';
 
 import { BlobbiIncubationDashboard } from '@/components/blobbi/BlobbiIncubationDashboard';
 import { BlobbiMissions } from '@/components/blobbi/BlobbiMissions';
@@ -50,18 +54,20 @@ export default function BlobbiDashboard() {
   const { user } = useCurrentUser();
   const { data: profile, isLoading: isProfileLoading } = useBlobbonautProfile();
   const { data: userBlobbis = [] } = useUserBlobbis();
-  const { 
-    eggTasks, 
-    evolutionTasks, 
+  const {
+    eggTasks,
+    evolutionTasks,
     progress,
     isReadyToHatch,
-    isReadyToEvolve 
+    isReadyToEvolve
   } = useBlobbiIncubationSystem();
-  
+
 
   const [filter, setFilter] = useState<BlobbiFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('blobbis');
+  const [isShopOpen, setIsShopOpen] = useState(false);
+  const [isStorageOpen, setIsStorageOpen] = useState(false);
 
 
   // Redirect to adoption page if user doesn't have a profile (kind 31125)
@@ -70,16 +76,16 @@ export default function BlobbiDashboard() {
       navigate('/blobbi/adopt');
     }
   }, [user, profile, isProfileLoading, navigate]);
-  
+
   if (!user) {
     return (
       <BlobbiLayout>
         <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
           <div className="container mx-auto py-8 px-4">
-            <AppHeader 
+            <AppHeader
               logo="/blobbilogo.svg"
             />
-            
+
             <Card className="max-w-2xl mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardHeader>
                 <CardTitle className="text-gray-900 dark:text-gray-100">Welcome to Blobbi!</CardTitle>
@@ -108,10 +114,10 @@ export default function BlobbiDashboard() {
       <BlobbiLayout>
         <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
           <div className="container mx-auto py-8 px-4">
-            <AppHeader 
+            <AppHeader
               logo="/blobbilogo.svg"
             />
-            
+
             <Card className="max-w-2xl mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-8">
                 <div className="flex items-center justify-center">
@@ -153,8 +159,8 @@ export default function BlobbiDashboard() {
     if (filter === 'evolved') return blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi';
     if (filter === 'archived') return blobbi.state === 'hibernating';
     return true;
-  }).filter(blobbi => 
-    searchQuery === '' || 
+  }).filter(blobbi =>
+    searchQuery === '' ||
     blobbi.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -189,7 +195,7 @@ export default function BlobbiDashboard() {
       <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
         <div className="container mx-auto pt-2 pb-8 px-4">
           {/* Header */}
-          <AppHeader 
+          <AppHeader
             logo="/blobbilogo.svg"
             logoClassName='w-48 sm:w-60'
             className='!mb-0'
@@ -199,7 +205,7 @@ export default function BlobbiDashboard() {
         {/* Sidebar - Profile & Quick Stats */}
         <div className="lg:col-span-1 space-y-4">
           <BlobbonautProfileCard />
-          
+
           {/* Quick Stats */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <CardHeader>
@@ -264,8 +270,24 @@ export default function BlobbiDashboard() {
                   Adopt New Blobbi
                 </Button>
               </Link>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 border-green-200 dark:border-green-600 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
+                onClick={() => setIsShopOpen(true)}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                Shop
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 border-blue-200 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                onClick={() => setIsStorageOpen(true)}
+              >
+                <Package className="w-4 h-4" />
+                Storage
+              </Button>
+              <Button
+                variant="outline"
                 className="w-full justify-start gap-2 border-yellow-200 dark:border-yellow-600 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
                 onClick={() => setActiveTab('missions')}
               >
@@ -273,8 +295,8 @@ export default function BlobbiDashboard() {
                 View Missions
               </Button>
               {stats.incubatingBlobbis > 0 && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start gap-2 border-yellow-200 dark:border-yellow-600 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
                   onClick={() => setActiveTab('incubation')}
                 >
@@ -304,31 +326,31 @@ export default function BlobbiDashboard() {
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-2">
                 <TabsList className="flex flex-wrap justify-center items-center gap-1 bg-purple-50/50 dark:bg-purple-900/20 p-1 rounded-lg h-auto min-h-10">
-                    <TabsTrigger 
+                    <TabsTrigger
                       value="blobbis"
                       className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-md text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md"
                     >
                       My Blobbies
                     </TabsTrigger>
-                    <TabsTrigger 
+                    <TabsTrigger
                       value="missions"
                       className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-md text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md"
                     >
                       Missions
                     </TabsTrigger>
-                    <TabsTrigger 
+                    <TabsTrigger
                       value="incubation"
                       className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-md text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md"
                     >
                       Growth Hub
                     </TabsTrigger>
-                    <TabsTrigger 
+                    <TabsTrigger
                       value="activity"
                       className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-md text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md"
                     >
                       Activity
                     </TabsTrigger>
-                    <TabsTrigger 
+                    <TabsTrigger
                       value="stats"
                       className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-md text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md"
                     >
@@ -426,7 +448,7 @@ export default function BlobbiDashboard() {
                 <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                   <CardContent className="py-12 text-center">
                     <div className="text-gray-600 dark:text-gray-400 mb-4">
-                      {userBlobbis.length === 0 
+                      {userBlobbis.length === 0
                         ? "You don't have any Blobbis yet."
                         : "No Blobbis match your current filter."
                       }
@@ -484,8 +506,8 @@ export default function BlobbiDashboard() {
                         />
                         {/* Activity Overlay */}
                         <div className="absolute top-2 right-2 z-10">
-                          <Badge 
-                            variant="secondary" 
+                          <Badge
+                            variant="secondary"
                             className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 text-xs"
                           >
                             {type === 'incubating' ? 'Incubating' : 'Active'}
@@ -614,9 +636,13 @@ export default function BlobbiDashboard() {
         </div>
       </div>
 
+      <BlobbiShop isOpen={isShopOpen} onClose={() => setIsShopOpen(false)} />
+      <BlobbiStorage isOpen={isStorageOpen} onClose={() => setIsStorageOpen(false)} />
 
         </div>
       </div>
+      <BlobbiShop isOpen={isShopOpen} onClose={() => setIsShopOpen(false)} />
+      <BlobbiStorage isOpen={isStorageOpen} onClose={() => setIsStorageOpen(false)} />
     </BlobbiLayout>
   );
 }

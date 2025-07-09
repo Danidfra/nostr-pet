@@ -1418,7 +1418,6 @@ export function BlobbiCompanionIntegration() {
         onClose={() => setIsFeedModalOpen(false)}
         onOpenShop={handleOpenShop}
         onFoodSelected={handleFoodSelected}
-        isCompanionMode={true}
       />
 
       {/* Shop Modal */}

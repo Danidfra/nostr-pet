@@ -464,13 +464,23 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
             </ScrollArea>
 
             <div className="flex gap-3 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => onClose(false)}
-                className="flex-1 h-11 rounded-xl border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium"
-              >
-                Cancel
-              </Button>
+              {onOpenShop && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onClose(false);
+                    setTimeout(() => {
+                      onOpenShop();
+                    }, 100);
+                  }}
+                  className="flex-1 h-11 rounded-xl border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-lg">🛒</span>
+                    Go to Shop
+                  </span>
+                </Button>
+              )}
               <Button
                 onClick={handleUseItem}
                 disabled={!selectedItem || isUsingItem}
