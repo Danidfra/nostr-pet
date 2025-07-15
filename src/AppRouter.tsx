@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -17,16 +17,24 @@ import VisualEffectsDemo from "./pages/VisualEffectsDemo";
 import { BlobbiCompanionWrapper } from "./components/BlobbiCompanionWrapper";
 import { BlobbiFloatingActionMenu } from "./components/BlobbiFloatingActionMenu";
 import { DraggableBed } from "./components/DraggableBed";
+import { GlobalHeader } from "./components/GlobalHeader";
 import { useBed } from "./contexts/BedContext";
 
-export function AppRouter() {
+function AppContent() {
+  const location = useLocation();
   const { shouldRenderBed, hideBed } = useBed();
 
+  // Show header on all pages except homepage
+  const showHeader = location.pathname !== '/';
+
   return (
-    <BrowserRouter>
+    <>
       <BlobbiCompanionWrapper />
       <BlobbiFloatingActionMenu />
       <DraggableBed isVisible={shouldRenderBed} onClose={hideBed} />
+
+      {showHeader && <GlobalHeader />}
+
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/blobbi" element={<BlobbiDashboard />} />
@@ -44,6 +52,14 @@ export function AppRouter() {
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+    </>
+  );
+}
+
+export function AppRouter() {
+  return (
+    <BrowserRouter>
+      <AppContent />
     </BrowserRouter>
   );
 }

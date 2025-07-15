@@ -376,7 +376,6 @@ Blobbi pets have three stages: **egg** → **baby** → **adult**
 - `title`: Custom title
 - `has`: Owned pet IDs (multiple)
 - `achievements`: Achievement IDs (multiple)
-- `welcome_mission`: "unclaimed" or "claimed"
 - `storage`: "item_id:quantity" format (multiple)
 
 ## Implementation Notes

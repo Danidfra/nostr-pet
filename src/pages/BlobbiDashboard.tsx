@@ -40,7 +40,7 @@ import { BlobbiMissions } from '@/components/blobbi/BlobbiMissions';
 import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { AppHeader } from '@/components/AppHeader';
+
 import { formatDistanceToNow } from 'date-fns';
 import { Blobbi, BlobbiLifeStage } from '@/types/blobbi';
 import { CompanionSelector } from '@/components/CompanionSelector';
@@ -82,9 +82,7 @@ export default function BlobbiDashboard() {
       <BlobbiLayout>
         <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
           <div className="container mx-auto py-8 px-4">
-            <AppHeader
-              logo="/blobbilogo.svg"
-            />
+
 
             <Card className="max-w-2xl mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardHeader>
@@ -114,9 +112,7 @@ export default function BlobbiDashboard() {
       <BlobbiLayout>
         <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
           <div className="container mx-auto py-8 px-4">
-            <AppHeader
-              logo="/blobbilogo.svg"
-            />
+
 
             <Card className="max-w-2xl mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-8">
@@ -194,12 +190,7 @@ export default function BlobbiDashboard() {
     <BlobbiLayout>
       <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
         <div className="container mx-auto pt-2 pb-8 px-4">
-          {/* Header */}
-          <AppHeader
-            logo="/blobbilogo.svg"
-            logoClassName='w-48 sm:w-60'
-            className='!mb-0'
-          />
+
 
       <div className="grid lg:grid-cols-4 gap-6">
         {/* Sidebar - Profile & Quick Stats */}
@@ -270,6 +261,18 @@ export default function BlobbiDashboard() {
                   Adopt New Blobbi
                 </Button>
               </Link>
+                <Link to="/blobbi/evolution">
+                <Button variant="outline" className="w-full justify-start gap-2 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
+                  <Sparkles className="w-4 h-4" />
+                  Evolution Guide
+                </Button>
+              </Link>
+              <Link to="/blobbi/community">
+                <Button variant="outline" className="w-full justify-start gap-2 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
+                  <Activity className="w-4 h-4" />
+                  Community
+                </Button>
+              </Link>
               <Button
                 variant="outline"
                 className="w-full justify-start gap-2 border-green-200 dark:border-green-600 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
@@ -286,14 +289,14 @@ export default function BlobbiDashboard() {
                 <Package className="w-4 h-4" />
                 Storage
               </Button>
-              <Button
+              {/* <Button
                 variant="outline"
                 className="w-full justify-start gap-2 border-yellow-200 dark:border-yellow-600 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
                 onClick={() => setActiveTab('missions')}
               >
                 <Target className="w-4 h-4" />
                 View Missions
-              </Button>
+              </Button> */}
               {stats.incubatingBlobbis > 0 && (
                 <Button
                   variant="outline"
@@ -304,18 +307,6 @@ export default function BlobbiDashboard() {
                   View Growth Hub ({stats.incubatingBlobbis})
                 </Button>
               )}
-              <Link to="/blobbi/evolution">
-                <Button variant="outline" className="w-full justify-start gap-2 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
-                  <Sparkles className="w-4 h-4" />
-                  Evolution Guide
-                </Button>
-              </Link>
-              <Link to="/blobbi/community">
-                <Button variant="outline" className="w-full justify-start gap-2 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
-                  <Activity className="w-4 h-4" />
-                  Community
-                </Button>
-              </Link>
             </CardContent>
           </Card>
         </div>

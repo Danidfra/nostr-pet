@@ -7,7 +7,7 @@ import { useBlobbiGameSystem } from '@/hooks/useBlobbiInteractionSystem';
 import { useToast } from '@/hooks/useToast';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
-import { AppHeader } from '@/components/AppHeader';
+
 
 interface Bubble {
   id: number;
@@ -49,18 +49,18 @@ export function BubblePopGame() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   // Get the specific Blobbi ID from navigation state
   const blobbiId = location.state?.blobbiId;
-  
+
   // Use the specific Blobbi if provided, otherwise fall back to user's Blobbi
   const { blobbi, playGame, isPlaying, isLoading } = useBlobbiGameSystem(blobbiId);
-  
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const gameLoopRef = useRef<number>();
   const bubbleSpawnRef = useRef<number>();
-  
+
   const [gameState, setGameState] = useState<GameState>({
     score: 0,
     timeLeft: GAME_DURATION,
@@ -79,7 +79,7 @@ export function BubblePopGame() {
     const radius = Math.random() * (BUBBLE_MAX_RADIUS - BUBBLE_MIN_RADIUS) + BUBBLE_MIN_RADIUS;
     const canvas = canvasRef.current;
     if (!canvas) throw new Error('Canvas not available');
-    
+
     return {
       id: Date.now() + Math.random(),
       x: Math.random() * (canvas.width - radius * 2) + radius,
@@ -173,9 +173,9 @@ export function BubblePopGame() {
     const gameInterval = setInterval(() => {
       setGameState(prev => {
         if (!prev.isPlaying) return prev;
-        
+
         const newTimeLeft = prev.timeLeft - 1;
-        
+
         if (newTimeLeft <= 0) {
           return { ...prev, timeLeft: 0, isPlaying: false, gameOver: true };
         }
@@ -220,7 +220,7 @@ export function BubblePopGame() {
     const updateInterval = setInterval(() => {
       setGameState(prev => {
         const now = Date.now();
-        
+
         // Update bubble positions and remove expired/off-screen bubbles
         const updatedBubbles = prev.bubbles
           .filter(bubble => {
@@ -267,33 +267,33 @@ export function BubblePopGame() {
       gameState.bubbles.forEach(bubble => {
         // Check if bubble should still exist
         if (now - bubble.createdAt >= bubble.lifespan) return;
-        
+
         const opacity = Math.max(0.3, 1 - (now - bubble.createdAt) / bubble.lifespan);
         ctx.globalAlpha = opacity;
-        
+
         // Draw bubble shadow
         ctx.beginPath();
         ctx.arc(bubble.x + 2, bubble.y + 2, bubble.radius, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.fill();
-        
+
         // Draw bubble
         ctx.beginPath();
         ctx.arc(bubble.x, bubble.y, bubble.radius, 0, Math.PI * 2);
         ctx.fillStyle = bubble.color;
         ctx.fill();
-        
+
         // Draw bubble outline
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.lineWidth = 2;
         ctx.stroke();
-        
+
         // Draw highlight
         ctx.beginPath();
         ctx.arc(bubble.x - bubble.radius / 3, bubble.y - bubble.radius / 3, bubble.radius / 4, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         ctx.fill();
-        
+
         ctx.globalAlpha = 1;
       });
 
@@ -302,7 +302,7 @@ export function BubblePopGame() {
         if (!popped.timestamp) return;
         const age = now - popped.timestamp;
         if (age >= 500) return;
-        
+
         const opacity = 1 - age / 500;
         ctx.globalAlpha = opacity;
         ctx.font = 'bold 24px Arial';
@@ -347,19 +347,14 @@ export function BubblePopGame() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 p-4">
         <div className="max-w-6xl mx-auto">
-          <AppHeader 
-            leftContent={
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </Button>
-            }
-          />
+          <div className="mb-8">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+              Bubble Pop Game
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1 sm:mt-2">
+              Pop bubbles to earn coins and experience for your Blobbi!
+            </p>
+          </div>
           <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <CardContent className="p-8">
               <div className="flex items-center justify-center h-[400px]">
@@ -380,19 +375,14 @@ export function BubblePopGame() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 p-4">
         <div className="max-w-6xl mx-auto">
-          <AppHeader 
-            leftContent={
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </Button>
-            }
-          />
+          <div className="mb-8">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+              Bubble Pop Game
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1 sm:mt-2">
+              Pop bubbles to earn coins and experience for your Blobbi!
+            </p>
+          </div>
           <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <CardContent className="p-8">
               <div className="flex items-center justify-center h-[400px]">
@@ -414,20 +404,15 @@ export function BubblePopGame() {
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <AppHeader 
-          leftContent={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-          }
-        />
-        
+        <div className="mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+            Bubble Pop Game
+          </h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1 sm:mt-2">
+            Pop bubbles to earn coins and experience for your Blobbi!
+          </p>
+        </div>
+
         {/* Game Stats */}
         <div className="flex justify-center gap-4 mb-4">
           <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
@@ -436,7 +421,7 @@ export function BubblePopGame() {
               <span className="font-bold text-gray-900 dark:text-gray-100">{gameState.score}</span>
             </div>
           </Card>
-          
+
           <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <div className="flex items-center gap-2">
               <span className="font-bold text-gray-900 dark:text-gray-100">{gameState.timeLeft}s</span>
@@ -460,13 +445,13 @@ export function BubblePopGame() {
                   </style>
                   <div className="game-blobbi-wrapper">
                     {blobbi.evolutionForm ? (
-                      <BlobbiEvolvedVisual 
-                        blobbi={blobbi} 
+                      <BlobbiEvolvedVisual
+                        blobbi={blobbi}
                         size="medium"
                       />
                     ) : (
-                      <BlobbiVisual 
-                        blobbi={blobbi} 
+                      <BlobbiVisual
+                        blobbi={blobbi}
                         size="medium"
                       />
                     )}
