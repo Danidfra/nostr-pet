@@ -54,19 +54,19 @@ export function useRelayManager() {
   // Connect to a specific relay
   const connectToRelay = useCallback(async (url: string): Promise<boolean> => {
     try {
-      setRelays(prev => prev.map(relay => 
-        relay.url === url 
+      setRelays(prev => prev.map(relay =>
+        relay.url === url
           ? { ...relay, status: 'connecting' as const }
           : relay
       ));
 
       // Test the relay connection by creating a WebSocket
       const success = await testRelayConnection(url);
-      
-      setRelays(prev => prev.map(relay => 
-        relay.url === url 
-          ? { 
-              ...relay, 
+
+      setRelays(prev => prev.map(relay =>
+        relay.url === url
+          ? {
+              ...relay,
               connected: success,
               status: success ? 'connected' as const : 'error' as const,
               lastConnected: success ? Date.now() : relay.lastConnected
@@ -77,8 +77,8 @@ export function useRelayManager() {
       return success;
     } catch (error) {
       console.error(`Failed to connect to relay ${url}:`, error);
-      setRelays(prev => prev.map(relay => 
-        relay.url === url 
+      setRelays(prev => prev.map(relay =>
+        relay.url === url
           ? { ...relay, connected: false, status: 'error' as const }
           : relay
       ));
@@ -127,7 +127,7 @@ export function useRelayManager() {
 
   // Auto-connect to enabled relays on initial load
   const [hasInitialized, setHasInitialized] = useState(false);
-  
+
   useEffect(() => {
     if (relays.length > 0 && !hasInitialized) {
       setHasInitialized(true);
@@ -156,12 +156,12 @@ export function useRelayManager() {
   const disconnectFromRelay = useCallback(async (url: string): Promise<void> => {
     try {
       // In a real implementation, you would disconnect from the relay here
-      setRelays(prev => prev.map(relay => 
-        relay.url === url 
-          ? { 
-              ...relay, 
-              connected: false, 
-              status: 'disconnected' as const 
+      setRelays(prev => prev.map(relay =>
+        relay.url === url
+          ? {
+              ...relay,
+              connected: false,
+              status: 'disconnected' as const
             }
           : relay
       ));
@@ -172,8 +172,8 @@ export function useRelayManager() {
 
   // Toggle relay enabled/disabled state
   const toggleRelay = useCallback(async (url: string, enabled: boolean) => {
-    setRelays(prev => prev.map(relay => 
-      relay.url === url 
+    setRelays(prev => prev.map(relay =>
+      relay.url === url
         ? { ...relay, enabled }
         : relay
     ));
@@ -212,7 +212,7 @@ export function useRelayManager() {
     };
 
     setRelays(prev => [...prev, newRelay]);
-    
+
     // Attempt to connect to the new relay
     return await connectToRelay(url);
   }, [relays, connectToRelay]);
@@ -221,7 +221,7 @@ export function useRelayManager() {
   const removeRelay = useCallback(async (url: string) => {
     // Disconnect first if connected
     await disconnectFromRelay(url);
-    
+
     // Remove from list
     setRelays(prev => prev.filter(relay => relay.url !== url));
   }, [disconnectFromRelay]);
@@ -241,7 +241,7 @@ export function useRelayManager() {
   const addDefaultRelays = useCallback(async () => {
     const existingUrls = relays.map(r => r.url);
     const newRelays = DEFAULT_RELAYS.filter(url => !existingUrls.includes(url));
-    
+
     if (newRelays.length === 0) {
       throw new Error('All default relays are already added');
     }
