@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { 
+import {
   ArrowLeft,
-  Coins, 
-  Trophy, 
-  Calendar, 
-  Heart, 
-  Sparkles, 
+  Coins,
+  Trophy,
+  Calendar,
+  Heart,
+  Sparkles,
   Archive,
   Clock,
   Star,
@@ -60,26 +60,26 @@ import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
 export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  const { 
-    blobbi, 
-    performAction, 
+  const {
+    blobbi,
+    performAction,
     isPerformingAction,
     triggerEvolution,
-    isEvolving 
+    isEvolving
   } = useBlobbiWithFakeStatus(undefined, blobbiId);
   const { data: realBlobbi, isLoading } = useBlobbiById(blobbiId);
-  
+
   const isOwner = user?.pubkey === realBlobbi?.ownerPubkey;
-  
+
   // Use the sleep system
-  const { 
-    isSleeping, 
+  const {
+    isSleeping,
     sleepStartTime,
     calculatePassiveRecovery,
     wakeUp
-  } = useBlobbiSleepSystem({ 
-    blobbi: realBlobbi || null, 
-    isOwner 
+  } = useBlobbiSleepSystem({
+    blobbi: realBlobbi || null,
+    isOwner
   });
 
   useEffect(() => {
@@ -87,8 +87,8 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
       wakeUp();
     }
   }, [realBlobbi, isSleeping, isOwner, wakeUp]);
-  
-  
+
+
   // Helper function to get valid size for components
   const getValidSize = (size?: string): 'tiny' | 'small' | 'medium' | 'large' => {
     if (size && isValidSize(size)) {
@@ -96,10 +96,10 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     }
     return 'medium'; // Default fallback
   };
-  
-  const { 
-    eggTasks, 
-    evolutionTasks, 
+
+  const {
+    eggTasks,
+    evolutionTasks,
     progress,
     isReadyToHatch,
     isReadyToEvolve,
@@ -130,17 +130,17 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     startQuestTracking,
     stopQuestTracking,
   } = useBlobbiQuestSystem();
-  
+
   const [showShop, setShowShop] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [showGames, setShowGames] = useState(false);
   const [showStorage, setShowStorage] = useState(false);
   const [activeTab, setActiveTab] = useState('actions');
-  
+
   // Handle egg/baby selection when user manually starts listening
   const handleStartListening = useCallback(() => {
     if (!realBlobbi || !blobbiId) return;
-    
+
     if (realBlobbi.lifeStage === 'egg') {
       // Select egg and start incubation
       selectEgg(blobbiId);
@@ -175,12 +175,12 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
       </BlobbiLayout>
     );
   }
-  
+
   // Check if this blobbi is currently selected
   const isCurrentlySelected = selectedEggId === blobbiId || selectedBabyId === blobbiId;
-  const isCurrentlyListening = (realBlobbi?.lifeStage === 'egg' && taskSubscriptionActive) || 
+  const isCurrentlyListening = (realBlobbi?.lifeStage === 'egg' && taskSubscriptionActive) ||
                                (realBlobbi?.lifeStage === 'baby' && questSubscriptionActive);
-  
+
   // Calculate evolution readiness
   const eggReadiness = realBlobbi.lifeStage === 'egg' ? checkEggHatchingReadiness(realBlobbi) : null;
   const babyReadiness = realBlobbi.lifeStage === 'baby' ? checkBabyEvolutionReadiness(realBlobbi) : null;
@@ -204,7 +204,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
       <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
         <div className="container mx-auto py-8 px-4">
         {/* Header */}
-        <AppHeader 
+        <AppHeader
         logo='/blobbilogo.svg'
         logoClassName='w-40 sm:w-60'
             title={blobbi.name}
@@ -232,27 +232,27 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                 </div>
                 <div className="flex items-center justify-center transition-all duration-500 min-h-[300px] sm:min-h-[380px]">
                   {blobbi.lifeStage === 'egg' ? (
-                    <EggGraphic 
+                    <EggGraphic
                       blobbi={blobbi}
-                      size="medium" 
+                      size="medium"
                       animated={true}
                       warmth={blobbi.eggTemperature || 60}
                     />
                   ) : blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
-                    <BlobbiEvolvedVisual 
-                      blobbi={blobbi} 
+                    <BlobbiEvolvedVisual
+                      blobbi={blobbi}
                       size="medium"
                       onClick={() => isOwner && performAction('play')}
                     />
                   ) : (
-                    <BlobbiVisual 
-                      blobbi={blobbi} 
+                    <BlobbiVisual
+                      blobbi={blobbi}
                       size="medium"
                       onClick={() => isOwner && performAction('play')}
                     />
                   )}
                 </div>
-                
+
                 {blobbi.state === 'hibernating' && (
                   <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-4">
                     Your Blobbi is hibernating. Interact with it to wake it up!
@@ -262,10 +262,10 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
               </div>
             </CardContent>
           </Card>
-          
+
           {/* Stats */}
           <BlobbiStats blobbi={blobbi} />
-          
+
           {/* Quick Info */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <CardHeader>
@@ -383,7 +383,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                     Hatch the Egg
                   </Button>
                 )}
-                
+
                 {/* Traditional Evolution Button (Fallback) */}
                 {((eggReadiness?.isReady && !isReadyToHatch) || babyReadiness?.isReady) && (
                   <Button
@@ -427,20 +427,20 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-2">
                 <TabsList className="grid w-full grid-cols-3 bg-purple-50/50 dark:bg-purple-900/20">
-                  <TabsTrigger 
+                  <TabsTrigger
                     value="actions"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
                   >
                     Actions
                   </TabsTrigger>
-                  <TabsTrigger 
+                  <TabsTrigger
                     value="info"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
                   >
                     Info
                   </TabsTrigger>
 
-                  <TabsTrigger 
+                  <TabsTrigger
                     value="social"
                     className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
                   >
@@ -453,7 +453,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
             {/* Actions Tab */}
             <TabsContent value="actions">
               {isOwner ? (
-                <BlobbiActions 
+                <BlobbiActions
                   blobbi={blobbi}
                   onAction={performAction}
                   isPerformingAction={isPerformingAction}
@@ -513,7 +513,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-600 dark:text-gray-400">Base Color</span>
                           <div className="flex items-center gap-2">
-                            <div 
+                            <div
                               className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-600"
                               style={{ backgroundColor: blobbi.baseColor || '#8B5CF6' }}
                             />
@@ -672,16 +672,16 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
           </Tabs>
         </div>
       </div>
-      
+
       {/* Shop, Storage, Customization, and Games Dialogs */}
       {isOwner && (
         <>
           <BlobbiShop isOpen={showShop} onClose={() => setShowShop(false)} />
           <BlobbiStorage isOpen={showStorage} onClose={() => setShowStorage(false)} />
           <BlobbiCustomization isOpen={showCustomization} onClose={() => setShowCustomization(false)} />
-          <BlobbiGamesModal 
-            isOpen={showGames} 
-            onClose={() => setShowGames(false)} 
+          <BlobbiGamesModal
+            isOpen={showGames}
+            onClose={() => setShowGames(false)}
             blobbiId={blobbi.id}
           />
         </>
