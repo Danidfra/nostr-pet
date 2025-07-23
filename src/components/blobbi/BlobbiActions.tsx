@@ -31,26 +31,26 @@ interface BlobbiActionsProps {
   onEvolution?: () => void;
 }
 
-export function BlobbiActions({ 
-  blobbi, 
-  onAction, 
-  isPerformingAction, 
-  className, 
+export function BlobbiActions({
+  blobbi,
+  onAction,
+  isPerformingAction,
+  className,
   onGamesClick,
   onOpenShop,
   lifecycleStatus,
-  onEvolution 
+  onEvolution
 }: BlobbiActionsProps) {
   // Get fake status information
   const { hasFakeStatus, getPendingInteractionCount, updateFakeStatus } = useBlobbiFakeStatus();
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<BlobbiAction | null>(null);
-  
+
   // Check if user has a profile, create one if needed
   const { data: blobbonautProfile } = useBlobbonautProfile();
   const { mutateAsync: createInitialProfile } = useCreateInitialProfile();
   const { toast } = useToast();
-  
+
   // Use the new cooldown system
   const {
     cooldowns,
@@ -62,10 +62,10 @@ export function BlobbiActions({
     isActionOnCooldown,
     isActionAvailable,
   } = useBlobbiCooldowns(blobbi);
-  
+
   // Use the enhanced interaction system that automatically handles both 14919 and 31124 events
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteractionWithFakeStatus();
-  
+
   // Create optimistic sleep state updater for immediate UI feedback
   const setOptimisticSleepState = (isSleeping: boolean) => {
     updateFakeStatus(blobbi.id, {
@@ -86,18 +86,18 @@ export function BlobbiActions({
   };
 
   // Use the sleep system with optimistic updates
-  const { 
-    isSleeping, 
-    canSleep, 
-    canWakeUp, 
-    putToSleep, 
-    wakeUp 
-  } = useBlobbiSleepSystem({ 
-    blobbi, 
+  const {
+    isSleeping,
+    canSleep,
+    canWakeUp,
+    putToSleep,
+    wakeUp
+  } = useBlobbiSleepSystem({
+    blobbi,
     isOwner: true, // Assuming this component is only shown to owners
     setOptimisticSleepState, // Enable optimistic updates for immediate UI feedback
   });
-  
+
   const handleAction = async (action: BlobbiAction) => {
     // Check if action is available for this stage
     const isAvailableForStage = isActionAvailableForStage(action, blobbi.lifeStage);
@@ -112,7 +112,7 @@ export function BlobbiActions({
       });
       return;
     }
-    
+
     // Check if action is on cooldown using the new local-first system
     const isOnCooldown = isActionOnCooldown(action);
     if (isOnCooldown) {
@@ -120,21 +120,21 @@ export function BlobbiActions({
       const { logInteractionBlockedByCooldown } = await import('@/lib/interaction-logger');
       const remainingMs = cooldowns[action]?.remainingTime || 0;
       logInteractionBlockedByCooldown(action, blobbi.id, blobbi.lifeStage, remainingMs);
-      
+
       const remainingTime = formatRemainingTime(action);
       const sessionInfo = cooldowns[action]?.sessionInfo;
       const isGlobalCooldown = sessionInfo?.isInGlobalCooldown;
-      
+
       toast({
         title: isGlobalCooldown ? "Global Cooldown Active" : "Action on Cooldown",
-        description: isGlobalCooldown 
+        description: isGlobalCooldown
           ? `You've reached the action limit. Wait ${remainingTime} before using again.`
           : `Wait ${remainingTime} before using ${action} again.`,
         variant: "destructive",
       });
       return;
     }
-    
+
     // Final check if action is available (not on cooldown and valid for stage)
     if (!isActionAvailable(action)) {
       console.warn(`Action ${action} failed final availability check for ${blobbi.id}`);
@@ -157,7 +157,7 @@ export function BlobbiActions({
           return;
         }
       }
-      
+
       setSelectedAction(action);
       setInventoryModalOpen(true);
     } else if (action === 'rest') {
@@ -170,7 +170,7 @@ export function BlobbiActions({
         }
         // Record the interaction for cooldown tracking
         await recordInteraction(action);
-        
+
         // Log successful interaction
         const { logInteractionSuccess } = await import('@/lib/interaction-logger');
         logInteractionSuccess(action, blobbi.id, blobbi.lifeStage, 'sleep_system');
@@ -193,7 +193,7 @@ export function BlobbiActions({
         });
         // Record the interaction for cooldown tracking
         await recordInteraction(action);
-        
+
         // Log successful interaction
         const { logInteractionSuccess } = await import('@/lib/interaction-logger');
         logInteractionSuccess(action, blobbi.id, blobbi.lifeStage, 'direct');
@@ -209,11 +209,11 @@ export function BlobbiActions({
       }
     }
   };
-  
+
   const handleInventoryClose = async (actionPerformed?: boolean, action?: BlobbiAction) => {
     setInventoryModalOpen(false);
     setSelectedAction(null);
-    
+
     // If an action was performed through the inventory modal, record it
     if (actionPerformed && action) {
       try {
@@ -223,7 +223,7 @@ export function BlobbiActions({
       }
     }
   };
-  
+
   const getActionsForStage = () => {
     if (blobbi.lifeStage === 'egg') {
       return [
@@ -278,7 +278,7 @@ export function BlobbiActions({
 
       ];
     }
-    
+
     // Baby and Adult actions
     const baseActions = [
       {
@@ -337,9 +337,9 @@ export function BlobbiActions({
 
     return baseActions;
   };
-  
+
   const actions = getActionsForStage();
-  
+
   return (
     <>
       <Card className={cn("bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600", className)}>
@@ -348,8 +348,8 @@ export function BlobbiActions({
             <CardTitle className="flex items-center gap-2">
               <Gamepad2 className="w-5 h-5" />
               Actions
-              <BlobbiFakeStatusIndicator 
-                hasFakeStatus={hasFakeStatus(blobbi.id)} 
+              <BlobbiFakeStatusIndicator
+                hasFakeStatus={hasFakeStatus(blobbi.id)}
                 pendingInteractionCount={getPendingInteractionCount(blobbi.id)}
               />
             </CardTitle>
@@ -381,14 +381,14 @@ export function BlobbiActions({
               const isAvailableForStage = isActionAvailableForStage(action, blobbi.lifeStage);
               const isOnCooldown = isActionOnCooldown(action);
               const remainingTime = formatRemainingTime(action);
-              
+
               // Only show loading for the initial cooldown system setup, not for ongoing updates
               const isInitialLoading = cooldownsLoading && !cooldowns[action];
               const isDisabled = !isAvailableForStage || disabled || isOnCooldown || isPerformingAction || isInitialLoading;
-              
+
               // Get session information
               const sessionInfo = cooldowns[action]?.sessionInfo;
-              
+
               // Build tooltip
               let actionTooltip = tooltip;
               if (!isAvailableForStage) {
@@ -400,7 +400,7 @@ export function BlobbiActions({
                   actionTooltip = `Cooldown: ${remainingTime}`;
                 }
               }
-              
+
               return (
                 <Button
                   key={action}
@@ -417,7 +417,7 @@ export function BlobbiActions({
                 >
                   <Icon className="w-5 h-5" />
                   <span className="text-xs">{label}</span>
-                  
+
                   {/* Cooldown timer - only show when on cooldown */}
                   {isOnCooldown && remainingTime && (
                     <span className="absolute -top-1 -right-1 text-[10px] bg-background px-1 rounded border">
@@ -433,7 +433,7 @@ export function BlobbiActions({
                 </Button>
               );
             })}
-            
+
             {/* Games Button - only for baby and adult */}
             {blobbi.lifeStage !== 'egg' && (
               <Button
@@ -453,13 +453,14 @@ export function BlobbiActions({
           </div>
         </CardContent>
       </Card>
-      
+
       {selectedAction && (
         <BlobbiInventoryModal
           isOpen={inventoryModalOpen}
           onClose={handleInventoryClose}
           actionType={selectedAction}
           onOpenShop={onOpenShop}
+          blobbi={blobbi}
         />
       )}
     </>
