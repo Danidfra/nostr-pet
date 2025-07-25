@@ -19,6 +19,7 @@ interface BlobbiInventoryModalProps {
   actionType: BlobbiAction;
   onOpenShop?: () => void;
   blobbi?: Blobbi; // Optional blobbi prop for companion usage
+  isCompanionContext?: boolean; // Flag to indicate if this is being used from companion context
 }
 
 const ACTION_TYPE_MAP: Record<BlobbiAction, string> = {
@@ -47,7 +48,7 @@ const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: strin
   cruzar: null,
 };
 
-export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, blobbi: propBlobbi }: BlobbiInventoryModalProps) {
+export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, blobbi: propBlobbi, isCompanionContext = false }: BlobbiInventoryModalProps) {
   const { blobbi: contextBlobbi } = useBlobbiWithFakeStatus();
   const { data: blobbonautProfile, isLoading: isProfileLoading, removeFromStorage } = useBlobbonautProfileWithFakeInventory();
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteractionWithFakeStatus();
@@ -89,8 +90,27 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
     try {
       // ✅ NEW: Handle toy placement differently from other items
       if (actionType === 'play' && selectedItem.type === 'toy') {
-        // For toys, place them in the companion and trigger physics
-        await placeToyInCompanion(selectedItem);
+        // Only place toys in the companion if this is being used from companion context
+        if (isCompanionContext) {
+          // For toys, place them in the companion and trigger physics
+          await placeToyInCompanion(selectedItem);
+        } else {
+          // For detailed blobbi page, just apply the toy effects without visual placement
+          // First, remove the item from storage
+          await removeFromStorage({
+            itemId: selectedItem.id,
+            quantity: 1,
+          });
+
+          // Then use the enhanced care interaction system with item effects
+          await performCareInteraction({
+            blobbiId: blobbi.id,
+            action: actionType,
+            itemEffects: selectedItem.effect,
+            itemUsed: selectedItem.name,
+            currentBlobbi: blobbi,
+          });
+        }
       } else {
         // Handle other items normally (food, medicine, hygiene)
 
