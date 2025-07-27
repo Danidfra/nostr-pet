@@ -478,6 +478,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
         onClose={handlePlayModalClose}
         actionType="play"
         blobbi={companionData?.blobbi || undefined}
+        isCompanionContext={true}
         onOpenShop={() => {
           setShopDefaultTab('toys');
           setIsShopModalOpen(true);
@@ -488,6 +489,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
         onClose={handleMedicineModalClose}
         actionType="medicine"
         blobbi={companionData?.blobbi || undefined}
+        isCompanionContext={true}
         onOpenShop={() => {
           setShopDefaultTab('medicine');
           setIsShopModalOpen(true);
@@ -498,6 +500,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
         onClose={handleCleaningModalClose}
         actionType="clean"
         blobbi={companionData?.blobbi || undefined}
+        isCompanionContext={true}
         onOpenShop={() => {
           setShopDefaultTab('hygiene');
           setIsShopModalOpen(true);
