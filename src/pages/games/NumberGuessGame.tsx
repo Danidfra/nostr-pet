@@ -32,13 +32,13 @@ export function NumberGuessGame() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   // Get the specific Blobbi ID from navigation state
   const blobbiId = location.state?.blobbiId;
-  
+
   // Use the specific Blobbi if provided, otherwise fall back to user's Blobbi
   const { blobbi, playGame, isPlaying, isLoading } = useBlobbiGameSystem(blobbiId);
-  
+
   const [gameState, setGameState] = useState<GameState>({
     currentNumber: Math.floor(Math.random() * 9) + 1,
     nextNumber: null,
@@ -90,7 +90,7 @@ export function NumberGuessGame() {
     if (!gameState.isPlaying || gameState.showResult) return;
 
     const nextNumber = generateNumber();
-    const isCorrect = 
+    const isCorrect =
       (guess === 'higher' && nextNumber > gameState.currentNumber) ||
       (guess === 'lower' && nextNumber < gameState.currentNumber);
 
@@ -128,8 +128,31 @@ export function NumberGuessGame() {
     }
   }, [gameState.round]);
 
+  // Handle leaving the game
+  const handleLeaveGame = useCallback(() => {
+    // Reset all game state
+    setHasEndedGame(false);
+    setGameState({
+      currentNumber: Math.floor(Math.random() * 9) + 1,
+      nextNumber: null,
+      round: 1,
+      correctGuesses: 0,
+      totalRounds: TOTAL_ROUNDS,
+      isPlaying: false,
+      gameOver: false,
+      playerGuess: null,
+      showResult: false,
+      lastGuessCorrect: null,
+      gameStartTime: 0,
+      gameStarted: false,
+    });
+    navigate(-1);
+  }, [navigate]);
+
   // End game and record interaction
   const endGame = useCallback(async (finalScore: number, won: boolean) => {
+    if (hasEndedGame) return; // Prevent multiple calls
+
     const gameDuration = Math.floor((Date.now() - gameState.gameStartTime) / 1000);
 
     try {
@@ -155,20 +178,24 @@ export function NumberGuessGame() {
         description: `You got ${finalScore}/${TOTAL_ROUNDS} correct!`,
       });
     }
-  }, [effectiveBlobbiId, blobbi, playGame, toast, gameState.gameStartTime]);
+  }, [effectiveBlobbiId, blobbi, playGame, toast, gameState.gameStartTime, hasEndedGame]);
 
-  // Handle game over
+  // Handle game over - only run once when game ends
   useEffect(() => {
-    if (gameState.gameOver && !hasEndedGame) {
+    if (gameState.gameOver && !hasEndedGame && !isPlaying) {
       setHasEndedGame(true);
       const won = gameState.correctGuesses >= WINNING_THRESHOLD;
-      endGame(gameState.correctGuesses, won);
+
+      // Use setTimeout to prevent potential React batching issues
+      setTimeout(() => {
+        endGame(gameState.correctGuesses, won);
+      }, 100);
     }
-  }, [gameState.gameOver, gameState.correctGuesses, endGame, hasEndedGame]);
+  }, [gameState.gameOver, hasEndedGame, isPlaying]); // Added isPlaying to prevent calling during mutation
 
   const getResultMessage = () => {
     if (!gameState.showResult || gameState.lastGuessCorrect === null) return '';
-    
+
     if (gameState.lastGuessCorrect) {
       return `Correct! ${gameState.nextNumber} is ${gameState.playerGuess} than ${gameState.currentNumber}`;
     } else {
@@ -195,7 +222,7 @@ export function NumberGuessGame() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(-1)}
+                onClick={handleLeaveGame}
                 className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -228,7 +255,7 @@ export function NumberGuessGame() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(-1)}
+                onClick={handleLeaveGame} disabled={isPlaying}
                 className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -241,7 +268,7 @@ export function NumberGuessGame() {
               <div className="flex items-center justify-center h-[400px]">
                 <div className="text-center space-y-4">
                   <p className="text-gray-600 dark:text-gray-400">No Blobbi found to play with!</p>
-                  <Button onClick={() => navigate(-1)} variant="outline">
+                  <Button onClick={handleLeaveGame} variant="outline">
                     Go Back
                   </Button>
                 </div>
@@ -262,7 +289,7 @@ export function NumberGuessGame() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate(-1)}
+              onClick={handleLeaveGame}
               className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -281,7 +308,7 @@ export function NumberGuessGame() {
             </Button>
           </div>
         </div>
-        
+
         {/* Game Stats */}
         <div className="flex justify-center gap-4 mb-4">
           <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
@@ -292,7 +319,7 @@ export function NumberGuessGame() {
               </span>
             </div>
           </Card>
-          
+
           <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <div className="flex items-center gap-2">
               <span className="font-bold text-gray-900 dark:text-gray-100">
@@ -306,12 +333,12 @@ export function NumberGuessGame() {
         <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
           <CardContent className="p-0">
             <div className="relative w-full h-[600px] bg-gradient-to-t from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30">
-              
+
               {/* Game Content */}
               {gameState.isPlaying && (
                 <div className="absolute inset-0 flex items-center justify-center p-4">
                   <div className="flex flex-col items-center justify-center gap-8 w-full max-w-5xl">
-                    
+
                     {/* Numbers Row */}
                     <div className="flex items-center justify-center gap-12 md:gap-16 lg:gap-24 w-full">
                       {/* Left Number */}
@@ -326,8 +353,8 @@ export function NumberGuessGame() {
                       <div className="flex flex-col items-center gap-3">
                         <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Next Number</div>
                         <Card className={`w-20 h-20 md:w-24 md:h-24 flex items-center justify-center border-2 shadow-lg ${
-                          gameState.nextNumber !== null 
-                            ? 'bg-purple-500 text-white border-purple-600' 
+                          gameState.nextNumber !== null
+                            ? 'bg-purple-500 text-white border-purple-600'
                             : 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
                         }`}>
                           <span className="text-3xl md:text-4xl font-bold">
@@ -353,19 +380,19 @@ export function NumberGuessGame() {
                           </style>
                           <div className="game-blobbi-wrapper">
                             {blobbi.evolutionForm ? (
-                              <BlobbiEvolvedVisual 
-                                blobbi={blobbi} 
+                              <BlobbiEvolvedVisual
+                                blobbi={blobbi}
                                 size="large"
                               />
                             ) : (
-                              <BlobbiVisual 
-                                blobbi={blobbi} 
+                              <BlobbiVisual
+                                blobbi={blobbi}
                                 size="large"
                               />
                             )}
                           </div>
                         </div>
-                        
+
                         {/* Game Controls */}
                         {!gameState.showResult && (
                           <div className="flex gap-6">
@@ -431,23 +458,23 @@ export function NumberGuessGame() {
                           </style>
                           <div className="game-blobbi-wrapper">
                             {blobbi.evolutionForm ? (
-                              <BlobbiEvolvedVisual 
-                                blobbi={blobbi} 
+                              <BlobbiEvolvedVisual
+                                blobbi={blobbi}
                                 size="large"
                               />
                             ) : (
-                              <BlobbiVisual 
-                                blobbi={blobbi} 
+                              <BlobbiVisual
+                                blobbi={blobbi}
                                 size="large"
                               />
                             )}
                           </div>
                         </div>
-                        
+
                         {/* Start Game Button */}
-                        <Button 
-                          onClick={startGame} 
-                          size="lg" 
+                        <Button
+                          onClick={startGame} disabled={isPlaying}
+                          size="lg"
                           className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-3 text-lg font-semibold shadow-lg"
                         >
                           <Play className="w-6 h-6" />
@@ -482,8 +509,8 @@ export function NumberGuessGame() {
                           <RotateCcw className="w-4 h-4" />
                           Play Again
                         </Button>
-                        <Button variant="outline" onClick={() => navigate(-1)} className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
-                          Back to Games
+                        <Button variant="outline" onClick={handleLeaveGame} className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
+                          {isPlaying ? 'Saving...' : 'Back to Blobbi'}
                         </Button>
                       </div>
                     </CardContent>
@@ -510,7 +537,7 @@ export function NumberGuessGame() {
             <p className="text-gray-600 dark:text-gray-400">
               Test your intuition in this classic Tamagotchi-style guessing game!
             </p>
-            
+
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-blue-500 text-white text-sm flex items-center justify-center font-bold mt-0.5">1</div>
@@ -519,7 +546,7 @@ export function NumberGuessGame() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">A number from 1-9 will be shown on the left</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-green-500 text-white text-sm flex items-center justify-center font-bold mt-0.5">2</div>
                 <div>
@@ -527,7 +554,7 @@ export function NumberGuessGame() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Will the next number be Higher or Lower?</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-purple-500 text-white text-sm flex items-center justify-center font-bold mt-0.5">3</div>
                 <div>
@@ -556,8 +583,8 @@ export function NumberGuessGame() {
               </ul>
             </div>
 
-            <Button 
-              onClick={() => setShowHowToPlay(false)} 
+            <Button
+              onClick={() => setShowHowToPlay(false)}
               className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
             >
               Got it, let's play!
@@ -579,7 +606,7 @@ export function NumberGuessGame() {
             <p className="text-gray-600 dark:text-gray-400">
               Need a refresher on how to play?
             </p>
-            
+
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <TrendingUp className="w-5 h-5 text-green-500 mt-1" />
@@ -588,7 +615,7 @@ export function NumberGuessGame() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Click when you think the next number will be greater than the current number</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <TrendingDown className="w-5 h-5 text-red-500 mt-1" />
                 <div>
@@ -608,8 +635,8 @@ export function NumberGuessGame() {
               </ul>
             </div>
 
-            <Button 
-              onClick={() => setShowHelp(false)} 
+            <Button
+              onClick={() => setShowHelp(false)}
               className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
             >
               Back to Game
