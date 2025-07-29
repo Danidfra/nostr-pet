@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { SettingsButton } from '@/components/SettingsButton';
@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Home } from 'lucide-react';
+import { MoreVertical, Home, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function HeaderActions() {
@@ -80,27 +80,39 @@ function MobileHeaderMenu() {
 
 export function GlobalHeader() {
   const isMobile = useIsMobile();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Check if we're on a Blobbi detail page
+  const isBlobbiDetailPage = location.pathname.match(/^\/blobbi\/[^/]+$/);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 sm:p-4">
         <div className="flex h-20 items-center justify-between">
-          {/* Logo/Brand */}
-          <Link
-            to="/"
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity duration-200"
-          >
-            <img
-              src="/blobbilogo.svg"
-              alt="Blobbi"
-              className="w-32 sm:w-48"
-            />
-            {/* <div className="hidden sm:block">
-              <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
-                Blobbi
-              </h1>
-            </div> */}
-          </Link>
+          {/* Logo/Brand with optional back arrow */}
+          <div className="flex items-center gap-3">
+            {isBlobbiDetailPage && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/blobbi')}
+                className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            )}
+            <Link
+              to="/"
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity duration-200"
+            >
+              <img
+                src="/blobbilogo.svg"
+                alt="Blobbi"
+                className="w-32 sm:w-48"
+              />
+            </Link>
+          </div>
 
           {/* Navigation Actions */}
           <div className="flex items-center gap-2">

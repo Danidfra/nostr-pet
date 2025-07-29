@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import {
-  ArrowLeft,
   Coins,
   Trophy,
   Calendar,
@@ -48,7 +47,7 @@ import { EvolutionProgress } from '@/components/blobbi/EvolutionProgress';
 import { EggGraphic } from '@/components/blobbi/EggGraphic';
 import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { AppHeader } from '@/components/AppHeader';
+
 import { formatDistanceToNow } from 'date-fns';
 import { getActionDisplayName } from '@/lib/utils';
 import { BlobbiAction } from '@/types/blobbi';
@@ -58,7 +57,6 @@ import { SetCompanionButton } from '@/components/SetCompanionButton';
 import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
 
 export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
-  const navigate = useNavigate();
   const { user } = useCurrentUser();
   const {
     blobbi,
@@ -203,18 +201,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     <BlobbiLayout>
       <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
         <div className="container mx-auto py-8 px-4">
-        {/* Header */}
-        <AppHeader
-        logo='/blobbilogo.svg'
-        logoClassName='w-40 sm:w-60'
-            title={blobbi.name}
-            subtitle={`${blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} • Born ${formatDistanceToNow(blobbi.birthTime, { addSuffix: true })}`}
-            leftContent={
-              <Button variant="outline" size="sm" onClick={() => navigate('/blobbi')} className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            }
-          />
+
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left Column - Visual and Stats */}
