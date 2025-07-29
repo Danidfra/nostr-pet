@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ArrowLeft, Play, RotateCcw, Trophy, TrendingUp, TrendingDown, HelpCircle } from 'lucide-react';
 import { useBlobbiGameSystem } from '@/hooks/useBlobbiInteractionSystem';
 import { useToast } from '@/hooks/useToast';
+import { useAddCoins } from '@/hooks/useBlobbonautProfile';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 import { AppHeader } from '@/components/AppHeader';
@@ -32,6 +33,7 @@ export function NumberGuessGame() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { mutateAsync: addCoins } = useAddCoins();
 
   // Get the specific Blobbi ID from navigation state
   const blobbiId = location.state?.blobbiId;
@@ -161,24 +163,27 @@ export function NumberGuessGame() {
         await playGame('number-guess', finalScore, gameDuration, 10);
       }
 
-      // Award coins based on performance (handled automatically by the game system)
+      // Award coins based on performance
       const baseCoins = won ? 30 : 10; // Bonus for winning
       const bonusCoins = finalScore * 5; // 5 coins per correct guess
       const totalCoins = baseCoins + bonusCoins;
+
+      // Actually add the coins to the user's balance
+      await addCoins(totalCoins);
 
       toast({
         title: won ? 'You Won!' : 'Game Over!',
         description: `You got ${finalScore}/${TOTAL_ROUNDS} correct and earned ${totalCoins} coins!`,
       });
     } catch (error) {
-      console.error('Failed to record game interaction:', error);
+      console.error('Failed to record game interaction or add coins:', error);
       // Still show game over message even if recording fails
       toast({
         title: won ? 'You Won!' : 'Game Over!',
         description: `You got ${finalScore}/${TOTAL_ROUNDS} correct!`,
       });
     }
-  }, [effectiveBlobbiId, blobbi, playGame, toast, gameState.gameStartTime, hasEndedGame]);
+  }, [effectiveBlobbiId, blobbi, playGame, toast, gameState.gameStartTime, hasEndedGame, addCoins]);
 
   // Handle game over - only run once when game ends
   useEffect(() => {
