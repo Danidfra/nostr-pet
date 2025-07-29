@@ -22,3 +22,6 @@ dist-ssr
 *.sw?
 
 blobbi-docs
+
+# Stacks CLI
+.ai-history/
