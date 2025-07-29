@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Play, RotateCcw, Trophy } from 'lucide-react';
 import { useBlobbiGameSystem } from '@/hooks/useBlobbiInteractionSystem';
 import { useToast } from '@/hooks/useToast';
+import { useAddCoins } from '@/hooks/useBlobbonautProfile';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 
@@ -49,6 +50,7 @@ export function BubblePopGame() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { mutateAsync: addCoins } = useAddCoins();
 
   // Get the specific Blobbi ID from navigation state
   const blobbiId = location.state?.blobbiId;
@@ -150,8 +152,12 @@ export function BubblePopGame() {
         await playGame('bubble-pop', finalScore, GAME_DURATION, 10);
       }
 
-      // Award coins based on score (this is now handled automatically by the game system)
+      // Award coins based on score
       const coinsEarned = Math.floor(finalScore / 10);
+
+      // Actually add the coins to the user's balance
+      await addCoins(coinsEarned);
+
       toast({
         title: 'Game Over!',
         description: `You scored ${finalScore} points and earned ${coinsEarned} coins!`,
@@ -164,7 +170,7 @@ export function BubblePopGame() {
         description: `You scored ${finalScore} points!`,
       });
     }
-  }, [effectiveBlobbiId, blobbi, playGame, toast]);
+  }, [effectiveBlobbiId, blobbi, playGame, toast, addCoins]);
 
   // Game loop
   useEffect(() => {

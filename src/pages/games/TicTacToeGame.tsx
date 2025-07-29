@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ArrowLeft, Play, RotateCcw, Trophy, Users, HelpCircle } from 'lucide-react';
 import { useBlobbiGameSystem } from '@/hooks/useBlobbiInteractionSystem';
 import { useToast } from '@/hooks/useToast';
+import { useAddCoins } from '@/hooks/useBlobbonautProfile';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 
@@ -45,16 +46,17 @@ export function TicTacToeGame() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+  const { mutateAsync: addCoins } = useAddCoins();
+
   // Get the specific Blobbi ID from navigation state
   const blobbiId = location.state?.blobbiId;
-  
+
   // Use the specific Blobbi if provided, otherwise fall back to user's Blobbi
   const { blobbi, playGame, isPlaying, isLoading } = useBlobbiGameSystem(blobbiId);
-  
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
-  
+
   const [gameState, setGameState] = useState<GameState>({
     board: Array(9).fill(null),
     currentPlayer: 'X',
@@ -85,26 +87,26 @@ export function TicTacToeGame() {
         if (a < 3 && b < 3 && c < 3) direction = 'horizontal';
         else if (a % 3 === b % 3 && b % 3 === c % 3) direction = 'vertical';
         else direction = 'diagonal';
-        
-        return { 
-          winner: board[a] as Player, 
-          winLine: { indices: combination, direction } 
+
+        return {
+          winner: board[a] as Player,
+          winLine: { indices: combination, direction }
         };
       }
     }
-    
+
     // Check for tie
     if (board.every(cell => cell !== null)) {
       return { winner: 'tie', winLine: null };
     }
-    
+
     return { winner: null, winLine: null };
   }, []);
 
   // Bot AI - Simple but not too hard to beat
   const getBotMove = useCallback((board: Board): number => {
     const availableMoves = board.map((cell, index) => cell === null ? index : null).filter(val => val !== null) as number[];
-    
+
     if (availableMoves.length === 0) return -1;
 
     const mistakeProbability = 0.5; // 50% chance of making a suboptimal move
@@ -153,10 +155,10 @@ export function TicTacToeGame() {
       const newBoard = [...prev.board];
       const currentPlayer = player || prev.currentPlayer;
       newBoard[index] = currentPlayer;
-      
+
       const { winner, winLine } = checkWinner(newBoard);
       const nextPlayer = currentPlayer === 'X' ? 'O' : 'X';
-      
+
       return {
         ...prev,
         board: newBoard,
@@ -219,7 +221,7 @@ export function TicTacToeGame() {
       // Award coins based on outcome
       let coinsEarned = 0;
       let message = '';
-      
+
       if (winner === 'X') {
         coinsEarned = 50; // Player X wins
         message = 'Player X wins! You earned 50 coins!';
@@ -234,6 +236,9 @@ export function TicTacToeGame() {
         message = 'Game completed! You earned 10 coins!';
       }
 
+      // Actually add the coins to the user's balance
+      await addCoins(coinsEarned);
+
       toast({
         title: 'Game Over!',
         description: message,
@@ -246,16 +251,16 @@ export function TicTacToeGame() {
         description: winner === 'X' ? 'Player X wins!' : winner === 'O' ? 'Player O wins!' : winner === 'tie' ? "It's a tie!" : 'Game completed!',
       });
     }
-  }, [effectiveBlobbiId, blobbi, playGame, toast, gameState.gameStartTime]);
+  }, [effectiveBlobbiId, blobbi, playGame, toast, gameState.gameStartTime, addCoins]);
 
   // Handle bot moves
   useEffect(() => {
-    if (gameState.gameMode === 'bot' && 
-        gameState.isPlaying && 
-        !gameState.isPlayerTurn && 
+    if (gameState.gameMode === 'bot' &&
+        gameState.isPlaying &&
+        !gameState.isPlayerTurn &&
         !gameState.gameOver &&
         gameState.currentPlayer === 'O') {
-      
+
       const timer = setTimeout(() => {
         const botMoveIndex = getBotMove(gameState.board);
         if (botMoveIndex !== -1) {
@@ -271,13 +276,13 @@ export function TicTacToeGame() {
   useEffect(() => {
     if (gameState.gameOver && !hasEndedGame) {
       setHasEndedGame(true);
-      
+
       // Find and set win line for animation
       if (gameState.winner && gameState.winner !== 'tie') {
         const { winLine } = checkWinner(gameState.board);
         setWinLine(winLine);
       }
-      
+
       // Delay end game to show win line animation
       setTimeout(() => {
         endGame(gameState.winner, gameState.moves);
@@ -288,7 +293,7 @@ export function TicTacToeGame() {
   // Handle canvas click
   const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!gameState.isPlaying || !canvasRef.current) return;
-    
+
     // In bot mode, only allow clicks when it's player's turn
     if (gameState.gameMode === 'bot' && !gameState.isPlayerTurn) return;
 
@@ -312,7 +317,7 @@ export function TicTacToeGame() {
   const handleCanvasTouch = useCallback((event: React.TouchEvent<HTMLCanvasElement>) => {
     event.preventDefault();
     if (!gameState.isPlaying || !canvasRef.current) return;
-    
+
     // In bot mode, only allow touches when it's player's turn
     if (gameState.gameMode === 'bot' && !gameState.isPlayerTurn) return;
 
@@ -384,7 +389,7 @@ export function TicTacToeGame() {
           const gradient = ctx.createLinearGradient(centerX - size, centerY - size, centerX + size, centerY + size);
           gradient.addColorStop(0, '#FF6B9D');
           gradient.addColorStop(1, '#C44569');
-          
+
           ctx.strokeStyle = gradient;
           ctx.lineWidth = 8;
           ctx.lineCap = 'round';
@@ -401,7 +406,7 @@ export function TicTacToeGame() {
           const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, size);
           gradient.addColorStop(0, '#4ECDC4');
           gradient.addColorStop(1, '#26A69A');
-          
+
           ctx.strokeStyle = gradient;
           ctx.lineWidth = 8;
           ctx.lineCap = 'round';
@@ -417,7 +422,7 @@ export function TicTacToeGame() {
       if (winLine && gameState.gameOver) {
         const time = Date.now() * 0.005;
         const opacity = 0.5 + 0.3 * Math.sin(time);
-        
+
         ctx.strokeStyle = `rgba(255, 215, 0, ${opacity})`;
         ctx.lineWidth = 12;
         ctx.lineCap = 'round';
@@ -477,11 +482,11 @@ export function TicTacToeGame() {
       }
       return `Player ${gameState.winner} wins!`;
     }
-    
+
     if (gameState.gameMode === 'bot') {
       return gameState.currentPlayer === 'X' ? "Your turn" : "Bot's turn";
     }
-    
+
     return `Player ${gameState.currentPlayer}'s turn`;
   };
 
@@ -581,7 +586,7 @@ export function TicTacToeGame() {
             </Button>
           </div>
         </div>
-        
+
         {/* Game Stats */}
         <div className="flex justify-center gap-4 mb-4">
           <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
@@ -592,7 +597,7 @@ export function TicTacToeGame() {
               </span>
             </div>
           </Card>
-          
+
           <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <div className="flex items-center gap-2">
               <Trophy className="w-4 h-4 text-yellow-600" />
@@ -607,18 +612,18 @@ export function TicTacToeGame() {
         <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
           <CardContent className="p-0">
             <div className="relative w-full h-[600px] bg-gradient-to-t from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30">
-              
+
               {/* Game Content */}
               {gameState.isPlaying && (
                 <div className="absolute inset-0 flex items-center justify-center p-4">
                   <div className="flex flex-col items-center justify-center gap-8 w-full max-w-5xl">
-                    
+
                     {/* Game Board */}
                     <div className="flex flex-col items-center gap-6">
                       <div className="text-lg font-semibold text-gray-700 dark:text-gray-300">
                         {getGameStatusMessage()}
                       </div>
-                      
+
                       {/* Canvas Game Board */}
                       <div className="relative">
                         <canvas
@@ -644,19 +649,19 @@ export function TicTacToeGame() {
                           </style>
                           <div className="game-blobbi-wrapper">
                             {blobbi.evolutionForm ? (
-                              <BlobbiEvolvedVisual 
-                                blobbi={blobbi} 
+                              <BlobbiEvolvedVisual
+                                blobbi={blobbi}
                                 size="medium"
                               />
                             ) : (
-                              <BlobbiVisual 
-                                blobbi={blobbi} 
+                              <BlobbiVisual
+                                blobbi={blobbi}
                                 size="medium"
                               />
                             )}
                           </div>
                         </div>
-                        
+
                         {/* Reset Button */}
                         <div className="flex gap-2">
                           <Button
@@ -701,33 +706,33 @@ export function TicTacToeGame() {
                           </style>
                           <div className="game-blobbi-wrapper">
                             {blobbi.evolutionForm ? (
-                              <BlobbiEvolvedVisual 
-                                blobbi={blobbi} 
+                              <BlobbiEvolvedVisual
+                                blobbi={blobbi}
                                 size="large"
                               />
                             ) : (
-                              <BlobbiVisual 
-                                blobbi={blobbi} 
+                              <BlobbiVisual
+                                blobbi={blobbi}
                                 size="large"
                               />
                             )}
                           </div>
                         </div>
-                        
+
                         {/* Game Mode Buttons */}
                         <div className="flex flex-col gap-4 w-full max-w-md">
-                          <Button 
-                            onClick={() => startGame('bot')} 
-                            size="lg" 
+                          <Button
+                            onClick={() => startGame('bot')}
+                            size="lg"
                             className="flex items-center gap-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-4 text-lg font-semibold shadow-lg"
                           >
                             <Play className="w-6 h-6" />
                             Play vs Bot
                           </Button>
-                          
-                          <Button 
-                            onClick={() => {/* Multiplayer coming soon */}} 
-                            size="lg" 
+
+                          <Button
+                            onClick={() => {/* Multiplayer coming soon */}}
+                            size="lg"
                             variant="outline"
                             disabled
                             className="flex items-center justify-between gap-3 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 px-8 py-4 text-lg font-semibold opacity-60 cursor-not-allowed"
@@ -760,8 +765,8 @@ export function TicTacToeGame() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="text-lg text-gray-900 dark:text-gray-100">
-                        {gameState.winner === 'tie' 
-                          ? "Great game! Both players played well!" 
+                        {gameState.winner === 'tie'
+                          ? "Great game! Both players played well!"
                           : gameState.gameMode === 'bot'
                             ? (gameState.winner === 'X' ? "Congratulations! You beat the bot!" : "The bot won this time!")
                             : `Congratulations to Player ${gameState.winner}!`
@@ -771,16 +776,16 @@ export function TicTacToeGame() {
                         You earned {gameState.winner === 'tie' ? 25 : 50} coins!
                       </div>
                       <div className="flex gap-2 justify-center">
-                        <Button 
-                          onClick={() => gameState.gameMode && startGame(gameState.gameMode)} 
+                        <Button
+                          onClick={() => gameState.gameMode && startGame(gameState.gameMode)}
                           className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
                         >
                           <RotateCcw className="w-4 h-4" />
                           Play Again
                         </Button>
-                        <Button 
-                          onClick={resetToModeSelection} 
-                          variant="outline" 
+                        <Button
+                          onClick={resetToModeSelection}
+                          variant="outline"
                           className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
                         >
                           Change Mode
@@ -811,7 +816,7 @@ export function TicTacToeGame() {
             <p className="text-gray-600 dark:text-gray-400">
               The classic strategy game for two players! Take turns and try to get three in a row.
             </p>
-            
+
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-pink-500 text-white text-sm flex items-center justify-center font-bold mt-0.5">X</div>
@@ -820,7 +825,7 @@ export function TicTacToeGame() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Click or tap any empty cell to place your X</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-teal-500 text-white text-sm flex items-center justify-center font-bold mt-0.5">O</div>
                 <div>
@@ -828,7 +833,7 @@ export function TicTacToeGame() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Take turns placing your symbols</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-yellow-500 text-white text-sm flex items-center justify-center font-bold mt-0.5">3</div>
                 <div>
@@ -867,8 +872,8 @@ export function TicTacToeGame() {
               </ul>
             </div>
 
-            <Button 
-              onClick={() => setShowHowToPlay(false)} 
+            <Button
+              onClick={() => setShowHowToPlay(false)}
               className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
             >
               Got it, let's play!
@@ -890,7 +895,7 @@ export function TicTacToeGame() {
             <p className="text-gray-600 dark:text-gray-400">
               Need help with the controls?
             </p>
-            
+
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded border-2 border-purple-300 flex items-center justify-center">
@@ -901,7 +906,7 @@ export function TicTacToeGame() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Tap any empty cell to place your symbol</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded border-2 border-purple-300 flex items-center justify-center">
                   <span className="text-xs">🖱️</span>
@@ -923,8 +928,8 @@ export function TicTacToeGame() {
               </ul>
             </div>
 
-            <Button 
-              onClick={() => setShowHelp(false)} 
+            <Button
+              onClick={() => setShowHelp(false)}
               className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
             >
               Back to Game
