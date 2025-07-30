@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BlobbiAction, Blobbi, BlobbiInteractionType } from '@/types/blobbi';
-import { Utensils, Gamepad2, Bath, Moon, Sun, Pill, Trophy, Thermometer, Eye, Music, MessageCircle, RefreshCw, Heart } from 'lucide-react';
+import { Utensils, Gamepad2, Bath, Moon, Sun, Pill, Trophy, Thermometer, Eye, Music, MessageCircle, Heart } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { BlobbiInventoryModal } from './BlobbiInventoryModal';
-import { useBlobbiCooldowns } from '@/hooks/useBlobbiCooldowns';
+
 import { useBlobbiCareInteractionWithFakeStatus } from '@/hooks/useBlobbiInteractionWithFakeStatus';
 import { BlobbiFakeStatusIndicator } from './BlobbiFakeStatusIndicator';
 import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
@@ -51,17 +51,7 @@ export function BlobbiActions({
   const { mutateAsync: createInitialProfile } = useCreateInitialProfile();
   const { toast } = useToast();
 
-  // Use the new cooldown system
-  const {
-    cooldowns,
-    isLoading: cooldownsLoading,
-    error: cooldownError,
-    recordInteraction,
-    refreshCooldowns,
-    formatRemainingTime,
-    isActionOnCooldown,
-    isActionAvailable,
-  } = useBlobbiCooldowns(blobbi);
+
 
   // Use the enhanced interaction system that automatically handles both 14919 and 31124 events
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteractionWithFakeStatus();
@@ -113,33 +103,7 @@ export function BlobbiActions({
       return;
     }
 
-    // Check if action is on cooldown using the new local-first system
-    const isOnCooldown = isActionOnCooldown(action);
-    if (isOnCooldown) {
-      // Import and log blocked action
-      const { logInteractionBlockedByCooldown } = await import('@/lib/interaction-logger');
-      const remainingMs = cooldowns[action]?.remainingTime || 0;
-      logInteractionBlockedByCooldown(action, blobbi.id, blobbi.lifeStage, remainingMs);
 
-      const remainingTime = formatRemainingTime(action);
-      const sessionInfo = cooldowns[action]?.sessionInfo;
-      const isGlobalCooldown = sessionInfo?.isInGlobalCooldown;
-
-      toast({
-        title: isGlobalCooldown ? "Global Cooldown Active" : "Action on Cooldown",
-        description: isGlobalCooldown
-          ? `You've reached the action limit. Wait ${remainingTime} before using again.`
-          : `Wait ${remainingTime} before using ${action} again.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Final check if action is available (not on cooldown and valid for stage)
-    if (!isActionAvailable(action)) {
-      console.warn(`Action ${action} failed final availability check for ${blobbi.id}`);
-      return;
-    }
 
     // For actions that require items, open the inventory modal
     if (['feed', 'play', 'clean', 'medicine'].includes(action)) {
@@ -168,8 +132,7 @@ export function BlobbiActions({
         } else {
           await putToSleep();
         }
-        // Record the interaction for cooldown tracking
-        await recordInteraction(action);
+
 
         // Log successful interaction
         const { logInteractionSuccess } = await import('@/lib/interaction-logger');
@@ -191,8 +154,7 @@ export function BlobbiActions({
           action: action as 'warm' | 'check' | 'sing' | 'talk',
           currentBlobbi: blobbi, // Pass current blobbi for fake status updates
         });
-        // Record the interaction for cooldown tracking
-        await recordInteraction(action);
+
 
         // Log successful interaction
         const { logInteractionSuccess } = await import('@/lib/interaction-logger');
@@ -202,7 +164,7 @@ export function BlobbiActions({
         // Fallback to old system if new system fails
         try {
           await onAction(action);
-          await recordInteraction(action);
+
         } catch (fallbackError) {
           console.error('Fallback action also failed:', fallbackError);
         }
@@ -214,14 +176,7 @@ export function BlobbiActions({
     setInventoryModalOpen(false);
     setSelectedAction(null);
 
-    // If an action was performed through the inventory modal, record it
-    if (actionPerformed && action) {
-      try {
-        await recordInteraction(action);
-      } catch (error) {
-        console.error('Failed to record interaction:', error);
-      }
-    }
+
   };
 
   const getActionsForStage = () => {
@@ -352,24 +307,9 @@ export function BlobbiActions({
                 hasFakeStatus={hasFakeStatus(blobbi.id)}
                 pendingInteractionCount={getPendingInteractionCount(blobbi.id)}
               />
+
             </CardTitle>
-            {cooldownError && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={refreshCooldowns}
-                className="h-6 w-6 p-0"
-                title="Refresh cooldowns"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-            )}
           </div>
-          {cooldownError && (
-            <p className="text-xs text-muted-foreground text-red-500">
-              Failed to sync cooldowns. Using local cache.
-            </p>
-          )}
         </CardHeader>
         <CardContent>
           <div className={cn(
@@ -379,26 +319,14 @@ export function BlobbiActions({
             {actions.map(({ action, icon: Icon, label, color, disabled, tooltip }) => {
               // Check if action is available for this stage
               const isAvailableForStage = isActionAvailableForStage(action, blobbi.lifeStage);
-              const isOnCooldown = isActionOnCooldown(action);
-              const remainingTime = formatRemainingTime(action);
 
-              // Only show loading for the initial cooldown system setup, not for ongoing updates
-              const isInitialLoading = cooldownsLoading && !cooldowns[action];
-              const isDisabled = !isAvailableForStage || disabled || isOnCooldown || isPerformingAction || isInitialLoading;
 
-              // Get session information
-              const sessionInfo = cooldowns[action]?.sessionInfo;
+              const isDisabled = !isAvailableForStage || disabled || isPerformingAction;
 
-              // Build tooltip
+              // Build tooltip - no cooldown info
               let actionTooltip = tooltip;
               if (!isAvailableForStage) {
                 actionTooltip = `Not available in ${blobbi.lifeStage} stage`;
-              } else if (isOnCooldown && remainingTime) {
-                if (sessionInfo?.isInGlobalCooldown) {
-                  actionTooltip = `Global cooldown: ${remainingTime}`;
-                } else {
-                  actionTooltip = `Cooldown: ${remainingTime}`;
-                }
               }
 
               return (
@@ -418,18 +346,7 @@ export function BlobbiActions({
                   <Icon className="w-5 h-5" />
                   <span className="text-xs">{label}</span>
 
-                  {/* Cooldown timer - only show when on cooldown */}
-                  {isOnCooldown && remainingTime && (
-                    <span className="absolute -top-1 -right-1 text-[10px] bg-background px-1 rounded border">
-                      {remainingTime}
-                    </span>
-                  )}
-                  {/* Only show loading spinner during initial setup */}
-                  {isInitialLoading && (
-                    <div className="absolute inset-0 bg-background/50 rounded flex items-center justify-center">
-                      <RefreshCw className="w-3 h-3 animate-spin" />
-                    </div>
-                  )}
+
                 </Button>
               );
             })}
