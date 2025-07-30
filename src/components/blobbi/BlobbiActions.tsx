@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BlobbiAction, Blobbi, BlobbiInteractionType } from '@/types/blobbi';
-import { Utensils, Gamepad2, Bath, Moon, Sun, Pill, Trophy, Thermometer, Eye, Music, MessageCircle, Heart } from 'lucide-react';
+import { Utensils, Gamepad2, Bath, Moon, Sun, Pill, Trophy, Thermometer, Eye, Music, MessageCircle, Heart, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { BlobbiInventoryModal } from './BlobbiInventoryModal';
@@ -45,6 +45,7 @@ export function BlobbiActions({
   const { hasFakeStatus, getPendingInteractionCount, updateFakeStatus } = useBlobbiFakeStatus();
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<BlobbiAction | null>(null);
+  const [actionInProgress, setActionInProgress] = useState<BlobbiAction | null>(null);
 
   // Check if user has a profile, create one if needed
   const { data: blobbonautProfile } = useBlobbonautProfile();
@@ -89,6 +90,12 @@ export function BlobbiActions({
   });
 
   const handleAction = async (action: BlobbiAction) => {
+    // Prevent rapid successive actions
+    if (actionInProgress) {
+      console.log(`Action ${actionInProgress} already in progress, ignoring ${action}`);
+      return;
+    }
+
     // Check if action is available for this stage
     const isAvailableForStage = isActionAvailableForStage(action, blobbi.lifeStage);
     if (!isAvailableForStage) {
@@ -122,17 +129,18 @@ export function BlobbiActions({
         }
       }
 
+      setActionInProgress(action);
       setSelectedAction(action);
       setInventoryModalOpen(true);
     } else if (action === 'rest') {
       // Handle sleep/wake actions using the sleep system
+      setActionInProgress(action);
       try {
         if (isSleeping) {
           await wakeUp();
         } else {
           await putToSleep();
         }
-
 
         // Log successful interaction
         const { logInteractionSuccess } = await import('@/lib/interaction-logger');
@@ -144,17 +152,19 @@ export function BlobbiActions({
           description: "Unable to change sleep state. Please try again.",
           variant: "destructive",
         });
+      } finally {
+        setActionInProgress(null);
       }
     } else {
       // For other actions, perform directly using the enhanced interaction system
       // This will automatically send both 14919 and 31124 events with fake status updates
+      setActionInProgress(action);
       try {
         await performCareInteraction({
           blobbiId: blobbi.id,
           action: action as 'warm' | 'check' | 'sing' | 'talk',
           currentBlobbi: blobbi, // Pass current blobbi for fake status updates
         });
-
 
         // Log successful interaction
         const { logInteractionSuccess } = await import('@/lib/interaction-logger');
@@ -164,10 +174,11 @@ export function BlobbiActions({
         // Fallback to old system if new system fails
         try {
           await onAction(action);
-
         } catch (fallbackError) {
           console.error('Fallback action also failed:', fallbackError);
         }
+      } finally {
+        setActionInProgress(null);
       }
     }
   };
@@ -175,8 +186,7 @@ export function BlobbiActions({
   const handleInventoryClose = async (actionPerformed?: boolean, action?: BlobbiAction) => {
     setInventoryModalOpen(false);
     setSelectedAction(null);
-
-
+    setActionInProgress(null);
   };
 
   const getActionsForStage = () => {
@@ -321,7 +331,8 @@ export function BlobbiActions({
               const isAvailableForStage = isActionAvailableForStage(action, blobbi.lifeStage);
 
 
-              const isDisabled = !isAvailableForStage || disabled || isPerformingAction;
+              const isThisActionInProgress = actionInProgress === action;
+              const isDisabled = !isAvailableForStage || disabled || isPerformingAction || !!actionInProgress;
 
               // Build tooltip - no cooldown info
               let actionTooltip = tooltip;
@@ -343,10 +354,12 @@ export function BlobbiActions({
                   )}
                   title={actionTooltip}
                 >
-                  <Icon className="w-5 h-5" />
+                  {isThisActionInProgress ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Icon className="w-5 h-5" />
+                  )}
                   <span className="text-xs">{label}</span>
-
-
                 </Button>
               );
             })}
