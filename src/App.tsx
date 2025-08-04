@@ -15,13 +15,14 @@ import { AudioProvider } from '@/contexts/AudioContext';
 import { BedProvider } from '@/contexts/BedContext';
 import { BlobbiFakeInventoryProvider } from '@/contexts/BlobbiFakeInventoryContext';
 import { BlobbiFakeStatusProvider } from '@/contexts/BlobbiFakeStatusContext';
+import { BlobbiOnLoadDecayIntegration } from '@/components/BlobbiOnLoadDecayIntegration';
 import AppRouter from './AppRouter';
 
 // Component that connects relay context to NostrProvider
 function NostrProviderWithRelays({ children, fallbackRelays }: { children: React.ReactNode; fallbackRelays: string[] }) {
   const { getEnabledRelayUrls } = useRelayContext();
   const enabledRelays = getEnabledRelayUrls();
-  
+
   // Use enabled relays if available, otherwise fallback
   const relays = enabledRelays.length > 0 ? enabledRelays : fallbackRelays;
 
@@ -46,8 +47,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 60000, // 1 minute
-      gcTime: Infinity,
+      staleTime: 60000, // 1 minute - data stays fresh
+      gcTime: 5 * 60 * 1000, // 5 minutes - how long to keep in cache when unused
+      retry: 2, // Retry failed requests 2 times
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
     },
   },
 });
@@ -78,6 +81,7 @@ export function App() {
                         <Toaster />
                         <Sonner />
                         <BlobbiCompanionIntegration />
+                        <BlobbiOnLoadDecayIntegration />
                         <AppRouter />
                       </BedProvider>
                     </AudioProvider>

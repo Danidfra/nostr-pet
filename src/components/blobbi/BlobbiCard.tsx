@@ -13,6 +13,9 @@ import { BlobbiFakeStatusIndicator } from './BlobbiFakeStatusIndicator';
 import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
 import { cn } from '@/lib/utils';
 import { isValidSize } from '@/lib/blobbi-egg-validation';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNostr } from '@/hooks/useNostr';
+import { BLOBBI_EVENT_KINDS } from '@/lib/blobbi-events';
 
 type BlobbiCardSize = 'sm' | 'md' | 'lg';
 
@@ -29,10 +32,10 @@ interface BlobbiCardProps {
   footerContent?: React.ReactNode;
 }
 
-export function BlobbiCard({ 
-  blobbi, 
+export function BlobbiCard({
+  blobbi,
   size = 'md',
-  onClick, 
+  onClick,
   showStats = true,
   showStatus = true,
   showRank,
@@ -41,13 +44,72 @@ export function BlobbiCard({
   className,
   footerContent
 }: BlobbiCardProps) {
+  const queryClient = useQueryClient();
+  const { nostr } = useNostr();
   const mood = getBlobbiMood(blobbi.stats, blobbi.state);
   const { hasFakeStatus, getPendingInteractionCount } = useBlobbiFakeStatus();
   const pendingCount = getPendingInteractionCount(blobbi.id);
   const overallHealth = Math.round(
     (blobbi.stats.health + blobbi.stats.happiness + blobbi.stats.energy + blobbi.stats.hygiene) / 4
   );
-  
+
+  // Prefetch detailed Blobbi data on hover for faster navigation
+  const handlePrefetch = () => {
+    // Prefetch the specific blobbi-state data if not already cached
+    queryClient.prefetchQuery({
+      queryKey: ['blobbi-state', blobbi.id, blobbi.ownerPubkey],
+      queryFn: async () => {
+        const signal = AbortSignal.timeout(3000);
+        const events = await nostr.query([
+          {
+            kinds: [BLOBBI_EVENT_KINDS.STATE],
+            authors: [blobbi.ownerPubkey],
+            '#d': [blobbi.id],
+            limit: 1,
+          }
+        ], { signal });
+
+        return events[0] || null;
+      },
+      staleTime: 30000, // Consider data fresh for 30 seconds
+    });
+
+    // Prefetch interactions for the detail page
+    queryClient.prefetchQuery({
+      queryKey: ['blobbi-interactions', blobbi.id, 50],
+      queryFn: async () => {
+        const signal = AbortSignal.timeout(5000);
+        const events = await nostr.query([
+          {
+            kinds: [BLOBBI_EVENT_KINDS.INTERACTION],
+            '#blobbi_id': [blobbi.id],
+            limit: 50,
+          }
+        ], { signal });
+
+        return events.sort((a, b) => b.created_at - a.created_at);
+      },
+      staleTime: 60000, // Consider data fresh for 1 minute
+    });
+
+    // Prefetch lifecycle records
+    queryClient.prefetchQuery({
+      queryKey: ['blobbi-records', blobbi.id],
+      queryFn: async () => {
+        const signal = AbortSignal.timeout(5000);
+        const events = await nostr.query([
+          {
+            kinds: [BLOBBI_EVENT_KINDS.RECORD],
+            '#blobbi_id': [blobbi.id],
+          }
+        ], { signal });
+
+        return events.sort((a, b) => a.created_at - b.created_at);
+      },
+      staleTime: 120000, // Consider data fresh for 2 minutes
+    });
+  };
+
   // Helper function to get valid size for components
   const getValidSize = (size?: string): 'tiny' | 'small' | 'medium' | 'large' => {
     if (size && isValidSize(size)) {
@@ -98,7 +160,7 @@ export function BlobbiCard({
   const config = sizeConfig[size];
 
   return (
-    <Card 
+    <Card
       className={cn(
         "group transition-all duration-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-purple-200/60 dark:border-purple-600/60 shadow-sm hover:shadow-xl hover:shadow-purple-200/20 dark:hover:shadow-purple-900/20",
         config.borderRadius,
@@ -106,6 +168,7 @@ export function BlobbiCard({
         className
       )}
       onClick={onClick}
+      onMouseEnter={handlePrefetch}
     >
       <CardHeader className={config.headerPadding}>
         <div className="flex items-start justify-between">
@@ -114,7 +177,7 @@ export function BlobbiCard({
               <CardTitle className={cn(config.titleSize, "text-gray-900 dark:text-gray-100 truncate")}>
                 {blobbi.name}
               </CardTitle>
-              <BlobbiFakeStatusIndicator 
+              <BlobbiFakeStatusIndicator
                 hasFakeStatus={hasFakeStatus(blobbi.id)}
                 pendingInteractionCount={pendingCount}
               />
@@ -131,8 +194,8 @@ export function BlobbiCard({
             {showStatus && (
               <CardDescription className={cn(config.descriptionSize, "text-gray-600 dark:text-gray-400")}>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     className={cn(
                       config.badgeSize,
                       "border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 bg-purple-50/50 dark:bg-purple-900/20"
@@ -148,42 +211,42 @@ export function BlobbiCard({
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className={config.contentPadding}>
         {/* Blobbi Visual - Fixed size container, only Blobbi scales */}
         <div className="flex items-center justify-center transition-all duration-500 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border-2 border-purple-100/60 dark:border-purple-600/30 mb-4 group-hover:border-purple-200/80 dark:group-hover:border-purple-500/50 min-h-[300px] p-8">
           {blobbi.lifeStage === 'egg' ? (
-            <EggGraphic 
+            <EggGraphic
               blobbi={blobbi}
-              size={getBlobbiVisualSize()} 
+              size={getBlobbiVisualSize()}
               animated={true}
               warmth={blobbi.eggTemperature || 60}
             />
           ) : blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
-            <BlobbiEvolvedVisual 
-              blobbi={blobbi} 
+            <BlobbiEvolvedVisual
+              blobbi={blobbi}
               size={getBlobbiVisualSize()}
             />
           ) : (
-            <BlobbiVisual 
-              blobbi={blobbi} 
+            <BlobbiVisual
+              blobbi={blobbi}
               size={getBlobbiVisualSize()}
             />
           )}
         </div>
-        
+
         {showStats && (
           <div className="space-y-3">
             {/* Primary Stats */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">State</span>
-                <Badge 
+                <Badge
                   variant={blobbi.state === 'active' ? 'default' : 'secondary'}
                   className={cn(
                     config.badgeSize,
-                    blobbi.state === 'active' 
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700' 
+                    blobbi.state === 'active'
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   )}
                 >
@@ -191,12 +254,12 @@ export function BlobbiCard({
                   {blobbi.state}
                 </Badge>
               </div>
-              
+
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Experience</span>
                 <span className="font-medium text-gray-900 dark:text-gray-100">{blobbi.experience} XP</span>
               </div>
-              
+
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Overall Health</span>
                 <div className="flex items-center gap-1">
@@ -210,7 +273,7 @@ export function BlobbiCard({
                   <span className="font-medium text-gray-900 dark:text-gray-100">{overallHealth}%</span>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Last Care</span>
                 <span className="text-xs text-gray-600 dark:text-gray-400">
@@ -221,8 +284,8 @@ export function BlobbiCard({
               {blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400">Evolution</span>
-                  <Badge 
-                    variant="default" 
+                  <Badge
+                    variant="default"
                     className={cn(
                       config.badgeSize,
                       "bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-600"
@@ -234,7 +297,7 @@ export function BlobbiCard({
                 </div>
               )}
             </div>
-            
+
             {/* Quick stats preview */}
             <div className="flex justify-around pt-3 border-t border-purple-100 dark:border-purple-600/30">
               <div className="flex flex-col items-center gap-1" title="Happiness">
@@ -286,10 +349,10 @@ export function BlobbiCard({
                 </Button>
               )}
               <div onClick={(e) => e.stopPropagation()} className="w-full">
-                <SetCompanionButton 
-                  blobbi={blobbi} 
-                  size="sm" 
-                  className="w-full" 
+                <SetCompanionButton
+                  blobbi={blobbi}
+                  size="sm"
+                  className="w-full"
                 />
               </div>
             </div>
