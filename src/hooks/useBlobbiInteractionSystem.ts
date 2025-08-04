@@ -1,8 +1,8 @@
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
-import { 
+import {
   useBlobbiInteractionWithFakeStatus,
   useBlobbiCareInteractionWithFakeStatus,
-  useBlobbiGameInteractionWithFakeStatus 
+  useBlobbiGameInteractionWithFakeStatus
 } from '@/hooks/useBlobbiInteractionWithFakeStatus';
 import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
 import { Blobbi, BlobbiInteractionType } from '@/types/blobbi';
@@ -10,7 +10,7 @@ import { Blobbi, BlobbiInteractionType } from '@/types/blobbi';
 /**
  * Comprehensive hook that provides all Blobbi interaction functionality
  * with consistent fake status support across the entire application.
- * 
+ *
  * This hook ensures that:
  * 1. All interactions update fake status immediately for responsive UI
  * 2. Real Nostr events are published in the background
@@ -20,20 +20,20 @@ import { Blobbi, BlobbiInteractionType } from '@/types/blobbi';
 export function useBlobbiInteractionSystem(pubkey?: string, blobbiId?: string) {
   // Core Blobbi data with fake status support
   const blobbiHook = useBlobbiWithFakeStatus(pubkey, blobbiId);
-  
+
   // Interaction hooks with fake status support
   const baseInteraction = useBlobbiInteractionWithFakeStatus();
   const careInteraction = useBlobbiCareInteractionWithFakeStatus();
   const gameInteraction = useBlobbiGameInteractionWithFakeStatus();
-  
+
   // Fake status management
   const fakeStatusHook = useBlobbiFakeStatus();
-  
+
   /**
    * Enhanced care action that uses fake status for immediate feedback
    */
   const performCareAction = async (
-    action: 'feed' | 'clean' | 'rest' | 'warm' | 'medicine' | 'check' | 'sing' | 'talk' | 'play',
+    action: 'feed' | 'clean' | 'rest' | 'warm' | 'medicine' | 'check' | 'sing' | 'talk' | 'play' | 'wake',
     options?: {
       itemUsed?: string;
       itemEffects?: Record<string, number>;
@@ -147,31 +147,31 @@ export function useBlobbiInteractionSystem(pubkey?: string, blobbiId?: string) {
   return {
     // Core Blobbi data (with fake status applied)
     ...blobbiHook,
-    
+
     // Enhanced interaction methods
     performCareAction,
     performGameAction,
     performCustomInteraction,
-    
+
     // Fake status utilities
     hasPendingInteractions,
     pendingInteractionCount,
     getFakeStatus,
     clearFakeStatus,
     forceSyncWithRealData,
-    
+
     // Status indicators
     isPerformingCareAction: careInteraction.isPending,
     isPerformingGameAction: gameInteraction.isPending,
     isPerformingCustomAction: baseInteraction.isPending,
-    
+
     // Legacy compatibility (maps to performCareAction)
     performAction: async (action: string, itemEffect?: Record<string, number>) => {
       // Map legacy performAction calls to the new care action system
-      const careActions = ['feed', 'clean', 'rest', 'warm', 'medicine', 'check', 'sing', 'talk', 'play'];
-      
+      const careActions = ['feed', 'clean', 'rest', 'warm', 'medicine', 'check', 'sing', 'talk', 'play', 'wake'];
+
       if (careActions.includes(action)) {
-        return await performCareAction(action as 'feed' | 'clean' | 'rest' | 'warm' | 'medicine' | 'check' | 'sing' | 'talk' | 'play', {
+        return await performCareAction(action as 'feed' | 'clean' | 'rest' | 'warm' | 'medicine' | 'check' | 'sing' | 'talk' | 'play' | 'wake', {
           itemEffects: itemEffect,
         });
       } else {
@@ -188,7 +188,7 @@ export function useBlobbiInteractionSystem(pubkey?: string, blobbiId?: string) {
 export function useBlobbiGameSystem(blobbiId?: string) {
   const gameInteraction = useBlobbiGameInteractionWithFakeStatus();
   const { blobbi, isLoading } = useBlobbiWithFakeStatus(undefined, blobbiId);
-  
+
   const playGame = async (
     gameType: string,
     score: number,
@@ -222,7 +222,7 @@ export function useBlobbiGameSystem(blobbiId?: string) {
  */
 export function useBlobbiDisplay(pubkey?: string, blobbiId?: string) {
   const { blobbi, isLoading, hasFakeStatus, pendingInteractionCount } = useBlobbiWithFakeStatus(pubkey, blobbiId);
-  
+
   return {
     blobbi,
     isLoading,

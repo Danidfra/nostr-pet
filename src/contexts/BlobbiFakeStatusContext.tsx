@@ -13,15 +13,15 @@ interface BlobbiFakeStatusContextType {
   setFakeStatus: (blobbiId: string, blobbi: Blobbi) => void;
   updateFakeStatus: (blobbiId: string, updates: Partial<Blobbi>) => void;
   clearFakeStatus: (blobbiId: string) => void;
-  
+
   // Interaction tracking
   incrementPendingInteractions: (blobbiId: string) => void;
   decrementPendingInteractions: (blobbiId: string) => void;
   getPendingInteractionCount: (blobbiId: string) => number;
-  
+
   // Status checks
   hasFakeStatus: (blobbiId: string) => boolean;
-  
+
   // Sync with real data
   syncWithRealData: (blobbiId: string, realBlobbi: Blobbi) => void;
 }
@@ -44,7 +44,7 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
         const validEntries = Object.entries(data).filter(([_, value]: [string, FakeStatusData]) => {
           return now - value.lastFakeUpdate < FAKE_STATUS_EXPIRY_MS;
         });
-        
+
         if (validEntries.length > 0) {
           const newMap = new Map();
           validEntries.forEach(([blobbiId, value]) => {
@@ -78,14 +78,14 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
       setFakeStatusMap(prev => {
         const newMap = new Map(prev);
         let hasChanges = false;
-        
+
         newMap.forEach((value, key) => {
           if (now - value.lastFakeUpdate > FAKE_STATUS_EXPIRY_MS) {
             newMap.delete(key);
             hasChanges = true;
           }
         });
-        
+
         return hasChanges ? newMap : prev;
       });
     };
@@ -97,7 +97,7 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
   const getFakeStatus = useCallback((blobbiId: string): Blobbi | null => {
     const data = fakeStatusMap.get(blobbiId);
     if (!data) return null;
-    
+
     // Check if expired
     if (Date.now() - data.lastFakeUpdate > FAKE_STATUS_EXPIRY_MS) {
       setFakeStatusMap(prev => {
@@ -107,7 +107,7 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
       });
       return null;
     }
-    
+
     return data.blobbi;
   }, [fakeStatusMap]);
 
@@ -129,7 +129,7 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
       const newMap = new Map(prev);
       const existing = newMap.get(blobbiId);
       if (!existing) return prev;
-      
+
       newMap.set(blobbiId, {
         ...existing,
         blobbi: { ...existing.blobbi, ...updates },
@@ -152,7 +152,7 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
       const newMap = new Map(prev);
       const existing = newMap.get(blobbiId);
       if (!existing) return prev;
-      
+
       newMap.set(blobbiId, {
         ...existing,
         pendingInteractions: existing.pendingInteractions + 1,
@@ -167,9 +167,9 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
       const newMap = new Map(prev);
       const existing = newMap.get(blobbiId);
       if (!existing) return prev;
-      
+
       const newPendingCount = Math.max(0, existing.pendingInteractions - 1);
-      
+
       // If no more pending interactions and fake status is older than real data, clear it
       if (newPendingCount === 0) {
         newMap.delete(blobbiId);
@@ -196,12 +196,12 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
   const syncWithRealData = useCallback((blobbiId: string, realBlobbi: Blobbi) => {
     const fakeData = fakeStatusMap.get(blobbiId);
     if (!fakeData) return;
-    
+
     // Special handling for sleep state: only sync if the real sleep state matches the fake sleep state
     // This prevents intermediate events (like "rest" interactions) from overriding optimistic sleep state
     const fakeIsSleeping = fakeData.blobbi.isSleeping;
     const realIsSleeping = realBlobbi.isSleeping;
-    
+
     // If we have an optimistic sleep state that doesn't match reality, keep the fake state
     // until the real sleep state catches up
     if (fakeIsSleeping !== realIsSleeping) {
@@ -209,7 +209,7 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
       // and the sleep states now match, or if enough time has passed that we should give up
       const timeSinceFakeUpdate = Date.now() - fakeData.lastFakeUpdate;
       const shouldGiveUpOnOptimisticState = timeSinceFakeUpdate > 30000; // 30 seconds timeout
-      
+
       if (shouldGiveUpOnOptimisticState) {
         console.log('Giving up on optimistic sleep state after timeout');
         clearFakeStatus(blobbiId);
@@ -217,7 +217,7 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
       // Otherwise, keep the optimistic state
       return;
     }
-    
+
     // If sleep states match, proceed with normal sync logic
     // If real data is newer than our fake data, and no pending interactions, clear fake status
     if (realBlobbi.lastInteraction > fakeData.blobbi.lastInteraction && fakeData.pendingInteractions === 0) {
@@ -267,12 +267,12 @@ export function useBlobbiFakeStatus() {
 
 // Helper function to apply stat changes to a Blobbi object
 export function applyStatChangesToBlobbi(
-  blobbi: Blobbi, 
+  blobbi: Blobbi,
   statChanges: Array<[string, number]>
 ): Blobbi {
   const updatedBlobbi = { ...blobbi };
   const updatedStats = { ...blobbi.stats };
-  
+
   statChanges.forEach(([stat, change]) => {
     switch (stat) {
       case 'hunger':
@@ -302,9 +302,9 @@ export function applyStatChangesToBlobbi(
         break;
     }
   });
-  
+
   updatedBlobbi.stats = updatedStats;
-  updatedBlobbi.lastInteraction = Math.floor(Date.now() / 1000);
-  
+  // Don't automatically update lastInteraction here - let the calling code handle timing
+
   return updatedBlobbi;
 }

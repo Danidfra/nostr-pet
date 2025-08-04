@@ -2,12 +2,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useEnhancedNostrPublish } from '@/hooks/useEnhancedNostrPublish';
 import { useBlobbiFakeStatus, applyStatChangesToBlobbi } from '@/contexts/BlobbiFakeStatusContext';
-import { 
-  createBlobbiInteractionEvent, 
-  BLOBBI_EVENT_KINDS 
+import {
+  createBlobbiInteractionEvent,
+  BLOBBI_EVENT_KINDS
 } from '@/lib/blobbi-events';
-import { 
-  BlobbiInteractionData, 
+import {
+  BlobbiInteractionData,
   BlobbiInteractionType,
   BlobbiStats,
   Blobbi,
@@ -29,6 +29,53 @@ interface InteractionWithFakeStatusParams {
 }
 
 /**
+ * Updates the specific timestamp for a given action on a Blobbi
+ */
+function updateActionTimestamp(blobbi: Blobbi, action: string, timestamp: number): void {
+  switch (action) {
+    case 'feed':
+      blobbi.lastMeal = timestamp;
+      break;
+    case 'clean':
+      blobbi.lastClean = timestamp;
+      break;
+    case 'warm':
+      blobbi.lastWarm = timestamp;
+      break;
+    case 'talk':
+      blobbi.lastTalk = timestamp;
+      break;
+    case 'check':
+      blobbi.lastCheck = timestamp;
+      break;
+    case 'sing':
+      blobbi.lastSing = timestamp;
+      break;
+    case 'medicine':
+      blobbi.lastMedicine = timestamp;
+      break;
+    case 'rest':
+      // For rest, handle sleep state
+      if (!blobbi.isSleeping) {
+        blobbi.isSleeping = true;
+        blobbi.sleepStartedAt = timestamp;
+        blobbi.lastSleepUpdate = timestamp;
+      }
+      break;
+    case 'wake':
+      // For wake, handle sleep state
+      if (blobbi.isSleeping) {
+        blobbi.isSleeping = false;
+        blobbi.state = 'active';
+        blobbi.sleepStartedAt = undefined;
+        blobbi.lastSleepUpdate = undefined;
+      }
+      break;
+    // 'play' and other actions don't have specific timestamps
+  }
+}
+
+/**
  * Enhanced hook that handles Blobbi interactions with immediate fake status updates
  * and automatic state event publishing
  */
@@ -36,12 +83,12 @@ export function useBlobbiInteractionWithFakeStatus() {
   const { user } = useCurrentUser();
   const { mutateAsync: publishEvent } = useEnhancedNostrPublish();
   const queryClient = useQueryClient();
-  const { 
-    getFakeStatus, 
-    setFakeStatus, 
-    updateFakeStatus, 
+  const {
+    getFakeStatus,
+    setFakeStatus,
+    updateFakeStatus,
     incrementPendingInteractions,
-    decrementPendingInteractions 
+    decrementPendingInteractions
   } = useBlobbiFakeStatus();
 
   return useMutation({
@@ -75,42 +122,21 @@ export function useBlobbiInteractionWithFakeStatus() {
       const finalStatChanges = statChanges || [statChange];
       const primaryStatChange = finalStatChanges[0];
 
-      // Apply fake status update immediately for UI responsiveness
+      // Calculate all updates first before applying fake status
+      const now = Math.floor(Date.now() / 1000);
+
+      // Apply stat changes
       const updatedBlobbi = applyStatChangesToBlobbi(blobbi, finalStatChanges);
-      
+
       // Update experience and care points
       updatedBlobbi.experience = (updatedBlobbi.experience || 0) + experienceGained;
       updatedBlobbi.careStreak = (updatedBlobbi.careStreak || 0) + carePoints;
-      
-      // Update last action timestamps for specific actions
-      const now = Math.floor(Date.now() / 1000);
-      switch (action) {
-        case 'feed':
-          updatedBlobbi.lastMeal = now;
-          break;
-        case 'clean':
-          updatedBlobbi.lastClean = now;
-          break;
-        case 'warm':
-          updatedBlobbi.lastWarm = now;
-          break;
-        case 'talk':
-          updatedBlobbi.lastTalk = now;
-          break;
-        case 'check':
-          updatedBlobbi.lastCheck = now;
-          break;
-        case 'sing':
-          updatedBlobbi.lastSing = now;
-          break;
-        case 'medicine':
-          updatedBlobbi.lastMedicine = now;
-          break;
-      }
 
-      // Set fake status and increment pending interactions
-      setFakeStatus(blobbiId, updatedBlobbi);
-      incrementPendingInteractions(blobbiId);
+      // Update ONLY the specific timestamp for this action
+      updateActionTimestamp(updatedBlobbi, action, now);
+
+      // Update general last interaction time
+      updatedBlobbi.lastInteraction = now;
 
       try {
         // Create interaction data
@@ -131,11 +157,15 @@ export function useBlobbiInteractionWithFakeStatus() {
 
         // Create and publish interaction event
         const interactionEventData = createBlobbiInteractionEvent(blobbiId, interactionData);
-        
+
         // The enhanced publish hook will automatically handle state updates
         const interactionEvent = await publishEvent({
           ...interactionEventData,
         });
+
+        // Only apply fake status AFTER successful calculations and event creation
+        setFakeStatus(blobbiId, updatedBlobbi);
+        incrementPendingInteractions(blobbiId);
 
         return {
           interactionEvent,
@@ -152,12 +182,12 @@ export function useBlobbiInteractionWithFakeStatus() {
     onSuccess: (data, variables) => {
       // Decrement pending interactions on successful publish
       decrementPendingInteractions(variables.blobbiId);
-      
+
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['blobbi-state', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', variables.blobbiId] });
-      
+
       console.log('Interaction recorded with fake status and automatic state update:', {
         blobbiId: variables.blobbiId,
         action: variables.action,
@@ -168,7 +198,7 @@ export function useBlobbiInteractionWithFakeStatus() {
       // On error, decrement pending interactions but keep fake status
       // This allows user to see the optimistic update while knowing it failed
       decrementPendingInteractions(variables.blobbiId);
-      
+
       console.error('Failed to record interaction with fake status:', {
         blobbiId: variables.blobbiId,
         action: variables.action,
@@ -221,7 +251,7 @@ export function useBlobbiGameInteractionWithFakeStatus() {
       queryClient.invalidateQueries({ queryKey: ['blobbi-state', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', variables.blobbiId] });
-      
+
       console.log('Game interaction recorded with fake status and automatic state update:', {
         blobbiId: variables.blobbiId,
         gameType: variables.gameType,
@@ -249,7 +279,7 @@ export function useBlobbiCareInteractionWithFakeStatus() {
   return useMutation({
     mutationFn: async (params: {
       blobbiId: string;
-      action: 'feed' | 'clean' | 'rest' | 'warm' | 'medicine' | 'check' | 'sing' | 'talk' | 'play' | 'cruzar';
+      action: 'feed' | 'clean' | 'rest' | 'warm' | 'medicine' | 'check' | 'sing' | 'talk' | 'play' | 'cruzar' | 'wake';
       itemUsed?: string;
       itemEffects?: Partial<BlobbiStats & { egg_temperature?: number; shell_integrity?: number }>;
       customStatChange?: [string, number];
@@ -264,6 +294,7 @@ export function useBlobbiCareInteractionWithFakeStatus() {
         check: [['happiness', 3]],
         sing: [['happiness', 8]],
         talk: [['happiness', 6]],
+        wake: [['happiness', 5]], // Default wake action gives happiness
       };
 
       let statChanges: Array<[string, number]>;
@@ -271,7 +302,7 @@ export function useBlobbiCareInteractionWithFakeStatus() {
       // If item effects are provided (for feed, clean, medicine, play), use them
       if (itemEffects && ['feed', 'clean', 'medicine', 'play'].includes(action)) {
         statChanges = Object.entries(itemEffects).map(([stat, value]) => [stat, value as number]);
-      } 
+      }
       // If custom stat change is provided, use it
       else if (customStatChange) {
         statChanges = [customStatChange];
@@ -301,7 +332,7 @@ export function useBlobbiCareInteractionWithFakeStatus() {
       queryClient.invalidateQueries({ queryKey: ['blobbi-state', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', variables.blobbiId] });
-      
+
       console.log('Care interaction recorded with fake status and automatic state update:', {
         blobbiId: variables.blobbiId,
         action: variables.action,

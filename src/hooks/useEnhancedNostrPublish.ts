@@ -57,13 +57,24 @@ export function useEnhancedNostrPublish() {
     },
     onSuccess: (data) => {
       console.log("Event published successfully:", data);
-      
-      // Invalidate relevant queries
+
+      // Targeted query invalidation based on event type
       if (data.kind === BLOBBI_EVENT_KINDS.INTERACTION) {
         const blobbiId = data.tags.find(tag => tag[0] === 'blobbi_id')?.[1];
         if (blobbiId) {
+          // Invalidate all essential queries for interactions
           queryClient.invalidateQueries({ queryKey: ['blobbi-state', blobbiId] });
           queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', blobbiId] });
+          queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', blobbiId] });
+        }
+      } else if (data.kind === BLOBBI_EVENT_KINDS.STATE) {
+        const blobbiId = data.tags.find(tag => tag[0] === 'd')?.[1];
+        if (blobbiId && user) {
+          // For state events, invalidate all related queries
+          queryClient.invalidateQueries({ queryKey: ['user-blobbis', user.pubkey] });
+          queryClient.invalidateQueries({ queryKey: ['blobbi-by-id', blobbiId] });
+          // Critical: Invalidate the detail page's blobbi-state query with all variations
+          queryClient.invalidateQueries({ queryKey: ['blobbi-state', blobbiId] });
           queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', blobbiId] });
         }
       }
@@ -119,7 +130,7 @@ async function handleInteractionStateUpdate(
     });
 
     await nostr.event(stateEvent, { signal: AbortSignal.timeout(5000) });
-    
+
     console.log('Auto-generated state event for interaction:', {
       blobbiId,
       interaction: interactionEvent.id,
@@ -149,14 +160,14 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
   const updatedStats = { ...decayedBlobbi.stats };
   let updatedEggTemperature = decayedBlobbi.eggTemperature;
   let updatedShellIntegrity = decayedBlobbi.shellIntegrity;
-  
+
   // Apply all stat changes from the interaction
   for (const statChangeTag of statChangeTags) {
     if (statChangeTag[1]) {
       const [statName, changeStr] = statChangeTag[1].split(':');
       // Handle both "+X" and "X" formats, and negative values like "-X"
       const changeValue = parseInt(changeStr.replace(/^\+/, ''));
-      
+
       if (statName && !isNaN(changeValue)) {
         // Handle egg_temperature separately since it's not part of BlobbiStats
         if (statName === 'egg_temperature') {
