@@ -13,7 +13,7 @@ const STORAGE_KEY = 'nostr:relays';
 
 // Default relays that are commonly used in the Nostr ecosystem
 const DEFAULT_RELAYS = [
-  'wss://relay.primal.net',
+'wss://relay.chorus.community'
 ];
 
 // Test relay connection by attempting to open a WebSocket
