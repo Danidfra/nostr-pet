@@ -45,13 +45,6 @@ export function BlobbiFeed() {
   
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Blobbi Community</h2>
-        <p className="text-muted-foreground mb-6">
-          Discover other Blobbis in the Nostr network
-        </p>
-      </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sortedBlobbis.map((blobbi, index) => (
           <BlobbiCard
