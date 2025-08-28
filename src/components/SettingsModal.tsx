@@ -152,10 +152,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={`
         ${isMobile
-          ? 'w-[calc(100vw-1rem)] max-w-none h-[calc(100vh-2rem)] max-h-none'
+          ? 'w-[calc(100vw-2rem)] max-w-none h-[calc(100vh-2rem)] max-h-none'
           : 'w-[calc(100vw-2rem)] max-w-5xl max-h-[85vh]'
         }
-        overflow-hidden bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm
+        flex flex-col overflow-hidden bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm
         border border-purple-200/50 dark:border-purple-600/50
         ${isMobile ? 'rounded-lg' : 'rounded-2xl'}
       `}>
@@ -182,9 +182,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </div>
 
           <TabsContent value="relays" className={`flex-1 min-h-0 ${isMobile ? 'space-y-3' : 'space-y-4'}`}>
-            <ScrollArea className={`${isMobile ? 'h-[calc(100vh-12rem)]' : 'h-[500px]'} ${isMobile ? 'pr-1' : 'pr-2'}`}>
+            <ScrollArea className={`${isMobile ? 'h-[calc(100vh-16rem)]' : 'h-[350px]'} ${isMobile ? 'pr-1' : 'pr-2'}`}>
             {/* Relay Overview */}
-            <Card className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 ${isMobile ? 'rounded-lg' : 'rounded-xl'}`}>
+            <Card className={`bg-white/80 mb-4 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 ${isMobile ? 'rounded-lg' : 'rounded-xl'}`}>
               <CardHeader className={isMobile ? 'pb-3' : ''}>
                 <CardTitle className={`flex items-center justify-between text-gray-900 dark:text-gray-100 ${isMobile ? 'text-base' : ''}`}>
                   <span className="flex items-center gap-2 min-w-0 flex-1">
@@ -213,7 +213,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </Card>
 
             {/* Add New Relay */}
-            <Card className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 ${isMobile ? 'rounded-lg' : 'rounded-xl'}`}>
+            <Card className={`bg-white/80 mb-4 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 ${isMobile ? 'rounded-lg' : 'rounded-xl'}`}>
               <CardHeader className={isMobile ? 'pb-3' : ''}>
                 <CardTitle className={`flex items-center gap-2 text-gray-900 dark:text-gray-100 ${isMobile ? 'text-base' : ''}`}>
                   <div className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 flex items-center justify-center flex-shrink-0`}>
@@ -251,7 +251,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </Card>
 
             {/* Relay List */}
-            <Card className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 ${isMobile ? 'rounded-lg' : 'rounded-xl'}`}>
+            <Card className={`bg-white/80 mb-4 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 ${isMobile ? 'rounded-lg' : 'rounded-xl'}`}>
               <CardHeader className={isMobile ? 'pb-3' : ''}>
                 <CardTitle className={`text-gray-900 dark:text-gray-100 ${isMobile ? 'text-base' : ''}`}>Connected Relays</CardTitle>
               </CardHeader>
@@ -284,7 +284,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className={`flex items-center gap-2 ${isMobile ? 'flex-col items-start' : ''}`}>
-                              <p className={`font-medium truncate text-gray-900 dark:text-gray-100 ${isMobile ? 'text-sm w-full' : ''}`}>{relay.url}</p>
+                              <p className={`font-medium text-gray-900 dark:text-gray-100 ${isMobile ? 'text-sm max-w-[160px] truncate overflow-hidden' : ''}`}>{relay.url}</p>
                               <Badge
                                 variant={relay.connected ? 'default' : 'secondary'}
                                 className={`${isMobile ? 'text-xs px-1 py-0' : 'text-xs'} ${
