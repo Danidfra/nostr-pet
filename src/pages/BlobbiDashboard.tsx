@@ -40,6 +40,7 @@ import { BlobbiMissions } from '@/components/blobbi/BlobbiMissions';
 import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { EnablePushModal } from '@/components/EnablePushModal';
 
 import { formatDistanceToNow } from 'date-fns';
 import { Blobbi, BlobbiLifeStage } from '@/types/blobbi';
@@ -68,6 +69,7 @@ export default function BlobbiDashboard() {
   const [activeTab, setActiveTab] = useState('blobbis');
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
+  const [showPushModal, setShowPushModal] = useState(false);
 
 
   // Redirect to adoption page if user doesn't have a profile (kind 31125)
@@ -76,6 +78,44 @@ export default function BlobbiDashboard() {
       navigate('/blobbi/adopt');
     }
   }, [user, profile, isProfileLoading, navigate]);
+
+  // Check push notification status on every visit to /blobbi
+  useEffect(() => {
+    const checkPushNotificationStatus = async () => {
+      // Check if service worker is not available
+      if (!('serviceWorker' in navigator)) {
+        return;
+      }
+
+      // Check if user has chosen "Don't ask again"
+      if (localStorage.getItem("blobbiPushDontAskAgain") === "1") {
+        return;
+      }
+
+      try {
+        // Check if service worker is ready and get existing subscription
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+
+        if (sub) {
+          // Subscription exists, set enabled timestamp if not already set
+          if (!localStorage.getItem("blobbiPushEnabledAt")) {
+            localStorage.setItem("blobbiPushEnabledAt", new Date().toISOString());
+          }
+          // Don't show modal if subscription exists
+          return;
+        }
+
+        // No subscription exists and user hasn't clicked "Don't ask again", show the modal
+        setShowPushModal(true);
+      } catch (error) {
+        console.error("Error checking push notification status:", error);
+        // If there's an error (e.g., service worker not available), don't show modal
+      }
+    };
+
+    checkPushNotificationStatus();
+  }, []); // Run on every mount (every visit to /blobbi)
 
   if (!user) {
     return (
@@ -629,6 +669,12 @@ export default function BlobbiDashboard() {
 
       <BlobbiShop isOpen={isShopOpen} onClose={() => setIsShopOpen(false)} />
       <BlobbiStorage isOpen={isStorageOpen} onClose={() => setIsStorageOpen(false)} />
+
+      {/* Push Notification Modal */}
+      <EnablePushModal
+        open={showPushModal}
+        onClose={() => setShowPushModal(false)}
+      />
 
         </div>
       </div>

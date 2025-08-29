@@ -1,5 +1,16 @@
 /// <reference types="vite/client" />
 
+// Virtual module for PWA registration
+declare module 'virtual:pwa-register' {
+  export function registerSW(options?: {
+    immediate?: boolean;
+    onOfflineReady?: () => void;
+    onNeedRefresh?: () => void;
+    onRegistered?: (registration: ServiceWorkerRegistration) => void;
+    onRegisterError?: (error: Error) => void;
+  }): (reloadPage?: boolean) => Promise<void>;
+}
+
 // Global window properties for Blobbi Companion
 declare global {
   interface Window {
