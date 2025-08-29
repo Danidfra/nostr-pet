@@ -82,7 +82,7 @@ define(['./workbox-3d1c42bc'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "/index.html",
-    "revision": "0.ae3r8sv2km"
+    "revision": "0.vq48e1i0aio"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/index.html"), {
@@ -137,8 +137,10 @@ define(['./workbox-3d1c42bc'], (function (workbox) { 'use strict';
 
 }));
 
+
 self.addEventListener("push", (event) => {
   try {
+    console.log("[SW] push received");
     const data = event.data ? event.data.json() : {};
     const title = data.title || "Blobbi";
     const body = data.body || "";
@@ -147,45 +149,25 @@ self.addEventListener("push", (event) => {
 
     event.waitUntil(
       self.registration.showNotification(title, {
-        body,
-        icon: "/icons/icon-192.png",
-        badge: "/icons/badge-72.png",
-        tag,
-        renotify,
-        data: data.data || {}
+        body, icon: "/icons/icon-192.png", badge: "/icons/badge-72.png",
+        tag, renotify, data: data.data || {}
       })
     );
-  } catch (err) {
-    console.error("Push event error:", err);
-  }
+  } catch (err) { console.error("[SW] push error:", err); }
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-
-  const targetUrl =
-    (event.notification.data && event.notification.data.url) || "/";
-
-  event.waitUntil(
-    (async () => {
-      const allClients = await clients.matchAll({
-        type: "window",
-        includeUncontrolled: true,
-      });
-
-      for (const client of allClients) {
-        if (client.url.includes(self.location.origin)) {
-          await client.focus();
-          if ("navigate" in client && targetUrl) {
-            await client.navigate(targetUrl);
-          }
-          return;
-        }
+  const targetUrl = (event.notification.data && event.notification.data.url) || "/blobbi";
+  event.waitUntil((async () => {
+    const all = await clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of all) {
+      if (client.url.includes(self.location.origin)) {
+        await client.focus();
+        if ("navigate" in client && targetUrl) await client.navigate(targetUrl);
+        return;
       }
-
-      if (clients.openWindow && targetUrl) {
-        await clients.openWindow(targetUrl);
-      }
-    })()
-  );
+    }
+    if (clients.openWindow && targetUrl) await clients.openWindow(targetUrl);
+  })());
 });

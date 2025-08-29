@@ -18,12 +18,16 @@ import { setupPWA, createPWAToastHandler } from './pwa'
 //   },
 // });
 
-if ('serviceWorker' in navigator) {
+// if ('serviceWorker' in navigator && import.meta.env.PROD) {
+//   navigator.serviceWorker
+//     .register('/sw.js')
+//     .then((reg) => console.log('[SW] registered:', reg.active?.scriptURL))
+//     .catch((err) => console.error('[SW] registration failed:', err));
+// }
+
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((reg) => console.log('SW (manual) registered:', reg.active?.scriptURL))
-      .catch((err) => console.error('SW registration failed:', err));
+    navigator.serviceWorker.register('/sw.js').catch(console.error);
   });
 }
 
