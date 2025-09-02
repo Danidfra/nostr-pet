@@ -10,7 +10,9 @@ import { BlobbiItem } from '@/types/blobbi';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbonautProfileWithFakeInventory } from '@/hooks/useBlobbonautProfileWithFakeInventory';
 import { useToast } from '@/hooks/useToast';
+import { useCoinBalance } from '@/hooks/useCoinBalance';
 import { SHOP_ITEMS, getShopItemsByType } from '@/lib/shop-items';
+import { NotEnoughCoinsModal } from './NotEnoughCoinsModal';
 
 interface BlobbiShopProps {
   isOpen: boolean;
@@ -21,20 +23,21 @@ interface BlobbiShopProps {
 export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopProps) {
   const { blobbi, isOwner } = useBlobbiWithFakeStatus();
   const { data: blobbonautProfile, purchaseItem } = useBlobbonautProfileWithFakeInventory();
+  const { data: coinBalance } = useCoinBalance();
   const { toast } = useToast();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
+  const [showNotEnoughCoinsModal, setShowNotEnoughCoinsModal] = useState(false);
+  const [pendingPurchase, setPendingPurchase] = useState<{ item: BlobbiItem; quantity: number } | null>(null);
 
   if (!blobbi || !isOwner || !blobbonautProfile) return null;
 
   const handlePurchase = (item: BlobbiItem) => {
     if (blobbonautProfile.coins < item.price) {
-      toast({
-        title: "Insufficient Coins",
-        description: `You need ${item.price - blobbonautProfile.coins} more coins to buy ${item.name}.`,
-        variant: "destructive",
-      });
+      // Show the new insufficient coins modal instead of toast
+      setPendingPurchase({ item, quantity: 1 });
+      setShowNotEnoughCoinsModal(true);
       return;
     }
 
@@ -46,7 +49,8 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
   // Calculate maximum affordable quantity
   const getMaxQuantity = (item: BlobbiItem): number => {
     if (!item) return 1;
-    const maxAffordable = Math.floor(blobbonautProfile.coins / item.price);
+    const availableCoins = coinBalance?.balance || blobbonautProfile?.coins || 0;
+    const maxAffordable = Math.floor(availableCoins / item.price);
     return Math.min(maxAffordable, 999);
   };
 
@@ -58,7 +62,8 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
 
   // Check if current selection is affordable
   const isCurrentSelectionAffordable = (): boolean => {
-    return getTotalCost() <= blobbonautProfile.coins;
+    const availableCoins = coinBalance?.balance || blobbonautProfile?.coins || 0;
+    return getTotalCost() <= availableCoins;
   };
 
   const confirmPurchase = async () => {
@@ -89,6 +94,25 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
         description: "Failed to complete the purchase. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleRetryPurchase = () => {
+    if (!pendingPurchase) return;
+
+    const { item, quantity } = pendingPurchase;
+    const totalCost = item.price * quantity;
+    const availableCoins = coinBalance?.balance || blobbonautProfile?.coins || 0;
+
+    // Check if we have enough coins now
+    if (availableCoins >= totalCost) {
+      setSelectedItem(item);
+      setSelectedQuantity(quantity);
+      setShowPurchaseDialog(true);
+      setPendingPurchase(null);
+    } else {
+      // Still not enough coins, show modal again
+      setShowNotEnoughCoinsModal(true);
     }
   };
 
@@ -338,7 +362,7 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
                   <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-700">
                     <p className="text-xs text-red-700 dark:text-red-300 flex items-center gap-1">
                       <span>⚠️</span>
-                      Insufficient coins! You need {getTotalCost() - blobbonautProfile.coins} more coins.
+                      Insufficient coins! You need {getTotalCost() - (coinBalance?.balance || blobbonautProfile?.coins || 0)} more coins.
                     </p>
                   </div>
                 )}
@@ -391,6 +415,20 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Not Enough Coins Modal */}
+      {showNotEnoughCoinsModal && blobbonautProfile && pendingPurchase && (
+        <NotEnoughCoinsModal
+          isOpen={showNotEnoughCoinsModal}
+          onClose={() => {
+            setShowNotEnoughCoinsModal(false);
+            setPendingPurchase(null);
+          }}
+          onRetryPurchase={handleRetryPurchase}
+          requiredCoins={pendingPurchase.item.price * pendingPurchase.quantity}
+          currentCoins={blobbonautProfile.coins}
+        />
+      )}
     </>
   );
 }

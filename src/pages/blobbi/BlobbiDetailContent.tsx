@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import {
-  Coins,
   Trophy,
   Calendar,
   Heart,
@@ -295,13 +294,6 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                 <div className="flex items-center gap-1">
                   <Trophy className="w-3 h-3 text-purple-600" />
                   <span className="font-semibold">{blobbi.experience} XP</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Coins</span>
-                <div className="flex items-center gap-1">
-                  <Coins className="w-3 h-3 text-yellow-600" />
-                  <span className="font-semibold">{blobbi.coins}</span>
                 </div>
               </div>
               <div className="flex items-center justify-between text-sm">

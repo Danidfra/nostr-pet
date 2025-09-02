@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
+import { useCoinBalance } from '@/hooks/useCoinBalance';
+import { BuyCoinsModal } from '@/components/blobbi/BuyCoinsModal';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 import { BlobbiCard } from '@/components/blobbi/BlobbiCard';
 import { BlobbonautProfileCard } from '@/components/blobbi/BlobbonautProfileCard';
@@ -48,6 +50,24 @@ import { CompanionSelector } from '@/components/CompanionSelector';
 import { SetCompanionButton } from '@/components/SetCompanionButton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
+// Simple analytics tracking function
+const track = (eventName: string) => {
+  if (typeof window !== 'undefined' && window.gtag) {
+    window.gtag('event', eventName, {
+      event_category: 'quick_actions',
+      event_label: 'blobbi_dashboard',
+    });
+  }
+  console.log('📊 Analytics:', eventName);
+};
+
+// Add gtag type declaration
+declare global {
+  interface Window {
+    gtag?: (command: string, eventName: string, params?: unknown) => void;
+  }
+}
+
 type BlobbiFilter = 'all' | 'active' | 'incubating' | 'evolved' | 'archived';
 
 export default function BlobbiDashboard() {
@@ -55,6 +75,7 @@ export default function BlobbiDashboard() {
   const { user } = useCurrentUser();
   const { data: profile, isLoading: isProfileLoading } = useBlobbonautProfile();
   const { data: userBlobbis = [] } = useUserBlobbis();
+  const { data: coinBalance } = useCoinBalance();
   const {
     eggTasks,
     evolutionTasks,
@@ -70,6 +91,7 @@ export default function BlobbiDashboard() {
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [showPushModal, setShowPushModal] = useState(false);
+  const [isBuyCoinsModalOpen, setIsBuyCoinsModalOpen] = useState(false);
 
 
   // Redirect to adoption page if user doesn't have a profile (kind 31125)
@@ -206,7 +228,7 @@ export default function BlobbiDashboard() {
     activeBlobbis: userBlobbis.filter(b => b.state === 'active').length,
     incubatingBlobbis: userBlobbis.filter(b => b.lifeStage === 'egg').length,
     evolvedBlobbis: userBlobbis.filter(b => b.evolutionForm && b.evolutionForm !== 'blobbi').length,
-    totalCoins: profile?.coins || 0,
+    totalCoins: coinBalance?.balance || profile?.coins || 0,
     totalExperience: userBlobbis.reduce((sum, b) => sum + b.experience, 0),
     achievements: profile?.achievements.length || 0,
     careStreak: Math.max(...userBlobbis.map(b => b.careStreak || 0), 0),
@@ -320,6 +342,20 @@ export default function BlobbiDashboard() {
               >
                 <ShoppingCart className="w-4 h-4" />
                 Shop
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 border-yellow-200 dark:border-yellow-600 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
+                onClick={() => {
+                  track('quick_action_buy_coins_clicked');
+                  setIsBuyCoinsModalOpen(true);
+                }}
+                aria-label="Buy coins with sats"
+              >
+                <div className="w-4 h-4 flex items-center justify-center">
+                  <span className="text-yellow-600 dark:text-yellow-400">⚡</span>
+                </div>
+                Buy Coins
               </Button>
               <Button
                 variant="outline"
@@ -669,6 +705,12 @@ export default function BlobbiDashboard() {
 
       <BlobbiShop isOpen={isShopOpen} onClose={() => setIsShopOpen(false)} />
       <BlobbiStorage isOpen={isStorageOpen} onClose={() => setIsStorageOpen(false)} />
+
+      {/* Buy Coins Modal */}
+      <BuyCoinsModal
+        isOpen={isBuyCoinsModalOpen}
+        onClose={() => setIsBuyCoinsModalOpen(false)}
+      />
 
       {/* Push Notification Modal */}
       <EnablePushModal

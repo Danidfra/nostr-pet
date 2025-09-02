@@ -1,18 +1,21 @@
 import { useEffect } from 'react';
 import { useBlobbonautProfile, useUpdateBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
+import { useCoinBalance, useSpendCoins } from '@/hooks/useCoinBalance';
 import { useBlobbiFakeInventory } from '@/contexts/BlobbiFakeInventoryContext';
 import { BlobbonautProfile } from '@/types/blobbi';
 
 export function useBlobbonautProfileWithFakeInventory(profileId?: string) {
   const originalHook = useBlobbonautProfile(profileId);
-  const { 
-    getFakeInventory, 
-    setFakeInventory, 
+  const {
+    getFakeInventory,
+    setFakeInventory,
     syncWithRealData,
     updateFakeInventory,
     incrementPendingInteractions,
   } = useBlobbiFakeInventory();
   const { mutate: updateProfile } = useUpdateBlobbonautProfile();
+  const { data: coinBalance } = useCoinBalance();
+  const spendCoins = useSpendCoins();
 
   const effectiveProfileId = profileId || originalHook.data?.id;
   const fakeInventory = effectiveProfileId ? getFakeInventory(effectiveProfileId) : null;
@@ -46,7 +49,7 @@ export function useBlobbonautProfileWithFakeInventory(profileId?: string) {
       console.error('Real profile update failed, but fake inventory was updated:', error);
     }
   };
-  
+
   const purchaseItemWithFakeInventory = async ({ itemId, price, quantity = 1 }: { itemId: string; price: number; quantity?: number }) => {
     const currentProfile = fakeInventory || originalHook.data;
     if (!currentProfile || !effectiveProfileId) {
@@ -59,12 +62,15 @@ export function useBlobbonautProfileWithFakeInventory(profileId?: string) {
 
     const totalCost = price * quantity;
 
-    if (currentProfile.coins < totalCost) {
-      throw new Error(`Insufficient coins. Need ${totalCost}, have ${currentProfile.coins}`);
+    // Check balance using the coin balance system
+    const availableCoins = coinBalance?.balance || currentProfile.coins;
+
+    if (availableCoins < totalCost) {
+      throw new Error(`Insufficient coins. Need ${totalCost}, have ${availableCoins}`);
     }
 
     const existingItemIndex = currentProfile.storage.findIndex(item => item.itemId === itemId);
-    
+
     let updatedStorage;
     if (existingItemIndex >= 0) {
       updatedStorage = [...currentProfile.storage];
@@ -78,14 +84,17 @@ export function useBlobbonautProfileWithFakeInventory(profileId?: string) {
 
     const updatedProfile: BlobbonautProfile = {
       ...currentProfile,
-      coins: currentProfile.coins - totalCost,
       storage: updatedStorage,
       lastModified: Math.floor(Date.now() / 1000),
     };
 
+    // Update storage first
     await updateProfileWithFakeInventory(updatedProfile);
+
+    // Then spend coins
+    await spendCoins(totalCost, `Purchase ${quantity}x ${itemId}`);
   };
-  
+
   const removeFromStorageWithFakeInventory = async ({ itemId, quantity = 1 }: { itemId: string; quantity?: number }) => {
     const currentProfile = fakeInventory || originalHook.data;
     if (!currentProfile || !effectiveProfileId) {
@@ -97,13 +106,13 @@ export function useBlobbonautProfileWithFakeInventory(profileId?: string) {
     }
 
     const existingItemIndex = currentProfile.storage.findIndex(item => item.itemId === itemId);
-    
+
     if (existingItemIndex < 0) {
       throw new Error(`Item ${itemId} not found in storage`);
     }
 
     const existingItem = currentProfile.storage[existingItemIndex];
-    
+
     if (existingItem.quantity < quantity) {
       throw new Error(`Insufficient quantity. Have ${existingItem.quantity}, trying to remove ${quantity}`);
     }
