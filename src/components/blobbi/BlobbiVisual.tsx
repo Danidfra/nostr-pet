@@ -10,62 +10,63 @@ interface BlobbiVisualProps {
   size?: 'small' | 'medium' | 'large' | 'tiny';
   className?: string;
   onClick?: () => void;
+  forceInlineSvg?: boolean; // New prop to guarantee inline SVG
 }
 
-export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualProps) {
+export function BlobbiVisual({ blobbi, size, className, onClick, forceInlineSvg = false }: BlobbiVisualProps) {
   const mood = getBlobbiMood(blobbi.stats, blobbi.state);
   const svgRef = useRef<SVGSVGElement>(null);
-  
+
   // Create unique IDs for patterns to avoid conflicts
   const patternIdPrefix = `blobbi-${blobbi.id}-`;
-  
+
   // Mouse tracking state
   const [pupilOffset, setPupilOffset] = useState({
     left: { x: 0, y: 0 },
     right: { x: 0, y: 0 }
   });
-  
+
   // Blinking state
   const [isBlinking, setIsBlinking] = useState(false);
   const blinkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Check if device has mouse (not touch-only)
-  const hasMouseSupport = typeof window !== 'undefined' && 
+  const hasMouseSupport = typeof window !== 'undefined' &&
     window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-  
+
   useEffect(() => {
     if (blobbi.state === 'sleeping' || blobbi.lifeStage === 'egg') return;
-    
+
     // Mouse tracking
     const handleMouseMove = (e: MouseEvent) => {
       if (!svgRef.current || !hasMouseSupport) return;
-      
+
       const rect = svgRef.current.getBoundingClientRect();
       const svgCenterX = rect.left + rect.width / 2;
       const svgCenterY = rect.top + rect.height / 2;
-      
+
       // Calculate angle from SVG center to mouse
       const angle = Math.atan2(e.clientY - svgCenterY, e.clientX - svgCenterX);
-      
+
       // Calculate distance (capped for natural movement)
       const distance = Math.min(
         Math.sqrt(Math.pow(e.clientX - svgCenterX, 2) + Math.pow(e.clientY - svgCenterY, 2)),
         200
       ) / 200;
-      
+
       // Maximum pupil movement (in SVG units)
       const maxOffset = 2.5;
-      
+
       // Calculate offsets
       const offsetX = Math.cos(angle) * distance * maxOffset;
       const offsetY = Math.sin(angle) * distance * maxOffset;
-      
+
       setPupilOffset({
         left: { x: offsetX, y: offsetY },
         right: { x: offsetX, y: offsetY }
       });
     };
-    
+
     // Blinking logic
     const scheduleNextBlink = () => {
       const delay = 3000 + Math.random() * 3000; // 3-6 seconds
@@ -77,13 +78,13 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
         }, 150); // Blink duration
       }, delay);
     };
-    
+
     if (hasMouseSupport) {
       window.addEventListener('mousemove', handleMouseMove);
     }
-    
+
     scheduleNextBlink();
-    
+
     return () => {
       if (hasMouseSupport) {
         window.removeEventListener('mousemove', handleMouseMove);
@@ -97,7 +98,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
   // If it's an egg, show the EggGraphic component
   if (blobbi.lifeStage === 'egg') {
     return (
-      <div 
+      <div
         className={cn(
           'relative cursor-pointer transition-transform hover:scale-105',
           className
@@ -114,10 +115,10 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
       </div>
     );
   }
-  
+
   // Always use medium size for visual consistency across all Blobbis
   const displaySize = 'medium';
-  
+
   // Container sizes - always use medium size for consistency
   const sizeClasses = {
     tiny: 'w-48 h-48',      // Use medium size for consistency
@@ -125,29 +126,29 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
     medium: 'w-48 h-48',    // Standard UI
     large: 'w-48 h-48',     // Use medium size for consistency
   };
-  
+
   // Padding/spacing - always use medium size for consistency
   const paddingClasses = {
     tiny: 'p-4',
-    small: 'p-4', 
+    small: 'p-4',
     medium: 'p-4',
     large: 'p-4',
   };
-  
+
   // Shadow intensity - always use medium size for consistency
   const shadowClasses = {
     tiny: 'drop-shadow-lg',
     small: 'drop-shadow-lg',
-    medium: 'drop-shadow-lg', 
+    medium: 'drop-shadow-lg',
     large: 'drop-shadow-lg',
   };
-  
+
   const lifeStageScale = {
     egg: 0.6,
     baby: 0.7,
     adult: 1,
   };
-  
+
   // Size scaling - always use medium size for visual consistency
   const sizeScale = {
     tiny: 1.0,    // Use medium size for consistency
@@ -155,10 +156,10 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
     medium: 1.0,  // Standard size
     large: 1.0,   // Use medium size for consistency
   };
-  
+
   // Only use lifeStageScale for visual differentiation, ignore the size tag for visual scaling
   const scale = lifeStageScale[blobbi.lifeStage];
-  
+
   // Eye expressions based on mood
   const eyeExpressions = {
     happy: '◉',
@@ -169,7 +170,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
     sick: '✕',
     neutral: '●',
   };
-  
+
   // Mouth expressions based on mood
   const mouthPaths = {
     happy: 'M 35 60 Q 50 70 65 60', // Smile
@@ -180,19 +181,19 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
     sick: 'M 35 65 Q 50 60 65 65', // Wavy line
     neutral: 'M 40 65 Q 50 67 60 65', // Slight smile
   };
-  
+
   // Animation classes based on state
-  const animationClass = blobbi.state === 'sleeping' 
-    ? 'animate-pulse' 
-    : mood === 'happy' 
-    ? 'animate-blobbi-jump' 
+  const animationClass = blobbi.state === 'sleeping'
+    ? 'animate-pulse'
+    : mood === 'happy'
+    ? 'animate-blobbi-jump'
     : '';
-  
+
   // Dirt spots for dirty state
   const isDirty = blobbi.stats.hygiene < 30;
-  
+
   return (
-    <div 
+    <div
       className={cn(
         'relative cursor-pointer transition-all duration-300 hover:scale-105',
         sizeClasses[displaySize as keyof typeof sizeClasses],
@@ -221,14 +222,14 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
           className="text-black/25 dark:text-black/35"
         />
       </svg>
-      
+
       <svg
         ref={svgRef}
         viewBox="0 0 100 100"
         className={cn("w-full h-full", animationClass)}
         style={{ transform: `scale(${scale})` }}
       >
-        
+
         {/* Main body - cute water droplet shape with enhanced gradients */}
         <path
           d="M 50 15 Q 50 10 50 15 Q 72 25 75 55 Q 75 80 50 88 Q 25 80 25 55 Q 28 25 50 15"
@@ -244,7 +245,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
           fill="white"
           opacity="0.2"
         />
-        
+
         {/* Pattern overlay if customized - REMOVED VISUAL DISPLAY */}
         {/* {blobbi.customization.pattern && (
           <path
@@ -253,10 +254,10 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
             opacity="0.3"
           />
         )} */}
-        
+
         {/* Visual Effects Layer - Render BEFORE eyes so they appear behind */}
         <BlobbiVisualEffects blobbi={blobbi} patternIdPrefix={patternIdPrefix} />
-        
+
         {/* Eyes with gentle depth and enhanced tracking - Render AFTER effects so they appear on top */}
         {blobbi.state === 'sleeping' ? (
           <>
@@ -267,18 +268,18 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
           <>
             {/* Left eye with enhanced depth */}
             <g id="left-eye">
-              <ellipse 
-                cx="38" 
-                cy="45" 
-                rx="8" 
-                ry={isBlinking ? "1" : "10"} 
+              <ellipse
+                cx="38"
+                cy="45"
+                rx="8"
+                ry={isBlinking ? "1" : "10"}
                 fill={`url(#${patternIdPrefix}blobbiEyeGradient)`}
                 style={{
                   transition: 'ry 0.1s ease-in-out'
                 }}
               />
               {!isBlinking && (
-                <g 
+                <g
                   className="pupil-container"
                   style={{
                     transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
@@ -293,18 +294,18 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
             </g>
             {/* Right eye with enhanced depth */}
             <g id="right-eye">
-              <ellipse 
-                cx="62" 
-                cy="45" 
-                rx="8" 
-                ry={isBlinking ? "1" : "10"} 
+              <ellipse
+                cx="62"
+                cy="45"
+                rx="8"
+                ry={isBlinking ? "1" : "10"}
                 fill={`url(#${patternIdPrefix}blobbiEyeGradient)`}
                 style={{
                   transition: 'ry 0.1s ease-in-out'
                 }}
               />
               {!isBlinking && (
-                <g 
+                <g
                   className="pupil-container"
                   style={{
                     transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
@@ -319,7 +320,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
             </g>
           </>
         )}
-        
+
         {/* Mouth with gentle shading and enhanced expressions */}
         {mood === 'happy' && (
           <path d="M 42 62 Q 50 68 58 62" stroke={`url(#${patternIdPrefix}blobbiMouthGradient)`} strokeWidth="2.5" fill="none" strokeLinecap="round" />
@@ -339,7 +340,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
         {mood === 'dirty' && (
           <path d="M 45 65 L 55 65" stroke={`url(#${patternIdPrefix}blobbiMouthGradient)`} strokeWidth="2" strokeLinecap="round" />
         )}
-        
+
         {/* Soft blush for cuteness */}
         {mood === 'happy' && (
           <>
@@ -347,7 +348,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
             <ellipse cx="78" cy="55" rx="6" ry="4" fill="rgba(255,182,193,0.5)" />
           </>
         )}
-        
+
         {/* Sweat drop for sick */}
         {mood === 'sick' && (
           <path
@@ -355,7 +356,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
             fill="#87CEEB"
           />
         )}
-        
+
         {/* Dirt spots */}
         {isDirty && (
           <>
@@ -364,14 +365,14 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
             <circle cx="50" cy="80" r="2.5" fill="rgba(139,69,19,0.3)" />
           </>
         )}
-        
+
         {/* Z's for sleeping */}
         {blobbi.state === 'sleeping' && (
           <text x="75" y="25" fontSize="10" fill="#666" className="animate-pulse">
             Z
           </text>
         )}
-        
+
         {/* Accessories with enhanced styling */}
         {blobbi.customization.accessories.includes('hat') && (
           <g>
@@ -381,7 +382,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
             <circle cx="50.5" cy="4" r="1" fill="white" opacity="0.6" />
           </g>
         )}
-        
+
         {blobbi.customization.accessories.includes('glasses') && (
           <g>
             <circle cx="38" cy="45" r="10" fill="none" stroke={`url(#${patternIdPrefix}blobbiPupilGradient)`} strokeWidth="2" />
@@ -389,7 +390,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
             <line x1="48" y1="45" x2="52" y2="45" stroke={`url(#${patternIdPrefix}blobbiPupilGradient)`} strokeWidth="2" />
           </g>
         )}
-        
+
         {/* Enhanced gradient and pattern definitions */}
         <defs>
           {/* Visual Effects Gradients */}
@@ -432,7 +433,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick }: BlobbiVisualP
           </pattern>
         </defs>
       </svg>
-      
+
       {/* Hibernation indicator */}
       {blobbi.state === 'hibernating' && (
         <div className="absolute inset-0 bg-gray-900/50 rounded-full flex items-center justify-center">

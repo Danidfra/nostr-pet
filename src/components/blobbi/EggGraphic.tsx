@@ -13,12 +13,13 @@ interface EggGraphicProps {
   animated?: boolean;
   cracking?: boolean;
   warmth?: number; // 0-100, affects the glow (fallback if no blobbi)
+  forceInlineSvg?: boolean; // New prop to guarantee inline SVG
 }
 
 // Legacy fallback function for special marks (kept for compatibility)
 const renderLegacySpecialMark = (specialMark: string, eggWidth: number, eggHeight: number) => {
   console.warn(`Using legacy special mark rendering for: ${specialMark}. Consider updating to use SpecialMarkRenderer.`);
-  
+
   const markStyle = {
     position: 'absolute' as const,
     pointerEvents: 'none' as const,
@@ -52,19 +53,20 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
   animated = false,
   cracking = false,
   warmth = 50,
+  forceInlineSvg = false,
 }) => {
   // Always use medium size for visual consistency across all Blobbis
   // Store the original size for data purposes but always display as medium
   const originalSize = blobbi?.size || size;
   const displaySize = 'medium';
-  
+
   // Initialize special mark hook for dynamic rendering
   const specialMarkHook = useSpecialMark(blobbi?.specialMark || null, {
     animated,
     autoAnimate: true,
     performanceMode: false, // Can be made configurable
   });
-  
+
   const sizeClasses = {
     tiny: 'w-32 h-40',
     small: 'w-32 h-40',
@@ -108,8 +110,8 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
   };
 
   const baseColor = getBaseColor();
-  const secondaryColor = blobbi?.secondaryColor && isValidSecondaryColor(blobbi.secondaryColor) 
-    ? blobbi.secondaryColor 
+  const secondaryColor = blobbi?.secondaryColor && isValidSecondaryColor(blobbi.secondaryColor)
+    ? blobbi.secondaryColor
     : undefined;
   const glowColor = getGlowColor(actualWarmth);
 
@@ -180,7 +182,7 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
   };
 
   return (
-    <div 
+    <div
       className={cn(
         'relative flex items-center justify-center',
         sizeClasses.medium,
@@ -271,16 +273,16 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
           >
             {/* Main horizontal crack (adapted from aprovado.svg) */}
             <path
-              d="M10 62 
-                 L20 60 
-                 L30 64 
-                 L40 59 
-                 L50 65 
-                 L60 58 
-                 L70 66 
-                 L80 57 
-                 L90 67 
-                 L100 59 
+              d="M10 62
+                 L20 60
+                 L30 64
+                 L40 59
+                 L50 65
+                 L60 58
+                 L70 66
+                 L80 57
+                 L90 67
+                 L100 59
                  L110 65"
               stroke="rgba(0, 0, 0, 0.6)"
               strokeWidth="2"
@@ -296,31 +298,31 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
             <path d="M90 67 L95 72" stroke="rgba(0, 0, 0, 0.4)" strokeWidth="1" strokeLinecap="round" />
             <path d="M100 59 L97 53" stroke="rgba(0, 0, 0, 0.4)" strokeWidth="1" strokeLinecap="round" />
             <path d="M110 65 L113 69" stroke="rgba(0, 0, 0, 0.4)" strokeWidth="1" strokeLinecap="round" />
-            
+
             {/* Additional micro-cracks for detail */}
             <path d="M40 59 L38 55" stroke="rgba(0, 0, 0, 0.25)" strokeWidth="0.8" strokeLinecap="round" />
             <path d="M70 66 L73 70" stroke="rgba(0, 0, 0, 0.25)" strokeWidth="0.8" strokeLinecap="round" />
             <path d="M20 60 L18 56" stroke="rgba(0, 0, 0, 0.2)" strokeWidth="0.6" strokeLinecap="round" />
-            
+
             {/* Crack highlights for depth (following the main crack pattern) */}
             <path
-              d="M10 63 
-                 L20 61 
-                 L30 65 
-                 L40 60 
-                 L50 66 
-                 L60 59 
-                 L70 67 
-                 L80 58 
-                 L90 68 
-                 L100 60 
+              d="M10 63
+                 L20 61
+                 L30 65
+                 L40 60
+                 L50 66
+                 L60 59
+                 L70 67
+                 L80 58
+                 L90 68
+                 L100 60
                  L110 66"
               stroke="rgba(255, 255, 255, 0.15)"
               strokeWidth="0.8"
               fill="none"
               strokeLinecap="round"
             />
-            
+
             {/* Secondary crack highlights */}
             <path d="M30 65 L28 71" stroke="rgba(255, 255, 255, 0.1)" strokeWidth="0.4" strokeLinecap="round" />
             <path d="M60 59 L57 53" stroke="rgba(255, 255, 255, 0.1)" strokeWidth="0.4" strokeLinecap="round" />

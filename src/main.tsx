@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import '@fontsource-variable/comfortaa'
+import '@fontsource/comic-neue'
 
 import App from './App.tsx'
 import './index.css'

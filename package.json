@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@fontsource-variable/comfortaa": "^5.2.6",
+    "@fontsource/comic-neue": "^5.2.6",
     "@hookform/resolvers": "^3.9.0",
     "@lightninglabs/lnc-web": "^0.3.4-alpha",
     "@nostrify/nostrify": "npm:@jsr/nostrify__nostrify@^0.46.1",
@@ -51,6 +52,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
     "framer-motion": "^12.18.1",
+    "html-to-image": "^1.11.13",
     "input-otp": "^1.2.4",
     "light-bolt11-decoder": "^3.2.0",
     "lnurl-offline": "^1.2.0",

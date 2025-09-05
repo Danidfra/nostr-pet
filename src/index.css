@@ -5,11 +5,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Polaroid Photo Styles */
+.polaroid-frame {
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.1),
+    0 6px 20px rgba(0, 0, 0, 0.15);
+  transform: rotate(-1deg);
+  transition: transform 0.2s ease;
+}
+
+.polaroid-frame:hover {
+  transform: rotate(0deg) scale(1.02);
+}
+
+/* Handwriting font fallback */
+.font-handwriting {
+  font-family: 'Comic Neue', 'Brush Script MT', 'Lucida Handwriting', cursive;
+  font-weight: normal;
+}
+
 @layer base {
   :root {
     /* Elegant Design System - Light Mode */
     /* Converting hex colors to HSL for Tailwind compatibility */
-    
+
     /* Backgrounds - Off-white base (#FFF8EC) */
     --background: 45 67% 97%;           /* #FFF8EC - Off-white base */
     --foreground: 32 33% 15%;           /* #2C2419 - Warm dark brown text */
@@ -61,7 +80,7 @@
   .dark {
     /* Elegant Design System - Dark Mode */
     /* Warm dark colors instead of harsh blacks */
-    
+
     /* Backgrounds - Warm dark base (#1C1814) */
     --background: 30 13% 10%;           /* #1C1814 - Warm dark base */
     --foreground: 42 43% 90%;           /* #F0E6D6 - Warm off-white text */
@@ -124,19 +143,19 @@
 
   /* Enhanced shadows for elegant depth */
   .shadow-elegant {
-    box-shadow: 
+    box-shadow:
       0 1px 3px 0 hsl(var(--foreground) / 0.1),
       0 1px 2px -1px hsl(var(--foreground) / 0.1);
   }
 
   .shadow-elegant-lg {
-    box-shadow: 
+    box-shadow:
       0 4px 6px -1px hsl(var(--foreground) / 0.1),
       0 2px 4px -2px hsl(var(--foreground) / 0.1);
   }
 
   .shadow-elegant-xl {
-    box-shadow: 
+    box-shadow:
       0 10px 15px -3px hsl(var(--foreground) / 0.1),
       0 4px 6px -4px hsl(var(--foreground) / 0.1);
   }
@@ -153,7 +172,7 @@
 
 @layer utilities {
   /* Custom synchronized animations for Blobbi and shadow */
-  
+
   @keyframes blobbi-jump {
     0%, 100% {
       transform: translateY(0);
@@ -162,7 +181,7 @@
       transform: translateY(-15%);
     }
   }
-  
+
   @keyframes blobbi-shadow {
     0%, 100% {
       transform: scale(1, 1);
@@ -175,7 +194,7 @@
   .animate-blobbi-jump {
     animation: blobbi-jump 1.2s ease-in-out infinite;
   }
-  
+
   .animate-blobbi-shadow {
     animation: blobbi-shadow 1.2s ease-in-out infinite;
   }

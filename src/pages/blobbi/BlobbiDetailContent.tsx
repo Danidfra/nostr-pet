@@ -28,7 +28,8 @@ import {
   Circle,
   Users,
   ExternalLink,
-  Egg
+  Egg,
+  Camera
 } from 'lucide-react';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbiById } from '@/hooks/useUserBlobbis';
@@ -46,6 +47,7 @@ import { EvolutionProgress } from '@/components/blobbi/EvolutionProgress';
 import { EggGraphic } from '@/components/blobbi/EggGraphic';
 import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { PolaroidPhotoModal } from '@/components/blobbi/PolaroidPhotoModal';
 
 import { formatDistanceToNow } from 'date-fns';
 import { getActionDisplayName } from '@/lib/utils';
@@ -132,6 +134,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const [showCustomization, setShowCustomization] = useState(false);
   const [showGames, setShowGames] = useState(false);
   const [showStorage, setShowStorage] = useState(false);
+  const [showPolaroidModal, setShowPolaroidModal] = useState(false);
   const [activeTab, setActiveTab] = useState('actions');
 
   // Handle egg/baby selection when user manually starts listening
@@ -207,7 +210,19 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
         <div className="lg:col-span-1 space-y-4">
           {/* Blobbi Visual */}
           <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 group">
-            <CardContent className="p-4 sm:p-6">
+            <CardContent className="p-4 sm:p-6 relative">
+              {/* Camera Button */}
+              {isOwner && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-3 right-3 z-20 p-2 h-8 w-8 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105 transition-all duration-200"
+                  onClick={() => setShowPolaroidModal(true)}
+                  aria-label="Take photo"
+                >
+                  <Camera className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                </Button>
+              )}
               <div className="absolute inset-0 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 transition-all duration-300 z-0"></div>
               <div className="relative z-10">
                 <div className="text-center mb-4">
@@ -652,7 +667,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
         </div>
       </div>
 
-      {/* Shop, Storage, Customization, and Games Dialogs */}
+      {/* Shop, Storage, Customization, Games, and Polaroid Photo Dialogs */}
       {isOwner && (
         <>
           <BlobbiShop isOpen={showShop} onClose={() => setShowShop(false)} />
@@ -662,6 +677,11 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
             isOpen={showGames}
             onClose={() => setShowGames(false)}
             blobbiId={blobbi.id}
+          />
+          <PolaroidPhotoModal
+            isOpen={showPolaroidModal}
+            onClose={() => setShowPolaroidModal(false)}
+            blobbi={blobbi}
           />
         </>
       )}
