@@ -4,13 +4,13 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { 
-  CheckCircle, 
-  Circle, 
-  Wifi, 
-  WifiOff, 
-  RefreshCw, 
-  ChevronDown, 
+import {
+  CheckCircle,
+  Circle,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  ChevronDown,
   ChevronRight,
   Info,
   Egg,
@@ -21,7 +21,8 @@ import {
   ArrowRight,
   Target,
   Zap,
-  Baby
+  Baby,
+  Send
 } from 'lucide-react';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 import { useBlobbiQuestSystem } from '@/hooks/useBlobbiQuestSystem';
@@ -29,6 +30,7 @@ import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { EggGraphic } from './EggGraphic';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
+import { CreatePostModal } from './CreatePostModal';
 import { formatDistanceToNow } from 'date-fns';
 
 interface BlobbiIncubationDashboardProps {
@@ -58,6 +60,8 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
     debugInfo,
     getProgress,
   } = useBlobbiIncubationSystem();
+
+  const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
 
   // New quest system for Baby to Adult evolution
   const {
@@ -136,8 +140,8 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button 
-            onClick={refetchMetadata} 
+          <Button
+            onClick={refetchMetadata}
             variant="outline"
             className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
           >
@@ -191,31 +195,31 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
               Blobbi Growth Hub
             </div>
             <div className="flex items-center gap-2">
-              <Badge 
-                variant={metadataSubscriptionActive ? 'default' : 'secondary'} 
+              <Badge
+                variant={metadataSubscriptionActive ? 'default' : 'secondary'}
                 className={`flex items-center gap-1 ${
-                  metadataSubscriptionActive 
-                    ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' 
+                  metadataSubscriptionActive
+                    ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 {metadataSubscriptionActive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
                 Metadata
               </Badge>
-              <Badge 
-                variant={taskSubscriptionActive ? 'default' : 'secondary'} 
+              <Badge
+                variant={taskSubscriptionActive ? 'default' : 'secondary'}
                 className={`flex items-center gap-1 ${
-                  taskSubscriptionActive 
-                    ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' 
+                  taskSubscriptionActive
+                    ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 {taskSubscriptionActive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
                 Tasks
               </Badge>
-              <Button 
-                size="sm" 
-                variant="outline" 
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={refetchMetadata}
                 className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
               >
@@ -240,7 +244,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                     <Egg className="h-5 w-5 text-yellow-500" />
                     Incubating Eggs ({eggBlobbis.length})
                     {!showEggList && eggBlobbis.some(blobbi => isBlobbiReadyToHatch(blobbi)) && (
-                      <Button 
+                      <Button
                         size="sm"
                         className="bg-green-600 hover:bg-green-700 text-white text-xs"
                         onClick={(e) => {
@@ -295,9 +299,9 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                         <div className="flex flex-col items-center space-y-3 p-4">
                           {/* Updated Blobbi Visual Container */}
                           <div className="flex items-center justify-center transition-all duration-500 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border-2 border-purple-100/60 dark:border-purple-600/30 group-hover:border-purple-200/80 dark:group-hover:border-purple-500/50 min-h-[200px] p-6 relative">
-                            <EggGraphic 
+                            <EggGraphic
                               blobbi={blobbi} // Pass the full blobbi object for unique characteristics
-                              size="medium" 
+                              size="medium"
                               animated={true}
                               warmth={blobbi.eggTemperature || (60 + (getProgress(blobbi.id).egg.percentage * 0.4))} // Use blobbi's specific temperature or fallback
                             />
@@ -309,7 +313,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                               </div>
                             )}
                           </div>
-                          
+
                           <div className="text-center space-y-1">
                             <h4 className="font-medium text-gray-900 dark:text-gray-100">{blobbi.name}</h4>
                             <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -327,7 +331,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                                 </div>
                                 <Progress value={blobbiProgress.egg.percentage} className="h-2" />
                                 {isBlobbiReadyToHatch(blobbi) ? (
-                                  <Button 
+                                  <Button
                                     className="w-full bg-green-600 hover:bg-green-700 text-white"
                                     onClick={(e) => {
                                       e.stopPropagation(); // Prevent card selection when clicking button
@@ -389,7 +393,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                 {selectedBlobbi.name} - Hatching Progress
               </div>
               {!taskSubscriptionActive && !incubationStartTime && (
-                <Button 
+                <Button
                   onClick={startIncubation}
                   size="sm"
                   className="bg-purple-600 hover:bg-purple-700 text-white"
@@ -406,7 +410,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
               )}
             </CardTitle>
             <CardDescription className="text-gray-600 dark:text-gray-300">
-              {!incubationStartTime 
+              {!incubationStartTime
                 ? "Click 'Start Incubation' to begin tracking your Nostr interactions"
                 : "Complete these 4 Nostr interactions to hatch your egg"}
             </CardDescription>
@@ -440,25 +444,42 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className={`font-medium ${task.completed ? 'text-green-800 dark:text-green-200' : 'text-gray-900 dark:text-gray-100'}`}>
-                        {task.name}
-                      </h4>
-                      {task.completed && (
-                        <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
-                          Completed
-                        </Badge>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className={`font-medium ${task.completed ? 'text-green-800 dark:text-green-200' : 'text-gray-900 dark:text-gray-100'}`}>
+                            {task.name}
+                          </h4>
+                          {task.completed && (
+                            <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
+                              Completed
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {task.description}
+                        </p>
+                        {task.completed && (
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Task confirmed on Nostr
+                          </p>
+                        )}
+                      </div>
+                      {!task.completed && task.id === 'blobbi_hashtag_post' && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setIsCreatePostModalOpen(true)
+                            startIncubation()
+                          }}
+                          className="ml-4 bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                          <Send className="h-3 w-3 mr-1" />
+                          Create Post
+                        </Button>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      {task.description}
-                    </p>
-                    {task.completed && (
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
-                        <CheckCircle className="h-3 w-3" />
-                        Task confirmed on Nostr
-                      </p>
-                    )}
                   </div>
                 </div>
               ))}
@@ -466,7 +487,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
 
             {/* Evolution Button */}
             {selectedBabyBlobbi && isBabyReadyToEvolve(selectedBabyBlobbi) && (
-              <Button 
+              <Button
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-4"
                 onClick={() => triggerEvolution()}
                 disabled={isEvolving}
@@ -527,7 +548,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="text-center space-y-1">
                           <h4 className="font-medium text-gray-900 dark:text-gray-100">{blobbi.name}</h4>
                           <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300">
@@ -553,7 +574,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                           })()}
                           {isBabyReadyToEvolve(blobbi) ? (
                             selectedBabyId === blobbi.id ? (
-                              <Button 
+                              <Button
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                                 onClick={(e) => {
                                   e.stopPropagation(); // Prevent card selection when clicking button
@@ -619,7 +640,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                 {selectedBabyBlobbi.name} - Evolution Quests
               </div>
               {!questSubscriptionActive && !questStartTime && (
-                <Button 
+                <Button
                   onClick={startQuestTracking}
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -636,7 +657,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
               )}
             </CardTitle>
             <CardDescription className="text-gray-600 dark:text-gray-300">
-              {!questStartTime 
+              {!questStartTime
                 ? "Click 'Start Listening' to begin tracking your Nostr interactions for evolution quests"
                 : "Complete these 10 social interaction quests to evolve your baby Blobbi to adult"}
             </CardDescription>
@@ -750,7 +771,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="text-center space-y-1">
                           <h4 className="font-medium text-gray-900 dark:text-gray-100">{blobbi.name}</h4>
                           <Badge className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-600">
@@ -982,6 +1003,16 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
           </div>
         </CardContent>
       </Card>
+
+      {/* Create Post Modal */}
+      <CreatePostModal
+        open={isCreatePostModalOpen}
+        onClose={() => setIsCreatePostModalOpen(false)}
+        onPostPublished={() => {
+          // Refresh the incubation system to detect the new post
+          refetchMetadata();
+        }}
+      />
     </div>
   );
 }
