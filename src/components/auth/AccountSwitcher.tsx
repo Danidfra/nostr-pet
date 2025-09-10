@@ -24,7 +24,7 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className='flex items-center gap-3 p-3 rounded-full hover:bg-accent transition-all w-full text-foreground max-w-60'>
+        <button className='flex items-center gap-3 p-3 rounded-full hover:bg-accent/80 transition-all duration-300 w-full text-foreground max-w-60 backdrop-blur-sm hover:shadow-elegant hover:scale-105'>
           <Avatar className='w-10 h-10'>
             <AvatarImage src={currentUser.metadata.picture} alt={currentUser.metadata.name} />
             <AvatarFallback>{currentUser.metadata.name?.charAt(0) || <UserIcon />}</AvatarFallback>
@@ -35,13 +35,13 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
           <ChevronDown className='w-4 h-4 text-muted-foreground' />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className='w-56 p-2 animate-scale-in'>
-        <div className='font-medium text-sm px-2 py-1.5'>Switch Account</div>
+      <DropdownMenuContent className='w-56 p-2 animate-scale-in shadow-elegant-lg border-border/50 backdrop-blur-sm bg-popover/95'>
+        <div className='font-medium text-sm px-2 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent'>Switch Account</div>
         {otherUsers.map((user) => (
           <DropdownMenuItem
             key={user.id}
             onClick={() => setLogin(user.id)}
-            className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+            className='flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-accent/80 transition-all duration-200'
           >
             <Avatar className='w-8 h-8'>
               <AvatarImage src={user.metadata.picture} alt={user.metadata.name} />
@@ -56,14 +56,14 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={onAddAccountClick}
-          className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+          className='flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-accent/80 transition-all duration-200'
         >
           <UserPlus className='w-4 h-4' />
           <span>Add another account</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => removeLogin(currentUser.id)}
-          className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
+          className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-destructive hover:bg-destructive/10 transition-all duration-200'
         >
           <LogOut className='w-4 h-4' />
           <span>Log out</span>

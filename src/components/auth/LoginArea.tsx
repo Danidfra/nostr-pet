@@ -27,7 +27,7 @@ export function LoginArea() {
         <Button
           onClick={() => setLoginDialogOpen(true)}
           size="sm"
-          className='flex items-center gap-2 rounded-full bg-primary text-primary-foreground font-medium transition-all hover:bg-primary/90'
+          className='flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium transition-all duration-300 hover:shadow-elegant-lg hover:scale-105 shadow-lg'
         >
           <User className='w-4 h-4' />
           <span>Log in</span>
@@ -35,8 +35,8 @@ export function LoginArea() {
       )}
 
       <LoginDialog
-        isOpen={loginDialogOpen} 
-        onClose={() => setLoginDialogOpen(false)} 
+        isOpen={loginDialogOpen}
+        onClose={() => setLoginDialogOpen(false)}
         onLogin={handleLogin}
         onSignup={() => setSignupDialogOpen(true)}
       />

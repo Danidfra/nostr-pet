@@ -1,57 +1,57 @@
-/* 
+/*
  * Elegant Design System
  * A sophisticated color palette with warm tones and seamless light/dark mode
  * Base color: #FFF8EC (off-white)
  */
 
 :root {
-  /* Light Mode Colors */
-  --bg-primary: #FFF8EC;           /* Off-white base background */
-  --bg-secondary: #F5F0E8;         /* Cards and elevated surfaces */
-  --bg-tertiary: #EDE6DB;          /* Subtle contrast areas */
-  
-  --text-primary: #2C2419;         /* Main text - warm dark brown */
-  --text-secondary: #4A3F32;       /* Secondary text */
-  --text-muted: #6B5D4F;           /* Muted text and captions */
-  
-  --heading-primary: #1A1611;      /* H1, H2 - deepest brown */
-  --heading-secondary: #2C2419;    /* H3, H4, H5, H6 */
-  
-  --border-light: #E5DDD0;         /* Subtle borders and dividers */
-  --border-medium: #D4C7B8;        /* More defined borders */
-  --border-strong: #C4B5A3;        /* Strong borders and outlines */
-  
-  --primary-bg: #8B5A3C;           /* Primary button background */
-  --primary-hover: #7A4D33;        /* Primary button hover state */
-  --primary-active: #6B4129;       /* Primary button active state */
-  --primary-text: #FFF8EC;         /* Primary button text */
-  
-  --secondary-bg: #E5DDD0;         /* Secondary button background */
-  --secondary-hover: #D4C7B8;      /* Secondary button hover */
-  --secondary-active: #C4B5A3;     /* Secondary button active */
-  --secondary-text: #2C2419;       /* Secondary button text */
-  
-  --accent-primary: #A0522D;       /* Links and accent elements */
-  --accent-hover: #8B5A3C;         /* Link hover state */
-  --accent-visited: #7A4D33;       /* Visited links */
-  
+  /* Light Mode Colors - Purple/Pink Gradient Theme */
+  --bg-primary: 45 67% 97%;           /* #FFF8EC - Off-white base background */
+  --bg-secondary: 42 43% 95%;         /* #F5F0E8 - Cards and elevated surfaces */
+  --bg-tertiary: 35 25% 87%;          /* #EDE6DB - Subtle contrast areas */
+
+  --text-primary: 32 33% 15%;         /* #2C2419 - Main text - warm dark */
+  --text-secondary: 28 17% 37%;        /* #6B5D4F - Secondary text */
+  --text-muted: 28 17% 67%;           /* #A69B8A - Muted text and captions */
+
+  --heading-primary: 32 33% 15%;      /* #2C2419 - H1, H2 - main headings */
+  --heading-secondary: 32 33% 15%;    /* #2C2419 - H3, H4, H5, H6 */
+
+  --border-light: 38 29% 84%;         /* #E5DDD0 - Subtle borders and dividers */
+  --border-medium: 38 29% 84%;        /* #E5DDD0 - More defined borders */
+  --border-strong: 38 29% 84%;        /* #E5DDD0 - Strong borders and outlines */
+
+  --primary-bg: 20 42% 39%;           /* #8B5A3C - Primary button background */
+  --primary-hover: 20 42% 35%;        /* Primary button hover state */
+  --primary-active: 20 42% 31%;       /* Primary button active state */
+  --primary-text: 45 67% 97%;         /* #FFF8EC - Primary button text */
+
+  --secondary-bg: 38 29% 84%;         /* #E5DDD0 - Secondary button background */
+  --secondary-hover: 35 25% 87%;      /* #EDE6DB - Secondary button hover */
+  --secondary-active: 32 20% 90%;      /* Lighter secondary when active */
+  --secondary-text: 32 33% 15%;       /* #2C2419 - Secondary button text */
+
+  --accent-primary: 258 80% 50%;       /* Purple links and accent elements */
+  --accent-hover: 280 75% 55%;         /* Pink link hover state */
+  --accent-visited: 340 70% 60%;       /* Visited links */
+
   /* Status Colors */
-  --success: #5D7C47;              /* Success states and confirmations */
-  --warning: #B8860B;              /* Warning states and cautions */
-  --error: #A0522D;                /* Error states and alerts */
-  --info: #4682B4;                 /* Information and neutral alerts */
-  
-  /* Shadows */
-  --shadow-light: rgba(44, 36, 25, 0.08);
-  --shadow-medium: rgba(44, 36, 25, 0.12);
-  --shadow-strong: rgba(44, 36, 25, 0.16);
-  
+  --success: 142 76% 36%;             /* Success states and confirmations */
+  --warning: 43 91% 54%;             /* Warning states and cautions */
+  --error: 4 71% 58%;                /* Error states and alerts */
+  --info: 217 91% 60%;               /* Information and neutral alerts */
+
+  /* Shadows - Purple themed */
+  --shadow-light: rgba(138, 43, 226, 0.08);
+  --shadow-medium: rgba(138, 43, 226, 0.12);
+  --shadow-strong: rgba(138, 43, 226, 0.16);
+
   /* Border Radius */
   --radius-sm: 6px;
   --radius: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
-  
+
   /* Transitions */
   --transition-fast: 0.15s ease;
   --transition-normal: 0.2s ease;
@@ -61,111 +61,111 @@
 /* Dark Mode Colors */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg-primary: #1C1814;          /* Warm dark base */
-    --bg-secondary: #252018;        /* Cards and elevated surfaces */
-    --bg-tertiary: #2E281F;         /* Subtle contrast areas */
-    
-    --text-primary: #F0E6D6;        /* Main text - warm off-white */
-    --text-secondary: #D4C7B8;      /* Secondary text */
-    --text-muted: #A69B8A;          /* Muted text and captions */
-    
-    --heading-primary: #F5F0E8;     /* H1, H2 - brightest */
-    --heading-secondary: #F0E6D6;   /* H3, H4, H5, H6 */
-    
-    --border-light: #3A332A;        /* Subtle borders and dividers */
-    --border-medium: #4A3F32;       /* More defined borders */
-    --border-strong: #5A4D3E;       /* Strong borders and outlines */
-    
-    --primary-bg: #B8860B;          /* Primary button - warmer gold */
-    --primary-hover: #DAA520;       /* Primary button hover */
-    --primary-active: #F4D03F;      /* Primary button active */
-    --primary-text: #1C1814;        /* Primary button text */
-    
-    --secondary-bg: #3A332A;        /* Secondary button background */
-    --secondary-hover: #4A3F32;     /* Secondary button hover */
-    --secondary-active: #5A4D3E;    /* Secondary button active */
-    --secondary-text: #F0E6D6;      /* Secondary button text */
-    
-    --accent-primary: #DAA520;      /* Links and accents - gold */
-    --accent-hover: #F4D03F;        /* Link hover */
-    --accent-visited: #B8860B;      /* Visited links */
-    
+    --bg-primary: 30 13% 10%;          /* #1C1814 - Warm dark base */
+    --bg-secondary: 30 17% 14%;        /* #252018 - Cards and elevated surfaces */
+    --bg-tertiary: 28 17% 21%;         /* #3A332A - Subtle contrast areas */
+
+    --text-primary: 42 43% 90%;        /* #F0E6D6 - Main text - warm off-white */
+    --text-secondary: 32 17% 67%;      /* #A69B8A - Secondary text */
+    --text-muted: 32 17% 67%;          /* #A69B8A - Muted text and captions */
+
+    --heading-primary: 42 43% 90%;      /* #F0E6D6 - H1, H2 - brightest */
+    --heading-secondary: 42 43% 90%;    /* #F0E6D6 - H3, H4, H5, H6 */
+
+    --border-light: 28 17% 21%;        /* #3A332A - Subtle borders and dividers */
+    --border-medium: 28 17% 21%;       /* #3A332A - More defined borders */
+    --border-strong: 28 17% 21%;       /* #3A332A - Strong borders and outlines */
+
+    --primary-bg: 278 86% 65%;          /* Bright purple primary button background */
+    --primary-hover: 278 86% 70%;       /* Primary button hover state */
+    --primary-active: 278 86% 75%;      /* Primary button active state */
+    --primary-text: 30 13% 10%;        /* #1C1814 - Primary button text */
+
+    --secondary-bg: 28 17% 21%;         /* #3A332A - Secondary button background */
+    --secondary-hover: 32 17% 25%;      /* Lighter secondary hover */
+    --secondary-active: 35 20% 30%;      /* Lightest secondary active */
+    --secondary-text: 42 43% 90%;       /* #F0E6D6 - Secondary button text */
+
+    --accent-primary: 278 86% 65%;      /* Bright purple links and accents */
+    --accent-hover: 300 76% 72%;       /* Bright pink link hover */
+    --accent-visited: 260 80% 60%;      /* Visited links */
+
     /* Status Colors - Adjusted for dark mode */
-    --success: #7FB069;             /* Success states */
-    --warning: #F39C12;             /* Warning states */
-    --error: #E74C3C;               /* Error states */
-    --info: #5DADE2;                /* Information states */
-    
-    /* Shadows - Darker for dark mode */
-    --shadow-light: rgba(0, 0, 0, 0.15);
-    --shadow-medium: rgba(0, 0, 0, 0.25);
-    --shadow-strong: rgba(0, 0, 0, 0.35);
+    --success: 142 76% 46%;             /* Success states */
+    --warning: 43 91% 64%;             /* Warning states */
+    --error: 4 71% 67%;                /* Error states */
+    --info: 217 91% 70%;               /* Information states */
+
+    /* Shadows - Gold themed for dark mode */
+    --shadow-light: rgba(218, 165, 32, 0.15);
+    --shadow-medium: rgba(218, 165, 32, 0.25);
+    --shadow-strong: rgba(218, 165, 32, 0.35);
   }
 }
 
-/* Manual theme override classes */
+/* Manual theme override classes - Updated to match app's purple/pink theme */
 .theme-light {
-  --bg-primary: #FFF8EC;
-  --bg-secondary: #F5F0E8;
-  --bg-tertiary: #EDE6DB;
-  --text-primary: #2C2419;
-  --text-secondary: #4A3F32;
-  --text-muted: #6B5D4F;
-  --heading-primary: #1A1611;
-  --heading-secondary: #2C2419;
-  --border-light: #E5DDD0;
-  --border-medium: #D4C7B8;
-  --border-strong: #C4B5A3;
-  --primary-bg: #8B5A3C;
-  --primary-hover: #7A4D33;
-  --primary-active: #6B4129;
-  --primary-text: #FFF8EC;
-  --secondary-bg: #E5DDD0;
-  --secondary-hover: #D4C7B8;
-  --secondary-active: #C4B5A3;
-  --secondary-text: #2C2419;
-  --accent-primary: #A0522D;
-  --accent-hover: #8B5A3C;
-  --accent-visited: #7A4D33;
-  --success: #5D7C47;
-  --warning: #B8860B;
-  --error: #A0522D;
-  --info: #4682B4;
-  --shadow-light: rgba(44, 36, 25, 0.08);
-  --shadow-medium: rgba(44, 36, 25, 0.12);
-  --shadow-strong: rgba(44, 36, 25, 0.16);
+  --bg-primary: 45 67% 97%;
+  --bg-secondary: 42 43% 95%;
+  --bg-tertiary: 35 25% 87%;
+  --text-primary: 32 33% 15%;
+  --text-secondary: 28 17% 37%;
+  --text-muted: 28 17% 67%;
+  --heading-primary: 32 33% 15%;
+  --heading-secondary: 32 33% 15%;
+  --border-light: 38 29% 84%;
+  --border-medium: 38 29% 84%;
+  --border-strong: 38 29% 84%;
+  --primary-bg: 20 42% 39%;
+  --primary-hover: 20 42% 35%;
+  --primary-active: 20 42% 31%;
+  --primary-text: 45 67% 97%;
+  --secondary-bg: 38 29% 84%;
+  --secondary-hover: 35 25% 87%;
+  --secondary-active: 32 20% 90%;
+  --secondary-text: 32 33% 15%;
+  --accent-primary: 258 80% 50%;
+  --accent-hover: 280 75% 55%;
+  --accent-visited: 340 70% 60%;
+  --success: 142 76% 36%;
+  --warning: 43 91% 54%;
+  --error: 4 71% 58%;
+  --info: 217 91% 60%;
+  --shadow-light: rgba(138, 43, 226, 0.08);
+  --shadow-medium: rgba(138, 43, 226, 0.12);
+  --shadow-strong: rgba(138, 43, 226, 0.16);
 }
 
 .theme-dark {
-  --bg-primary: #1C1814;
-  --bg-secondary: #252018;
-  --bg-tertiary: #2E281F;
-  --text-primary: #F0E6D6;
-  --text-secondary: #D4C7B8;
-  --text-muted: #A69B8A;
-  --heading-primary: #F5F0E8;
-  --heading-secondary: #F0E6D6;
-  --border-light: #3A332A;
-  --border-medium: #4A3F32;
-  --border-strong: #5A4D3E;
-  --primary-bg: #B8860B;
-  --primary-hover: #DAA520;
-  --primary-active: #F4D03F;
-  --primary-text: #1C1814;
-  --secondary-bg: #3A332A;
-  --secondary-hover: #4A3F32;
-  --secondary-active: #5A4D3E;
-  --secondary-text: #F0E6D6;
-  --accent-primary: #DAA520;
-  --accent-hover: #F4D03F;
-  --accent-visited: #B8860B;
-  --success: #7FB069;
-  --warning: #F39C12;
-  --error: #E74C3C;
-  --info: #5DADE2;
-  --shadow-light: rgba(0, 0, 0, 0.15);
-  --shadow-medium: rgba(0, 0, 0, 0.25);
-  --shadow-strong: rgba(0, 0, 0, 0.35);
+  --bg-primary: 30 13% 10%;
+  --bg-secondary: 30 17% 14%;
+  --bg-tertiary: 28 17% 21%;
+  --text-primary: 42 43% 90%;
+  --text-secondary: 32 17% 67%;
+  --text-muted: 32 17% 67%;
+  --heading-primary: 42 43% 90%;
+  --heading-secondary: 42 43% 90%;
+  --border-light: 28 17% 21%;
+  --border-medium: 28 17% 21%;
+  --border-strong: 28 17% 21%;
+  --primary-bg: 43 91% 39%;
+  --primary-hover: 43 91% 44%;
+  --primary-active: 43 91% 49%;
+  --primary-text: 30 13% 10%;
+  --secondary-bg: 28 17% 21%;
+  --secondary-hover: 32 17% 25%;
+  --secondary-active: 35 20% 30%;
+  --secondary-text: 42 43% 90%;
+  --accent-primary: 278 86% 65%;
+  --accent-hover: 300 76% 72%;
+  --accent-visited: 260 80% 60%;
+  --success: 142 76% 46%;
+  --warning: 43 91% 64%;
+  --error: 4 71% 67%;
+  --info: 217 91% 70%;
+  --shadow-light: rgba(218, 165, 32, 0.15);
+  --shadow-medium: rgba(218, 165, 32, 0.25);
+  --shadow-strong: rgba(218, 165, 32, 0.35);
 }
 
 /* Base Styles */

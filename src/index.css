@@ -39,8 +39,8 @@
     --popover: 42 43% 95%;              /* #F5F0E8 - Popover background */
     --popover-foreground: 32 33% 15%;   /* #2C2419 - Popover text */
 
-    /* Primary colors - Rich brown */
-    --primary: 20 42% 39%;              /* #8B5A3C - Primary button background */
+    /* Primary colors - Purple gradient theme */
+    --primary: 258 80% 50%;              /* Purple primary button background */
     --primary-foreground: 45 67% 97%;   /* #FFF8EC - Primary button text */
 
     /* Secondary colors - Subtle contrast */
@@ -62,19 +62,19 @@
     /* Borders and inputs */
     --border: 38 29% 84%;               /* #E5DDD0 - Light borders */
     --input: 38 29% 84%;                /* #E5DDD0 - Input borders */
-    --ring: 20 55% 40%;                 /* #A0522D - Focus rings */
+    --ring: 258 80% 40%;                 /* Purple focus rings */
 
     --radius: 0.75rem;                  /* 12px - Slightly more rounded */
 
     /* Sidebar colors */
     --sidebar-background: 42 43% 95%;   /* #F5F0E8 - Sidebar background */
     --sidebar-foreground: 32 33% 15%;   /* #2C2419 - Sidebar text */
-    --sidebar-primary: 20 42% 39%;      /* #8B5A3C - Sidebar primary */
+    --sidebar-primary: 258 80% 50%;      /* Purple sidebar primary */
     --sidebar-primary-foreground: 45 67% 97%; /* #FFF8EC - Sidebar primary text */
     --sidebar-accent: 35 25% 87%;       /* #EDE6DB - Sidebar accent */
     --sidebar-accent-foreground: 32 33% 15%; /* #2C2419 - Sidebar accent text */
     --sidebar-border: 38 29% 84%;       /* #E5DDD0 - Sidebar borders */
-    --sidebar-ring: 20 55% 40%;         /* #A0522D - Sidebar focus rings */
+    --sidebar-ring: 258 80% 40%;         /* Purple sidebar focus rings */
   }
 
   .dark {
@@ -91,8 +91,8 @@
     --popover: 30 17% 14%;              /* #252018 - Popover background */
     --popover-foreground: 42 43% 90%;   /* #F0E6D6 - Popover text */
 
-    /* Primary colors - Gold accent */
-    --primary: 43 91% 39%;              /* #B8860B - Gold primary */
+    /* Primary colors - Bright purple accent */
+    --primary: 278 86% 65%;              /* Bright purple primary button background */
     --primary-foreground: 30 13% 10%;   /* #1C1814 - Primary button text */
 
     /* Secondary colors */
@@ -114,17 +114,17 @@
     /* Borders and inputs */
     --border: 28 17% 21%;               /* #3A332A - Borders */
     --input: 28 17% 21%;                /* #3A332A - Input borders */
-    --ring: 51 88% 67%;                 /* #DAA520 - Focus rings */
+    --ring: 278 86% 40%;                 /* Bright purple focus rings */
 
     /* Sidebar colors */
     --sidebar-background: 30 13% 10%;   /* #1C1814 - Sidebar background */
     --sidebar-foreground: 42 43% 90%;   /* #F0E6D6 - Sidebar text */
-    --sidebar-primary: 43 91% 39%;      /* #B8860B - Sidebar primary */
+    --sidebar-primary: 278 86% 65%;      /* Bright purple sidebar primary */
     --sidebar-primary-foreground: 30 13% 10%; /* #1C1814 - Sidebar primary text */
     --sidebar-accent: 28 17% 21%;       /* #3A332A - Sidebar accent */
     --sidebar-accent-foreground: 42 43% 90%; /* #F0E6D6 - Sidebar accent text */
     --sidebar-border: 28 17% 21%;       /* #3A332A - Sidebar borders */
-    --sidebar-ring: 51 88% 67%;         /* #DAA520 - Sidebar focus rings */
+    --sidebar-ring: 278 86% 40%;         /* Bright purple sidebar focus rings */
   }
 }
 
