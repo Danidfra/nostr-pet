@@ -455,6 +455,11 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                               Completed
                             </Badge>
                           )}
+                          {'progress' in task && task.target && (
+                            <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">
+                              {task.progress || 0}/{task.target}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                           {task.description}
@@ -465,13 +470,20 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                             Task confirmed on Nostr
                           </p>
                         )}
+                        {'progress' in task && task.target && !task.completed && (
+                          <div className="mt-2">
+                            <Progress value={((task.progress || 0) / task.target) * 100} className="h-2" />
+                          </div>
+                        )}
                       </div>
                       {!task.completed && task.id === 'blobbi_hashtag_post' && (
                         <Button
                           size="sm"
                           onClick={() => {
                             setIsCreatePostModalOpen(true)
-                            startIncubation()
+                            if (!incubationStartTime) {
+                              startIncubation()
+                            }
                           }}
                           className="ml-4 bg-purple-600 hover:bg-purple-700 text-white"
                         >
