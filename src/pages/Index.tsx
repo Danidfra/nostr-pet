@@ -74,8 +74,8 @@ const Index = () => {
               Your Virtual Pet on the Nostr Network
             </p>
             <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Adopt and care for your own unique digital companion that lives forever on the decentralized web. 
-              Each Nostr account can have one special Blobbi pet!
+              Adopt and care for your own unique digital companions that live forever on the decentralized web.
+              Each Nostr account can have special Blobbi pets!
             </p>
             
             <div className="flex gap-4 justify-center flex-wrap">
@@ -238,29 +238,6 @@ const Index = () => {
               </CardContent>
             </Card>
           </div>
-
-          {/* Flammi Interactive Features */}
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-orange-200 dark:border-orange-600">
-            <CardContent className="p-8 space-y-6">
-              <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100">🔥 Meet Flammi - Your Interactive Companion</h2>
-              <div className="space-y-4">
-                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-600">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Try This: Click the "Enable Blobbi Companion" button above!</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                    Once Flammi appears, try clicking anywhere on the page rapidly. But be careful...
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    <p className="text-gray-700 dark:text-gray-200">🖱️ <strong>Normal clicks:</strong> Click on Flammi for cute reactions</p>
-                    <p className="text-purple-600 dark:text-purple-400">💬 <strong>Speech bubble:</strong> Click the speech bubble button to hear what Flammi has to say!</p>
-                    <p className="text-green-600 dark:text-green-400">🪨 <strong>Feed Flammi:</strong> Click the charcoal button, then click anywhere to place food. Watch him eat and show love!</p>
-                    <p className="text-red-600 dark:text-red-400">⚡ <strong>Rapid clicking anywhere (5+ times in 2 seconds):</strong> Flammi gets angry and chases your cursor!</p>
-                    <p className="text-blue-600 dark:text-blue-400">😈 <strong>If he catches you:</strong> All clicking is forbidden for 5 seconds!</p>
-                    <p className="text-gray-600 dark:text-gray-400">😢 <strong>If he can't catch you in 10 seconds:</strong> He gets sad with a frown...</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* How it Works */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">

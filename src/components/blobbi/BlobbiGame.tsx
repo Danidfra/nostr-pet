@@ -53,7 +53,7 @@ export function BlobbiGame() {
         <CardContent className="flex flex-col items-center gap-4">
           <div className="text-center space-y-2">
             <p className="text-muted-foreground">
-              Each Nostr account can have one unique Blobbi pet that lives forever on the decentralized network.
+              Each Nostr account can have unique Blobbi pets that live forever on the decentralized network.
             </p>
             <p className="text-muted-foreground">
               Take care of your Blobbi by feeding, playing, and keeping it clean!
