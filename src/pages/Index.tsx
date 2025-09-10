@@ -4,58 +4,57 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Heart, Sparkles, Gamepad2, Users } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
-import { BlobbiCompanion } from '@/components/BlobbiCompanion';
 import { useEffect, useState, useRef } from 'react';
 
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  
+
   // Mouse tracking state for Blobbi eyes
   const svgRef = useRef<SVGSVGElement>(null);
   const [pupilOffset, setPupilOffset] = useState({
     left: { x: 0, y: 0 },
     right: { x: 0, y: 0 }
   });
-  
+
   // Check if device has mouse (not touch-only)
-  const hasMouseSupport = typeof window !== 'undefined' && 
+  const hasMouseSupport = typeof window !== 'undefined' &&
     window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-  
+
   useEffect(() => {
     if (!hasMouseSupport) return;
-    
+
     const handleMouseMove = (e: MouseEvent) => {
       if (!svgRef.current) return;
-      
+
       const rect = svgRef.current.getBoundingClientRect();
       const svgCenterX = rect.left + rect.width / 2;
       const svgCenterY = rect.top + rect.height / 2;
-      
+
       // Calculate angle from SVG center to mouse
       const angle = Math.atan2(e.clientY - svgCenterY, e.clientX - svgCenterX);
-      
+
       // Calculate distance (capped for natural movement)
       const distance = Math.min(
         Math.sqrt(Math.pow(e.clientX - svgCenterX, 2) + Math.pow(e.clientY - svgCenterY, 2)),
         200
       ) / 200;
-      
+
       // Maximum pupil movement (in SVG units)
       const maxOffset = 2.5;
-      
+
       // Calculate offsets
       const offsetX = Math.cos(angle) * distance * maxOffset;
       const offsetY = Math.sin(angle) * distance * maxOffset;
-      
+
       setPupilOffset({
         left: { x: offsetX, y: offsetY },
         right: { x: offsetX, y: offsetY }
       });
     };
-    
+
     window.addEventListener('mousemove', handleMouseMove);
-    
+
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
     };
@@ -65,7 +64,7 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
       <div className="container mx-auto px-4 py-8">
         <AppHeader />
-        
+
         <div className="max-w-4xl mx-auto space-y-12">
           {/* Hero Section */}
           <div className="text-center space-y-6">
@@ -77,25 +76,23 @@ const Index = () => {
               Adopt and care for your own unique digital companions that live forever on the decentralized web.
               Each Nostr account can have special Blobbi pets!
             </p>
-            
+
             <div className="flex gap-4 justify-center flex-wrap">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 onClick={() => navigate(user ? '/blobbi' : '/blobbi/adopt')}
                 className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg"
               >
                 {user ? 'Visit Your Blobbi' : 'Adopt a Blobbi'}
               </Button>
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 variant="outline"
                 onClick={() => navigate('/blobbi/community')}
                 className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
               >
                 Explore Community
               </Button>
-
-              <BlobbiCompanion />
             </div>
           </div>
 
@@ -117,7 +114,7 @@ const Index = () => {
                   className="text-black/25 dark:text-black/35"
                 />
               </svg>
-              
+
               {/* Bouncing Blobbi */}
               <svg
                 ref={svgRef}
@@ -130,7 +127,7 @@ const Index = () => {
                   fill="url(#blobbiBodyGradient)"
                   className="transition-colors duration-300"
                 />
-                
+
                 {/* Subtle inner glow for softness */}
                 <ellipse
                   cx="50"
@@ -140,11 +137,11 @@ const Index = () => {
                   fill="white"
                   opacity="0.15"
                 />
-                
+
                 {/* Eyes with mouse tracking */}
                 <g id="left-eye">
                   <ellipse cx="38" cy="45" rx="8" ry="10" fill="white" />
-                  <g 
+                  <g
                     className="pupil-container"
                     style={{
                       transform: `translate(${pupilOffset.left.x}px, ${pupilOffset.left.y}px)`,
@@ -158,7 +155,7 @@ const Index = () => {
                 </g>
                 <g id="right-eye">
                   <ellipse cx="62" cy="45" rx="8" ry="10" fill="white" />
-                  <g 
+                  <g
                     className="pupil-container"
                     style={{
                       transform: `translate(${pupilOffset.right.x}px, ${pupilOffset.right.y}px)`,
@@ -170,20 +167,20 @@ const Index = () => {
                     <circle cx="64" cy="44" r="2" fill="white" />
                   </g>
                 </g>
-                
+
                 {/* Happy mouth */}
-                <path 
-                  d="M 42 62 Q 50 68 58 62" 
-                  stroke="#1e293b" 
-                  strokeWidth="2.5" 
-                  fill="none" 
-                  strokeLinecap="round" 
+                <path
+                  d="M 42 62 Q 50 68 58 62"
+                  stroke="#1e293b"
+                  strokeWidth="2.5"
+                  fill="none"
+                  strokeLinecap="round"
                 />
-                
+
                 {/* Blush for cuteness */}
                 <ellipse cx="22" cy="55" rx="6" ry="4" fill="rgba(255,182,193,0.4)" />
                 <ellipse cx="78" cy="55" rx="6" ry="4" fill="rgba(255,182,193,0.4)" />
-                
+
                 {/* Gradient definitions */}
                 <defs>
                   <radialGradient id="blobbiBodyGradient" cx="0.3" cy="0.25">
@@ -207,7 +204,7 @@ const Index = () => {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-pink-200 dark:border-pink-600">
               <CardContent className="p-6 text-center space-y-3">
                 <Sparkles className="w-12 h-12 mx-auto text-purple-500" />
@@ -217,7 +214,7 @@ const Index = () => {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-yellow-200 dark:border-yellow-600">
               <CardContent className="p-6 text-center space-y-3">
                 <Gamepad2 className="w-12 h-12 mx-auto text-yellow-500" />
@@ -227,7 +224,7 @@ const Index = () => {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-blue-200 dark:border-blue-600">
               <CardContent className="p-6 text-center space-y-3">
                 <Users className="w-12 h-12 mx-auto text-blue-500" />
@@ -255,7 +252,7 @@ const Index = () => {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-4">
                   <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center font-bold">
                     2
@@ -267,7 +264,7 @@ const Index = () => {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-4">
                   <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center font-bold">
                     3
@@ -279,7 +276,7 @@ const Index = () => {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-4">
                   <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center font-bold">
                     4
@@ -307,9 +304,9 @@ const Index = () => {
               Always <a href="https://github.com/Danidfra/nostr-pet" target="_blank" rel="noopener noreferrer" className="text-purple-600 dark:text-purple-400 underline">open source</a>. Steal <a href="https://github.com/Danidfra/nostr-pet" target="_blank" rel="noopener noreferrer" className="text-purple-600 dark:text-purple-400 underline">this code</a> and make it better! 💖
             </p>
             <p className="mt-2">
-              <a 
-                href="https://soapbox.pub/tools/mkstack/" 
-                target="_blank" 
+              <a
+                href="https://soapbox.pub/tools/mkstack/"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-purple-600 dark:text-purple-400 hover:underline"
               >
