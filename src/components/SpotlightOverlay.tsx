@@ -12,6 +12,13 @@ interface SpotlightOverlayProps {
   onClose: () => void;
   children?: React.ReactNode;
   className?: string;
+  imageUrl?: string; // Can be a string path or imported asset
+  imageOffset?: number; // Legacy offset (maintained for backward compatibility)
+  imageOffsetX?: number; // Horizontal offset relative to spotlight center
+  imageOffsetY?: number; // Vertical offset relative to default placement
+  imagePosition?: "below" | "above" | "left" | "right"; // Position relative to spotlight
+  imageWidth?: number | string; // Custom width (e.g., 400, "400px", "80%")
+  imageHeight?: number | string; // Custom height (e.g., 300, "300px", "80%")
 }
 
 interface Rect {
@@ -28,11 +35,56 @@ export function SpotlightOverlay({
   radius = 12,
   onClose,
   children,
-  className
+  className,
+  imageUrl,
+  imageOffset = 12,
+  imageOffsetX = 0,
+  imageOffsetY = 0,
+  imagePosition = "below",
+  imageWidth,
+  imageHeight
 }: SpotlightOverlayProps) {
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
   const [isMaskSupported, setIsMaskSupported] = useState(true);
+  const [imagePositionState, setImagePositionState] = useState<{ top: number; left: number; transform: string } | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+
+  // Helper function to compute image position
+  const computeImagePosition = useCallback((
+    rect: { x: number; y: number; width: number; height: number },
+    imgW: number,
+    imgH: number,
+    pos: "below" | "above" | "left" | "right",
+    gap = 12,
+    ox = 0,
+    oy = 0
+  ) => {
+    let ax = rect.x + rect.width / 2;
+    let ay = rect.y + rect.height + gap; // default "below"
+
+    if (pos === "above") {
+      ax = rect.x + rect.width / 2;
+      ay = rect.y - gap - imgH;
+    } else if (pos === "left") {
+      ax = rect.x - gap - imgW;
+      ay = rect.y + rect.height / 2;
+    } else if (pos === "right") {
+      ax = rect.x + rect.width + gap;
+      ay = rect.y + rect.height / 2;
+    }
+
+    // Apply offsets ALWAYS
+    const left = ax + ox;
+    const top = ay + oy;
+
+    // Return also the transform to use for the chosen anchor
+    const transform =
+      pos === "left" || pos === "right"
+        ? "translate(0, -50%)"
+        : "translate(-50%, 0)";
+
+    return { left, top, transform };
+  }, []);
 
   // Function to get target element and calculate its position
   const updateTargetPosition = useCallback(() => {
@@ -49,17 +101,74 @@ export function SpotlightOverlay({
 
     if (targetElement) {
       const rect = targetElement.getBoundingClientRect();
-      setTargetRect({
+      const spotlightRect = {
         x: rect.left - padding,
         y: rect.top - padding,
         width: rect.width + padding * 2,
         height: rect.height + padding * 2
-      });
+      };
+
+      setTargetRect(spotlightRect);
+
+      // Calculate image position if imageUrl is provided
+      if (imageUrl) {
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Estimate image dimensions (we'll use max-width: min(520px, 80vw) and height: auto)
+        const imageMaxWidth = Math.min(520, viewportWidth * 0.8);
+        const estimatedImageHeight = imageMaxWidth * 0.6; // Rough estimate, will be adjusted by actual image
+
+        // Handle legacy imageOffset mapping
+        let offsetX = imageOffsetX;
+        let offsetY = imageOffsetY;
+
+        // Legacy support: if imageOffset is set and X/Y are not provided
+        if (imageOffset && imageOffsetX === undefined && imageOffsetY === undefined) {
+          if (imagePosition === 'below' || imagePosition === 'above') {
+            offsetY = imageOffset;
+          } else if (imagePosition === 'left' || imagePosition === 'right') {
+            offsetX = imageOffset;
+          }
+        }
+
+        // Ensure offsets are numbers (fallback to 0)
+        const finalOffsetX = offsetX ?? 0;
+        const finalOffsetY = offsetY ?? 0;
+
+        // Use default position if not specified
+        const position = imagePosition ?? "below";
+
+        // Calculate position using the computeImagePosition function
+        const { left, top, transform } = computeImagePosition(
+          spotlightRect,
+          imageMaxWidth,
+          estimatedImageHeight,
+          position,
+          12, // gap
+          finalOffsetX,
+          finalOffsetY
+        );
+
+        // Apply viewport clamping with padding AFTER offsets
+        const viewportPadding = 12;
+        let finalLeft = left;
+        let finalTop = top;
+
+        // Clamp to viewport boundaries
+        finalLeft = Math.max(viewportPadding, Math.min(viewportWidth - imageMaxWidth - viewportPadding, finalLeft));
+        finalTop = Math.max(viewportPadding, Math.min(viewportHeight - estimatedImageHeight - viewportPadding, finalTop));
+
+        setImagePositionState({ top: finalTop, left: finalLeft, transform });
+      } else {
+        setImagePositionState(null);
+      }
     } else {
       console.warn('SpotlightOverlay: Target element not found');
       setTargetRect(null);
+      setImagePositionState(null);
     }
-  }, [targetRef, targetSelector, padding]);
+  }, [targetRef, targetSelector, padding, imageUrl, imageOffset, imageOffsetX, imageOffsetY, imagePosition, computeImagePosition]);
 
   // Check mask support
   useEffect(() => {
@@ -230,6 +339,89 @@ export function SpotlightOverlay({
       >
         <X className="h-4 w-4" />
       </Button>
+
+      {/* Step Image */}
+      {imageUrl && imagePositionState && (
+        <div
+          className="absolute z-[92] pointer-events-none"
+          style={{
+            top: `${imagePositionState.top}px`,
+            left: `${imagePositionState.left}px`,
+            transform: imagePositionState.transform,
+            ...(imageWidth || imageHeight ? {} : { maxWidth: 'min(520px, 80vw)', width: '100%' })
+          }}
+        >
+          <img
+            src={imageUrl}
+            alt="Tour step illustration"
+            className="rounded-lg"
+            style={{
+              pointerEvents: 'auto', // Allow hover on image if needed
+              width: imageWidth ?? 'auto',
+              height: imageHeight ?? 'auto',
+              maxWidth: imageWidth ? 'none' : undefined,
+              maxHeight: imageHeight ? 'none' : undefined
+            }}
+            onLoad={(e) => {
+              // Recalculate position when image loads to get exact dimensions
+              const img = e.target as HTMLImageElement;
+              const actualHeight = img.offsetHeight;
+              const actualWidth = img.offsetWidth;
+              const viewportWidth = window.innerWidth;
+              const viewportHeight = window.innerHeight;
+
+              if (targetRect) {
+                // Handle legacy imageOffset mapping
+                let offsetX = imageOffsetX;
+                let offsetY = imageOffsetY;
+
+                // Legacy support: if imageOffset is set and X/Y are not provided
+                if (imageOffset && imageOffsetX === undefined && imageOffsetY === undefined) {
+                  if (imagePosition === 'below' || imagePosition === 'above') {
+                    offsetY = imageOffset;
+                  } else if (imagePosition === 'left' || imagePosition === 'right') {
+                    offsetX = imageOffset;
+                  }
+                }
+
+                // Ensure offsets are numbers (fallback to 0)
+                const finalOffsetX = offsetX ?? 0;
+                const finalOffsetY = offsetY ?? 0;
+
+                // Use default position if not specified
+                const position = imagePosition ?? "below";
+
+                // Recalculate position with actual image dimensions
+                const { left, top, transform } = computeImagePosition(
+                  targetRect,
+                  actualWidth,
+                  actualHeight,
+                  position,
+                  12, // gap
+                  finalOffsetX,
+                  finalOffsetY
+                );
+
+                // Apply viewport clamping with padding AFTER offsets
+                const viewportPadding = 12;
+                let finalLeft = left;
+                let finalTop = top;
+
+                // Clamp to viewport boundaries
+                finalLeft = Math.max(viewportPadding, Math.min(viewportWidth - actualWidth - viewportPadding, finalLeft));
+                finalTop = Math.max(viewportPadding, Math.min(viewportHeight - actualHeight - viewportPadding, finalTop));
+
+                setImagePositionState({ top: finalTop, left: finalLeft, transform });
+              }
+            }}
+            onError={(e) => {
+              // Hide image gracefully if it fails to load
+              e.currentTarget.style.display = 'none';
+              console.warn('Tour image failed to load:', imageUrl);
+            }}
+          />
+        </div>
+      )}
 
       {/* Children (tour controls) */}
       {children && (

@@ -51,7 +51,7 @@ import { Blobbi, BlobbiLifeStage } from '@/types/blobbi';
 import { CompanionSelector } from '@/components/CompanionSelector';
 import { SetCompanionButton } from '@/components/SetCompanionButton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { SpotlightOverlay } from '@/components/SpotlightOverlay';
+import { BlobbiTour } from '@/components/BlobbiTour';
 
 // Simple analytics tracking function
 const track = (eventName: string) => {
@@ -420,12 +420,14 @@ export default function BlobbiDashboard() {
                     </TabsTrigger>
                     <TabsTrigger
                       value="missions"
+                      id="tab-missions"
                       className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-md text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md"
                     >
                       Missions
                     </TabsTrigger>
                     <TabsTrigger
                       value="incubation"
+                      id="tab-growth-hub"
                       className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-md text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md"
                     >
                       Growth Hub
@@ -747,40 +749,15 @@ export default function BlobbiDashboard() {
         }}
       />
 
-      {/* Tour Overlay - Spotlight overlay with navigation buttons */}
-      {isTourActive && (
-        <SpotlightOverlay
-          targetSelector="#tab-my-blobbies"
-          padding={12}
-          radius={12}
-          onClose={() => setIsTourActive(false)}
-        >
-          <div className="flex gap-4">
-            {/* Previous Button */}
-            <Button
-              onClick={() => {
-                // Placeholder for Previous logic
-                console.log('Previous clicked');
-              }}
-              variant="outline"
-              className="border-2 border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 px-6 py-3 font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
-            >
-              Previous
-            </Button>
-
-            {/* Next Button */}
-            <Button
-              onClick={() => {
-                // Placeholder for Next logic
-                console.log('Next clicked');
-              }}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
-            >
-              Next
-            </Button>
-          </div>
-        </SpotlightOverlay>
-      )}
+      {/* Blobbi Tour */}
+      <BlobbiTour
+        isOpen={isTourActive}
+        onClose={() => setIsTourActive(false)}
+        onComplete={() => {
+          console.log('Tour completed');
+        }}
+        setActiveTab={setActiveTab}
+      />
 
         </div>
       </div>

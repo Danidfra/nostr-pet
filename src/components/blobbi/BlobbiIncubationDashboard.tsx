@@ -185,7 +185,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
   }
 
   return (
-    <div className={`space-y-6 ${className}`}>
+    <div id='tab-growth-hub-open' className={`space-y-6 ${className}`}>
       {/* System Status */}
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
         <CardHeader>
