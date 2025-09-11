@@ -51,6 +51,7 @@ import { Blobbi, BlobbiLifeStage } from '@/types/blobbi';
 import { CompanionSelector } from '@/components/CompanionSelector';
 import { SetCompanionButton } from '@/components/SetCompanionButton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { SpotlightOverlay } from '@/components/SpotlightOverlay';
 
 // Simple analytics tracking function
 const track = (eventName: string) => {
@@ -87,8 +88,9 @@ export default function BlobbiDashboard() {
   } = useBlobbiIncubationSystem();
   const { isOnboardingDone, isLoading: isOnboardingLoading } = useOnboardingDone();
 
-  // Welcome modal state
+  // Welcome modal and tour state
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [isTourActive, setIsTourActive] = useState(false);
 
   const [filter, setFilter] = useState<BlobbiFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -411,6 +413,7 @@ export default function BlobbiDashboard() {
                 <TabsList className="flex flex-wrap justify-center items-center gap-1 bg-purple-50/50 dark:bg-purple-900/20 p-1 rounded-lg h-auto min-h-10">
                     <TabsTrigger
                       value="blobbis"
+                      id="tab-my-blobbies"
                       className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-md text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md"
                     >
                       My Blobbies
@@ -739,11 +742,45 @@ export default function BlobbiDashboard() {
         isOpen={showWelcomeModal}
         onClose={() => setShowWelcomeModal(false)}
         onStartTour={() => {
-          // For now, just close the modal (will be implemented in next prompt)
-          console.log('Start tour clicked - to be implemented');
           setShowWelcomeModal(false);
+          setIsTourActive(true);
         }}
       />
+
+      {/* Tour Overlay - Spotlight overlay with navigation buttons */}
+      {isTourActive && (
+        <SpotlightOverlay
+          targetSelector="#tab-my-blobbies"
+          padding={12}
+          radius={12}
+          onClose={() => setIsTourActive(false)}
+        >
+          <div className="flex gap-4">
+            {/* Previous Button */}
+            <Button
+              onClick={() => {
+                // Placeholder for Previous logic
+                console.log('Previous clicked');
+              }}
+              variant="outline"
+              className="border-2 border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 px-6 py-3 font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
+            >
+              Previous
+            </Button>
+
+            {/* Next Button */}
+            <Button
+              onClick={() => {
+                // Placeholder for Next logic
+                console.log('Next clicked');
+              }}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
+            >
+              Next
+            </Button>
+          </div>
+        </SpotlightOverlay>
+      )}
 
         </div>
       </div>
