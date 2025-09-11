@@ -137,10 +137,27 @@ export function useBlobbonautProfileWithFakeInventory(profileId?: string) {
     await updateProfileWithFakeInventory(updatedProfile);
   };
 
+  // Hook to set onboarding completion status with fake inventory support
+  const setOnboardingDoneWithFakeInventory = async (done: boolean = true) => {
+    const currentProfile = fakeInventory || originalHook.data;
+    if (!currentProfile || !effectiveProfileId) {
+      throw new Error('User must be logged in and have a profile');
+    }
+
+    const updatedProfile: BlobbonautProfile = {
+      ...currentProfile,
+      onboardingDone: done,
+      lastModified: Math.floor(Date.now() / 1000),
+    };
+
+    await updateProfileWithFakeInventory(updatedProfile);
+  };
+
   return {
     ...originalHook,
     data: fakeInventory || originalHook.data,
     purchaseItem: purchaseItemWithFakeInventory,
     removeFromStorage: removeFromStorageWithFakeInventory,
+    setOnboardingDone: setOnboardingDoneWithFakeInventory,
   };
 }

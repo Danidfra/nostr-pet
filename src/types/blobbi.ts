@@ -176,11 +176,14 @@ export interface BlobbonautProfile {
   background?: string; // Background/theme
   title?: string; // Custom title or role
   currentCompanion?: string; // Currently selected companion Blobbi ID
+  onboardingDone?: boolean; // Whether onboarding is completed
   lastModified: number; // Unix timestamp of last modification
+  // Additional fields for unknown tags - preserved for future compatibility
+  additionalTags?: Record<string, string | string[]>; // Flexible storage for unmapped tags
 }
 
 // Action types for interacting with Blobbi (updated to match spec)
-export type BlobbiAction = 
+export type BlobbiAction =
   | 'feed'
   | 'play'
   | 'clean'

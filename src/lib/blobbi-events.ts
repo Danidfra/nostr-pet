@@ -1,9 +1,9 @@
 import { NostrEvent } from '@nostrify/nostrify';
-import { 
-  Blobbi, 
-  BlobbiStateEvent, 
-  BlobbiInteractionEvent, 
-  BlobbiRecordEvent, 
+import {
+  Blobbi,
+  BlobbiStateEvent,
+  BlobbiInteractionEvent,
+  BlobbiRecordEvent,
   BlobbiBreedingEvent,
   BlobbonautProfileEvent,
   BlobbonautProfile,
@@ -133,10 +133,10 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
   if (blobbi.hasBuff) tags.push(['has_buff', blobbi.hasBuff]);
   if (blobbi.hasDebuff) tags.push(['has_debuff', blobbi.hasDebuff]);
   if (blobbi.lastInteraction) tags.push(['last_interaction', blobbi.lastInteraction.toString()]);
-  
+
   // Add sleep system tags
   if (blobbi.sleepStartedAt) tags.push(['sleep_started_at', blobbi.sleepStartedAt.toString()]);
-  
+
   // Add last_sleep_update tag only when Blobbi is sleeping
   // This tag tracks the last time energy was updated during rest mode
   if (blobbi.isSleeping && blobbi.lastSleepUpdate) {
@@ -170,7 +170,7 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
 
 // Create Kind 14919: Blobbi Interaction Event
 export function createBlobbiInteractionEvent(
-  blobbiId: string, 
+  blobbiId: string,
   interactionData: BlobbiInteractionData
 ): Omit<BlobbiInteractionEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
   const tags: Array<[string, string]> = [
@@ -358,7 +358,7 @@ export function createBlobbiBreedingEvent(
   ];
 
   if (offspringId) tags.push(['offspring_id', offspringId]);
-  
+
   // Add additional breeding data
   if (additionalData) {
     Object.entries(additionalData).forEach(([key, value]) => {
@@ -393,6 +393,9 @@ export function createBlobbonautProfileEvent(
   if (profile.title) tags.push(['title', profile.title]);
   if (profile.currentCompanion) tags.push(['current_companion', profile.currentCompanion]);
 
+  // Always include onboarding_done tag (default to false if not set)
+  tags.push(['onboarding_done', (profile.onboardingDone ?? false).toString()]);
+
   // Add owned Blobbis (multiple 'has' tags)
   profile.ownedBlobbis.forEach(blobbiId => {
     tags.push(['has', blobbiId]);
@@ -403,11 +406,27 @@ export function createBlobbonautProfileEvent(
     tags.push(['achievements', achievement]);
   });
 
-
   // Add storage items (multiple 'storage' tags in format "item_id:quantity")
   profile.storage.forEach(storageItem => {
     tags.push(['storage', `${storageItem.itemId}:${storageItem.quantity}`]);
   });
+
+  // Add additional tags from the flexible storage
+  if (profile.additionalTags) {
+    Object.entries(profile.additionalTags).forEach(([tagName, tagValue]) => {
+      if (Array.isArray(tagValue)) {
+        // Handle array values (like achievements, has, etc.)
+        tagValue.forEach(value => {
+          if (typeof value === 'string' && value.trim() !== '') {
+            tags.push([tagName, value]);
+          }
+        });
+      } else if (typeof tagValue === 'string' && tagValue.trim() !== '') {
+        // Handle single string values
+        tags.push([tagName, tagValue]);
+      }
+    });
+  }
 
   return {
     kind: BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE,
@@ -420,7 +439,7 @@ export function createBlobbonautProfileEvent(
 export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
   try {
     if (event.kind !== BLOBBI_EVENT_KINDS.STATE) return null;
-    
+
     const tags = event.tags;
     if (!validateRequiredTags(tags, REQUIRED_STATE_TAGS)) return null;
 
@@ -428,7 +447,7 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
     const stage = getTagValue(tags, 'stage') as BlobbiLifeStage;
     const breedingReady = getTagValue(tags, 'breeding_ready') === 'true';
     const generation = parseInt(getTagValue(tags, 'generation') || '1');
-    
+
     const stats: BlobbiStats = {
       hunger: parseInt(getTagValue(tags, 'hunger') || '100'),
       happiness: parseInt(getTagValue(tags, 'happiness') || '100'),
@@ -529,19 +548,19 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
 export function parseInteractionFromEvent(event: NostrEvent): BlobbiInteractionData | null {
   try {
     if (event.kind !== BLOBBI_EVENT_KINDS.INTERACTION) return null;
-    
+
     const tags = event.tags;
     if (!validateRequiredTags(tags, REQUIRED_INTERACTION_TAGS)) return null;
 
     const action = getTagValue(tags, 'action') as BlobbiInteractionType;
     const actionCategory = getTagValue(tags, 'action_category');
     const statChangeTag = tags.find(([name]) => name === 'stat_change');
-    
+
     if (!action || !actionCategory || !statChangeTag) return null;
 
     const statChangeParts = statChangeTag[1].split(':');
     if (statChangeParts.length !== 2) return null;
-    
+
     const statChange: [string, string] = [statChangeParts[0], statChangeParts[1]];
 
     const interactionData: BlobbiInteractionData = {
@@ -634,7 +653,7 @@ export function parseInteractionFromEvent(event: NostrEvent): BlobbiInteractionD
 export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null {
   try {
     if (event.kind !== BLOBBI_EVENT_KINDS.RECORD) return null;
-    
+
     const tags = event.tags;
     if (!validateRequiredTags(tags, REQUIRED_RECORD_TAGS)) return null;
 
@@ -731,12 +750,19 @@ export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null
 export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautProfile | null {
   try {
     if (event.kind !== BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE) return null;
-    
+
     const tags = event.tags;
     if (!validateRequiredTags(tags, REQUIRED_BLOBBANAUT_TAGS)) return null;
 
     const id = getTagValue(tags, 'd');
     if (!id) return null;
+
+    // Define known tag names for mapping
+    const knownTagNames = [
+      'd', 'name', 'coins', 'has', 'pettingLevel', 'lifetimeBlobbis',
+      'achievements', 'storage', 'favoriteBlobbi', 'starterBlobbi', 'style',
+      'background', 'title', 'current_companion', 'onboarding_done'
+    ];
 
     // Parse storage items from storage tags
     const storageTagValues = getTagValues(tags, 'storage');
@@ -753,6 +779,28 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
         return null;
       })
       .filter((item): item is BlobbonautStorageItem => item !== null);
+
+    // Parse onboarding_done tag - default to false if not present
+    const onboardingDoneValue = getTagValue(tags, 'onboarding_done');
+    const onboardingDone = onboardingDoneValue !== undefined ? onboardingDoneValue === 'true' : false;
+
+    // Parse additional (unknown) tags for future compatibility
+    const additionalTags: Record<string, string | string[]> = {};
+    tags.forEach(([tagName, tagValue]) => {
+      if (tagName && tagValue && !knownTagNames.includes(tagName)) {
+        if (additionalTags[tagName]) {
+          // If we already have this tag name, convert to array
+          if (Array.isArray(additionalTags[tagName])) {
+            (additionalTags[tagName] as string[]).push(tagValue);
+          } else {
+            additionalTags[tagName] = [additionalTags[tagName] as string, tagValue];
+          }
+        } else {
+          // First occurrence of this tag name
+          additionalTags[tagName] = tagValue;
+        }
+      }
+    });
 
     const profile: BlobbonautProfile = {
       id,
@@ -773,7 +821,9 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
       background: getTagValue(tags, 'background'),
       title: getTagValue(tags, 'title'),
       currentCompanion: getTagValue(tags, 'current_companion'),
+      onboardingDone,
       lastModified: event.created_at,
+      additionalTags: Object.keys(additionalTags).length > 0 ? additionalTags : undefined,
     };
 
     return profile;
@@ -786,7 +836,7 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
 // Enhanced validation for specific record types
 function validateRecordTypeSpecificTags(tags: string[][], recordType: string): boolean {
   const tagNames = tags.map(tag => tag[0]).filter(Boolean);
-  
+
   switch (recordType) {
     case 'birth':
       // Birth records should have generation
@@ -812,11 +862,11 @@ function validateRecordTypeSpecificTags(tags: string[][], recordType: string): b
 function validateStatChange(statChangeTag: string): boolean {
   const parts = statChangeTag.split(':');
   if (parts.length !== 2) return false;
-  
+
   const [stat, change] = parts;
   const validStats = ['hunger', 'happiness', 'health', 'hygiene', 'energy', 'egg_temperature'];
   const changeNum = parseInt(change);
-  
+
   return validStats.includes(stat) && !isNaN(changeNum) && Math.abs(changeNum) <= 100;
 }
 
@@ -838,7 +888,7 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
     switch (event.kind) {
       case BLOBBI_EVENT_KINDS.STATE: {
         if (!validateRequiredTags(event.tags, REQUIRED_STATE_TAGS)) return false;
-        
+
         // Validate stat values are within range
         const statTags = ['hunger', 'happiness', 'health', 'hygiene', 'energy'];
         for (const statTag of statTags) {
@@ -848,66 +898,66 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
             if (isNaN(numValue) || numValue < 0 || numValue > 100) return false;
           }
         }
-        
+
         // Validate stage is valid
         const stage = getTagValue(event.tags, 'stage');
         if (stage && !['egg', 'baby', 'adult'].includes(stage)) return false;
-        
+
         break;
       }
-        
+
       case BLOBBI_EVENT_KINDS.INTERACTION: {
         if (!validateRequiredTags(event.tags, REQUIRED_INTERACTION_TAGS)) return false;
-        
+
         // Validate stat change format
         const statChangeTag = event.tags.find(([name]) => name === 'stat_change');
         if (statChangeTag && !validateStatChange(statChangeTag[1])) return false;
-        
+
         // Validate action type
         const action = getTagValue(event.tags, 'action');
         const validActions = ['feed', 'play', 'clean', 'rest', 'warm', 'check', 'sing', 'talk', 'medicine', 'cruzar'];
         if (action && !validActions.includes(action)) return false;
-        
+
         break;
       }
-        
+
       case BLOBBI_EVENT_KINDS.RECORD: {
         if (!validateRequiredTags(event.tags, REQUIRED_RECORD_TAGS)) return false;
-        
+
         // Validate record type specific requirements
         const recordType = getTagValue(event.tags, 'record_type');
         if (recordType && !validateRecordTypeSpecificTags(event.tags, recordType)) return false;
-        
+
         // Validate timestamp fields
         const timestampFields = ['hatched_at', 'adopted_on'];
         for (const field of timestampFields) {
           const timestamp = getTagValue(event.tags, field);
           if (timestamp && !validateTimestamp(timestamp)) return false;
         }
-        
+
         break;
       }
-        
+
       case BLOBBI_EVENT_KINDS.BREEDING: {
         if (!validateRequiredTags(event.tags, REQUIRED_BREEDING_TAGS)) return false;
-        
+
         // Validate breed_time timestamp
         const breedTime = getTagValue(event.tags, 'breed_time');
         if (breedTime && !validateTimestamp(breedTime)) return false;
-        
+
         // Validate success is boolean
         const success = getTagValue(event.tags, 'success');
         if (success && !['true', 'false'].includes(success)) return false;
-        
+
         break;
       }
-        
+
       case BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE: {
         if (!validateRequiredTags(event.tags, REQUIRED_BLOBBANAUT_TAGS)) return false;
-        
+
         // Validate content is empty
         if (event.content !== '') return false;
-        
+
         // Validate numeric fields if present
         const numericFields = ['coins', 'pettingLevel', 'lifetimeBlobbis'];
         for (const field of numericFields) {
@@ -917,10 +967,10 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
             if (isNaN(numValue) || numValue < 0) return false;
           }
         }
-        
+
         break;
       }
-        
+
       default:
         return false;
     }
@@ -928,7 +978,7 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
     // Validate event timestamp is reasonable (not too far in future, not before 2020)
     const minTimestamp = new Date('2020-01-01').getTime() / 1000;
     const maxTimestamp = (Date.now() + 5 * 60 * 1000) / 1000; // 5 minutes in future
-    
+
     if (event.created_at < minTimestamp || event.created_at > maxTimestamp) {
       return false;
     }
@@ -982,7 +1032,7 @@ export function clampStat(value: number): number {
 // Maps last_<action> fields to their corresponding action names
 export function extractActionTimestamps(blobbi: Blobbi): Record<string, number> {
   const actionTimestamps: Record<string, number> = {};
-  
+
   // Map last_<action> fields to action names
   if (blobbi.lastMeal) actionTimestamps.feed = blobbi.lastMeal * 1000; // Convert to milliseconds
   if (blobbi.lastClean) actionTimestamps.clean = blobbi.lastClean * 1000;
@@ -991,10 +1041,10 @@ export function extractActionTimestamps(blobbi: Blobbi): Record<string, number> 
   if (blobbi.lastCheck) actionTimestamps.check = blobbi.lastCheck * 1000;
   if (blobbi.lastSing) actionTimestamps.sing = blobbi.lastSing * 1000;
   if (blobbi.lastMedicine) actionTimestamps.medicine = blobbi.lastMedicine * 1000;
-  
+
   // Note: rest, play, and cruzar don't have corresponding last_* fields in the Blobbi type
   // but they still update lastInteraction which is handled separately
-  
+
   return actionTimestamps;
 }
 
@@ -1002,11 +1052,11 @@ export function extractActionTimestamps(blobbi: Blobbi): Record<string, number> 
 // Note: This function is deprecated in favor of the comprehensive decay system in blobbi-decay.ts
 // It's kept for backward compatibility but should use applyDecay() for new implementations
 export function calculateStatDegradation(
-  lastInteraction: number, 
+  lastInteraction: number,
   currentTime: number = Date.now()
 ): Partial<BlobbiStats> {
   const hoursPassed = (currentTime - lastInteraction) / (1000 * 60 * 60);
-  
+
   // Degradation rates per hour (simplified version for compatibility)
   const degradationRates = {
     hunger: -5,
@@ -1014,7 +1064,7 @@ export function calculateStatDegradation(
     hygiene: -2,
     energy: -4, // Only during active periods
   };
-  
+
   return {
     hunger: Math.max(0, degradationRates.hunger * hoursPassed),
     happiness: Math.max(0, degradationRates.happiness * hoursPassed),

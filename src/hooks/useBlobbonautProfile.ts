@@ -1,9 +1,9 @@
 // Hook to get storage item quantity
 export function useStorageItemQuantity(itemId: string): number {
   const { data: currentProfile } = useBlobbonautProfile();
-  
+
   if (!currentProfile) return 0;
-  
+
   const storageItem = currentProfile.storage.find(item => item.itemId === itemId);
   return storageItem?.quantity || 0;
 }
@@ -13,10 +13,10 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useNostrPublish } from './useNostrPublish';
 import { BlobbonautProfile, BlobbonautStorageItem } from '@/types/blobbi';
-import { 
-  BLOBBI_EVENT_KINDS, 
+import {
+  BLOBBI_EVENT_KINDS,
   createBlobbonautProfileEvent,
-  parseBlobbonautProfileFromEvent 
+  parseBlobbonautProfileFromEvent
 } from '@/lib/blobbi-events';
 
 // Hook to get the current user's Blobbanaut Profile
@@ -31,11 +31,11 @@ export function useBlobbonautProfile(profileId?: string) {
       if (!effectiveProfileId) return null;
 
       const events = await nostr.query(
-        [{ 
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE], 
+        [{
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE],
           '#d': [effectiveProfileId],
           limit: 1, // We only need the latest one
-        }], 
+        }],
         { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
       );
 
@@ -43,7 +43,7 @@ export function useBlobbonautProfile(profileId?: string) {
 
       // Assuming the first event is the latest due to relay sorting, but we can sort just in case
       const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
-      
+
       return parseBlobbonautProfileFromEvent(latestEvent);
     },
     enabled: !!effectiveProfileId,
@@ -58,21 +58,21 @@ export function useBlobbonautProfiles(profileIds: string[]) {
     queryKey: ['blobbanaut-profiles', profileIds.sort()],
     queryFn: async ({ signal }) => {
       if (profileIds.length === 0) return [];
-      
+
       const events = await nostr.query(
-        [{ 
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE], 
+        [{
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE],
           '#d': profileIds,
-        }], 
+        }],
         { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
       );
 
       // Group events by profile ID and get the latest for each
       const profileMap = new Map<string, BlobbonautProfile>();
-      
+
       // Group events by profile ID and get the latest for each
       const eventsByProfile = new Map<string, { profile: BlobbonautProfile; created_at: number }>();
-      
+
       events.forEach(event => {
         const profile = parseBlobbonautProfileFromEvent(event);
         if (profile) {
@@ -106,13 +106,13 @@ export function useUpdateBlobbonautProfile() {
     },
     onSuccess: (_, profile) => {
       // Invalidate and refetch the profile
-      queryClient.invalidateQueries({ 
-        queryKey: ['blobbanaut-profile', profile.id] 
+      queryClient.invalidateQueries({
+        queryKey: ['blobbanaut-profile', profile.id]
       });
-      
+
       // Also invalidate profiles list if this profile is part of any list
-      queryClient.invalidateQueries({ 
-        queryKey: ['blobbanaut-profiles'] 
+      queryClient.invalidateQueries({
+        queryKey: ['blobbanaut-profiles']
       });
     },
     onError: (error) => {
@@ -315,7 +315,7 @@ export function useCreateInitialProfile() {
       }
 
       const defaultProfileId = `Blobbanaut-${user.pubkey.slice(0, 8)}`;
-      
+
       // Try to get user's Nostr metadata for default name
       let defaultName: string | undefined;
       try {
@@ -323,7 +323,7 @@ export function useCreateInitialProfile() {
           [{ kinds: [0], authors: [user.pubkey], limit: 1 }],
           { signal: AbortSignal.timeout(2000) }
         );
-        
+
         if (metadataEvent) {
           const metadata = JSON.parse(metadataEvent.content);
           defaultName = metadata.name || metadata.display_name;
@@ -332,7 +332,7 @@ export function useCreateInitialProfile() {
         // Ignore errors when fetching metadata, we'll use fallback
         console.log('Could not fetch user metadata for default name:', error);
       }
-      
+
       const initialProfile: BlobbonautProfile = {
         id: defaultProfileId,
         ownerPubkey: user.pubkey,
@@ -343,6 +343,7 @@ export function useCreateInitialProfile() {
         lifetimeBlobbis: 0,
         achievements: [],
         storage: [], // Initialize empty storage
+        onboardingDone: false, // Default to false for new profiles
         lastModified: Math.floor(Date.now() / 1000),
         ...customizations,
       };
@@ -375,9 +376,9 @@ export function useAddToStorage() {
 
       // Find existing item in storage
       const existingItemIndex = currentProfile.storage.findIndex(item => item.itemId === itemId);
-      
+
       let updatedStorage: BlobbonautStorageItem[];
-      
+
       if (existingItemIndex >= 0) {
         // Update existing item quantity
         updatedStorage = [...currentProfile.storage];
@@ -406,4 +407,41 @@ export function useAddToStorage() {
       });
     },
   });
+}
+
+// Hook to set onboarding completion status
+export function useSetOnboardingDone() {
+  const { data: currentProfile } = useBlobbonautProfile();
+  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
+  const { user } = useCurrentUser();
+
+  return useMutation({
+    mutationFn: async (done: boolean = true) => {
+      if (!user || !currentProfile) {
+        throw new Error('User must be logged in and have a profile');
+      }
+
+      const updatedProfile: BlobbonautProfile = {
+        ...currentProfile,
+        onboardingDone: done,
+      };
+
+      return new Promise<void>((resolve, reject) => {
+        updateProfile(updatedProfile, {
+          onSuccess: () => resolve(),
+          onError: reject,
+        });
+      });
+    },
+  });
+}
+
+// Hook to check if onboarding is done
+export function useOnboardingDone() {
+  const { data: profile } = useBlobbonautProfile();
+
+  return {
+    isOnboardingDone: profile?.onboardingDone ?? false,
+    isLoading: !profile,
+  };
 }

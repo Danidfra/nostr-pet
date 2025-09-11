@@ -21,6 +21,8 @@ const Index = () => {
   const hasMouseSupport = typeof window !== 'undefined' &&
     window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
+
+
   useEffect(() => {
     if (!hasMouseSupport) return;
 

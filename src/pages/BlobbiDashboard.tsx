@@ -28,6 +28,8 @@ import {
   Package,
 } from 'lucide-react';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
+import { WelcomeModal } from '@/components/WelcomeModal';
+import { useOnboardingDone } from '@/hooks/useBlobbonautProfile';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useCoinBalance } from '@/hooks/useCoinBalance';
 import { BuyCoinsModal } from '@/components/blobbi/BuyCoinsModal';
@@ -83,7 +85,10 @@ export default function BlobbiDashboard() {
     isReadyToHatch,
     isReadyToEvolve
   } = useBlobbiIncubationSystem();
+  const { isOnboardingDone, isLoading: isOnboardingLoading } = useOnboardingDone();
 
+  // Welcome modal state
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   const [filter, setFilter] = useState<BlobbiFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -138,6 +143,17 @@ export default function BlobbiDashboard() {
 
     checkPushNotificationStatus();
   }, []); // Run on every mount (every visit to /blobbi)
+
+  // Check if we should show welcome modal
+  useEffect(() => {
+    // Only check if user is logged in and we have profile data
+    if (user && !isProfileLoading && !isOnboardingLoading) {
+      // Show modal if onboarding is not done
+      if (!isOnboardingDone) {
+        setShowWelcomeModal(true);
+      }
+    }
+  }, [user, profile, isProfileLoading, isOnboardingLoading, isOnboardingDone]);
 
   if (!user) {
     return (
@@ -716,6 +732,17 @@ export default function BlobbiDashboard() {
       <EnablePushModal
         open={showPushModal}
         onClose={() => setShowPushModal(false)}
+      />
+
+      {/* Welcome Modal */}
+      <WelcomeModal
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        onStartTour={() => {
+          // For now, just close the modal (will be implemented in next prompt)
+          console.log('Start tour clicked - to be implemented');
+          setShowWelcomeModal(false);
+        }}
       />
 
         </div>
