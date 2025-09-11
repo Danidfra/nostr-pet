@@ -589,7 +589,7 @@ export function BlobbiAdoption() {
                     <Sparkles className={`h-4 w-4 ${hasProfile ? 'text-purple-400 dark:text-purple-300 animate-pulse' : 'text-gray-300 dark:text-gray-600'}`} />
                   </div>
                   
-                  <div className={`text-8xl mb-4 transition-all duration-300 ${
+                  <div className={`text-8xl mb-4 transition-all duration-[2000ms] ${
                     hasProfile ? 'animate-bounce' : 'grayscale'
                   }`}>
                     🥚
