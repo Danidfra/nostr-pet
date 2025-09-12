@@ -185,7 +185,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
   }
 
   return (
-    <div id='tab-growth-hub-open' className={`space-y-6 ${className}`}>
+    <div className={`space-y-6 ${className}`}>
       {/* System Status */}
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
         <CardHeader>
@@ -240,7 +240,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors">
                 <CardTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2" id='tab-growth-hub-incubating-eggs'>
                     <Egg className="h-5 w-5 text-yellow-500" />
                     Incubating Eggs ({eggBlobbis.length})
                     {!showEggList && eggBlobbis.some(blobbi => isBlobbiReadyToHatch(blobbi)) && (
@@ -288,6 +288,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {eggBlobbis.map((blobbi) => (
                       <div
+                        id="tab-growth-hub-egg-selection"
                         key={blobbi.id}
                         className={`group transition-all duration-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border shadow-sm hover:shadow-xl hover:shadow-purple-200/20 dark:hover:shadow-purple-900/20 rounded-2xl cursor-pointer hover:scale-[1.02] ${
                           selectedEggId === blobbi.id

@@ -8,6 +8,9 @@ import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import step1Img from '@/assets/blobbi-overboard-step-1.png';
 import step2Img from '@/assets/blobbi-overboard-step-2.png';
 import step3Img from '@/assets/blobbi-overboard-step-3.png';
+import step4Img from '@/assets/blobbi-overboard-step-4.png';
+import step5Img from '@/assets/blobbi-overboard-step-5.png';
+import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 
 // Utility function to wait for an element to become visible
 const waitForVisible = (selector: string, opts: { timeout?: number } = {}): Promise<void> => {
@@ -93,6 +96,7 @@ export function BlobbiTour({
 }: BlobbiTourProps) {
   const [internalCurrentStep, setInternalCurrentStep] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+    const { selectEgg } = useBlobbiIncubationSystem();
 
   // Use either controlled or uncontrolled step state
   const currentStep = propCurrentStep !== undefined ? propCurrentStep : internalCurrentStep;
@@ -152,13 +156,13 @@ export function BlobbiTour({
       image: step3Img,
       imagePosition: 'below',
       imageOffsetX: -260,
-      imageOffsetY: 0,
-      imageHeight: 400,
+      imageOffsetY: -80,
+      imageHeight: 500,
       async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
         if (dir === 'next') {
           // Open tab content before going to step 4
           setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub-open', { timeout: 2000 });
+          await waitForVisible('#tab-growth-hub-incubating-eggs', { timeout: 2000 });
         } else if (dir === 'prev') {
           // Going back to Missions
           setActiveTab?.('missions');
@@ -169,22 +173,42 @@ export function BlobbiTour({
 
     // Step 4 — Growth Hub (open/content)
     {
-      selector: '#tab-growth-hub-open',
-      title: 'Growth Hub',
-      description: 'The Growth Hub is where your Blobbi hatches, evolves, and tracks its progress through special tasks',
-      imagePosition: 'below',
-      imageOffsetX: -260,
-      imageOffsetY: 0,
-      imageHeight: 400,
+      selector: '#tab-growth-hub-incubating-eggs',
+      title: 'Incubating Eggs',
+      description: 'Incubating eggs lets you track all the steps needed for hatching and monitor their overall progress.',
+      image: step4Img,
+      imagePosition: 'right',
+      imageOffsetX: 0,
+      imageOffsetY: 80,
+      imageHeight: 240,
+      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
+        if (dir === 'prev') {
+          // Keep the Growth Hub tab active, just move spotlight back to the trigger
+          setActiveTab?.('incubation');
+          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
+        } else if (dir === 'next') {
+          selectEgg('')
+        }
+      }
+    },
+    // Step 5 — Growth Hub (open/content)
+    {
+      selector: '#tab-growth-hub-egg-selection',
+      title: 'Incubating Eggs',
+      description: 'Incubating eggs lets you track all the steps needed for hatching and monitor their overall progress.',
+      image: step5Img,
+      imagePosition: 'right',
+      imageOffsetX: 0,
+      imageOffsetY: 80,
+      imageHeight: 240,
       async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
         if (dir === 'prev') {
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
         }
-        // No special 'next' from the last step (unless you add more)
       }
-    }
+    },
   ];
 
   // Reset to first step when tour opens (only for internal state)
