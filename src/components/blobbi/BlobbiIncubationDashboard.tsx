@@ -96,6 +96,25 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
   const selectedBlobbi = selectedEggId ? blobbis.find(b => b.id === selectedEggId) : null;
   const selectedBabyBlobbi = selectedBabyId ? blobbis.find(b => b.id === selectedBabyId) : null;
 
+  // Auto-select first available egg or baby when component mounts
+  useEffect(() => {
+    // Only auto-select if nothing is currently selected and we have blobbis
+    if (!selectedEggId && !selectedBabyId && blobbis.length > 0) {
+      // Prioritize eggs first
+      if (eggBlobbis.length > 0) {
+        const firstEgg = eggBlobbis[0];
+        selectEgg(firstEgg.id);
+        console.log(`🥚 Auto-selected first egg: ${firstEgg.name}`);
+      }
+      // Fallback to babies if no eggs are available
+      else if (babyBlobbis.length > 0) {
+        const firstBaby = babyBlobbis[0];
+        selectBaby(firstBaby.id);
+        console.log(`🐣 Auto-selected first baby: ${firstBaby.name}`);
+      }
+    }
+  }, [blobbis, eggBlobbis, babyBlobbis, selectedEggId, selectedBabyId, selectEgg, selectBaby]);
+
   // Clear selection when relevant section is collapsed
   useEffect(() => {
     if (selectedBlobbi) {
@@ -395,6 +414,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
               </div>
               {!taskSubscriptionActive && !incubationStartTime && (
                 <Button
+                  id='tab-growth-hub-start-incubation'
                   onClick={startIncubation}
                   size="sm"
                   className="bg-purple-600 hover:bg-purple-700 text-white"
@@ -448,7 +468,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <h4 className={`font-medium ${task.completed ? 'text-green-800 dark:text-green-200' : 'text-gray-900 dark:text-gray-100'}`}>
+                          <h4 id={`tab-growth-hub-tasks-${index}`} className={`font-medium ${task.completed ? 'text-green-800 dark:text-green-200' : 'text-gray-900 dark:text-gray-100'}`}>
                             {task.name}
                           </h4>
                           {task.completed && (

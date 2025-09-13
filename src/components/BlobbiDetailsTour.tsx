@@ -4,18 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SpotlightOverlay } from './SpotlightOverlay';
 import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useUserBlobbis } from '@/hooks/useUserBlobbis';
-
-// Import step images explicitly for proper Vite asset handling
-import step1Img from '@/assets/blobbi-overboard-step-1.png';
-import step2Img from '@/assets/blobbi-overboard-step-2.png';
-import step3Img from '@/assets/blobbi-overboard-step-3.png';
-import step4Img from '@/assets/blobbi-overboard-step-4.png';
-import step5Img from '@/assets/blobbi-overboard-step-5.png';
-import step6Img from '@/assets/blobbi-overboard-step-6.png';
-import step7Img from '@/assets/blobbi-overboard-step-7.png';
-import step8Img from '@/assets/blobbi-overboard-step-8.png';
-import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 
 // Utility function to wait for an element to become visible
 const waitForVisible = (selector: string, opts: { timeout?: number } = {}): Promise<void> => {
@@ -57,7 +45,7 @@ const sleep = (ms: number): Promise<void> => {
 type Direction = "next" | "prev";
 
 interface TourContext {
-  setActiveTab?: (v: string) => void; // from BlobbiDashboard Tabs
+  setActiveTab?: (v: string) => void;
   waitForVisible: (selector: string, opts?: { timeout?: number }) => Promise<void>;
   sleep: (ms: number) => Promise<void>;
   navigateTo: (path: string) => Promise<void>;
@@ -67,52 +55,47 @@ interface TourStep {
   selector: string;
   title: string;
   description?: string;
-  nextLabel?: string; // Custom label for the next button
-  image?: string; // Can be a string path or imported asset
-  imageOffset?: number; // Legacy offset (maintained for backward compatibility)
-  imageOffsetX?: number; // Horizontal offset relative to spotlight center
-  imageOffsetY?: number; // Vertical offset relative to default placement
-  imagePosition?: "below" | "above" | "left" | "right"; // Position relative to spotlight
-  imageWidth?: number | string; // Custom width (e.g., 400, "400px", "80%")
-  imageHeight?: number | string; // Custom height (e.g., 300, "300px", "80%")
+  nextLabel?: string;
+  image?: string;
+  imageOffset?: number;
+  imageOffsetX?: number;
+  imageOffsetY?: number;
+  imagePosition?: "below" | "above" | "left" | "right";
+  imageWidth?: number | string;
+  imageHeight?: number | string;
   onEnter?(ctx: TourContext): void | Promise<void>;
   onBeforeAdvance?(dir: Direction, ctx: TourContext): void | Promise<void>;
   onLeave?(ctx: TourContext): void | Promise<void>;
 }
 
-interface BlobbiTourProps {
+interface BlobbiDetailsTourProps {
   isOpen: boolean;
   onClose: () => void;
   onComplete?: () => void;
-  customSteps?: TourStep[];
   currentStep?: number;
   onNext?: () => void;
   onPrevious?: () => void;
-  setActiveTab?: (v: string) => void;
+  blobbiId: string;
 }
 
-export function BlobbiTour({
+export function BlobbiDetailsTour({
   isOpen,
   onClose,
   onComplete,
-  customSteps,
   currentStep: propCurrentStep,
   onNext,
   onPrevious,
-  setActiveTab: setActiveTabFromProps
-}: BlobbiTourProps) {
+  blobbiId
+}: BlobbiDetailsTourProps) {
   const [internalCurrentStep, setInternalCurrentStep] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const { selectEgg } = useBlobbiIncubationSystem();
   const navigate = useNavigate();
-  const { data: userBlobbis = [] } = useUserBlobbis();
 
   // Use either controlled or uncontrolled step state
   const currentStep = propCurrentStep !== undefined ? propCurrentStep : internalCurrentStep;
 
   // Create TourContext
   const tourContext: TourContext = {
-    setActiveTab: setActiveTabFromProps,
     waitForVisible,
     sleep,
     navigateTo: async (path: string) => {
@@ -122,161 +105,59 @@ export function BlobbiTour({
     }
   };
 
-  // Use custom steps if provided, otherwise use default steps
-  const tourSteps = customSteps || [
-    // Step 1 — My Blobbies
+  // Details tour steps
+  const tourSteps: TourStep[] = [
+    // Step 1 — Blobbi Visual
     {
-      selector: '#tab-my-blobbies',
-      title: 'My Blobbies',
-      description: 'View and manage all your Blobbi pets in one place',
-      image: step1Img,
+      selector: '#blobbi-details-visual',
+      title: 'Your Blobbi',
+      description: 'This is where your Blobbi lives and grows. Watch it evolve as you care for it!',
       imagePosition: 'below',
-      imageOffsetY: -100,
-      imageOffsetX: -180,
+      imageOffsetY: -50,
     },
 
-    // Step 2 — Missions
+    // Step 2 — Stats
     {
-      selector: '#tab-missions',
-      title: 'Missions',
-      description: 'Complete missions to earn rewards and help your Blobbis grow',
-      image: step2Img,
-      imagePosition: 'below',
-      imageOffsetX: -60,
-      imageOffsetY: -90,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-        if (dir === 'next') {
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-        } else if (dir === 'prev') {
-          setActiveTab?.('blobbis');
-          await waitForVisible('#tab-my-blobbies', { timeout: 2000 });
-        }
-      }
-    },
-
-    // Step 3 — Growth Hub (tab trigger)
-    {
-      selector: '#tab-growth-hub',
-      title: 'Growth Hub',
-      description: 'The Growth Hub is where your Blobbi hatches, evolves, and tracks its progress through special tasks',
-      image: step3Img,
-      imagePosition: 'below',
-      imageOffsetX: -260,
-      imageOffsetY: -80,
-      imageHeight: 500,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-        if (dir === 'next') {
-          // Open tab content before going to step 4
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub-incubating-eggs', { timeout: 2000 });
-        } else if (dir === 'prev') {
-          // Going back to Missions
-          setActiveTab?.('missions');
-          await waitForVisible('#tab-missions', { timeout: 2000 });
-        }
-      }
-    },
-
-    // Step 4 — Growth Hub (tab trigger)
-    {
-      selector: '#tab-growth-hub-incubating-eggs',
-      title: 'Incubating Eggs',
-      description: 'Incubating eggs lets you track all the steps needed for hatching and monitor their overall progress.',
-      image: step4Img,
-      imagePosition: 'right',
-      imageOffsetX: 0,
-      imageOffsetY: 80,
-      imageHeight: 240,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-        if (dir === 'prev') {
-          // Keep the Growth Hub tab active, just move spotlight back to the trigger
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-        }
-      }
-    },
-
-    // Step 5 — Growth Hub (egg selection)
-    {
-      selector: '#tab-growth-hub-egg-selection',
-      title: 'Select Your Egg',
-      description: 'Pick an egg, and let\'s get it ready to hatch!',
-      image: step5Img,
-      imagePosition: 'right',
-      imageOffsetX: 0,
-      imageOffsetY: 80,
-      imageHeight: 240,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-        if (dir === 'prev') {
-          // Keep the Growth Hub tab active, just move spotlight back to the trigger
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-        }
-      }
-    },
-
-    // Step 6 — Growth Hub (start incubation)
-    {
-      selector: '#tab-growth-hub-start-incubation',
-      title: 'Start Incubation',
-      description: 'Begin the journey of your Blobbi\'s egg by starting the incubation process.',
-      image: step6Img,
+      selector: '#blobbi-details-stats',
+      title: 'Blobbi Stats',
+      description: 'Monitor your Blobbi\'s health, happiness, and other vital stats here.',
       imagePosition: 'left',
       imageOffsetX: 0,
-      imageOffsetY: 80,
-      imageHeight: 380,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-        if (dir === 'prev') {
-          // Keep the Growth Hub tab active, just move spotlight back to the trigger
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-        }
-      }
+      imageOffsetY: 0,
     },
 
-    // Step 7 — Growth Hub (tasks)
+    // Step 3 — Actions Tab
     {
-      selector: '#tab-growth-hub-tasks-0',
-      title: 'Tasks',
-      description: 'Complete these missions to help your Blobbi hatch and grow.',
-      image: step7Img,
-      imagePosition: 'right',
+      selector: '#blobbi-details-actions-0',
+      title: 'Care Actions',
+      description: 'Use these actions to feed, play with, and care for your Blobbi.',
+      imagePosition: 'below',
+      imageOffsetY: -80,
+    },
+
+    // Step 4 — Quick Actions
+    {
+      selector: '[data-testid="quick-actions"]',
+      title: 'Quick Actions',
+      description: 'Access shop, storage, and other Blobbi management features here.',
+      imagePosition: 'left',
       imageOffsetX: 0,
       imageOffsetY: 0,
-      imageHeight: 340,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-         if (dir === 'next') {
-          setActiveTab?.('blobbis');
-          await waitForVisible('#tab-my-blobbies', { timeout: 2000 });
-        } else if (dir === 'prev') {
-          // Keep the Growth Hub tab active, just move spotlight back to the trigger
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-        }
-      }
     },
 
-    // Step 8 — My Blobbies
+    // Step 5 — Completion
     {
-      selector: '#tab-my-blobbies-card',
-      title: 'Next up: Blobbi details',
-      description: 'We\'ll open your Blobbi page to continue the tour.',
-      nextLabel: 'Next part',
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible, navigateTo }) {
-        if (dir === 'next' && userBlobbis.length > 0) {
-          const id = userBlobbis[0]?.id;
-          if (!id) throw new Error('NO_BLOBBI_ID');
-          
-          // Store handoff token
+      selector: '[data-testid="blobbi-visual"]',
+      title: 'Tour Complete!',
+      description: 'You\'re now ready to take care of your Blobbi. Have fun!',
+      nextLabel: 'Finish Tour',
+      async onBeforeAdvance(dir, { navigateTo }) {
+        if (dir === 'next') {
+          // Set return token and navigate back to dashboard
           sessionStorage.setItem('tour.resume', JSON.stringify({
-            next: 'details',
-            startIndex: 0,
-            blobbiId: id
+            next: 'dashboard-complete'
           }));
-          
-          await navigateTo(`/blobbi/${id}`);
-          // Do NOT advance step here; details tour will take over
+          await navigateTo('/blobbi');
         }
       }
     },
@@ -465,7 +346,7 @@ export function BlobbiTour({
               {isTransitioning ? (
                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
               ) : currentStep === tourSteps.length - 1 ? (
-                'Finish'
+                currentTourStep.nextLabel || 'Finish'
               ) : (
                 <>
                   {currentTourStep.nextLabel || 'Next'}

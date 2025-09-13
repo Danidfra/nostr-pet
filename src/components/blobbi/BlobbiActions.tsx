@@ -326,7 +326,7 @@ export function BlobbiActions({
             "grid gap-2",
             blobbi.lifeStage === 'egg' ? "grid-cols-3" : "grid-cols-2"
           )}>
-            {actions.map(({ action, icon: Icon, label, color, disabled, tooltip }) => {
+            {actions.map(({ action, icon: Icon, label, color, disabled, tooltip }, index) => {
               // Check if action is available for this stage
               const isAvailableForStage = isActionAvailableForStage(action, blobbi.lifeStage);
 
@@ -342,6 +342,7 @@ export function BlobbiActions({
 
               return (
                 <Button
+                  id={`blobbi-details-actions-${index}`}
                   key={action}
                   variant="outline"
                   size="sm"

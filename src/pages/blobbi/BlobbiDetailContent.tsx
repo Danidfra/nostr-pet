@@ -29,7 +29,7 @@ import {
   Users,
   ExternalLink,
   Egg,
-  Camera
+  Camera,
 } from 'lucide-react';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbiById } from '@/hooks/useUserBlobbis';
@@ -56,6 +56,8 @@ import { checkEggHatchingReadiness, checkBabyEvolutionReadiness } from '@/lib/bl
 import { isValidSize } from '@/lib/blobbi-egg-validation';
 import { SetCompanionButton } from '@/components/SetCompanionButton';
 import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
+import { BlobbiDetailsTour } from '@/components/BlobbiDetailsTour';
+import { useToast } from '@/hooks/useToast';
 
 export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const { user } = useCurrentUser();
@@ -136,6 +138,8 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const [showStorage, setShowStorage] = useState(false);
   const [showPolaroidModal, setShowPolaroidModal] = useState(false);
   const [activeTab, setActiveTab] = useState('actions');
+  const [isDetailsTourActive, setIsDetailsTourActive] = useState(false);
+  const { toast } = useToast();
 
   // Handle egg/baby selection when user manually starts listening
   const handleStartListening = useCallback(() => {
@@ -157,6 +161,30 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
       }, 100);
     }
   }, [realBlobbi, blobbiId, selectEgg, selectBaby, startIncubation, startQuestTracking]);
+
+  // Auto-start details tour based on sessionStorage
+  useEffect(() => {
+    const resume = sessionStorage.getItem('tour.resume');
+    if (resume) {
+      try {
+        const data = JSON.parse(resume);
+        if (data?.next === 'details' && data?.blobbiId === blobbiId) {
+          // Clear the resume token
+          sessionStorage.removeItem('tour.resume');
+          // Start the details tour
+          setIsDetailsTourActive(true);
+        }
+      } catch (error) {
+        console.error('Error parsing tour resume data:', error);
+        sessionStorage.removeItem('tour.resume');
+      }
+    }
+  }, [blobbiId]);
+
+  // Function to start details tour manually
+  const startDetailsTour = useCallback((startIndex = 0) => {
+    setIsDetailsTourActive(true);
+  }, []);
 
   if (isLoading || !realBlobbi || !blobbi) {
     return (
@@ -209,7 +237,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
         {/* Left Column - Visual and Stats */}
         <div className="lg:col-span-1 space-y-4">
           {/* Blobbi Visual */}
-          <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 group">
+          <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 group" id="blobbi-details-visual">
             <CardContent className="p-4 sm:p-6 relative">
               {/* Camera Button */}
               {isOwner && (
@@ -265,7 +293,9 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
           </Card>
 
           {/* Stats */}
-          <BlobbiStats blobbi={blobbi} />
+          <div id="blobbi-details-stats" data-testid="blobbi-stats">
+            <BlobbiStats blobbi={blobbi} />
+          </div>
 
           {/* Quick Info */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
@@ -329,7 +359,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
 
           {/* Owner Actions */}
           {isOwner && (
-            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600" data-testid="quick-actions">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Settings className="w-5 h-5" />
@@ -685,6 +715,13 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
           />
         </>
       )}
+
+      {/* Blobbi Details Tour */}
+      <BlobbiDetailsTour
+        isOpen={isDetailsTourActive}
+        onClose={() => setIsDetailsTourActive(false)}
+        blobbiId={blobbiId}
+      />
         </div>
       </div>
     </BlobbiLayout>
