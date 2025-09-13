@@ -262,6 +262,11 @@ export function BlobbiTour({
       selector: '#tab-my-blobbies-card',
       title: 'Next up: Blobbi details',
       description: 'We\'ll open your Blobbi page to continue the tour.',
+      image: step8Img,
+      imagePosition: 'right',
+      imageOffsetX: 0,
+      imageOffsetY: 0,
+      imageHeight: 340,
       nextLabel: 'Next part',
       async onBeforeAdvance(dir, { setActiveTab, waitForVisible, navigateTo }) {
         if (dir === 'next' && userBlobbis.length > 0) {
@@ -465,7 +470,7 @@ export function BlobbiTour({
               {isTransitioning ? (
                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
               ) : currentStep === tourSteps.length - 1 ? (
-                'Finish'
+                'Next part'
               ) : (
                 <>
                   {currentTourStep.nextLabel || 'Next'}

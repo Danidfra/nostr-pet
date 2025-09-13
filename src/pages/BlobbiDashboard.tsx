@@ -308,57 +308,6 @@ export default function BlobbiDashboard() {
         <div className="lg:col-span-1 space-y-4">
           <BlobbonautProfileCard />
 
-          {/* Quick Stats */}
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-            <CardHeader>
-              <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Quick Stats</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Heart className="w-4 h-4 text-pink-500" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Total Blobbis</span>
-                </div>
-                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.totalBlobbis}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-green-500" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Active</span>
-                </div>
-                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.activeBlobbis}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Egg className="w-4 h-4 text-yellow-500" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Growing</span>
-                </div>
-                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.incubatingBlobbis}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-purple-500" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Evolved</span>
-                </div>
-                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.evolvedBlobbis}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-yellow-600" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Coins</span>
-                </div>
-                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.totalCoins.toLocaleString()}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-amber-500" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Achievements</span>
-                </div>
-                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.achievements}</Badge>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Navigation Links */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <CardHeader>
@@ -432,6 +381,57 @@ export default function BlobbiDashboard() {
                   View Growth Hub ({stats.incubatingBlobbis})
                 </Button>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Quick Stats */}
+          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+            <CardHeader>
+              <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Quick Stats</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-pink-500" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Total Blobbis</span>
+                </div>
+                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.totalBlobbis}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-green-500" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Active</span>
+                </div>
+                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.activeBlobbis}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Egg className="w-4 h-4 text-yellow-500" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Growing</span>
+                </div>
+                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.incubatingBlobbis}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-500" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Evolved</span>
+                </div>
+                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.evolvedBlobbis}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-yellow-600" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Coins</span>
+                </div>
+                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.totalCoins.toLocaleString()}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Achievements</span>
+                </div>
+                <Badge variant="outline" className="border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">{stats.achievements}</Badge>
+              </div>
             </CardContent>
           </Card>
         </div>
