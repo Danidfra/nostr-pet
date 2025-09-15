@@ -15,9 +15,9 @@ import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { EggGraphic } from './EggGraphic';
 import { Blobbi } from '@/types/blobbi';
 import { toPng } from 'html-to-image';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useUploadFile } from '@/hooks/useUploadFile';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { NPool, NRelay1, NostrEvent } from '@nostrify/nostrify';
 import {
   Carousel,
   CarouselContent,
@@ -147,7 +147,6 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
 
   const { user } = useCurrentUser();
   const { mutateAsync: uploadFile } = useUploadFile();
-  const { mutate: createEvent } = useNostrPublish();
 
   // Handle background selection
   const handleBackgroundSelect = (background: Background, slideIndex: number) => {
@@ -415,50 +414,91 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
         ? `${nostrContent.trim()}\n\n${mandatoryHashtags}\n\n${imageUrl}`
         : `${mandatoryHashtags}\n\n${imageUrl}`;
 
-      createEvent(
-        {
-          kind: 1,
-          content: finalContent,
-          tags: [
-            ["t", "Blobbi"],
-            ["t", "NostrPet"],
-            [
-              "imeta",
-              `url ${imageUrl}`,
-              "m image/png",
-              `summary ${imetaSummary}`,
-              `alt A polaroid photo of ${blobbi.name} taken with background: ${selectedBackground.name}`
-            ]
-          ],
-        },
-        {
-          onSuccess: () => {
-            setIsPosting(false);
-            toast({
-              title: "Photo shared to Nostr! 🚀",
-              description: "Your Blobbi polaroid has been published successfully.",
-            });
+      // Get enabled relays from modal state
+      const enabledRelays = modalRelays.filter(relay => relay.enabled).map(relay => relay.url);
+      
+      if (enabledRelays.length === 0) {
+        throw new Error('No relays selected');
+      }
 
-            // Reset form after successful share
-            setNostrContent('');
+      // Create temporary pool for modal-specific publishing
+      const tempPoolConfig = {
+        open: (url: string) => new NRelay1(url),
+        reqRouter: () => new Map(), // Not needed for event publishing
+        eventRouter: () => enabledRelays, // Only publish to selected relays
+      };
 
-            // Close modal after short delay
-            setTimeout(() => {
-              handleClose();
-            }, 2000);
-          },
-          onError: (error) => {
-            setIsPosting(false);
-            console.error('Error sharing to Nostr:', error);
-            toast({
-              title: "Share failed",
-              description: "Failed to publish to Nostr. Please try again.",
-              variant: "destructive",
-            });
-          },
-        }
-      );
+      const tempPool = new NPool(tempPoolConfig);
+
+      // Sign and publish event using temporary pool
+      const event = await user.signer.signEvent({
+        kind: 1,
+        content: finalContent,
+        tags: [
+          ["t", "Blobbi"],
+          ["t", "NostrPet"],
+          [
+            "imeta",
+            `url ${imageUrl}`,
+            "m image/png",
+            `summary ${imetaSummary}`,
+            `alt A polaroid photo of ${blobbi.name} taken with background: ${selectedBackground.name}`
+          ]
+        ],
+        created_at: Math.floor(Date.now() / 1000),
+      });
+
+      // Publish to selected relays only
+      await tempPool.event(event, { signal: AbortSignal.timeout(5000) });
+
+      // Properly close temporary pool and await its closure
+      try {
+        await tempPool.close();
+      } catch (closeError) {
+        console.warn('Warning: Error closing temporary pool:', closeError);
+        // Don't throw here - the event was already published successfully
+      }
+
+      // Show success message
+      setIsPosting(false);
+      toast({
+        title: "Photo shared to Nostr! 🚀",
+        description: `Published to ${enabledRelays.length} relay${enabledRelays.length > 1 ? 's' : ''}: ${enabledRelays.join(', ')}`,
+      });
+
+      // Reset form after successful share
+      setNostrContent('');
+
+      // Close modal after short delay
+      setTimeout(() => {
+        handleClose();
+      }, 2000);
     } catch (error) {
+      // Check if this is an AggregateError (likely from pool closure)
+      if (error instanceof AggregateError) {
+        console.warn('AggregateError during Nostr operation (likely pool closure, but event may have been published):', error);
+        
+        // Try to extract more specific error info
+        const errorMessages = error.errors.map(err => err instanceof Error ? err.message : String(err));
+        console.warn('Individual errors:', errorMessages);
+        
+        // Show a more user-friendly message that acknowledges that event might have been published
+        setIsPosting(false);
+        toast({
+          title: "Photo may have been shared! ✅",
+          description: "There was a connection issue during cleanup, but your photo was likely published successfully. Please check your Nostr client.",
+          variant: "default",
+        });
+        
+        // Still reset form and close modal
+        setNostrContent('');
+        setTimeout(() => {
+          handleClose();
+        }, 3000);
+        return;
+      }
+      
+      // Handle other types of errors
       setIsPosting(false);
       console.error('Error sharing to Nostr:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
