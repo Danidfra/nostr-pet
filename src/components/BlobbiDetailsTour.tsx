@@ -5,6 +5,11 @@ import { SpotlightOverlay } from './SpotlightOverlay';
 import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import step1Img from '@/assets/blobbi-overboard-details-step-1.png';
+import step2Img from '@/assets/blobbi-overboard-details-step-2.png';
+import step3Img from '@/assets/blobbi-overboard-details-step-3.png';
+import step4Img from '@/assets/blobbi-overboard-details-step-4.png';
+
 // Utility function to wait for an element to become visible
 const waitForVisible = (selector: string, opts: { timeout?: number } = {}): Promise<void> => {
   const { timeout = 2000 } = opts;
@@ -111,9 +116,10 @@ export function BlobbiDetailsTour({
     {
       selector: '#blobbi-details-visual',
       title: 'Your Blobbi',
-      description: 'This is where your Blobbi lives and grows. Watch it evolve as you care for it!',
-      imagePosition: 'below',
-      imageOffsetY: -50,
+      description: 'See your Blobbi here! Its look will evolve as you take care of it.',
+      image: step1Img,
+      imagePosition: 'right',
+      imageOffsetY: 50,
     },
 
     // Step 2 — Stats
@@ -121,7 +127,8 @@ export function BlobbiDetailsTour({
       selector: '#blobbi-details-stats',
       title: 'Blobbi Stats',
       description: 'Monitor your Blobbi\'s health, happiness, and other vital stats here.',
-      imagePosition: 'left',
+      image: step2Img,
+      imagePosition: 'right',
       imageOffsetX: 0,
       imageOffsetY: 0,
     },
@@ -131,8 +138,10 @@ export function BlobbiDetailsTour({
       selector: '#blobbi-details-actions-0',
       title: 'Care Actions',
       description: 'Use these actions to feed, play with, and care for your Blobbi.',
-      imagePosition: 'below',
-      imageOffsetY: -80,
+      image: step3Img,
+      imagePosition: 'right',
+      imageOffsetY: 0,
+      imageHeight: 400,
     },
 
     // Step 4 — Quick Actions
@@ -140,8 +149,9 @@ export function BlobbiDetailsTour({
       selector: '[data-testid="quick-actions"]',
       title: 'Quick Actions',
       description: 'Access shop, storage, and other Blobbi management features here.',
-      imagePosition: 'left',
-      imageOffsetX: 0,
+      image: step4Img,
+      imagePosition: 'above',
+      imageOffsetX: 300,
       imageOffsetY: 0,
     },
 

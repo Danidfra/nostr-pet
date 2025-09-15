@@ -34,10 +34,12 @@ import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useCoinBalance } from '@/hooks/useCoinBalance';
 import { BuyCoinsModal } from '@/components/blobbi/BuyCoinsModal';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
+import { useDailyMissions } from '@/hooks/useDailyMissions';
 import { BlobbiCard } from '@/components/blobbi/BlobbiCard';
 import { BlobbonautProfileCard } from '@/components/blobbi/BlobbonautProfileCard';
 import { BlobbiShop } from '@/components/blobbi/BlobbiShop';
 import { BlobbiStorage } from '@/components/blobbi/BlobbiStorage';
+import { DailyMissionsCard } from '@/components/blobbi/DailyMissionsCard';
 
 import { BlobbiIncubationDashboard } from '@/components/blobbi/BlobbiIncubationDashboard';
 import { BlobbiMissions } from '@/components/blobbi/BlobbiMissions';
@@ -88,6 +90,14 @@ export default function BlobbiDashboard() {
     isReadyToHatch,
     isReadyToEvolve
   } = useBlobbiIncubationSystem();
+  const {
+    missions,
+    isLoading: isLoadingMissions,
+    claimMission1,
+    claimMission2,
+    claimBonus,
+    isClaiming
+  } = useDailyMissions();
   const { isOnboardingDone, isLoading: isOnboardingLoading } = useOnboardingDone();
 
   // Welcome modal and tour state
@@ -307,6 +317,32 @@ export default function BlobbiDashboard() {
         {/* Sidebar - Profile & Quick Stats */}
         <div className="lg:col-span-1 space-y-4">
           <BlobbonautProfileCard />
+
+          {/* Daily Missions */}
+            {missions && (
+              <DailyMissionsCard
+                state={{
+                  checkIn: {
+                    status: missions.mission1.status || 'LOCKED',
+                    claimedAt: missions.mission1.claimedAt
+                  },
+                  care3: {
+                    status: missions.mission2.status || 'LOCKED',
+                    progress: missions.mission2.progress,
+                    progressMax: missions.mission2.progressMax,
+                    claimedAt: missions.mission2.claimedAt
+                  },
+                  bonus: {
+                    status: missions.bonus.status || 'LOCKED',
+                    claimedAt: missions.bonus.claimedAt
+                  }
+                }}
+                onClaimCheckIn={async () => { await claimMission1(); }}
+                onClaimCare3={async () => { await claimMission2(); }}
+                onClaimBonus={async () => { await claimBonus(); }}
+                isClaiming={isClaiming}
+              />
+            )}
 
           {/* Navigation Links */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">

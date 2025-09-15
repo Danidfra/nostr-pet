@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BlobbiGame } from '@/components/blobbi/BlobbiGame';
 import { DailyCheckIn } from '@/components/blobbi/DailyCheckIn';
+import { DailyMissionsCard } from '@/components/blobbi/DailyMissionsCard';
 import { BlobbonautProfileCard } from '@/components/blobbi/BlobbonautProfileCard';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
+import { useDailyMissions } from '@/hooks/useDailyMissions';
+import { useToast } from '@/hooks/useToast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { SettingsButton } from '@/components/SettingsButton';
 import { Button } from '@/components/ui/button';
@@ -16,6 +19,69 @@ export default function Blobbi() {
   const { user } = useCurrentUser();
   const { blobbi } = useBlobbiWithFakeStatus();
   const [showPushModal, setShowPushModal] = useState(false);
+  const {
+    missions,
+    isLoading: isLoadingMissions,
+    claimMission1,
+    claimMission2,
+    claimBonus,
+    isClaiming
+  } = useDailyMissions();
+  const { toast } = useToast();
+
+  const handleClaimCheckIn = async () => {
+    await claimMission1(undefined, {
+      onSuccess: () => {
+        toast({
+          title: "Check-in Complete!",
+          description: "You earned 15 coins for checking in today!",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Claim Failed",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleClaimCare3 = async () => {
+    await claimMission2(undefined, {
+      onSuccess: () => {
+        toast({
+          title: "Care Routine Complete!",
+          description: "You earned 25 coins for completing care interactions!",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Claim Failed",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleClaimBonus = async () => {
+    await claimBonus(undefined, {
+      onSuccess: () => {
+        toast({
+          title: "Daily Bonus Complete!",
+          description: "You earned 10 bonus coins for completing all missions!",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Bonus Claim Failed",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
 
   useEffect(() => {
     const checkPushNotificationStatus = async () => {
@@ -72,9 +138,33 @@ export default function Blobbi() {
 
         {/* Sidebar */}
         {user && (
-          <div className="space-y-4">
+          <div className="lg:col-span-1 space-y-4">
             {/* Blobbanaut Profile */}
             <BlobbonautProfileCard />
+
+            {/* Daily Missions */}
+            <DailyMissionsCard
+              state={{
+                checkIn: {
+                  status: missions?.mission1.status || 'LOCKED',
+                  claimedAt: missions?.mission1.claimedAt
+                },
+                care3: {
+                  status: missions?.mission2.status || 'LOCKED',
+                  progress: missions?.mission2.progress,
+                  progressMax: missions?.mission2.progressMax,
+                  claimedAt: missions?.mission2.claimedAt
+                },
+                bonus: {
+                  status: missions?.bonus.status || 'LOCKED',
+                  claimedAt: missions?.bonus.claimedAt
+                }
+              }}
+              onClaimCheckIn={handleClaimCheckIn}
+              onClaimCare3={handleClaimCare3}
+              onClaimBonus={handleClaimBonus}
+              isClaiming={isClaiming}
+            />
 
             {blobbi && <DailyCheckIn />}
 

@@ -31,6 +31,7 @@ import {
   Egg,
   Camera,
 } from 'lucide-react';
+import { DailyMissionsCard } from '@/components/blobbi/DailyMissionsCard';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbiById } from '@/hooks/useUserBlobbis';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
@@ -58,6 +59,7 @@ import { SetCompanionButton } from '@/components/SetCompanionButton';
 import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
 import { BlobbiDetailsTour } from '@/components/BlobbiDetailsTour';
 import { useToast } from '@/hooks/useToast';
+import { useDailyMissions } from '@/hooks/useDailyMissions';
 
 export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const { user } = useCurrentUser();
@@ -69,8 +71,71 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     isEvolving
   } = useBlobbiWithFakeStatus(undefined, blobbiId);
   const { data: realBlobbi, isLoading } = useBlobbiById(blobbiId);
+  const {
+    missions,
+    isLoading: isLoadingMissions,
+    claimMission1,
+    claimMission2,
+    claimBonus,
+    isClaiming
+  } = useDailyMissions();
+  const { toast } = useToast();
 
   const isOwner = user?.pubkey === realBlobbi?.ownerPubkey;
+
+  const handleClaimCheckIn = async () => {
+    await claimMission1(undefined, {
+      onSuccess: () => {
+        toast({
+          title: "Check-in Complete!",
+          description: "You earned 15 coins for checking in today!",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Claim Failed",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleClaimCare3 = async () => {
+    await claimMission2(undefined, {
+      onSuccess: () => {
+        toast({
+          title: "Care Routine Complete!",
+          description: "You earned 25 coins for completing care interactions!",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Claim Failed",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleClaimBonus = async () => {
+    await claimBonus(undefined, {
+      onSuccess: () => {
+        toast({
+          title: "Daily Bonus Complete!",
+          description: "You earned 10 bonus coins for completing all missions!",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Bonus Claim Failed",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
 
   // Use the sleep system
   const {
@@ -139,7 +204,6 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const [showPolaroidModal, setShowPolaroidModal] = useState(false);
   const [activeTab, setActiveTab] = useState('actions');
   const [isDetailsTourActive, setIsDetailsTourActive] = useState(false);
-  const { toast } = useToast();
 
   // Handle egg/baby selection when user manually starts listening
   const handleStartListening = useCallback(() => {
@@ -232,7 +296,6 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
       <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
         <div className="container mx-auto py-8 px-4">
 
-
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left Column - Visual and Stats */}
         <div className="lg:col-span-1 space-y-4">
@@ -296,6 +359,32 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
           <div id="blobbi-details-stats" data-testid="blobbi-stats">
             <BlobbiStats blobbi={blobbi} />
           </div>
+
+          {/* Daily Missions */}
+          {isOwner && missions && (
+            <DailyMissionsCard
+              state={{
+                checkIn: {
+                  status: missions.mission1.status || 'LOCKED',
+                  claimedAt: missions.mission1.claimedAt
+                },
+                care3: {
+                  status: missions.mission2.status || 'LOCKED',
+                  progress: missions.mission2.progress,
+                  progressMax: missions.mission2.progressMax,
+                  claimedAt: missions.mission2.claimedAt
+                },
+                bonus: {
+                  status: missions.bonus.status || 'LOCKED',
+                  claimedAt: missions.bonus.claimedAt
+                }
+              }}
+              onClaimCheckIn={handleClaimCheckIn}
+              onClaimCare3={handleClaimCare3}
+              onClaimBonus={handleClaimBonus}
+              isClaiming={isClaiming}
+            />
+          )}
 
           {/* Quick Info */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
