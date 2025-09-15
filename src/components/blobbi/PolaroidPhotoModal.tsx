@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Camera, Lock, Coins, Loader2, Download, Share, ChevronDown, Plus, X } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
-import { useRelayContext } from '@/contexts/RelayContext';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { EggGraphic } from './EggGraphic';
@@ -27,6 +26,14 @@ import {
   CarouselNext,
   type CarouselApi,
 } from '@/components/ui/carousel';
+
+// Local relay interface for modal-only use
+interface ModalRelayInfo {
+  url: string;
+  connected: boolean;
+  enabled: boolean;
+  status: 'connecting' | 'connected' | 'disconnected' | 'error';
+}
 
 interface Background {
   id: string;
@@ -133,7 +140,11 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
   const [isNostrSectionOpen, setIsNostrSectionOpen] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
 
-  const { relays, toggleRelay, addRelay } = useRelayContext();
+  // Local modal-only relays state (not persistent)
+  const [modalRelays, setModalRelays] = useState<ModalRelayInfo[]>([
+    { url: 'wss://relay.ditto.pub', connected: true, enabled: true, status: 'connected' }
+  ]);
+
   const { user } = useCurrentUser();
   const { mutateAsync: uploadFile } = useUploadFile();
   const { mutate: createEvent } = useNostrPublish();
@@ -304,13 +315,37 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
     });
   };
 
-  // Add custom relay
+  // Add custom relay (modal-only version)
   const handleAddRelay = async () => {
     if (!customRelayUrl.trim()) return;
 
     try {
       setIsAddingRelay(true);
-      await addRelay(customRelayUrl.trim());
+      
+      // Validate URL format
+      try {
+        const urlObj = new URL(customRelayUrl);
+        if (!urlObj.protocol.startsWith('ws')) {
+          throw new Error('Relay URL must use ws:// or wss:// protocol');
+        }
+      } catch (error) {
+        throw new Error('Please enter a valid WebSocket URL (ws:// or wss://)');
+      }
+
+      // Check if relay already exists
+      if (modalRelays.some(relay => relay.url === customRelayUrl)) {
+        throw new Error('This relay is already in your list');
+      }
+
+      // Add new relay to modal-only state
+      const newRelay: ModalRelayInfo = {
+        url: customRelayUrl,
+        connected: false,
+        enabled: true,
+        status: 'connecting'
+      };
+
+      setModalRelays(prev => [...prev, newRelay]);
       setCustomRelayUrl('');
       toast({
         title: "Relay Added",
@@ -328,8 +363,15 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
     }
   };
 
-  // Check if at least one relay is selected
-  const hasSelectedRelays = relays.some(relay => relay.enabled);
+  // Toggle relay enabled/disabled state (modal-only version)
+  const toggleModalRelay = (url: string, enabled: boolean) => {
+    setModalRelays(prev => prev.map(relay =>
+      relay.url === url ? { ...relay, enabled } : relay
+    ));
+  };
+
+  // Check if at least one relay is selected (modal-only version)
+  const hasSelectedRelays = modalRelays.some(relay => relay.enabled);
 
   // Generate locked hashtag content
   const lockedHashtagContent = `#Blobbi #${blobbi.name.replace(/\s+/g, '')}`;
@@ -684,11 +726,11 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
                         <div>
                           <Label className="text-sm font-medium">Relays</Label>
                           <div className="mt-2 space-y-2">
-                            {relays.map((relay) => (
+                            {modalRelays.map((relay) => (
                               <div key={relay.url} className="flex items-center space-x-2 p-2 border rounded">
                                 <Switch
                                   checked={relay.enabled}
-                                  onCheckedChange={(checked) => toggleRelay(relay.url, checked)}
+                                  onCheckedChange={(checked) => toggleModalRelay(relay.url, checked)}
                                 />
                                 <span className="flex-1 text-sm">{relay.url}</span>
                                 <div className={`w-2 h-2 rounded-full ${
