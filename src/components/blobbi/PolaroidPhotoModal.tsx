@@ -16,6 +16,9 @@ import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { EggGraphic } from './EggGraphic';
 import { Blobbi } from '@/types/blobbi';
 import { toPng } from 'html-to-image';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useUploadFile } from '@/hooks/useUploadFile';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
   Carousel,
   CarouselContent,
@@ -128,8 +131,12 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
   const [isAddingRelay, setIsAddingRelay] = useState(false);
   const [nostrContent, setNostrContent] = useState('');
   const [isNostrSectionOpen, setIsNostrSectionOpen] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
 
   const { relays, toggleRelay, addRelay } = useRelayContext();
+  const { user } = useCurrentUser();
+  const { mutateAsync: uploadFile } = useUploadFile();
+  const { mutate: createEvent } = useNostrPublish();
 
   // Handle background selection
   const handleBackgroundSelect = (background: Background, slideIndex: number) => {
@@ -327,13 +334,98 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
   // Generate locked hashtag content
   const lockedHashtagContent = `#Blobbi #${blobbi.name.replace(/\s+/g, '')}`;
 
-  // Handle Nostr post (placeholder - will be implemented later)
-  const handleNostrPost = () => {
-    toast({
-      title: "Coming Soon",
-      description: "Nostr posting functionality will be implemented soon",
-      variant: "default",
-    });
+  // Handle Nostr post
+  const handleNostrPost = async () => {
+    if (!user) {
+      toast({
+        title: "Login required",
+        description: "Please log in to share photos to Nostr.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!capturedPolaroid) {
+      toast({
+        title: "Photo not available",
+        description: "Polaroid image is not available. Please take a new photo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsPosting(true);
+    try {
+      // Convert data URL to blob (following nostrdamus pattern)
+      const blob = await (await fetch(capturedPolaroid)).blob();
+      const file = new File([blob], "blobbi-polaroid.png", { type: "image/png" });
+      const uploadResult = await uploadFile(file);
+      const imageUrl = uploadResult[0][1];
+
+      // Create hashtags for the content
+      const mandatoryHashtags = '#Blobbi #NostrPet';
+
+      // Create summary for imeta tag
+      const imetaSummary = `blobbi_polaroid #Blobbi #NostrPet ${blobbi.name}`;
+
+      // Create final content with image URL (following nostrdamus pattern)
+      const finalContent = nostrContent.trim()
+        ? `${nostrContent.trim()}\n\n${mandatoryHashtags}\n\n${imageUrl}`
+        : `${mandatoryHashtags}\n\n${imageUrl}`;
+
+      createEvent(
+        {
+          kind: 1,
+          content: finalContent,
+          tags: [
+            ["t", "Blobbi"],
+            ["t", "NostrPet"],
+            [
+              "imeta",
+              `url ${imageUrl}`,
+              "m image/png",
+              `summary ${imetaSummary}`,
+              `alt A polaroid photo of ${blobbi.name} taken with background: ${selectedBackground.name}`
+            ]
+          ],
+        },
+        {
+          onSuccess: () => {
+            setIsPosting(false);
+            toast({
+              title: "Photo shared to Nostr! 🚀",
+              description: "Your Blobbi polaroid has been published successfully.",
+            });
+
+            // Reset form after successful share
+            setNostrContent('');
+
+            // Close modal after short delay
+            setTimeout(() => {
+              handleClose();
+            }, 2000);
+          },
+          onError: (error) => {
+            setIsPosting(false);
+            console.error('Error sharing to Nostr:', error);
+            toast({
+              title: "Share failed",
+              description: "Failed to publish to Nostr. Please try again.",
+              variant: "destructive",
+            });
+          },
+        }
+      );
+    } catch (error) {
+      setIsPosting(false);
+      console.error('Error sharing to Nostr:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast({
+        title: "Share failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   };
 
   // Keyboard navigation for carousel
@@ -655,11 +747,20 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
                         {/* Post Button */}
                         <Button
                           onClick={handleNostrPost}
-                          disabled={!hasSelectedRelays}
+                          disabled={!hasSelectedRelays || isPosting}
                           className="w-full bg-purple-600 hover:bg-purple-700"
                         >
-                          <Share className="h-4 w-4 mr-2" />
-                          Post on Nostr
+                          {isPosting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Posting...
+                            </>
+                          ) : (
+                            <>
+                              <Share className="h-4 w-4 mr-2" />
+                              Post on Nostr
+                            </>
+                          )}
                         </Button>
                       </div>
                     </CollapsibleContent>
