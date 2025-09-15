@@ -10,12 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Camera, Lock, Coins, Loader2, Download, Share, ChevronDown, Plus, X } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
-import { useRelayContext } from '@/contexts/RelayContext';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { EggGraphic } from './EggGraphic';
 import { Blobbi } from '@/types/blobbi';
 import { toPng } from 'html-to-image';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useUploadFile } from '@/hooks/useUploadFile';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
   Carousel,
   CarouselContent,
@@ -24,6 +26,14 @@ import {
   CarouselNext,
   type CarouselApi,
 } from '@/components/ui/carousel';
+
+// Local relay interface for modal-only use
+interface ModalRelayInfo {
+  url: string;
+  connected: boolean;
+  enabled: boolean;
+  status: 'connecting' | 'connected' | 'disconnected' | 'error';
+}
 
 interface Background {
   id: string;
@@ -128,8 +138,16 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
   const [isAddingRelay, setIsAddingRelay] = useState(false);
   const [nostrContent, setNostrContent] = useState('');
   const [isNostrSectionOpen, setIsNostrSectionOpen] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
 
-  const { relays, toggleRelay, addRelay } = useRelayContext();
+  // Local modal-only relays state (not persistent)
+  const [modalRelays, setModalRelays] = useState<ModalRelayInfo[]>([
+    { url: 'wss://relay.ditto.pub', connected: true, enabled: true, status: 'connected' }
+  ]);
+
+  const { user } = useCurrentUser();
+  const { mutateAsync: uploadFile } = useUploadFile();
+  const { mutate: createEvent } = useNostrPublish();
 
   // Handle background selection
   const handleBackgroundSelect = (background: Background, slideIndex: number) => {
@@ -297,13 +315,37 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
     });
   };
 
-  // Add custom relay
+  // Add custom relay (modal-only version)
   const handleAddRelay = async () => {
     if (!customRelayUrl.trim()) return;
 
     try {
       setIsAddingRelay(true);
-      await addRelay(customRelayUrl.trim());
+      
+      // Validate URL format
+      try {
+        const urlObj = new URL(customRelayUrl);
+        if (!urlObj.protocol.startsWith('ws')) {
+          throw new Error('Relay URL must use ws:// or wss:// protocol');
+        }
+      } catch (error) {
+        throw new Error('Please enter a valid WebSocket URL (ws:// or wss://)');
+      }
+
+      // Check if relay already exists
+      if (modalRelays.some(relay => relay.url === customRelayUrl)) {
+        throw new Error('This relay is already in your list');
+      }
+
+      // Add new relay to modal-only state
+      const newRelay: ModalRelayInfo = {
+        url: customRelayUrl,
+        connected: false,
+        enabled: true,
+        status: 'connecting'
+      };
+
+      setModalRelays(prev => [...prev, newRelay]);
       setCustomRelayUrl('');
       toast({
         title: "Relay Added",
@@ -321,19 +363,111 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
     }
   };
 
-  // Check if at least one relay is selected
-  const hasSelectedRelays = relays.some(relay => relay.enabled);
+  // Toggle relay enabled/disabled state (modal-only version)
+  const toggleModalRelay = (url: string, enabled: boolean) => {
+    setModalRelays(prev => prev.map(relay =>
+      relay.url === url ? { ...relay, enabled } : relay
+    ));
+  };
+
+  // Check if at least one relay is selected (modal-only version)
+  const hasSelectedRelays = modalRelays.some(relay => relay.enabled);
 
   // Generate locked hashtag content
   const lockedHashtagContent = `#Blobbi #${blobbi.name.replace(/\s+/g, '')}`;
 
-  // Handle Nostr post (placeholder - will be implemented later)
-  const handleNostrPost = () => {
-    toast({
-      title: "Coming Soon",
-      description: "Nostr posting functionality will be implemented soon",
-      variant: "default",
-    });
+  // Handle Nostr post
+  const handleNostrPost = async () => {
+    if (!user) {
+      toast({
+        title: "Login required",
+        description: "Please log in to share photos to Nostr.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!capturedPolaroid) {
+      toast({
+        title: "Photo not available",
+        description: "Polaroid image is not available. Please take a new photo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsPosting(true);
+    try {
+      // Convert data URL to blob (following nostrdamus pattern)
+      const blob = await (await fetch(capturedPolaroid)).blob();
+      const file = new File([blob], "blobbi-polaroid.png", { type: "image/png" });
+      const uploadResult = await uploadFile(file);
+      const imageUrl = uploadResult[0][1];
+
+      // Create hashtags for the content
+      const mandatoryHashtags = '#Blobbi #NostrPet';
+
+      // Create summary for imeta tag
+      const imetaSummary = `blobbi_polaroid #Blobbi #NostrPet ${blobbi.name}`;
+
+      // Create final content with image URL (following nostrdamus pattern)
+      const finalContent = nostrContent.trim()
+        ? `${nostrContent.trim()}\n\n${mandatoryHashtags}\n\n${imageUrl}`
+        : `${mandatoryHashtags}\n\n${imageUrl}`;
+
+      createEvent(
+        {
+          kind: 1,
+          content: finalContent,
+          tags: [
+            ["t", "Blobbi"],
+            ["t", "NostrPet"],
+            [
+              "imeta",
+              `url ${imageUrl}`,
+              "m image/png",
+              `summary ${imetaSummary}`,
+              `alt A polaroid photo of ${blobbi.name} taken with background: ${selectedBackground.name}`
+            ]
+          ],
+        },
+        {
+          onSuccess: () => {
+            setIsPosting(false);
+            toast({
+              title: "Photo shared to Nostr! 🚀",
+              description: "Your Blobbi polaroid has been published successfully.",
+            });
+
+            // Reset form after successful share
+            setNostrContent('');
+
+            // Close modal after short delay
+            setTimeout(() => {
+              handleClose();
+            }, 2000);
+          },
+          onError: (error) => {
+            setIsPosting(false);
+            console.error('Error sharing to Nostr:', error);
+            toast({
+              title: "Share failed",
+              description: "Failed to publish to Nostr. Please try again.",
+              variant: "destructive",
+            });
+          },
+        }
+      );
+    } catch (error) {
+      setIsPosting(false);
+      console.error('Error sharing to Nostr:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast({
+        title: "Share failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   };
 
   // Keyboard navigation for carousel
@@ -592,11 +726,11 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
                         <div>
                           <Label className="text-sm font-medium">Relays</Label>
                           <div className="mt-2 space-y-2">
-                            {relays.map((relay) => (
+                            {modalRelays.map((relay) => (
                               <div key={relay.url} className="flex items-center space-x-2 p-2 border rounded">
                                 <Switch
                                   checked={relay.enabled}
-                                  onCheckedChange={(checked) => toggleRelay(relay.url, checked)}
+                                  onCheckedChange={(checked) => toggleModalRelay(relay.url, checked)}
                                 />
                                 <span className="flex-1 text-sm">{relay.url}</span>
                                 <div className={`w-2 h-2 rounded-full ${
@@ -655,11 +789,20 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
                         {/* Post Button */}
                         <Button
                           onClick={handleNostrPost}
-                          disabled={!hasSelectedRelays}
+                          disabled={!hasSelectedRelays || isPosting}
                           className="w-full bg-purple-600 hover:bg-purple-700"
                         >
-                          <Share className="h-4 w-4 mr-2" />
-                          Post on Nostr
+                          {isPosting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Posting...
+                            </>
+                          ) : (
+                            <>
+                              <Share className="h-4 w-4 mr-2" />
+                              Post on Nostr
+                            </>
+                          )}
                         </Button>
                       </div>
                     </CollapsibleContent>
