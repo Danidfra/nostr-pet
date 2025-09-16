@@ -108,7 +108,7 @@ export function DailyMissionsCard({
 
   return (
     <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3" id="daily-missions-card">
         <CardTitle className="text-lg flex items-center gap-2 text-gray-900 dark:text-gray-100">
           <Target className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           Daily Missions

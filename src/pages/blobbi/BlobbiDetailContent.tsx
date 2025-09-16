@@ -58,8 +58,10 @@ import { isValidSize } from '@/lib/blobbi-egg-validation';
 import { SetCompanionButton } from '@/components/SetCompanionButton';
 import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
 import { BlobbiDetailsTour } from '@/components/BlobbiDetailsTour';
+import { TourCompletionModal } from '@/components/TourCompletionModal';
 import { useToast } from '@/hooks/useToast';
 import { useDailyMissions } from '@/hooks/useDailyMissions';
+import { useTourCompletion } from '@/hooks/useTourCompletion';
 
 export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const { user } = useCurrentUser();
@@ -204,6 +206,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const [showPolaroidModal, setShowPolaroidModal] = useState(false);
   const [activeTab, setActiveTab] = useState('actions');
   const [isDetailsTourActive, setIsDetailsTourActive] = useState(false);
+  const [showTourCompletionModal, setShowTourCompletionModal] = useState(false);
 
   // Handle egg/baby selection when user manually starts listening
   const handleStartListening = useCallback(() => {
@@ -237,13 +240,24 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
           sessionStorage.removeItem('tour.resume');
           // Start the details tour
           setIsDetailsTourActive(true);
+        } else if (data?.next === 'dashboard-complete') {
+          // Handle tour completion from details page
+          // Clear the token
+          sessionStorage.removeItem('tour.resume');
+          // Show completion modal
+          setShowTourCompletionModal(true);
+          toast({
+            title: "Tour Complete! 🎉",
+            description: "You've successfully completed the Blobbi tour. Your Blobbi is ready for adventure!",
+            duration: 5000,
+          });
         }
       } catch (error) {
         console.error('Error parsing tour resume data:', error);
         sessionStorage.removeItem('tour.resume');
       }
     }
-  }, [blobbiId]);
+  }, [blobbiId, toast]);
 
   // Function to start details tour manually
   const startDetailsTour = useCallback((startIndex = 0) => {
@@ -810,6 +824,12 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
         isOpen={isDetailsTourActive}
         onClose={() => setIsDetailsTourActive(false)}
         blobbiId={blobbiId}
+      />
+
+      {/* Tour Completion Modal */}
+      <TourCompletionModal
+        isOpen={showTourCompletionModal}
+        onClose={() => setShowTourCompletionModal(false)}
       />
         </div>
       </div>

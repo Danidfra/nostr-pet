@@ -15,6 +15,7 @@ import step5Img from '@/assets/blobbi-overboard-step-5.png';
 import step6Img from '@/assets/blobbi-overboard-step-6.png';
 import step7Img from '@/assets/blobbi-overboard-step-7.png';
 import step8Img from '@/assets/blobbi-overboard-step-8.png';
+import step9Img from '@/assets/blobbi-overboard-step-9.png';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 
 // Utility function to wait for an element to become visible
@@ -148,9 +149,31 @@ export function BlobbiTour({
         if (dir === 'next') {
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
+          // Scroll to target after tab change and element is visible
+          setTimeout(() => {
+            const targetElement = document.querySelector('#tab-growth-hub');
+            if (targetElement) {
+              targetElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'center'
+              });
+            }
+          }, 50);
         } else if (dir === 'prev') {
           setActiveTab?.('blobbis');
           await waitForVisible('#tab-my-blobbies', { timeout: 2000 });
+          // Scroll to target after tab change and element is visible
+          setTimeout(() => {
+            const targetElement = document.querySelector('#tab-my-blobbies');
+            if (targetElement) {
+              targetElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'center'
+              });
+            }
+          }, 50);
         }
       }
     },
@@ -170,10 +193,32 @@ export function BlobbiTour({
           // Open tab content before going to step 4
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub-incubating-eggs', { timeout: 2000 });
+          // Scroll to target after tab change and element is visible
+          setTimeout(() => {
+            const targetElement = document.querySelector('#tab-growth-hub-incubating-eggs');
+            if (targetElement) {
+              targetElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'center'
+              });
+            }
+          }, 50);
         } else if (dir === 'prev') {
           // Going back to Missions
           setActiveTab?.('missions');
           await waitForVisible('#tab-missions', { timeout: 2000 });
+          // Scroll to target after tab change and element is visible
+          setTimeout(() => {
+            const targetElement = document.querySelector('#tab-missions');
+            if (targetElement) {
+              targetElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'center'
+              });
+            }
+          }, 50);
         }
       }
     },
@@ -248,7 +293,7 @@ export function BlobbiTour({
       async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
          if (dir === 'next') {
           setActiveTab?.('blobbis');
-          await waitForVisible('#tab-my-blobbies', { timeout: 2000 });
+          await waitForVisible('#daily-missions-card', { timeout: 2000 });
         } else if (dir === 'prev') {
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
@@ -257,12 +302,31 @@ export function BlobbiTour({
       }
     },
 
-    // Step 8 — My Blobbies
+    // Step 8 — Growth Hub (tasks)
+    {
+      selector: '#daily-missions-card',
+      title: 'Daily Missions',
+      description: 'Complete daily missions to earn coins and keep your Blobbi happy. Come back every day for missions and rewards!',
+      image: step8Img,
+      imagePosition: 'right',
+      imageOffsetX: 0,
+      imageOffsetY: 0,
+      imageHeight: 340,
+      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
+        if (dir === 'prev') {
+          // Keep the Growth Hub tab active, just move spotlight back to the trigger
+          setActiveTab?.('incubation');
+          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
+        }
+      }
+    },
+
+    // Step 9 — My Blobbies
     {
       selector: '#tab-my-blobbies-card',
       title: 'Next up: Blobbi details',
       description: 'We\'ll open your Blobbi page to continue the tour.',
-      image: step8Img,
+      image: step9Img,
       imagePosition: 'right',
       imageOffsetX: 0,
       imageOffsetY: 0,
@@ -272,14 +336,14 @@ export function BlobbiTour({
         if (dir === 'next' && userBlobbis.length > 0) {
           const id = userBlobbis[0]?.id;
           if (!id) throw new Error('NO_BLOBBI_ID');
-          
+
           // Store handoff token
           sessionStorage.setItem('tour.resume', JSON.stringify({
             next: 'details',
             startIndex: 0,
             blobbiId: id
           }));
-          
+
           await navigateTo(`/blobbi/${id}`);
           // Do NOT advance step here; details tour will take over
         }
@@ -294,10 +358,30 @@ export function BlobbiTour({
     }
   }, [isOpen, propCurrentStep]);
 
-  // Execute onEnter hook when step changes
+  // Execute onEnter hook when step changes and scroll to target
   useEffect(() => {
     if (isOpen && !isTransitioning) {
       const currentStepData = tourSteps[currentStep];
+
+      // Scroll to target element when step changes
+      const scrollToTarget = () => {
+        const targetElement = document.querySelector(currentStepData.selector);
+        if (targetElement) {
+          targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'center'
+          });
+        }
+      };
+
+      // Execute scroll immediately
+      scrollToTarget();
+
+      // Also scroll after a short delay to handle dynamic content/routing
+      const scrollTimeout = setTimeout(scrollToTarget, 100);
+
+      // Execute onEnter hook if it exists
       if (currentStepData.onEnter) {
         const result = currentStepData.onEnter(tourContext);
         if (result && typeof result.catch === 'function') {
@@ -306,6 +390,8 @@ export function BlobbiTour({
           });
         }
       }
+
+      return () => clearTimeout(scrollTimeout);
     }
   }, [currentStep, isOpen, isTransitioning]);
 

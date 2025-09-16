@@ -54,8 +54,10 @@ import { CompanionSelector } from '@/components/CompanionSelector';
 import { SetCompanionButton } from '@/components/SetCompanionButton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { BlobbiTour } from '@/components/BlobbiTour';
+import { TourCompletionModal } from '@/components/TourCompletionModal';
 import { useToast } from '@/hooks/useToast';
 import { useWelcomeConfetti } from '@/hooks/useWelcomeConfetti';
+import { useTourCompletion } from '@/hooks/useTourCompletion';
 
 // Simple analytics tracking function
 const track = (eventName: string) => {
@@ -103,9 +105,9 @@ export default function BlobbiDashboard() {
   // Welcome modal and tour state
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [isTourActive, setIsTourActive] = useState(false);
-  const [showTourCompletion, setShowTourCompletion] = useState(false);
+  const [showTourCompletionModal, setShowTourCompletionModal] = useState(false);
   const { toast } = useToast();
-  useWelcomeConfetti(showTourCompletion);
+  useWelcomeConfetti(showTourCompletionModal);
 
   // Handle tour completion from details page
   useEffect(() => {
@@ -116,15 +118,13 @@ export default function BlobbiDashboard() {
         if (data?.next === 'dashboard-complete') {
           // Clear the token
           sessionStorage.removeItem('tour.resume');
-          // Show completion effects
-          setShowTourCompletion(true);
+          // Show completion modal and update profile
+          setShowTourCompletionModal(true);
           toast({
             title: "Tour Complete! 🎉",
             description: "You've successfully completed the Blobbi tour. Your Blobbi is ready for adventure!",
             duration: 5000,
           });
-          // Hide confetti after animation
-          setTimeout(() => setShowTourCompletion(false), 1000);
         }
       } catch (error) {
         console.error('Error parsing tour resume data:', error);
@@ -821,7 +821,8 @@ export default function BlobbiDashboard() {
         isOpen={isTourActive}
         onClose={() => setIsTourActive(false)}
         onComplete={() => {
-          console.log('Tour completed');
+          // Show tour completion modal when main tour completes
+          setShowTourCompletionModal(true);
         }}
         setActiveTab={setActiveTab}
       />

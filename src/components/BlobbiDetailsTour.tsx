@@ -153,13 +153,6 @@ export function BlobbiDetailsTour({
       imagePosition: 'above',
       imageOffsetX: 300,
       imageOffsetY: 0,
-    },
-
-    // Step 5 — Completion
-    {
-      selector: '[data-testid="blobbi-visual"]',
-      title: 'Tour Complete!',
-      description: 'You\'re now ready to take care of your Blobbi. Have fun!',
       nextLabel: 'Finish Tour',
       async onBeforeAdvance(dir, { navigateTo }) {
         if (dir === 'next') {
@@ -167,7 +160,7 @@ export function BlobbiDetailsTour({
           sessionStorage.setItem('tour.resume', JSON.stringify({
             next: 'dashboard-complete'
           }));
-          await navigateTo('/blobbi');
+          // await navigateTo('/blobbi');
         }
       }
     },
@@ -180,10 +173,30 @@ export function BlobbiDetailsTour({
     }
   }, [isOpen, propCurrentStep]);
 
-  // Execute onEnter hook when step changes
+  // Execute onEnter hook when step changes and scroll to target
   useEffect(() => {
     if (isOpen && !isTransitioning) {
       const currentStepData = tourSteps[currentStep];
+
+      // Scroll to target element when step changes
+      const scrollToTarget = () => {
+        const targetElement = document.querySelector(currentStepData.selector);
+        if (targetElement) {
+          targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'center'
+          });
+        }
+      };
+
+      // Execute scroll immediately
+      scrollToTarget();
+
+      // Also scroll after a short delay to handle dynamic content/routing
+      const scrollTimeout = setTimeout(scrollToTarget, 100);
+
+      // Execute onEnter hook if it exists
       if (currentStepData.onEnter) {
         const result = currentStepData.onEnter(tourContext);
         if (result && typeof result.catch === 'function') {
@@ -192,6 +205,8 @@ export function BlobbiDetailsTour({
           });
         }
       }
+
+      return () => clearTimeout(scrollTimeout);
     }
   }, [currentStep, isOpen, isTransitioning]);
 
