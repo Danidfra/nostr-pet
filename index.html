@@ -25,6 +25,9 @@
 
     <!-- PWA Prevention of zoom on input focus -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+    <!-- Content Security Policy -->
+    <meta http-equiv="content-security-policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self' https:; font-src 'self'; base-uri 'self'; manifest-src 'self'; connect-src 'self' blob: https: wss: data:; img-src 'self' data: blob: https:; media-src 'self' https:">
   </head>
   <body>
     <div id="root"></div>
