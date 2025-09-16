@@ -5,8 +5,10 @@ import { SpotlightOverlay } from './SpotlightOverlay';
 import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 // Import step images explicitly for proper Vite asset handling
+import mobileStep1Img from '@/assets/blobbi-overboard-mobile-step-1.png';
 import step1Img from '@/assets/blobbi-overboard-step-1.png';
 import step2Img from '@/assets/blobbi-overboard-step-2.png';
 import step3Img from '@/assets/blobbi-overboard-step-3.png';
@@ -64,6 +66,18 @@ interface TourContext {
   navigateTo: (path: string) => Promise<void>;
 }
 
+interface TourStepMobile {
+  imagePosition?: "below" | "above" | "left" | "right"; // Position relative to spotlight
+  imageOffset?: number; // Legacy offset (maintained for backward compatibility)
+  imageOffsetX?: number; // Horizontal offset relative to spotlight center
+  imageOffsetY?: number; // Vertical offset relative to default placement
+  imageWidth?: number | string; // Custom width (e.g., 400, "400px", "80%")
+  imageHeight?: number | string; // Custom height (e.g., 300, "300px", "80%")
+  imageMobile?: string; // Alternate image for mobile devices
+  spotlightPadding?: number; // Padding for spotlight on mobile
+  spotlightRadius?: number; // Radius for spotlight on mobile
+}
+
 interface TourStep {
   selector: string;
   title: string;
@@ -76,6 +90,7 @@ interface TourStep {
   imagePosition?: "below" | "above" | "left" | "right"; // Position relative to spotlight
   imageWidth?: number | string; // Custom width (e.g., 400, "400px", "80%")
   imageHeight?: number | string; // Custom height (e.g., 300, "300px", "80%")
+  mobile?: TourStepMobile; // Mobile-specific overrides
   onEnter?(ctx: TourContext): void | Promise<void>;
   onBeforeAdvance?(dir: Direction, ctx: TourContext): void | Promise<void>;
   onLeave?(ctx: TourContext): void | Promise<void>;
@@ -107,6 +122,7 @@ export function BlobbiTour({
   const { selectEgg } = useBlobbiIncubationSystem();
   const navigate = useNavigate();
   const { data: userBlobbis = [] } = useUserBlobbis();
+  const isMobile = useIsMobile();
 
   // Use either controlled or uncontrolled step state
   const currentStep = propCurrentStep !== undefined ? propCurrentStep : internalCurrentStep;
@@ -134,6 +150,13 @@ export function BlobbiTour({
       imagePosition: 'below',
       imageOffsetY: -100,
       imageOffsetX: -180,
+      mobile: {
+        imagePosition: 'right',
+        imageOffsetX: 0,
+        imageOffsetY: 200,
+        imageHeight: 220,
+        imageMobile: mobileStep1Img // Same image for now, but could be different
+      }
     },
 
     // Step 2 — Missions
@@ -175,6 +198,13 @@ export function BlobbiTour({
             }
           }, 50);
         }
+      },
+      mobile: {
+        imagePosition: 'right',
+        imageOffsetX: 100,
+        imageOffsetY: 100,
+        imageHeight: 220,
+        imageMobile: step2Img // Same image for now, but could be different
       }
     },
 
@@ -220,6 +250,13 @@ export function BlobbiTour({
             }
           }, 50);
         }
+      },
+        mobile: {
+        imagePosition: 'left',
+        imageOffsetX: 60,
+        imageOffsetY: 140,
+        imageHeight: 280,
+        imageMobile: step3Img // Same image for now, but could be different
       }
     },
 
@@ -233,6 +270,13 @@ export function BlobbiTour({
       imageOffsetX: 0,
       imageOffsetY: 80,
       imageHeight: 240,
+      mobile: {
+        imagePosition: 'left',
+        imageOffsetX: 60,
+        imageOffsetY: 200,
+        imageHeight: 280,
+        imageMobile: step3Img // Same image for now, but could be different
+      },
       async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
         if (dir === 'prev') {
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
@@ -483,19 +527,95 @@ export function BlobbiTour({
     return null;
   }
 
+  // Merge mobile overrides if on mobile device
+  const getImageProps = () => {
+    // Create effective step configuration: { ...step, ...(isMobile ? step.mobile : {}) }
+    const baseStep = {
+      imageUrl: currentTourStep.image,
+      imageOffset: currentTourStep.imageOffset,
+      imageOffsetX: currentTourStep.imageOffsetX,
+      imageOffsetY: currentTourStep.imageOffsetY,
+      imagePosition: currentTourStep.imagePosition,
+      imageWidth: currentTourStep.imageWidth,
+      imageHeight: currentTourStep.imageHeight,
+    };
+
+    if (isMobile && currentTourStep.mobile) {
+      const mobileOverrides = {
+        imageUrl: currentTourStep.mobile.imageMobile ?? currentTourStep.image,
+        imageOffset: currentTourStep.mobile.imageOffset,
+        imageOffsetX: currentTourStep.mobile.imageOffsetX,
+        imageOffsetY: currentTourStep.mobile.imageOffsetY,
+        imagePosition: currentTourStep.mobile.imagePosition,
+        imageWidth: currentTourStep.mobile.imageWidth,
+        imageHeight: currentTourStep.mobile.imageHeight,
+      };
+
+      // Merge: mobile overrides take precedence
+      const effectiveStep = { ...baseStep, ...mobileOverrides };
+
+      // Handle legacy imageOffset mapping only if X/Y are not provided
+      if (effectiveStep.imageOffset !== undefined &&
+          effectiveStep.imageOffsetX === undefined &&
+          effectiveStep.imageOffsetY === undefined) {
+        if (effectiveStep.imagePosition === 'below' || effectiveStep.imagePosition === 'above') {
+          effectiveStep.imageOffsetY = effectiveStep.imageOffset;
+        } else if (effectiveStep.imagePosition === 'left' || effectiveStep.imagePosition === 'right') {
+          effectiveStep.imageOffsetX = effectiveStep.imageOffset;
+        }
+      }
+
+      // Ensure offsets are numbers (fallback to 0)
+      effectiveStep.imageOffsetX = effectiveStep.imageOffsetX ?? 0;
+      effectiveStep.imageOffsetY = effectiveStep.imageOffsetY ?? 0;
+
+      // Debug logging
+      console.log('📱 Mobile effective props:', {
+        imagePosition: effectiveStep.imagePosition,
+        imageOffsetX: effectiveStep.imageOffsetX,
+        imageOffsetY: effectiveStep.imageOffsetY,
+        imageUrl: effectiveStep.imageUrl
+      });
+
+      return effectiveStep;
+    }
+
+    // Desktop: handle legacy imageOffset mapping
+    const effectiveStep = { ...baseStep };
+    if (effectiveStep.imageOffset !== undefined &&
+        effectiveStep.imageOffsetX === undefined &&
+        effectiveStep.imageOffsetY === undefined) {
+      if (effectiveStep.imagePosition === 'below' || effectiveStep.imagePosition === 'above') {
+        effectiveStep.imageOffsetY = effectiveStep.imageOffset;
+      } else if (effectiveStep.imagePosition === 'left' || effectiveStep.imagePosition === 'right') {
+        effectiveStep.imageOffsetX = effectiveStep.imageOffset;
+      }
+    }
+
+    // Ensure offsets are numbers (fallback to 0)
+    effectiveStep.imageOffsetX = effectiveStep.imageOffsetX ?? 0;
+    effectiveStep.imageOffsetY = effectiveStep.imageOffsetY ?? 0;
+
+    // Debug logging
+    console.log('🖥️ Desktop effective props:', {
+      imagePosition: effectiveStep.imagePosition,
+      imageOffsetX: effectiveStep.imageOffsetX,
+      imageOffsetY: effectiveStep.imageOffsetY,
+      imageUrl: effectiveStep.imageUrl
+    });
+
+    return effectiveStep;
+  };
+
+  const imageProps = getImageProps();
+
   return (
     <SpotlightOverlay
       targetSelector={currentTourStep.selector}
       padding={12}
       radius={12}
       onClose={handleClose}
-      imageUrl={currentTourStep.image}
-      imageOffset={currentTourStep.imageOffset}
-      imageOffsetX={currentTourStep.imageOffsetX}
-      imageOffsetY={currentTourStep.imageOffsetY}
-      imagePosition={currentTourStep.imagePosition}
-      imageWidth={currentTourStep.imageWidth}
-      imageHeight={currentTourStep.imageHeight}
+      {...imageProps}
     >
       {/* Tour content card */}
       <Card className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-2 border-purple-200 dark:border-purple-600 shadow-2xl max-w-sm mx-auto pointer-events-auto">
@@ -526,13 +646,16 @@ export function BlobbiTour({
             ))}
           </div>
         </CardHeader>
+
+        {/* Description - hidden on mobile, visible on desktop */}
         {currentTourStep.description && (
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 hidden md:block">
             <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
               {currentTourStep.description}
             </p>
           </CardContent>
         )}
+
         <CardContent className="pt-3">
           <div className="flex gap-2">
             <Button

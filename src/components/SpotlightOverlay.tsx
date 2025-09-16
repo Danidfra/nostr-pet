@@ -59,29 +59,36 @@ export function SpotlightOverlay({
     ox = 0,
     oy = 0
   ) => {
-    let ax = rect.x + rect.width / 2;
-    let ay = rect.y + rect.height + gap; // default "below"
+    // Base anchor point BEFORE offsets
+    let ax, ay;
 
-    if (pos === "above") {
-      ax = rect.x + rect.width / 2;
-      ay = rect.y - gap - imgH;
+    if (pos === "below") {
+      ax = rect.x + rect.width / 2;  // center horizontally
+      ay = rect.y + rect.height + gap;  // below element
+    } else if (pos === "above") {
+      ax = rect.x + rect.width / 2;  // center horizontally
+      ay = rect.y - gap - imgH;      // above element
     } else if (pos === "left") {
-      ax = rect.x - gap - imgW;
-      ay = rect.y + rect.height / 2;
+      ax = rect.x - gap - imgW;        // left of element
+      ay = rect.y + rect.height / 2;  // center vertically
     } else if (pos === "right") {
-      ax = rect.x + rect.width + gap;
-      ay = rect.y + rect.height / 2;
+      ax = rect.x + rect.width + gap;   // right of element
+      ay = rect.y + rect.height / 2;  // center vertically
+    } else {
+      // Default to "below"
+      ax = rect.x + rect.width / 2;
+      ay = rect.y + rect.height + gap;
     }
 
-    // Apply offsets ALWAYS
+    // Apply offsets AFTER base anchor calculation
     const left = ax + ox;
     const top = ay + oy;
 
-    // Return also the transform to use for the chosen anchor
+    // Transform based on position type
     const transform =
       pos === "left" || pos === "right"
-        ? "translate(0, -50%)"
-        : "translate(-50%, 0)";
+        ? "translate(0, -50%)"   // Center vertically for left/right
+        : "translate(-50%, 0)";  // Center horizontally for below/above
 
     return { left, top, transform };
   }, []);
@@ -119,22 +126,9 @@ export function SpotlightOverlay({
         const imageMaxWidth = Math.min(520, viewportWidth * 0.8);
         const estimatedImageHeight = imageMaxWidth * 0.6; // Rough estimate, will be adjusted by actual image
 
-        // Handle legacy imageOffset mapping
-        let offsetX = imageOffsetX;
-        let offsetY = imageOffsetY;
-
-        // Legacy support: if imageOffset is set and X/Y are not provided
-        if (imageOffset && imageOffsetX === undefined && imageOffsetY === undefined) {
-          if (imagePosition === 'below' || imagePosition === 'above') {
-            offsetY = imageOffset;
-          } else if (imagePosition === 'left' || imagePosition === 'right') {
-            offsetX = imageOffset;
-          }
-        }
-
-        // Ensure offsets are numbers (fallback to 0)
-        const finalOffsetX = offsetX ?? 0;
-        const finalOffsetY = offsetY ?? 0;
+        // Use the effective offset values (already processed by BlobbiTour)
+        const finalOffsetX = imageOffsetX ?? 0;
+        const finalOffsetY = imageOffsetY ?? 0;
 
         // Use default position if not specified
         const position = imagePosition ?? "below";
@@ -159,6 +153,17 @@ export function SpotlightOverlay({
         finalLeft = Math.max(viewportPadding, Math.min(viewportWidth - imageMaxWidth - viewportPadding, finalLeft));
         finalTop = Math.max(viewportPadding, Math.min(viewportHeight - estimatedImageHeight - viewportPadding, finalTop));
 
+        // Debug logging
+        console.log('🎯 SpotlightOverlay final position:', {
+          spotlightRect: { x: spotlightRect.x, y: spotlightRect.y, width: spotlightRect.width, height: spotlightRect.height },
+          imagePosition: position,
+          offsets: { x: finalOffsetX, y: finalOffsetY },
+          beforeClamp: { left, top },
+          afterClamp: { left: finalLeft, top: finalTop },
+          transform,
+          viewport: { width: viewportWidth, height: viewportHeight }
+        });
+
         setImagePositionState({ top: finalTop, left: finalLeft, transform });
       } else {
         setImagePositionState(null);
@@ -168,7 +173,7 @@ export function SpotlightOverlay({
       setTargetRect(null);
       setImagePositionState(null);
     }
-  }, [targetRef, targetSelector, padding, imageUrl, imageOffset, imageOffsetX, imageOffsetY, imagePosition, computeImagePosition]);
+  }, [targetRef, targetSelector, padding, imageUrl, imageOffsetX, imageOffsetY, imagePosition, computeImagePosition]);
 
   // Check mask support
   useEffect(() => {
@@ -343,11 +348,13 @@ export function SpotlightOverlay({
       {/* Step Image */}
       {imageUrl && imagePositionState && (
         <div
-          className="absolute z-[92] pointer-events-none"
           style={{
+            position: "fixed",
             top: `${imagePositionState.top}px`,
             left: `${imagePositionState.left}px`,
             transform: imagePositionState.transform,
+            zIndex: 92,
+            pointerEvents: 'none',
             ...(imageWidth || imageHeight ? {} : { maxWidth: 'min(520px, 80vw)', width: '100%' })
           }}
         >
@@ -371,22 +378,9 @@ export function SpotlightOverlay({
               const viewportHeight = window.innerHeight;
 
               if (targetRect) {
-                // Handle legacy imageOffset mapping
-                let offsetX = imageOffsetX;
-                let offsetY = imageOffsetY;
-
-                // Legacy support: if imageOffset is set and X/Y are not provided
-                if (imageOffset && imageOffsetX === undefined && imageOffsetY === undefined) {
-                  if (imagePosition === 'below' || imagePosition === 'above') {
-                    offsetY = imageOffset;
-                  } else if (imagePosition === 'left' || imagePosition === 'right') {
-                    offsetX = imageOffset;
-                  }
-                }
-
-                // Ensure offsets are numbers (fallback to 0)
-                const finalOffsetX = offsetX ?? 0;
-                const finalOffsetY = offsetY ?? 0;
+                // Use final offset values (already processed)
+                const finalOffsetX = imageOffsetX ?? 0;
+                const finalOffsetY = imageOffsetY ?? 0;
 
                 // Use default position if not specified
                 const position = imagePosition ?? "below";
@@ -410,6 +404,11 @@ export function SpotlightOverlay({
                 // Clamp to viewport boundaries
                 finalLeft = Math.max(viewportPadding, Math.min(viewportWidth - actualWidth - viewportPadding, finalLeft));
                 finalTop = Math.max(viewportPadding, Math.min(viewportHeight - actualHeight - viewportPadding, finalTop));
+
+                console.log('🖼️ Image loaded - recalculated position:', {
+                  actualSize: { width: actualWidth, height: actualHeight },
+                  finalPosition: { left: finalLeft, top: finalTop, transform }
+                });
 
                 setImagePositionState({ top: finalTop, left: finalLeft, transform });
               }
