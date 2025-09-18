@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { scrollToElementWithAlignment } from './tour-utils';
+import { scrollToElementWithAlignment, useTourScrollConfig, scrollTourTarget, applyAutoScroll, getScrollConfig } from './tour-utils';
 
 // Mock DOM environment
 beforeEach(() => {
@@ -16,6 +16,26 @@ beforeEach(() => {
     value: vi.fn(() => ({
       getPropertyValue: vi.fn(() => '0') // No safe area inset by default
     }))
+  });
+
+  // Mock document.querySelector
+  vi.spyOn(document, 'querySelector').mockImplementation((selector) => {
+    if (selector === '#test-element') {
+      return {
+        getBoundingClientRect: vi.fn(() => ({
+          top: 400,
+          bottom: 600,
+          height: 200,
+          width: 300,
+          left: 0,
+          right: 300,
+          x: 0,
+          y: 400,
+          toJSON: vi.fn()
+        }))
+      } as unknown as HTMLElement;
+    }
+    return null;
   });
 });
 
@@ -228,6 +248,126 @@ describe('scrollToElementWithAlignment', () => {
     expect(window.scrollTo).toHaveBeenCalledWith({
       top: 200,
       behavior: 'auto'
+    });
+  });
+});
+
+describe('useTourScrollConfig', () => {
+  // Mock useIsMobile hook
+  const mockUseIsMobile = vi.fn();
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('should use mobile defaults when isMobile is true', () => {
+    const step = {};
+    const isMobile = true;
+
+    const { align, offset } = getScrollConfig(step, isMobile);
+
+    expect(align).toBe('start');
+    expect(offset).toBe(0);
+  });
+
+  it('should use desktop defaults when isMobile is false', () => {
+    const step = {};
+    const isMobile = false;
+
+    const { align, offset } = getScrollConfig(step, isMobile);
+
+    expect(align).toBe('center');
+    expect(offset).toBe(0);
+  });
+
+  it('should apply step-level overrides', () => {
+    const step = { scrollAlign: 'end' as const, scrollOffset: 50 };
+    const isMobile = false;
+
+    const { align, offset } = getScrollConfig(step, isMobile);
+
+    expect(align).toBe('end');
+    expect(offset).toBe(50);
+  });
+
+  it('should apply mobile-specific overrides', () => {
+    const step = {
+      mobile: { scrollAlign: 'start' as const, scrollOffset: 20 }
+    };
+    const isMobile = true;
+
+    const { align, offset } = getScrollConfig(step, isMobile);
+
+    expect(align).toBe('start');
+    expect(offset).toBe(20);
+  });
+
+  it('should prioritize step-level over mobile overrides', () => {
+    const step = {
+      scrollAlign: 'center' as const,
+      scrollOffset: 100,
+      mobile: { scrollAlign: 'start' as const, scrollOffset: 20 }
+    };
+    const isMobile = true;
+
+    const { align, offset } = getScrollConfig(step, isMobile);
+
+    expect(align).toBe('center');
+    expect(offset).toBe(100);
+  });
+});
+
+describe('scrollTourTarget', () => {
+  it('should reject when element is not found', async () => {
+    vi.spyOn(document, 'querySelector').mockReturnValue(null);
+
+    await expect(scrollTourTarget('#non-existent')).rejects.toThrow('Element #non-existent not found');
+  });
+
+  it('should scroll when element is found', async () => {
+    await scrollTourTarget('#test-element', {
+      align: 'center',
+      behavior: 'smooth'
+    });
+
+    expect(window.scrollTo).toHaveBeenCalledWith({
+      top: 200,
+      behavior: 'smooth'
+    });
+  });
+});
+
+describe('applyAutoScroll', () => {
+  it('should apply scroll with step configuration', async () => {
+    const step = { scrollAlign: 'start' as const, scrollOffset: 30 };
+
+    await applyAutoScroll('#test-element', step, false);
+
+    expect(window.scrollTo).toHaveBeenCalledWith({
+      top: 370, // 400 (top) - 30 (offset) = 370
+      behavior: 'smooth'
+    });
+  });
+
+  it('should fallback to basic scrolling on error', async () => {
+    const mockElement = {
+      scrollIntoView: vi.fn(),
+      getBoundingClientRect: vi.fn()
+    } as unknown as HTMLElement;
+
+    vi.spyOn(document, 'querySelector').mockReturnValue(mockElement);
+
+    // Simulate an error in scrollTourTarget
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {
+      throw new Error('Scroll failed');
+    });
+
+    await applyAutoScroll('#test-element', { scrollAlign: 'center' as const }, false);
+
+    expect(mockElement.scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'center'
     });
   });
 });

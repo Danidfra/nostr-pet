@@ -1,8 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BlobbiTour } from './BlobbiTour';
+import { vi } from 'vitest';
 
 // Mock the SpotlightOverlay component
-jest.mock('./SpotlightOverlay', () => ({
+vi.mock('./SpotlightOverlay', () => ({
   SpotlightOverlay: ({ children, onClose, imageUrl }: any) => (
     <div data-testid="spotlight-overlay">
       {imageUrl && <img data-testid="tour-image" src={imageUrl} alt="Tour step" />}
@@ -13,15 +14,15 @@ jest.mock('./SpotlightOverlay', () => ({
 }));
 
 // Mock image imports
-jest.mock('@/assets/blobbi-overboard-step-1.png', () => 'mock-step1-image-data', { virtual: true });
-jest.mock('@/assets/blobbi-overboard-step-2.png', () => 'mock-step2-image-data', { virtual: true });
+vi.mock('@/assets/blobbi-overboard-step-1.png', () => 'mock-step1-image-data', { virtual: true });
+vi.mock('@/assets/blobbi-overboard-step-2.png', () => 'mock-step2-image-data', { virtual: true });
 
 describe('BlobbiTour', () => {
-  const mockOnClose = jest.fn();
-  const mockOnComplete = jest.fn();
+  const mockOnClose = vi.fn();
+  const mockOnComplete = vi.fn();
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders nothing when closed', () => {

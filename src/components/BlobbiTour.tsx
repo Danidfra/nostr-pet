@@ -6,7 +6,8 @@ import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { scrollToElementWithAlignment } from '@/lib/utils';
+import { TourStep, TourContext, Direction, OnBeforeAdvanceResult } from '@/types/tour';
+import { waitForVisible, sleep, scrollTourTarget, applyAutoScroll } from '@/lib/tour-utils';
 
 // Import step images explicitly for proper Vite asset handling
 import mobileStep1Img from '@/assets/blobbi-overboard-mobile-step-1.png';
@@ -21,109 +22,9 @@ import step8Img from '@/assets/blobbi-overboard-step-8.png';
 import step9Img from '@/assets/blobbi-overboard-step-9.png';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 
-// Utility function to wait for an element to become visible
-const waitForVisible = (selector: string, opts: { timeout?: number } = {}): Promise<void> => {
-  const { timeout = 2000 } = opts;
 
-  return new Promise((resolve, reject) => {
-    const startTime = Date.now();
 
-    const checkElement = () => {
-      const element = document.querySelector(selector);
-      if (element) {
-        const rect = element.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          resolve();
-          return;
-        }
-      }
-
-      // Check timeout
-      if (Date.now() - startTime > timeout) {
-        reject(new Error(`Element ${selector} not visible within ${timeout}ms`));
-        return;
-      }
-
-      // Continue checking
-      requestAnimationFrame(checkElement);
-    };
-
-    // Start checking
-    checkElement();
-  });
-};
-
-// Utility function to sleep
-const sleep = (ms: number): Promise<void> => {
-  return new Promise(resolve => setTimeout(resolve, ms));
-};
-
-// Enhanced scrolling function for tour steps
-const scrollTourTarget = (
-  selector: string,
-  options: {
-    align?: "start" | "center" | "end" | "nearest";
-    offset?: number;
-    behavior?: ScrollBehavior;
-  } = {}
-): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const element = document.querySelector(selector) as HTMLElement;
-    if (!element) {
-      reject(new Error(`Element ${selector} not found`));
-      return;
-    }
-
-    // Scroll the element with enhanced alignment and offset
-    scrollToElementWithAlignment(element, options);
-
-    // Wait a bit for the scroll to complete before resolving
-    setTimeout(resolve, 300);
-  });
-};
-
-type Direction = "next" | "prev";
-
-interface TourContext {
-  setActiveTab?: (v: string) => void; // from BlobbiDashboard Tabs
-  waitForVisible: (selector: string, opts?: { timeout?: number }) => Promise<void>;
-  sleep: (ms: number) => Promise<void>;
-  navigateTo: (path: string) => Promise<void>;
-}
-
-interface TourStepMobile {
-  imagePosition?: "below" | "above" | "left" | "right"; // Position relative to spotlight
-  imageOffset?: number; // Legacy offset (maintained for backward compatibility)
-  imageOffsetX?: number; // Horizontal offset relative to spotlight center
-  imageOffsetY?: number; // Vertical offset relative to default placement
-  imageWidth?: number | string; // Custom width (e.g., 400, "400px", "80%")
-  imageHeight?: number | string; // Custom height (e.g., 300, "300px", "80%")
-  imageMobile?: string; // Alternate image for mobile devices
-  spotlightPadding?: number; // Padding for spotlight on mobile
-  spotlightRadius?: number; // Radius for spotlight on mobile
-  scrollAlign?: "start" | "center" | "end" | "nearest"; // Where the spotlighted element should land in the viewport
-  scrollOffset?: number; // Extra pixel offset to apply (positive pushes it further down, negative moves it up)
-}
-
-interface TourStep {
-  selector: string;
-  title: string;
-  description?: string;
-  nextLabel?: string; // Custom label for the next button
-  image?: string; // Can be a string path or imported asset
-  imageOffset?: number; // Legacy offset (maintained for backward compatibility)
-  imageOffsetX?: number; // Horizontal offset relative to spotlight center
-  imageOffsetY?: number; // Vertical offset relative to default placement
-  imagePosition?: "below" | "above" | "left" | "right"; // Position relative to spotlight
-  imageWidth?: number | string; // Custom width (e.g., 400, "400px", "80%")
-  imageHeight?: number | string; // Custom height (e.g., 300, "300px", "80%")
-  mobile?: TourStepMobile; // Mobile-specific overrides
-  scrollAlign?: "start" | "center" | "end" | "nearest"; // Where the spotlighted element should land in the viewport
-  scrollOffset?: number; // Extra pixel offset to apply (positive pushes it further down, negative moves it up)
-  onEnter?(ctx: TourContext): void | Promise<void>;
-  onBeforeAdvance?(dir: Direction, ctx: TourContext): void | Promise<void>;
-  onLeave?(ctx: TourContext): void | Promise<void>;
-}
+// Types are now imported from '@/types/tour'
 
 interface BlobbiTourProps {
   isOpen: boolean;
@@ -201,23 +102,9 @@ export function BlobbiTour({
         if (dir === 'next') {
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-          // Scroll to target after tab change and element is visible
-          setTimeout(() => {
-            scrollTourTarget('#tab-growth-hub', {
-              align: 'center',
-              behavior: 'smooth'
-            }).catch(console.error);
-          }, 50);
         } else if (dir === 'prev') {
           setActiveTab?.('blobbis');
           await waitForVisible('#tab-my-blobbies', { timeout: 2000 });
-          // Scroll to target after tab change and element is visible
-          setTimeout(() => {
-            scrollTourTarget('#tab-my-blobbies', {
-              align: 'center',
-              behavior: 'smooth'
-            }).catch(console.error);
-          }, 50);
         }
       },
       mobile: {
@@ -244,24 +131,10 @@ export function BlobbiTour({
           // Open tab content before going to step 4
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub-incubating-eggs', { timeout: 2000 });
-          // Scroll to target after tab change and element is visible
-          setTimeout(() => {
-            scrollTourTarget('#tab-growth-hub-incubating-eggs', {
-              align: 'center',
-              behavior: 'smooth'
-            }).catch(console.error);
-          }, 50);
         } else if (dir === 'prev') {
           // Going back to Missions
           setActiveTab?.('missions');
           await waitForVisible('#tab-missions', { timeout: 2000 });
-          // Scroll to target after tab change and element is visible
-          setTimeout(() => {
-            scrollTourTarget('#tab-missions', {
-              align: 'center',
-              behavior: 'smooth'
-            }).catch(console.error);
-          }, 50);
         }
       },
         mobile: {
@@ -295,13 +168,6 @@ export function BlobbiTour({
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-          // Scroll to target after tab change and element is visible
-          setTimeout(() => {
-            scrollTourTarget('#tab-growth-hub', {
-              align: 'center',
-              behavior: 'smooth'
-            }).catch(console.error);
-          }, 50);
         }
       }
     },
@@ -321,13 +187,6 @@ export function BlobbiTour({
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-          // Scroll to target after tab change and element is visible
-          setTimeout(() => {
-            scrollTourTarget('#tab-growth-hub', {
-              align: 'center',
-              behavior: 'smooth'
-            }).catch(console.error);
-          }, 50);
         }
       }
     },
@@ -347,13 +206,6 @@ export function BlobbiTour({
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-          // Scroll to target after tab change and element is visible
-          setTimeout(() => {
-            scrollTourTarget('#tab-growth-hub', {
-              align: 'center',
-              behavior: 'smooth'
-            }).catch(console.error);
-          }, 50);
         }
       }
     },
@@ -372,24 +224,10 @@ export function BlobbiTour({
          if (dir === 'next') {
           setActiveTab?.('blobbis');
           await waitForVisible('#daily-missions-card', { timeout: 2000 });
-          // Scroll to target after tab change and element is visible
-          setTimeout(() => {
-            scrollTourTarget('#daily-missions-card', {
-              align: 'center',
-              behavior: 'smooth'
-            }).catch(console.error);
-          }, 50);
         } else if (dir === 'prev') {
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-          // Scroll to target after tab change and element is visible
-          setTimeout(() => {
-            scrollTourTarget('#tab-growth-hub', {
-              align: 'center',
-              behavior: 'smooth'
-            }).catch(console.error);
-          }, 50);
         }
       }
     },
@@ -409,13 +247,6 @@ export function BlobbiTour({
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-          // Scroll to target after tab change and element is visible
-          setTimeout(() => {
-            scrollTourTarget('#tab-growth-hub', {
-              align: 'center',
-              behavior: 'smooth'
-            }).catch(console.error);
-          }, 50);
         }
       }
     },
@@ -462,38 +293,15 @@ export function BlobbiTour({
     if (isOpen && !isTransitioning) {
       const currentStepData = tourSteps[currentStep];
 
-      // Get scroll configuration for current step
-      const getScrollConfig = () => {
-        const isMobileDevice = isMobile;
-
-        // Determine scroll alignment with defaults
-        let align: "start" | "center" | "end" | "nearest" = isMobileDevice ? "start" : "center";
-        let offset = 0;
-
-        // Check for mobile-specific overrides
-        if (isMobileDevice && currentStepData.mobile) {
-          align = currentStepData.mobile.scrollAlign ?? align;
-          offset = currentStepData.mobile.scrollOffset ?? offset;
-        }
-
-        // Apply step-level overrides (takes precedence over defaults)
-        align = currentStepData.scrollAlign ?? align;
-        offset = currentStepData.scrollOffset ?? offset;
-
-        return { align, offset };
-      };
-
-      // Scroll to target element when step changes
-      const scrollToTarget = async () => {
+      const handleStepChange = async () => {
         try {
-          const { align, offset } = getScrollConfig();
-          await scrollTourTarget(currentStepData.selector, {
-            align,
-            offset,
-            behavior: 'smooth'
-          });
+          // Wait for the target element to be visible
+          await waitForVisible(currentStepData.selector, { timeout: 2000 });
+
+          // Apply auto-scroll using unified system
+          await applyAutoScroll(currentStepData.selector, currentStepData, isMobile);
         } catch (error) {
-          console.error('Error scrolling to target:', error);
+          console.error('Error during step change:', error);
           // Fallback to basic scrolling
           const targetElement = document.querySelector(currentStepData.selector) as HTMLElement;
           if (targetElement) {
@@ -506,13 +314,8 @@ export function BlobbiTour({
         }
       };
 
-      // Execute scroll immediately
-      scrollToTarget().catch(console.error);
-
-      // Also scroll after a short delay to handle dynamic content/routing
-      const scrollTimeout = setTimeout(() => {
-        scrollToTarget().catch(console.error);
-      }, 100);
+      // Execute step change handling
+      handleStepChange().catch(console.error);
 
       // Execute onEnter hook if it exists
       if (currentStepData.onEnter) {
@@ -523,10 +326,8 @@ export function BlobbiTour({
           });
         }
       }
-
-      return () => clearTimeout(scrollTimeout);
     }
-  }, [currentStep, isOpen, isTransitioning, isMobile]);
+  }, [currentStep, isOpen, isTransitioning]);
 
   // Handle orientation changes - re-apply scroll when orientation changes
   useEffect(() => {
@@ -539,25 +340,7 @@ export function BlobbiTour({
 
         // Re-apply scroll with current step configuration
         try {
-          const isMobileDevice = isMobile;
-          let align: "start" | "center" | "end" | "nearest" = isMobileDevice ? "start" : "center";
-          let offset = 0;
-
-          // Check for mobile-specific overrides
-          if (isMobileDevice && currentStepData.mobile) {
-            align = currentStepData.mobile.scrollAlign ?? align;
-            offset = currentStepData.mobile.scrollOffset ?? offset;
-          }
-
-          // Apply step-level overrides (takes precedence over defaults)
-          align = currentStepData.scrollAlign ?? align;
-          offset = currentStepData.scrollOffset ?? offset;
-
-          await scrollTourTarget(currentStepData.selector, {
-            align,
-            offset,
-            behavior: 'smooth'
-          });
+          await applyAutoScroll(currentStepData.selector, currentStepData, isMobile);
         } catch (error) {
           console.error('Error re-scrolling after orientation change:', error);
         }
@@ -569,7 +352,7 @@ export function BlobbiTour({
         window.removeEventListener('orientationchange', handleOrientationChange);
       };
     }
-  }, [currentStep, isOpen, isTransitioning, isMobile]);
+  }, [currentStep, isOpen, isTransitioning]);
 
   const handleNext = async () => {
     if (isTransitioning) return;
@@ -580,8 +363,12 @@ export function BlobbiTour({
       const currentStepData = tourSteps[currentStep];
 
       // Execute onBeforeAdvance hook if it exists
+      let skipAutoScroll = false;
       if (currentStepData.onBeforeAdvance) {
-        await currentStepData.onBeforeAdvance('next', tourContext);
+        const result = await currentStepData.onBeforeAdvance('next', tourContext);
+        if (result && typeof result === 'object' && result.skipAutoScroll) {
+          skipAutoScroll = true;
+        }
       }
 
       // Execute onLeave hook if it exists
@@ -603,6 +390,17 @@ export function BlobbiTour({
       if (nextStepData && nextStepData.onEnter) {
         await nextStepData.onEnter(tourContext);
       }
+
+      // Apply auto-scroll for the new step unless explicitly skipped
+      if (!skipAutoScroll && currentStep < tourSteps.length - 1) {
+        const nextStep = tourSteps[currentStep + 1];
+        try {
+          await waitForVisible(nextStep.selector, { timeout: 2000 });
+          await applyAutoScroll(nextStep.selector, nextStep, isMobile);
+        } catch (error) {
+          console.error('Error applying auto-scroll after transition:', error);
+        }
+      }
     } catch (error) {
       console.error('Error during tour step transition:', error);
       // Stay on current step if there's an error
@@ -620,8 +418,12 @@ export function BlobbiTour({
       const currentStepData = tourSteps[currentStep];
 
       // Execute onBeforeAdvance hook if it exists
+      let skipAutoScroll = false;
       if (currentStepData.onBeforeAdvance) {
-        await currentStepData.onBeforeAdvance('prev', tourContext);
+        const result = await currentStepData.onBeforeAdvance('prev', tourContext);
+        if (result && typeof result === 'object' && result.skipAutoScroll) {
+          skipAutoScroll = true;
+        }
       }
 
       // Execute onLeave hook if it exists
@@ -639,6 +441,17 @@ export function BlobbiTour({
       const prevStepData = tourSteps[currentStep - 1];
       if (prevStepData && prevStepData.onEnter) {
         await prevStepData.onEnter(tourContext);
+      }
+
+      // Apply auto-scroll for the new step unless explicitly skipped
+      if (!skipAutoScroll && currentStep > 0) {
+        const prevStep = tourSteps[currentStep - 1];
+        try {
+          await waitForVisible(prevStep.selector, { timeout: 2000 });
+          await applyAutoScroll(prevStep.selector, prevStep, isMobile);
+        } catch (error) {
+          console.error('Error applying auto-scroll after transition:', error);
+        }
       }
     } catch (error) {
       console.error('Error during tour step transition:', error);

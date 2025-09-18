@@ -4,74 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SpotlightOverlay } from './SpotlightOverlay';
 import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 import step1Img from '@/assets/blobbi-overboard-details-step-1.png';
 import step2Img from '@/assets/blobbi-overboard-details-step-2.png';
 import step3Img from '@/assets/blobbi-overboard-details-step-3.png';
 import step4Img from '@/assets/blobbi-overboard-details-step-4.png';
 
-// Utility function to wait for an element to become visible
-const waitForVisible = (selector: string, opts: { timeout?: number } = {}): Promise<void> => {
-  const { timeout = 2000 } = opts;
-
-  return new Promise((resolve, reject) => {
-    const startTime = Date.now();
-
-    const checkElement = () => {
-      const element = document.querySelector(selector);
-      if (element) {
-        const rect = element.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          resolve();
-          return;
-        }
-      }
-
-      // Check timeout
-      if (Date.now() - startTime > timeout) {
-        reject(new Error(`Element ${selector} not visible within ${timeout}ms`));
-        return;
-      }
-
-      // Continue checking
-      requestAnimationFrame(checkElement);
-    };
-
-    // Start checking
-    checkElement();
-  });
-};
-
-// Utility function to sleep
-const sleep = (ms: number): Promise<void> => {
-  return new Promise(resolve => setTimeout(resolve, ms));
-};
-
-type Direction = "next" | "prev";
-
-interface TourContext {
-  setActiveTab?: (v: string) => void;
-  waitForVisible: (selector: string, opts?: { timeout?: number }) => Promise<void>;
-  sleep: (ms: number) => Promise<void>;
-  navigateTo: (path: string) => Promise<void>;
-}
-
-interface TourStep {
-  selector: string;
-  title: string;
-  description?: string;
-  nextLabel?: string;
-  image?: string;
-  imageOffset?: number;
-  imageOffsetX?: number;
-  imageOffsetY?: number;
-  imagePosition?: "below" | "above" | "left" | "right";
-  imageWidth?: number | string;
-  imageHeight?: number | string;
-  onEnter?(ctx: TourContext): void | Promise<void>;
-  onBeforeAdvance?(dir: Direction, ctx: TourContext): void | Promise<void>;
-  onLeave?(ctx: TourContext): void | Promise<void>;
-}
+import { TourStep, TourContext, Direction, OnBeforeAdvanceResult } from '@/types/tour';
+import { waitForVisible, sleep, scrollTourTarget, applyAutoScroll } from '@/lib/tour-utils';
 
 interface BlobbiDetailsTourProps {
   isOpen: boolean;
@@ -95,6 +36,7 @@ export function BlobbiDetailsTour({
   const [internalCurrentStep, setInternalCurrentStep] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   // Use either controlled or uncontrolled step state
   const currentStep = propCurrentStep !== undefined ? propCurrentStep : internalCurrentStep;
@@ -120,6 +62,8 @@ export function BlobbiDetailsTour({
       image: step1Img,
       imagePosition: 'right',
       imageOffsetY: 50,
+      // Scroll to start on mobile (default), center on desktop (default)
+      // No custom scroll properties needed - uses defaults
     },
 
     // Step 2 — Stats
@@ -131,6 +75,12 @@ export function BlobbiDetailsTour({
       imagePosition: 'right',
       imageOffsetX: 0,
       imageOffsetY: 0,
+      // Custom scroll configuration
+      scrollAlign: 'start', // Both mobile and desktop scroll to top
+      scrollOffset: 20, // Extra 20px offset for better visibility
+      mobile: {
+        scrollOffset: 10 // Mobile gets smaller offset
+      }
     },
 
     // Step 3 — Actions Tab
@@ -142,6 +92,12 @@ export function BlobbiDetailsTour({
       imagePosition: 'right',
       imageOffsetY: 0,
       imageHeight: 400,
+      // Different alignment for mobile vs desktop
+      scrollAlign: 'center', // Desktop centers the actions
+      mobile: {
+        scrollAlign: 'start', // Mobile scrolls to top for better visibility
+        scrollOffset: 15 // Small offset to account for mobile UI
+      }
     },
 
     // Step 4 — Quick Actions
@@ -154,6 +110,13 @@ export function BlobbiDetailsTour({
       imageOffsetX: 300,
       imageOffsetY: 0,
       nextLabel: 'Finish Tour',
+      // Use nearest alignment for optimal positioning
+      scrollAlign: 'nearest',
+      scrollOffset: 30, // Compensate for any fixed headers
+      mobile: {
+        scrollOffset: 20, // Mobile offset
+        scrollAlign: 'start' // Force start on mobile for consistency
+      },
       async onBeforeAdvance(dir, { navigateTo }) {
         if (dir === 'next') {
           // Set return token and navigate back to dashboard
@@ -178,23 +141,29 @@ export function BlobbiDetailsTour({
     if (isOpen && !isTransitioning) {
       const currentStepData = tourSteps[currentStep];
 
-      // Scroll to target element when step changes
-      const scrollToTarget = () => {
-        const targetElement = document.querySelector(currentStepData.selector);
-        if (targetElement) {
-          targetElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'center'
-          });
+      const handleStepChange = async () => {
+        try {
+          // Wait for the target element to be visible
+          await waitForVisible(currentStepData.selector, { timeout: 2000 });
+
+          // Apply auto-scroll using unified system
+          await applyAutoScroll(currentStepData.selector, currentStepData, isMobile);
+        } catch (error) {
+          console.error('Error during step change:', error);
+          // Fallback to basic scrolling
+          const targetElement = document.querySelector(currentStepData.selector) as HTMLElement;
+          if (targetElement) {
+            targetElement.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'center'
+            });
+          }
         }
       };
 
-      // Execute scroll immediately
-      scrollToTarget();
-
-      // Also scroll after a short delay to handle dynamic content/routing
-      const scrollTimeout = setTimeout(scrollToTarget, 100);
+      // Execute step change handling
+      handleStepChange().catch(console.error);
 
       // Execute onEnter hook if it exists
       if (currentStepData.onEnter) {
@@ -205,8 +174,31 @@ export function BlobbiDetailsTour({
           });
         }
       }
+    }
+  }, [currentStep, isOpen, isTransitioning]);
 
-      return () => clearTimeout(scrollTimeout);
+  // Handle orientation changes - re-apply scroll when orientation changes
+  useEffect(() => {
+    if (isOpen && !isTransitioning) {
+      const currentStepData = tourSteps[currentStep];
+
+      const handleOrientationChange = async () => {
+        // Wait a bit for the orientation change to complete and layout to settle
+        await sleep(300);
+
+        // Re-apply scroll with current step configuration
+        try {
+          await applyAutoScroll(currentStepData.selector, currentStepData, isMobile);
+        } catch (error) {
+          console.error('Error re-scrolling after orientation change:', error);
+        }
+      };
+
+      window.addEventListener('orientationchange', handleOrientationChange);
+
+      return () => {
+        window.removeEventListener('orientationchange', handleOrientationChange);
+      };
     }
   }, [currentStep, isOpen, isTransitioning]);
 
@@ -219,8 +211,12 @@ export function BlobbiDetailsTour({
       const currentStepData = tourSteps[currentStep];
 
       // Execute onBeforeAdvance hook if it exists
+      let skipAutoScroll = false;
       if (currentStepData.onBeforeAdvance) {
-        await currentStepData.onBeforeAdvance('next', tourContext);
+        const result = await currentStepData.onBeforeAdvance('next', tourContext);
+        if (result && typeof result === 'object' && result.skipAutoScroll) {
+          skipAutoScroll = true;
+        }
       }
 
       // Execute onLeave hook if it exists
@@ -242,6 +238,17 @@ export function BlobbiDetailsTour({
       if (nextStepData && nextStepData.onEnter) {
         await nextStepData.onEnter(tourContext);
       }
+
+      // Apply auto-scroll for the new step unless explicitly skipped
+      if (!skipAutoScroll && currentStep < tourSteps.length - 1) {
+        const nextStep = tourSteps[currentStep + 1];
+        try {
+          await waitForVisible(nextStep.selector, { timeout: 2000 });
+          await applyAutoScroll(nextStep.selector, nextStep, isMobile);
+        } catch (error) {
+          console.error('Error applying auto-scroll after transition:', error);
+        }
+      }
     } catch (error) {
       console.error('Error during tour step transition:', error);
       // Stay on current step if there's an error
@@ -259,8 +266,12 @@ export function BlobbiDetailsTour({
       const currentStepData = tourSteps[currentStep];
 
       // Execute onBeforeAdvance hook if it exists
+      let skipAutoScroll = false;
       if (currentStepData.onBeforeAdvance) {
-        await currentStepData.onBeforeAdvance('prev', tourContext);
+        const result = await currentStepData.onBeforeAdvance('prev', tourContext);
+        if (result && typeof result === 'object' && result.skipAutoScroll) {
+          skipAutoScroll = true;
+        }
       }
 
       // Execute onLeave hook if it exists
@@ -278,6 +289,17 @@ export function BlobbiDetailsTour({
       const prevStepData = tourSteps[currentStep - 1];
       if (prevStepData && prevStepData.onEnter) {
         await prevStepData.onEnter(tourContext);
+      }
+
+      // Apply auto-scroll for the new step unless explicitly skipped
+      if (!skipAutoScroll && currentStep > 0) {
+        const prevStep = tourSteps[currentStep - 1];
+        try {
+          await waitForVisible(prevStep.selector, { timeout: 2000 });
+          await applyAutoScroll(prevStep.selector, prevStep, isMobile);
+        } catch (error) {
+          console.error('Error applying auto-scroll after transition:', error);
+        }
       }
     } catch (error) {
       console.error('Error during tour step transition:', error);

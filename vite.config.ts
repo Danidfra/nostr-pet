@@ -9,9 +9,9 @@ export default defineConfig(() => ({
     react(),
     VitePWA({
       strategies: "injectManifest",
-      srcDir: "src", 
-      filename: "sw.ts",      
-      injectRegister: null,   
+      srcDir: "src",
+      filename: "sw.ts",
+      injectRegister: null,
       manifest: {
         name: "Blobbi - Virtual Pet Lifecycle on Nostr",
         short_name: "Blobbi",
@@ -37,4 +37,9 @@ export default defineConfig(() => ({
     }),
   ],
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test-setup.ts'],
+  },
 }));

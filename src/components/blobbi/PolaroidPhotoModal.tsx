@@ -320,7 +320,7 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
 
     try {
       setIsAddingRelay(true);
-      
+
       // Validate URL format
       try {
         const urlObj = new URL(customRelayUrl);
@@ -416,7 +416,7 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
 
       // Get enabled relays from modal state
       const enabledRelays = modalRelays.filter(relay => relay.enabled).map(relay => relay.url);
-      
+
       if (enabledRelays.length === 0) {
         throw new Error('No relays selected');
       }
@@ -475,13 +475,13 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
       }, 2000);
     } catch (error) {
       // Check if this is an AggregateError (likely from pool closure)
-      if (error instanceof AggregateError) {
+      if (error && typeof error === 'object' && 'errors' in error && Array.isArray((error as any).errors)) {
         console.warn('AggregateError during Nostr operation (likely pool closure, but event may have been published):', error);
-        
+
         // Try to extract more specific error info
-        const errorMessages = error.errors.map(err => err instanceof Error ? err.message : String(err));
+        const errorMessages = (error as any).errors.map((err: any) => err instanceof Error ? err.message : String(err));
         console.warn('Individual errors:', errorMessages);
-        
+
         // Show a more user-friendly message that acknowledges that event might have been published
         setIsPosting(false);
         toast({
@@ -489,7 +489,7 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
           description: "There was a connection issue during cleanup, but your photo was likely published successfully. Please check your Nostr client.",
           variant: "default",
         });
-        
+
         // Still reset form and close modal
         setNostrContent('');
         setTimeout(() => {
@@ -497,7 +497,7 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
         }, 3000);
         return;
       }
-      
+
       // Handle other types of errors
       setIsPosting(false);
       console.error('Error sharing to Nostr:', error);
