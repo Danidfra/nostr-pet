@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { scrollToElementWithAlignment } from '@/lib/utils';
 
 // Import step images explicitly for proper Vite asset handling
 import mobileStep1Img from '@/assets/blobbi-overboard-mobile-step-1.png';
@@ -57,6 +58,30 @@ const sleep = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };
 
+// Enhanced scrolling function for tour steps
+const scrollTourTarget = (
+  selector: string,
+  options: {
+    align?: "start" | "center" | "end" | "nearest";
+    offset?: number;
+    behavior?: ScrollBehavior;
+  } = {}
+): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const element = document.querySelector(selector) as HTMLElement;
+    if (!element) {
+      reject(new Error(`Element ${selector} not found`));
+      return;
+    }
+
+    // Scroll the element with enhanced alignment and offset
+    scrollToElementWithAlignment(element, options);
+
+    // Wait a bit for the scroll to complete before resolving
+    setTimeout(resolve, 300);
+  });
+};
+
 type Direction = "next" | "prev";
 
 interface TourContext {
@@ -76,6 +101,8 @@ interface TourStepMobile {
   imageMobile?: string; // Alternate image for mobile devices
   spotlightPadding?: number; // Padding for spotlight on mobile
   spotlightRadius?: number; // Radius for spotlight on mobile
+  scrollAlign?: "start" | "center" | "end" | "nearest"; // Where the spotlighted element should land in the viewport
+  scrollOffset?: number; // Extra pixel offset to apply (positive pushes it further down, negative moves it up)
 }
 
 interface TourStep {
@@ -91,6 +118,8 @@ interface TourStep {
   imageWidth?: number | string; // Custom width (e.g., 400, "400px", "80%")
   imageHeight?: number | string; // Custom height (e.g., 300, "300px", "80%")
   mobile?: TourStepMobile; // Mobile-specific overrides
+  scrollAlign?: "start" | "center" | "end" | "nearest"; // Where the spotlighted element should land in the viewport
+  scrollOffset?: number; // Extra pixel offset to apply (positive pushes it further down, negative moves it up)
   onEnter?(ctx: TourContext): void | Promise<void>;
   onBeforeAdvance?(dir: Direction, ctx: TourContext): void | Promise<void>;
   onLeave?(ctx: TourContext): void | Promise<void>;
@@ -174,28 +203,20 @@ export function BlobbiTour({
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
           // Scroll to target after tab change and element is visible
           setTimeout(() => {
-            const targetElement = document.querySelector('#tab-growth-hub');
-            if (targetElement) {
-              targetElement.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-                inline: 'center'
-              });
-            }
+            scrollTourTarget('#tab-growth-hub', {
+              align: 'center',
+              behavior: 'smooth'
+            }).catch(console.error);
           }, 50);
         } else if (dir === 'prev') {
           setActiveTab?.('blobbis');
           await waitForVisible('#tab-my-blobbies', { timeout: 2000 });
           // Scroll to target after tab change and element is visible
           setTimeout(() => {
-            const targetElement = document.querySelector('#tab-my-blobbies');
-            if (targetElement) {
-              targetElement.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-                inline: 'center'
-              });
-            }
+            scrollTourTarget('#tab-my-blobbies', {
+              align: 'center',
+              behavior: 'smooth'
+            }).catch(console.error);
           }, 50);
         }
       },
@@ -225,14 +246,10 @@ export function BlobbiTour({
           await waitForVisible('#tab-growth-hub-incubating-eggs', { timeout: 2000 });
           // Scroll to target after tab change and element is visible
           setTimeout(() => {
-            const targetElement = document.querySelector('#tab-growth-hub-incubating-eggs');
-            if (targetElement) {
-              targetElement.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-                inline: 'center'
-              });
-            }
+            scrollTourTarget('#tab-growth-hub-incubating-eggs', {
+              align: 'center',
+              behavior: 'smooth'
+            }).catch(console.error);
           }, 50);
         } else if (dir === 'prev') {
           // Going back to Missions
@@ -240,14 +257,10 @@ export function BlobbiTour({
           await waitForVisible('#tab-missions', { timeout: 2000 });
           // Scroll to target after tab change and element is visible
           setTimeout(() => {
-            const targetElement = document.querySelector('#tab-missions');
-            if (targetElement) {
-              targetElement.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-                inline: 'center'
-              });
-            }
+            scrollTourTarget('#tab-missions', {
+              align: 'center',
+              behavior: 'smooth'
+            }).catch(console.error);
           }, 50);
         }
       },
@@ -282,6 +295,13 @@ export function BlobbiTour({
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
+          // Scroll to target after tab change and element is visible
+          setTimeout(() => {
+            scrollTourTarget('#tab-growth-hub', {
+              align: 'center',
+              behavior: 'smooth'
+            }).catch(console.error);
+          }, 50);
         }
       }
     },
@@ -301,6 +321,13 @@ export function BlobbiTour({
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
+          // Scroll to target after tab change and element is visible
+          setTimeout(() => {
+            scrollTourTarget('#tab-growth-hub', {
+              align: 'center',
+              behavior: 'smooth'
+            }).catch(console.error);
+          }, 50);
         }
       }
     },
@@ -320,6 +347,13 @@ export function BlobbiTour({
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
+          // Scroll to target after tab change and element is visible
+          setTimeout(() => {
+            scrollTourTarget('#tab-growth-hub', {
+              align: 'center',
+              behavior: 'smooth'
+            }).catch(console.error);
+          }, 50);
         }
       }
     },
@@ -338,10 +372,24 @@ export function BlobbiTour({
          if (dir === 'next') {
           setActiveTab?.('blobbis');
           await waitForVisible('#daily-missions-card', { timeout: 2000 });
+          // Scroll to target after tab change and element is visible
+          setTimeout(() => {
+            scrollTourTarget('#daily-missions-card', {
+              align: 'center',
+              behavior: 'smooth'
+            }).catch(console.error);
+          }, 50);
         } else if (dir === 'prev') {
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
+          // Scroll to target after tab change and element is visible
+          setTimeout(() => {
+            scrollTourTarget('#tab-growth-hub', {
+              align: 'center',
+              behavior: 'smooth'
+            }).catch(console.error);
+          }, 50);
         }
       }
     },
@@ -361,6 +409,13 @@ export function BlobbiTour({
           // Keep the Growth Hub tab active, just move spotlight back to the trigger
           setActiveTab?.('incubation');
           await waitForVisible('#tab-growth-hub', { timeout: 2000 });
+          // Scroll to target after tab change and element is visible
+          setTimeout(() => {
+            scrollTourTarget('#tab-growth-hub', {
+              align: 'center',
+              behavior: 'smooth'
+            }).catch(console.error);
+          }, 50);
         }
       }
     },
@@ -407,23 +462,57 @@ export function BlobbiTour({
     if (isOpen && !isTransitioning) {
       const currentStepData = tourSteps[currentStep];
 
+      // Get scroll configuration for current step
+      const getScrollConfig = () => {
+        const isMobileDevice = isMobile;
+
+        // Determine scroll alignment with defaults
+        let align: "start" | "center" | "end" | "nearest" = isMobileDevice ? "start" : "center";
+        let offset = 0;
+
+        // Check for mobile-specific overrides
+        if (isMobileDevice && currentStepData.mobile) {
+          align = currentStepData.mobile.scrollAlign ?? align;
+          offset = currentStepData.mobile.scrollOffset ?? offset;
+        }
+
+        // Apply step-level overrides (takes precedence over defaults)
+        align = currentStepData.scrollAlign ?? align;
+        offset = currentStepData.scrollOffset ?? offset;
+
+        return { align, offset };
+      };
+
       // Scroll to target element when step changes
-      const scrollToTarget = () => {
-        const targetElement = document.querySelector(currentStepData.selector);
-        if (targetElement) {
-          targetElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'center'
+      const scrollToTarget = async () => {
+        try {
+          const { align, offset } = getScrollConfig();
+          await scrollTourTarget(currentStepData.selector, {
+            align,
+            offset,
+            behavior: 'smooth'
           });
+        } catch (error) {
+          console.error('Error scrolling to target:', error);
+          // Fallback to basic scrolling
+          const targetElement = document.querySelector(currentStepData.selector) as HTMLElement;
+          if (targetElement) {
+            targetElement.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'center'
+            });
+          }
         }
       };
 
       // Execute scroll immediately
-      scrollToTarget();
+      scrollToTarget().catch(console.error);
 
       // Also scroll after a short delay to handle dynamic content/routing
-      const scrollTimeout = setTimeout(scrollToTarget, 100);
+      const scrollTimeout = setTimeout(() => {
+        scrollToTarget().catch(console.error);
+      }, 100);
 
       // Execute onEnter hook if it exists
       if (currentStepData.onEnter) {
@@ -437,7 +526,50 @@ export function BlobbiTour({
 
       return () => clearTimeout(scrollTimeout);
     }
-  }, [currentStep, isOpen, isTransitioning]);
+  }, [currentStep, isOpen, isTransitioning, isMobile]);
+
+  // Handle orientation changes - re-apply scroll when orientation changes
+  useEffect(() => {
+    if (isOpen && !isTransitioning) {
+      const currentStepData = tourSteps[currentStep];
+
+      const handleOrientationChange = async () => {
+        // Wait a bit for the orientation change to complete and layout to settle
+        await sleep(300);
+
+        // Re-apply scroll with current step configuration
+        try {
+          const isMobileDevice = isMobile;
+          let align: "start" | "center" | "end" | "nearest" = isMobileDevice ? "start" : "center";
+          let offset = 0;
+
+          // Check for mobile-specific overrides
+          if (isMobileDevice && currentStepData.mobile) {
+            align = currentStepData.mobile.scrollAlign ?? align;
+            offset = currentStepData.mobile.scrollOffset ?? offset;
+          }
+
+          // Apply step-level overrides (takes precedence over defaults)
+          align = currentStepData.scrollAlign ?? align;
+          offset = currentStepData.scrollOffset ?? offset;
+
+          await scrollTourTarget(currentStepData.selector, {
+            align,
+            offset,
+            behavior: 'smooth'
+          });
+        } catch (error) {
+          console.error('Error re-scrolling after orientation change:', error);
+        }
+      };
+
+      window.addEventListener('orientationchange', handleOrientationChange);
+
+      return () => {
+        window.removeEventListener('orientationchange', handleOrientationChange);
+      };
+    }
+  }, [currentStep, isOpen, isTransitioning, isMobile]);
 
   const handleNext = async () => {
     if (isTransitioning) return;
