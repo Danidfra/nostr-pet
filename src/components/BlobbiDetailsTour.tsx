@@ -6,10 +6,10 @@ import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
-import step1Img from '@/assets/blobbi-overboard-details-step-1.png';
-import step2Img from '@/assets/blobbi-overboard-details-step-2.png';
-import step3Img from '@/assets/blobbi-overboard-details-step-3.png';
-import step4Img from '@/assets/blobbi-overboard-details-step-4.png';
+import step1Img from '../assets/blobbi-overboard-details-step-1.png';
+import step2Img from '../assets/blobbi-overboard-details-step-2.png';
+import step3Img from '../assets/blobbi-overboard-details-step-3.png';
+import step4Img from '../assets/blobbi-overboard-details-step-4.png';
 
 import { TourStep, TourContext, Direction, OnBeforeAdvanceResult } from '@/types/tour';
 import { waitForVisible, sleep, scrollTourTarget, applyAutoScroll } from '@/lib/tour-utils';
