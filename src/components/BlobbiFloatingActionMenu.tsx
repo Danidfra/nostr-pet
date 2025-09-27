@@ -8,9 +8,6 @@ import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { useBed } from '@/contexts/BedContext';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
-import { Blobbi } from '@/types/blobbi';
-import blobBlack from '/blob-black.svg';
-import blobWhite from '/blob-white.svg';
 
 declare global {
   interface Window {
@@ -312,7 +309,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   if (!shouldShow || !companionData?.blobbi?.id) return null;
 
 
-  const iconSrc = resolvedTheme === 'dark' ? blobWhite : blobBlack;
+  const iconSrc = resolvedTheme === 'dark' ? '/blobbi-white.svg' : '/blobbi-black.svg';
 
   // Check if Blobbi is sleeping to determine bed action availability
   const isBlobbiSleeping = companionData?.blobbi?.isSleeping || false;
@@ -340,7 +337,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     {
       icon: (
         <img
-          src={resolvedTheme === 'dark' ? blobWhite : blobBlack}
+          src={resolvedTheme === 'dark' ? '/blobbi-white.svg' : '/blobbi-black.svg'}
           alt="Settings"
           className="w-5 h-5"
         />

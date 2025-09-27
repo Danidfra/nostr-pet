@@ -14,8 +14,8 @@ vi.mock('./SpotlightOverlay', () => ({
 }));
 
 // Mock image imports
-vi.mock('@/assets/blobbi-overboard-step-1.png', () => 'mock-step1-image-data', { virtual: true });
-vi.mock('@/assets/blobbi-overboard-step-2.png', () => 'mock-step2-image-data', { virtual: true });
+vi.mock('/assets/overboard/blobbi-overboard-step-1.png', () => 'mock-step1-image-data', { virtual: true });
+vi.mock('/assets/overboard/blobbi-overboard-step-2.png', () => 'mock-step2-image-data', { virtual: true });
 
 describe('BlobbiTour', () => {
   const mockOnClose = vi.fn();

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import SignupDialog from '@/components/auth/SignupDialog';
 import { User, UserPlus } from 'lucide-react';
-import blobbiAdopt from '@/assets/blobbi-adopt-illustration.png';
 
 export function BlobbiAdoptionPage() {
   const { user } = useCurrentUser();
@@ -28,7 +27,7 @@ export function BlobbiAdoptionPage() {
                 </h1>
                 <div className="mb-6">
                   <img
-                    src={blobbiAdopt}
+                    src="/assets/overboard/blobbi-adopt-illustration.png"
                     alt="Adopt a Blobbi illustration"
                     className="w-full max-w-xs mx-auto h-auto rounded-lg"
                   />
