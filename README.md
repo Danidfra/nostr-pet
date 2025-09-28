@@ -1,5 +1,7 @@
 # Blobbi - Virtual Pet Lifecycle on Nostr
 
+[![Edit with Shakespeare](https://shakespeare.diy/badge.svg)](https://shakespeare.diy/clone?url=https://github.com/Danidfra/nostr-pet.git)
+
 A decentralized virtual pet game built on the Nostr protocol implementing **NIP-BB: Blobbi Virtual Pet Lifecycle Events**. Each Nostr account can adopt and care for unique Blobbi pets that progress through distinct life stages with structured interaction tracking and permanent milestone records.
 
 ## 🌟 Features
