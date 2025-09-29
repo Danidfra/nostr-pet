@@ -6,11 +6,6 @@ import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
-import step1Img from '../assets/blobbi-overboard-details-step-1.png';
-import step2Img from '../assets/blobbi-overboard-details-step-2.png';
-import step3Img from '../assets/blobbi-overboard-details-step-3.png';
-import step4Img from '../assets/blobbi-overboard-details-step-4.png';
-
 import { TourStep, TourContext, Direction, OnBeforeAdvanceResult } from '@/types/tour';
 import { waitForVisible, sleep, scrollTourTarget, applyAutoScroll } from '@/lib/tour-utils';
 
@@ -59,7 +54,7 @@ export function BlobbiDetailsTour({
       selector: '#blobbi-details-visual',
       title: 'Your Blobbi',
       description: 'See your Blobbi here! Its look will evolve as you take care of it.',
-      image: step1Img,
+      image: '/assets/overboard/blobbi-overboard-details-step-1.png',
       imagePosition: 'right',
       imageOffsetY: 50,
       // Scroll to start on mobile (default), center on desktop (default)
@@ -71,7 +66,7 @@ export function BlobbiDetailsTour({
       selector: '#blobbi-details-stats',
       title: 'Blobbi Stats',
       description: 'Monitor your Blobbi\'s health, happiness, and other vital stats here.',
-      image: step2Img,
+      image: '/assets/overboard/blobbi-overboard-details-step-2.png',
       imagePosition: 'right',
       imageOffsetX: 0,
       imageOffsetY: 0,
@@ -88,7 +83,7 @@ export function BlobbiDetailsTour({
       selector: '#blobbi-details-actions-0',
       title: 'Care Actions',
       description: 'Use these actions to feed, play with, and care for your Blobbi.',
-      image: step3Img,
+      image: '/assets/overboard/blobbi-overboard-details-step-3.png',
       imagePosition: 'right',
       imageOffsetY: 0,
       imageHeight: 400,
@@ -105,7 +100,7 @@ export function BlobbiDetailsTour({
       selector: '[data-testid="quick-actions"]',
       title: 'Quick Actions',
       description: 'Access shop, storage, and other Blobbi management features here.',
-      image: step4Img,
+      image: '/assets/overboard/blobbi-overboard-details-step-4.png',
       imagePosition: 'above',
       imageOffsetX: 300,
       imageOffsetY: 0,

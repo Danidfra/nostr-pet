@@ -10,19 +10,18 @@ import { TourStep, TourContext, Direction, OnBeforeAdvanceResult } from '@/types
 import { waitForVisible, sleep, scrollTourTarget, applyAutoScroll } from '@/lib/tour-utils';
 
 // Import step images explicitly for proper Vite asset handling
-import mobileStep1Img from '@/assets/blobbi-overboard-mobile-step-1.png';
-import step1Img from '@/assets/blobbi-overboard-step-1.png';
-import step2Img from '@/assets/blobbi-overboard-step-2.png';
-import step3Img from '@/assets/blobbi-overboard-step-3.png';
-import step4Img from '@/assets/blobbi-overboard-step-4.png';
-import step5Img from '@/assets/blobbi-overboard-step-5.png';
-import step6Img from '@/assets/blobbi-overboard-step-6.png';
-import step7Img from '@/assets/blobbi-overboard-step-7.png';
-import step8Img from '@/assets/blobbi-overboard-step-8.png';
-import step9Img from '@/assets/blobbi-overboard-step-9.png';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 
-
+const mobileStep1Img = '/assets/overboard/blobbi-overboard-mobile-step-1.png';
+const step1Img = '/assets/overboard/blobbi-overboard-step-1.png';
+const step2Img = '/assets/overboard/blobbi-overboard-step-2.png';
+const step3Img = '/assets/overboard/blobbi-overboard-step-3.png';
+const step4Img = '/assets/overboard/blobbi-overboard-step-4.png';
+const step5Img = '/assets/overboard/blobbi-overboard-step-5.png';
+const step6Img = '/assets/overboard/blobbi-overboard-step-6.png';
+const step7Img = '/assets/overboard/blobbi-overboard-step-7.png';
+const step8Img = '/assets/overboard/blobbi-overboard-step-8.png';
+const step9Img = '/assets/overboard/blobbi-overboard-step-9.png';
 
 // Types are now imported from '@/types/tour'
 

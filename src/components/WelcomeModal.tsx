@@ -68,7 +68,7 @@ export function WelcomeModal({ isOpen, onClose, onStartTour }: WelcomeModalProps
           {/* Welcome image */}
           <div className="relative">
             <img
-              src="/assets/blobbi-welcome.png"
+              src="/assets/overboard/blobbi-welcome.png"
               alt="Blobbi Welcome"
               className={`
                 mx-auto object-contain drop-shadow-lg
