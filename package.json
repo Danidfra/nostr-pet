@@ -98,5 +98,8 @@
     "vite": "^5.4.1",
     "vite-plugin-pwa": "^1.0.3",
     "vitest": "^3.2.3"
+  },
+   "overrides": {
+    "@nostrify/nostrify": "npm:@jsr/nostrify__nostrify@^0.46.1"
   }
 }
