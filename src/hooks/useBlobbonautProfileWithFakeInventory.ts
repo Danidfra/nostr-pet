@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useBlobbonautProfile, useUpdateBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
-import { useCoinBalance, useSpendCoins } from '@/hooks/useCoinBalance';
+import { useCoinBalance } from '@/hooks/useCoinBalance';
 import { useBlobbiFakeInventory } from '@/contexts/BlobbiFakeInventoryContext';
 import { BlobbonautProfile } from '@/types/blobbi';
 
@@ -15,7 +15,6 @@ export function useBlobbonautProfileWithFakeInventory(profileId?: string) {
   } = useBlobbiFakeInventory();
   const { mutate: updateProfile } = useUpdateBlobbonautProfile();
   const { data: coinBalance } = useCoinBalance();
-  const spendCoins = useSpendCoins();
 
   const effectiveProfileId = profileId || originalHook.data?.id;
   const fakeInventory = effectiveProfileId ? getFakeInventory(effectiveProfileId) : null;
@@ -69,30 +68,35 @@ export function useBlobbonautProfileWithFakeInventory(profileId?: string) {
       throw new Error(`Insufficient coins. Need ${totalCost}, have ${availableCoins}`);
     }
 
+    // Find existing item in storage
     const existingItemIndex = currentProfile.storage.findIndex(item => item.itemId === itemId);
 
-    let updatedStorage;
+    let updatedStorage: BlobbonautProfile['storage'];
     if (existingItemIndex >= 0) {
+      // Update existing item quantity
       updatedStorage = [...currentProfile.storage];
       updatedStorage[existingItemIndex] = {
         ...updatedStorage[existingItemIndex],
         quantity: updatedStorage[existingItemIndex].quantity + quantity,
       };
     } else {
-      updatedStorage = [...currentProfile.storage, { itemId, quantity }];
+      // Add new item to storage
+      updatedStorage = [
+        ...currentProfile.storage,
+        { itemId, quantity },
+      ];
     }
 
+    // Create a single updated profile with both storage and coin balance changes
     const updatedProfile: BlobbonautProfile = {
       ...currentProfile,
+      coins: currentProfile.coins - totalCost, // Subtract coins in the same event
       storage: updatedStorage,
       lastModified: Math.floor(Date.now() / 1000),
     };
 
-    // Update storage first
+    // Update profile with both storage and coin changes in a single event
     await updateProfileWithFakeInventory(updatedProfile);
-
-    // Then spend coins
-    await spendCoins(totalCost, `Purchase ${quantity}x ${itemId}`);
   };
 
   const removeFromStorageWithFakeInventory = async ({ itemId, quantity = 1 }: { itemId: string; quantity?: number }) => {
