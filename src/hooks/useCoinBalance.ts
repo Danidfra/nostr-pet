@@ -27,6 +27,9 @@ export function useCoinBalance() {
         return { balance: 0, transactions: [] };
       }
 
+      // Start with the profile's coin balance as the base value
+      let balance = profile?.coins || 0;
+
       // Query for credit events (kind 40100) from Treasury
       const creditEvents = await nostr.query(
         [{
@@ -36,7 +39,7 @@ export function useCoinBalance() {
         { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
       );
 
-      // Query for debit events (kind 40101) - purchases
+      // Query for debit events (kind 40101) - only for non-shop purchases
       const debitEvents = await nostr.query(
         [{
           kinds: [40101],
@@ -75,51 +78,46 @@ export function useCoinBalance() {
               purchaseId: dTag,
             });
             processedPurchaseIds.add(dTag);
+            // Add to balance
+            balance += coins;
           }
         }
       });
 
-      // Process debit events
+      // Process debit events (excluding shop purchases which are now handled in profile events)
       debitEvents.forEach(event => {
         const dTag = event.tags.find(([name]) => name === 'd')?.[1];
         const coinsTag = event.tags.find(([name]) => name === 'coins')?.[1];
         const phaseTag = event.tags.find(([name]) => name === 'phase')?.[1];
+        const content = event.content || '';
 
         if (dTag && coinsTag) {
           const coins = parseInt(coinsTag.replace('-', ''));
           const phase = phaseTag || 'unknown';
 
-          // Check for idempotency
-          if (!processedPurchaseIds.has(dTag)) {
-            transactions.push({
-              coins,
-              timestamp: event.created_at,
-              type: 'debit',
-              phase,
-              purchaseId: dTag,
-            });
-            processedPurchaseIds.add(dTag);
+          // Check if this is a shop purchase - if so, skip it since it's already accounted for in profile
+          const isShopPurchase = content.toLowerCase().includes('shop') || content.toLowerCase().includes('purchase');
+
+          if (!isShopPurchase) {
+            // Check for idempotency
+            if (!processedPurchaseIds.has(dTag)) {
+              transactions.push({
+                coins,
+                timestamp: event.created_at,
+                type: 'debit',
+                phase,
+                purchaseId: dTag,
+              });
+              processedPurchaseIds.add(dTag);
+              // Subtract from balance (only for non-shop purchases)
+              balance -= coins;
+            }
           }
         }
       });
 
       // Sort by timestamp (newest first)
       transactions.sort((a, b) => b.timestamp - a.timestamp);
-
-      // Calculate balance
-      let balance = 0;
-      transactions.forEach(transaction => {
-        if (transaction.type === 'credit') {
-          balance += transaction.coins;
-        } else {
-          balance -= transaction.coins;
-        }
-      });
-
-      // Add profile's base coins if available
-      if (profile) {
-        balance += profile.coins;
-      }
 
       return { balance, transactions };
     },
@@ -167,33 +165,5 @@ export function useAddCoins() {
   };
 }
 
-export function useSpendCoins() {
-  const { mutate: publishEvent } = useNostrPublish();
-  const queryClient = useQueryClient();
-  const { user } = useCurrentUser();
-
-  return async (coins: number, description: string = 'Blobbi shop purchase') => {
-    if (!user) {
-      throw new Error('User must be logged in');
-    }
-
-    // Generate unique purchase ID for idempotency
-    const purchaseId = `purchase:${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    const tags = [
-      ['d', purchaseId],
-      ['coins', `-${coins}`],
-      ['phase', 'prod'],
-    ];
-
-    // Publish debit event
-    await publishEvent({
-      kind: 40101,
-      content: description,
-      tags,
-    });
-
-    // Invalidate coin balance query to trigger refetch
-    queryClient.invalidateQueries({ queryKey: ['coin-balance', user.pubkey] });
-  };
-}
+// useSpendCoins has been removed as shop purchases are now handled in a single profile event (kind 31125)
+// Use useBlobbonautProfileWithFakeInventory.purchaseItem() for shop purchases instead
