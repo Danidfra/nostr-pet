@@ -14,6 +14,7 @@ import {
   parseRecordFromEvent,
   validateBlobbiEvent,
 } from '@/lib/blobbi-events';
+import { mergeBlobbiStateTags } from '@/lib/blobbi-state-merge';
 import {
   Blobbi,
   BlobbiInteractionData,
@@ -30,7 +31,7 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
   const { mutateAsync: publishEvent } = useNostrPublish();
-  
+
   const targetPubkey = pubkey || user?.pubkey;
   const targetBlobbiId = blobbiId;
 
@@ -39,7 +40,7 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
     queryKey: ['blobbi-state', targetBlobbiId, targetPubkey],
     queryFn: async () => {
       if (!targetPubkey || !targetBlobbiId) return null;
-      
+
       const signal = AbortSignal.timeout(3000);
       const events = await nostr.query([
         {
@@ -49,7 +50,7 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
           limit: 1,
         }
       ], { signal });
-      
+
       return events[0] || null;
     },
     enabled: !!targetPubkey && !!targetBlobbiId,
@@ -63,13 +64,43 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
   const updateStateMutation = useMutation({
     mutationFn: async ({ blobbi, fees }: { blobbi: Blobbi; fees?: number }) => {
       if (!user) throw new Error('Must be logged in to update Blobbi state');
-      
-      const stateEventData = createBlobbiStateEvent(blobbi, fees);
-      
+
+      // Fetch current state to merge tags safely
+      const signal = AbortSignal.timeout(5000);
+      const currentEvents = await nostr.query([
+        {
+          kinds: [BLOBBI_EVENT_KINDS.STATE],
+          authors: [user.pubkey],
+          '#d': [blobbi.id],
+          limit: 1,
+        }
+      ], { signal });
+
+      let updatedTags: Array<[string, string]>;
+
+      if (currentEvents.length > 0) {
+        // Use merge helper to preserve existing tags
+        const stateEventData = createBlobbiStateEvent(blobbi, fees);
+        updatedTags = mergeBlobbiStateTags(currentEvents[0].tags, {
+          additionalTags: stateEventData.tags,
+        });
+      } else {
+        // No existing event, create new tags
+        const stateEventData = createBlobbiStateEvent(blobbi, fees);
+        updatedTags = stateEventData.tags.map(tag => [tag[0] || '', tag[1] || '']) as Array<[string, string]>;
+      }
+
+      const baseContent =
+        currentEvents.length > 0
+          ? currentEvents[0].content
+          : `${blobbi.name} is a ${blobbi.lifeStage} Blobbi.`;
+
       await publishEvent({
-        ...stateEventData,
+        kind: BLOBBI_EVENT_KINDS.STATE,
+        content: baseContent,
+        tags: updatedTags,
       });
-      
+
       return blobbi;
     },
     onSuccess: (_, { blobbi }) => {
@@ -107,7 +138,7 @@ export function useBlobbiInteractions(blobbiId: string, limit: number = 50) {
           limit,
         }
       ], { signal });
-      
+
       return events
         .filter(validateBlobbiEvent)
         .map(event => ({
@@ -124,17 +155,17 @@ export function useBlobbiInteractions(blobbiId: string, limit: number = 50) {
   const createInteractionMutation = useMutation({
     mutationFn: async (interactionData: BlobbiInteractionData) => {
       if (!user) throw new Error('Must be logged in to create interaction');
-      
+
       const interactionEventData = createBlobbiInteractionEvent(blobbiId, interactionData);
-      
+
       await publishEvent({
         ...interactionEventData,
       });
-      
+
       return interactionData;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', blobbiId] });
+      queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', blobbiId, limit] });
     },
   });
 
@@ -163,7 +194,7 @@ export function useBlobbiRecords(blobbiId: string, recordType?: BlobbiRecordType
     kinds: [BLOBBI_EVENT_KINDS.RECORD],
     '#blobbi_id': [blobbiId],
   };
-  
+
   if (recordType) {
     queryFilter['#record_type'] = [recordType];
   }
@@ -174,7 +205,7 @@ export function useBlobbiRecords(blobbiId: string, recordType?: BlobbiRecordType
     queryFn: async () => {
       const signal = AbortSignal.timeout(5000);
       const events = await nostr.query([queryFilter], { signal });
-      
+
       return events
         .filter(validateBlobbiEvent)
         .map(event => ({
@@ -191,17 +222,17 @@ export function useBlobbiRecords(blobbiId: string, recordType?: BlobbiRecordType
   const createRecordMutation = useMutation({
     mutationFn: async ({ recordData, content }: { recordData: BlobbiRecordData; content?: string }) => {
       if (!user) throw new Error('Must be logged in to create record');
-      
+
       const recordEventData = createBlobbiRecordEvent(blobbiId, recordData, content);
-      
+
       await publishEvent({
         ...recordEventData,
       });
-      
+
       return recordData;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['blobbi-records', blobbiId] });
+      queryClient.invalidateQueries({ queryKey: ['blobbi-records', blobbiId, recordType] });
     },
   });
 
@@ -226,7 +257,7 @@ export function useBlobbiBreeding() {
     queryKey: ['blobbi-breeding', user?.pubkey],
     queryFn: async () => {
       if (!user) return [];
-      
+
       const signal = AbortSignal.timeout(5000);
       const events = await nostr.query([
         {
@@ -238,7 +269,7 @@ export function useBlobbiBreeding() {
           '#owner_b': [user.pubkey],
         }
       ], { signal });
-      
+
       return events
         .filter(validateBlobbiEvent)
         .sort((a, b) => b.created_at - a.created_at);
@@ -266,7 +297,7 @@ export function useBlobbiBreeding() {
       additionalData?: Record<string, string>;
     }) => {
       if (!user) throw new Error('Must be logged in to create breeding event');
-      
+
       const breedingEventData = createBlobbiBreedingEvent(
         parentA,
         parentB,
@@ -276,11 +307,11 @@ export function useBlobbiBreeding() {
         offspringId,
         additionalData
       );
-      
+
       await publishEvent({
         ...breedingEventData,
       });
-      
+
       return breedingEventData;
     },
     onSuccess: () => {
@@ -327,22 +358,22 @@ export function useBlobbiTimeline(blobbiId: string) {
 // Hook for creating a new Blobbi with proper lifecycle events
 export function useCreateBlobbi() {
   const { user } = useCurrentUser();
-  const { updateState } = useBlobbiState();
   const queryClient = useQueryClient();
   const { mutateAsync: publishEvent } = useNostrPublish();
+  const { nostr } = useNostr();
 
   const createBlobbiMutation = useMutation({
-    mutationFn: async ({ 
-      name, 
+    mutationFn: async ({
+      name,
       stage = 'egg',
-      birthData 
-    }: { 
-      name: string; 
+      birthData
+    }: {
+      name: string;
       stage?: 'egg' | 'baby' | 'adult';
       birthData?: Partial<BlobbiRecordData>;
     }) => {
       if (!user) throw new Error('Must be logged in to create a Blobbi');
-      
+
       // Use the specification-compliant egg generation system
       const { createBlobbiWithAdoption } = await import('@/lib/blobbi-adoption');
       const { blobbi: newBlobbi, adoptionRecord } = createBlobbiWithAdoption({
@@ -364,7 +395,28 @@ export function useCreateBlobbi() {
 
       // Then create the initial state with adoption fees
       const adoptionFees = 100; // Standard adoption cost
-      await updateState(newBlobbi, adoptionFees);
+      const stateEventData = createBlobbiStateEvent(newBlobbi, adoptionFees);
+      // check if there's already one (unlikely, but keeps same pattern)
+      const signal = AbortSignal.timeout(3000);
+      const existing = await nostr.query([
+        {
+          kinds: [BLOBBI_EVENT_KINDS.STATE],
+          authors: [user.pubkey],
+          '#d': [newBlobbi.id],
+          limit: 1,
+        },
+      ], { signal });
+
+      const finalTags =
+        existing.length > 0
+          ? mergeBlobbiStateTags(existing[0].tags, { additionalTags: stateEventData.tags })
+          : stateEventData.tags;
+
+      await publishEvent({
+        kind: BLOBBI_EVENT_KINDS.STATE,
+        content: stateEventData.content,
+        tags: finalTags,
+      });
 
       return newBlobbi;
     },
@@ -388,20 +440,20 @@ export function useBlobbiEvolution(blobbiId: string) {
   const queryClient = useQueryClient();
 
   const evolveBlobbiMutation = useMutation({
-    mutationFn: async ({ 
-      newStage, 
-      evolutionReason 
-    }: { 
-      newStage: BlobbiLifeStage; 
+    mutationFn: async ({
+      newStage,
+      evolutionReason
+    }: {
+      newStage: BlobbiLifeStage;
       evolutionReason?: string;
     }) => {
       if (!user) throw new Error('Must be logged in to evolve Blobbi');
       if (!blobbi) throw new Error('Blobbi not found');
-      
+
       if (newStage === 'baby' && blobbi.lifeStage === 'egg') {
         // Handle hatching with dual-event emission
         const { processHatching } = await import('@/lib/blobbi-evolution');
-        
+
         const { hatchingRecord, updatedBlobbi } = processHatching(blobbi);
 
         // First, create the kind 14921 hatching record
@@ -417,7 +469,7 @@ export function useBlobbiEvolution(blobbiId: string) {
       } else {
         // Handle regular evolution (baby to adult)
         const { processEvolution } = await import('@/lib/blobbi-evolution');
-        
+
         const { updatedBlobbi, evolutionRecord } = processEvolution(
           blobbi,
           newStage,
@@ -469,7 +521,7 @@ export function useBlobbiMemory(blobbiId: string) {
       discoveredTrait?: string;
     }) => {
       if (!user) throw new Error('Must be logged in to create memory');
-      
+
       const memoryRecord: BlobbiRecordData = {
         recordType: 'memory',
         memoryTitle,
@@ -516,10 +568,10 @@ export function useBlobbiCare(blobbiId: string) {
       if (!blobbi) throw new Error('Blobbi not found');
 
       // Import evolution functions
-      const { 
-        updateEvolutionProgress, 
-        checkEggHatchingReadiness, 
-        checkBabyEvolutionReadiness 
+      const {
+        updateEvolutionProgress,
+        checkEggHatchingReadiness,
+        checkBabyEvolutionReadiness
       } = await import('@/lib/blobbi-evolution');
 
       // Create interaction record
@@ -534,12 +586,16 @@ export function useBlobbiCare(blobbiId: string) {
 
       // Update evolution progress
       const updatedProgress = updateEvolutionProgress(blobbi, action);
-      
+
       // Apply stat changes and update Blobbi
       const statChange = fullInteractionData.statChange;
-      const [statName, changeValue] = statChange;
+      const safeStatChange =
+        Array.isArray(statChange) && statChange.length === 2
+          ? statChange
+          : (['happiness', '+5'] as const);
+      const [statName, changeValue] = safeStatChange;
       const changeAmount = parseInt(changeValue);
-      
+
       const updatedBlobbi: Blobbi = {
         ...blobbi,
         lastInteraction: Math.floor(Date.now() / 1000),
@@ -548,7 +604,13 @@ export function useBlobbiCare(blobbiId: string) {
         careStreak: fullInteractionData.careStreak || blobbi.careStreak,
         stats: {
           ...blobbi.stats,
-          [statName]: Math.max(0, Math.min(100, blobbi.stats[statName as keyof BlobbiStats] + changeAmount)),
+          [statName]: Math.max(
+            0,
+            Math.min(
+              100,
+              (blobbi.stats[statName as keyof BlobbiStats] ?? 0) + (Number.isFinite(changeAmount) ? changeAmount : 0)
+            )
+          ),
         },
       };
 
@@ -556,7 +618,7 @@ export function useBlobbiCare(blobbiId: string) {
 
       // Check for evolution opportunities
       let evolutionTriggered = false;
-      
+
       if (blobbi.lifeStage === 'egg') {
         const { isReady } = checkEggHatchingReadiness(updatedBlobbi);
         if (isReady) {

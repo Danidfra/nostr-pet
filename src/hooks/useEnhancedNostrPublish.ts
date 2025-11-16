@@ -122,10 +122,20 @@ async function handleInteractionStateUpdate(
     // Apply stat changes from interaction
     const updatedBlobbi = await applyInteractionChanges(currentBlobbi, interactionEvent);
 
-    // Create and publish updated state event
+    // Create base state event data
     const stateEventData = createBlobbiStateEvent(updatedBlobbi);
+
+    // CRITICAL FIX: Use mergeBlobbiStateTags to preserve incubation/quest tags
+    const { mergeBlobbiStateTags } = await import('@/lib/blobbi-state-merge');
+    const mergedTags = mergeBlobbiStateTags(currentStateEvent.tags, {
+      // No specific changes - just preserve existing incubation/quest tags
+      additionalTags: stateEventData.tags,
+    });
+
     const stateEvent = await user.signer.signEvent({
-      ...stateEventData,
+      kind: stateEventData.kind,
+      content: stateEventData.content,
+      tags: mergedTags,
       created_at: Math.floor(Date.now() / 1000),
     });
 
