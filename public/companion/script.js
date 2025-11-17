@@ -308,7 +308,6 @@ class BlobbiCompanion {
             audio.volume = effectiveVolume;
 
             audio.play()
-                .then(() => console.log(`✅ ${soundName} audio played successfully`))
                 .catch(error => console.error(`❌ Error playing ${soundName}:`, error));
 
             // Store reference for volume updates (will be cleared when audio ends)

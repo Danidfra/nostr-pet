@@ -22,7 +22,8 @@ import {
   Target,
   Zap,
   Baby,
-  Send
+  Send,
+  Camera
 } from 'lucide-react';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 import { useBlobbiQuestSystem } from '@/hooks/useBlobbiQuestSystem';
@@ -31,6 +32,7 @@ import { EggGraphic } from './EggGraphic';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { CreatePostModal } from './CreatePostModal';
+import { PolaroidPhotoModal } from './PolaroidPhotoModal';
 import { formatDistanceToNow } from 'date-fns';
 
 interface BlobbiIncubationDashboardProps {
@@ -59,9 +61,12 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
     refetchMetadata,
     debugInfo,
     getProgress,
+    markPhotoTaskCompleted,
+    isTaskCompleted,
   } = useBlobbiIncubationSystem();
 
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
+  const [showPolaroidModal, setShowPolaroidModal] = useState(false);
 
   // New quest system for Baby to Adult evolution
   const {
@@ -470,17 +475,20 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
 
             {/* Task List */}
             <div className="space-y-3">
-              {eggTasks.map((task, index) => (
+              {eggTasks.map((task, index) => {
+                const isActuallyCompleted = isTaskCompleted(task, selectedBlobbi?.id || null);
+
+                return (
                 <div
                   key={task.id}
                   className={`flex items-start gap-3 p-4 rounded-lg border transition-colors ${
-                    task.completed
+                    isActuallyCompleted
                       ? 'bg-green-50/80 dark:bg-green-950/50 border-green-200 dark:border-green-800'
                       : 'bg-gray-50/80 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700'
                   }`}
                 >
                   <div className="mt-0.5">
-                    {task.completed ? (
+                    {isActuallyCompleted ? (
                       <CheckCircle className="h-5 w-5 text-green-500" />
                     ) : (
                       <Circle className="h-5 w-5 text-gray-400" />
@@ -490,10 +498,10 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <h4 id={`tab-growth-hub-tasks-${index}`} className={`font-medium ${task.completed ? 'text-green-800 dark:text-green-200' : 'text-gray-900 dark:text-gray-100'}`}>
+                          <h4 id={`tab-growth-hub-tasks-${index}`} className={`font-medium ${isActuallyCompleted ? 'text-green-800 dark:text-green-200' : 'text-gray-900 dark:text-gray-100'}`}>
                             {task.name}
                           </h4>
-                          {task.completed && (
+                          {isActuallyCompleted && (
                             <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
                               Completed
                             </Badge>
@@ -507,19 +515,19 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                           {task.description}
                         </p>
-                        {task.completed && (
+                        {isActuallyCompleted && (
                           <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
                             <CheckCircle className="h-3 w-3" />
-                            Task confirmed on Nostr
+                            {task.id === 'shell_integrity_above_50' ? 'Shell integrity requirement met' : 'Task confirmed on Nostr'}
                           </p>
                         )}
-                        {'progress' in task && task.target && !task.completed && (
+                        {'progress' in task && task.target && !isActuallyCompleted && (
                           <div className="mt-2">
                             <Progress value={((task.progress || 0) / task.target) * 100} className="h-2" />
                           </div>
                         )}
                       </div>
-                      {!task.completed && task.id === 'blobbi_hashtag_post' && (
+                      {!isActuallyCompleted && task.id === 'blobbi_hashtag_post' && (
                         <Button
                           size="sm"
                           onClick={() => {
@@ -534,10 +542,26 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                           Create Post
                         </Button>
                       )}
+                      {!isActuallyCompleted && task.id === 'post_blobbi_photo' && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setShowPolaroidModal(true)
+                            if (!incubationStartTime) {
+                              startIncubation()
+                            }
+                          }}
+                          className="ml-4 bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                          <Camera className="h-3 w-3 mr-1" />
+                          Take Photo
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Evolution Button */}
@@ -1069,6 +1093,21 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
           refetchMetadata();
         }}
       />
+
+      {/* Polaroid Photo Modal */}
+      {selectedBlobbi && (
+        <PolaroidPhotoModal
+          isOpen={showPolaroidModal}
+          onClose={() => setShowPolaroidModal(false)}
+          blobbi={selectedBlobbi}
+          onPhotoPosted={async () => {
+            // Mark the photo task as completed
+            await markPhotoTaskCompleted(selectedBlobbi.id);
+            // Refresh the incubation system
+            refetchMetadata();
+          }}
+        />
+      )}
     </div>
   );
 }

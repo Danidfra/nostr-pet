@@ -12,6 +12,8 @@ export interface BlobbiStateMergeOptions {
   removeStartIncubation?: boolean;
   /** Task ID to mark as confirmed (e.g., 'interact_6', 'blobbi_hashtag_post') */
   addConfirmedTaskId?: string;
+  /** Progress value for a specific task (e.g., 'interact_6_progress', '3') */
+  updateTaskProgress?: { taskId: string; progress: number };
   /** Hatch time timestamp (Unix timestamp in seconds) */
   hatchTime?: number;
   /** Any additional tags to add/override */
@@ -103,12 +105,30 @@ export function mergeBlobbiStateTags(
         }
         break;
 
-      default:
+      default: {
+        // Handle specific task progress updates first
+        if (options.updateTaskProgress && tagName === `${options.updateTaskProgress.taskId}_progress`) {
+          // Replace this specific progress tag with new value
+          result.push([tagName, options.updateTaskProgress.progress.toString()]);
+          console.log(`🔄 Updating progress tag: ${tagName} = ${options.updateTaskProgress.progress}`);
+          break;
+        }
+
+        // Handle specific task confirmation updates
+        if (options.addConfirmedTaskId && tagName === `${options.addConfirmedTaskId}_confirmed`) {
+          // Replace this specific confirmation tag with timestamp
+          const timestamp = Math.floor(Date.now() / 1000).toString();
+          result.push([tagName, timestamp]);
+          console.log(`✅ Updating confirmation tag: ${tagName} = ${timestamp}`);
+          break;
+        }
+
         // Check if this tag should be preserved (incubation/quest tags)
         const shouldPreserveTag = preserveIncubationAndQuestTags && (
           tagName === 'start_incubation' ||
           tagName === 'hatch_time' ||
           tagName.endsWith('_confirmed') ||
+          tagName.endsWith('_progress') ||
           // Add other patterns that should be preserved
           tagName.includes('quest_') ||
           tagName.includes('task_') ||
@@ -121,14 +141,12 @@ export function mergeBlobbiStateTags(
         if (isBeingOverridden && !shouldPreserveTag) {
           // Skip this tag - it will be replaced by additionalTags
           processedAdditionalTags.add(tagName);
-        } else if (options.addConfirmedTaskId && tagName === `${options.addConfirmedTaskId}_confirmed`) {
-          // Replace this specific confirmation tag with "true"
-          result.push([tagName, 'true']);
         } else {
           // Keep all other tags as-is
           values.forEach(value => result.push([tagName, value]));
         }
         break;
+      }
     }
   });
 
@@ -146,7 +164,12 @@ export function mergeBlobbiStateTags(
   }
 
   if (options.addConfirmedTaskId && !existingTags.has(`${options.addConfirmedTaskId}_confirmed`)) {
-    result.push([`${options.addConfirmedTaskId}_confirmed`, 'true']);
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    result.push([`${options.addConfirmedTaskId}_confirmed`, timestamp]);
+  }
+
+  if (options.updateTaskProgress && !existingTags.has(`${options.updateTaskProgress.taskId}_progress`)) {
+    result.push([`${options.updateTaskProgress.taskId}_progress`, options.updateTaskProgress.progress.toString()]);
   }
 
   // Add any additional tags

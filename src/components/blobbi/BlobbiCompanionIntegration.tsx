@@ -111,7 +111,6 @@ export function BlobbiCompanionIntegration() {
 
         // Set placing food state
         setIsPlacingFood(true);
-        console.log('✅ React: Food placement state set to true');
 
         // Store the food data for later use (don't clear selectedFood yet)
         // We'll clear it when Blobbi reaches the food
@@ -201,7 +200,6 @@ export function BlobbiCompanionIntegration() {
         // Clear placing food state and selected food
         setIsPlacingFood(false);
         setSelectedFood(null);
-        console.log('🧹 React: Cleared food placement state');
       } catch (error) {
         console.error('❌ React: Failed to feed Blobbi:', error);
         toast({
@@ -918,7 +916,6 @@ export function BlobbiCompanionIntegration() {
       console.log('🍽️ Hunger Monitor: Playing stomach rumble sound with volume:', audio.volume);
 
       audio.play()
-        .then(() => console.log('✅ Stomach rumble sound played successfully'))
         .catch(error => console.error('❌ Error playing stomach rumble sound:', error));
     } catch (error) {
       console.error('❌ Error creating stomach rumble audio:', error);
@@ -943,7 +940,6 @@ export function BlobbiCompanionIntegration() {
       // Set hungry notification title
       const hungryTitle = '🍽️ Blobbi is hungry!';
       document.title = hungryTitle;
-      console.log('🍽️ Tab Notification: Changed title to:', hungryTitle);
 
       // Restore original title after 8 seconds
       titleTimeoutRef.current = setTimeout(() => {
@@ -960,7 +956,6 @@ export function BlobbiCompanionIntegration() {
     try {
       if (originalTitleRef.current !== null) {
         document.title = originalTitleRef.current;
-        console.log('🍽️ Tab Notification: Restored original title:', originalTitleRef.current);
       }
 
       // Clear title timeout if it exists
@@ -993,7 +988,6 @@ export function BlobbiCompanionIntegration() {
       console.log('🏥 Health Monitor: Playing sick sound with volume:', audio.volume);
 
       audio.play()
-        .then(() => console.log('✅ Sick sound played successfully'))
         .catch(error => console.error('❌ Error playing sick sound:', error));
     } catch (error) {
       console.error('❌ Error creating sick audio:', error);
@@ -1018,7 +1012,6 @@ export function BlobbiCompanionIntegration() {
       // Set health notification title
       const healthTitle = `🏥 ${message}`;
       document.title = healthTitle;
-      console.log('🏥 Tab Notification: Changed title to:', healthTitle);
 
       // Restore original title after 8 seconds
       healthTitleTimeoutRef.current = setTimeout(() => {
@@ -1035,7 +1028,6 @@ export function BlobbiCompanionIntegration() {
     try {
       if (originalTitleRef.current !== null) {
         document.title = originalTitleRef.current;
-        console.log('🏥 Tab Notification: Restored original title:', originalTitleRef.current);
       }
 
       // Clear health title timeout if it exists
@@ -1068,7 +1060,6 @@ export function BlobbiCompanionIntegration() {
       console.log('⚡ Energy Monitor: Playing tired sound with volume:', audio.volume);
 
       audio.play()
-        .then(() => console.log('✅ Tired sound played successfully'))
         .catch(error => console.error('❌ Error playing tired sound:', error));
     } catch (error) {
       console.error('❌ Error creating tired audio:', error);
@@ -1093,7 +1084,6 @@ export function BlobbiCompanionIntegration() {
       // Set energy notification title
       const energyTitle = `⚡ ${message}`;
       document.title = energyTitle;
-      console.log('⚡ Tab Notification: Changed title to:', energyTitle);
 
       // Restore original title after 8 seconds
       energyTitleTimeoutRef.current = setTimeout(() => {
@@ -1110,7 +1100,6 @@ export function BlobbiCompanionIntegration() {
     try {
       if (originalTitleRef.current !== null) {
         document.title = originalTitleRef.current;
-        console.log('⚡ Tab Notification: Restored original title:', originalTitleRef.current);
       }
 
       // Clear energy title timeout if it exists
@@ -1140,10 +1129,7 @@ export function BlobbiCompanionIntegration() {
         audio.volume = volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5;
       }
 
-      console.log('🧼 Hygiene Monitor: Playing yuck sound with volume:', audio.volume);
-
       audio.play()
-        .then(() => console.log('✅ Yuck sound played successfully'))
         .catch(error => console.error('❌ Error playing yuck sound:', error));
     } catch (error) {
       console.error('❌ Error creating yuck audio:', error);
@@ -1168,7 +1154,6 @@ export function BlobbiCompanionIntegration() {
       // Set hygiene notification title
       const hygieneTitle = `🧼 ${message}`;
       document.title = hygieneTitle;
-      console.log('🧼 Tab Notification: Changed title to:', hygieneTitle);
 
       // Restore original title after 8 seconds
       hygieneTitleTimeoutRef.current = setTimeout(() => {
@@ -1185,7 +1170,6 @@ export function BlobbiCompanionIntegration() {
     try {
       if (originalTitleRef.current !== null) {
         document.title = originalTitleRef.current;
-        console.log('🧼 Tab Notification: Restored original title:', originalTitleRef.current);
       }
 
       // Clear hygiene title timeout if it exists
@@ -1218,7 +1202,6 @@ export function BlobbiCompanionIntegration() {
       console.log('😢 Happiness Monitor: Playing sad sound with volume:', audio.volume);
 
       audio.play()
-        .then(() => console.log('✅ Sad sound played successfully'))
         .catch(error => console.error('❌ Error playing sad sound:', error));
     } catch (error) {
       console.error('❌ Error creating sad audio:', error);
@@ -1243,7 +1226,6 @@ export function BlobbiCompanionIntegration() {
       // Set happiness notification title
       const happinessTitle = `😢 ${message}`;
       document.title = happinessTitle;
-      console.log('😢 Tab Notification: Changed title to:', happinessTitle);
 
       // Restore original title after 8 seconds
       happinessTitleTimeoutRef.current = setTimeout(() => {
@@ -1260,7 +1242,6 @@ export function BlobbiCompanionIntegration() {
     try {
       if (originalTitleRef.current !== null) {
         document.title = originalTitleRef.current;
-        console.log('😢 Tab Notification: Restored original title:', originalTitleRef.current);
       }
 
       // Clear happiness title timeout if it exists

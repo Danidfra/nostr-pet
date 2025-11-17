@@ -48,6 +48,7 @@ interface PolaroidPhotoModalProps {
   isOpen: boolean;
   onClose: () => void;
   blobbi: Blobbi;
+  onPhotoPosted?: () => void;
 }
 
 // Available backgrounds
@@ -123,7 +124,7 @@ const CarouselDots = ({
   );
 };
 
-export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoModalProps) {
+export function PolaroidPhotoModal({ isOpen, onClose, blobbi, onPhotoPosted }: PolaroidPhotoModalProps) {
   const { toast } = useToast();
   const polaroidRootRef = useRef<HTMLDivElement>(null);
   const [selectedBackground, setSelectedBackground] = useState<Background>(backgrounds[0]);
@@ -466,6 +467,15 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
         description: `Published to ${enabledRelays.length} relay${enabledRelays.length > 1 ? 's' : ''}: ${enabledRelays.join(', ')}`,
       });
 
+      // Notify parent component that photo was posted successfully
+      if (onPhotoPosted) {
+        try {
+          await onPhotoPosted();
+        } catch (error) {
+          console.warn('Failed to execute onPhotoPosted callback:', error);
+        }
+      }
+
       // Reset form after successful share
       setNostrContent('');
 
@@ -489,6 +499,15 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi }: PolaroidPhotoMod
           description: "There was a connection issue during cleanup, but your photo was likely published successfully. Please check your Nostr client.",
           variant: "default",
         });
+
+        // Notify parent component that photo was likely posted successfully (optimistically)
+        if (onPhotoPosted) {
+          try {
+            await onPhotoPosted();
+          } catch (error) {
+            console.warn('Failed to execute onPhotoPosted callback:', error);
+          }
+        }
 
         // Still reset form and close modal
         setNostrContent('');
