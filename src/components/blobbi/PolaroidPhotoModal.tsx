@@ -436,8 +436,8 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi, onPhotoPosted }: P
         kind: 1,
         content: finalContent,
         tags: [
-          ["t", "Blobbi"],
-          ["t", "NostrPet"],
+          ["t", "blobbi"],
+          ['b', 'blobbi:ecosystem:v1'],
           [
             "imeta",
             `url ${imageUrl}`,

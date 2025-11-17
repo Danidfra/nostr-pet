@@ -51,7 +51,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
-    "date-fns": "^3.6.0",
+    "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.3.0",
     "framer-motion": "^12.18.1",
     "html-to-image": "^1.11.13",
@@ -99,7 +99,7 @@
     "vite-plugin-pwa": "^1.0.3",
     "vitest": "^3.2.3"
   },
-   "overrides": {
+  "overrides": {
     "@nostrify/nostrify": "npm:@jsr/nostrify__nostrify@^0.46.1"
   }
 }

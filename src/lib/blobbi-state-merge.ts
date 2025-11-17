@@ -1,4 +1,5 @@
 import { NostrEvent } from '@nostrify/nostrify';
+import { ensureBlobbiTags, hasBlobbiEcosystemTag, hasBlobbiTopicTag } from './blobbi-tags';
 
 /**
  * Interface for merge options when updating Blobbi state tags
@@ -200,6 +201,19 @@ export function mergeBlobbiStateTags(
         result.push([name, value]);
       }
     });
+  }
+
+  // Ensure all Blobbi tags are preserved (never removed accidentally)
+  if (!hasBlobbiEcosystemTag(result) || !hasBlobbiTopicTag(result)) {
+    console.warn('[Blobbi Tags] Blobbi tags were lost during merge, restoring them');
+    // Add both tags if either is missing
+    if (!hasBlobbiEcosystemTag(result)) {
+      result.unshift(['b', 'blobbi:ecosystem:v1']);
+    }
+    if (!hasBlobbiTopicTag(result)) {
+      result.unshift(['t', 'Blobbi']);
+      result.unshift(['t', 'blobbi']);
+    }
   }
 
   return result;

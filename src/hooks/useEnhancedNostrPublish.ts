@@ -2,6 +2,7 @@ import { useNostr } from "@nostrify/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "./useCurrentUser";
 import { BLOBBI_EVENT_KINDS, createBlobbiStateEvent, parseBlobbiFromStateEvent } from "@/lib/blobbi-events";
+import { ensureBlobbiTagsWithDebug } from "@/lib/blobbi-tags";
 import { Blobbi, BlobbiStats } from "@/types/blobbi";
 import { clampStat } from "@/lib/blobbi-events";
 import { NostrEvent } from "@nostrify/nostrify";
@@ -28,11 +29,36 @@ export function useEnhancedNostrPublish() {
         throw new Error("User is not logged in");
       }
 
-      const tags = t.tags ?? [];
+      let tags = t.tags ?? [];
 
-      // Add the client tag if it doesn't exist
+      // Add client tag if it doesn't exist
       if (!tags.some((tag) => tag[0] === "client")) {
         tags.push(["client", "blobbi"]);
+      }
+
+      // Add Blobbi tags for Blobbi events
+      const BLOBBI_EVENT_KINDS_SET = new Set([
+        BLOBBI_EVENT_KINDS?.STATE || 31124,
+        BLOBBI_EVENT_KINDS?.INTERACTION || 14919,
+        BLOBBI_EVENT_KINDS?.RECORD || 14921,
+        BLOBBI_EVENT_KINDS?.BREEDING || 14920,
+        BLOBBI_EVENT_KINDS?.BLOBBANAUT_PROFILE || 31125,
+        // Also include kind:1 for Blobbi social posts
+        1,
+      ]);
+
+      if (BLOBBI_EVENT_KINDS_SET.has(t.kind)) {
+        const hasEcosystemTag = tags.some(
+          (tag) => tag[0] === "b" && tag[1] === "blobbi:ecosystem:v1"
+        );
+        const hasTopicTag = tags.some(
+          (tag) => tag[0] === "t" && tag[1]?.toLowerCase() === "blobbi"
+        );
+
+        if (!hasEcosystemTag || !hasTopicTag) {
+          console.warn(`[Blobbi Enhanced] Adding Blobbi tags to kind:${t.kind} event`);
+          tags = ensureBlobbiTagsWithDebug(tags, 'useEnhancedNostrPublish', t.kind);
+        }
       }
 
       const event = await user.signer.signEvent({
