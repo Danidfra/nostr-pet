@@ -1,10 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useEnhancedNostrPublish } from '@/hooks/useEnhancedNostrPublish';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useNostr } from '@/hooks/useNostr';
 import { useBlobbiFakeStatus, applyStatChangesToBlobbi } from '@/contexts/BlobbiFakeStatusContext';
-import { mergeBlobbiStateTags, extractTagValues } from '@/lib/blobbi-state-merge';
 import {
   createBlobbiInteractionEvent,
   BLOBBI_EVENT_KINDS
@@ -278,9 +275,6 @@ export function useBlobbiGameInteractionWithFakeStatus() {
 export function useBlobbiCareInteractionWithFakeStatus() {
   const baseHook = useBlobbiInteractionWithFakeStatus();
   const queryClient = useQueryClient();
-  const { user } = useCurrentUser();
-  const { nostr } = useNostr();
-  const { mutateAsync: publishEvent } = useNostrPublish();
 
   return useMutation({
     mutationFn: async (params: {
@@ -322,7 +316,7 @@ export function useBlobbiCareInteractionWithFakeStatus() {
         statChanges = [['happiness', 5]];
       }
 
-      const result = await baseHook.mutateAsync({
+      return await baseHook.mutateAsync({
         blobbiId,
         action: action as BlobbiInteractionType,
         actionCategory: getCareActionCategory(action),
@@ -332,12 +326,6 @@ export function useBlobbiCareInteractionWithFakeStatus() {
         itemUsed,
         currentBlobbi,
       });
-
-      // After successful interaction, check if we need to update interact_6 progress
-      // This handles the case where interactions happen through the UI directly
-      await handleInteract6Progress(blobbiId, action, result.interactionEvent.created_at, user, nostr, publishEvent);
-
-      return result;
     },
     onSuccess: (data, variables) => {
       // Invalidate relevant queries
@@ -361,121 +349,7 @@ export function useBlobbiCareInteractionWithFakeStatus() {
   });
 }
 
-/**
- * Helper function to handle interact_6 progress updates for egg stage Blobbis
- */
-async function handleInteract6Progress(
-  blobbiId: string,
-  action: string,
-  interactionTimestamp: number,
-  user: any,
-  nostr: any,
-  publishEvent: any
-): Promise<void> {
 
-  // Only process valid egg interaction actions
-  const validEggActions = ['warm', 'check', 'sing', 'talk', 'medicine', 'clean'];
-  if (!validEggActions.includes(action)) {
-    console.log(`⏭️ Action ${action} not valid for interact_6 task`);
-    return;
-  }
-
-  if (!user || !nostr) {
-    console.log('⚠️ No user or nostr available for interact_6 progress update');
-    return;
-  }
-
-  try {
-    console.log(`🔍 Checking interact_6 progress for ${action} on ${blobbiId} at ${interactionTimestamp}`);
-
-    // Fetch current Blobbi state to check if it's an egg with start_incubation
-    const signal = AbortSignal.timeout(5000);
-    const currentBlobbiEvents = await nostr.query([{
-      kinds: [31124],
-      authors: [user.pubkey],
-      '#d': [blobbiId],
-      limit: 1,
-    }], { signal });
-
-    if (currentBlobbiEvents.length === 0) {
-      console.log(`⚠️ No Blobbi event found for ${blobbiId}`);
-      return;
-    }
-
-    const currentEvent = currentBlobbiEvents[0];
-
-    // Check if this is an egg
-    const stageTag = currentEvent.tags.find(tag => tag[0] === 'stage');
-    if (!stageTag || stageTag[1] !== 'egg') {
-      console.log(`⏭️ Blobbi ${blobbiId} is not an egg (stage: ${stageTag?.[1]}), skipping interact_6 progress`);
-      return;
-    }
-
-    // Check if start_incubation tag exists
-    const startIncubationTags = extractTagValues(currentEvent, 'start_incubation');
-    if (startIncubationTags.length === 0) {
-      console.log(`⏭️ No start_incubation tag for ${blobbiId}, skipping interact_6 progress`);
-      return;
-    }
-
-    // Check if already confirmed
-    const interact6ConfirmedTag = currentEvent.tags.find(tag => tag[0] === 'interact_6_confirmed');
-    if (interact6ConfirmedTag) {
-      console.log(`⏭️ interact_6 already confirmed for ${blobbiId}, skipping progress`);
-      return;
-    }
-
-    // Get current progress
-    const interact6ProgressTag = currentEvent.tags.find(tag => tag[0] === 'interact_6_progress');
-    const currentProgress = interact6ProgressTag ? parseInt(interact6ProgressTag[1]) : 0;
-
-    // Get last interaction time for cooldown check
-    const lastInteractionTag = currentEvent.tags.find(tag => tag[0] === 'last_interaction_time');
-    const lastInteractionTime = lastInteractionTag ? parseInt(lastInteractionTag[1]) : 0;
-
-    // Check 3-second cooldown (both timestamps are in seconds)
-    const cooldownPassed = interactionTimestamp - lastInteractionTime >= 3;
-
-    console.log(`⏱️ Cooldown check: current=${interactionTimestamp}, last=${lastInteractionTime}, diff=${interactionTimestamp - lastInteractionTime}, passed=${cooldownPassed}`);
-
-    if (!cooldownPassed) {
-      console.log(`⏭️ Cooldown not passed for ${blobbiId}, skipping interact_6 progress`);
-      return;
-    }
-
-    // Increment progress
-    const newProgress = currentProgress + 1;
-    console.log(`📈 Updating interact_6 progress: ${currentProgress} → ${newProgress}`);
-
-    // Prepare merge options for progress update
-    const mergeOptions: any = {
-      updateTaskProgress: { taskId: 'interact_6', progress: newProgress },
-      additionalTags: [['last_interaction_time', interactionTimestamp.toString()]], // Track last interaction time
-    };
-
-    // If progress reaches 6 or more, also add confirmation
-    if (newProgress >= 6) {
-      mergeOptions.addConfirmedTaskId = 'interact_6';
-      console.log(`✅ interact_6 task completed with progress ${newProgress}`);
-    }
-
-    // Update the 31124 event with new progress
-    const updatedTags = mergeBlobbiStateTags(currentEvent.tags, mergeOptions);
-
-    console.log(`🏷️ Publishing updated 31124 event with tags:`, updatedTags);
-
-    await publishEvent({
-      kind: 31124,
-      content: currentEvent.content,
-      tags: updatedTags,
-    });
-
-    console.log(`✅ Successfully updated interact_6 progress for ${blobbiId}: ${newProgress}${newProgress >= 6 ? ' (COMPLETED)' : ''}`);
-
-  } catch (error) {
-    console.error('❌ Failed to handle interact_6 progress:', error);
-  }
-}
 
 // Helper functions
 function getTimeOfDay(): string {

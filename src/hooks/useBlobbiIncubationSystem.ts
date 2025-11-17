@@ -247,7 +247,6 @@ interface IncubationState {
   blobbiCreationTime: number;
   hatchTime?: number;
   lastInteractionTime?: number;
-  needsProgressUpdate?: { taskId: string; progress: number };
 }
 
 type BlobbiTaskStates = Map<string, IncubationState>;
@@ -714,8 +713,8 @@ export function useBlobbiIncubationSystem() {
                   variant: "default",
                 });
 
-                // Mark that we need to publish progress update
-                newIncubationState.needsProgressUpdate = { taskId: 'interact_6', progress: newProgress };
+                // Note: Progress updates are now handled automatically by useEnhancedNostrPublish
+                // This local state update provides immediate UI feedback
 
                 return { ...task, progress: newProgress };
               }
@@ -875,20 +874,9 @@ export function useBlobbiIncubationSystem() {
       }
     }
 
-    // Check if we need to publish progress update (separate from completion)
-    if (currentSelectedEggId) {
-      const updatedTaskState = state.blobbiTaskStates.get(currentSelectedEggId);
-      if (updatedTaskState?.needsProgressUpdate) {
-        const { taskId, progress } = updatedTaskState.needsProgressUpdate;
-        console.log(`📊 Publishing progress update for ${taskId}: ${progress}`);
-
-        // Clear the flag first
-        updatedTaskState.needsProgressUpdate = undefined;
-
-        // Publish progress update (not completion)
-        await publishTaskConfirmation(taskId, false, progress);
-      }
-    }
+    // Note: Progress updates are now handled automatically by useEnhancedNostrPublish
+    // when interaction events are published. This subscription-based logic only
+    // updates local state for real-time UI feedback.
   }, [user, publishEvent, state.incubationStartTime, state.selectedEggId, publishTaskConfirmation, toast, getTaskCompletionMessage]);
 
   // Step 2: Start persistent metadata subscription (kind 31124)
