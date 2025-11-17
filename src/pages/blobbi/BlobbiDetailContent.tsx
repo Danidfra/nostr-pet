@@ -179,7 +179,8 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     selectEgg,
     startIncubation,
     stopIncubation,
-    hatchBlobbi
+    hatchBlobbi,
+    markPhotoTaskCompleted
   } = useBlobbiIncubationSystem();
 
   // New quest system for Baby to Adult evolution
@@ -586,6 +587,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                   isPerformingAction={isPerformingAction}
                   onGamesClick={() => setShowGames(true)}
                   onOpenShop={() => setShowShop(true)}
+                  onTakePhoto={() => setShowPolaroidModal(true)}
                 />
               ) : (
                 <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
@@ -815,6 +817,9 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
             isOpen={showPolaroidModal}
             onClose={() => setShowPolaroidModal(false)}
             blobbi={blobbi}
+            onPhotoPosted={async () => {
+              await markPhotoTaskCompleted(blobbi.id);
+            }}
           />
         </>
       )}

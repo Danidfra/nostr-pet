@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Home, ArrowLeft } from 'lucide-react';
+import { MoreVertical, Home, ArrowLeft, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function HeaderActions() {
@@ -85,12 +85,14 @@ export function GlobalHeader() {
 
   // Check if we're on a Blobbi detail page
   const isBlobbiDetailPage = location.pathname.match(/^\/blobbi\/[^/]+$/);
+  // Check if we're on the community page
+  const isCommunityPage = location.pathname === '/blobbi/community';
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 sm:p-4">
         <div className="flex h-20 items-center justify-between">
-          {/* Logo/Brand with optional back arrow */}
+          {/* Logo/Brand with optional back arrow and community badge */}
           <div className="flex items-center gap-3">
             {isBlobbiDetailPage && (
               <Button
@@ -112,19 +114,42 @@ export function GlobalHeader() {
                 className="w-32 sm:w-48"
               />
             </Link>
+            {isCommunityPage && (
+              <span className="hidden sm:inline-flex items-center rounded-full border border-purple-200 dark:border-purple-600 px-3 py-1 text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-50/70 dark:bg-purple-900/30">
+                Community
+              </span>
+            )}
           </div>
 
           {/* Navigation Actions */}
           <div className="flex items-center gap-2">
-            {/* Home button for easy navigation */}
+            {/* Home button */}
             <Link to="/blobbi">
               <Button
                 variant="ghost"
                 size="sm"
-                className="hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+                className={cn(
+                  "hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors",
+                  location.pathname === '/blobbi' && "text-foreground bg-purple-50 dark:bg-purple-900/20"
+                )}
               >
                 <Home className="h-4 w-4" />
                 Home
+              </Button>
+            </Link>
+
+            {/* Community button */}
+            <Link to="/blobbi/community">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors",
+                  isCommunityPage && "text-foreground bg-purple-50 dark:bg-purple-900/20"
+                )}
+              >
+                <Users className="h-4 w-4" />
+                Community
               </Button>
             </Link>
 
@@ -135,14 +160,30 @@ export function GlobalHeader() {
 
             {/* Mobile: Show dropdown menu */}
             <div className="flex md:hidden gap-2">
-              <Link to="/">
+              <Link to="/blobbi">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  className={cn(
+                    "text-muted-foreground hover:text-foreground transition-colors",
+                    location.pathname === '/blobbi' && "text-foreground bg-purple-50 dark:bg-purple-900/20"
+                  )}
                 >
                   <Home className="h-4 w-4" />
                   <span className="sr-only">Home</span>
+                </Button>
+              </Link>
+              <Link to="/blobbi/community">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "text-muted-foreground hover:text-foreground transition-colors",
+                    isCommunityPage && "text-foreground bg-purple-50 dark:bg-purple-900/20"
+                  )}
+                >
+                  <Users className="h-4 w-4" />
+                  <span className="sr-only">Community</span>
                 </Button>
               </Link>
               <ThemeToggle />

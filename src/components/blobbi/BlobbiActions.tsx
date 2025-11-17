@@ -13,6 +13,7 @@ import { useBlobbonautProfile, useCreateInitialProfile } from '@/hooks/useBlobbo
 import { useToast } from '@/hooks/useToast';
 import { isActionAvailableForStage } from '@/lib/cooldown-storage';
 import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
+import { BlobbiGrowthHub } from './BlobbiGrowthHub';
 
 interface BlobbiActionsProps {
   blobbi: Blobbi;
@@ -21,6 +22,7 @@ interface BlobbiActionsProps {
   className?: string;
   onGamesClick?: () => void;
   onOpenShop?: () => void;
+  onTakePhoto?: () => void;
   lifecycleStatus?: {
     isEligibleForEvolution: boolean;
     evolutionStatus?: {
@@ -38,6 +40,7 @@ export function BlobbiActions({
   className,
   onGamesClick,
   onOpenShop,
+  onTakePhoto,
   lifecycleStatus,
   onEvolution
 }: BlobbiActionsProps) {
@@ -306,7 +309,14 @@ export function BlobbiActions({
   const actions = getActionsForStage();
 
   return (
-    <>
+    <div className="space-y-4">
+      {/* Growth Hub for eggs */}
+      <BlobbiGrowthHub
+        blobbi={blobbi}
+        onTakePhoto={onTakePhoto}
+      />
+
+      {/* Regular Actions */}
       <Card className={cn("bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600", className)}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -394,6 +404,6 @@ export function BlobbiActions({
           blobbi={blobbi}
         />
       )}
-    </>
+    </div>
   );
 }

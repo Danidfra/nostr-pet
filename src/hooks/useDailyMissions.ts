@@ -6,7 +6,7 @@ import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { BLOBBI_EVENT_KINDS } from '@/lib/blobbi-events';
 
 // Mission tag names (must match spec)
-const MISSION_TAGS = {
+export const MISSION_TAGS = {
   CHECK_IN: 'mission_daily_checkin_claimed_at',
   CARE_3: 'mission_daily_care3_claimed_at',
   BONUS: 'mission_daily_bonus_claimed_at',
@@ -214,10 +214,10 @@ export function useDailyMissions() {
       const currentCoins = blobbonautProfile.coins || 0;
       const newCoins = currentCoins + 15;
 
-      // Create new tags array preserving existing tags and adding mission claim + updated coins
+      // Create new tags array preserving existing tags, removing existing mission tag and coins, then adding new ones
       const newTags = [
-        ...currentTags.filter(([name]) => name !== 'coins'), // Remove existing coins tag
-        [MISSION_TAGS.CHECK_IN, now.toString()], // Add mission claim tag
+        ...currentTags.filter(([name]) => name !== 'coins' && name !== MISSION_TAGS.CHECK_IN), // Remove existing coins tag and this mission tag
+        [MISSION_TAGS.CHECK_IN, now.toString()], // Add new mission claim tag
         ['coins', newCoins.toString()] // Add updated coins tag
       ];
 
@@ -262,10 +262,10 @@ export function useDailyMissions() {
       const currentCoins = blobbonautProfile.coins || 0;
       const newCoins = currentCoins + 25;
 
-      // Create new tags array preserving existing tags and adding mission claim + updated coins
+      // Create new tags array preserving existing tags, removing existing mission tag and coins, then adding new ones
       const newTags = [
-        ...currentTags.filter(([name]) => name !== 'coins'), // Remove existing coins tag
-        [MISSION_TAGS.CARE_3, now.toString()], // Add mission claim tag
+        ...currentTags.filter(([name]) => name !== 'coins' && name !== MISSION_TAGS.CARE_3), // Remove existing coins tag and this mission tag
+        [MISSION_TAGS.CARE_3, now.toString()], // Add new mission claim tag
         ['coins', newCoins.toString()] // Add updated coins tag
       ];
 
@@ -315,10 +315,10 @@ export function useDailyMissions() {
       const currentCoins = blobbonautProfile.coins || 0;
       const newCoins = currentCoins + 10;
 
-      // Create new tags array preserving existing tags and adding mission claim + updated coins
+      // Create new tags array preserving existing tags, removing existing mission tag and coins, then adding new ones
       const newTags = [
-        ...currentTags.filter(([name]) => name !== 'coins'), // Remove existing coins tag
-        [MISSION_TAGS.BONUS, now.toString()], // Add mission claim tag
+        ...currentTags.filter(([name]) => name !== 'coins' && name !== MISSION_TAGS.BONUS), // Remove existing coins tag and this mission tag
+        [MISSION_TAGS.BONUS, now.toString()], // Add new mission claim tag
         ['coins', newCoins.toString()] // Add updated coins tag
       ];
 

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useEnhancedNostrPublish } from '@/hooks/useEnhancedNostrPublish';
+import { useNostr } from '@/hooks/useNostr';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { applyDecay } from '@/lib/blobbi-decay';
 import { createBlobbiStateEvent } from '@/lib/blobbi-events';
@@ -14,6 +15,7 @@ import { Blobbi } from '@/types/blobbi';
  */
 export function useBlobbiOnLoadDecayManager() {
   const { user } = useCurrentUser();
+  const { nostr } = useNostr();
   const { data: userBlobbis, isLoading } = useUserBlobbis();
   const { mutateAsync: publishEvent } = useEnhancedNostrPublish();
   const queryClient = useQueryClient();
@@ -73,14 +75,48 @@ export function useBlobbiOnLoadDecayManager() {
             const hasSignificantChanges = hasSignificantStatChanges(blobbi, decayedBlobbi);
 
             if (hasSignificantChanges) {
-              // Create and publish updated state event
-              const stateEventData = createBlobbiStateEvent(decayedBlobbi);
+              // CRITICAL FIX: Use enhanced publish hook to preserve incubation/quest tags
+              // Instead of directly creating state event, use the enhanced hook
+              // that properly merges tags to preserve incubation and quest data
 
-              await publishEvent({
-                kind: stateEventData.kind,
-                content: stateEventData.content,
-                tags: stateEventData.tags,
-              });
+              // First, fetch current state to get existing tags
+              const signal = AbortSignal.timeout(3000);
+              const currentStateEvents = await nostr.query([
+                {
+                  kinds: [31124],
+                  authors: [user?.pubkey || ''],
+                  '#d': [blobbi.id],
+                  limit: 1,
+                }
+              ], { signal });
+
+              const currentStateEvent = currentStateEvents[0];
+
+              if (currentStateEvent) {
+                // Create new state event data
+                const stateEventData = createBlobbiStateEvent(decayedBlobbi);
+
+                // Use mergeBlobbiStateTags to preserve incubation/quest tags
+                const { mergeBlobbiStateTags } = await import('@/lib/blobbi-state-merge');
+                const mergedTags = mergeBlobbiStateTags(currentStateEvent.tags, {
+                  additionalTags: stateEventData.tags,
+                  preserveIncubationAndQuestTags: true,
+                });
+
+                await publishEvent({
+                  kind: stateEventData.kind,
+                  content: stateEventData.content,
+                  tags: mergedTags,
+                });
+              } else {
+                // Fallback to direct state creation if no current state found
+                const stateEventData = createBlobbiStateEvent(decayedBlobbi);
+                await publishEvent({
+                  kind: stateEventData.kind,
+                  content: stateEventData.content,
+                  tags: stateEventData.tags,
+                });
+              }
 
               console.log(`✅ Silently applied decay to ${blobbi.name} (${blobbi.id})`);
               return blobbi.id;

@@ -30,12 +30,6 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     // Clamp volume between 0 and 1
     const clampedVolume = Math.max(0, Math.min(1, newVolume));
 
-    console.log('🎵 React AudioContext: Setting volume', {
-      requested: newVolume,
-      clamped: clampedVolume,
-      previous: volume
-    });
-
     setVolumeState(clampedVolume);
     localStorage.setItem('blobbi_audio_volume', clampedVolume.toString());
 
@@ -56,10 +50,6 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
   // ✅ ENHANCED: Improved mute setter with companion notification
   const setIsMuted = useCallback((newMuteState: boolean) => {
-    console.log('🎵 React AudioContext: Setting mute state', {
-      newState: newMuteState,
-      previous: isMuted
-    });
 
     setIsMutedState(newMuteState);
     localStorage.setItem('blobbi_audio_muted', newMuteState.toString());
@@ -80,12 +70,6 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
   // ✅ ENHANCED: Improved playSound with better volume handling
   const playSound = useCallback((sound: 'angry' | 'eating' | 'swallow' | 'ouch' | 'cleaning' | 'tired' | 'yuck' | 'sad') => {
-    console.log('🎵 React AudioContext: Playing sound', {
-      sound,
-      volume,
-      isMuted,
-      effectiveVolume: isMuted ? 0 : volume
-    });
 
     // ✅ IMPROVED: Don't return early if muted, just set volume to 0
     // This allows very quiet sounds to still play when volume is low
@@ -96,7 +80,6 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     audioRef.current = audio;
 
     audio.play()
-      .then(() => console.log(`✅ React AudioContext: ${sound} played successfully`))
       .catch(error => console.error(`❌ React AudioContext: Error playing ${sound}:`, error));
 
     // Clear reference when audio ends
@@ -113,19 +96,11 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       if (e.key === 'blobbi_audio_volume' && e.newValue !== null) {
         const newVolume = Math.max(0, Math.min(1, parseFloat(e.newValue)));
         if (newVolume !== volume) {
-          console.log('🎵 React AudioContext: Volume updated from external source', {
-            oldVolume: volume,
-            newVolume
-          });
           setVolumeState(newVolume);
         }
       } else if (e.key === 'blobbi_audio_muted' && e.newValue !== null) {
         const newMuted = e.newValue === 'true';
         if (newMuted !== isMuted) {
-          console.log('🎵 React AudioContext: Mute state updated from external source', {
-            oldMuted: isMuted,
-            newMuted
-          });
           setIsMutedState(newMuted);
         }
       }

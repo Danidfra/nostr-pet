@@ -17,6 +17,7 @@ import {
   BlobbiMood,
   BlobbiEvolutionForm
 } from '@/types/blobbi';
+import { ensureBlobbiTagsWithDebug, hasBlobbiEcosystemTag, hasBlobbiTopicTag } from './blobbi-tags';
 
 // Event kinds according to the specification
 export const BLOBBI_EVENT_KINDS = {
@@ -63,10 +64,17 @@ export function createShellIntegrityPenaltyEvent(
     ['care_points_deducted', carePointsDeducted.toString()],
   ];
 
+  // Ensure all Blobbi tags are present
+  const finalTags = ensureBlobbiTagsWithDebug(
+    tags.map(tag => [tag[0] || '', tag[1] || '']),
+    'createShellIntegrityPenaltyEvent',
+    BLOBBI_EVENT_KINDS.STATE
+  );
+
   return {
     kind: BLOBBI_EVENT_KINDS.STATE,
     content: `${blobbi.name}'s shell integrity is critically low (${blobbi.shellIntegrity ?? 100}%). Care points deducted: ${carePointsDeducted}`,
-    tags,
+    tags: finalTags as Array<[string, string]>,
   };
 }
 
@@ -161,10 +169,17 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
   if (blobbi.inParty) tags.push(['in_party', blobbi.inParty.toString()]);
   if (blobbi.visibleToOthers !== undefined) tags.push(['visible_to_others', blobbi.visibleToOthers.toString()]);
 
+  // Ensure all Blobbi tags are present
+  const finalTags = ensureBlobbiTagsWithDebug(
+    tags.map(tag => [tag[0] || '', tag[1] || '']),
+    'createBlobbiStateEvent',
+    BLOBBI_EVENT_KINDS.STATE
+  );
+
   return {
     kind: BLOBBI_EVENT_KINDS.STATE,
     content: `${blobbi.name} is a ${blobbi.lifeStage} Blobbi.`,
-    tags,
+    tags: finalTags as Array<[string, string]>,
   };
 }
 
@@ -234,10 +249,17 @@ export function createBlobbiInteractionEvent(
   if (interactionData.sharedMemory) tags.push(['shared_memory', interactionData.sharedMemory]);
   if (interactionData.interactionContext) tags.push(['interaction_context', interactionData.interactionContext]);
 
+  // Ensure all Blobbi tags are present
+  const finalTags = ensureBlobbiTagsWithDebug(
+    tags.map(tag => [tag[0] || '', tag[1] || '']),
+    'createBlobbiInteractionEvent',
+    BLOBBI_EVENT_KINDS.INTERACTION
+  );
+
   return {
     kind: BLOBBI_EVENT_KINDS.INTERACTION,
     content: `Blobbi ${interactionData.action} interaction`,
-    tags,
+    tags: finalTags as Array<[string, string]>,
   };
 }
 
@@ -331,10 +353,17 @@ export function createBlobbiRecordEvent(
       break;
   }
 
+  // Ensure all Blobbi tags are present
+  const finalTags = ensureBlobbiTagsWithDebug(
+    tags.map(tag => [tag[0] || '', tag[1] || '']),
+    'createBlobbiRecordEvent',
+    BLOBBI_EVENT_KINDS.RECORD
+  );
+
   return {
     kind: BLOBBI_EVENT_KINDS.RECORD,
     content: content || `Blobbi ${recordData.recordType} record`,
-    tags,
+    tags: finalTags as Array<[string, string]>,
   };
 }
 
@@ -366,10 +395,17 @@ export function createBlobbiBreedingEvent(
     });
   }
 
+  // Ensure all Blobbi tags are present
+  const finalTags = ensureBlobbiTagsWithDebug(
+    tags.map(tag => [tag[0] || '', tag[1] || '']),
+    'createBlobbiBreedingEvent',
+    BLOBBI_EVENT_KINDS.BREEDING
+  );
+
   return {
     kind: BLOBBI_EVENT_KINDS.BREEDING,
     content: success ? 'New life is forming ✨' : 'Breeding attempt was unsuccessful',
-    tags,
+    tags: finalTags as Array<[string, string]>,
   };
 }
 
@@ -428,10 +464,17 @@ export function createBlobbonautProfileEvent(
     });
   }
 
+  // Ensure all Blobbi tags are present
+  const finalTags = ensureBlobbiTagsWithDebug(
+    tags.map(tag => [tag[0] || '', tag[1] || '']),
+    'createBlobbonautProfileEvent',
+    BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE
+  );
+
   return {
     kind: BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE,
     content: '', // Content must be empty according to spec
-    tags,
+    tags: finalTags as Array<[string, string]>,
   };
 }
 

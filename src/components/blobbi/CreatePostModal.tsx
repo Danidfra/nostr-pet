@@ -44,7 +44,7 @@ export function CreatePostModal({ open, onClose, onPostPublished }: CreatePostMo
       
       // Add #Blobbi tag if not already in content
       if (!content.includes('#Blobbi') && !content.includes('#blobbi')) {
-        tags.push(['t', 'Blobbi']);
+        tags.push(['t', 'blobbi']);
       }
 
       // Extract any other hashtags from content

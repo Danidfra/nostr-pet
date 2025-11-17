@@ -349,6 +349,8 @@ export function useBlobbiCareInteractionWithFakeStatus() {
   });
 }
 
+
+
 // Helper functions
 function getTimeOfDay(): string {
   const hour = new Date().getHours();

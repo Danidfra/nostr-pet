@@ -52,17 +52,17 @@ const BABY_TO_ADULT_QUESTS: BabyToAdultQuest[] = [
     eventKind: 1,
     checkFunction: (event: NostrEvent, userPubkey: string, questState: QuestState) => {
       if (event.pubkey !== userPubkey || event.kind !== 1) return false;
-      
+
       const content = event.content.toLowerCase();
       const hasBlobbiTag = content.includes('#blobbi');
-      
+
       // Check for #Evolving<BlobbiName> pattern for the selected baby Blobbi
       const selectedBlobbi = questState.selectedBlobbi;
       if (!selectedBlobbi) return false;
-      
+
       const evolvingTag = `#evolving${selectedBlobbi.name.toLowerCase()}`;
       const hasEvolvingTag = content.includes(evolvingTag);
-      
+
       return hasBlobbiTag && hasEvolvingTag;
     },
     completed: false,
@@ -136,7 +136,7 @@ const BABY_TO_ADULT_QUESTS: BabyToAdultQuest[] = [
     eventKind: [6, 7],
     checkFunction: (event: NostrEvent, userPubkey: string, questState: QuestState) => {
       if (event.pubkey !== userPubkey || (event.kind !== 6 && event.kind !== 7)) return false;
-      
+
       // For reactions (kind 7), check if the referenced event contains #Blobbi
       if (event.kind === 7) {
         const eTags = event.tags.filter(tag => tag[0] === 'e');
@@ -146,7 +146,7 @@ const BABY_TO_ADULT_QUESTS: BabyToAdultQuest[] = [
           return questState.blobbiHashtagEvents.has(eTags[0][1]);
         }
       }
-      
+
       // For reposts (kind 6), check if the referenced event contains #Blobbi
       if (event.kind === 6) {
         const eTags = event.tags.filter(tag => tag[0] === 'e');
@@ -154,7 +154,7 @@ const BABY_TO_ADULT_QUESTS: BabyToAdultQuest[] = [
           return questState.blobbiHashtagEvents.has(eTags[0][1]);
         }
       }
-      
+
       return false;
     },
     completed: false,
@@ -182,16 +182,16 @@ interface BlobbiQuestSystemState {
   blobbis: Blobbi[];
   isLoadingBlobbis: boolean;
   blobbiError: Error | null;
-  
+
   // Quest tracking
   questState: QuestState;
-  
+
   // Subscription status
   metadataSubscriptionActive: boolean;
   questSubscriptionActive: boolean;
   blobbiHashtagSubscriptionActive: boolean;
   isStartingQuestTracking: boolean;
-  
+
   // Selected baby for quest tracking
   selectedBabyId: string | null;
   questStartTime: number | null;
@@ -199,7 +199,7 @@ interface BlobbiQuestSystemState {
 
 /**
  * Blobbi Quest System Hook for Baby to Adult Evolution
- * 
+ *
  * Implements the quest system described in blobbi-evolve-baby-to-adult-quests.md:
  * 1. Tracks 9 specific social interaction quests
  * 2. Only starts tracking after user clicks "Start Listening"
@@ -211,7 +211,7 @@ export function useBlobbiQuestSystem() {
   const { user } = useCurrentUser();
   const { mutateAsync: publishEvent } = useNostrPublish();
   const { toast } = useToast();
-  
+
   const [state, setState] = useState<BlobbiQuestSystemState>({
     blobbis: [],
     isLoadingBlobbis: false,
@@ -318,14 +318,11 @@ export function useBlobbiQuestSystem() {
       const currentBlobbiEvents = await nostr.query([{
         kinds: [31124],
         authors: [user.pubkey],
-        limit: 10,
+        '#d': [state.selectedBabyId],
+        limit: 1,
       }], { signal });
 
-      // Find the specific Blobbi event we're updating
-      const currentEvent = currentBlobbiEvents.find(event => {
-        const blobbi = parseBlobbiFromStateEvent(event);
-        return blobbi && blobbi.id === state.selectedBabyId;
-      });
+      const currentEvent = currentBlobbiEvents[0];
 
       if (!currentEvent) {
         console.warn(`⚠️ Could not find event for selected Blobbi: ${state.selectedBabyId}`);
@@ -334,7 +331,7 @@ export function useBlobbiQuestSystem() {
 
       // Parse the Blobbi to verify it's the right one
       const blobbi = parseBlobbiFromStateEvent(currentEvent);
-      
+
       if (!blobbi || blobbi.lifeStage !== 'baby' || blobbi.id !== state.selectedBabyId) {
         console.warn(`⚠️ Selected Blobbi is not a baby or doesn't match: ${state.selectedBabyId}`);
         return;
@@ -342,27 +339,20 @@ export function useBlobbiQuestSystem() {
 
       console.log(`📝 Adding quest confirmation for ${blobbi.name} (baby): ${questId}_confirmed`);
 
-      const existingTags = currentEvent.tags.map(tag => [tag[0] || '', tag[1] || '']) as Array<[string, string]>;
-      
-      // Create the correct confirmation tag format: ["<quest_id>_confirmed", "true"]
-      const confirmationTag: [string, string] = [`${questId}_confirmed`, 'true'];
+      // Use mergeBlobbiStateTags to preserve incubation/quest tags while adding the confirmation
+      const { mergeBlobbiStateTags } = await import('@/lib/blobbi-state-merge');
+      const mergedTags = mergeBlobbiStateTags(currentEvent.tags, {
+        addConfirmedTaskId: questId,
+      });
 
-      // Remove any existing confirmation tags for this quest
-      const filteredTags = existingTags.filter(tag => 
-        tag[0] !== `${questId}_confirmed`
-      );
-
-      // Add the new confirmation tag
-      const enrichedTags = [...filteredTags, confirmationTag];
-
-      // Publish the enriched event
+      // Publish the merged event
       await publishEvent({
         kind: 31124,
         content: currentEvent.content,
-        tags: enrichedTags,
+        tags: mergedTags,
       });
-      
-      console.log(`✅ Published quest confirmation for ${blobbi.name} only: ${questId}_confirmed`);
+
+      console.log(`✅ Published quest confirmation for ${blobbi.name} using mergeBlobbiStateTags: ${questId}_confirmed`);
     } catch (error) {
       console.error('Failed to publish quest confirmation:', error);
     }
@@ -391,7 +381,7 @@ export function useBlobbiQuestSystem() {
 
     setState(prevState => {
       const newQuestState = { ...prevState.questState };
-      
+
       // Set the selected Blobbi in quest state
       const selectedBlobbi = prevState.blobbis.find(b => b.id === prevState.selectedBabyId);
       if (selectedBlobbi) {
@@ -415,7 +405,7 @@ export function useBlobbiQuestSystem() {
           if (quest.target && quest.progress !== undefined) {
             // Multi-target quest
             let newProgress = quest.progress;
-            
+
             // Special handling for unique targets per Blobbi
             if (quest.id === 'react_to_5_posts') {
               const eTags = event.tags.filter(tag => tag[0] === 'e');
@@ -443,7 +433,7 @@ export function useBlobbiQuestSystem() {
               questCompleted = true;
               completedQuestName = quest.name;
               console.log(`🧬 Quest completed for ${selectedBlobbi?.name}: ${quest.name} (${newProgress}/${quest.target})`);
-              
+
               // Show toast notification for completed multi-target quest
               const message = getQuestCompletionMessage(quest.id, quest.name);
               toast({
@@ -451,18 +441,18 @@ export function useBlobbiQuestSystem() {
                 description: `${selectedBlobbi?.name}: ${message.description}`,
                 variant: "default",
               });
-              
+
               return { ...quest, progress: newProgress, completed: true };
             } else {
               console.log(`🧬 Quest progress for ${selectedBlobbi?.name}: ${quest.name} (${newProgress}/${quest.target})`);
-              
+
               // Show progress toast for multi-target quests
               toast({
                 title: "📈 Quest Progress!",
                 description: `${selectedBlobbi?.name}: Progress on "${quest.name}": ${newProgress}/${quest.target} completed. Keep going!`,
                 variant: "default",
               });
-              
+
               return { ...quest, progress: newProgress };
             }
           } else {
@@ -470,7 +460,7 @@ export function useBlobbiQuestSystem() {
             questCompleted = true;
             completedQuestName = quest.name;
             console.log(`🧬 Quest completed for ${selectedBlobbi?.name}: ${quest.name}`);
-            
+
             // Show toast notification for completed single quest
             const message = getQuestCompletionMessage(quest.id, quest.name);
             toast({
@@ -478,7 +468,7 @@ export function useBlobbiQuestSystem() {
               description: `${selectedBlobbi?.name}: ${message.description}`,
               variant: "default",
             });
-            
+
             return { ...quest, completed: true };
           }
         }
@@ -507,7 +497,7 @@ export function useBlobbiQuestSystem() {
     // Publish quest confirmation if completed
     if (questCompleted && completedQuestName) {
       await publishQuestConfirmation(completedQuestName);
-      
+
       // Check if all quests are completed for this specific Blobbi (ready to evolve to adult)
       const selectedBlobbi = state.blobbis.find(b => b.id === state.selectedBabyId);
       if (selectedBlobbi) {
@@ -515,7 +505,7 @@ export function useBlobbiQuestSystem() {
         const allQuestsCompleted = blobbiQuests.every(quest => quest.completed);
         if (allQuestsCompleted) {
           console.log(`🎉 All baby to adult quests completed for ${selectedBlobbi.name}! Ready to evolve...`);
-          
+
           // Show toast notification for completing all quests
           toast({
             title: "🎊 All Quests Complete!",
@@ -530,11 +520,11 @@ export function useBlobbiQuestSystem() {
   // Process #Blobbi hashtag events for quest validation
   const processBlobbiHashtagEvent = useCallback((event: NostrEvent) => {
     if (event.kind !== 1) return;
-    
+
     const content = event.content.toLowerCase();
-    const hasBlobbiTag = content.includes('#blobbi') || 
+    const hasBlobbiTag = content.includes('#blobbi') ||
       event.tags.some(tag => tag[0] === 't' && tag[1] && tag[1].toLowerCase() === 'blobbi');
-    
+
     if (hasBlobbiTag) {
       setState(prevState => ({
         ...prevState,
@@ -567,7 +557,7 @@ export function useBlobbiQuestSystem() {
             if (msg[0] === 'EVENT') {
               const event = msg[2] as NostrEvent;
               console.log(`📨 Metadata update received: ${event.id?.slice(0, 8)}...`);
-              
+
               // Parse and update Blobbi data
               try {
                 const blobbi = parseBlobbiFromStateEvent(event);
@@ -576,15 +566,15 @@ export function useBlobbiQuestSystem() {
                     const updatedBlobbis = prev.blobbis.some(b => b.id === blobbi.id)
                       ? prev.blobbis.map(b => b.id === blobbi.id ? blobbi : b)
                       : [...prev.blobbis, blobbi];
-                    
+
                     // Update baby Blobbis list for hashtag validation
                     const babyBlobbis = updatedBlobbis.filter(b => b.lifeStage === 'baby');
-                    
+
                     // Update selected Blobbi if it was updated
-                    const selectedBlobbi = prev.selectedBabyId 
+                    const selectedBlobbi = prev.selectedBabyId
                       ? updatedBlobbis.find(b => b.id === prev.selectedBabyId)
                       : undefined;
-                    
+
                     return {
                       ...prev,
                       blobbis: updatedBlobbis,
@@ -595,18 +585,18 @@ export function useBlobbiQuestSystem() {
                       },
                     };
                   });
-                  
+
                   // Check for *_confirmed tags to mark quests as completed for this specific Blobbi
                   setState(prevInner => {
                     const confirmedTags = event.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
                     if (confirmedTags.length > 0 && blobbi.lifeStage === 'baby') {
                       console.log(`✅ Found confirmed quest tags for Blobbi ${blobbi.name}:`, confirmedTags);
-                      
+
                       const newQuestState = { ...prevInner.questState };
-                      
+
                       // Get or initialize quest progress for this Blobbi
                       let blobbiQuests = newQuestState.blobbiQuestProgress.get(blobbi.id) || [...BABY_TO_ADULT_QUESTS];
-                      
+
                       // Mark baby to adult quests as completed based on confirmed tags
                       blobbiQuests = blobbiQuests.map(quest => {
                         const confirmationTag = `${quest.id}_confirmed`;
@@ -617,17 +607,17 @@ export function useBlobbiQuestSystem() {
                         }
                         return quest;
                       });
-                      
+
                       // Update the per-Blobbi quest progress
                       const newBlobbiQuestProgress = new Map(newQuestState.blobbiQuestProgress);
                       newBlobbiQuestProgress.set(blobbi.id, blobbiQuests);
                       newQuestState.blobbiQuestProgress = newBlobbiQuestProgress;
-                      
+
                       // If this is the selected Blobbi, also update the global quest state
                       if (blobbi.id === prevInner.selectedBabyId) {
                         newQuestState.babyToAdultQuests = blobbiQuests;
                       }
-                      
+
                       return {
                         ...prevInner,
                         questState: newQuestState,
@@ -715,7 +705,7 @@ export function useBlobbiQuestSystem() {
   // Start quest tracking subscription (only after user clicks "Start Listening")
   const startQuestSubscription = useCallback(async (selectedBabyId?: string, sinceTimestamp?: number) => {
     if (!user || !nostr) return;
-    
+
     // Prevent duplicate subscriptions using ref only (more reliable)
     if (activeQuestSubscriptionRef.current) {
       console.warn('⚠️ Quest subscription already active (ref check), ignoring start request');
@@ -756,12 +746,12 @@ export function useBlobbiQuestSystem() {
 
       // Mark subscription as active in both state and ref
       activeQuestSubscriptionRef.current = true;
-      setState(prev => ({ 
-        ...prev, 
+      setState(prev => ({
+        ...prev,
         questSubscriptionActive: true,
         questState: { ...prev.questState, isListening: true },
       }));
-      
+
       console.log('🎯 Quest subscription marked as active in state and ref');
 
       // Process subscription messages in the background
@@ -777,8 +767,8 @@ export function useBlobbiQuestSystem() {
             } else if (msg[0] === 'CLOSED') {
               console.log(`🔌 Quest subscription closed: ${msg[1] || 'unknown reason'}`);
               activeQuestSubscriptionRef.current = false;
-              setState(prev => ({ 
-                ...prev, 
+              setState(prev => ({
+                ...prev,
                 questSubscriptionActive: false,
                 questState: { ...prev.questState, isListening: false },
               }));
@@ -788,8 +778,8 @@ export function useBlobbiQuestSystem() {
         } catch (error) {
           console.error('❌ Quest subscription error:', error);
           activeQuestSubscriptionRef.current = false;
-          setState(prev => ({ 
-            ...prev, 
+          setState(prev => ({
+            ...prev,
             questSubscriptionActive: false,
             questState: { ...prev.questState, isListening: false },
           }));
@@ -800,8 +790,8 @@ export function useBlobbiQuestSystem() {
       questCleanupRef.current = () => {
         console.log('🔌 Manually closing quest subscription...');
         activeQuestSubscriptionRef.current = false;
-        setState(prev => ({ 
-          ...prev, 
+        setState(prev => ({
+          ...prev,
           questSubscriptionActive: false,
           questState: { ...prev.questState, isListening: false },
         }));
@@ -813,8 +803,8 @@ export function useBlobbiQuestSystem() {
     } catch (error) {
       console.error('❌ Failed to start quest subscription:', error);
       activeQuestSubscriptionRef.current = false;
-      setState(prev => ({ 
-        ...prev, 
+      setState(prev => ({
+        ...prev,
         questSubscriptionActive: false,
         questState: { ...prev.questState, isListening: false },
       }));
@@ -826,7 +816,7 @@ export function useBlobbiQuestSystem() {
     if (!user || !nostr || state.isLoadingBlobbis) return;
 
     console.log('🔍 Fetching Blobbi metadata (kind:31124)...');
-    
+
     setState(prev => ({ ...prev, isLoadingBlobbis: true, blobbiError: null }));
 
     try {
@@ -840,7 +830,7 @@ export function useBlobbiQuestSystem() {
 
       // Parse Blobbi events
       const blobbis: Blobbi[] = [];
-      
+
       for (const event of events) {
         try {
           const blobbi = parseBlobbiFromStateEvent(event);
@@ -855,26 +845,26 @@ export function useBlobbiQuestSystem() {
       setState(prev => {
         // Update baby Blobbis list for hashtag validation
         const babyBlobbis = blobbis.filter(b => b.lifeStage === 'baby');
-        
+
         // Load quest confirmations for all baby Blobbis
         const newBlobbiQuestProgress = new Map(prev.questState.blobbiQuestProgress);
         let updatedQuests = [...prev.questState.babyToAdultQuests];
         let selectedBlobbi: Blobbi | undefined;
-        
+
         // Process quest confirmations for all baby Blobbis
         for (const blobbi of babyBlobbis) {
           const blobbiEvent = events.find(event => {
             const eventBlobbi = parseBlobbiFromStateEvent(event);
             return eventBlobbi && eventBlobbi.id === blobbi.id;
           });
-          
+
           if (blobbiEvent) {
             const confirmedTags = blobbiEvent.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
-            
+
             if (confirmedTags.length > 0) {
               // Get existing quest progress for this Blobbi or start fresh
               let blobbiQuests = newBlobbiQuestProgress.get(blobbi.id) || [...BABY_TO_ADULT_QUESTS];
-              
+
               blobbiQuests = blobbiQuests.map(quest => {
                 const confirmationTag = `${quest.id}_confirmed`;
                 const isConfirmed = confirmedTags.some(tag => tag[0] === confirmationTag);
@@ -884,9 +874,9 @@ export function useBlobbiQuestSystem() {
                 }
                 return quest;
               });
-              
+
               newBlobbiQuestProgress.set(blobbi.id, blobbiQuests);
-              
+
               // If this is the selected Blobbi, update the global quest state
               if (blobbi.id === prev.selectedBabyId) {
                 updatedQuests = blobbiQuests;
@@ -895,7 +885,7 @@ export function useBlobbiQuestSystem() {
             }
           }
         }
-        
+
         // Set selected Blobbi if we have one
         if (prev.selectedBabyId && !selectedBlobbi) {
           selectedBlobbi = blobbis.find(b => b.id === prev.selectedBabyId);
@@ -903,7 +893,7 @@ export function useBlobbiQuestSystem() {
           const blobbiQuests = newBlobbiQuestProgress.get(prev.selectedBabyId) || [...BABY_TO_ADULT_QUESTS];
           updatedQuests = blobbiQuests;
         }
-        
+
         return {
           ...prev,
           blobbis,
@@ -921,16 +911,16 @@ export function useBlobbiQuestSystem() {
 
       // Start persistent metadata subscription
       await startMetadataSubscription();
-      
+
       // Start #Blobbi hashtag tracking
       await startBlobbiHashtagSubscription();
 
     } catch (error) {
       console.error('❌ Failed to fetch Blobbi metadata:', error);
-      setState(prev => ({ 
-        ...prev, 
-        isLoadingBlobbis: false, 
-        blobbiError: error as Error 
+      setState(prev => ({
+        ...prev,
+        isLoadingBlobbis: false,
+        blobbiError: error as Error
       }));
     }
   }, [user, nostr, state.isLoadingBlobbis, startMetadataSubscription, startBlobbiHashtagSubscription]);
@@ -975,7 +965,7 @@ export function useBlobbiQuestSystem() {
     const blobbiQuests = state.questState.blobbiQuestProgress.get(blobbiId) || [...BABY_TO_ADULT_QUESTS];
     const completed = blobbiQuests.filter(quest => quest.completed).length;
     const total = blobbiQuests.length;
-    
+
     return {
       completed,
       total,
@@ -988,11 +978,11 @@ export function useBlobbiQuestSystem() {
     if (state.selectedBabyId) {
       return getBlobbiQuestProgress(state.selectedBabyId);
     }
-    
+
     // Fallback to global state if no Blobbi selected
     const completed = state.questState.babyToAdultQuests.filter(quest => quest.completed).length;
     const total = state.questState.babyToAdultQuests.length;
-    
+
     return {
       completed,
       total,
@@ -1004,19 +994,19 @@ export function useBlobbiQuestSystem() {
   const isBabyReadyToEvolve = useCallback((blobbi: Blobbi) => {
     // Only babies can evolve to adult
     if (blobbi.lifeStage !== 'baby') return false;
-    
+
     // Check if all baby to adult quests are completed for this specific Blobbi
     const blobbiQuests = state.questState.blobbiQuestProgress.get(blobbi.id) || [...BABY_TO_ADULT_QUESTS];
     const questsCompleted = blobbiQuests.filter(quest => quest.completed).length;
     const questsTotal = blobbiQuests.length;
-    
+
     return questsCompleted === questsTotal;
   }, [state.questState.blobbiQuestProgress]);
 
   // Select a baby for quest tracking
   const selectBaby = useCallback(async (babyId: string | null) => {
     console.log(`🎯 selectBaby called with: ${babyId}, current selected: ${state.selectedBabyId}`);
-    
+
     // If selecting the same baby, just update the selection without resetting anything
     if (babyId === state.selectedBabyId) {
       console.log('🔄 Same baby selected, updating selection only');
@@ -1026,7 +1016,7 @@ export function useBlobbiQuestSystem() {
         const blobbiQuests = babyId ? prev.questState.blobbiQuestProgress.get(babyId) || [...BABY_TO_ADULT_QUESTS] : [...BABY_TO_ADULT_QUESTS];
         const blobbiReactionTargets = babyId ? prev.questState.blobbiUniqueReactionTargets.get(babyId) || new Set<string>() : new Set<string>();
         const blobbiRepostTargets = babyId ? prev.questState.blobbiUniqueRepostTargets.get(babyId) || new Set<string>() : new Set<string>();
-        
+
         return {
           ...prev,
           selectedBabyId: babyId,
@@ -1041,10 +1031,10 @@ export function useBlobbiQuestSystem() {
       });
       return;
     }
-    
+
     // If selecting a different baby, load its specific quest state
     console.log(`🔄 Different baby selected, loading quest state for: ${babyId}`);
-    
+
     // Stop current quest tracking if active
     if (activeQuestSubscriptionRef.current && questCleanupRef.current) {
       console.log('🛑 Stopping current quest tracking for baby change');
@@ -1052,7 +1042,7 @@ export function useBlobbiQuestSystem() {
       questCleanupRef.current();
       questCleanupRef.current = null;
     }
-    
+
     // Load quest state for the new baby
     setState(prev => {
       const selectedBlobbi = babyId ? prev.blobbis.find(b => b.id === babyId) : undefined;
@@ -1060,7 +1050,7 @@ export function useBlobbiQuestSystem() {
       const blobbiQuests = babyId ? prev.questState.blobbiQuestProgress.get(babyId) || [...BABY_TO_ADULT_QUESTS] : [...BABY_TO_ADULT_QUESTS];
       const blobbiReactionTargets = babyId ? prev.questState.blobbiUniqueReactionTargets.get(babyId) || new Set<string>() : new Set<string>();
       const blobbiRepostTargets = babyId ? prev.questState.blobbiUniqueRepostTargets.get(babyId) || new Set<string>() : new Set<string>();
-      
+
       return {
         ...prev,
         selectedBabyId: babyId,
@@ -1076,7 +1066,7 @@ export function useBlobbiQuestSystem() {
         },
       };
     });
-    
+
     // If a new baby is selected, load its quest confirmations
     if (babyId && user && nostr) {
       try {
@@ -1085,19 +1075,19 @@ export function useBlobbiQuestSystem() {
           kinds: [31124],
           authors: [user.pubkey],
         }], { signal });
-        
+
         const selectedBlobbiEvent = events.find(event => {
           const blobbi = parseBlobbiFromStateEvent(event);
           return blobbi && blobbi.id === babyId;
         });
-        
+
         if (selectedBlobbiEvent) {
           const confirmedTags = selectedBlobbiEvent.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
-          
+
           setState(prev => {
             // Get existing quest progress for this Blobbi or start fresh
             let blobbiQuests = prev.questState.blobbiQuestProgress.get(babyId) || [...BABY_TO_ADULT_QUESTS];
-            
+
             // Update quest completion status based on confirmed tags
             blobbiQuests = blobbiQuests.map(quest => {
               const confirmationTag = `${quest.id}_confirmed`;
@@ -1108,13 +1098,13 @@ export function useBlobbiQuestSystem() {
               }
               return quest;
             });
-            
+
             // Update the per-Blobbi quest progress
             const newBlobbiQuestProgress = new Map(prev.questState.blobbiQuestProgress);
             newBlobbiQuestProgress.set(babyId, blobbiQuests);
-            
+
             const selectedBlobbi = prev.blobbis.find(b => b.id === babyId);
-            
+
             return {
               ...prev,
               questState: {
@@ -1149,20 +1139,20 @@ export function useBlobbiQuestSystem() {
     try {
       console.log('🐣 Starting quest tracking for baby:', state.selectedBabyId);
       setState(prev => ({ ...prev, isStartingQuestTracking: true }));
-      
+
       const now = Date.now();
       setState(prev => ({ ...prev, questStartTime: now }));
-      
+
       // Start quest subscription with since timestamp
       await startQuestSubscription(state.selectedBabyId, now);
-      
+
       setState(prev => ({ ...prev, isStartingQuestTracking: false }));
       console.log('✅ Quest tracking started successfully');
     } catch (error) {
       console.error('❌ Failed to start quest tracking:', error);
       activeQuestSubscriptionRef.current = false;
-      setState(prev => ({ 
-        ...prev, 
+      setState(prev => ({
+        ...prev,
         isStartingQuestTracking: false,
         questStartTime: null,
         questSubscriptionActive: false,
@@ -1173,7 +1163,7 @@ export function useBlobbiQuestSystem() {
 
   // Stop quest tracking (cleanup)
   const stopQuestTrackingRef = useRef<() => void>();
-  
+
   stopQuestTrackingRef.current = () => {
     console.log('🛑 Stopping quest tracking...');
     activeQuestSubscriptionRef.current = false;
@@ -1181,15 +1171,15 @@ export function useBlobbiQuestSystem() {
       questCleanupRef.current();
       questCleanupRef.current = null;
     }
-    setState(prev => ({ 
-      ...prev, 
+    setState(prev => ({
+      ...prev,
       questSubscriptionActive: false,
       questState: { ...prev.questState, isListening: false },
       selectedBabyId: null,
       questStartTime: null,
     }));
   };
-  
+
   const stopQuestTracking = useCallback(() => {
     stopQuestTrackingRef.current?.();
   }, []);
@@ -1202,13 +1192,13 @@ export function useBlobbiQuestSystem() {
       questCleanupRef.current();
       questCleanupRef.current = null;
     }
-    setState(prev => ({ 
-      ...prev, 
+    setState(prev => ({
+      ...prev,
       questSubscriptionActive: false,
       questStartTime: null,
       isStartingQuestTracking: false,
-      questState: { 
-        ...prev.questState, 
+      questState: {
+        ...prev.questState,
         isListening: false,
         babyToAdultQuests: [...BABY_TO_ADULT_QUESTS],
         uniqueReactionTargets: new Set(),
@@ -1228,21 +1218,21 @@ export function useBlobbiQuestSystem() {
     blobbis: state.blobbis,
     isLoadingBlobbis: state.isLoadingBlobbis,
     blobbiError: state.blobbiError,
-    
+
     // Quest tracking
     babyToAdultQuests: state.questState.babyToAdultQuests,
     questProgress,
     isReadyToEvolve,
     isBabyReadyToEvolve,
     getBlobbiQuestProgress, // New function to get progress for specific Blobbi
-    
+
     // Subscription status
     metadataSubscriptionActive: state.metadataSubscriptionActive,
     questSubscriptionActive: state.questSubscriptionActive,
     blobbiHashtagSubscriptionActive: state.blobbiHashtagSubscriptionActive,
     isListening: state.questState.isListening,
     isStartingQuestTracking: state.isStartingQuestTracking,
-    
+
     // Baby selection and quest tracking
     selectedBabyId: state.selectedBabyId,
     questStartTime: state.questStartTime,
@@ -1250,10 +1240,10 @@ export function useBlobbiQuestSystem() {
     startQuestTracking,
     stopQuestTracking,
     resetQuestTracking,
-    
+
     // Controls
     refetchMetadata: fetchBlobbiMetadata,
-    
+
     // Debug info
     debugInfo: {
       questStartTime: state.questState.questStartTime,
