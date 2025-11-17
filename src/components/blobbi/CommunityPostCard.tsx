@@ -2,16 +2,26 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Heart, 
-  MessageCircle, 
-  Repeat2, 
-  Zap, 
-  MoreHorizontal 
+import {
+  Heart,
+  MessageCircle,
+  Repeat2,
+  Zap,
+  MoreHorizontal
 } from 'lucide-react';
 import { CommunityPost } from '@/hooks/useBlobbiCommunityFeed';
 import { formatPostTime, generateDisplayName, getAvatarUrl, getAvatarColor } from '@/hooks/useBlobbiCommunityFeed';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
+
+function filterMediaUrlFromContent(content: string, mediaUrl?: string): string {
+  if (!mediaUrl) return content;
+
+  // Remove the media URL from the content
+  const escapedUrl = mediaUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const urlRegex = new RegExp(`\\b${escapedUrl}\\b`, 'gi');
+  return content.replace(urlRegex, '').trim();
+}
 
 interface CommunityPostCardProps {
   post: CommunityPost;
@@ -19,10 +29,17 @@ interface CommunityPostCardProps {
 }
 
 export function CommunityPostCard({ post, className }: CommunityPostCardProps) {
-  const avatarUrl = getAvatarUrl(post.author, post.pubkey);
+  const isMobile = useIsMobile();
+  const avatarUrl = getAvatarUrl(post.author);
   const avatarColor = getAvatarColor(post.pubkey);
   const displayName = generateDisplayName(post.pubkey, post.author);
   const timeAgo = formatPostTime(post.createdAt);
+
+  // Set max height based on device
+  const maxImageHeight = isMobile ? 200 : 300;
+
+  // Filter media URL from content
+  const filteredContent = filterMediaUrlFromContent(post.content, post.mediaUrl);
 
   return (
     <Card className={cn(
@@ -52,7 +69,7 @@ export function CommunityPostCard({ post, className }: CommunityPostCardProps) {
               </span>
             </div>
           </div>
-          
+
           <Button
             variant="ghost"
             size="icon"
@@ -63,14 +80,50 @@ export function CommunityPostCard({ post, className }: CommunityPostCardProps) {
           </Button>
         </div>
       </CardHeader>
-      
+
       <CardContent className="pt-0">
+        {/* Media Section */}
+        {post.mediaUrl && (
+          <div className="mb-4 px-3">
+            <div className="relative overflow-hidden rounded-lg border border-purple-200 dark:border-purple-600 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20">
+              {/* Blurred background for letterboxing effect */}
+              <div
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat blur-xl scale-110 opacity-30"
+                style={{ backgroundImage: `url(${post.mediaUrl})` }}
+              />
+
+              {/* Main image container with constraints */}
+              <div className="relative flex items-center justify-center p-3 min-h-[120px]" style={{ maxHeight: `${maxImageHeight}px` }}>
+                {/* Inner padding container to prevent image from touching limits */}
+                <div className="relative flex items-center justify-center p-4">
+                  <img
+                    src={post.mediaUrl}
+                    alt={post.mediaAlt || "Blobbi community post image"}
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
+                    style={{
+                      maxHeight: `${maxImageHeight}px`,
+                      maxWidth: '100%'
+                    }}
+                    loading="lazy"
+                  />
+                </div>
+              </div>
+            </div>
+            {post.mediaSummary && (
+              <p className="text-xs text-muted-foreground mt-2 px-1">
+                {post.mediaSummary}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Content Section */}
         <div className="mb-4">
           <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
-            {post.content}
+            {filteredContent}
           </div>
         </div>
-        
+
         {/* Footer actions */}
         <div className="flex items-center gap-2 pt-2 border-t border-border/50">
           <Button
@@ -81,7 +134,7 @@ export function CommunityPostCard({ post, className }: CommunityPostCardProps) {
             <Heart className="h-4 w-4 mr-1" />
             <span className="text-xs">Like</span>
           </Button>
-          
+
           <Button
             variant="ghost"
             size="sm"
@@ -90,7 +143,7 @@ export function CommunityPostCard({ post, className }: CommunityPostCardProps) {
             <MessageCircle className="h-4 w-4 mr-1" />
             <span className="text-xs">Reply</span>
           </Button>
-          
+
           <Button
             variant="ghost"
             size="sm"
@@ -99,7 +152,7 @@ export function CommunityPostCard({ post, className }: CommunityPostCardProps) {
             <Repeat2 className="h-4 w-4 mr-1" />
             <span className="text-xs">Repost</span>
           </Button>
-          
+
           <Button
             variant="ghost"
             size="sm"

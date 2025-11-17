@@ -15,6 +15,54 @@ export interface CommunityPost {
     name?: string;
   };
   tags: Array<string[]>;
+  mediaUrl?: string;
+  mediaAlt?: string;
+  mediaSummary?: string;
+}
+
+// Helper function to extract media from imeta tags
+function extractMediaFromImeta(tags: string[][]): { mediaUrl?: string; mediaAlt?: string; mediaSummary?: string } {
+  const imetaTags = tags.filter(([name]) => name === 'imeta');
+  
+  for (const imetaTag of imetaTags) {
+    let mediaUrl: string | undefined;
+    let mediaAlt: string | undefined;
+    let mediaSummary: string | undefined;
+    
+    // Parse imeta tag values
+    for (let i = 1; i < imetaTag.length; i++) {
+      const value = imetaTag[i];
+      if (value.startsWith('url ')) {
+        mediaUrl = value.substring(4).trim();
+      } else if (value.startsWith('alt ')) {
+        mediaAlt = value.substring(4).trim();
+      } else if (value.startsWith('summary ')) {
+        mediaSummary = value.substring(8).trim();
+      }
+    }
+    
+    if (mediaUrl) {
+      return { mediaUrl, mediaAlt, mediaSummary };
+    }
+  }
+  
+  return {};
+}
+
+// Helper function to extract media from content and clean content
+function extractMediaFromContent(content: string): { mediaUrl?: string; cleanedContent: string } {
+  // Regex to match HTTPS URLs
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const urls = content.match(urlRegex);
+  
+  if (urls && urls.length > 0) {
+    // Use the first URL found
+    const mediaUrl = urls[0];
+    const cleanedContent = content.replace(urlRegex, '').trim();
+    return { mediaUrl, cleanedContent };
+  }
+  
+  return { cleanedContent: content };
 }
 
 export function useBlobbiCommunityFeed(limit: number = 50) {
@@ -30,7 +78,6 @@ export function useBlobbiCommunityFeed(limit: number = 50) {
         let events = await nostr.query([
           {
             kinds: [1],
-            // '#b': ['blobbi:ecosystem:v1'],
             '#t': ['blobbi'],
             limit: limit,
           }
@@ -61,10 +108,24 @@ export function useBlobbiCommunityFeed(limit: number = 50) {
             const pictureTag = event.tags.find(([name]) => name === 'picture')?.[1];
             const nameTag = event.tags.find(([name]) => name === 'name')?.[1];
 
+            // Extract media information (priority: imeta tags first, then content)
+            const mediaFromImeta = extractMediaFromImeta(event.tags);
+            let finalContent = event.content;
+            let mediaUrl = mediaFromImeta.mediaUrl;
+            let mediaAlt = mediaFromImeta.mediaAlt;
+            let mediaSummary = mediaFromImeta.mediaSummary;
+
+            // If no media from imeta, try to extract from content
+            if (!mediaUrl) {
+              const mediaFromContent = extractMediaFromContent(event.content);
+              mediaUrl = mediaFromContent.mediaUrl;
+              finalContent = mediaFromContent.cleanedContent;
+            }
+
             return {
               id: event.id,
               pubkey: event.pubkey,
-              content: event.content,
+              content: finalContent,
               createdAt: event.created_at,
               author: {
                 displayName: nameTag,
@@ -72,6 +133,9 @@ export function useBlobbiCommunityFeed(limit: number = 50) {
                 name: nameTag,
               },
               tags: event.tags,
+              mediaUrl,
+              mediaAlt,
+              mediaSummary,
             };
           })
         );
