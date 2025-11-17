@@ -25,6 +25,8 @@ export function BlobbiGrowthHub({ blobbi, onTakePhoto, className }: BlobbiGrowth
     selectedEggId,
     incubationStartTime,
     isReadyToHatch,
+    isBlobbiReadyToHatch,
+    hatchBlobbi,
     markPhotoTaskCompleted,
     isTaskCompleted
   } = useBlobbiIncubationSystem();
@@ -89,9 +91,20 @@ export function BlobbiGrowthHub({ blobbi, onTakePhoto, className }: BlobbiGrowth
               <span className="font-medium">{completedTasks.length}/{totalTasks}</span>
             </div>
             <Progress value={progressPercentage} className="h-2" />
-            {isReadyToHatch && (
-              <Badge variant="default" className="w-full justify-center bg-green-600">
-                ✨ Ready to Hatch!
+            {isBlobbiReadyToHatch(blobbi) ? (
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700 text-white mt-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  hatchBlobbi(blobbi.id);
+                }}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Hatch {blobbi.name}
+              </Button>
+            ) : (
+              <Badge variant="outline" className="w-full justify-center mt-1">
+                Incubating...
               </Badge>
             )}
           </div>

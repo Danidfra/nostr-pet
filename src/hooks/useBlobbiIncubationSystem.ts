@@ -1435,17 +1435,14 @@ export function useBlobbiIncubationSystem() {
   }, [state.blobbiTaskStates]);
 
   // Check if a specific blobbi is ready to hatch
-  const isBlobbiReadyToHatch = useCallback((blobbi: Blobbi) => {
-    if (blobbi.lifeStage !== 'egg') return false;
+  const isBlobbiReadyToHatch = useCallback((blobbi: Blobbi | null) => {
+    if (!blobbi || blobbi.lifeStage !== 'egg') return false;
 
     const taskState = state.blobbiTaskStates.get(blobbi.id);
-    if (!taskState) return false;
+    if (!taskState || taskState.eggTasks.length === 0) return false;
 
-    const eggCompleted = taskState.eggTasks.filter(task => task.completed).length;
-    const eggTotal = taskState.eggTasks.length;
-
-    return eggCompleted === eggTotal;
-  }, [state.blobbiTaskStates]);
+    return taskState.eggTasks.every(task => isTaskCompleted(task, blobbi.id));
+  }, [state.blobbiTaskStates, isTaskCompleted]);
 
   // Select an egg for incubation
   const selectEgg = useCallback((eggId: string | null) => {
@@ -1724,13 +1721,12 @@ export function useBlobbiIncubationSystem() {
   const selectedTaskState = state.selectedEggId ? state.blobbiTaskStates.get(state.selectedEggId) : null;
   const progress = getProgress(state.selectedEggId);
 
-  // Check if ready to hatch (including shell integrity check)
-  const isReadyToHatch = selectedTaskState ? (() => {
-    const tasksCompleted = selectedTaskState.eggTasks.every(t =>
-      isTaskCompleted(t, state.selectedEggId)
-    );
-    return tasksCompleted;
-  })() : false;
+  // Check if ready to hatch (global flag for currently selected egg)
+  const isReadyToHatch = (() => {
+    if (!state.selectedEggId) return false;
+    const selectedBlobbi = state.blobbis.find(b => b.id === state.selectedEggId);
+    return selectedBlobbi ? isBlobbiReadyToHatch(selectedBlobbi) : false;
+  })();
 
   const isReadyToEvolve = selectedTaskState ? selectedTaskState.evolutionTasks.every(t => t.completed) &&
     selectedTaskState.hatchTime &&
