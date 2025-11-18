@@ -11,6 +11,7 @@ import {
   WifiOff,
   RefreshCw,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
   Info,
   Egg,
@@ -62,11 +63,14 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
     debugInfo,
     getProgress,
     markPhotoTaskCompleted,
+    markFirstPostTaskCompleted,
     isTaskCompleted,
   } = useBlobbiIncubationSystem();
 
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   const [showPolaroidModal, setShowPolaroidModal] = useState(false);
+  const [showBabyList, setShowBabyList] = useState(true);
+  const [showAllBabies, setShowAllBabies] = useState(false);
 
   // New quest system for Baby to Adult evolution
   const {
@@ -527,7 +531,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                           </div>
                         )}
                       </div>
-                      {!isActuallyCompleted && task.id === 'blobbi_hashtag_post' && (
+                      {!isActuallyCompleted && task.id === 'first_post' && (
                         <Button
                           size="sm"
                           onClick={() => {
@@ -582,7 +586,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
       {/* Baby Blobbis Section - New Quest System */}
       {babyBlobbis.length > 0 && (
         <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-blue-200 dark:border-blue-600">
-          <Collapsible open={true}>
+          <Collapsible open={showBabyList} onOpenChange={setShowBabyList}>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors">
                 <CardTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
@@ -596,16 +600,29 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                       </Badge>
                     )}
                   </div>
+                  <div className="flex items-center gap-2">
+                    {showBabyList ? (
+                      <ChevronDown className="h-4 w-4 text-blue-500 transition-transform duration-200" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-blue-500 transition-transform duration-200" />
+                    )}
+                  </div>
                 </CardTitle>
-                <CardDescription className="text-gray-600 dark:text-gray-300">
-                  Click on a baby Blobbi to view its evolution quest progress
-                </CardDescription>
+                {showBabyList && (
+                  <CardDescription className="text-gray-600 dark:text-gray-300">
+                    Click on a baby Blobbi to view its evolution quest progress
+                  </CardDescription>
+                )}
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {babyBlobbis.map((blobbi) => (
+                {(() => {
+                  const visibleBabies = showAllBabies ? babyBlobbis : babyBlobbis.slice(0, 3);
+                  return (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {visibleBabies.map((blobbi) => (
                     <div
                       key={blobbi.id}
                       className={`group transition-all duration-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border shadow-sm hover:shadow-xl hover:shadow-blue-200/20 dark:hover:shadow-blue-900/20 rounded-2xl cursor-pointer hover:scale-[1.02] ${
@@ -688,6 +705,33 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                     </div>
                   ))}
                 </div>
+
+                {/* Show more / Show less button */}
+                {babyBlobbis.length > 3 && (
+                  <div className="flex justify-center mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAllBabies(!showAllBabies)}
+                      className="border-blue-200 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    >
+                      {showAllBabies ? (
+                        <>
+                          <ChevronUp className="w-3 h-3 mr-1" />
+                          Show Less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-3 h-3 mr-1" />
+                          Show {babyBlobbis.length - 3} More
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </>
+              );
+            })()}
               </CardContent>
             </CollapsibleContent>
           </Collapsible>
@@ -1089,7 +1133,11 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
         open={isCreatePostModalOpen}
         onClose={() => setIsCreatePostModalOpen(false)}
         onPostPublished={() => {
-          // Refresh the incubation system to detect the new post
+          // Manually mark the first post task as completed
+          if (selectedBlobbi) {
+            markFirstPostTaskCompleted(selectedBlobbi.id);
+          }
+          // Also refresh the incubation system
           refetchMetadata();
         }}
       />

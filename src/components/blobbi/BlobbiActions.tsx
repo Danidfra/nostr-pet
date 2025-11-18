@@ -13,7 +13,7 @@ import { useBlobbonautProfile, useCreateInitialProfile } from '@/hooks/useBlobbo
 import { useToast } from '@/hooks/useToast';
 import { isActionAvailableForStage } from '@/lib/cooldown-storage';
 import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
-import { BlobbiGrowthHub } from './BlobbiGrowthHub';
+import { BlobbiGrowthHubCard } from './BlobbiGrowthHubCard';
 
 interface BlobbiActionsProps {
   blobbi: Blobbi;
@@ -311,7 +311,7 @@ export function BlobbiActions({
   return (
     <div className="space-y-4">
       {/* Growth Hub for eggs */}
-      <BlobbiGrowthHub
+      <BlobbiGrowthHubCard
         blobbi={blobbi}
         onTakePhoto={onTakePhoto}
       />

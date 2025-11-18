@@ -3,20 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, Circle, Camera, Edit, Sparkles, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, Circle, Camera, Edit, Send, Sparkles, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Blobbi } from '@/types/blobbi';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 import { CreatePostModal } from './CreatePostModal';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-interface BlobbiGrowthHubProps {
+interface BlobbiGrowthHubCardProps {
   blobbi: Blobbi;
   onTakePhoto?: () => void;
   className?: string;
 }
 
-export function BlobbiGrowthHub({ blobbi, onTakePhoto, className }: BlobbiGrowthHubProps) {
+export function BlobbiGrowthHubCard({ blobbi, onTakePhoto, className }: BlobbiGrowthHubCardProps) {
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [isOpen, setIsOpen] = useState(true); // Default to expanded/open
 
@@ -28,6 +28,7 @@ export function BlobbiGrowthHub({ blobbi, onTakePhoto, className }: BlobbiGrowth
     isBlobbiReadyToHatch,
     hatchBlobbi,
     markPhotoTaskCompleted,
+    markFirstPostTaskCompleted,
     isTaskCompleted
   } = useBlobbiIncubationSystem();
 
@@ -48,8 +49,8 @@ export function BlobbiGrowthHub({ blobbi, onTakePhoto, className }: BlobbiGrowth
 
   const handlePostPublished = () => {
     setShowCreatePost(false);
-    // The incubation system will automatically detect the published post
-    // and mark the first_post task as completed
+    // Manually mark the first post task as completed
+    markFirstPostTaskCompleted(blobbi.id);
   };
 
   const handlePhotoTaken = () => {
@@ -139,98 +140,102 @@ export function BlobbiGrowthHub({ blobbi, onTakePhoto, className }: BlobbiGrowth
                     )}
                   </div>
 
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className={cn(
-                        "font-medium text-sm",
-                        isCompleted ? "text-green-800 dark:text-green-200" : "text-gray-900 dark:text-gray-100"
+                  <div className="flex w-full space-y-1">
+                    <div className='flex-1 space-x-1'>
+                      <div className="flex items-center justify-between">
+                        <h4 className={cn(
+                          "font-medium text-sm",
+                          isCompleted ? "text-green-800 dark:text-green-200" : "text-gray-900 dark:text-gray-100"
+                        )}>
+                          {task.name}
+                        </h4>
+                        {isCompleted && (
+                          <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                            Complete
+                          </Badge>
+                        )}
+                      </div>
+
+                      <p className={cn(
+                        "text-xs",
+                        isCompleted ? "text-green-700 dark:text-green-300" : "text-gray-600 dark:text-gray-400"
                       )}>
-                        {task.name}
-                      </h4>
-                      {isCompleted && (
-                        <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
-                          Complete
-                        </Badge>
+                        {task.description}
+                      </p>
+
+                      {/* Progress bar for tasks with targets */}
+                      {task.target && task.id !== 'shell_integrity_above_50' && (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">Progress</span>
+                            <span className="font-medium">{currentProgress}/{task.target}</span>
+                          </div>
+                          <Progress
+                            value={(currentProgress / task.target) * 100}
+                            className="h-1.5"
+                          />
+                        </div>
+                      )}
+
+                      {/* Shell integrity display */}
+                      {task.id === 'shell_integrity_above_50' && (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">Shell Integrity</span>
+                            <span className={cn(
+                              "font-medium",
+                              currentProgress >= 50 ? "text-green-600" : "text-red-600"
+                            )}>
+                              {currentProgress}%
+                            </span>
+                          </div>
+                          <Progress
+                            value={currentProgress}
+                            className={cn(
+                              "h-1.5",
+                              currentProgress < 50 && "bg-red-100 dark:bg-red-900/20"
+                            )}
+                          />
+                          {currentProgress < 50 && (
+                            <div className="flex items-center gap-1 text-xs text-red-600">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>Keep your egg healthy!</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                    </div>
+                    {/* Action buttons for specific tasks */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1"></div>
+                      {!isCompleted && task.id === 'first_post' && (
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent collapsible toggle
+                            setShowCreatePost(true);
+                          }}
+                          className="ml-4 bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                          <Send className="h-3 w-3 mr-1" />
+                          Create Post
+                        </Button>
+                      )}
+                      {!isCompleted && task.id === 'post_blobbi_photo' && (
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent collapsible toggle
+                            handlePhotoTaken();
+                          }}
+                          className="ml-4 bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                          <Camera className="h-3 w-3 mr-1" />
+                          Take Photo
+                        </Button>
                       )}
                     </div>
-
-                    <p className={cn(
-                      "text-xs",
-                      isCompleted ? "text-green-700 dark:text-green-300" : "text-gray-600 dark:text-gray-400"
-                    )}>
-                      {task.description}
-                    </p>
-
-                    {/* Progress bar for tasks with targets */}
-                    {task.target && task.id !== 'shell_integrity_above_50' && (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">Progress</span>
-                          <span className="font-medium">{currentProgress}/{task.target}</span>
-                        </div>
-                        <Progress
-                          value={(currentProgress / task.target) * 100}
-                          className="h-1.5"
-                        />
-                      </div>
-                    )}
-
-                    {/* Shell integrity display */}
-                    {task.id === 'shell_integrity_above_50' && (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">Shell Integrity</span>
-                          <span className={cn(
-                            "font-medium",
-                            currentProgress >= 50 ? "text-green-600" : "text-red-600"
-                          )}>
-                            {currentProgress}%
-                          </span>
-                        </div>
-                        <Progress
-                          value={currentProgress}
-                          className={cn(
-                            "h-1.5",
-                            currentProgress < 50 && "bg-red-100 dark:bg-red-900/20"
-                          )}
-                        />
-                        {currentProgress < 50 && (
-                          <div className="flex items-center gap-1 text-xs text-red-600">
-                            <AlertTriangle className="w-3 h-3" />
-                            <span>Keep your egg healthy!</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Action buttons for specific tasks */}
-                    {!isCompleted && (
-                      <div className="pt-2">
-                        {task.id === 'first_post' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setShowCreatePost(true)}
-                            className="text-xs h-7"
-                          >
-                            <Edit className="w-3 h-3 mr-1" />
-                            Create Post
-                          </Button>
-                        )}
-
-                        {task.id === 'post_blobbi_photo' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handlePhotoTaken}
-                            className="text-xs h-7"
-                          >
-                            <Camera className="w-3 h-3 mr-1" />
-                            Take Photo
-                          </Button>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               );

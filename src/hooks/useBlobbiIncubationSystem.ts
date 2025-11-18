@@ -40,12 +40,9 @@ const EGG_HATCHING_TASKS: EggHatchingTask[] = [
     description: 'Publish your first kind:1 post that includes the #Blobbi hashtag',
     eventKind: 1,
     checkFunction: (event: NostrEvent, userPubkey: string) => {
-      if (event.pubkey !== userPubkey || event.kind !== 1) return false;
-      const hasHashtagInContent = event.content.toLowerCase().includes('#blobbi');
-      const hasHashtagInTags = event.tags.some(tag =>
-        tag[0] === 't' && tag[1] && tag[1].toLowerCase() === 'blobbi'
-      );
-      return hasHashtagInContent || hasHashtagInTags;
+      // This task is now completed manually via the Create Post modal
+      // to ensure it only completes when the user intentionally uses the incubation feature
+      return false; // Never auto-complete, only via manual confirmation
     },
     completed: false,
   },
@@ -1298,6 +1295,18 @@ export function useBlobbiIncubationSystem() {
               const isCompleted = confirmedTaskIds.has(task.id);
               const savedProgress = progressMap.get(task.id);
 
+              // Debug logging for first_post task initialization
+              if (task.id === 'first_post') {
+                console.log(`🔍 Initializing first_post task for blobbi ${blobbi.name}:`, {
+                  taskId: task.id,
+                  blobbiId: blobbi.id,
+                  confirmedTaskIds: Array.from(confirmedTaskIds),
+                  isCompleted,
+                  savedProgress,
+                  confirmedTags: confirmedTags.filter(tag => tag[0].includes('first_post'))
+                });
+              }
+
               return {
                 ...task,
                 completed: isCompleted,
@@ -1406,6 +1415,18 @@ export function useBlobbiIncubationSystem() {
       const currentBlobbi = state.blobbis.find(b => b.id === blobbiId);
       return currentBlobbi && (currentBlobbi.shellIntegrity || 100) >= 50;
     }
+
+    // Debug logging for first_post task
+    if (task.id === 'first_post') {
+      console.log(`🔍 isTaskCompleted check for first_post:`, {
+        taskId: task.id,
+        blobbiId,
+        taskCompleted: task.completed,
+        taskProgress: task.progress,
+        taskName: task.name
+      });
+    }
+
     return task.completed;
   }, [state.blobbis]);
 
@@ -1718,6 +1739,68 @@ export function useBlobbiIncubationSystem() {
     }
   }, [user, nostr, publishEvent, toast]);
 
+  // Function to mark first post task as completed (called by Create Post modal)
+  const markFirstPostTaskCompleted = useCallback(async (blobbiId: string) => {
+    if (!user || !nostr) return;
+
+    try {
+      console.log(`✏️ Marking first post task as completed for Blobbi: ${blobbiId}`);
+
+      // Fetch current Blobbi event to update it
+      const signal = AbortSignal.timeout(5000);
+      const currentBlobbiEvents = await nostr.query([{
+        kinds: [31124],
+        authors: [user?.pubkey || ''],
+        '#d': [blobbiId],
+        limit: 1,
+      }], { signal });
+
+      if (currentBlobbiEvents.length === 0) {
+        console.error('❌ No Blobbi event found for first post task completion');
+        return;
+      }
+
+      const currentEvent = currentBlobbiEvents[0];
+
+      // Use the new merge helper to safely update tags
+      const updatedTags = mergeBlobbiStateTags(currentEvent.tags, {
+        addConfirmedTaskId: 'first_post',
+      });
+
+      // Publish the updated event
+      await publishEvent({
+        kind: 31124,
+        content: currentEvent.content,
+        tags: updatedTags,
+      });
+
+      console.log(`✅ Successfully marked first post task as completed for ${blobbiId}`);
+
+      // Update local state
+      setState(prev => {
+        const newBlobbiTaskStates = new Map(prev.blobbiTaskStates);
+        const taskState = newBlobbiTaskStates.get(blobbiId);
+        if (taskState) {
+          const updatedEggTasks = taskState.eggTasks.map(task =>
+            task.id === 'first_post' ? { ...task, completed: true } : task
+          );
+          newBlobbiTaskStates.set(blobbiId, { ...taskState, eggTasks: updatedEggTasks });
+        }
+        return { ...prev, blobbiTaskStates: newBlobbiTaskStates };
+      });
+
+      // Show completion toast
+      toast({
+        title: "✏️ First Post Task Complete!",
+        description: "Your #Blobbi post has been published! This counts towards your hatching progress.",
+        variant: "default",
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to mark first post task as completed:', error);
+    }
+  }, [user, nostr, publishEvent, toast]);
+
   const selectedTaskState = state.selectedEggId ? state.blobbiTaskStates.get(state.selectedEggId) : null;
   const progress = getProgress(state.selectedEggId);
 
@@ -1766,6 +1849,7 @@ export function useBlobbiIncubationSystem() {
     // Controls
     refetchMetadata: fetchBlobbiMetadata,
     markPhotoTaskCompleted,
+    markFirstPostTaskCompleted,
     isTaskCompleted,
 
     // Debug info
