@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Neon colors -->
+    <linearGradient id="neonPurple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c4b5fd"/>
+      <stop offset="60%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="neonCyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="neonPink" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+
+    <!-- Soft outer glow for neon tubes -->
+    <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <!-- expand the alpha to make a fatter glow -->
+      <feMorphology operator="dilate" radius="0.8" in="SourceAlpha" result="expanded"/>
+      <feGaussianBlur in="expanded" stdDeviation="2.2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Stroke widths (core + halo) via CSS-like classes -->
+    <style><![CDATA[
+      .tube-core { stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .tube-halo { stroke-width: 6.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.35; fill: none; filter: url(#neonGlow); }
+    ]]></style>
+  </defs>
+
+  <!-- BODY OUTLINE (same droplet path as original) -->
+  <!-- halo -->
+  <path d="M 50 15 Q 50 10 50 15 Q 72 25 75 55 Q 75 80 50 88 Q 25 80 25 55 Q 28 25 50 15"
+        class="tube-halo" stroke="url(#neonPurple)"/>
+  <!-- bright core -->
+  <path d="M 50 15 Q 50 10 50 15 Q 72 25 75 55 Q 75 80 50 88 Q 25 80 25 55 Q 28 25 50 15"
+        class="tube-core" stroke="url(#neonPurple)"/>
+
+  <!-- Eyes -->
+  <!-- Left eye outline -->
+  <!-- <ellipse cx="38" cy="45" rx="8" ry="10" class="tube-halo" stroke="url(#neonCyan)"/> -->
+  <ellipse cx="38" cy="45" rx="8" ry="10" class="tube-core" stroke="url(#neonCyan)"/>
+  <!-- Right eye outline -->
+  <!-- <ellipse cx="62" cy="45" rx="8" ry="10" class="tube-halo" stroke="url(#neonCyan)"/> -->
+  <ellipse cx="62" cy="45" rx="8" ry="10" class="tube-core" stroke="url(#neonCyan)"/>
+
+  <!-- MOUTH (happy arc) -->
+  <!-- <path d="M 42 62 Q 50 68 58 62" class="tube-halo" stroke="url(#neonPink)"/> -->
+  <path d="M 42 62 Q 50 68 58 62" class="tube-core" stroke="url(#neonPink)"/>
+</svg>
+

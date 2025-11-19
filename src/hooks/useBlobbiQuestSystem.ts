@@ -5,6 +5,7 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
 import { NostrEvent } from '@nostrify/nostrify';
 import { parseBlobbiFromStateEvent } from '@/lib/blobbi-events';
+import { extractTagValues } from '@/lib/blobbi-state-merge';
 import { Blobbi } from '@/types/blobbi';
 
 // Quest definitions for Baby to Adult evolution (9 quests)
@@ -368,11 +369,11 @@ export function useBlobbiQuestSystem() {
       return;
     }
 
-    // Only process events that occurred after quest started
+    // Only process events that occurred after evolution started
     const eventTimestamp = event.created_at * 1000;
-    const questTime = state.questStartTime || state.questState.questStartTime;
-    if (eventTimestamp < questTime) {
-      console.log(`⏭️ Skipping event from before quest start: ${new Date(eventTimestamp).toISOString()}`);
+    const evolutionTime = state.questStartTime;
+    if (!evolutionTime || eventTimestamp < evolutionTime) {
+      console.log(`⏭️ Skipping event from before evolution start: ${new Date(eventTimestamp).toISOString()} (evolution: ${evolutionTime ? new Date(evolutionTime).toISOString() : 'not set'})`);
       return;
     }
 
@@ -567,13 +568,90 @@ export function useBlobbiQuestSystem() {
                       ? prev.blobbis.map(b => b.id === blobbi.id ? blobbi : b)
                       : [...prev.blobbis, blobbi];
 
+                    const newBlobbiTaskStates = new Map(prev.questState.blobbiQuestProgress);
+                    let evolutionBabyId: string | null = null;
+                    let latestEvolutionTimestamp = 0;
+
                     // Update baby Blobbis list for hashtag validation
                     const babyBlobbis = updatedBlobbis.filter(b => b.lifeStage === 'baby');
+
+                    // Check for start_evolution tags and find authoritative baby
+                    if (blobbi.lifeStage === 'baby') {
+                      const startEvolutionTags = extractTagValues(event, 'start_evolution');
+                      for (const tagValue of startEvolutionTags) {
+                        let timestamp = parseInt(tagValue);
+                        // If invalid (e.g., "true"), fallback to event.created_at
+                        if (isNaN(timestamp)) {
+                          timestamp = event.created_at;
+                          console.log(`⚠️ Invalid start_evolution tag value "${tagValue}", using fallback timestamp ${timestamp}`);
+                        }
+                        if (timestamp > latestEvolutionTimestamp) {
+                          latestEvolutionTimestamp = timestamp;
+                          evolutionBabyId = blobbi.id;
+                          console.log(`🎯 Found evolution baby candidate: ${blobbi.name} (${blobbi.id}) with start_evolution: ${timestamp}`);
+                        }
+                      }
+                    }
 
                     // Update selected Blobbi if it was updated
                     const selectedBlobbi = prev.selectedBabyId
                       ? updatedBlobbis.find(b => b.id === prev.selectedBabyId)
                       : undefined;
+
+                    // Handle start_evolution tag changes with authoritative selection
+                    const currentEvolutionBabyId = prev.selectedBabyId;
+                    const hasStartEvolution = evolutionBabyId !== null;
+
+                    if (hasStartEvolution && blobbi.lifeStage === 'baby') {
+                      const timestamp = latestEvolutionTimestamp * 1000; // Convert to milliseconds
+                      console.log(`🎯 Found start_evolution tag for ${blobbi.name} with timestamp ${latestEvolutionTimestamp}`);
+
+                      // Authoritative selection: if this is a baby with start_evolution, it MUST be selected
+                      if (!currentEvolutionBabyId || currentEvolutionBabyId !== blobbi.id) {
+                        console.log(`🔄 Authoritative auto-selection of evolving baby: ${blobbi.name}`);
+                        return {
+                          ...prev,
+                          blobbis: updatedBlobbis,
+                          questState: {
+                            ...prev.questState,
+                            babyBlobbis,
+                            selectedBlobbi: blobbi,
+                            blobbiQuestProgress: newBlobbiTaskStates,
+                            isListening: true,
+                          },
+                          selectedBabyId: blobbi.id,
+                          questStartTime: timestamp,
+                        };
+                      } else {
+                        // Update timestamp if same baby
+                        return {
+                          ...prev,
+                          blobbis: updatedBlobbis,
+                          questState: {
+                            ...prev.questState,
+                            babyBlobbis,
+                            selectedBlobbi: blobbi,
+                            blobbiQuestProgress: newBlobbiTaskStates,
+                            isListening: true,
+                          },
+                          questStartTime: timestamp,
+                        };
+                      }
+                    } else if (!hasStartEvolution && currentEvolutionBabyId === blobbi.id) {
+                      // If the current selected baby lost its start_evolution tag, clear selection
+                      console.log(`🛑 Baby ${blobbi.name} lost start_evolution tag, clearing selection`);
+                      return {
+                        ...prev,
+                        blobbis: updatedBlobbis,
+                        questState: {
+                          ...prev.questState,
+                          babyBlobbis,
+                          blobbiQuestProgress: newBlobbiTaskStates,
+                        },
+                        selectedBabyId: null,
+                        questStartTime: null,
+                      };
+                    }
 
                     return {
                       ...prev,
@@ -582,13 +660,14 @@ export function useBlobbiQuestSystem() {
                         ...prev.questState,
                         babyBlobbis,
                         selectedBlobbi: selectedBlobbi,
+                        blobbiQuestProgress: newBlobbiTaskStates,
                       },
                     };
                   });
 
                   // Check for *_confirmed tags to mark quests as completed for this specific Blobbi
                   setState(prevInner => {
-                    const confirmedTags = event.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
+                    const confirmedTags = event.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1]);
                     if (confirmedTags.length > 0 && blobbi.lifeStage === 'baby') {
                       console.log(`✅ Found confirmed quest tags for Blobbi ${blobbi.name}:`, confirmedTags);
 
@@ -702,7 +781,7 @@ export function useBlobbiQuestSystem() {
     }
   }, [user, nostr, state.blobbiHashtagSubscriptionActive, processBlobbiHashtagEvent]);
 
-  // Start quest tracking subscription (only after user clicks "Start Listening")
+  // Start quest tracking subscription (only after user clicks "Start Evolution")
   const startQuestSubscription = useCallback(async (selectedBabyId?: string, sinceTimestamp?: number) => {
     if (!user || !nostr) return;
 
@@ -716,6 +795,40 @@ export function useBlobbiQuestSystem() {
     if (!selectedBabyId) {
       console.log('⚠️ No baby selected, skipping quest subscription');
       return;
+    }
+
+    // If no since timestamp provided, try to get it from the selected baby's start_evolution tag
+    let finalSinceTimestamp = sinceTimestamp;
+    if (!finalSinceTimestamp && state.questStartTime && selectedBabyId === state.selectedBabyId) {
+      finalSinceTimestamp = state.questStartTime;
+    }
+    if (!finalSinceTimestamp) {
+      try {
+        const signal = AbortSignal.timeout(5000);
+        const currentBlobbiEvents = await nostr.query([{
+          kinds: [31124],
+          authors: [user?.pubkey || ''],
+          '#d': [selectedBabyId],
+          limit: 1,
+        }], { signal });
+
+        if (currentBlobbiEvents.length > 0) {
+          const startEvolutionTag = currentBlobbiEvents[0].tags.find(tag => tag[0] === 'start_evolution');
+          if (startEvolutionTag && startEvolutionTag[1]) {
+            const tagTimestamp = parseInt(startEvolutionTag[1]);
+            if (!isNaN(tagTimestamp)) {
+              finalSinceTimestamp = tagTimestamp * 1000; // Convert to milliseconds
+              console.log(`🏷️ Using start_evolution tag timestamp: ${startEvolutionTag[1]}`);
+            } else {
+              // Fallback to event.created_at
+              finalSinceTimestamp = currentBlobbiEvents[0].created_at * 1000;
+              console.log(`⚠️ Invalid start_evolution tag, using event.created_at: ${currentBlobbiEvents[0].created_at}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch start_evolution timestamp:', error);
+      }
     }
 
     console.log('🎯 Starting persistent quest tracking subscription...');
@@ -735,7 +848,7 @@ export function useBlobbiQuestSystem() {
         }
       ];
 
-      // Add since filter if timestamp is provided (when "Start Listening" is clicked)
+      // Add since filter if timestamp is provided (when "Start Evolution" is clicked)
       if (sinceTimestamp) {
         const sinceSeconds = Math.floor(sinceTimestamp / 1000); // Convert to seconds
         filters[0].since = sinceSeconds;
@@ -830,12 +943,32 @@ export function useBlobbiQuestSystem() {
 
       // Parse Blobbi events
       const blobbis: Blobbi[] = [];
+      let evolutionBabyId: string | null = null;
+      let latestEvolutionTimestamp = 0;
 
       for (const event of events) {
         try {
           const blobbi = parseBlobbiFromStateEvent(event);
           if (blobbi) {
             blobbis.push(blobbi);
+
+            // Check for start_evolution tags for babies
+            if (blobbi.lifeStage === 'baby') {
+              const startEvolutionTags = extractTagValues(event, 'start_evolution');
+              for (const tagValue of startEvolutionTags) {
+                let timestamp = parseInt(tagValue);
+                // If invalid (e.g., "true"), fallback to event.created_at
+                if (isNaN(timestamp)) {
+                  timestamp = event.created_at;
+                  console.log(`⚠️ Invalid start_evolution tag value "${tagValue}", using fallback timestamp ${timestamp}`);
+                }
+                if (timestamp > latestEvolutionTimestamp) {
+                  latestEvolutionTimestamp = timestamp;
+                  evolutionBabyId = blobbi.id;
+                  console.log(`🎯 Found evolution baby candidate: ${blobbi.name} (${blobbi.id}) with start_evolution: ${timestamp}`);
+                }
+              }
+            }
           }
         } catch (error) {
           console.warn('Failed to parse Blobbi event:', error);
@@ -859,7 +992,7 @@ export function useBlobbiQuestSystem() {
           });
 
           if (blobbiEvent) {
-            const confirmedTags = blobbiEvent.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1] === 'true');
+            const confirmedTags = blobbiEvent.tags.filter(tag => tag[0].endsWith('_confirmed') && tag[1]);
 
             if (confirmedTags.length > 0) {
               // Get existing quest progress for this Blobbi or start fresh
@@ -909,11 +1042,29 @@ export function useBlobbiQuestSystem() {
         };
       });
 
+      // Authoritative baby selection: override any existing selection with evolving baby
+      if (evolutionBabyId) {
+        console.log(`🎯 Authoritative baby selection: ${evolutionBabyId} with latest start_evolution: ${latestEvolutionTimestamp}`);
+        setState(prev => ({
+          ...prev,
+          selectedBabyId: evolutionBabyId,
+          questStartTime: latestEvolutionTimestamp * 1000, // Convert to milliseconds
+        }));
+      } else {
+        console.log('🔍 No evolving babies found, keeping current selection or null');
+      }
+
       // Start persistent metadata subscription
       await startMetadataSubscription();
 
       // Start #Blobbi hashtag tracking
       await startBlobbiHashtagSubscription();
+
+      // If we have an authoritative evolving baby, start quest subscription
+      if (evolutionBabyId) {
+        console.log(`🚀 Auto-starting quest subscription for authoritative evolving baby: ${evolutionBabyId}`);
+        await startQuestSubscription(evolutionBabyId, latestEvolutionTimestamp * 1000);
+      }
 
     } catch (error) {
       console.error('❌ Failed to fetch Blobbi metadata:', error);
@@ -1122,6 +1273,67 @@ export function useBlobbiQuestSystem() {
     }
   }, [state.selectedBabyId, user, nostr]);
 
+  // Persist evolution start to Nostr (matches persistIncubationStart exactly)
+  const persistEvolutionStart = useCallback(async (babyId: string) => {
+    if (!user || !nostr) return;
+
+    try {
+      console.log('💾 Persisting evolution start for baby:', babyId);
+
+      // Fetch current Blobbi event to update it
+      const signal = AbortSignal.timeout(5000);
+      const currentBlobbiEvents = await nostr.query([{
+        kinds: [31124],
+        authors: [user.pubkey],
+        '#d': [babyId],
+        limit: 1,
+      }], { signal });
+
+      if (currentBlobbiEvents.length === 0) {
+        console.error('❌ No Blobbi event found for evolution start');
+        return;
+      }
+
+      const currentEvent = currentBlobbiEvents[0];
+
+      // Check if start_evolution tag already exists
+      const existingStartEvolutionTags = extractTagValues(currentEvent, 'start_evolution');
+      if (existingStartEvolutionTags.length > 0) {
+        const existingTimestamp = parseInt(existingStartEvolutionTags[0]);
+        if (!isNaN(existingTimestamp)) {
+          console.log(`✅ Evolution already started for baby ${babyId} with existing timestamp ${existingTimestamp}`);
+          return existingTimestamp;
+        } else {
+          // Invalid value (e.g., "true"), fallback to event.created_at
+          const fallbackTimestamp = currentEvent.created_at;
+          console.log(`⚠️ Invalid start_evolution tag value "${existingStartEvolutionTags[0]}", using fallback timestamp ${fallbackTimestamp}`);
+          return fallbackTimestamp;
+        }
+      }
+
+      const now = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
+
+      // Use the merge helper to safely update tags
+      const { mergeBlobbiStateTags } = await import('@/lib/blobbi-state-merge');
+      const updatedTags = mergeBlobbiStateTags(currentEvent.tags, {
+        startEvolution: now,
+      });
+
+      // Publish the updated event
+      await publishEvent({
+        kind: 31124,
+        content: currentEvent.content,
+        tags: updatedTags,
+      });
+
+      console.log(`✅ Successfully persisted evolution start for baby ${babyId} with timestamp ${now}`);
+      return now;
+    } catch (error) {
+      console.error('❌ Failed to persist evolution start:', error);
+      throw error;
+    }
+  }, [user, nostr, publishEvent]);
+
   // Start quest tracking for selected baby
   const startQuestTracking = useCallback(async () => {
     if (!state.selectedBabyId) {
@@ -1140,11 +1352,18 @@ export function useBlobbiQuestSystem() {
       console.log('🐣 Starting quest tracking for baby:', state.selectedBabyId);
       setState(prev => ({ ...prev, isStartingQuestTracking: true }));
 
-      const now = Date.now();
-      setState(prev => ({ ...prev, questStartTime: now }));
+      // Step 1: Persist evolution start to Nostr
+      const evolutionTimestamp = await persistEvolutionStart(state.selectedBabyId);
+      if (!evolutionTimestamp) {
+        throw new Error('Failed to persist evolution start');
+      }
 
-      // Start quest subscription with since timestamp
-      await startQuestSubscription(state.selectedBabyId, now);
+      // Convert timestamp back to milliseconds for local state
+      const evolutionTimeMs = evolutionTimestamp * 1000;
+      setState(prev => ({ ...prev, questStartTime: evolutionTimeMs }));
+
+      // Step 2: Start quest subscription with since timestamp from the persisted tag
+      await startQuestSubscription(state.selectedBabyId, evolutionTimeMs);
 
       setState(prev => ({ ...prev, isStartingQuestTracking: false }));
       console.log('✅ Quest tracking started successfully');
@@ -1159,7 +1378,73 @@ export function useBlobbiQuestSystem() {
         questState: { ...prev.questState, isListening: false },
       }));
     }
-  }, [state.selectedBabyId, state.questSubscriptionActive, state.isStartingQuestTracking, startQuestSubscription]);
+  }, [state.selectedBabyId, state.questSubscriptionActive, state.isStartingQuestTracking, startQuestSubscription, persistEvolutionStart]);
+
+  // Stop evolution and remove the start_evolution tag
+  const stopEvolution = useCallback(async () => {
+    if (!state.selectedBabyId) {
+      console.warn('⚠️ No baby selected to stop evolution');
+      return;
+    }
+
+    try {
+      console.log('🛑 Stopping evolution for baby:', state.selectedBabyId);
+
+      // Fetch current Blobbi event to update it
+      const signal = AbortSignal.timeout(5000);
+      const currentBlobbiEvents = await nostr.query([{
+        kinds: [31124],
+        authors: [user?.pubkey || ''],
+        '#d': [state.selectedBabyId],
+        limit: 1,
+      }], { signal });
+
+      if (currentBlobbiEvents.length === 0) {
+        console.error('❌ No Blobbi event found for stopping evolution');
+        return;
+      }
+
+      const currentEvent = currentBlobbiEvents[0];
+
+      // Use the merge helper to safely remove start_evolution tag
+      const { mergeBlobbiStateTags } = await import('@/lib/blobbi-state-merge');
+      const updatedTags = mergeBlobbiStateTags(currentEvent.tags, {
+        removeStartEvolution: true,
+      });
+
+      // Publish the updated event without start_evolution tag
+      await publishEvent({
+        kind: 31124,
+        content: currentEvent.content,
+        tags: updatedTags,
+      });
+
+      console.log(`✅ Successfully stopped evolution for baby ${state.selectedBabyId}`);
+
+      // Stop the quest subscription
+      activeQuestSubscriptionRef.current = false;
+      if (questCleanupRef.current) {
+        questCleanupRef.current();
+        questCleanupRef.current = null;
+      }
+
+      // Clear the selected baby and evolution state
+      setState(prev => {
+        if (!prev.selectedBabyId) return prev;
+        const newQuestState = { ...prev.questState };
+        newQuestState.isListening = false;
+        return {
+          ...prev,
+          questSubscriptionActive: false,
+          questState: newQuestState,
+          selectedBabyId: null,
+          questStartTime: null,
+        };
+      });
+    } catch (error) {
+      console.error('❌ Failed to stop evolution:', error);
+    }
+  }, [state.selectedBabyId, user, nostr, publishEvent]);
 
   // Stop quest tracking (cleanup)
   const stopQuestTrackingRef = useRef<() => void>();
@@ -1239,7 +1524,11 @@ export function useBlobbiQuestSystem() {
     selectBaby,
     startQuestTracking,
     stopQuestTracking,
+    stopEvolution,
     resetQuestTracking,
+
+    // Helper functions
+    hasEvolutionStarted: (blobbiId: string) => state.selectedBabyId === blobbiId && !!state.questStartTime,
 
     // Controls
     refetchMetadata: fetchBlobbiMetadata,

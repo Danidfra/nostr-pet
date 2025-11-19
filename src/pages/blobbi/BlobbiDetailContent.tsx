@@ -35,7 +35,7 @@ import { DailyMissionsCard } from '@/components/blobbi/DailyMissionsCard';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbiById } from '@/hooks/useUserBlobbis';
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
-import { useBlobbiQuestSystem } from '@/hooks/useBlobbiQuestSystem';
+
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 import { BlobbiStats } from '@/components/blobbi/BlobbiStats';
@@ -46,6 +46,8 @@ import { BlobbiCustomization } from '@/components/blobbi/BlobbiCustomization';
 import { BlobbiGamesModal } from '@/components/blobbi/BlobbiGamesModal';
 import { EvolutionProgress } from '@/components/blobbi/EvolutionProgress';
 import { EggGraphic } from '@/components/blobbi/EggGraphic';
+import { BlobbiGrowthHubCard } from '@/components/blobbi/BlobbiGrowthHubCard';
+
 import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { PolaroidPhotoModal } from '@/components/blobbi/PolaroidPhotoModal';
@@ -183,22 +185,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     markPhotoTaskCompleted
   } = useBlobbiIncubationSystem();
 
-  // New quest system for Baby to Adult evolution
-  const {
-    babyToAdultQuests,
-    questProgress,
-    isReadyToEvolve: isQuestReadyToEvolve,
-    isBabyReadyToEvolve,
-    questSubscriptionActive,
-    blobbiHashtagSubscriptionActive,
-    isListening: isQuestListening,
-    isStartingQuestTracking,
-    selectedBabyId,
-    questStartTime,
-    selectBaby,
-    startQuestTracking,
-    stopQuestTracking,
-  } = useBlobbiQuestSystem();
+
 
   const [showShop, setShowShop] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
@@ -209,7 +196,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const [isDetailsTourActive, setIsDetailsTourActive] = useState(false);
   const [showTourCompletionModal, setShowTourCompletionModal] = useState(false);
 
-  // Handle egg/baby selection when user manually starts listening
+  // Handle egg selection when user manually starts listening
   const handleStartListening = useCallback(() => {
     if (!realBlobbi || !blobbiId) return;
 
@@ -220,15 +207,11 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
       setTimeout(() => {
         startIncubation();
       }, 100);
-    } else if (realBlobbi.lifeStage === 'baby') {
-      // Select baby and start quest tracking
-      selectBaby(blobbiId);
-      // Small delay to ensure selection is processed
-      setTimeout(() => {
-        startQuestTracking();
-      }, 100);
     }
-  }, [realBlobbi, blobbiId, selectEgg, selectBaby, startIncubation, startQuestTracking]);
+    // Baby evolution is now handled in the Growth Hub dashboard
+  }, [realBlobbi, blobbiId, selectEgg, startIncubation]);
+
+
 
   // Auto-start details tour based on sessionStorage
   useEffect(() => {
@@ -283,10 +266,9 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     );
   }
 
-  // Check if this blobbi is currently selected
-  const isCurrentlySelected = selectedEggId === blobbiId || selectedBabyId === blobbiId;
-  const isCurrentlyListening = (realBlobbi?.lifeStage === 'egg' && taskSubscriptionActive) ||
-                               (realBlobbi?.lifeStage === 'baby' && questSubscriptionActive);
+  // Check if this blobbi is currently selected (only for eggs now, babies handled in Growth Hub)
+  const isCurrentlySelected = selectedEggId === blobbiId;
+  const isCurrentlyListening = (realBlobbi?.lifeStage === 'egg' && taskSubscriptionActive);
 
   // Calculate evolution readiness
   const eggReadiness = realBlobbi.lifeStage === 'egg' ? checkEggHatchingReadiness(realBlobbi) : null;
@@ -401,6 +383,19 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
             />
           )}
 
+          {/* Growth Hub - Hatching Progress for Eggs */}
+          {isOwner && realBlobbi.lifeStage === 'egg' && selectedEggId === blobbiId && (
+            <BlobbiGrowthHubCard
+              blobbi={blobbi}
+              mode="egg"
+              onTakePhoto={() => setShowPolaroidModal(true)}
+            />
+          )}
+
+
+
+
+
           {/* Quick Info */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
             <CardHeader>
@@ -512,8 +507,8 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                   </Button>
                 )}
 
-                {/* Traditional Evolution Button (Fallback) */}
-                {((eggReadiness?.isReady && !isReadyToHatch) || babyReadiness?.isReady) && (
+                {/* Traditional Evolution Button (Fallback for eggs and babies without quest system) */}
+                {((eggReadiness?.isReady && !isReadyToHatch) || (babyReadiness?.isReady)) && (
                   <Button
                     className="w-full justify-start gap-2"
                     onClick={() => triggerEvolution()}

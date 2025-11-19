@@ -29,12 +29,14 @@ import {
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
 import { useBlobbiQuestSystem } from '@/hooks/useBlobbiQuestSystem';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
+import { BlobbiGrowthHubCard } from './BlobbiGrowthHubCard';
 import { EggGraphic } from './EggGraphic';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { CreatePostModal } from './CreatePostModal';
 import { PolaroidPhotoModal } from './PolaroidPhotoModal';
 import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface BlobbiIncubationDashboardProps {
   className?: string;
@@ -87,6 +89,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
     selectBaby,
     startQuestTracking,
     stopQuestTracking,
+    stopEvolution,
     debugInfo: questDebugInfo,
   } = useBlobbiQuestSystem();
 
@@ -102,8 +105,19 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
   const babyBlobbis = blobbis.filter(blobbi => blobbi.lifeStage === 'baby');
   const adultBlobbis = blobbis.filter(blobbi => blobbi.lifeStage === 'adult');
   const evolvedBlobbis = blobbis.filter(blobbi => blobbi.lifeStage !== 'egg');
+
+  // Get selected blobbi (either egg or baby)
   const selectedBlobbi = selectedEggId ? blobbis.find(b => b.id === selectedEggId) : null;
   const selectedBabyBlobbi = selectedBabyId ? blobbis.find(b => b.id === selectedBabyId) : null;
+  const currentSelectedBlobbi = selectedBlobbi || selectedBabyBlobbi;
+
+  // Check for babies with evolution already started
+  const babiesWithEvolution = babyBlobbis.filter(blobbi => {
+    // Check if the baby has evolution started via the quest system
+    const babyProgress = getBlobbiQuestProgress(blobbi.id);
+    return babyProgress.total > 0; // If there are quests, evolution has started
+  });
+  const hasEvolutionInProgress = babiesWithEvolution.length > 0;
 
   // The auto-selection is now handled in the hook when fetching metadata
   // This useEffect is no longer needed for eggs, but we'll keep baby auto-selection
@@ -402,185 +416,26 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
         </Card>
       )}
 
-      {/* Selected Egg Details */}
-      {selectedBlobbi && selectedBlobbi.lifeStage === 'egg' && showEggList && (
-        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-400 dark:border-purple-500 shadow-lg animate-in slide-in-from-top-4 duration-500">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
-              <div className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-purple-500" />
-                {selectedBlobbi.name} - Hatching Progress
-              </div>
-              <div className="flex items-center gap-2">
-                {!incubationStartTime && !taskSubscriptionActive && selectedEggId === selectedBlobbi.id && (
-                  <Button
-                    id="tab-growth-hub-start-incubation"
-                    onClick={startIncubation}
-                    size="sm"
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    <Egg className="w-4 h-4 mr-2" />
-                    Start Incubation
-                  </Button>
-                )}
-
-                {incubationStartTime && (
-                  <>
-                    <Badge className={isListening ? 'bg-green-600 text-white' : 'bg-amber-500 text-white'}>
-                      <Wifi className="w-3 h-3 mr-1" />
-                      {isListening ? 'Listening for events...' : 'Incubating (waiting for events)'}
-                    </Badge>
-                    <Button
-                      onClick={stopIncubation}
-                      size="sm"
-                      variant="outline"
-                      className="border-red-200 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    >
-                      <WifiOff className="w-4 h-4 mr-2" />
-                      Stop Incubation
-                    </Button>
-                  </>
-                )}
-
-                {!incubationStartTime && taskSubscriptionActive && (
-                  <>
-                    <Badge className="bg-green-600 text-white">
-                      <Wifi className="w-3 h-3 mr-1" />
-                      Listening for events...
-                    </Badge>
-                    <Button
-                      onClick={stopIncubation}
-                      size="sm"
-                      variant="outline"
-                      className="border-red-200 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    >
-                      <WifiOff className="w-4 h-4 mr-2" />
-                      Stop Incubation
-                    </Button>
-                  </>
-                )}
-              </div>
-            </CardTitle>
-            <CardDescription className="text-gray-600 dark:text-gray-300">
-              {!incubationStartTime
-                ? "Click 'Start Incubation' to begin tracking your Nostr interactions"
-                : "Complete these 4 Nostr interactions to hatch your egg"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Progress Bar */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                <span>Progress</span>
-                <span>{selectedBlobbiProgress.egg.completed}/{selectedBlobbiProgress.egg.total} tasks</span>
-              </div>
-              <Progress value={selectedBlobbiProgress.egg.percentage} className="h-3" />
-            </div>
-
-            {/* Task List */}
-            <div className="space-y-3">
-              {eggTasks.map((task, index) => {
-                const isActuallyCompleted = isTaskCompleted(task, selectedBlobbi?.id || null);
-
-                return (
-                <div
-                  key={task.id}
-                  className={`flex items-start gap-3 p-4 rounded-lg border transition-colors ${
-                    isActuallyCompleted
-                      ? 'bg-green-50/80 dark:bg-green-950/50 border-green-200 dark:border-green-800'
-                      : 'bg-gray-50/80 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700'
-                  }`}
-                >
-                  <div className="mt-0.5">
-                    {isActuallyCompleted ? (
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <Circle className="h-5 w-5 text-gray-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 id={`tab-growth-hub-tasks-${index}`} className={`font-medium ${isActuallyCompleted ? 'text-green-800 dark:text-green-200' : 'text-gray-900 dark:text-gray-100'}`}>
-                            {task.name}
-                          </h4>
-                          {isActuallyCompleted && (
-                            <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
-                              Completed
-                            </Badge>
-                          )}
-                          {'progress' in task && task.target && (
-                            <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300">
-                              {task.progress || 0}/{task.target}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          {task.description}
-                        </p>
-                        {isActuallyCompleted && (
-                          <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
-                            <CheckCircle className="h-3 w-3" />
-                            {task.id === 'shell_integrity_above_50' ? 'Shell integrity requirement met' : 'Task confirmed on Nostr'}
-                          </p>
-                        )}
-                        {'progress' in task && task.target && !isActuallyCompleted && (
-                          <div className="mt-2">
-                            <Progress value={((task.progress || 0) / task.target) * 100} className="h-2" />
-                          </div>
-                        )}
-                      </div>
-                      {!isActuallyCompleted && task.id === 'first_post' && (
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setIsCreatePostModalOpen(true)
-                            if (!incubationStartTime) {
-                              startIncubation()
-                            }
-                          }}
-                          className="ml-4 bg-purple-600 hover:bg-purple-700 text-white"
-                        >
-                          <Send className="h-3 w-3 mr-1" />
-                          Create Post
-                        </Button>
-                      )}
-                      {!isActuallyCompleted && task.id === 'post_blobbi_photo' && (
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setShowPolaroidModal(true)
-                            if (!incubationStartTime) {
-                              startIncubation()
-                            }
-                          }}
-                          className="ml-4 bg-purple-600 hover:bg-purple-700 text-white"
-                        >
-                          <Camera className="h-3 w-3 mr-1" />
-                          Take Photo
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                );
-              })}
-            </div>
-
-            {/* Evolution Button */}
-            {selectedBabyBlobbi && isBabyReadyToEvolve(selectedBabyBlobbi) && (
-              <Button
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-4"
-                onClick={() => triggerEvolution()}
-                disabled={isEvolving}
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                {isEvolving ? 'Evolving...' : 'Evolve to Adult'}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+      {/* Egg Incubation Card - Only for selected eggs */}
+      {selectedBlobbi && selectedBlobbi.lifeStage === 'egg' && (
+        <BlobbiGrowthHubCard
+          blobbi={selectedBlobbi}
+          mode="egg"
+          // Egg mode props
+          eggTasks={eggTasks}
+          isReadyToHatch={isReadyToHatch}
+          incubationStartTime={incubationStartTime || undefined}
+          taskSubscriptionActive={taskSubscriptionActive}
+          onStartIncubation={startIncubation}
+          onStopIncubation={stopIncubation}
+          onHatchBlobbi={hatchBlobbi}
+          onMarkPhotoTaskCompleted={markPhotoTaskCompleted}
+          onMarkFirstPostTaskCompleted={markFirstPostTaskCompleted}
+          isTaskCompleted={isTaskCompleted}
+          // Common props
+          onTakePhoto={() => setShowPolaroidModal(true)}
+          className="animate-in slide-in-from-top-4 duration-500"
+        />
       )}
 
       {/* Baby Blobbis Section - New Quest System */}
@@ -593,8 +448,14 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                   <div className="flex items-center gap-2">
                     <Baby className="h-5 w-5 text-blue-500" />
                     Baby Blobbis - Evolution Quests ({babyBlobbis.length})
+                    {hasEvolutionInProgress && (
+                      <Badge className="bg-purple-600 hover:bg-purple-700 text-white text-xs">
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        Evolution in Progress
+                      </Badge>
+                    )}
                     {babyBlobbis.some(blobbi => isBabyReadyToEvolve(blobbi)) && (
-                      <Badge className="bg-blue-600 hover:bg-blue-700 text-white text-xs">
+                      <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs">
                         <Sparkles className="w-3 h-3 mr-1" />
                         Ready to Evolve!
                       </Badge>
@@ -623,228 +484,170 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                     <>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {visibleBabies.map((blobbi) => (
-                    <div
-                      key={blobbi.id}
-                      className={`group transition-all duration-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border shadow-sm hover:shadow-xl hover:shadow-blue-200/20 dark:hover:shadow-blue-900/20 rounded-2xl cursor-pointer hover:scale-[1.02] ${
-                        selectedBabyId === blobbi.id
-                          ? 'border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 shadow-md scale-[1.02] ring-2 ring-blue-200 dark:ring-blue-600'
-                          : 'border-blue-200/60 dark:border-blue-600/60 hover:border-blue-300 dark:hover:border-blue-500'
-                      }`}
-                      onClick={() => selectBaby(selectedBabyId === blobbi.id ? null : blobbi.id)}
-                    >
-                      <div className="flex flex-col items-center space-y-3 p-4">
-                        {/* Updated Blobbi Visual Container */}
-                        <div className="flex items-center justify-center transition-all duration-500 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-2xl border-2 border-blue-100/60 dark:border-blue-600/30 group-hover:border-blue-200/80 dark:group-hover:border-blue-500/50 min-h-[200px] p-6 relative">
-                          <BlobbiVisual blobbi={blobbi} size="medium" />
-                          {selectedBabyId === blobbi.id && (
-                            <div className="absolute -top-1 -right-1">
-                              <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse">
-                                <div className="absolute inset-0 w-3 h-3 bg-blue-400 rounded-full animate-ping"></div>
+                          <div
+                            key={blobbi.id}
+                            className={`group transition-all duration-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border shadow-sm hover:shadow-xl hover:shadow-blue-200/20 dark:hover:shadow-blue-900/20 rounded-2xl cursor-pointer hover:scale-[1.02] ${
+                              selectedBabyId === blobbi.id
+                                ? 'border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 shadow-md scale-[1.02] ring-2 ring-blue-200 dark:ring-blue-600'
+                                : 'border-blue-200/60 dark:border-blue-600/60 hover:border-blue-300 dark:hover:border-blue-500'
+                            }`}
+                            onClick={() => selectBaby(selectedBabyId === blobbi.id ? null : blobbi.id)}
+                          >
+                            <div className="flex flex-col items-center space-y-3 p-4">
+                              {/* Updated Blobbi Visual Container */}
+                              <div className="flex items-center justify-center transition-all duration-500 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-2xl border-2 border-blue-100/60 dark:border-blue-600/30 group-hover:border-blue-200/80 dark:group-hover:border-blue-500/50 min-h-[200px] p-6 relative">
+                                <BlobbiVisual blobbi={blobbi} size="medium" />
+                                {selectedBabyId === blobbi.id && (
+                                  <div className="absolute -top-1 -right-1">
+                                    <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse">
+                                      <div className="absolute inset-0 w-3 h-3 bg-blue-400 rounded-full animate-ping"></div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          )}
-                        </div>
 
-                        <div className="text-center space-y-1">
-                          <h4 className="font-medium text-gray-900 dark:text-gray-100">{blobbi.name}</h4>
-                          <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300">
-                            Baby
-                          </Badge>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
-                            Born {formatDistanceToNow(blobbi.birthTime, { addSuffix: true })}
-                          </p>
-                        </div>
+                              <div className="text-center space-y-1">
+                                <h4 className="font-medium text-gray-900 dark:text-gray-100">{blobbi.name}</h4>
+                                <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300">
+                                  Baby
+                                </Badge>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                  Born {formatDistanceToNow(blobbi.birthTime, { addSuffix: true })}
+                                </p>
+                              </div>
 
-                        <div className="w-full space-y-2">
-                          {(() => {
-                            const blobbiProgress = getBlobbiQuestProgress(blobbi.id);
-                            return (
-                              <>
-                                <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                                  <span>Evolution Progress</span>
-                                  <span>{blobbiProgress.completed}/{blobbiProgress.total}</span>
+                              <div className="w-full space-y-2">
+                                {(() => {
+                                  const blobbiProgress = getBlobbiQuestProgress(blobbi.id);
+                                  return (
+                                    <>
+                                      <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                                        <span>Evolution Progress</span>
+                                        <span>{blobbiProgress.completed}/{blobbiProgress.total}</span>
+                                      </div>
+                                      <Progress value={blobbiProgress.percentage} className="h-2" />
+                                    </>
+                                  );
+                                })()}
+                                {isBabyReadyToEvolve(blobbi) ? (
+                                  selectedBabyId === blobbi.id ? (
+                                    <Button
+                                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // Prevent card selection when clicking button
+                                        triggerEvolution();
+                                      }}
+                                      disabled={isEvolving}
+                                    >
+                                      <Sparkles className="w-3 h-3 mr-1" />
+                                      {isEvolving ? 'Evolving...' : 'Evolve to Adult'}
+                                    </Button>
+                                  ) : (
+                                    <Badge className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white">
+                                      <Sparkles className="w-3 h-3 mr-1" />
+                                      Ready to Evolve!
+                                    </Badge>
+                                  )
+                                ) : (
+                                  <Badge className="w-full justify-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    Completing Quests...
+                                  </Badge>
+                                )}
+                              </div>
+
+                              {selectedBabyId === blobbi.id && (
+                                <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                                  <ArrowRight className="w-3 h-3" />
+                                  <span>View quests below</span>
                                 </div>
-                                <Progress value={blobbiProgress.percentage} className="h-2" />
-                              </>
-                            );
-                          })()}
-                          {isBabyReadyToEvolve(blobbi) ? (
-                            selectedBabyId === blobbi.id ? (
-                              <Button
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Prevent card selection when clicking button
-                                  triggerEvolution();
-                                }}
-                                disabled={isEvolving}
-                              >
-                                <Sparkles className="w-3 h-3 mr-1" />
-                                {isEvolving ? 'Evolving...' : 'Evolve to Adult'}
-                              </Button>
-                            ) : (
-                              <Badge className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white">
-                                <Sparkles className="w-3 h-3 mr-1" />
-                                Ready to Evolve!
-                              </Badge>
-                            )
-                          ) : (
-                            <Badge className="w-full justify-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                              <Clock className="w-3 h-3 mr-1" />
-                              Completing Quests...
-                            </Badge>
-                          )}
-                        </div>
-
-                        {selectedBabyId === blobbi.id && (
-                          <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-                            <ArrowRight className="w-3 h-3" />
-                            <span>View quests below</span>
+                              )}
+                            </div>
                           </div>
-                        )}
+                        ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
 
-                {/* Show more / Show less button */}
-                {babyBlobbis.length > 3 && (
-                  <div className="flex justify-center mt-6">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowAllBabies(!showAllBabies)}
-                      className="border-blue-200 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                    >
-                      {showAllBabies ? (
-                        <>
-                          <ChevronUp className="w-3 h-3 mr-1" />
-                          Show Less
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="w-3 h-3 mr-1" />
-                          Show {babyBlobbis.length - 3} More
-                        </>
+                      {/* Show more / Show less button */}
+                      {babyBlobbis.length > 3 && (
+                        <div className="flex justify-center mt-6">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowAllBabies(!showAllBabies)}
+                            className="border-blue-200 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                          >
+                            {showAllBabies ? (
+                              <>
+                                <ChevronUp className="w-3 h-3 mr-1" />
+                                Show Less
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-3 h-3 mr-1" />
+                                Show {babyBlobbis.length - 3} More
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       )}
-                    </Button>
-                  </div>
-                )}
-              </>
-              );
-            })()}
+                    </>
+                  );
+                })()}
               </CardContent>
             </CollapsibleContent>
           </Collapsible>
         </Card>
       )}
 
-      {/* Helpful message when no baby is selected */}
-      {babyBlobbis.length > 0 && !selectedBabyBlobbi && (
-        <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-600">
+      {/* Evolution Quests Card - Integrated into Growth Hub */}
+      {(() => {
+        // Exact condition for showing evolution quests card
+        const shouldShowEvolutionCard =
+          !!selectedBabyBlobbi &&
+          selectedBabyBlobbi.lifeStage === 'baby' &&
+          !!questStartTime;
+
+        return shouldShowEvolutionCard ? (
+          <BlobbiGrowthHubCard
+            blobbi={selectedBabyBlobbi}
+            mode="baby"
+            // Baby mode props
+            babyQuests={babyToAdultQuests}
+            questProgress={questProgress}
+            isReadyToEvolve={isQuestReadyToEvolve}
+            questStartTime={questStartTime || undefined}
+            questSubscriptionActive={questSubscriptionActive}
+            isQuestListening={isQuestListening}
+            onStartQuestTracking={startQuestTracking}
+            onStopEvolution={stopEvolution}
+            onTriggerEvolution={triggerEvolution}
+            isEvolving={isEvolving}
+            // Common props
+            onTakePhoto={() => setShowPolaroidModal(true)}
+            className="animate-in slide-in-from-top-4 duration-500"
+          />
+        ) : null;
+      })()}
+
+      {/* Helpful message when no blobbi is selected */}
+      {(eggBlobbis.length > 0 || babyBlobbis.length > 0) && !currentSelectedBlobbi && (
+        <Card className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-600">
           <CardContent className="py-8 text-center">
-            <Target className="w-8 h-8 mx-auto mb-3 text-blue-500" />
+            <Target className="w-8 h-8 mx-auto mb-3 text-purple-500" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-              Select a Baby Blobbi to View Evolution Quests
+              Select a Blobbi to View Progress
             </h3>
             <p className="text-gray-600 dark:text-gray-400">
-              Click on any baby Blobbi above to see its detailed evolution quest progress.
+              {eggBlobbis.length > 0
+                ? "Click on any egg above to see hatching progress, or any baby to see evolution quests."
+                : "Click on any baby above to see its evolution quests."
+              }
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Selected Baby Details - Quest System */}
-      {selectedBabyBlobbi && selectedBabyBlobbi.lifeStage === 'baby' && (
-        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-blue-400 dark:border-blue-500 shadow-lg animate-in slide-in-from-top-4 duration-500">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
-              <div className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-blue-500" />
-                {selectedBabyBlobbi.name} - Evolution Quests
-              </div>
-              {!questSubscriptionActive && !questStartTime && (
-                <Button
-                  onClick={startQuestTracking}
-                  size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Start Listening
-                </Button>
-              )}
-              {questSubscriptionActive && (
-                <Badge className="bg-green-600 text-white">
-                  <Wifi className="w-3 h-3 mr-1" />
-                  Listening for quests...
-                </Badge>
-              )}
-            </CardTitle>
-            <CardDescription className="text-gray-600 dark:text-gray-300">
-              {!questStartTime
-                ? "Click 'Start Listening' to begin tracking your Nostr interactions for evolution quests"
-                : "Complete these 10 social interaction quests to evolve your baby Blobbi to adult"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Progress Bar */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                <span>Quest Progress</span>
-                <span>{questProgress.completed}/{questProgress.total} quests</span>
-              </div>
-              <Progress value={questProgress.percentage} className="h-3" />
-            </div>
 
-            {/* Quest List */}
-            <div className="space-y-3">
-              {babyToAdultQuests.map((quest, index) => (
-                <div
-                  key={quest.id}
-                  className={`flex items-start gap-3 p-4 rounded-lg border transition-colors ${
-                    quest.completed
-                      ? 'bg-blue-50/80 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800'
-                      : 'bg-gray-50/80 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700'
-                  }`}
-                >
-                  <div className="mt-0.5">
-                    {quest.completed ? (
-                      <CheckCircle className="h-5 w-5 text-blue-500" />
-                    ) : (
-                      <Circle className="h-5 w-5 text-gray-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className={`font-medium ${quest.completed ? 'text-blue-800 dark:text-blue-200' : 'text-gray-900 dark:text-gray-100'}`}>
-                        {quest.name}
-                      </h4>
-                      {quest.completed && (
-                        <Badge variant="secondary" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                          Completed
-                        </Badge>
-                      )}
-                      {'progress' in quest && quest.target && (
-                        <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300">
-                          {quest.progress || 0}/{quest.target}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      {quest.description}
-                    </p>
-                    {quest.completed && (
-                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1">
-                        <CheckCircle className="h-3 w-3" />
-                        Quest confirmed on Nostr
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Adult Blobbis Section */}
       {adultBlobbis.length > 0 && (
@@ -1067,7 +870,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                   <div>🏷️ Hashtag Tracking: kinds:[1] with #t:[blobbi] for quest validation</div>
                   <div>⚡ Real-time: Event processing as they arrive</div>
                   <div>🚫 No REQ+CLOSE cycles: Connections remain open</div>
-                  <div>⏰ Quest tracking only starts after "Start Listening" is clicked</div>
+                  <div>⏰ Quest tracking only starts after "Start Evolution" is clicked</div>
                 </div>
               </div>
             </CardContent>

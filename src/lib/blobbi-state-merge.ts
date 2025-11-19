@@ -11,6 +11,10 @@ export interface BlobbiStateMergeOptions {
   startIncubation?: number;
   /** Whether to remove the start_incubation tag */
   removeStartIncubation?: boolean;
+  /** Timestamp when evolution started (Unix timestamp in seconds) */
+  startEvolution?: number;
+  /** Whether to remove the start_evolution tag */
+  removeStartEvolution?: boolean;
   /** Task ID to mark as confirmed (e.g., 'interact_6', 'blobbi_hashtag_post') */
   addConfirmedTaskId?: string;
   /** Progress value for a specific task (e.g., 'interact_6_progress', '3') */
@@ -96,6 +100,19 @@ export function mergeBlobbiStateTags(
         }
         break;
 
+      case 'start_evolution':
+        if (options.removeStartEvolution) {
+          // Don't include this tag at all
+          return;
+        } else if (options.startEvolution !== undefined) {
+          // Replace with new timestamp
+          result.push(['start_evolution', options.startEvolution.toString()]);
+        } else {
+          // Keep original start_evolution tag(s)
+          values.forEach(value => result.push([tagName, value]));
+        }
+        break;
+
       case 'hatch_time':
         if (options.hatchTime !== undefined) {
           // Replace with new hatch time
@@ -127,6 +144,7 @@ export function mergeBlobbiStateTags(
         // Check if this tag should be preserved (incubation/quest tags)
         const shouldPreserveTag = preserveIncubationAndQuestTags && (
           tagName === 'start_incubation' ||
+          tagName === 'start_evolution' ||
           tagName === 'hatch_time' ||
           tagName.endsWith('_confirmed') ||
           tagName.endsWith('_progress') ||
@@ -160,6 +178,10 @@ export function mergeBlobbiStateTags(
     result.push(['start_incubation', options.startIncubation.toString()]);
   }
 
+  if (options.startEvolution !== undefined && !existingTags.has('start_evolution')) {
+    result.push(['start_evolution', options.startEvolution.toString()]);
+  }
+
   if (options.hatchTime !== undefined && !existingTags.has('hatch_time')) {
     result.push(['hatch_time', options.hatchTime.toString()]);
   }
@@ -179,6 +201,7 @@ export function mergeBlobbiStateTags(
       // Check if this tag should be preserved (incubation/quest tags)
       const shouldPreserveExisting = preserveIncubationAndQuestTags && (
         name === 'start_incubation' ||
+        name === 'start_evolution' ||
         name === 'hatch_time' ||
         name.endsWith('_confirmed') ||
         name.includes('quest_') ||

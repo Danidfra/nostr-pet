@@ -313,6 +313,7 @@ export function BlobbiActions({
       {/* Growth Hub for eggs */}
       <BlobbiGrowthHubCard
         blobbi={blobbi}
+        mode={blobbi.lifeStage === 'egg' ? 'egg' : 'baby'}
         onTakePhoto={onTakePhoto}
       />
 
