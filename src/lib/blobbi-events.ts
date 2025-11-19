@@ -18,6 +18,14 @@ import {
   BlobbiEvolutionForm
 } from '@/types/blobbi';
 import { ensureBlobbiTagsWithDebug, hasBlobbiEcosystemTag, hasBlobbiTopicTag } from './blobbi-tags';
+import {
+  isDivineBlobbi,
+  ensureDivineTags,
+  syncDivineModelFields,
+  validateDivineConsistency,
+  DIVINE_THEME,
+  DIVINE_CROSSOVER_APP
+} from './blobbi-divine-utils';
 
 // Event kinds according to the specification
 export const BLOBBI_EVENT_KINDS = {
@@ -80,9 +88,12 @@ export function createShellIntegrityPenaltyEvent(
 
 // Create Kind 31124: Blobbi Current State Event
 export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
+  // 🔥 DIVINE PRESERVATION: Ensure Divine tags are present before processing
+  const divinePreservedBlobbi = ensureDivineTags(blobbi);
+
   // Start with existing tags to preserve all metadata, then override with current values
-  const preservedTags: Array<[string, string]> = blobbi.tags ?
-    blobbi.tags.map(([k, v]) => [k || '', v || ''] as [string, string]) : [];
+  const preservedTags: Array<[string, string]> = divinePreservedBlobbi.tags ?
+    divinePreservedBlobbi.tags.map(([k, v]) => [k || '', v || ''] as [string, string]) : [];
 
   // Core required tags that we always update with current values
   const coreUpdates: Array<[string, string]> = [
@@ -126,9 +137,16 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
   if (blobbi.eyeColor) stateTagMap.set('eye_color', blobbi.eyeColor);
   if (blobbi.specialMark) stateTagMap.set('special_mark', blobbi.specialMark);
 
-  // Update theme tags with current values (preserving existing ones if not specified)
-  if (blobbi.themeVariant) stateTagMap.set('theme', blobbi.themeVariant);
-  if (blobbi.crossoverApp) stateTagMap.set('crossover_app', blobbi.crossoverApp);
+  // 🔥 DIVINE PRESERVATION: Always ensure Divine tags are set if Blobbi is Divine
+  const isDivine = isDivineBlobbi(blobbi);
+  if (isDivine) {
+    stateTagMap.set('theme', DIVINE_THEME);
+    stateTagMap.set('crossover_app', DIVINE_CROSSOVER_APP);
+  } else {
+    // For non-Divine Blobbis, use their specific theme values
+    if (blobbi.themeVariant) stateTagMap.set('theme', blobbi.themeVariant);
+    if (blobbi.crossoverApp) stateTagMap.set('crossover_app', blobbi.crossoverApp);
+  }
 
   // Add adult type tag for evolved adult Blobbis
   if (blobbi.lifeStage === 'adult' && blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi') {
@@ -551,6 +569,7 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
 
     if (!id || !stage) return null;
 
+    // Create base Blobbi object with all tags preserved
     const blobbi: Blobbi = {
       id,
       ownerPubkey: event.pubkey,
@@ -632,7 +651,18 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       evolutionForm: getTagValue(tags, 'adult_type') as BlobbiEvolutionForm || undefined,
     };
 
-    return blobbi;
+    // 🔥 DIVINE TAG PRESERVATION: Synchronize model fields with tags
+    const syncedBlobbi = syncDivineModelFields(blobbi);
+
+    // 🔥 DIVINE VALIDATION: Log any consistency issues in development
+    if (process.env.NODE_ENV !== 'production') {
+      const validation = validateDivineConsistency(syncedBlobbi);
+      if (!validation.isValid) {
+        console.warn('[Divine Tags] Inconsistency detected in parsed Blobbi:', validation.errors);
+      }
+    }
+
+    return syncedBlobbi;
   } catch (error) {
     console.error('Error parsing Blobbi from state event:', error);
     return null;

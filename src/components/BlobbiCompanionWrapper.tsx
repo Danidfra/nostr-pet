@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { useBed } from '@/contexts/BedContext';
 import { Blobbi } from '@/types/blobbi';
+import { resolveBlobbiSvg, preloadBlobbiSvgs } from '@/lib/blobbi-svg-resolver';
 
 interface BlobbiCompanionAPI {
   show: () => void;
@@ -14,26 +15,10 @@ interface BlobbiCompanionAPI {
   toggleMovementMode?: () => void;
 }
 
-// Helper to determine SVG URL based on Blobbi type and stage
-function getBlobbiSvgUrl(blobbi: Blobbi, isSleeping: boolean = false): string {
-  // ✅ FIXED: Handle sleeping SVG for baby stage
-  if (blobbi.lifeStage === 'baby') {
-    if (isSleeping) {
-      return 'https://danidfra.github.io/blobbi-designs/baby-stage/baby/blobbi-baby-sleeping.svg';
-    }
-    return 'https://danidfra.github.io/blobbi-designs/baby-stage/baby/blobbi-baby-base.svg';
-  }
-  
-  if (blobbi.lifeStage === 'adult' && blobbi.evolutionForm) {
-    // ✅ NEW: Handle sleeping SVG for adult stage
-    if (isSleeping) {
-      return `https://danidfra.github.io/blobbi-designs/adult-stage/${blobbi.evolutionForm}/${blobbi.evolutionForm}-sleeping.svg`;
-    }
-    return `https://danidfra.github.io/blobbi-designs/adult-stage/${blobbi.evolutionForm}/${blobbi.evolutionForm}-base.svg`;
-  }
-  
-  // Default fallback
-  return 'https://danidfra.github.io/blobbi-designs/baby-stage/baby/blobbi-baby-base.svg';
+// Helper to get SVG content from local assets based on Blobbi type and stage
+async function getBlobbiSvgContent(blobbi: Blobbi, isSleeping: boolean = false): Promise<string> {
+  // Use local SVG resolver instead of GitHub URLs
+  return await resolveBlobbiSvg(blobbi, isSleeping);
 }
 
 // Helper to customize SVG with colors
@@ -51,7 +36,7 @@ function customizeSvg(svgText: string, blobbi: Blobbi, isSleeping: boolean = fal
 
   if (bodyGradientMatch && blobbi.baseColor) {
     let newGradient = '';
-    
+
     if (blobbi.secondaryColor) {
       // Both base_color and secondary_color are present
       newGradient = `<radialGradient id="blobbiBodyGradient" cx="0.3" cy="0.25">
@@ -67,7 +52,7 @@ function customizeSvg(svgText: string, blobbi: Blobbi, isSleeping: boolean = fal
         <stop offset="100%" style="stop-color:${blobbi.baseColor}"/>
       </radialGradient>`;
     }
-    
+
     modifiedSvg = modifiedSvg.replace(bodyGradientMatch[0], newGradient);
   }
 
@@ -81,7 +66,7 @@ function customizeSvg(svgText: string, blobbi: Blobbi, isSleeping: boolean = fal
         <stop offset="0%" style="stop-color:${lightenColor(blobbi.eyeColor, 30)}"/>
         <stop offset="100%" style="stop-color:${blobbi.eyeColor}"/>
       </radialGradient>`;
-      
+
       modifiedSvg = modifiedSvg.replace(eyeGradientMatch[0], newEyeGradient);
     }
   }
@@ -172,25 +157,25 @@ class BlobbiEyeAnimator {
 
     // Look for smaller circles/ellipses near this eye
     const allCircles = this.svgElement.querySelectorAll('circle, ellipse');
-    
+
     for (const circle of allCircles) {
       if (circle === eye) continue;
-      
+
       const circleRect = circle.getBoundingClientRect();
       const circleCenterX = circleRect.left + circleRect.width / 2;
       const circleCenterY = circleRect.top + circleRect.height / 2;
-      
+
       const distance = Math.sqrt(
-        Math.pow(eyeCenterX - circleCenterX, 2) + 
+        Math.pow(eyeCenterX - circleCenterX, 2) +
         Math.pow(eyeCenterY - circleCenterY, 2)
       );
-      
+
       // If the circle is close to the eye and smaller, it's likely a pupil
       if (distance < 30 && circleRect.width < eyeRect.width) {
         return circle as SVGElement;
       }
     }
-    
+
     return null;
   }
 
@@ -199,42 +184,42 @@ class BlobbiEyeAnimator {
 
     // Find white circles that could be highlights
     const allCircles = this.svgElement.querySelectorAll('circle, ellipse');
-    
+
     for (const circle of allCircles) {
       const fill = circle.getAttribute('fill');
       const style = circle.getAttribute('style');
-      
+
       // Check if it's white or light colored
       const isWhite = fill === 'white' || fill === '#ffffff' || fill === '#fff' ||
                      (style && (style.includes('fill:white') || style.includes('fill:#ffffff') || style.includes('fill:#fff')));
-      
+
       if (!isWhite) continue;
-      
+
       const circleRect = circle.getBoundingClientRect();
-      
+
       // Check if it's near the left pupil
       if (this.leftPupil) {
         const leftPupilRect = this.leftPupil.getBoundingClientRect();
         const leftDistance = Math.sqrt(
-          Math.pow(circleRect.left + circleRect.width / 2 - (leftPupilRect.left + leftPupilRect.width / 2), 2) + 
+          Math.pow(circleRect.left + circleRect.width / 2 - (leftPupilRect.left + leftPupilRect.width / 2), 2) +
           Math.pow(circleRect.top + circleRect.height / 2 - (leftPupilRect.top + leftPupilRect.height / 2), 2)
         );
-        
+
         // If it's close to the left pupil and smaller, it's likely a highlight
         if (leftDistance < 20 && circleRect.width < leftPupilRect.width) {
           this.leftHighlights.push(circle as SVGElement);
           continue;
         }
       }
-      
+
       // Check if it's near the right pupil
       if (this.rightPupil) {
         const rightPupilRect = this.rightPupil.getBoundingClientRect();
         const rightDistance = Math.sqrt(
-          Math.pow(circleRect.left + circleRect.width / 2 - (rightPupilRect.left + rightPupilRect.width / 2), 2) + 
+          Math.pow(circleRect.left + circleRect.width / 2 - (rightPupilRect.left + rightPupilRect.width / 2), 2) +
           Math.pow(circleRect.top + circleRect.height / 2 - (rightPupilRect.top + rightPupilRect.height / 2), 2)
         );
-        
+
         // If it's close to the right pupil and smaller, it's likely a highlight
         if (rightDistance < 20 && circleRect.width < rightPupilRect.width) {
           this.rightHighlights.push(circle as SVGElement);
@@ -255,21 +240,21 @@ class BlobbiEyeAnimator {
         transform-origin: center;
         transition: transform 0.1s ease-out;
       }
-      
+
       .blobbi-pupil {
         transform-origin: center;
         transition: transform 0.1s ease-out;
       }
-      
+
       .blobbi-highlight {
         transform-origin: center;
         transition: transform 0.1s ease-out;
       }
-      
+
       .blobbi-eye.blinking {
         animation: blobbi-blink 0.15s ease-in-out;
       }
-      
+
       @keyframes blobbi-blink {
         0% { transform: scaleY(1); }
         50% { transform: scaleY(0.1); }
@@ -291,12 +276,12 @@ class BlobbiEyeAnimator {
     if (this.rightPupil) {
       this.rightPupil.classList.add('blobbi-pupil');
     }
-    
+
     // Apply classes to highlights
     this.leftHighlights.forEach(highlight => {
       highlight.classList.add('blobbi-highlight');
     });
-    
+
     this.rightHighlights.forEach(highlight => {
       highlight.classList.add('blobbi-highlight');
     });
@@ -305,13 +290,13 @@ class BlobbiEyeAnimator {
   private startBlinking() {
     const blink = () => {
       if (this.isBlinking) return;
-      
+
       this.isBlinking = true;
-      
+
       // Add blinking class
       if (this.leftEye) this.leftEye.classList.add('blinking');
       if (this.rightEye) this.rightEye.classList.add('blinking');
-      
+
       // Remove blinking class after animation
       setTimeout(() => {
         if (this.leftEye) this.leftEye.classList.remove('blinking');
@@ -362,7 +347,7 @@ class BlobbiEyeAnimator {
 
     // Maximum pupil movement (in pixels relative to SVG size)
     const maxMovement = Math.min(svgRect.width, svgRect.height) * 0.02; // 2% of SVG size
-    
+
     const offsetX = Math.cos(angle) * distance * maxMovement;
     const offsetY = Math.sin(angle) * distance * maxMovement;
 
@@ -378,7 +363,7 @@ class BlobbiEyeAnimator {
     this.leftHighlights.forEach(highlight => {
       highlight.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
     });
-    
+
     this.rightHighlights.forEach(highlight => {
       highlight.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
     });
@@ -389,11 +374,11 @@ class BlobbiEyeAnimator {
     if (this.blinkInterval) {
       clearTimeout(this.blinkInterval);
     }
-    
+
     if (this.mouseMoveHandler) {
       document.removeEventListener('mousemove', this.mouseMoveHandler);
     }
-    
+
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
     }
@@ -463,7 +448,7 @@ export function BlobbiCompanionWrapper() {
       // Get bed position and center Blobbi on it
       const bedRect = bedElement.getBoundingClientRect();
       const bedCenterX = bedRect.left + bedRect.width / 2;
-      
+
       // Position Blobbi horizontally centered, and vertically slightly above center
       let targetScreenX = bedCenterX + 12;
       let targetScreenY = bedRect.top + bedRect.height * 0.15; // Slightly above center vertically
@@ -473,18 +458,18 @@ export function BlobbiCompanionWrapper() {
         targetScreenX -= 30; // Move 15px to the left
         targetScreenY -= 25; // Move 10px upward
       }
-      
+
       // Convert screen position to companion's position system (distance from right/bottom)
       const positionX = window.innerWidth - targetScreenX - 60; // 60 is half of Blobbi's width
       const positionY = window.innerHeight - targetScreenY - 60; // 60 is half of Blobbi's height
-      
+
       // Keep within bounds
       const boundedX = Math.max(0, Math.min(window.innerWidth - 120, positionX));
       const boundedY = Math.max(0, Math.min(window.innerHeight - 120, positionY));
 
       // Position the companion
       window.blobbiCompanion.setPosition(boundedX, boundedY);
-      
+
       console.log(`🛏️ Positioned sleeping Blobbi on bed at (${boundedX}, ${boundedY})`);
       positionedForSleep.current = blobbiId;
     }, 300 + (retryCount * 200)); // Increase delay with each retry
@@ -495,17 +480,17 @@ export function BlobbiCompanionWrapper() {
     const characterElement = document.getElementById('blobbi-character');
     if (characterElement) {
       characterElement.innerHTML = svgContent;
-      
+
       // Add class to SVG for styling
       const svg = characterElement.querySelector('svg');
       if (svg) {
         svg.classList.add('blobbi-svg');
-        
+
         // Initialize eye animations
         if (eyeAnimator.current) {
           eyeAnimator.current.destroy();
         }
-        
+
         // Wait a bit for SVG to be fully rendered
         setTimeout(() => {
           eyeAnimator.current = new BlobbiEyeAnimator(svg);
@@ -539,14 +524,14 @@ export function BlobbiCompanionWrapper() {
       if (window.blobbiCompanion && isCompanionLoaded) {
         window.blobbiCompanion.hide();
       }
-      
+
       // ✅ NEW: Notify bed context that companion is not available
       if (isCompanionLoaded) {
         setCompanionLoaded(false);
         setIsCompanionLoaded(false);
         positionedForSleep.current = null;
       }
-      
+
       return;
     }
 
@@ -557,7 +542,7 @@ export function BlobbiCompanionWrapper() {
     if (currentBlobbiId === blobbiId && isCompanionLoaded && !updateInProgress.current) {
       // Same companion, just show it
       window.blobbiCompanion?.show();
-      
+
       // ✅ NEW: Check if we need to position for sleep
       if (blobbi.isSleeping && positionedForSleep.current !== blobbiId) {
         console.log('🛏️ Same companion but now sleeping, positioning on bed');
@@ -566,7 +551,7 @@ export function BlobbiCompanionWrapper() {
         // Reset positioning tracking if not sleeping
         positionedForSleep.current = null;
       }
-      
+
       return;
     }
 
@@ -576,7 +561,7 @@ export function BlobbiCompanionWrapper() {
         // ✅ FIXED: Determine current sleep state and generate appropriate cache keys
         const isSleeping = blobbi.isSleeping || false;
         const currentCacheKey = getCacheKey(blobbi, blobbiId, isSleeping);
-        
+
         // Initialize companion if not already done
         if (!companionInitialized.current) {
           // Create container for the companion
@@ -587,12 +572,12 @@ export function BlobbiCompanionWrapper() {
           // Load the companion HTML
           const response = await fetch('/companion/index.html');
           const html = await response.text();
-          
+
           // Extract the body content
           const parser = new DOMParser();
           const doc = parser.parseFromString(html, 'text/html');
           const bodyContent = doc.body.innerHTML;
-          
+
           companionContainer.innerHTML = bodyContent;
 
           // Load CSS
@@ -610,14 +595,14 @@ export function BlobbiCompanionWrapper() {
           });
 
           companionInitialized.current = true;
-          
+
           // Wait a bit for the companion to initialize
           await new Promise(resolve => setTimeout(resolve, 100));
         }
 
         // Step 1: Try to load from sessionStorage first
         const cachedSvg = sessionStorage.getItem(currentCacheKey);
-        
+
         if (cachedSvg) {
           // Use cached SVG immediately
           updateSvgInDom(cachedSvg);
@@ -633,50 +618,39 @@ export function BlobbiCompanionWrapper() {
 
         // Step 2: Fetch and update in parallel (always do this to ensure latest version)
         updateInProgress.current = true;
-        
-        // ✅ FIXED: Fetch the appropriate SVG based on sleep state
-        const svgUrl = getBlobbiSvgUrl(blobbi, isSleeping);
-        const response = await fetch(svgUrl);
-        const svgText = await response.text();
-        
+
+        // 🚀 NEW: Get SVG content from local assets
+        const svgText = await getBlobbiSvgContent(blobbi, isSleeping);
+
         // ✅ FIXED: Customize the SVG with the Blobbi's colors, considering sleep state
         const customizedSvg = customizeSvg(svgText, blobbi, isSleeping);
-        
+
         // Update sessionStorage with new SVG
         sessionStorage.setItem(currentCacheKey, customizedSvg);
-        
+
         // Update the DOM with the new SVG (even if we had a cached version)
         updateSvgInDom(customizedSvg);
-        
-        // ✅ FIXED: Preload both awake and sleeping SVGs for quick switching (baby and adult stages)
+
+        // 🚀 NEW: Preload both awake and sleeping SVGs using local resolver
         if (blobbi.lifeStage === 'baby' || (blobbi.lifeStage === 'adult' && blobbi.evolutionForm)) {
           try {
-            const alternateSleepState = !isSleeping;
-            const alternateCacheKey = getCacheKey(blobbi, blobbiId, alternateSleepState);
-            
-            // Only preload if not already cached
-            if (!sessionStorage.getItem(alternateCacheKey)) {
-              const alternateSvgUrl = getBlobbiSvgUrl(blobbi, alternateSleepState);
-              const alternateResponse = await fetch(alternateSvgUrl);
-              const alternateSvgText = await alternateResponse.text();
-              const alternateCustomizedSvg = customizeSvg(alternateSvgText, blobbi, alternateSleepState);
-              sessionStorage.setItem(alternateCacheKey, alternateCustomizedSvg);
-              console.log(`✅ Preloaded ${alternateSleepState ? 'sleeping' : 'awake'} SVG for quick switching`);
-            }
+            // Use the local SVG resolver to pre-cache assets
+            await preloadBlobbiSvgs(blobbi);
+            console.log(`✅ Preloaded local SVGs for ${blobbi.lifeStage} stage ${blobbi.evolutionForm || 'baby'}`);
           } catch (preloadError) {
-            console.warn('Failed to preload alternate SVG state:', preloadError);
+            console.warn('Failed to preload local SVGs:', preloadError);
           }
         }
-        
+
         // Update state
         setIsLoadingSvg(false);
         setIsCompanionLoaded(true);
         setCurrentBlobbiId(blobbiId);
         updateInProgress.current = false;
-        
+
         // ✅ NEW: Notify bed context that companion is loaded
         setCompanionLoaded(true);
-        
+
         // Show the companion if it wasn't already shown
         window.blobbiCompanion?.show();
 
@@ -688,7 +662,7 @@ export function BlobbiCompanionWrapper() {
           // Reset positioning tracking if not sleeping
           positionedForSleep.current = null;
         }
-        
+
       } catch (error) {
         console.error('Failed to load Blobbi Companion:', error);
         setIsLoadingSvg(false);
@@ -716,7 +690,7 @@ export function BlobbiCompanionWrapper() {
         // Quick switch using cached SVG
         updateSvgInDom(cachedSvg);
         console.log(`✅ Switched to ${isSleeping ? 'sleeping' : 'awake'} SVG from cache`);
-        
+
         // ✅ NEW: Position Blobbi on bed if now sleeping
         if (isSleeping && positionedForSleep.current !== blobbiId) {
           console.log('🛏️ Blobbi switched to sleeping, positioning on bed');
@@ -726,19 +700,17 @@ export function BlobbiCompanionWrapper() {
           positionedForSleep.current = null;
         }
       } else {
-        // Fallback: fetch the SVG if not cached
-        const fetchAndUpdateSvg = async () => {
+        // Fallback: resolve the SVG locally if not cached
+        const resolveAndUpdateSvg = async () => {
           try {
-            const svgUrl = getBlobbiSvgUrl(blobbi, isSleeping);
-            const response = await fetch(svgUrl);
-            const svgText = await response.text();
+            const svgText = await getBlobbiSvgContent(blobbi, isSleeping);
             const customizedSvg = customizeSvg(svgText, blobbi, isSleeping);
-            
+
             sessionStorage.setItem(currentCacheKey, customizedSvg);
             updateSvgInDom(customizedSvg);
-            console.log(`✅ Fetched and switched to ${isSleeping ? 'sleeping' : 'awake'} SVG`);
-            
-            // ✅ NEW: Position Blobbi on bed if now sleeping
+            console.log(`✅ Resolved and switched to ${isSleeping ? 'sleeping' : 'awake'} local SVG`);
+
+            // 🛏️ Position Blobbi on bed if now sleeping
             if (isSleeping && positionedForSleep.current !== blobbiId) {
               console.log('🛏️ Blobbi switched to sleeping, positioning on bed');
               positionBlobbiOnBed(blobbiId);
@@ -747,11 +719,11 @@ export function BlobbiCompanionWrapper() {
               positionedForSleep.current = null;
             }
           } catch (error) {
-            console.error('Failed to fetch alternate SVG state:', error);
+            console.error('Failed to resolve local SVG state:', error);
           }
         };
 
-        fetchAndUpdateSvg();
+        resolveAndUpdateSvg();
       }
     }
   }, [companionData?.blobbi, companionData?.blobbiId, isCompanionLoaded, positionBlobbiOnBed]);
@@ -767,7 +739,7 @@ export function BlobbiCompanionWrapper() {
     // If Blobbi is sleeping but hasn't been positioned yet, try to position it
     if (blobbi.isSleeping && positionedForSleep.current !== blobbiId) {
       console.log('🛏️ Companion loaded and sleeping, checking for bed to position');
-      
+
       // Check if bed is available immediately
       const bedElement = document.querySelector('img[src*="bed.png"]') as HTMLElement;
       if (bedElement && window.blobbiCompanion) {
@@ -788,16 +760,16 @@ export function BlobbiCompanionWrapper() {
       if (window.blobbiCompanion && isCompanionLoaded) {
         window.blobbiCompanion.hide();
       }
-      
+
       // ✅ NEW: Notify bed context that companion is unloaded
       setCompanionLoaded(false);
-      
+
       // Cleanup eye animator
       if (eyeAnimator.current) {
         eyeAnimator.current.destroy();
         eyeAnimator.current = null;
       }
-      
+
       // Reset positioning tracking
       positionedForSleep.current = null;
     };

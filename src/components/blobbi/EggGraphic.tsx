@@ -5,6 +5,7 @@ import { isValidBaseColor, isValidSecondaryColor } from '@/lib/blobbi-egg-valida
 import { SpecialMarkRenderer, SpecialMarkFallback } from '@/components/special-marks/SpecialMarkRenderer';
 import { isSpecialMarkSupported } from '@/lib/special-marks-utils';
 import { useSpecialMark } from '@/hooks/useSpecialMark';
+import { isDivineEgg } from '@/lib/blobbi-divine-utils';
 
 interface EggGraphicProps {
   blobbi?: Blobbi; // Full blobbi object for visual properties
@@ -73,20 +74,10 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
 
   console.log('confere aqui: ',blobbi)
 
-  // Robust Divine egg detection - checks model fields and tag map
-  const isDivineEgg = React.useMemo(() => {
-    if (!blobbi) return false;
-
-    // Direct fields on the Blobbi model
-    if (blobbi.themeVariant === 'divine') return true;
-    if (blobbi.crossoverApp === 'divine') return true;
-
-    // Nostr tags
-    if (tagMap.get('theme') === 'divine') return true;
-    if (tagMap.get('crossover_app') === 'divine') return true;
-
-    return false;
-  }, [blobbi, tagMap]);
+  // 🚀 CENTRALIZED DIVINE DETECTION: Use utility function
+  const isDivine = React.useMemo(() => {
+    return isDivineEgg(blobbi);
+  }, [blobbi]);
 
   // Initialize special mark hook for dynamic rendering
   const specialMarkHook = useSpecialMark(blobbi?.specialMark || null, {
@@ -212,7 +203,7 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
 
   // Get base color from blobbi or use warmth-based fallback
   const getBaseColor = () => {
-    if (isDivineEgg) {
+    if (isDivine) {
       // Divine eggs always use the canonical Divine primary color
       return DIVINE_PRIMARY_GREEN;
     }
@@ -237,7 +228,7 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
   };
 
   const getGlowColor = (warmth: number) => {
-    if (isDivineEgg) {
+    if (isDivine) {
       return 'rgba(122, 217, 185, 0.5)'; // soft Divine aura
     }
 
@@ -249,24 +240,24 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
   };
 
   const baseColor = getBaseColor();
-  const secondaryColor = (blobbi?.secondaryColor && isValidSecondaryColor(blobbi.secondaryColor) && !isDivineEgg)
+  const secondaryColor = (blobbi?.secondaryColor && isValidSecondaryColor(blobbi.secondaryColor) && !isDivine)
     ? blobbi.secondaryColor
     : undefined;
   const glowColor = getGlowColor(actualWarmth);
 
   // Effective special mark - use divine_wordmark for Divine eggs
   const effectiveSpecialMark =
-    blobbi?.specialMark || (isDivineEgg ? 'divine_wordmark' : null);
+    blobbi?.specialMark || (isDivine ? 'divine_wordmark' : null);
 
   // Create gradient with full baseColor coverage - no white areas
   const createEggGradient = () => {
     // For Divine eggs, use DIVINE_PRIMARY_GREEN as the base color
-    const effectiveBaseColor = isDivineEgg ? DIVINE_PRIMARY_GREEN : baseColor;
+    const effectiveBaseColor = isDivine ? DIVINE_PRIMARY_GREEN : baseColor;
 
     // Create color variants for 3D effect - guarantees full baseColor coverage
     const colors = createColorVariants(effectiveBaseColor);
 
-    if (isDivineEgg) {
+    if (isDivine) {
       // Divine eggs: full green coverage with magical layered effect
       // Uses only Divine color variants to maintain green throughout entire surface
       return `
@@ -349,7 +340,7 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
     }
   };
 
-  const effectiveBaseColor = isDivineEgg ? DIVINE_PRIMARY_GREEN : baseColor;
+  const effectiveBaseColor = isDivine ? DIVINE_PRIMARY_GREEN : baseColor;
   const { shadow, highlight } = createColorVariants(effectiveBaseColor);
 
   return (
@@ -402,7 +393,7 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
             width: '30%',
             height: '25%',
             background: (() => {
-              const effectiveBaseColor = isDivineEgg ? DIVINE_PRIMARY_GREEN : baseColor;
+              const effectiveBaseColor = isDivine ? DIVINE_PRIMARY_GREEN : baseColor;
               const colors = createColorVariants(effectiveBaseColor);
               // Use a subtle highlight variant instead of white for better color consistency
               return `linear-gradient(135deg, ${colors.highlight}80 0%, transparent 100%)`;

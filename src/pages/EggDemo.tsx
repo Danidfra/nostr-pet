@@ -1012,7 +1012,17 @@ export default function EggDemo() {
                       ...rawEgg,
                       base_color: '#55C4A2', // Divine green
                       secondary_color: undefined, // Divine eggs don't have secondary colors
-                    };
+                      size: rawEgg.size,
+                      pattern: rawEgg.pattern,
+                      special_mark: 'divine_wordmark',
+                      egg_status: rawEgg.egg_status,
+                      shell_integrity: rawEgg.shell_integrity,
+                      incubation_progress: rawEgg.incubation_progress,
+                      happiness: rawEgg.happiness,
+                      hygiene: rawEgg.hygiene,
+                      egg_temperature: rawEgg.egg_temperature,
+                      d: rawEgg.d,
+                    } as EggProperties;
 
                     setEggData(divineEgg);
                     setShowSecondaryColor(false);

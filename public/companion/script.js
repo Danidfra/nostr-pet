@@ -11,7 +11,7 @@ class BlobbiCompanion {
         this.moveInterval = null;
         this.freeRoamInterval = null;
         this.pauseTimeout = null;
-        
+
 
         // Rapid click detection and angry behavior
         this.globalClickHistory = []; // Track clicks anywhere on the page
@@ -179,8 +179,8 @@ class BlobbiCompanion {
             "Do you smell food?",
         ];
 
-        // Default SVG URL
-        this.svgUrl = 'https://danidfra.github.io/blobbi-designs/adult-stage/flammi/flammi-base.svg';
+        // Default SVG URL - will be updated by React component
+        this.svgUrl = null;
 
         this.init();
     }
@@ -453,27 +453,14 @@ class BlobbiCompanion {
     }
 
     async loadSVG() {
-        try {
-            const response = await fetch(this.svgUrl);
-            const svgText = await response.text();
-            this.character.innerHTML = svgText;
+        // SVG is now loaded and set by React component, so we don't need to fetch it here
+        // This method is kept for backward compatibility but SVG content is managed externally
+        console.log('loadSVG() called - SVG content is now managed by React component');
 
-            // Add class to SVG for styling
-            const svg = this.character.querySelector('svg');
-            if (svg) {
-                svg.classList.add('blobbi-svg');
-            }
-        } catch (error) {
-            console.error('Failed to load SVG:', error);
-            // Fallback to a simple circle
-            this.character.innerHTML = `
-                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="50" cy="50" r="40" fill="#FF6B6B"/>
-                    <circle cx="35" cy="40" r="5" fill="#000" class="eyes"/>
-                    <circle cx="65" cy="40" r="5" fill="#000" class="eyes"/>
-                    <path d="M 30 60 Q 50 70 70 60" stroke="#000" stroke-width="3" fill="none"/>
-                </svg>
-            `;
+        // Add class to SVG for styling if it exists
+        const svg = this.character.querySelector('svg');
+        if (svg) {
+            svg.classList.add('blobbi-svg');
         }
     }
 
@@ -508,7 +495,7 @@ class BlobbiCompanion {
                 this.react();
             }
         });
-        
+
         // Click anywhere to move (when manual movement is enabled)
         document.addEventListener('click', (e) => {
             if (this.isMoving && !this.isFreeRoaming && !this.container.contains(e.target)) {
@@ -6090,8 +6077,10 @@ class BlobbiCompanion {
     }
 
     loadCustomSVG(url) {
-        this.svgUrl = url;
-        this.loadSVG();
+        // SVG URLs are no longer used - SVG content is set directly by React component
+        // This method is kept for backward compatibility
+        console.log('loadCustomSVG called - SVG content is now managed by React component');
+        // Don't try to load SVG here, let React component handle it
     }
 
     // Public method to show speech bubble with custom message
