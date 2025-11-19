@@ -80,7 +80,12 @@ export function createShellIntegrityPenaltyEvent(
 
 // Create Kind 31124: Blobbi Current State Event
 export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
-  const tags: Array<[string, string]> = [
+  // Start with existing tags to preserve all metadata, then override with current values
+  const preservedTags: Array<[string, string]> = blobbi.tags ?
+    blobbi.tags.map(([k, v]) => [k || '', v || ''] as [string, string]) : [];
+
+  // Core required tags that we always update with current values
+  const coreUpdates: Array<[string, string]> = [
     ['d', blobbi.id],
     ['stage', blobbi.lifeStage],
     ['breeding_ready', blobbi.breedingReady.toString()],
@@ -94,84 +99,126 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
     ['care_streak', blobbi.careStreak.toString()],
   ];
 
+  // Create a map to merge preserved tags with updates
+  const stateTagMap = new Map<string, string>();
+
+  // First, add all preserved tags
+  preservedTags.forEach(([key, value]) => {
+    if (key && value) {
+      stateTagMap.set(key, value);
+    }
+  });
+
+  // Then override with core updates
+  coreUpdates.forEach(([key, value]) => {
+    stateTagMap.set(key, value);
+  });
+
   // Add fees tag for adoption events
   if (adoptionFees !== undefined) {
-    tags.push(['fees', adoptionFees.toString()]);
+    stateTagMap.set('fees', adoptionFees.toString());
   }
 
-  // Add optional appearance tags
-  if (blobbi.baseColor) tags.push(['base_color', blobbi.baseColor]);
-  if (blobbi.secondaryColor) tags.push(['secondary_color', blobbi.secondaryColor]);
-  if (blobbi.pattern) tags.push(['pattern', blobbi.pattern]);
-  if (blobbi.eyeColor) tags.push(['eye_color', blobbi.eyeColor]);
-  if (blobbi.specialMark) tags.push(['special_mark', blobbi.specialMark]);
+  // Update appearance tags with current values (preserving existing ones if not specified)
+  if (blobbi.baseColor) stateTagMap.set('base_color', blobbi.baseColor);
+  if (blobbi.secondaryColor) stateTagMap.set('secondary_color', blobbi.secondaryColor);
+  if (blobbi.pattern) stateTagMap.set('pattern', blobbi.pattern);
+  if (blobbi.eyeColor) stateTagMap.set('eye_color', blobbi.eyeColor);
+  if (blobbi.specialMark) stateTagMap.set('special_mark', blobbi.specialMark);
+
+  // Update theme tags with current values (preserving existing ones if not specified)
+  if (blobbi.themeVariant) stateTagMap.set('theme', blobbi.themeVariant);
+  if (blobbi.crossoverApp) stateTagMap.set('crossover_app', blobbi.crossoverApp);
 
   // Add adult type tag for evolved adult Blobbis
   if (blobbi.lifeStage === 'adult' && blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi') {
-    tags.push(['adult_type', blobbi.evolutionForm]);
+    stateTagMap.set('adult_type', blobbi.evolutionForm);
   }
 
-  // Add personality tags
+  // Update other single-value tags
+  if (blobbi.mood) stateTagMap.set('mood', blobbi.mood);
+  if (blobbi.favoriteFood) stateTagMap.set('favorite_food', blobbi.favoriteFood);
+  if (blobbi.voiceType) stateTagMap.set('voice_type', blobbi.voiceType);
+  if (blobbi.size) stateTagMap.set('size', blobbi.size);
+  if (blobbi.title) stateTagMap.set('title', blobbi.title);
+  if (blobbi.skill) stateTagMap.set('skill', blobbi.skill);
+
+  // Remove existing personality and trait tags to avoid duplicates
+  const singleValueTags = Array.from(stateTagMap.entries()).filter(([key]) =>
+    key !== 'personality' && key !== 'trait'
+  );
+
+  // Start building the final tags array
+  const stateTags: Array<[string, string]> = [...singleValueTags];
+
+  // Re-add current personality and traits
   if (blobbi.personality) {
-    blobbi.personality.forEach(trait => tags.push(['personality', trait]));
+    blobbi.personality.forEach(trait => stateTags.push(['personality', trait]));
   }
   if (blobbi.traits) {
-    blobbi.traits.forEach(trait => tags.push(['trait', trait]));
+    blobbi.traits.forEach(trait => stateTags.push(['trait', trait]));
   }
-  if (blobbi.mood) tags.push(['mood', blobbi.mood]);
-  if (blobbi.favoriteFood) tags.push(['favorite_food', blobbi.favoriteFood]);
-  if (blobbi.voiceType) tags.push(['voice_type', blobbi.voiceType]);
-  if (blobbi.size) tags.push(['size', blobbi.size]);
-  if (blobbi.title) tags.push(['title', blobbi.title]);
-  if (blobbi.skill) tags.push(['skill', blobbi.skill]);
 
   // Add egg-specific tags only for eggs
   if (blobbi.lifeStage === 'egg') {
-    if (blobbi.incubationTime) tags.push(['incubation_time', blobbi.incubationTime.toString()]);
-    if (blobbi.incubationProgress) tags.push(['incubation_progress', blobbi.incubationProgress.toString()]);
-    if (blobbi.eggTemperature !== undefined) tags.push(['egg_temperature', blobbi.eggTemperature.toString()]);
-    if (blobbi.eggStatus) tags.push(['egg_status', blobbi.eggStatus]);
-    if (blobbi.shellIntegrity) tags.push(['shell_integrity', blobbi.shellIntegrity.toString()]);
+    if (blobbi.incubationTime) stateTagMap.set('incubation_time', blobbi.incubationTime.toString());
+    if (blobbi.incubationProgress) stateTagMap.set('incubation_progress', blobbi.incubationProgress.toString());
+    if (blobbi.eggTemperature !== undefined) stateTagMap.set('egg_temperature', blobbi.eggTemperature.toString());
+    if (blobbi.eggStatus) stateTagMap.set('egg_status', blobbi.eggStatus);
+    if (blobbi.shellIntegrity) stateTagMap.set('shell_integrity', blobbi.shellIntegrity.toString());
   }
   // Note: egg-specific tags like shell_integrity are intentionally excluded for baby/adult stages
 
   // Add behavior tags
-  if (blobbi.isSleeping) tags.push(['is_sleeping', blobbi.isSleeping.toString()]);
-  if (blobbi.isDirty) tags.push(['is_dirty', blobbi.isDirty.toString()]);
-  if (blobbi.hasBuff) tags.push(['has_buff', blobbi.hasBuff]);
-  if (blobbi.hasDebuff) tags.push(['has_debuff', blobbi.hasDebuff]);
-  if (blobbi.lastInteraction) tags.push(['last_interaction', blobbi.lastInteraction.toString()]);
+  if (blobbi.isSleeping) stateTagMap.set('is_sleeping', blobbi.isSleeping.toString());
+  if (blobbi.isDirty) stateTagMap.set('is_dirty', blobbi.isDirty.toString());
+  if (blobbi.hasBuff) stateTagMap.set('has_buff', blobbi.hasBuff);
+  if (blobbi.hasDebuff) stateTagMap.set('has_debuff', blobbi.hasDebuff);
+  if (blobbi.lastInteraction) stateTagMap.set('last_interaction', blobbi.lastInteraction.toString());
 
   // Add sleep system tags
-  if (blobbi.sleepStartedAt) tags.push(['sleep_started_at', blobbi.sleepStartedAt.toString()]);
+  if (blobbi.sleepStartedAt) stateTagMap.set('sleep_started_at', blobbi.sleepStartedAt.toString());
 
   // Add last_sleep_update tag only when Blobbi is sleeping
   // This tag tracks the last time energy was updated during rest mode
   if (blobbi.isSleeping && blobbi.lastSleepUpdate) {
-    tags.push(['last_sleep_update', blobbi.lastSleepUpdate.toString()]);
+    stateTagMap.set('last_sleep_update', blobbi.lastSleepUpdate.toString());
   }
 
   // Add last care tracking fields - Unix timestamps in seconds (same format as Nostr's created_at)
   // These fields track when specific actions were last performed and are used for cooldowns and evolution
   // Only include these tags if the actions have actually been performed (not just initialized during adoption)
-  if (blobbi.lastMeal) tags.push(['last_meal', blobbi.lastMeal.toString()]);
-  if (blobbi.lastClean) tags.push(['last_clean', blobbi.lastClean.toString()]);
-  if (blobbi.lastWarm) tags.push(['last_warm', blobbi.lastWarm.toString()]);
-  if (blobbi.lastTalk) tags.push(['last_talk', blobbi.lastTalk.toString()]);
-  if (blobbi.lastCheck) tags.push(['last_check', blobbi.lastCheck.toString()]);
-  if (blobbi.lastSing) tags.push(['last_sing', blobbi.lastSing.toString()]);
-  if (blobbi.lastMedicine) tags.push(['last_medicine', blobbi.lastMedicine.toString()]);
+  if (blobbi.lastMeal) stateTagMap.set('last_meal', blobbi.lastMeal.toString());
+  if (blobbi.lastClean) stateTagMap.set('last_clean', blobbi.lastClean.toString());
+  if (blobbi.lastWarm) stateTagMap.set('last_warm', blobbi.lastWarm.toString());
+  if (blobbi.lastTalk) stateTagMap.set('last_talk', blobbi.lastTalk.toString());
+  if (blobbi.lastCheck) stateTagMap.set('last_check', blobbi.lastCheck.toString());
+  if (blobbi.lastSing) stateTagMap.set('last_sing', blobbi.lastSing.toString());
+  if (blobbi.lastMedicine) stateTagMap.set('last_medicine', blobbi.lastMedicine.toString());
 
   // Add social tags
-  if (blobbi.adoptedBy) tags.push(['adopted_by', blobbi.adoptedBy]);
-  if (blobbi.adoptedFrom) tags.push(['adopted_from', blobbi.adoptedFrom]);
-  if (blobbi.currentLocation) tags.push(['current_location', blobbi.currentLocation]);
-  if (blobbi.inParty) tags.push(['in_party', blobbi.inParty.toString()]);
-  if (blobbi.visibleToOthers !== undefined) tags.push(['visible_to_others', blobbi.visibleToOthers.toString()]);
+  if (blobbi.adoptedBy) stateTagMap.set('adopted_by', blobbi.adoptedBy);
+  if (blobbi.adoptedFrom) stateTagMap.set('adopted_from', blobbi.adoptedFrom);
+  if (blobbi.currentLocation) stateTagMap.set('current_location', blobbi.currentLocation);
+  if (blobbi.inParty) stateTagMap.set('in_party', blobbi.inParty.toString());
+  if (blobbi.visibleToOthers !== undefined) stateTagMap.set('visible_to_others', blobbi.visibleToOthers.toString());
+
+  // Rebuild single-value tags (excluding personality and trait which we handle separately)
+  const updatedSingleValueTags = Array.from(stateTagMap.entries()).filter(([key]) =>
+    key !== 'personality' && key !== 'trait'
+  );
+
+  // Final tags array - merge all tags
+  const finalStateTagsArray: Array<[string, string]> = [
+    ...stateTags, // This includes personality and trait tags
+    ...updatedSingleValueTags.filter(([key]) =>
+      !stateTags.some(([existingKey]) => existingKey === key) // Avoid duplicates
+    )
+  ];
 
   // Ensure all Blobbi tags are present
-  const finalTags = ensureBlobbiTagsWithDebug(
-    tags.map(tag => [tag[0] || '', tag[1] || '']),
+  const finalStateTags = ensureBlobbiTagsWithDebug(
+    finalStateTagsArray.map(tag => [tag[0] || '', tag[1] || '']),
     'createBlobbiStateEvent',
     BLOBBI_EVENT_KINDS.STATE
   );
@@ -179,7 +226,7 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
   return {
     kind: BLOBBI_EVENT_KINDS.STATE,
     content: `${blobbi.name} is a ${blobbi.lifeStage} Blobbi.`,
-    tags: finalTags as Array<[string, string]>,
+    tags: finalStateTags as Array<[string, string]>,
   };
 }
 
@@ -532,6 +579,11 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
         isEligibleForEvolution: false,
         nextEvolutionCheck: Date.now(),
       },
+      // PRESERVE ALL ORIGINAL TAGS - this ensures no metadata is lost
+      tags: tags.map(([k, v]) => [k || '', v || '']),
+      // Theme-related fields derived from tags
+      themeVariant: getTagValue(tags, 'theme'),
+      crossoverApp: getTagValue(tags, 'crossover_app'),
       // Optional appearance fields
       baseColor: getTagValue(tags, 'base_color'),
       secondaryColor: getTagValue(tags, 'secondary_color'),

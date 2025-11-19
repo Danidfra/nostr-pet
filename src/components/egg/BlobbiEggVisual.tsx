@@ -14,6 +14,8 @@ interface BlobbiEggVisualProps {
   incubationProgress: number;
   eggTemperature: number;
   className?: string;
+  theme?: string;
+  crossoverApp?: string;
 }
 
 export function BlobbiEggVisual({
@@ -26,7 +28,9 @@ export function BlobbiEggVisual({
   shellIntegrity,
   incubationProgress,
   eggTemperature,
-  className
+  className,
+  theme,
+  crossoverApp
 }: BlobbiEggVisualProps) {
   // Validate colors before creating mock Blobbi object
   const validBaseColor = isValidBaseColor(baseColor) ? baseColor : '#ffffff'; // fallback to common white
@@ -45,7 +49,9 @@ export function BlobbiEggVisual({
     shellIntegrity,
     incubationProgress,
     eggTemperature,
-    state: 'active'
+    state: 'active',
+    themeVariant: theme,
+    crossoverApp: crossoverApp
   };
 
   return (

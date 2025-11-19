@@ -14,7 +14,7 @@ import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { generateSampleBlobbiEgg } from '@/lib/blobbi-adoption';
 import { generateRandomVisualEffects, getVisualEffectRarity } from '@/lib/blobbi-visual-tags';
 import { Blobbi } from '@/types/blobbi';
-import { 
+import {
   ALL_VALID_BASE_COLORS,
   ALL_VALID_SECONDARY_COLORS,
   ALL_VALID_SIZES,
@@ -129,7 +129,7 @@ export default function EggDemo() {
     const randomEyeColor = EYE_COLORS[Math.floor(Math.random() * EYE_COLORS.length)];
     const randomPersonalities = PERSONALITIES.sort(() => 0.5 - Math.random()).slice(0, Math.floor(Math.random() * 3) + 1);
     const randomTraits = TRAITS.sort(() => 0.5 - Math.random()).slice(0, Math.floor(Math.random() * 2) + 1);
-    
+
     const newBaby: BabyBlobbiProperties = {
       manifestation: visualEffects.manifestation,
       visualEffect: visualEffects.visualEffect,
@@ -141,7 +141,7 @@ export default function EggDemo() {
       favoriteFood: FAVORITE_FOODS[Math.floor(Math.random() * FAVORITE_FOODS.length)],
       voiceType: VOICE_TYPES[Math.floor(Math.random() * VOICE_TYPES.length)],
     };
-    
+
     setBabyData(newBaby);
     setShowManifestation(!!newBaby.manifestation);
     setShowVisualEffect(!!newBaby.visualEffect);
@@ -165,30 +165,30 @@ export default function EggDemo() {
       egg_temperature: rawEgg.egg_temperature,
       title: rawEgg.title,
     };
-    
+
     setEggData(newEgg);
     setShowSecondaryColor(!!newEgg.secondary_color);
     setShowSpecialMark(!!newEgg.special_mark);
     setShowTitle(!!newEgg.title);
-    
+
     // Also generate baby data
     generateRandomBaby();
   };
 
   const updateProperty = (key: keyof EggProperties, value: string) => {
     if (!eggData) return;
-    
+
     // Validate colors before updating
     if (key === 'base_color' && !(ALL_VALID_BASE_COLORS as readonly string[]).includes(value)) {
       console.warn(`Invalid base color: ${value}. Must be specification-compliant.`);
       return;
     }
-    
+
     if (key === 'secondary_color' && !(ALL_VALID_SECONDARY_COLORS as readonly string[]).includes(value)) {
       console.warn(`Invalid secondary color: ${value}. Must be specification-compliant.`);
       return;
     }
-    
+
     setEggData(prev => prev ? { ...prev, [key]: value } : null);
   };
 
@@ -199,7 +199,7 @@ export default function EggDemo() {
 
   const createBabyBlobbi = (): Blobbi | null => {
     if (!eggData || !babyData) return null;
-    
+
     return {
       id: `demo-baby-${eggData.d}`,
       ownerPubkey: 'demo',
@@ -258,7 +258,7 @@ export default function EggDemo() {
   const EggDemoBlobbiVisual = ({ blobbi }: { blobbi: Blobbi }) => {
     const backgroundEffects = ['divine_circle', 'light_smoke', 'dusty_aura', 'ring_mark', 'glow_ring', 'mist_drift', 'spirit_knot', 'tiny_star', 'glow_blue', 'ethereal_rune'];
     const hasBackgroundEffect = backgroundEffects.includes(blobbi.manifestation || '');
-    
+
     if (!hasBackgroundEffect) {
       // If no background effect, use standard BlobbiVisual
       return <BlobbiVisual blobbi={blobbi} />;
@@ -524,16 +524,16 @@ export default function EggDemo() {
 
   <g filter="url(#aura)">
     <path
-      d="M100,20 
-         L117.6,69.1 
-         L170,75.1 
-         L130,112.5 
-         L141.6,165 
-         L100,137 
-         L58.4,165 
-         L70,112.5 
-         L30,75.1 
-         L82.4,69.1 
+      d="M100,20
+         L117.6,69.1
+         L170,75.1
+         L130,112.5
+         L141.6,165
+         L100,137
+         L58.4,165
+         L70,112.5
+         L30,75.1
+         L82.4,69.1
          Z"
       fill="#FFD700"
       stroke="#FFA500"
@@ -644,14 +644,14 @@ export default function EggDemo() {
         special_mark: SPECIAL_MARKS[0],
         title: TITLES[0]
       };
-      
+
       // Validate the default value before setting
       const defaultValue = defaultValues[property];
       if (property === 'secondary_color' && !(ALL_VALID_SECONDARY_COLORS as readonly string[]).includes(defaultValue)) {
         console.warn(`Invalid default secondary color: ${defaultValue}`);
         return;
       }
-      
+
       updateProperty(property, defaultValue);
     } else {
       // Remove the property
@@ -678,7 +678,7 @@ export default function EggDemo() {
         visualEffect: BABY_PATTERNS[0],
         blessing: BLESSINGS[0]
       };
-      
+
       updateBabyProperty(property, defaultValues[property]);
     } else {
       setBabyData(prev => {
@@ -717,7 +717,7 @@ export default function EggDemo() {
         chance = rarity === 'legendary' ? '5%' : rarity === 'rare' ? '15%' : rarity === 'uncommon' ? '30%' : '50%';
         break;
     }
-    
+
     return { rarity: rarity || 'common', chance };
   };
 
@@ -735,7 +735,7 @@ export default function EggDemo() {
       <div className="container mx-auto py-8 px-4">
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Header */}
-          <AppHeader 
+          <AppHeader
             title="🥚 Blobbi Lifecycle Demo"
             subtitle="Interactive demonstration of Blobbi egg generation and baby hatching with all visual effects based on the blobbi-hatch-31124.md specification. This is a visual demo only - no events are published to Nostr."
           />
@@ -762,11 +762,17 @@ export default function EggDemo() {
                     Baby Stage
                   </TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="egg" className="space-y-4">
                   {eggData ? (
                     <>
-                      <div className="flex items-center justify-center transition-all duration-500 min-h-[380px] p-12 bg-gradient-to-br from-amber-50/60 to-orange-50/60 rounded-3xl border-2 border-amber-100/50">
+                      <div className={cn(
+                        "flex items-center justify-center transition-all duration-500 min-h-[380px] p-12 rounded-3xl border-2",
+                        // Use Divine theme colors if it's a Divine egg
+                        eggData.base_color === '#55C4A2'
+                          ? "bg-gradient-to-br from-emerald-50/60 to-green-50/60 border-emerald-100/50"
+                          : "bg-gradient-to-br from-amber-50/60 to-orange-50/60 border-amber-100/50"
+                      )}>
                         <BlobbiEggVisual
                           baseColor={eggData.base_color}
                           secondaryColor={eggData.secondary_color}
@@ -777,17 +783,19 @@ export default function EggDemo() {
                           shellIntegrity={parseInt(eggData.shell_integrity)}
                           incubationProgress={parseInt(eggData.incubation_progress)}
                           eggTemperature={parseInt(eggData.egg_temperature)}
+                          theme={eggData.base_color === '#55C4A2' ? 'divine' : undefined}
+                          crossoverApp={eggData.base_color === '#55C4A2' ? 'divine' : undefined}
                         />
                       </div>
-                      
+
                       {/* Egg Stats Display */}
                       <div className="w-full space-y-4">
                         <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100">Egg Stats</h4>
                         <div className="grid grid-cols-2 gap-4 text-base">
                           <div className="flex justify-between">
                             <span>Happiness:</span>
-                            <Badge 
-                              variant="outline" 
+                            <Badge
+                              variant="outline"
                               className="text-sm px-3 py-1"
                             >
                               {eggData.happiness}/100
@@ -795,7 +803,7 @@ export default function EggDemo() {
                           </div>
                           <div className="flex justify-between">
                             <span>Hygiene:</span>
-                            <Badge 
+                            <Badge
                               variant="outline"
                               className="text-sm px-3 py-1"
                             >
@@ -804,7 +812,7 @@ export default function EggDemo() {
                           </div>
                           <div className="flex justify-between">
                             <span>Temperature:</span>
-                            <Badge 
+                            <Badge
                               variant="outline"
                               className="text-sm px-3 py-1"
                             >
@@ -813,7 +821,7 @@ export default function EggDemo() {
                           </div>
                           <div className="flex justify-between">
                             <span>Shell Integrity:</span>
-                            <Badge 
+                            <Badge
                               variant="outline"
                               className="text-sm px-3 py-1"
                             >
@@ -821,7 +829,7 @@ export default function EggDemo() {
                             </Badge>
                           </div>
                         </div>
-                        
+
                         {/* Incubation Progress */}
                         <div className="space-y-1">
                           <div className="flex justify-between text-sm">
@@ -829,7 +837,7 @@ export default function EggDemo() {
                             <span>{eggData.incubation_progress}%</span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full transition-all duration-300 h-3">
-                            <div 
+                            <div
                               className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full transition-all duration-300 h-3"
                               style={{ width: `${eggData.incubation_progress}%` }}
                             />
@@ -844,7 +852,7 @@ export default function EggDemo() {
                     </div>
                   )}
                 </TabsContent>
-                
+
                 <TabsContent value="baby" className="space-y-4">
                   {eggData && babyData ? (
                     <>
@@ -853,7 +861,7 @@ export default function EggDemo() {
                           blobbi={createBabyBlobbi()!}
                         />
                       </div>
-                      
+
                       {/* Baby Traits Display */}
                       <div className="w-full space-y-4">
                         <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100">Baby Traits</h4>
@@ -861,7 +869,7 @@ export default function EggDemo() {
                           <div className="flex justify-between">
                             <span>Eye Color:</span>
                             <div className="flex items-center gap-2">
-                              <div 
+                              <div
                                 className="w-3 h-3 rounded-full border"
                                 style={{ backgroundColor: babyData.eyeColor }}
                               />
@@ -882,14 +890,14 @@ export default function EggDemo() {
                           </div>
                           <div className="flex justify-between">
                             <span>Size:</span>
-                            <Badge 
-                              variant={getRarityBadgeVariant(getRarityInfo(eggData.size, 'size').rarity)} 
+                            <Badge
+                              variant={getRarityBadgeVariant(getRarityInfo(eggData.size, 'size').rarity)}
                               className="capitalize"
                             >
                               {eggData.size}
                             </Badge>
                           </div>
-                          
+
                           {/* Personality */}
                           <div className="space-y-1">
                             <span className="font-medium">Personality:</span>
@@ -901,7 +909,7 @@ export default function EggDemo() {
                               ))}
                             </div>
                           </div>
-                          
+
                           {/* Traits */}
                           <div className="space-y-1">
                             <span className="font-medium">Special Traits:</span>
@@ -913,15 +921,15 @@ export default function EggDemo() {
                               ))}
                             </div>
                           </div>
-                          
+
                           {/* Visual Effects - HIDDEN FROM UI BUT DATA PRESERVED */}
                           {(babyData.manifestation) && (
                             <div className="space-y-1">
                               <span className="font-medium">Visual Effects:</span>
                               <div className="flex flex-wrap gap-1">
                                 {babyData.manifestation && (
-                                  <Badge 
-                                    variant="destructive" 
+                                  <Badge
+                                    variant="destructive"
                                     className={`text-xs ${
                                       getVisualEffectRarity(babyData.manifestation) === 'legendary' ? 'bg-purple-500' :
                                       getVisualEffectRarity(babyData.manifestation) === 'rare' ? 'bg-blue-500' :
@@ -934,8 +942,8 @@ export default function EggDemo() {
                                 )}
                                 {/* Pattern and Blessing badges removed from visual display */}
                                 {/* {babyData.visualEffect && (
-                                  <Badge 
-                                    variant="destructive" 
+                                  <Badge
+                                    variant="destructive"
                                     className={`text-xs ${
                                       getVisualEffectRarity(babyData.visualEffect) === 'legendary' ? 'bg-purple-500' :
                                       getVisualEffectRarity(babyData.visualEffect) === 'rare' ? 'bg-blue-500' :
@@ -947,8 +955,8 @@ export default function EggDemo() {
                                   </Badge>
                                 )}
                                 {babyData.blessing && (
-                                  <Badge 
-                                    variant="destructive" 
+                                  <Badge
+                                    variant="destructive"
                                     className={`text-xs ${
                                       getVisualEffectRarity(babyData.blessing) === 'legendary' ? 'bg-purple-500' :
                                       getVisualEffectRarity(babyData.blessing) === 'rare' ? 'bg-blue-500' :
@@ -987,7 +995,7 @@ export default function EggDemo() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button 
+                <Button
                   onClick={generateRandomEgg}
                   className="w-full flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
                   size="lg"
@@ -995,9 +1003,33 @@ export default function EggDemo() {
                   <RefreshCw className="h-4 w-4" />
                   Generate Random Egg & Baby
                 </Button>
-                
+
+                <Button
+                  onClick={() => {
+                    // Generate a Divine egg for testing
+                    const rawEgg = generateSampleBlobbiEgg();
+                    const divineEgg: EggProperties = {
+                      ...rawEgg,
+                      base_color: '#55C4A2', // Divine green
+                      secondary_color: undefined, // Divine eggs don't have secondary colors
+                    };
+
+                    setEggData(divineEgg);
+                    setShowSecondaryColor(false);
+                    setShowSpecialMark(!!divineEgg.special_mark);
+                    setShowTitle(!!divineEgg.title);
+
+                    // Also generate baby data
+                    generateRandomBaby();
+                  }}
+                  className="w-full flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
+                  size="sm"
+                >
+                  ✨ Generate Divine Egg (Test)
+                </Button>
+
                 {eggData && (
-                  <Button 
+                  <Button
                     onClick={generateRandomBaby}
                     variant="outline"
                     className="w-full flex items-center gap-2"
@@ -1038,7 +1070,7 @@ export default function EggDemo() {
                         <SelectTrigger>
                           <SelectValue>
                             <div className="flex items-center gap-2">
-                              <div 
+                              <div
                                 className="w-4 h-4 rounded border"
                                 style={{ backgroundColor: eggData.base_color }}
                               />
@@ -1052,7 +1084,7 @@ export default function EggDemo() {
                             return (
                               <SelectItem key={color} value={color}>
                                 <div className="flex items-center gap-2">
-                                  <div 
+                                  <div
                                     className="w-4 h-4 rounded border"
                                     style={{ backgroundColor: color }}
                                   />
@@ -1171,7 +1203,7 @@ export default function EggDemo() {
                             <SelectValue>
                               {eggData.secondary_color && (
                                 <div className="flex items-center gap-2">
-                                  <div 
+                                  <div
                                     className="w-4 h-4 rounded border"
                                     style={{ backgroundColor: eggData.secondary_color }}
                                   />
@@ -1186,7 +1218,7 @@ export default function EggDemo() {
                               return (
                                 <SelectItem key={color} value={color}>
                                   <div className="flex items-center gap-2">
-                                    <div 
+                                    <div
                                       className="w-4 h-4 rounded border"
                                       style={{ backgroundColor: color }}
                                     />
@@ -1303,7 +1335,7 @@ export default function EggDemo() {
                           <SelectTrigger>
                             <SelectValue>
                               <div className="flex items-center gap-2">
-                                <div 
+                                <div
                                   className="w-4 h-4 rounded-full border"
                                   style={{ backgroundColor: babyData.eyeColor }}
                                 />
@@ -1315,7 +1347,7 @@ export default function EggDemo() {
                             {EYE_COLORS.map((color) => (
                               <SelectItem key={color} value={color}>
                                 <div className="flex items-center gap-2">
-                                  <div 
+                                  <div
                                     className="w-4 h-4 rounded-full border"
                                     style={{ backgroundColor: color }}
                                   />
@@ -1349,7 +1381,7 @@ export default function EggDemo() {
                       {/* Visual Effects */}
                       <div className="space-y-4">
                         <h4 className="font-semibold text-sm">Visual Effects</h4>
-                        
+
                         {/* Manifestation Toggle */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
@@ -1375,8 +1407,8 @@ export default function EggDemo() {
                                     <SelectItem key={manifestation} value={manifestation}>
                                       <div className="flex items-center gap-2">
                                         <span className="capitalize">{manifestation.replace('_', ' ')}</span>
-                                        <Badge 
-                                          variant={getRarityBadgeVariant(rarity)} 
+                                        <Badge
+                                          variant={getRarityBadgeVariant(rarity)}
                                           className="text-xs ml-auto"
                                         >
                                           {rarity}
@@ -1415,8 +1447,8 @@ export default function EggDemo() {
                                     <SelectItem key={pattern} value={pattern}>
                                       <div className="flex items-center gap-2">
                                         <span className="capitalize">{pattern.replace('_', ' ')}</span>
-                                        <Badge 
-                                          variant={getRarityBadgeVariant(rarity)} 
+                                        <Badge
+                                          variant={getRarityBadgeVariant(rarity)}
                                           className="text-xs ml-auto"
                                         >
                                           {rarity}
@@ -1455,8 +1487,8 @@ export default function EggDemo() {
                                     <SelectItem key={blessing} value={blessing}>
                                       <div className="flex items-center gap-2">
                                         <span className="capitalize">{blessing.replace('_', ' ')}</span>
-                                        <Badge 
-                                          variant={getRarityBadgeVariant(rarity)} 
+                                        <Badge
+                                          variant={getRarityBadgeVariant(rarity)}
                                           className="text-xs ml-auto"
                                         >
                                           {rarity}

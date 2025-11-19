@@ -1,11 +1,11 @@
 import { NostrEvent } from '@nostrify/nostrify';
 import { Blobbi, BlobbiRecordData } from '@/types/blobbi';
 import { createBlobbiId, isValidBlobbiName } from '@/lib/blobbi-events';
-import { 
-  VALID_BASE_COLORS, 
-  VALID_SECONDARY_COLORS, 
-  VALID_SIZES, 
-  VALID_SPECIAL_MARKS, 
+import {
+  VALID_BASE_COLORS,
+  VALID_SECONDARY_COLORS,
+  VALID_SIZES,
+  VALID_SPECIAL_MARKS,
   VALID_TITLES,
   VALID_PATTERNS,
   VALID_EGG_STATUSES
@@ -33,23 +33,27 @@ export interface BlobbiAdoptionRecord {
   energy: number;
   experience: number;
   care_streak: number;
-  
+
   // Required appearance fields (always present)
   base_color: string;
   pattern: string;
   size: string;
-  
+
   // Optional appearance fields (spawn chance based)
   secondary_color: string | null;
   special_mark: string | null;
   title: string | null;
-  
+
   // Required egg-specific fields
   incubation_time: number;
   incubation_progress: number;
   egg_temperature: number;
   egg_status: string;
   shell_integrity: number;
+
+  // New optional Divine fields
+  theme?: string | null;
+  crossover_app?: string | null;
 }
 
 // Rarity-based randomization following blobbi-egg.md specifications
@@ -113,6 +117,12 @@ const EGG_STATUS_OPTIONS = [...VALID_EGG_STATUSES];
 
 // Interaction type options (Required)
 const INTERACTION_TYPES = ['tap', 'stroke', 'whisper', 'sing'];
+
+// Divine constants
+const DIVINE_EGG_CHANCE = 0.40; // 40% chance, tweakable
+
+// Divine brand color (green) — keep in sync with EggGraphic
+export const DIVINE_PRIMARY_GREEN = '#55C4A2';
 
 /**
  * Generates a random number between min and max (inclusive)
@@ -181,7 +191,7 @@ function getPastTimestamp(hoursAgo: number): string {
  */
 export function createBlobbiAdoptionRecord(): BlobbiAdoptionRecord {
   const now = getCurrentTimestamp();
-  
+
   // Required fields with exact values from specification
   const record: BlobbiAdoptionRecord = {
     stage: "egg",
@@ -197,29 +207,32 @@ export function createBlobbiAdoptionRecord(): BlobbiAdoptionRecord {
     // Ensure default values are always set as specified
     experience: 0, // Must always start at 0
     care_streak: 0,  // Must always start at 0
-    
+
     // Required fields with rarity-based selection
     base_color: selectFromRarity(BASE_COLOR_RARITY),
     size: selectFromRarity(SIZE_RARITY),
-    
+
     // Required fields with random selection from options
     pattern: randomChoice(PATTERN_OPTIONS),
-    
+
     // Egg-specific required fields with enforced defaults
     incubation_time: 345600, // Must always be 345600 (4 days in seconds)
     incubation_progress: 0, // Must always start at 0
     egg_temperature: randomBetween(80, 100),
     egg_status: randomChoice(EGG_STATUS_OPTIONS),
     shell_integrity: randomBetween(80, 100),
-    
+
     // Initialize optional fields as null (will be set based on spawn chances)
     secondary_color: null,
     special_mark: null,
-    title: null
+    title: null,
+
+    theme: null,
+    crossover_app: null,
   };
 
   // Optional fields with spawn chances
-  
+
   // secondary_color: 45% spawn chance
   if (random() <= 0.45) {
     record.secondary_color = selectFromRarity(SECONDARY_COLOR_RARITY);
@@ -233,6 +246,20 @@ export function createBlobbiAdoptionRecord(): BlobbiAdoptionRecord {
   // title: 10% spawn chance
   if (random() <= 0.10) {
     record.title = selectFromRarity(TITLE_RARITY);
+  }
+
+  // --- Divine crossover logic ---
+  // A small chance that this egg is a Divine crossover egg
+  if (random() <= DIVINE_EGG_CHANCE) {
+    record.theme = 'divine';
+    record.crossover_app = 'divine';
+
+    // Force Divine base color and disable secondary color
+    record.base_color = DIVINE_PRIMARY_GREEN;
+    record.secondary_color = null;
+
+    // Optionally, you can set a default special mark here if needed
+    // record.special_mark = record.special_mark ?? 'divine_wordmark';
   }
 
   return record;
@@ -256,17 +283,17 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
   adoptionRecord: BlobbiRecordData;
 } {
   const { petName, userPubkey } = params;
-  
+
   if (!isValidBlobbiName(petName)) {
     throw new Error('Invalid pet name: must contain at least one alphanumeric character');
   }
-  
+
   // Create the adoption record with specification-compliant randomized values
   const record = createBlobbiAdoptionRecord();
   const blobbiId = createBlobbiId(petName);
   const now = Date.now();
   const createdAtSeconds = Math.floor(now / 1000); // Unix timestamp in seconds for Nostr compatibility
-  
+
   // Create the Blobbi object following the exact specification
   const blobbi: Blobbi = {
     id: blobbiId,
@@ -302,7 +329,7 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
       nextEvolutionCheck: now + 24 * 60 * 60 * 1000, // 24 hours
     },
     visibleToOthers: true,
-    
+
     // Appearance fields from the specification
     baseColor: record.base_color,
     secondaryColor: record.secondary_color || undefined,
@@ -310,18 +337,23 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
     specialMark: record.special_mark || undefined,
     title: record.title || undefined,
     size: record.size,
-    
+
     // Egg-specific fields from the specification
     incubationTime: record.incubation_time,
     incubationProgress: record.incubation_progress,
     eggTemperature: record.egg_temperature,
     eggStatus: record.egg_status,
     shellIntegrity: record.shell_integrity,
-    
+
     // Additional timestamp fields - all use the same creation timestamp in Unix seconds
-    lastInteraction: createdAtSeconds
+    lastInteraction: createdAtSeconds,
+
+    themeVariant: record.theme || undefined,
+    crossoverApp: record.crossover_app || undefined,
+    // Optionally: store tags here if you want the UI to use them directly
+    // tags: blobbiEggToTags(record, blobbiId),
   };
-  
+
   // Create the adoption record with proper rarity determination
   let rarity = 'common';
   if (record.title && ['Defender of the Grove', 'The Primordial'].includes(record.title)) {
@@ -335,7 +367,7 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
   } else if (record.secondary_color || record.special_mark || record.title) {
     rarity = 'uncommon';
   }
-  
+
   const adoptionRecord: BlobbiRecordData = {
     recordType: 'birth',
     generation: record.generation,
@@ -347,8 +379,11 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
     shellColor: record.base_color,
     shellPattern: record.pattern,
     initialTrait: ['curious', 'gentle'],
+    // NEW Divine fields
+    theme: record.theme ?? null,
+    crossoverApp: record.crossover_app ?? null,
   };
-  
+
   return {
     blobbi,
     adoptionRecord,
@@ -398,7 +433,7 @@ export function blobbiEggToTags(record: BlobbiAdoptionRecord, blobbiId: string):
     ['last_interaction_type', randomChoice(INTERACTION_TYPES)],
     ['visible_to_others', 'true']
   ];
-  
+
   // Add optional tags only if they exist
   if (record.secondary_color) {
     tags.push(['secondary_color', record.secondary_color]);
@@ -408,6 +443,14 @@ export function blobbiEggToTags(record: BlobbiAdoptionRecord, blobbiId: string):
   }
   if (record.title) {
     tags.push(['title', record.title]);
+  }
+
+  // New Divine tags
+  if (record.theme) {
+    tags.push(['theme', record.theme]);
+  }
+  if (record.crossover_app) {
+    tags.push(['crossover_app', record.crossover_app]);
   }
 
   return tags;
@@ -427,7 +470,7 @@ export function generateBlobbiEggEvent(): {
   const record = createBlobbiAdoptionRecord();
   const blobbiId = generateBlobbiId();
   const tags = blobbiEggToTags(record, blobbiId);
-  
+
   return {
     kind: 31124,
     content: `A new Blobbi egg has appeared! This ${record.size} egg with ${record.base_color} coloring is ready to be cared for.`,
@@ -443,13 +486,13 @@ export function generateBlobbiEggEvent(): {
  */
 export function generateSampleBlobbiEgg(): Record<string, string> {
   const eggEvent = generateBlobbiEggEvent();
-  
+
   // Convert tags array to object for easier reading
   const eggData: Record<string, string> = {};
   eggEvent.tags.forEach(([key, value]) => {
     eggData[key] = value;
   });
-  
+
   return eggData;
 }
 
@@ -460,18 +503,18 @@ export function validatePetName(name: string): { isValid: boolean; error?: strin
   if (!name || !name.trim()) {
     return { isValid: false, error: 'Please enter a name for your Blobbi' };
   }
-  
+
   if (name.length < 2 || name.length > 20) {
     return { isValid: false, error: 'Pet name must be between 2 and 20 characters' };
   }
-  
+
   if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
     return { isValid: false, error: 'Pet name can only contain letters, numbers, underscores, and hyphens' };
   }
-  
+
   if (!isValidBlobbiName(name)) {
     return { isValid: false, error: 'Invalid pet name format' };
   }
-  
+
   return { isValid: true };
 }

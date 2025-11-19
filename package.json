@@ -13,6 +13,7 @@
     "@fontsource-variable/comfortaa": "^5.2.6",
     "@fontsource/bungee-shade": "^5.2.6",
     "@fontsource/comic-neue": "^5.2.6",
+    "@fontsource/pacifico": "^5.2.7",
     "@hookform/resolvers": "^3.9.0",
     "@lightninglabs/lnc-web": "^0.3.4-alpha",
     "@nostrify/nostrify": "npm:@jsr/nostrify__nostrify@^0.46.1",

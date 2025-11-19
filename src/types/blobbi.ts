@@ -116,6 +116,10 @@ export interface Blobbi {
   currentLocation?: string;
   inParty?: boolean;
   visibleToOthers?: boolean;
+  // Divine theme fields
+  themeVariant?: string;
+  crossoverApp?: string | null;
+  tags?: string[][]; // Optional: store tags here if you want the UI to use them directly
 }
 
 // Kind 31124: Blobbi Current State (Addressable)
@@ -302,6 +306,9 @@ export interface BlobbiRecordData {
   discoveredTrait?: string;
   achievement?: string;
   milestone?: string;
+  // Divine crossover metadata
+  theme?: string | null;
+  crossoverApp?: string | null;
 }
 
 // Item types for the shop
