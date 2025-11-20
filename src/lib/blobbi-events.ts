@@ -92,8 +92,27 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
   const divinePreservedBlobbi = ensureDivineTags(blobbi);
 
   // Start with existing tags to preserve all metadata, then override with current values
-  const preservedTags: Array<[string, string]> = divinePreservedBlobbi.tags ?
+  let preservedTags: Array<[string, string]> = divinePreservedBlobbi.tags ?
     divinePreservedBlobbi.tags.map(([k, v]) => [k || '', v || ''] as [string, string]) : [];
+
+  // SPECIAL HANDLING FOR HATCHING: If this is a baby stage that was just hatched,
+  // ensure we use the pre-filtered tags from the hatching process
+  if (blobbi.lifeStage === 'baby' && blobbi.tags && blobbi.tags.length > 0) {
+    // Check if tags have already been filtered (look for canonical order indicators)
+    const hasBlobbiTag = blobbi.tags.some(([name]) => name === 'b');
+    const hasTopicTag = blobbi.tags.some(([name]) => name === 't');
+    const hasCanonicalOrder = hasBlobbiTag && hasTopicTag;
+
+    if (!hasCanonicalOrder) {
+      // Tags might not be filtered yet, apply hatching filter
+      const { filterEggTagsForBaby, rebuildCanonicalBabyTags } = require('./blobbi-evolution');
+      try {
+        preservedTags = filterEggTagsForBaby(blobbi.tags, blobbi);
+      } catch (error) {
+        console.warn('[Hatching] Could not apply egg tag filter, using original tags:', error);
+      }
+    }
+  }
 
   // Core required tags that we always update with current values
   const coreUpdates: Array<[string, string]> = [
@@ -113,10 +132,36 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
   // Create a map to merge preserved tags with updates
   const stateTagMap = new Map<string, string>();
 
-  // First, add all preserved tags
+  // First, add all preserved tags (except egg-specific ones for baby stage)
   preservedTags.forEach(([key, value]) => {
     if (key && value) {
-      stateTagMap.set(key, value);
+      // Skip egg-specific tags if this is a baby
+      if (blobbi.lifeStage === 'baby') {
+        const EGG_ONLY_TAGS = new Set([
+          'egg_temperature', 'egg_status', 'shell_integrity', 'hatch_time',
+          'start_incubation', 'incubation_time', 'start_evolution',
+          'last_warm', 'last_check', 'last_talk', 'last_medicine', 'last_sing'
+        ]);
+        const TASK_PATTERNS = ['_progress', '_confirmed', 'quest_', 'task_', 'incubation_'];
+
+        let isEggOrTaskTag = false;
+        if (EGG_ONLY_TAGS.has(key)) {
+          isEggOrTaskTag = true;
+        } else {
+          for (const pattern of TASK_PATTERNS) {
+            if (key.includes(pattern)) {
+              isEggOrTaskTag = true;
+              break;
+            }
+          }
+        }
+
+        if (!isEggOrTaskTag) {
+          stateTagMap.set(key, value);
+        }
+      } else {
+        stateTagMap.set(key, value);
+      }
     }
   });
 
@@ -142,6 +187,8 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
   if (isDivine) {
     stateTagMap.set('theme', DIVINE_THEME);
     stateTagMap.set('crossover_app', DIVINE_CROSSOVER_APP);
+    // For divine Blobbis, ensure secondary_color is removed
+    stateTagMap.delete('secondary_color');
   } else {
     // For non-Divine Blobbis, use their specific theme values
     if (blobbi.themeVariant) stateTagMap.set('theme', blobbi.themeVariant);
@@ -569,7 +616,10 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
 
     if (!id || !stage) return null;
 
-    // Create base Blobbi object with all tags preserved
+    // Check for divine Blobbi status
+    const isDivine = getTagValue(tags, 'theme') === 'divine' || getTagValue(tags, 'crossover_app') === 'divine';
+
+    // Create base Blobbi object with stage-appropriate tag filtering
     const blobbi: Blobbi = {
       id,
       ownerPubkey: event.pubkey,
@@ -605,7 +655,7 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       crossoverApp: getTagValue(tags, 'crossover_app'),
       // Optional appearance fields
       baseColor: getTagValue(tags, 'base_color'),
-      secondaryColor: getTagValue(tags, 'secondary_color'),
+      secondaryColor: isDivine ? undefined : getTagValue(tags, 'secondary_color'), // Remove secondary_color for divine
       pattern: getTagValue(tags, 'pattern'),
       eyeColor: getTagValue(tags, 'eye_color'),
       specialMark: getTagValue(tags, 'special_mark'),
@@ -618,12 +668,14 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       size: getTagValue(tags, 'size'),
       title: getTagValue(tags, 'title'),
       skill: getTagValue(tags, 'skill'),
-      // Egg-specific fields
-      incubationTime: getTagValue(tags, 'incubation_time') ? parseInt(getTagValue(tags, 'incubation_time')!) : undefined,
-      incubationProgress: getTagValue(tags, 'incubation_progress') ? parseInt(getTagValue(tags, 'incubation_progress')!) : undefined,
-      eggTemperature: getTagValue(tags, 'egg_temperature') ? parseInt(getTagValue(tags, 'egg_temperature')!) : undefined,
-      eggStatus: getTagValue(tags, 'egg_status'),
-      shellIntegrity: getTagValue(tags, 'shell_integrity') ? parseInt(getTagValue(tags, 'shell_integrity')!) : undefined,
+      // Egg-specific fields - only set for egg stage
+      ...(stage === 'egg' && {
+        incubationTime: getTagValue(tags, 'incubation_time') ? parseInt(getTagValue(tags, 'incubation_time')!) : undefined,
+        incubationProgress: getTagValue(tags, 'incubation_progress') ? parseInt(getTagValue(tags, 'incubation_progress')!) : undefined,
+        eggTemperature: getTagValue(tags, 'egg_temperature') ? parseInt(getTagValue(tags, 'egg_temperature')!) : undefined,
+        eggStatus: getTagValue(tags, 'egg_status'),
+        shellIntegrity: getTagValue(tags, 'shell_integrity') ? parseInt(getTagValue(tags, 'shell_integrity')!) : undefined,
+      }),
       // Behavior fields
       isSleeping: getTagValue(tags, 'is_sleeping') === 'true',
       isDirty: getTagValue(tags, 'is_dirty') === 'true',

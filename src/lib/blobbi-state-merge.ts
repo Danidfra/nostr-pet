@@ -129,7 +129,7 @@ export function mergeBlobbiStateTags(
           // Replace this specific progress tag with new value
           result.push([tagName, options.updateTaskProgress.progress.toString()]);
           console.log(`🔄 Updating progress tag: ${tagName} = ${options.updateTaskProgress.progress}`);
-          break;
+          // Don't break here - continue to check if this is also a confirmation tag
         }
 
         // Handle specific task confirmation updates
@@ -138,7 +138,7 @@ export function mergeBlobbiStateTags(
           const timestamp = Math.floor(Date.now() / 1000).toString();
           result.push([tagName, timestamp]);
           console.log(`✅ Updating confirmation tag: ${tagName} = ${timestamp}`);
-          break;
+          // Don't break here - continue to preservation logic
         }
 
         // Check if this tag should be preserved (incubation/quest tags)
@@ -157,12 +157,18 @@ export function mergeBlobbiStateTags(
         // Check if this tag is being overridden by additionalTags
         const isBeingOverridden = options.additionalTags?.some(([name]) => name === tagName);
 
-        if (isBeingOverridden && !shouldPreserveTag) {
-          // Skip this tag - it will be replaced by additionalTags
-          processedAdditionalTags.add(tagName);
-        } else {
-          // Keep all other tags as-is
-          values.forEach(value => result.push([tagName, value]));
+        // Only add the original values if we haven't already processed this tag
+        const wasProgressUpdated = options.updateTaskProgress && tagName === `${options.updateTaskProgress.taskId}_progress`;
+        const wasConfirmationUpdated = options.addConfirmedTaskId && tagName === `${options.addConfirmedTaskId}_confirmed`;
+
+        if (!wasProgressUpdated && !wasConfirmationUpdated) {
+          if (isBeingOverridden && !shouldPreserveTag) {
+            // Skip this tag - it will be replaced by additionalTags
+            processedAdditionalTags.add(tagName);
+          } else {
+            // Keep all other tags as-is
+            values.forEach(value => result.push([tagName, value]));
+          }
         }
         break;
       }
@@ -191,19 +197,41 @@ export function mergeBlobbiStateTags(
     result.push([`${options.addConfirmedTaskId}_confirmed`, timestamp]);
   }
 
-  if (options.updateTaskProgress && !existingTags.has(`${options.updateTaskProgress.taskId}_progress`)) {
-    result.push([`${options.updateTaskProgress.taskId}_progress`, options.updateTaskProgress.progress.toString()]);
+  if (options.updateTaskProgress) {
+    // Always add/update progress tags, regardless of whether they already exist
+    // The switch logic above handles updating existing tags, but we need to ensure
+    // new tags get added here if they weren't processed in the switch
+    const progressTagName = `${options.updateTaskProgress.taskId}_progress`;
+    const existingProgressIndex = result.findIndex(tag => tag[0] === progressTagName);
+
+    if (existingProgressIndex === -1) {
+      // Tag doesn't exist yet, add it
+      result.push([progressTagName, options.updateTaskProgress.progress.toString()]);
+      console.log(`➕ Adding new progress tag: ${progressTagName} = ${options.updateTaskProgress.progress}`);
+    }
+    // If it exists, it was already updated in the switch logic above
   }
 
   // Add any additional tags
   if (options.additionalTags) {
     options.additionalTags.forEach(([name, value]) => {
+      // Skip if this is a progress tag that was already handled
+      if (options.updateTaskProgress && name === `${options.updateTaskProgress.taskId}_progress`) {
+        return;
+      }
+
+      // Skip if this is a confirmation tag that was already handled
+      if (options.addConfirmedTaskId && name === `${options.addConfirmedTaskId}_confirmed`) {
+        return;
+      }
+
       // Check if this tag should be preserved (incubation/quest tags)
       const shouldPreserveExisting = preserveIncubationAndQuestTags && (
         name === 'start_incubation' ||
         name === 'start_evolution' ||
         name === 'hatch_time' ||
         name.endsWith('_confirmed') ||
+        name.endsWith('_progress') ||
         name.includes('quest_') ||
         name.includes('task_') ||
         name.includes('incubation_')

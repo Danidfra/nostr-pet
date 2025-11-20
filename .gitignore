@@ -27,3 +27,7 @@ blobbi-docs
 # Stacks CLI
 .ai-history/
 .ai/
+
+
+test-dist/
+*.test-dist.js

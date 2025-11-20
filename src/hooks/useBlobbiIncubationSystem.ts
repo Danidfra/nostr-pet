@@ -619,6 +619,7 @@ export function useBlobbiIncubationSystem() {
     let taskCompleted = false;
     let completedTaskName = '';
     let completedTaskId: string | null = null;
+    const intermediateProgressUpdates: Array<{ taskId: string; progress: number }> = [];
 
     setState(prevState => {
       // Use the current selected egg ID we captured earlier
@@ -710,8 +711,8 @@ export function useBlobbiIncubationSystem() {
                   variant: "default",
                 });
 
-                // Note: Progress updates are now handled automatically by useEnhancedNostrPublish
-                // This local state update provides immediate UI feedback
+                // Track progress update to be published after state update
+                intermediateProgressUpdates.push({ taskId: task.id, progress: newProgress });
 
                 return { ...task, progress: newProgress };
               }
@@ -778,6 +779,9 @@ export function useBlobbiIncubationSystem() {
                   variant: "default",
                 });
 
+                // Track progress update to be published after state update
+                intermediateProgressUpdates.push({ taskId: task.id, progress: newProgress });
+
                 return { ...task, progress: newProgress };
               }
             } else {
@@ -828,6 +832,9 @@ export function useBlobbiIncubationSystem() {
                   variant: "default",
                 });
 
+                // Track progress update to be published after state update
+                intermediateProgressUpdates.push({ taskId: task.id, progress: newProgress });
+
                 return { ...task, progress: newProgress };
               }
             }
@@ -848,32 +855,36 @@ export function useBlobbiIncubationSystem() {
     });
 
     // Handle progress updates and task completion
-    if (completedTaskId) {
+    if (completedTaskId || intermediateProgressUpdates.length > 0) {
       // Task was completed - publish confirmation
-      await publishTaskConfirmation(completedTaskId, true);
+      if (completedTaskId) {
+        await publishTaskConfirmation(completedTaskId, true);
 
-      // Check if all egg tasks are completed
-      if (currentSelectedEggId) {
-        const updatedTaskState = state.blobbiTaskStates.get(currentSelectedEggId);
-        if (updatedTaskState) {
-          const allEggTasksCompleted = updatedTaskState.eggTasks.every(task => task.completed);
-          if (allEggTasksCompleted) {
-            console.log('🎉 All egg tasks completed! Ready to hatch manually...');
+        // Check if all egg tasks are completed
+        if (currentSelectedEggId) {
+          const updatedTaskState = state.blobbiTaskStates.get(currentSelectedEggId);
+          if (updatedTaskState) {
+            const allEggTasksCompleted = updatedTaskState.eggTasks.every(task => task.completed);
+            if (allEggTasksCompleted) {
+              console.log('🎉 All egg tasks completed! Ready to hatch manually...');
 
-            // Show toast notification for completing all tasks - now prompts for manual hatching
-            toast({
-              title: "🥚 All Tasks Complete!",
-              description: "You've completed all the hatching tasks! Your egg is ready to hatch. Click the 'Hatch' button when you're ready!",
-              variant: "default",
-            });
+              // Show toast notification for completing all tasks - now prompts for manual hatching
+              toast({
+                title: "🥚 All Tasks Complete!",
+                description: "You've completed all the hatching tasks! Your egg is ready to hatch. Click the 'Hatch' button when you're ready!",
+                variant: "default",
+              });
+            }
           }
         }
       }
-    }
 
-    // Note: Progress updates are now handled automatically by useEnhancedNostrPublish
-    // when interaction events are published. This subscription-based logic only
-    // updates local state for real-time UI feedback.
+      // Handle intermediate progress updates
+      for (const progressUpdate of intermediateProgressUpdates) {
+        console.log(`📤 Publishing intermediate progress update: ${progressUpdate.taskId} = ${progressUpdate.progress}`);
+        await publishTaskConfirmation(progressUpdate.taskId, false, progressUpdate.progress);
+      }
+    }
   }, [user, publishEvent, state.incubationStartTime, state.selectedEggId, publishTaskConfirmation, toast, getTaskCompletionMessage]);
 
   // Step 2: Start persistent metadata subscription (kind 31124)

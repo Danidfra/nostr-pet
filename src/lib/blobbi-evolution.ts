@@ -1,7 +1,7 @@
-import { 
-  Blobbi, 
-  BlobbiEvolutionProgress, 
-  BlobbiCareSession, 
+import {
+  Blobbi,
+  BlobbiEvolutionProgress,
+  BlobbiCareSession,
   BlobbiCareAction,
   BlobbiEvolutionForm,
   BlobbiLifeStage,
@@ -54,21 +54,21 @@ export function updateEvolutionProgress(
 
   // Get or create current session
   let currentSession = progress.careSessions[progress.careSessions.length - 1];
-  
+
   // Check if we need to start a new session
   if (!currentSession || timeSinceLastCare > EVOLUTION_REQUIREMENTS.SESSION_TIMEOUT) {
     // End previous session if it exists
     if (currentSession && !currentSession.endTime) {
       currentSession.endTime = progress.lastCareDate;
     }
-    
+
     // Start new session
     currentSession = {
       startTime: currentTime,
       actions: 0,
     };
     progress.careSessions.push(currentSession);
-    
+
     // Reset streak if too much time has passed
     if (timeSinceLastCare > EVOLUTION_REQUIREMENTS.CARE_WINDOW) {
       progress.currentStreak = 0;
@@ -88,7 +88,7 @@ export function updateEvolutionProgress(
   progress.currentStreak = consecutiveDays;
 
   // Check evolution eligibility
-  progress.isEligibleForEvolution = 
+  progress.isEligibleForEvolution =
     progress.totalCareDays >= EVOLUTION_REQUIREMENTS.REQUIRED_CARE_DAYS &&
     progress.currentStreak >= EVOLUTION_REQUIREMENTS.REQUIRED_CARE_DAYS;
 
@@ -121,7 +121,7 @@ function calculateCareDays(
     while (currentDate <= endDate) {
       const dayKey = currentDate.toISOString().split('T')[0];
       const existingActions = careDayMap.get(dayKey) || 0;
-      
+
       // Count actions for this day (simplified: all actions count for the start day)
       if (currentDate.toDateString() === startDate.toDateString()) {
         careDayMap.set(dayKey, existingActions + session.actions);
@@ -129,7 +129,7 @@ function calculateCareDays(
           dayKeys.push(dayKey);
         }
       }
-      
+
       currentDate.setDate(currentDate.getDate() + 1);
     }
   });
@@ -145,12 +145,12 @@ function calculateCareDays(
   // Calculate consecutive days (counting backwards from today)
   let consecutiveDays = 0;
   const today = new Date(currentTime);
-  
+
   for (let i = 0; i < EVOLUTION_REQUIREMENTS.REQUIRED_CARE_DAYS + 1; i++) {
     const checkDate = new Date(today);
     checkDate.setDate(checkDate.getDate() - i);
     const dayKey = checkDate.toISOString().split('T')[0];
-    
+
     if (qualifyingDays.includes(dayKey)) {
       consecutiveDays++;
     } else if (i > 0) {
@@ -194,7 +194,7 @@ export function determineEvolutionForm(
     'flammi', 'droppi', 'breezy', 'rocky', 'cacti', 'mushie', 'leafy', 'rosey'
   ];
   const index = Math.abs(hash) % forms.length;
-  
+
   return forms[index];
 }
 
@@ -216,7 +216,7 @@ export function getEvolutionReadinessMessage(progress: BlobbiEvolutionProgress):
   }
 
   const daysRemaining = EVOLUTION_REQUIREMENTS.REQUIRED_CARE_DAYS - progress.currentStreak;
-  
+
   if (progress.currentStreak === 0) {
     return `Care for your Blobbi for ${EVOLUTION_REQUIREMENTS.REQUIRED_CARE_DAYS} consecutive days to unlock evolution.`;
   }
@@ -335,7 +335,7 @@ export function generateHatchingData(
   };
 
   // Add optional fields based on random chance and existing blobbi data
-  
+
   // Generate eye color during hatching (required field)
   // Eye color options for hatching
   const eyeColorOptions = {
@@ -344,7 +344,7 @@ export function generateHatchingData(
     rare: ['#9F7AEA', '#ED64A6', '#F56565'],
     legendary: ['#00F5FF', '#FFD700', '#FF1493']
   };
-  
+
   // Eye color rarity system (similar to other appearance features)
   const eyeColorRarity = {
     common: { probability: 0.5, values: eyeColorOptions.common },
@@ -352,41 +352,41 @@ export function generateHatchingData(
     rare: { probability: 0.15, values: eyeColorOptions.rare },
     legendary: { probability: 0.05, values: eyeColorOptions.legendary }
   };
-  
+
   // Select eye color using weighted random selection
   const selectEyeColor = () => {
     const roll = Math.random();
     let cumulative = 0;
-    
+
     const tiers = [
       { tier: eyeColorRarity.common, name: 'common' },
       { tier: eyeColorRarity.uncommon, name: 'uncommon' },
       { tier: eyeColorRarity.rare, name: 'rare' },
       { tier: eyeColorRarity.legendary, name: 'legendary' }
     ];
-    
+
     for (const { tier } of tiers) {
       cumulative += tier.probability;
       if (roll <= cumulative) {
         return tier.values[Math.floor(Math.random() * tier.values.length)];
       }
     }
-    
+
     // Fallback to common
     return eyeColorRarity.common.values[0];
   };
-  
+
   // Eye color is required in hatching data - generate if not present
   hatchingData.eyeColor = blobbi.eyeColor || selectEyeColor();
-  
+
   if (blobbi.baseColor) {
     hatchingData.baseColor = blobbi.baseColor;
   }
-  
+
   if (blobbi.pattern) {
     hatchingData.pattern = blobbi.pattern;
   }
-  
+
   if (blobbi.secondaryColor) {
     hatchingData.secondaryColor = blobbi.secondaryColor;
   }
@@ -408,7 +408,7 @@ export function generateHatchingData(
   }
 
   // Generate random hatching-specific data based on specification
-  
+
   // Random chance for memory (15% spawn chance)
   if (Math.random() <= 0.15) {
     const memoryTitles = ['Woke with a Yawn', 'Blinking into Light', 'First Wiggle', 'Broke the Shell', 'First Gaze', 'Whispered by the Wind'];
@@ -420,7 +420,7 @@ export function generateHatchingData(
       'Felt warmth and safety while hatching',
       'Emerged during a gentle rainstorm'
     ];
-    
+
     hatchingData.memoryTitle = memoryTitles[Math.floor(Math.random() * memoryTitles.length)];
     hatchingData.memoryDescription = memoryDescriptions[Math.floor(Math.random() * memoryDescriptions.length)];
     hatchingData.memoryDate = Math.floor(currentTime / 1000).toString();
@@ -441,19 +441,21 @@ export function generateBabyStateData(
   hatchingData: import('@/types/blobbi').BlobbiRecordData,
   currentTime: number = Date.now()
 ): Partial<Blobbi> {
+  const isDivine = blobbi.themeVariant === 'divine' || blobbi.crossoverApp === 'divine';
+
   const babyData: Partial<Blobbi> = {
     lifeStage: 'baby' as BlobbiLifeStage,
     evolutionTime: currentTime,
     lastInteraction: Math.floor(currentTime / 1000),
     breedingReady: false,
-    
+
     // Initialize baby-specific stats
     stats: {
       ...blobbi.stats,
       happiness: Math.min(100, blobbi.stats.happiness + 20), // Hatching happiness boost
       energy: Math.min(100, blobbi.stats.energy + 15),
     },
-    
+
     // Initialize evolution progress for baby stage
     evolutionProgress: {
       totalCareDays: 0,
@@ -463,16 +465,16 @@ export function generateBabyStateData(
       isEligibleForEvolution: false,
       nextEvolutionCheck: currentTime + 24 * 60 * 60 * 1000, // 24 hours
     },
-    
+
     // Initialize required baby fields from 31124 spec
     birthTime: blobbi.birthTime, // Keep original birth time
     experience: blobbi.experience, // Keep accumulated experience
     careStreak: blobbi.careStreak, // Keep care streak
     generation: blobbi.generation, // Keep generation
-    
+
     // Initialize behavior state
     isSleeping: false, // Baby starts awake
-    
+
     // Clear egg-specific fields (these should not appear in baby stage)
     incubationTime: undefined,
     incubationProgress: undefined,
@@ -485,19 +487,46 @@ export function generateBabyStateData(
   if (hatchingData.manifestation && blobbi.specialMark === hatchingData.manifestation) {
     babyData.specialMark = hatchingData.manifestation;
   }
-  
+
   if (hatchingData.passiveTrait && blobbi.traits) {
     // Ensure passive traits are consistent
     babyData.traits = [...hatchingData.passiveTrait];
   }
-  
+
   if (hatchingData.title && blobbi.title === hatchingData.title) {
     babyData.title = hatchingData.title;
   }
-  
+
   // Apply eye color from hatching data (required field)
   if (hatchingData.eyeColor) {
     babyData.eyeColor = hatchingData.eyeColor;
+  }
+
+  // 🔥 DIVINE INHERITANCE: Preserve divine tags perfectly
+  if (isDivine) {
+    babyData.themeVariant = 'divine';
+    babyData.crossoverApp = 'divine';
+    // Divine Blobbis do not have secondary_color
+    babyData.secondaryColor = undefined;
+  } else {
+    // Non-divine Blobbis keep their theme and appearance
+    if (blobbi.themeVariant) {
+      babyData.themeVariant = blobbi.themeVariant;
+    }
+    if (blobbi.crossoverApp) {
+      babyData.crossoverApp = blobbi.crossoverApp;
+    }
+    if (blobbi.secondaryColor) {
+      babyData.secondaryColor = blobbi.secondaryColor;
+    }
+  }
+
+  // Preserve base color and pattern
+  if (blobbi.baseColor) {
+    babyData.baseColor = blobbi.baseColor;
+  }
+  if (blobbi.pattern) {
+    babyData.pattern = blobbi.pattern;
   }
 
   // Initialize baby-specific personality if not already set
@@ -555,18 +584,226 @@ export function processHatching(
   // Generate baby state data for kind 31124 event
   const babyStateData = generateBabyStateData(blobbi, hatchingRecord, currentTime);
 
-  // Create updated Blobbi with baby state
+  // Create updated Blobbi with baby state and proper tag filtering
   const updatedBlobbi: Blobbi = {
     ...blobbi,
     ...babyStateData,
     // Ensure eye color is applied from hatching record
     eyeColor: hatchingRecord.eyeColor || babyStateData.eyeColor,
+    // Clear all egg-specific tags and task-related tags
+    tags: filterEggTagsForBaby(blobbi.tags || [], blobbi),
   };
 
   return {
     hatchingRecord,
     updatedBlobbi,
   };
+}
+
+/**
+ * Strict filter to remove egg-only and task-related tags during hatching
+ * Ensures only appropriate tags are carried over to baby stage
+ */
+function filterEggTagsForBaby(
+  existingTags: Array<[string, string]>,
+  blobbi: Blobbi
+): Array<[string, string]> {
+  const EGG_ONLY_TAGS = new Set([
+    'egg_temperature',
+    'egg_status',
+    'shell_integrity',
+    'hatch_time',
+    'start_incubation',
+    'incubation_time',
+    'start_evolution',
+    'last_warm',
+    'last_check',
+    'last_talk',
+    'last_medicine',
+    'last_sing'
+  ]);
+
+  const TASK_PATTERNS = [
+    '_progress',
+    '_confirmed',
+    'quest_',
+    'task_',
+    'incubation_'
+  ];
+
+  // Filter out egg-specific and task-related tags
+  const filteredTags = existingTags.filter(([tagName, tagValue]) => {
+    if (!tagName || !tagValue) return false;
+
+    // Remove egg-only tags
+    if (EGG_ONLY_TAGS.has(tagName)) {
+      return false;
+    }
+
+    // Remove task-related tags by pattern
+    for (const pattern of TASK_PATTERNS) {
+      if (tagName.includes(pattern)) {
+        return false;
+      }
+    }
+
+    // Keep all other tags
+    return true;
+  });
+
+  // Rebuild tags in canonical order for baby stage
+  return rebuildCanonicalBabyTags(filteredTags as [string, string][], blobbi);
+}
+
+/**
+ * Rebuild tags in canonical order for baby Blobbi
+ * Ensures consistent tag ordering and proper divine inheritance
+ */
+function rebuildCanonicalBabyTags(
+  existingTags: Array<[string, string]>,
+  blobbi: Blobbi
+): Array<[string, string]> {
+  const isDivine = blobbi.themeVariant === 'divine' || blobbi.crossoverApp === 'divine';
+
+  // Start with required Blobbi ecosystem tags
+  const canonicalTags: Array<[string, string]> = [
+    ['b', 'blobbi:ecosystem:v1'],
+    ['t', 'blobbi'],
+    ['client', 'blobbi'],
+    ['d', blobbi.id],
+  ];
+
+  // Core state tags (required for baby stage)
+  canonicalTags.push(
+    ['stage', 'baby'],
+    ['generation', blobbi.generation.toString()],
+    ['hunger', blobbi.stats.hunger.toString()],
+    ['happiness', blobbi.stats.happiness.toString()],
+    ['health', blobbi.stats.health.toString()],
+    ['hygiene', blobbi.stats.hygiene.toString()],
+    ['energy', blobbi.stats.energy.toString()],
+    ['experience', blobbi.experience.toString()],
+    ['care_streak', blobbi.careStreak.toString()],
+    ['breeding_ready', 'false']
+  );
+
+  // Appearance/theme tags (preserve divine inheritance)
+  if (blobbi.baseColor) {
+    canonicalTags.push(['base_color', blobbi.baseColor]);
+  }
+
+  // For divine Blobbis, remove secondary_color but keep other divine tags
+  if (isDivine) {
+    canonicalTags.push(['theme', 'divine']);
+    canonicalTags.push(['crossover_app', 'divine']);
+    // Divine Blobbis don't have secondary_color
+  } else {
+    // Non-divine Blobbis keep their theme and secondary_color
+    if (blobbi.themeVariant) {
+      canonicalTags.push(['theme', blobbi.themeVariant]);
+    }
+    if (blobbi.crossoverApp) {
+      canonicalTags.push(['crossover_app', blobbi.crossoverApp]);
+    }
+    if (blobbi.secondaryColor) {
+      canonicalTags.push(['secondary_color', blobbi.secondaryColor]);
+    }
+  }
+
+  // Pattern and special marks (including divine)
+  if (blobbi.pattern) {
+    canonicalTags.push(['pattern', blobbi.pattern]);
+  }
+  if (blobbi.specialMark) {
+    canonicalTags.push(['special_mark', blobbi.specialMark]);
+  }
+
+  // Eye color (required for baby stage)
+  if (blobbi.eyeColor) {
+    canonicalTags.push(['eye_color', blobbi.eyeColor]);
+  }
+
+  // Personality-related tags
+  if (blobbi.mood) {
+    canonicalTags.push(['mood', blobbi.mood]);
+  }
+  if (blobbi.favoriteFood) {
+    canonicalTags.push(['favorite_food', blobbi.favoriteFood]);
+  }
+  if (blobbi.voiceType) {
+    canonicalTags.push(['voice_type', blobbi.voiceType]);
+  }
+
+  // Add personality traits (multiple values allowed)
+  if (blobbi.personality) {
+    blobbi.personality.forEach(trait => {
+      canonicalTags.push(['personality', trait]);
+    });
+  }
+
+  // Add other traits (multiple values allowed)
+  if (blobbi.traits) {
+    blobbi.traits.forEach(trait => {
+      canonicalTags.push(['trait', trait]);
+    });
+  }
+
+  // Size and other single-value tags
+  if (blobbi.size) {
+    canonicalTags.push(['size', blobbi.size]);
+  }
+  if (blobbi.title) {
+    canonicalTags.push(['title', blobbi.title]);
+  }
+  if (blobbi.skill) {
+    canonicalTags.push(['skill', blobbi.skill]);
+  }
+
+  // Behavior tags
+  canonicalTags.push(['is_sleeping', (blobbi.isSleeping || false).toString()]);
+  canonicalTags.push(['is_dirty', (blobbi.isDirty || false).toString()]);
+  if (blobbi.hasBuff) {
+    canonicalTags.push(['has_buff', blobbi.hasBuff]);
+  }
+  if (blobbi.hasDebuff) {
+    canonicalTags.push(['has_debuff', blobbi.hasDebuff]);
+  }
+
+  // Sleep system tags
+  if (blobbi.sleepStartedAt) {
+    canonicalTags.push(['sleep_started_at', blobbi.sleepStartedAt.toString()]);
+  }
+
+  // Social tags
+  if (blobbi.adoptedBy) {
+    canonicalTags.push(['adopted_by', blobbi.adoptedBy]);
+  }
+  if (blobbi.adoptedFrom) {
+    canonicalTags.push(['adopted_from', blobbi.adoptedFrom]);
+  }
+  if (blobbi.currentLocation) {
+    canonicalTags.push(['current_location', blobbi.currentLocation]);
+  }
+  canonicalTags.push(['in_party', (blobbi.inParty || false).toString()]);
+  canonicalTags.push(['visible_to_others', (blobbi.visibleToOthers !== false).toString()]);
+
+  // Add any remaining tags from filtered tags that aren't duplicates
+  const existingTagNames = new Set(canonicalTags.map(([name]) => name));
+
+  for (const [tagName, tagValue] of existingTags) {
+    if (!existingTagNames.has(tagName)) {
+      // For multi-value tags like 'personality' and 'trait', allow duplicates
+      if (tagName === 'personality' || tagName === 'trait') {
+        canonicalTags.push([tagName, tagValue]);
+      } else {
+        // For single-value tags, only add if not already present
+        canonicalTags.push([tagName, tagValue]);
+        existingTagNames.add(tagName);
+      }
+    }
+  }
+
+  return canonicalTags;
 }
 
 // Check if egg is ready to hatch
@@ -616,7 +853,7 @@ export function checkEggHatchingReadiness(blobbi: Blobbi): {
     distinctCareDays,
   };
 
-  const isReady = 
+  const isReady =
     daysPassed >= requirements.daysRequired &&
     carePointsEarned >= requirements.carePointsRequired &&
     blobbi.stats.health >= requirements.healthRequirement &&
@@ -702,7 +939,7 @@ export function checkBabyEvolutionReadiness(blobbi: Blobbi): {
     currentHealth: blobbi.stats.health,
   };
 
-  const isReady = 
+  const isReady =
     ageInDays >= requirements.ageRequired &&
     currentCareScore >= requirements.careScoreRequired &&
     currentInteractions >= requirements.interactionsRequired &&
