@@ -47,6 +47,7 @@ import { BlobbiGamesModal } from '@/components/blobbi/BlobbiGamesModal';
 import { EvolutionProgress } from '@/components/blobbi/EvolutionProgress';
 import { EggGraphic } from '@/components/blobbi/EggGraphic';
 import { BlobbiGrowthHubCard } from '@/components/blobbi/BlobbiGrowthHubCard';
+import { useBlobbiQuestSystem } from '@/hooks/useBlobbiQuestSystem';
 
 import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -188,8 +189,22 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     startIncubation,
     stopIncubation,
     hatchBlobbi,
-    markPhotoTaskCompleted
+    markPhotoTaskCompleted,
+    isTaskCompleted
   } = useBlobbiIncubationSystem();
+
+  // Quest system for baby blobbis
+  const {
+    babyToAdultQuests,
+    questProgress,
+    isReadyToEvolve: isQuestReadyToEvolve,
+    questSubscriptionActive,
+    isListening,
+    selectedBabyId,
+    questStartTime,
+    startQuestTracking,
+    stopEvolution,
+  } = useBlobbiQuestSystem();
 
   const [showShop, setShowShop] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
@@ -383,14 +398,63 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
             />
           )}
 
-          {/* Growth Hub - Hatching Progress for Eggs */}
-          {isOwner && realBlobbi.lifeStage === 'egg' && selectedEggId === blobbiId && (
-            <BlobbiGrowthHubCard
-              blobbi={blobbi}
-              mode="egg"
-              onTakePhoto={() => setShowPolaroidModal(true)}
-            />
-          )}
+          {/* Growth Hub - Hatching Progress for Eggs with start_incubation tag */}
+          {(() => {
+            // Check if this blobbi has start_incubation tag or incubation timestamp
+            const hasStartIncubation = isOwner &&
+              realBlobbi.lifeStage === 'egg' &&
+              selectedEggId === blobbiId &&
+              (realBlobbi.tags?.some((tag: string[]) => tag[0] === 'start_incubation') ||
+               incubationStartTime !== undefined);
+
+            return hasStartIncubation ? (
+              <BlobbiGrowthHubCard
+                blobbi={blobbi}
+                mode="egg"
+                // Egg mode props - using real values from the incubation system
+                eggTasks={eggTasks}
+                isReadyToHatch={isReadyToHatch}
+                incubationStartTime={incubationStartTime || undefined}
+                taskSubscriptionActive={taskSubscriptionActive}
+                onStartIncubation={startIncubation}
+                onStopIncubation={stopIncubation}
+                onHatchBlobbi={hatchBlobbi}
+                onMarkPhotoTaskCompleted={markPhotoTaskCompleted}
+                onMarkFirstPostTaskCompleted={() => {}} // Not used in detail view
+                isTaskCompleted={isTaskCompleted}
+                onTakePhoto={() => setShowPolaroidModal(true)}
+              />
+            ) : null;
+          })()}
+
+          {/* Growth Hub - Evolution Quests for Babies with start_evolution tag */}
+          {(() => {
+            // Check if this blobbi has start_evolution tag or quest timestamp
+            const hasStartEvolution = isOwner &&
+              realBlobbi.lifeStage === 'baby' &&
+              selectedBabyId === blobbiId &&
+              (realBlobbi.tags?.some((tag: string[]) => tag[0] === 'start_evolution') ||
+               questStartTime !== undefined);
+
+            return hasStartEvolution ? (
+              <BlobbiGrowthHubCard
+                blobbi={blobbi}
+                mode="baby"
+                // Baby mode props - using real values from the quest system
+                babyQuests={babyToAdultQuests}
+                questProgress={questProgress}
+                isReadyToEvolve={isQuestReadyToEvolve}
+                questStartTime={questStartTime || undefined}
+                questSubscriptionActive={questSubscriptionActive}
+                isQuestListening={isListening}
+                onStartQuestTracking={startQuestTracking}
+                onStopEvolution={stopEvolution}
+                onTriggerEvolution={triggerEvolution}
+                isEvolving={isEvolving}
+                onTakePhoto={() => setShowPolaroidModal(true)}
+              />
+            ) : null;
+          })()}
 
           {/* Quick Info */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">

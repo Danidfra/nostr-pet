@@ -416,27 +416,35 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
         </Card>
       )}
 
-      {/* Egg Incubation Card - Only for selected eggs */}
-      {selectedBlobbi && selectedBlobbi.lifeStage === 'egg' && (
-        <BlobbiGrowthHubCard
-          blobbi={selectedBlobbi}
-          mode="egg"
-          // Egg mode props
-          eggTasks={eggTasks}
-          isReadyToHatch={isReadyToHatch}
-          incubationStartTime={incubationStartTime || undefined}
-          taskSubscriptionActive={taskSubscriptionActive}
-          onStartIncubation={startIncubation}
-          onStopIncubation={stopIncubation}
-          onHatchBlobbi={hatchBlobbi}
-          onMarkPhotoTaskCompleted={markPhotoTaskCompleted}
-          onMarkFirstPostTaskCompleted={markFirstPostTaskCompleted}
-          isTaskCompleted={isTaskCompleted}
-          // Common props
-          onTakePhoto={() => setShowPolaroidModal(true)}
-          className="animate-in slide-in-from-top-4 duration-500"
-        />
-      )}
+      {/* Egg Incubation Card - Only for eggs with start_incubation tag or incubation timestamp */}
+      {(() => {
+        // Check if the selected blobbi has start_incubation tag or incubation timestamp
+        const hasStartIncubation = selectedBlobbi &&
+          selectedBlobbi.lifeStage === 'egg' &&
+          (selectedBlobbi.tags?.some((tag: string[]) => tag[0] === 'start_incubation') ||
+           incubationStartTime !== undefined);
+
+        return hasStartIncubation ? (
+          <BlobbiGrowthHubCard
+            blobbi={selectedBlobbi!}
+            mode="egg"
+            // Egg mode props - using real values from the incubation system
+            eggTasks={eggTasks}
+            isReadyToHatch={isReadyToHatch}
+            incubationStartTime={incubationStartTime || undefined}
+            taskSubscriptionActive={taskSubscriptionActive}
+            onStartIncubation={startIncubation}
+            onStopIncubation={stopIncubation}
+            onHatchBlobbi={hatchBlobbi}
+            onMarkPhotoTaskCompleted={markPhotoTaskCompleted}
+            onMarkFirstPostTaskCompleted={markFirstPostTaskCompleted}
+            isTaskCompleted={isTaskCompleted}
+            // Common props
+            onTakePhoto={() => setShowPolaroidModal(true)}
+            className="animate-in slide-in-from-top-4 duration-500"
+          />
+        ) : null;
+      })()}
 
       {/* Baby Blobbis Section - New Quest System */}
       {babyBlobbis.length > 0 && (
@@ -599,19 +607,19 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
         </Card>
       )}
 
-      {/* Evolution Quests Card - Integrated into Growth Hub */}
+      {/* Evolution Quests Card - Only for babies with start_evolution tag or quest timestamp */}
       {(() => {
-        // Exact condition for showing evolution quests card
-        const shouldShowEvolutionCard =
-          !!selectedBabyBlobbi &&
+        // Check if the selected baby blobbi has start_evolution tag or quest timestamp
+        const hasStartEvolution = selectedBabyBlobbi &&
           selectedBabyBlobbi.lifeStage === 'baby' &&
-          !!questStartTime;
+          (selectedBabyBlobbi.tags?.some((tag: string[]) => tag[0] === 'start_evolution') ||
+           questStartTime !== undefined);
 
-        return shouldShowEvolutionCard ? (
+        return hasStartEvolution ? (
           <BlobbiGrowthHubCard
-            blobbi={selectedBabyBlobbi}
+            blobbi={selectedBabyBlobbi!}
             mode="baby"
-            // Baby mode props
+            // Baby mode props - using real values from the quest system
             babyQuests={babyToAdultQuests}
             questProgress={questProgress}
             isReadyToEvolve={isQuestReadyToEvolve}

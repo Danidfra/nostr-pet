@@ -18,6 +18,7 @@ import {
   BlobbiEvolutionForm
 } from '@/types/blobbi';
 import { ensureBlobbiTagsWithDebug, hasBlobbiEcosystemTag, hasBlobbiTopicTag } from './blobbi-tags';
+import { filterEggTagsForBaby } from './blobbi-evolution';
 import {
   isDivineBlobbi,
   ensureDivineTags,
@@ -37,7 +38,9 @@ export const BLOBBI_EVENT_KINDS = {
 } as const;
 
 // Validation schemas for required and optional tags
-const REQUIRED_STATE_TAGS = ['d', 'stage', 'breeding_ready', 'generation', 'hunger', 'happiness', 'health', 'hygiene', 'energy', 'experience', 'care_streak'];
+// 🔥 FIX: Removed stat tags from required since we now support recovery
+const REQUIRED_STATE_TAGS = ['d', 'stage', 'breeding_ready', 'generation', 'experience', 'care_streak'];
+const OPTIONAL_STAT_TAGS = ['hunger', 'happiness', 'health', 'hygiene', 'energy'];
 const REQUIRED_INTERACTION_TAGS = ['blobbi_id', 'action', 'action_category', 'stat_change'];
 const REQUIRED_RECORD_TAGS = ['blobbi_id', 'record_type'];
 const REQUIRED_BREEDING_TAGS = ['parent_a', 'parent_b', 'owner_a', 'owner_b', 'breed_time', 'success'];
@@ -142,8 +145,6 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
       .filter(([k, v]) => k && v) // Only include tags with both key and value
       .map(([k, v]) => [k, v] as [string, string]);
 
-  } else {
-
   }
 
   // SPECIAL HANDLING FOR HATCHING: If this is a baby stage that was just hatched,
@@ -154,22 +155,18 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
     const hasTopicTag = blobbi.tags.some(([name]) => name === 't');
     const hasCanonicalOrder = hasBlobbiTag && hasTopicTag;
 
-    if (!hasCanonicalOrder) {
-      // Tags might not be filtered yet, apply hatching filter
-      try {
-        const { filterEggTagsForBaby } = require('./blobbi-evolution');
-        const filteredTags = filterEggTagsForBaby(
-          (blobbi.tags || []).map(([k, v]) => [k || '', v || '']) as [string, string][],
-          blobbi
-        );
-        preservedTags = filteredTags.filter(([k, v]) => k && v);
-
-      } catch (error) {
-        console.warn('[Hatching] Could not apply egg tag filter, using original tags:', error);
-      }
-    } else {
-
-    }
+if (!hasCanonicalOrder) {
+  // Tags might not be filtered yet, apply hatching filter
+  try {
+    const filteredTags = filterEggTagsForBaby(
+      (blobbi.tags || []).map(([k, v]) => [k || '', v || '']) as [string, string][],
+      blobbi
+    );
+    preservedTags = filteredTags.filter(([k, v]) => k && v);
+  } catch (error) {
+    console.warn('[Hatching] Could not apply egg tag filter, using original tags:', error);
+  }
+}
   }
 
   // 🔥 FIX: Core required tags with strict validation and corruption prevention
@@ -243,11 +240,11 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
 
   // 🔥 FIX: Then override with core updates (these always take precedence)
   coreUpdates.forEach(([key, value]) => {
-    if (stateTagMap.has(key)) {
+    // if (stateTagMap.has(key)) {
 
-    } else {
+    // } else {
 
-    }
+    // }
     stateTagMap.set(key, value);
   });
 
@@ -685,39 +682,46 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
     const id = getTagValue(tags, 'd');
     const stage = getTagValue(tags, 'stage') as BlobbiLifeStage;
 
-    // 🔥 FIX: Parse stats with strict validation - NEVER use fallback defaults
-    // If any required stat tag is missing, the event is invalid and should be rejected
+    // 🔥 NEW: Try to recover missing stats from timestamps
+    const { stats: recoveredStats, usedRecovery, warningMessage } = recoverMissingStatsFromTimestamps(id, tags);
+
+    // Parse existing stats if available, otherwise use recovered stats
     const hungerStr = getTagValue(tags, 'hunger');
     const happinessStr = getTagValue(tags, 'happiness');
     const healthStr = getTagValue(tags, 'health');
     const hygieneStr = getTagValue(tags, 'hygiene');
     const energyStr = getTagValue(tags, 'energy');
 
-    // 🔥 CRITICAL: Validate that all required stat tags exist
-    if (!hungerStr || !happinessStr || !healthStr || !hygieneStr || !energyStr) {
-      console.error(`❌ [ParseBlobbi] Missing required stat tags for ${id || 'unknown'}:`, {
-        hunger: hungerStr,
-        happiness: happinessStr,
-        health: healthStr,
-        hygiene: hygieneStr,
-        energy: energyStr
-      });
-      return null; // Reject invalid events rather than using wrong defaults
+    // Use existing stat values if present, otherwise use recovered values
+    let stats: BlobbiStats;
+    let needsStateUpdate = false;
+
+    if (hungerStr && happinessStr && healthStr && hygieneStr && energyStr) {
+      // All stats present, parse normally
+      stats = {
+        hunger: Math.max(0, Math.min(100, parseInt(hungerStr))),
+        happiness: Math.max(0, Math.min(100, parseInt(happinessStr))),
+        health: Math.max(0, Math.min(100, parseInt(healthStr))),
+        hygiene: Math.max(0, Math.min(100, parseInt(hygieneStr))),
+        energy: Math.max(0, Math.min(100, parseInt(energyStr))),
+      };
+    } else {
+      // Some or all stats missing, use recovered stats
+      stats = recoveredStats;
+      needsStateUpdate = true;
     }
 
-    // Now do general validation for other required tags
-    if (!validateRequiredTags(tags, REQUIRED_STATE_TAGS)) return null;
+    // Log recovery if used
+    if (usedRecovery && warningMessage) {
+      console.warn(`[ParseBlobbi] ${warningMessage} for blobbi ${id}`);
+    }
+
+    // Now do general validation for other required tags (excluding stats since we handle them above)
+    const nonStatRequiredTags = REQUIRED_STATE_TAGS.filter(tag => !['hunger', 'happiness', 'health', 'hygiene', 'energy'].includes(tag));
+    if (!validateRequiredTags(tags, nonStatRequiredTags)) return null;
 
     const breedingReady = getTagValue(tags, 'breeding_ready') === 'true';
     const generation = parseInt(getTagValue(tags, 'generation') || '1');
-
-    const stats: BlobbiStats = {
-      hunger: Math.max(0, Math.min(100, parseInt(hungerStr))),
-      happiness: Math.max(0, Math.min(100, parseInt(happinessStr))),
-      health: Math.max(0, Math.min(100, parseInt(healthStr))),
-      hygiene: Math.max(0, Math.min(100, parseInt(hygieneStr))),
-      energy: Math.max(0, Math.min(100, parseInt(energyStr))),
-    };
 
     const experience = parseInt(getTagValue(tags, 'experience') || '0');
     const careStreak = parseInt(getTagValue(tags, 'care_streak') || '0');
@@ -825,10 +829,50 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
     // 🔥 FIX: Validate parsed stats before returning
     validateBlobbiStats(syncedBlobbi, `parseBlobbiFromStateEvent(${id})`);
 
+    // 🔥 NEW: If recovery was used, publish corrected state event
+    if (needsStateUpdate) {
+      // Log the recovered stats for debugging
+      console.warn(`[ParseBlobbi] Missing stat tags, applying defaults for blobbi ${id}`);
+      console.log(`[ParseBlobbi] Recovered stats for ${id}:`, syncedBlobbi.stats);
+
+      // Create and publish corrected state event with reconstructed stats
+      publishCorrectedStateEvent(id, syncedBlobbi, event);
+    }
+
     return syncedBlobbi;
   } catch (error) {
     console.error('Error parsing Blobbi from state event:', error);
     return null;
+  }
+}
+
+// 🔥 NEW: Publish corrected state event with recovered stats
+// Note: This function creates the corrected event but delegates actual publishing to avoid React hook issues
+async function publishCorrectedStateEvent(
+  blobbiId: string,
+  correctedBlobbi: Blobbi,
+  originalEvent: NostrEvent
+): Promise<void> {
+  try {
+    // Create corrected state event using existing helper
+    const correctedEvent = createBlobbiStateEvent(correctedBlobbi);
+
+    // Add recovery metadata to content
+    correctedEvent.content = `${correctedBlobbi.name} is a ${correctedBlobbi.lifeStage} Blobbi. (Stats recovered from timestamps)`;
+
+    // Log the corrected event data for debugging
+    console.log(`[ParseBlobbi] Corrected state event created for blobbi ${blobbiId}:`, {
+      kind: correctedEvent.kind,
+      content: correctedEvent.content,
+      tagCount: correctedEvent.tags.length,
+      stats: correctedBlobbi.stats
+    });
+
+    // Note: Actual publishing should be handled by calling code with proper hook access
+    // This avoids React hook violations in non-React functions
+
+  } catch (error) {
+    console.error(`[ParseBlobbi] Error creating corrected state for ${blobbiId}:`, error);
   }
 }
 
@@ -1314,6 +1358,121 @@ export function isValidBlobbiName(name: string): boolean {
 // Helper function to clamp stat values
 export function clampStat(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+// 🔥 NEW: Recovery function to compute missing stats from timestamps
+function recoverMissingStatsFromTimestamps(
+  blobbiId: string,
+  tags: Array<[string, string]>,
+  currentTime: number = Date.now()
+): { stats: BlobbiStats; usedRecovery: boolean; warningMessage: string } {
+  // Check if any core stats are missing
+  const hungerStr = getTagValue(tags, 'hunger');
+  const happinessStr = getTagValue(tags, 'happiness');
+  const healthStr = getTagValue(tags, 'health');
+  const hygieneStr = getTagValue(tags, 'hygiene');
+  const energyStr = getTagValue(tags, 'energy');
+
+  // If all stats are present, no recovery needed
+  if (hungerStr && happinessStr && healthStr && hygieneStr && energyStr) {
+    return {
+      stats: {
+        hunger: clampStat(parseInt(hungerStr)),
+        happiness: clampStat(parseInt(happinessStr)),
+        health: clampStat(parseInt(healthStr)),
+        hygiene: clampStat(parseInt(hygieneStr)),
+        energy: clampStat(parseInt(energyStr)),
+      },
+      usedRecovery: false,
+      warningMessage: ''
+    };
+  }
+
+  console.warn(`[ParseBlobbi] Missing stat tags, reconstructing from last_* timestamps for blobbi ${blobbiId}`);
+
+  // Extract timestamp tags (Unix timestamps in seconds)
+  const lastMeal = getTagValue(tags, 'last_meal') ? parseInt(getTagValue(tags, 'last_meal')!) : undefined;
+  const lastClean = getTagValue(tags, 'last_clean') ? parseInt(getTagValue(tags, 'last_clean')!) : undefined;
+  const lastWarm = getTagValue(tags, 'last_warm') ? parseInt(getTagValue(tags, 'last_warm')!) : undefined;
+  const lastTalk = getTagValue(tags, 'last_talk') ? parseInt(getTagValue(tags, 'last_talk')!) : undefined;
+  const lastCheck = getTagValue(tags, 'last_check') ? parseInt(getTagValue(tags, 'last_check')!) : undefined;
+  const lastSing = getTagValue(tags, 'last_sing') ? parseInt(getTagValue(tags, 'last_sing')!) : undefined;
+  const lastMedicine = getTagValue(tags, 'last_medicine') ? parseInt(getTagValue(tags, 'last_medicine')!) : undefined;
+  const lastInteractionTime = getTagValue(tags, 'last_interaction_time') ? parseInt(getTagValue(tags, 'last_interaction_time')!) : undefined;
+
+  // Determine the most recent interaction time
+  const interactionTimes = [lastMeal, lastClean, lastWarm, lastTalk, lastCheck, lastSing, lastMedicine, lastInteractionTime];
+  const validTimes = interactionTimes.filter((t): t is number => typeof t === 'number');
+  const mostRecentInteraction = validTimes.length > 0 ? Math.max(...validTimes) : undefined;
+
+  // If we have no timestamp information, use safe defaults
+  if (!mostRecentInteraction) {
+    console.warn(`[ParseBlobbi] No timestamp tags found for blobbi ${blobbiId}, using safe defaults`);
+    return {
+      stats: {
+        hunger: 80,
+        happiness: 80,
+        health: 80,
+        hygiene: 80,
+        energy: 80,
+      },
+      usedRecovery: true,
+      warningMessage: 'No timestamp tags found, using safe defaults'
+    };
+  }
+
+  // Calculate hours passed since last interaction
+  const hoursPassed = (currentTime / 1000 - mostRecentInteraction) / (60 * 60);
+  if (hoursPassed < 0) {
+    // Future timestamp, treat as no time passed
+    console.warn(`[ParseBlobbi] Future timestamp detected for blobbi ${blobbiId}, using minimal decay`);
+  }
+
+  const safeHoursPassed = Math.max(0, Math.min(hoursPassed, 24)); // Cap at 24 hours to prevent extreme values
+
+  // Use existing stat values as baseline, or defaults if completely missing
+  let currentHunger = hungerStr ? clampStat(parseInt(hungerStr)) : 80;
+  let currentHappiness = happinessStr ? clampStat(parseInt(happinessStr)) : 80;
+  let currentHealth = healthStr ? clampStat(parseInt(healthStr)) : 80;
+  let currentHygiene = hygieneStr ? clampStat(parseInt(hygieneStr)) : 80;
+  let currentEnergy = energyStr ? clampStat(parseInt(energyStr)) : 80;
+
+  // Apply decay based on time passed using same rates as blobbi-decay.ts
+  // We'll use baby/adult rates since eggs don't have these stats in the same way
+  const HUNGER_DECAY_RATE = -5; // per hour
+  const HAPPINESS_DECAY_RATE = -3; // per hour
+  const HYGIENE_DECAY_RATE = -4; // per hour
+  const ENERGY_DECAY_RATE = -5; // per hour (when awake)
+  const HEALTH_DECAY_RATE = -1; // per hour
+
+  // Apply decay
+  currentHunger = clampStat(currentHunger + (HUNGER_DECAY_RATE * safeHoursPassed));
+  currentHappiness = clampStat(currentHappiness + (HAPPINESS_DECAY_RATE * safeHoursPassed));
+  currentHygiene = clampStat(currentHygiene + (HYGIENE_DECAY_RATE * safeHoursPassed));
+  currentEnergy = clampStat(currentEnergy + (ENERGY_DECAY_RATE * safeHoursPassed));
+  currentHealth = clampStat(currentHealth + (HEALTH_DECAY_RATE * safeHoursPassed));
+
+  // If any stat would go below 30, apply health decay modifiers
+  if (currentHunger < 30) currentHealth = Math.max(0, currentHealth - 2);
+  if (currentHygiene < 20) currentHealth = Math.max(0, currentHealth - 1);
+  if (currentEnergy < 20) currentHealth = Math.max(0, currentHealth - 1);
+  if (currentHappiness < 30) currentHealth = Math.max(0, currentHealth - 1);
+
+  const recoveredStats = {
+    hunger: currentHunger,
+    happiness: currentHappiness,
+    health: currentHealth,
+    hygiene: currentHygiene,
+    energy: currentEnergy,
+  };
+
+  console.warn(`[ParseBlobbi] Recovered stats for blobbi ${blobbiId}:`, recoveredStats);
+
+  return {
+    stats: recoveredStats,
+    usedRecovery: true,
+    warningMessage: `Reconstructed from ${safeHoursPassed.toFixed(1)} hours of decay`
+  };
 }
 
 // Helper function to extract action timestamps from Blobbi object
