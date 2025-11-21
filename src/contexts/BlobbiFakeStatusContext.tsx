@@ -34,27 +34,47 @@ const FAKE_STATUS_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNode }) {
   const [fakeStatusMap, setFakeStatusMap] = useState<Map<string, FakeStatusData>>(new Map());
 
-  // Load fake status from sessionStorage on mount
+  // 🔥 FIX: Load fake status from sessionStorage with stricter validation
   useEffect(() => {
     try {
       const stored = sessionStorage.getItem(FAKE_STATUS_STORAGE_KEY);
       if (stored) {
         const data = JSON.parse(stored);
         const now = Date.now();
-        const validEntries = Object.entries(data).filter(([_, value]: [string, FakeStatusData]) => {
-          return now - value.lastFakeUpdate < FAKE_STATUS_EXPIRY_MS;
+
+        // 🔥 CRITICAL: Only restore fake status that is very recent (< 2 minutes old)
+        // This prevents stale cached data from overriding fresh Nostr data
+        const STRICT_EXPIRY_MS = 2 * 60 * 1000; // 2 minutes only
+
+        const validEntries: [string, FakeStatusData][] = [];
+        Object.entries(data).forEach(([key, value]) => {
+          if (value && typeof value === 'object' && 'lastFakeUpdate' in value && 'pendingInteractions' in value) {
+            const fakeStatusData = value as FakeStatusData;
+            const isRecent = now - fakeStatusData.lastFakeUpdate < STRICT_EXPIRY_MS;
+            const hasPendingInteractions = fakeStatusData.pendingInteractions > 0;
+
+            // Only restore if recent AND has pending interactions (indicating real optimistic updates)
+            if (isRecent && hasPendingInteractions) {
+              validEntries.push([key, fakeStatusData]);
+            }
+          }
         });
 
         if (validEntries.length > 0) {
-          const newMap = new Map();
+          const newMap = new Map<string, FakeStatusData>();
           validEntries.forEach(([blobbiId, value]) => {
             newMap.set(blobbiId, value);
+            console.log(`🎭 [FakeStatus] Restored recent fake status for ${blobbiId} with ${value.pendingInteractions} pending interactions`);
           });
           setFakeStatusMap(newMap);
+        } else {
+          console.log(`🗑️ [FakeStatus] No valid recent fake status found, starting fresh`);
         }
       }
     } catch (error) {
       console.warn('Failed to load fake status from storage:', error);
+      // Clear corrupted storage
+      sessionStorage.removeItem(FAKE_STATUS_STORAGE_KEY);
     }
   }, []);
 
@@ -197,44 +217,57 @@ export function BlobbiFakeStatusProvider({ children }: { children: React.ReactNo
     const fakeData = fakeStatusMap.get(blobbiId);
     if (!fakeData) return;
 
-    // Special handling for sleep state: only sync if the real sleep state matches the fake sleep state
-    // This prevents intermediate events (like "rest" interactions) from overriding optimistic sleep state
+    console.log(`🔄 [FakeStatusSync] Syncing ${blobbiId} - Real: ${realBlobbi.lastInteraction}, Fake: ${fakeData.blobbi.lastInteraction}, Pending: ${fakeData.pendingInteractions}`);
+
+    // 🔥 FIX: Enhanced sync logic with better timing and state comparison
     const fakeIsSleeping = fakeData.blobbi.isSleeping;
     const realIsSleeping = realBlobbi.isSleeping;
+    const timeSinceFakeUpdate = Date.now() - fakeData.lastFakeUpdate;
 
-    // If we have an optimistic sleep state that doesn't match reality, keep the fake state
-    // until the real sleep state catches up
+    // Special handling for sleep state mismatches
     if (fakeIsSleeping !== realIsSleeping) {
-      // Only clear fake status if real data is significantly newer (indicating the sleep operation completed)
-      // and the sleep states now match, or if enough time has passed that we should give up
-      const timeSinceFakeUpdate = Date.now() - fakeData.lastFakeUpdate;
       const shouldGiveUpOnOptimisticState = timeSinceFakeUpdate > 30000; // 30 seconds timeout
 
       if (shouldGiveUpOnOptimisticState) {
-        console.log('Giving up on optimistic sleep state after timeout');
+        console.log(`⏰ [FakeStatusSync] Giving up on optimistic sleep state after timeout for ${blobbiId}`);
         clearFakeStatus(blobbiId);
+      } else {
+        console.log(`😴 [FakeStatusSync] Keeping optimistic sleep state for ${blobbiId}`);
       }
-      // Otherwise, keep the optimistic state
       return;
     }
 
-    // If sleep states match, proceed with normal sync logic
-    // If real data is newer than our fake data, and no pending interactions, clear fake status
-    if (realBlobbi.lastInteraction > fakeData.blobbi.lastInteraction && fakeData.pendingInteractions === 0) {
+    // 🔥 FIX: More sophisticated sync decision based on multiple factors
+    const realTimestamp = realBlobbi.lastInteraction;
+    const fakeTimestamp = fakeData.blobbi.lastInteraction;
+    const timeDifference = realTimestamp - fakeTimestamp;
+
+    // Clear fake status if:
+    // 1. Real data is significantly newer (5+ seconds) AND no pending interactions
+    // 2. Fake data is very old (60+ seconds) regardless of pending interactions
+    // 3. Real and fake timestamps are identical (indicating real update completed)
+
+    const isRealDataNewer = timeDifference >= 5;
+    const isFakeDataStale = timeSinceFakeUpdate > 60000;
+    const areTimestampsIdentical = timeDifference === 0;
+
+    if ((isRealDataNewer && fakeData.pendingInteractions === 0) || isFakeDataStale || areTimestampsIdentical) {
+      console.log(`🗑️ [FakeStatusSync] Clearing fake status for ${blobbiId} - Newer: ${isRealDataNewer}, Stale: ${isFakeDataStale}, Identical: ${areTimestampsIdentical}`);
       clearFakeStatus(blobbiId);
-    } else if (fakeData.pendingInteractions > 0) {
-      // Keep fake status but reset pending count if real data caught up
-      if (realBlobbi.lastInteraction >= fakeData.blobbi.lastInteraction) {
-        setFakeStatusMap(prev => {
-          const newMap = new Map(prev);
-          newMap.set(blobbiId, {
-            ...fakeData,
-            pendingInteractions: 0,
-            lastFakeUpdate: Date.now(),
-          });
-          return newMap;
+    } else if (fakeData.pendingInteractions > 0 && timeDifference >= 0) {
+      // Real data has caught up to or passed fake data, reset pending count
+      console.log(`✅ [FakeStatusSync] Resetting pending interactions for ${blobbiId}`);
+      setFakeStatusMap(prev => {
+        const newMap = new Map(prev);
+        newMap.set(blobbiId, {
+          ...fakeData,
+          pendingInteractions: 0,
+          lastFakeUpdate: Date.now(),
         });
-      }
+        return newMap;
+      });
+    } else {
+      console.log(`⏳ [FakeStatusSync] Keeping fake status for ${blobbiId} - still ahead of real data`);
     }
   }, [fakeStatusMap, clearFakeStatus]);
 

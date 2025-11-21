@@ -67,14 +67,21 @@ import { useTourCompletion } from '@/hooks/useTourCompletion';
 
 export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const { user } = useCurrentUser();
+
+  // 🔥 FIX: Use only one hook to prevent conflicting data sources
+  // useBlobbiWithFakeStatus already includes all the functionality we need
   const {
     blobbi,
     performAction,
     isPerformingAction,
     triggerEvolution,
-    isEvolving
+    isEvolving,
+    isLoading
   } = useBlobbiWithFakeStatus(undefined, blobbiId);
-  const { data: realBlobbi, isLoading } = useBlobbiById(blobbiId);
+
+  // 🔥 FIX: Use the blobbi from the fake status hook as the single source of truth
+  // This prevents conflicts between real and fake data
+  const realBlobbi = blobbi;
   const {
     missions,
     isLoading: isLoadingMissions,

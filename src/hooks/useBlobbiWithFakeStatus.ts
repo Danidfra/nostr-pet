@@ -1,57 +1,71 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { useBlobbiFakeStatus, applyStatChangesToBlobbi } from '@/contexts/BlobbiFakeStatusContext';
 import { Blobbi, BlobbiState } from '@/types/blobbi';
 
 export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
   const originalHook = useBlobbi(pubkey, blobbiId);
-  const { 
-    getFakeStatus, 
-    setFakeStatus, 
-    syncWithRealData, 
+  const {
+    getFakeStatus,
+    setFakeStatus,
+    syncWithRealData,
     getPendingInteractionCount,
-    incrementPendingInteractions 
+    incrementPendingInteractions
   } = useBlobbiFakeStatus();
 
   const effectiveBlobbiId = blobbiId || originalHook.blobbi?.id;
   const fakeStatus = effectiveBlobbiId ? getFakeStatus(effectiveBlobbiId) : null;
   const pendingInteractionCount = effectiveBlobbiId ? getPendingInteractionCount(effectiveBlobbiId) : 0;
 
-  // Initialize fake status when real blobbi loads
+  // 🔥 FIX: Enhanced sync logic with better timing and validation
   useEffect(() => {
-    if (originalHook.blobbi && effectiveBlobbiId && !fakeStatus) {
-      setFakeStatus(effectiveBlobbiId, { ...originalHook.blobbi });
-    }
-  }, [originalHook.blobbi, effectiveBlobbiId, fakeStatus, setFakeStatus]);
+    if (originalHook.blobbi && effectiveBlobbiId && fakeStatus) {
+      // 🔥 CRITICAL: Only sync if real data is significantly newer (30+ seconds)
+      // This prevents premature clearing of legitimate optimistic updates
+      const realTimestamp = originalHook.blobbi.lastInteraction;
+      const fakeTimestamp = fakeStatus.lastInteraction;
+      const timeDifference = realTimestamp - fakeTimestamp;
 
-  // Sync fake status with real status when it updates
-  useEffect(() => {
-    if (originalHook.blobbi && effectiveBlobbiId) {
-      syncWithRealData(effectiveBlobbiId, originalHook.blobbi);
+      // 🔥 FIX: More conservative sync - only clear if real data is much newer AND no pending interactions
+      if (timeDifference >= 30 && pendingInteractionCount === 0) {
+        console.log(`🔄 [FakeStatus] Clearing outdated fake status for ${effectiveBlobbiId} (real: ${realTimestamp}, fake: ${fakeTimestamp})`);
+        syncWithRealData(effectiveBlobbiId, originalHook.blobbi);
+      } else if (timeDifference < -60) {
+        // 🔥 FIX: If fake data is more than 60 seconds ahead of real data, something is wrong - clear it
+        console.log(`⚠️ [FakeStatus] Fake status too far ahead of real data for ${effectiveBlobbiId}, clearing`);
+        syncWithRealData(effectiveBlobbiId, originalHook.blobbi);
+      }
     }
-  }, [originalHook.blobbi, effectiveBlobbiId, syncWithRealData]);
+  }, [originalHook.blobbi, effectiveBlobbiId, fakeStatus, syncWithRealData, pendingInteractionCount]);
 
-  // Enhanced perform action that updates fake status immediately
+  // 🔥 FIX: Enhanced perform action that only creates fake status when actually needed
   const performActionWithFakeStatus = async (action: string, itemEffect?: Record<string, number>) => {
     if (!effectiveBlobbiId) return originalHook.performAction(action as 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar', itemEffect);
-    
-    const currentBlobbi = fakeStatus || originalHook.blobbi;
+
+    // 🔥 CRITICAL: Use real data only, never create fake status from potentially stale data
+    const currentBlobbi = originalHook.blobbi;
     if (!currentBlobbi) return originalHook.performAction(action as 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar', itemEffect);
 
-    // Update fake status immediately for UI responsiveness
+    console.log(`🎮 [FakeStatus] Performing action "${action}" for ${effectiveBlobbiId}`);
+
+    // Calculate optimistic stat changes for immediate UI feedback
     const statChanges: Array<[string, number]> = [];
-    
+
     // Apply basic stat changes based on action
     if (action === 'feed' && currentBlobbi.stats.hunger < 90) {
-      statChanges.push(['hunger', 20]);
+      statChanges.push(['hunger', Math.min(30, 100 - currentBlobbi.stats.hunger)]);
     } else if (action === 'play' && currentBlobbi.stats.energy > 10) {
-      statChanges.push(['energy', -10], ['happiness', 15]);
+      statChanges.push(['energy', -10], ['happiness', Math.min(25, 100 - currentBlobbi.stats.happiness)]);
     } else if (action === 'rest') {
-      statChanges.push(['energy', 35]);
+      statChanges.push(['energy', Math.min(35, 100 - currentBlobbi.stats.energy)]);
     } else if (action === 'clean') {
-      statChanges.push(['hygiene', 15], ['happiness', 5]);
+      statChanges.push(['hygiene', Math.min(40, 100 - currentBlobbi.stats.hygiene)], ['happiness', 5]);
     } else if (action === 'warm') {
-      statChanges.push(['egg_temperature', 5]);
+      if (currentBlobbi.lifeStage === 'egg') {
+        statChanges.push(['egg_temperature', Math.min(10, 100 - (currentBlobbi.eggTemperature || 50))]);
+      } else {
+        statChanges.push(['health', 5]);
+      }
     } else if (action === 'check') {
       statChanges.push(['happiness', 3]);
     } else if (action === 'sing') {
@@ -59,7 +73,7 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
     } else if (action === 'talk') {
       statChanges.push(['happiness', 6]);
     } else if (action === 'medicine') {
-      statChanges.push(['health', 10]);
+      statChanges.push(['health', Math.min(20, 100 - currentBlobbi.stats.health)]);
     }
 
     // Apply item effects if provided
@@ -71,17 +85,29 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
       });
     }
 
+    // 🔥 FIX: Only create fake status if there are actual stat changes
     if (statChanges.length > 0) {
       const updatedBlobbi = applyStatChangesToBlobbi(currentBlobbi, statChanges);
+      // Update lastInteraction to current timestamp for proper sync logic
+      updatedBlobbi.lastInteraction = Math.floor(Date.now() / 1000);
+
+      console.log(`📊 [FakeStatus] Creating optimistic update:`, statChanges);
       setFakeStatus(effectiveBlobbiId, updatedBlobbi);
       incrementPendingInteractions(effectiveBlobbiId);
     }
 
     // Perform the real action in the background
     try {
-      await originalHook.performAction(action as 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar', itemEffect);
+      const result = await originalHook.performAction(action as 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar', itemEffect);
+      console.log(`✅ [FakeStatus] Real action "${action}" completed successfully`);
+      return result;
     } catch (error) {
-      console.error('Real action failed, but fake status was updated:', error);
+      console.error(`❌ [FakeStatus] Real action "${action}" failed:`, error);
+      // 🔥 FIX: Clear fake status on error to prevent stale optimistic updates
+      if (statChanges.length > 0) {
+        syncWithRealData(effectiveBlobbiId, currentBlobbi);
+      }
+      throw error;
     }
   };
 
@@ -138,9 +164,34 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
     // The optimistic state should persist until the real sleep state update completes.
   };
 
+  // 🔥 FIX: Enhanced memoization with strict validation
+  const finalBlobbi = useMemo(() => {
+    // 🔥 CRITICAL: Always prefer real data unless fake status represents a very recent optimistic update
+    if (fakeStatus && originalHook.blobbi && pendingInteractionCount > 0) {
+      const fakeTimestamp = fakeStatus.lastInteraction;
+      const realTimestamp = originalHook.blobbi.lastInteraction;
+      const timeDifference = fakeTimestamp - realTimestamp;
+
+      // Only use fake status if:
+      // 1. It's newer than real data (optimistic update)
+      // 2. The difference is reasonable (< 5 minutes to prevent stale data)
+      // 3. There are pending interactions (indicating legitimate optimistic state)
+      if (timeDifference > 0 && timeDifference < 300 && pendingInteractionCount > 0) {
+        console.log(`🎭 [FakeStatus] Using fake status for ${effectiveBlobbiId} (fake: ${fakeTimestamp}, real: ${realTimestamp}, pending: ${pendingInteractionCount})`);
+        return fakeStatus;
+      } else {
+        console.log(`📊 [FakeStatus] Using real status for ${effectiveBlobbiId} - fake data invalid or stale`);
+        return originalHook.blobbi;
+      }
+    }
+
+    // 🔥 ALWAYS DEFAULT TO REAL DATA - this ensures we never show wrong stats
+    return originalHook.blobbi;
+  }, [fakeStatus, originalHook.blobbi, effectiveBlobbiId, pendingInteractionCount]);
+
   return {
     ...originalHook,
-    blobbi: fakeStatus || originalHook.blobbi,
+    blobbi: finalBlobbi,
     performAction: performActionWithFakeStatus,
     updateCustomization: updateCustomizationWithFakeStatus,
     setSleepStateOptimistic,

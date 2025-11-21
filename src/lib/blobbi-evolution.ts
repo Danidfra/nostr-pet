@@ -591,7 +591,10 @@ export function processHatching(
     // Ensure eye color is applied from hatching record
     eyeColor: hatchingRecord.eyeColor || babyStateData.eyeColor,
     // Clear all egg-specific tags and task-related tags
-    tags: filterEggTagsForBaby(blobbi.tags || [], blobbi),
+    tags: filterEggTagsForBaby(
+      (blobbi.tags || []).map(([k, v]) => [k || '', v || '']) as [string, string][],
+      blobbi
+    ),
   };
 
   return {
@@ -601,13 +604,15 @@ export function processHatching(
 }
 
 /**
- * Strict filter to remove egg-only and task-related tags during hatching
+ * 🔥 FIX: Enhanced filter to remove egg-only and task-related tags during hatching
  * Ensures only appropriate tags are carried over to baby stage
  */
-function filterEggTagsForBaby(
+export function filterEggTagsForBaby(
   existingTags: Array<[string, string]>,
   blobbi: Blobbi
 ): Array<[string, string]> {
+  console.log(`🐣 [HatchFilter] Filtering ${existingTags.length} tags for baby stage`);
+
   const EGG_ONLY_TAGS = new Set([
     'egg_temperature',
     'egg_status',
@@ -620,7 +625,10 @@ function filterEggTagsForBaby(
     'last_check',
     'last_talk',
     'last_medicine',
-    'last_sing'
+    'last_sing',
+    'incubation_progress', // Additional egg-specific tags
+    'shell_color',
+    'shell_pattern',
   ]);
 
   const TASK_PATTERNS = [
@@ -628,28 +636,39 @@ function filterEggTagsForBaby(
     '_confirmed',
     'quest_',
     'task_',
-    'incubation_'
+    'incubation_',
+    'post_blobbi_photo', // Specific task patterns
+    'interact_',
+    'blobbi_hashtag',
   ];
 
-  // Filter out egg-specific and task-related tags
+  // 🔥 FIX: Enhanced filtering with detailed logging
   const filteredTags = existingTags.filter(([tagName, tagValue]) => {
-    if (!tagName || !tagValue) return false;
+    if (!tagName || !tagValue) {
+      console.log(`🚫 [HatchFilter] Removing invalid tag: ${tagName}=${tagValue}`);
+      return false;
+    }
 
     // Remove egg-only tags
     if (EGG_ONLY_TAGS.has(tagName)) {
+      console.log(`🥚 [HatchFilter] Removing egg tag: ${tagName}=${tagValue}`);
       return false;
     }
 
     // Remove task-related tags by pattern
     for (const pattern of TASK_PATTERNS) {
       if (tagName.includes(pattern)) {
+        console.log(`📋 [HatchFilter] Removing task tag: ${tagName}=${tagValue}`);
         return false;
       }
     }
 
     // Keep all other tags
+    console.log(`✅ [HatchFilter] Keeping tag: ${tagName}=${tagValue}`);
     return true;
   });
+
+  console.log(`🐣 [HatchFilter] Filtered to ${filteredTags.length} tags, rebuilding canonical order`);
 
   // Rebuild tags in canonical order for baby stage
   return rebuildCanonicalBabyTags(filteredTags as [string, string][], blobbi);
@@ -659,7 +678,7 @@ function filterEggTagsForBaby(
  * Rebuild tags in canonical order for baby Blobbi
  * Ensures consistent tag ordering and proper divine inheritance
  */
-function rebuildCanonicalBabyTags(
+export function rebuildCanonicalBabyTags(
   existingTags: Array<[string, string]>,
   blobbi: Blobbi
 ): Array<[string, string]> {

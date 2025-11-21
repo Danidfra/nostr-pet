@@ -60,12 +60,14 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
   // Parse Blobbi from state event
   const blobbi = stateEvent ? parseBlobbiFromStateEvent(stateEvent) : null;
 
-  // Update Blobbi state
+  // 🔥 FIX: Update Blobbi state with enhanced change detection and tag preservation
   const updateStateMutation = useMutation({
     mutationFn: async ({ blobbi, fees }: { blobbi: Blobbi; fees?: number }) => {
       if (!user) throw new Error('Must be logged in to update Blobbi state');
 
-      // Fetch current state to merge tags safely
+      console.log(`🔄 [StateUpdate] Updating state for ${blobbi.name} (${blobbi.id})`);
+
+      // Fetch current state to compare and merge tags safely
       const signal = AbortSignal.timeout(5000);
       const currentEvents = await nostr.query([
         {
@@ -76,24 +78,81 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
         }
       ], { signal });
 
+      const currentEvent = currentEvents[0];
+
+      // 🔥 FIX: Enhanced change detection - only update when truly necessary
+      if (currentEvent) {
+        const currentBlobbi = parseBlobbiFromStateEvent(currentEvent);
+        if (currentBlobbi) {
+          // 🔥 CRITICAL: More precise change detection with higher thresholds
+          const statsChanged =
+            Math.abs(currentBlobbi.stats.hunger - blobbi.stats.hunger) >= 2 ||
+            Math.abs(currentBlobbi.stats.happiness - blobbi.stats.happiness) >= 2 ||
+            Math.abs(currentBlobbi.stats.health - blobbi.stats.health) >= 2 ||
+            Math.abs(currentBlobbi.stats.hygiene - blobbi.stats.hygiene) >= 2 ||
+            Math.abs(currentBlobbi.stats.energy - blobbi.stats.energy) >= 2;
+
+          const significantOtherChanges =
+            currentBlobbi.lifeStage !== blobbi.lifeStage ||
+            Math.abs(currentBlobbi.experience - blobbi.experience) >= 5 ||
+            Math.abs(currentBlobbi.careStreak - blobbi.careStreak) >= 1 ||
+            Math.abs(currentBlobbi.lastInteraction - blobbi.lastInteraction) >= 30; // 30+ second difference for meaningful interactions
+
+          const eggChanges =
+            blobbi.lifeStage === 'egg' && (
+              Math.abs((currentBlobbi.eggTemperature || 0) - (blobbi.eggTemperature || 0)) >= 2 ||
+              Math.abs((currentBlobbi.shellIntegrity || 100) - (blobbi.shellIntegrity || 100)) >= 2
+            );
+
+          const customizationChanges =
+            currentBlobbi.baseColor !== blobbi.baseColor ||
+            currentBlobbi.secondaryColor !== blobbi.secondaryColor ||
+            currentBlobbi.pattern !== blobbi.pattern ||
+            currentBlobbi.specialMark !== blobbi.specialMark ||
+            currentBlobbi.isSleeping !== blobbi.isSleeping;
+
+          if (!statsChanged && !significantOtherChanges && !eggChanges && !customizationChanges) {
+            console.log(`⏭️ [StateUpdate] No significant changes detected (thresholds: stats ±2, time ±30s), skipping update for ${blobbi.id}`);
+            return blobbi; // No meaningful changes, skip update
+          }
+
+          console.log(`📊 [StateUpdate] Changes detected - Stats: ${statsChanged}, Other: ${significantOtherChanges}, Egg: ${eggChanges}, Customization: ${customizationChanges}`);
+        }
+      }
+
+      // 🔥 FIX: Enhanced tag merging with stat override protection
       let updatedTags: Array<[string, string]>;
 
-      if (currentEvents.length > 0) {
-        // Use merge helper to preserve existing tags
+      if (currentEvent) {
+        // Use merge helper to preserve existing tags while ensuring current stats take precedence
         const stateEventData = createBlobbiStateEvent(blobbi, fees);
-        updatedTags = mergeBlobbiStateTags(currentEvents[0].tags, {
+
+        // 🔥 CRITICAL: Ensure current stats always override any preserved values
+        const coreStatTags = stateEventData.tags.filter(([tagName]) =>
+          ['hunger', 'happiness', 'health', 'hygiene', 'energy', 'experience', 'care_streak', 'last_interaction'].includes(tagName)
+        );
+
+        updatedTags = mergeBlobbiStateTags(currentEvent.tags, {
           additionalTags: stateEventData.tags,
+          preserveIncubationAndQuestTags: true,
         });
+
+        // 🔥 DOUBLE-CHECK: Force override core stats to prevent stale values
+        const tagMap = new Map(updatedTags);
+        coreStatTags.forEach(([tagName, tagValue]) => {
+          tagMap.set(tagName, tagValue);
+          console.log(`🔒 [StateUpdate] Force-setting core stat: ${tagName}=${tagValue}`);
+        });
+        updatedTags = Array.from(tagMap.entries());
       } else {
         // No existing event, create new tags
         const stateEventData = createBlobbiStateEvent(blobbi, fees);
         updatedTags = stateEventData.tags.map(tag => [tag[0] || '', tag[1] || '']) as Array<[string, string]>;
       }
 
-      const baseContent =
-        currentEvents.length > 0
-          ? currentEvents[0].content
-          : `${blobbi.name} is a ${blobbi.lifeStage} Blobbi.`;
+      const baseContent = `${blobbi.name} is a ${blobbi.lifeStage} Blobbi.`;
+
+      console.log(`📤 [StateUpdate] Publishing state event with ${updatedTags.length} tags`);
 
       await publishEvent({
         kind: BLOBBI_EVENT_KINDS.STATE,

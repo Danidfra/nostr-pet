@@ -60,6 +60,47 @@ function getTagValues(tags: string[][], tagName: string): string[] {
   return tags.filter(tag => tag[0] === tagName).map(tag => tag[1]).filter(Boolean);
 }
 
+// 🔥 FIX: Validation function to detect and log stat corruption
+function validateBlobbiStats(blobbi: Blobbi, context: string): void {
+  const stats = blobbi.stats;
+  const issues: string[] = [];
+
+  // Check for invalid stat values
+  Object.entries(stats).forEach(([statName, value]) => {
+    if (typeof value !== 'number' || isNaN(value)) {
+      issues.push(`${statName} is not a number: ${value}`);
+    } else if (value < 0 || value > 100) {
+      issues.push(`${statName} out of range: ${value}`);
+    }
+  });
+
+  // Check for suspicious stat patterns (all zeros, all same value, etc.)
+  const statValues = Object.values(stats);
+  const uniqueValues = new Set(statValues);
+
+  if (statValues.every(v => v === 0)) {
+    issues.push('All stats are zero');
+  } else if (uniqueValues.size === 1 && statValues.length > 1) {
+    issues.push(`All stats have same value: ${statValues[0]}`);
+  }
+
+  // Check for missing required fields
+  if (!blobbi.id) issues.push('Missing Blobbi ID');
+  if (!blobbi.name) issues.push('Missing Blobbi name');
+  if (!blobbi.lifeStage) issues.push('Missing life stage');
+
+  if (issues.length > 0) {
+    console.error(`🚨 [StatValidation] Issues detected in ${context}:`, issues);
+    console.error(`🚨 [StatValidation] Blobbi data:`, {
+      id: blobbi.id,
+      name: blobbi.name,
+      lifeStage: blobbi.lifeStage,
+      stats: blobbi.stats,
+      lastInteraction: blobbi.lastInteraction
+    });
+  }
+}
+
 // Create Kind 31124: Shell Integrity Penalty Event
 export function createShellIntegrityPenaltyEvent(
   blobbi: Blobbi,
@@ -88,12 +129,24 @@ export function createShellIntegrityPenaltyEvent(
 
 // Create Kind 31124: Blobbi Current State Event
 export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
+  console.log(`🏗️ [StateEvent] Creating state event for ${blobbi.name} (${blobbi.id}) - Stage: ${blobbi.lifeStage}`);
+
   // 🔥 DIVINE PRESERVATION: Ensure Divine tags are present before processing
   const divinePreservedBlobbi = ensureDivineTags(blobbi);
 
-  // Start with existing tags to preserve all metadata, then override with current values
-  let preservedTags: Array<[string, string]> = divinePreservedBlobbi.tags ?
-    divinePreservedBlobbi.tags.map(([k, v]) => [k || '', v || ''] as [string, string]) : [];
+  // 🔥 FIX: Only preserve tags if they exist and are valid
+  // Never start with empty or undefined tags that could cause fallback values
+  let preservedTags: Array<[string, string]> = [];
+
+  if (divinePreservedBlobbi.tags && Array.isArray(divinePreservedBlobbi.tags) && divinePreservedBlobbi.tags.length > 0) {
+    preservedTags = divinePreservedBlobbi.tags
+      .filter(([k, v]) => k && v) // Only include tags with both key and value
+      .map(([k, v]) => [k, v] as [string, string]);
+
+    console.log(`🏷️ [StateEvent] Preserving ${preservedTags.length} existing tags`);
+  } else {
+    console.log(`🏷️ [StateEvent] No existing tags to preserve, creating fresh tags`);
+  }
 
   // SPECIAL HANDLING FOR HATCHING: If this is a baby stage that was just hatched,
   // ensure we use the pre-filtered tags from the hatching process
@@ -105,68 +158,100 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
 
     if (!hasCanonicalOrder) {
       // Tags might not be filtered yet, apply hatching filter
-      const { filterEggTagsForBaby, rebuildCanonicalBabyTags } = require('./blobbi-evolution');
       try {
-        preservedTags = filterEggTagsForBaby(blobbi.tags, blobbi);
+        const { filterEggTagsForBaby } = require('./blobbi-evolution');
+        const filteredTags = filterEggTagsForBaby(
+          (blobbi.tags || []).map(([k, v]) => [k || '', v || '']) as [string, string][],
+          blobbi
+        );
+        preservedTags = filteredTags.filter(([k, v]) => k && v);
+        console.log(`🐣 [StateEvent] Applied hatching filter, preserved ${preservedTags.length} tags`);
       } catch (error) {
         console.warn('[Hatching] Could not apply egg tag filter, using original tags:', error);
       }
+    } else {
+      console.log(`🐣 [StateEvent] Tags already filtered for baby stage`);
     }
   }
 
-  // Core required tags that we always update with current values
+  // 🔥 FIX: Core required tags with strict validation and corruption prevention
+  // Ensure stats are always valid numbers between 0-100
+  const validateStat = (value: number, statName: string): number => {
+    const cleanValue = Math.max(0, Math.min(100, Math.round(value || 0)));
+    if (cleanValue !== value) {
+      console.warn(`⚠️ [StateEvent] Corrected invalid ${statName}: ${value} → ${cleanValue}`);
+    }
+    return cleanValue;
+  };
+
   const coreUpdates: Array<[string, string]> = [
     ['d', blobbi.id],
     ['stage', blobbi.lifeStage],
     ['breeding_ready', blobbi.breedingReady.toString()],
     ['generation', blobbi.generation.toString()],
-    ['hunger', Math.round(blobbi.stats.hunger).toString()],
-    ['happiness', Math.round(blobbi.stats.happiness).toString()],
-    ['health', Math.round(blobbi.stats.health).toString()],
-    ['hygiene', Math.round(blobbi.stats.hygiene).toString()],
-    ['energy', Math.round(blobbi.stats.energy).toString()],
-    ['experience', blobbi.experience.toString()],
-    ['care_streak', blobbi.careStreak.toString()],
+    ['hunger', validateStat(blobbi.stats.hunger, 'hunger').toString()],
+    ['happiness', validateStat(blobbi.stats.happiness, 'happiness').toString()],
+    ['health', validateStat(blobbi.stats.health, 'health').toString()],
+    ['hygiene', validateStat(blobbi.stats.hygiene, 'hygiene').toString()],
+    ['energy', validateStat(blobbi.stats.energy, 'energy').toString()],
+    ['experience', Math.max(0, blobbi.experience || 0).toString()],
+    ['care_streak', Math.max(0, blobbi.careStreak || 0).toString()],
+    ['last_interaction', Math.floor(blobbi.lastInteraction || Date.now() / 1000).toString()],
   ];
 
-  // Create a map to merge preserved tags with updates
+  console.log(`📊 [StateEvent] Core stats - H:${coreUpdates[4][1]} Ha:${coreUpdates[5][1]} He:${coreUpdates[6][1]} Hy:${coreUpdates[7][1]} E:${coreUpdates[8][1]}`);
+
+  // 🔥 FIX: Create a map to merge preserved tags with updates
   const stateTagMap = new Map<string, string>();
 
-  // First, add all preserved tags (except egg-specific ones for baby stage)
+  // First, add all preserved tags (with proper filtering for stage transitions)
   preservedTags.forEach(([key, value]) => {
-    if (key && value) {
-      // Skip egg-specific tags if this is a baby
-      if (blobbi.lifeStage === 'baby') {
-        const EGG_ONLY_TAGS = new Set([
-          'egg_temperature', 'egg_status', 'shell_integrity', 'hatch_time',
-          'start_incubation', 'incubation_time', 'start_evolution',
-          'last_warm', 'last_check', 'last_talk', 'last_medicine', 'last_sing'
-        ]);
-        const TASK_PATTERNS = ['_progress', '_confirmed', 'quest_', 'task_', 'incubation_'];
+    if (!key || !value) return; // Skip invalid tags
 
-        let isEggOrTaskTag = false;
-        if (EGG_ONLY_TAGS.has(key)) {
-          isEggOrTaskTag = true;
-        } else {
-          for (const pattern of TASK_PATTERNS) {
-            if (key.includes(pattern)) {
-              isEggOrTaskTag = true;
-              break;
-            }
+    // 🔥 FIX: Enhanced tag filtering for stage transitions
+    if (blobbi.lifeStage === 'baby') {
+      const EGG_ONLY_TAGS = new Set([
+        'egg_temperature', 'egg_status', 'shell_integrity', 'hatch_time',
+        'start_incubation', 'incubation_time', 'start_evolution',
+        'last_warm', 'last_check', 'last_talk', 'last_medicine', 'last_sing'
+      ]);
+      const TASK_PATTERNS = ['_progress', '_confirmed', 'quest_', 'task_', 'incubation_'];
+
+      let isEggOrTaskTag = false;
+      if (EGG_ONLY_TAGS.has(key)) {
+        isEggOrTaskTag = true;
+      } else {
+        for (const pattern of TASK_PATTERNS) {
+          if (key.includes(pattern)) {
+            isEggOrTaskTag = true;
+            break;
           }
         }
+      }
 
-        if (!isEggOrTaskTag) {
-          stateTagMap.set(key, value);
-        }
-      } else {
-        stateTagMap.set(key, value);
+      if (isEggOrTaskTag) {
+        console.log(`🚫 [StateEvent] Filtering out egg/task tag for baby: ${key}`);
+        return; // Skip egg-specific tags for baby stage
       }
     }
+
+    // 🔥 FIX: Never override core stats with potentially stale preserved values
+    const CORE_STAT_TAGS = new Set(['hunger', 'happiness', 'health', 'hygiene', 'energy', 'experience', 'care_streak']);
+    if (CORE_STAT_TAGS.has(key)) {
+      console.log(`🔄 [StateEvent] Skipping preserved stat tag (will be overridden): ${key}=${value}`);
+      return; // Skip preserved stats - they will be overridden with current values
+    }
+
+    stateTagMap.set(key, value);
   });
 
-  // Then override with core updates
+  // 🔥 FIX: Then override with core updates (these always take precedence)
   coreUpdates.forEach(([key, value]) => {
+    if (stateTagMap.has(key)) {
+      console.log(`🔄 [StateEvent] Overriding preserved tag: ${key} (${stateTagMap.get(key)} → ${value})`);
+    } else {
+      console.log(`➕ [StateEvent] Adding new core tag: ${key}=${value}`);
+    }
     stateTagMap.set(key, value);
   });
 
@@ -280,6 +365,9 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
       !stateTags.some(([existingKey]) => existingKey === key) // Avoid duplicates
     )
   ];
+
+  // 🔥 FIX: Validate stats before creating event
+  validateBlobbiStats(blobbi, 'createBlobbiStateEvent');
 
   // Ensure all Blobbi tags are present
   const finalStateTags = ensureBlobbiTagsWithDebug(
@@ -596,20 +684,46 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
     if (event.kind !== BLOBBI_EVENT_KINDS.STATE) return null;
 
     const tags = event.tags;
-    if (!validateRequiredTags(tags, REQUIRED_STATE_TAGS)) return null;
 
+    // 🔥 FIX: Check critical fields first before general validation
     const id = getTagValue(tags, 'd');
     const stage = getTagValue(tags, 'stage') as BlobbiLifeStage;
+
+    // 🔥 FIX: Parse stats with strict validation - NEVER use fallback defaults
+    // If any required stat tag is missing, the event is invalid and should be rejected
+    const hungerStr = getTagValue(tags, 'hunger');
+    const happinessStr = getTagValue(tags, 'happiness');
+    const healthStr = getTagValue(tags, 'health');
+    const hygieneStr = getTagValue(tags, 'hygiene');
+    const energyStr = getTagValue(tags, 'energy');
+
+    // 🔥 CRITICAL: Validate that all required stat tags exist
+    if (!hungerStr || !happinessStr || !healthStr || !hygieneStr || !energyStr) {
+      console.error(`❌ [ParseBlobbi] Missing required stat tags for ${id || 'unknown'}:`, {
+        hunger: hungerStr,
+        happiness: happinessStr,
+        health: healthStr,
+        hygiene: hygieneStr,
+        energy: energyStr
+      });
+      return null; // Reject invalid events rather than using wrong defaults
+    }
+
+    // Now do general validation for other required tags
+    if (!validateRequiredTags(tags, REQUIRED_STATE_TAGS)) return null;
+
     const breedingReady = getTagValue(tags, 'breeding_ready') === 'true';
     const generation = parseInt(getTagValue(tags, 'generation') || '1');
 
     const stats: BlobbiStats = {
-      hunger: parseInt(getTagValue(tags, 'hunger') || '100'),
-      happiness: parseInt(getTagValue(tags, 'happiness') || '100'),
-      health: parseInt(getTagValue(tags, 'health') || '100'),
-      hygiene: parseInt(getTagValue(tags, 'hygiene') || '100'),
-      energy: parseInt(getTagValue(tags, 'energy') || '100'),
+      hunger: Math.max(0, Math.min(100, parseInt(hungerStr))),
+      happiness: Math.max(0, Math.min(100, parseInt(happinessStr))),
+      health: Math.max(0, Math.min(100, parseInt(healthStr))),
+      hygiene: Math.max(0, Math.min(100, parseInt(hygieneStr))),
+      energy: Math.max(0, Math.min(100, parseInt(energyStr))),
     };
+
+    console.log(`📊 [ParseBlobbi] Parsed stats for ${id}: H:${stats.hunger} Ha:${stats.happiness} He:${stats.health} Hy:${stats.hygiene} E:${stats.energy}`);
 
     const experience = parseInt(getTagValue(tags, 'experience') || '0');
     const careStreak = parseInt(getTagValue(tags, 'care_streak') || '0');
@@ -713,6 +827,9 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
         console.warn('[Divine Tags] Inconsistency detected in parsed Blobbi:', validation.errors);
       }
     }
+
+    // 🔥 FIX: Validate parsed stats before returning
+    validateBlobbiStats(syncedBlobbi, `parseBlobbiFromStateEvent(${id})`);
 
     return syncedBlobbi;
   } catch (error) {

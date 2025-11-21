@@ -141,7 +141,16 @@ export function mergeBlobbiStateTags(
           // Don't break here - continue to preservation logic
         }
 
-        // Check if this tag should be preserved (incubation/quest tags)
+        // 🔥 FIX: Never preserve core stat tags - they must always be current
+        const CORE_STAT_TAGS = new Set(['hunger', 'happiness', 'health', 'hygiene', 'energy', 'experience', 'care_streak', 'last_interaction']);
+
+        if (CORE_STAT_TAGS.has(tagName)) {
+          // 🔥 CRITICAL: Skip preserved stat tags - they will be overridden by additionalTags with current values
+          console.log(`🚫 [TagMerge] Skipping preserved stat tag (will be overridden): ${tagName}`);
+          return; // Don't preserve any stat tags - always use fresh values
+        }
+
+        // Check if this tag should be preserved (incubation/quest tags only)
         const shouldPreserveTag = preserveIncubationAndQuestTags && (
           tagName === 'start_incubation' ||
           tagName === 'start_evolution' ||

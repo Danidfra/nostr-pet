@@ -46,8 +46,9 @@ export function useBlobbiOnLoadDecayManager() {
 
           const minutesSinceLastInteraction = (currentTime / 1000 - blobbi.lastInteraction) / 60;
 
-          // Only apply decay if more than 10 minutes has passed since last interaction
-          if (minutesSinceLastInteraction >= 10) {
+          // 🔥 FIX: Only apply decay if more than 30 minutes has passed since last interaction
+          // This reduces unnecessary processing and event publishing on frequent page loads
+          if (minutesSinceLastInteraction >= 30) {
             blobbisNeedingDecay.push(blobbi);
           }
 
@@ -60,7 +61,7 @@ export function useBlobbiOnLoadDecayManager() {
           return;
         }
 
-        console.log(`🔄 Silently applying on-load decay to ${blobbisNeedingDecay.length} Blobbis (10+ min since last interaction)...`);
+        console.log(`🔄 Silently applying on-load decay to ${blobbisNeedingDecay.length} Blobbis (30+ min since last interaction)...`);
 
         // Process each Blobbi that needs decay with minimal blocking
         const processPromises = blobbisNeedingDecay.map(async (blobbi, index) => {
@@ -163,27 +164,30 @@ export function useBlobbiOnLoadDecayManager() {
 
 /**
  * Check if decay resulted in significant stat changes worth publishing
+ * 🔥 FIX: Much higher thresholds to prevent unnecessary event publishing
  */
 function hasSignificantStatChanges(originalBlobbi: Blobbi, decayedBlobbi: Blobbi): boolean {
-  // For eggs, check egg-specific stats
+  // For eggs, check egg-specific stats with higher thresholds
   if (originalBlobbi.lifeStage === 'egg') {
     const tempChange = Math.abs((originalBlobbi.eggTemperature ?? 100) - (decayedBlobbi.eggTemperature ?? 100));
     const shellChange = Math.abs((originalBlobbi.shellIntegrity ?? 100) - (decayedBlobbi.shellIntegrity ?? 100));
     const happinessChange = Math.abs(originalBlobbi.stats.happiness - decayedBlobbi.stats.happiness);
     const hygieneChange = Math.abs(originalBlobbi.stats.hygiene - decayedBlobbi.stats.hygiene);
 
-    // Consider changes significant if any stat changed by 1 or more points (since we check every 10 minutes)
-    return tempChange >= 1 || shellChange >= 1 || happinessChange >= 1 || hygieneChange >= 1;
+    // 🔥 FIX: Higher thresholds - only publish if changes are substantial (5+ points)
+    // This prevents micro-decay updates that clutter the network
+    return tempChange >= 5 || shellChange >= 5 || happinessChange >= 5 || hygieneChange >= 5;
   }
 
-  // For post-hatch Blobbis, check all stats
+  // For post-hatch Blobbis, check all stats with higher thresholds
   const hungerChange = Math.abs(originalBlobbi.stats.hunger - decayedBlobbi.stats.hunger);
   const happinessChange = Math.abs(originalBlobbi.stats.happiness - decayedBlobbi.stats.happiness);
   const energyChange = Math.abs(originalBlobbi.stats.energy - decayedBlobbi.stats.energy);
   const hygieneChange = Math.abs(originalBlobbi.stats.hygiene - decayedBlobbi.stats.hygiene);
   const healthChange = Math.abs(originalBlobbi.stats.health - decayedBlobbi.stats.health);
 
-  // Consider changes significant if any stat changed by 1 or more points (since we check every 10 minutes)
-  return hungerChange >= 1 || happinessChange >= 1 || energyChange >= 1 || hygieneChange >= 1 || healthChange >= 1;
+  // 🔥 FIX: Higher thresholds - only publish if changes are substantial (5+ points)
+  // This prevents micro-decay updates and reduces unnecessary network traffic
+  return hungerChange >= 5 || happinessChange >= 5 || energyChange >= 5 || hygieneChange >= 5 || healthChange >= 5;
 }
 
