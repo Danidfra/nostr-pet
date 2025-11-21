@@ -14,6 +14,9 @@ import { TicTacToeGame } from "./pages/games/TicTacToeGame";
 import EggDemo from "./pages/EggDemo";
 import VisualEffectsDemo from "./pages/VisualEffectsDemo";
 
+// DEV-ONLY: Import debug pages (will not be included in production build)
+import BlobbiStatusDebug from "./pages/dev/BlobbiStatusDebug";
+
 import { BlobbiCompanionWrapper } from "./components/BlobbiCompanionWrapper";
 import { BlobbiFloatingActionMenu } from "./components/BlobbiFloatingActionMenu";
 import { DraggableBed } from "./components/DraggableBed";
@@ -48,6 +51,11 @@ function AppContent() {
         <Route path="/games/tic-tac-toe" element={<TicTacToeGame />} />
         <Route path="/egg-demo" element={<EggDemo />} />
         <Route path="/visual-effects-demo" element={<VisualEffectsDemo />} />
+
+        {/* DEV-ONLY ROUTES */}
+        {process.env.NODE_ENV === 'development' && (
+          <Route path="/dev/blobbi-status" element={<BlobbiStatusDebug />} />
+        )}
 
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />

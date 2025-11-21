@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useEnhancedNostrPublish } from '@/hooks/useEnhancedNostrPublish';
-import { 
-  createBlobbiInteractionEvent, 
-  BLOBBI_EVENT_KINDS 
+import {
+  createBlobbiInteractionEvent,
+  BLOBBI_EVENT_KINDS
 } from '@/lib/blobbi-events';
-import { 
-  BlobbiInteractionData, 
+import {
+  BlobbiInteractionData,
   BlobbiInteractionType,
   BlobbiStats,
 } from '@/types/blobbi';
@@ -75,7 +75,7 @@ export function useBlobbiInteractionWithStateUpdate() {
 
       // Create and publish interaction event
       const interactionEventData = createBlobbiInteractionEvent(blobbiId, interactionData);
-      
+
       // The enhanced publish hook will automatically handle state updates
       const interactionEvent = await publishEvent({
         ...interactionEventData,
@@ -91,12 +91,7 @@ export function useBlobbiInteractionWithStateUpdate() {
       queryClient.invalidateQueries({ queryKey: ['blobbi-state', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', variables.blobbiId] });
-      
-      console.log('Interaction recorded with automatic state update:', {
-        blobbiId: variables.blobbiId,
-        action: variables.action,
-        interactionId: data.interactionEvent.id,
-      });
+
     },
     onError: (error, variables) => {
       console.error('Failed to record interaction:', {
@@ -145,13 +140,7 @@ export function useBlobbiGameInteraction() {
       queryClient.invalidateQueries({ queryKey: ['blobbi-state', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', variables.blobbiId] });
-      
-      console.log('Game interaction recorded with automatic state update:', {
-        blobbiId: variables.blobbiId,
-        gameType: variables.gameType,
-        score: variables.score,
-        interactionId: data.interactionEvent.id,
-      });
+
     },
     onError: (error, variables) => {
       console.error('Failed to record game interaction:', {
@@ -194,7 +183,7 @@ export function useBlobbiCareInteraction() {
       // If item effects are provided (for feed, clean, medicine, play), use them
       if (itemEffects && ['feed', 'clean', 'medicine', 'play'].includes(action)) {
         statChanges = Object.entries(itemEffects).map(([stat, value]) => [stat, value as number]);
-      } 
+      }
       // If custom stat change is provided, use it
       else if (customStatChange) {
         statChanges = [customStatChange];
@@ -223,12 +212,7 @@ export function useBlobbiCareInteraction() {
       queryClient.invalidateQueries({ queryKey: ['blobbi-state', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', variables.blobbiId] });
-      
-      console.log('Care interaction recorded with automatic state update:', {
-        blobbiId: variables.blobbiId,
-        action: variables.action,
-        interactionId: data.interactionEvent.id,
-      });
+
     },
     onError: (error, variables) => {
       console.error('Failed to record care interaction:', {

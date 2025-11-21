@@ -3,9 +3,9 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbiState, useBlobbiRecords, useBlobbiInteractions } from '@/hooks/useBlobbiEvents';
 import { useNostr } from '@/hooks/useNostr';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { 
-  Blobbi, 
-  BlobbiRecordData, 
+import {
+  Blobbi,
+  BlobbiRecordData,
   BlobbiInteractionData,
   BlobbiLifeStage,
   BlobbiStats,
@@ -28,14 +28,14 @@ export function useBlobbiLifecycle(blobbiId: string) {
     queryFn: async () => {
       if (!blobbi) return null;
 
-      const { 
-        checkEggHatchingReadiness, 
+      const {
+        checkEggHatchingReadiness,
         checkBabyEvolutionReadiness,
         getCareStreakStatus,
       } = await import('@/lib/blobbi-evolution');
 
       const careStreak = getCareStreakStatus(blobbi.evolutionProgress);
-      
+
       let evolutionStatus: { isReady: boolean; message: string; requirements?: Record<string, unknown> } | null = null;
       if (blobbi.lifeStage === 'egg') {
         evolutionStatus = checkEggHatchingReadiness(blobbi);
@@ -56,11 +56,11 @@ export function useBlobbiLifecycle(blobbiId: string) {
 
   // Perform evolution with proper record creation
   const evolveMutation = useMutation({
-    mutationFn: async ({ 
-      newStage, 
-      evolutionReason 
-    }: { 
-      newStage: BlobbiLifeStage; 
+    mutationFn: async ({
+      newStage,
+      evolutionReason
+    }: {
+      newStage: BlobbiLifeStage;
       evolutionReason?: string;
     }) => {
       if (!user || !blobbi) throw new Error('Invalid state for evolution');
@@ -68,32 +68,24 @@ export function useBlobbiLifecycle(blobbiId: string) {
       if (newStage === 'baby' && blobbi.lifeStage === 'egg') {
         // Handle hatching with dual-event emission
         const { processHatching } = await import('@/lib/blobbi-evolution');
-        
-        console.log('🐣 Starting hatching process for:', blobbi.name);
-        console.log('🥚 Current egg state:', blobbi.lifeStage);
-        
+
         const { hatchingRecord, updatedBlobbi } = processHatching(blobbi);
 
-        console.log('📝 Creating kind 14921 hatching record...');
         // First, create the kind 14921 hatching record
         await createRecord({
           recordData: hatchingRecord,
           content: `${blobbi.name} has hatched! 🐣✨`,
         });
 
-        console.log('📝 Creating kind 31124 baby state...');
         // Then, update the state with kind 31124 event (baby stage)
         // The createBlobbiStateEvent function should filter out egg-specific tags
         await updateState(updatedBlobbi);
 
-
-
-        console.log('✅ Hatching process completed for:', blobbi.name);
         return { updatedBlobbi, evolutionRecord: hatchingRecord };
       } else {
         // Handle regular evolution (baby to adult)
         const { processEvolution } = await import('@/lib/blobbi-evolution');
-        
+
         const { updatedBlobbi, evolutionRecord } = processEvolution(
           blobbi,
           newStage,
@@ -254,14 +246,14 @@ export function useBlobbiLifecycle(blobbiId: string) {
       let autoEvolution: { updatedBlobbi: Blobbi } | null = null;
       if (lifecycleStatus.data?.isEligibleForEvolution) {
         if (blobbi.lifeStage === 'egg') {
-          autoEvolution = await evolveMutation.mutateAsync({ 
-            newStage: 'baby', 
-            evolutionReason: 'Hatching requirements met through care' 
+          autoEvolution = await evolveMutation.mutateAsync({
+            newStage: 'baby',
+            evolutionReason: 'Hatching requirements met through care'
           });
         } else if (blobbi.lifeStage === 'baby' && updatedProgress.isEligibleForEvolution) {
-          autoEvolution = await evolveMutation.mutateAsync({ 
-            newStage: 'adult', 
-            evolutionReason: 'Evolution requirements met through consistent care' 
+          autoEvolution = await evolveMutation.mutateAsync({
+            newStage: 'adult',
+            evolutionReason: 'Evolution requirements met through consistent care'
           });
         }
       }
@@ -317,7 +309,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
   const updateCustomizationMutation = useMutation({
     mutationFn: async (customization: Partial<Blobbi['customization']>) => {
       if (!user || !blobbi) throw new Error('Invalid state for customization');
-      
+
       const updatedBlobbi: Blobbi = {
         ...blobbi,
         customization: {
@@ -325,7 +317,7 @@ export function useBlobbiLifecycle(blobbiId: string) {
           ...customization,
         },
       };
-      
+
       await updateState(updatedBlobbi);
       return updatedBlobbi;
     },
@@ -340,16 +332,16 @@ export function useBlobbiLifecycle(blobbiId: string) {
     records,
     interactions,
     lifecycleStatus: lifecycleStatus.data,
-    
+
     // Loading states
     isLoading: stateLoading || recordsLoading || interactionsLoading || lifecycleStatus.isLoading,
-    
+
     // Actions
     performCare: performCareMutation.mutateAsync,
     evolve: evolveMutation.mutateAsync,
     createMemory: createMemoryMutation.mutateAsync,
     updateCustomization: updateCustomizationMutation.mutateAsync,
-    
+
     // Action states
     isPerformingCare: performCareMutation.isPending,
     isEvolving: evolveMutation.isPending,
@@ -390,7 +382,7 @@ function getTimeOfDay(): string {
 
 function getBlobbiMood(stats: BlobbiStats): string {
   const avgStat = (stats.hunger + stats.happiness + stats.energy + stats.hygiene) / 4;
-  
+
   if (stats.health < 30) return 'sick';
   if (stats.hunger < 20) return 'hungry';
   if (stats.hygiene < 20) return 'dirty';

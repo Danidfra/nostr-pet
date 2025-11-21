@@ -116,8 +116,6 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
     }
   };
 
-
-
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>

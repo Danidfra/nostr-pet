@@ -387,7 +387,7 @@ class CooldownStorage {
         usesInSession: 1,
         lastUse: now,
       };
-      console.log(`🆕 NEW SESSION | ${action} | ${blobbiId} | ${stage} | Session 1/4`);
+
     } else {
       // Continue existing session
       const sessionData = this.sessionCache[blobbiId][action];
@@ -395,14 +395,13 @@ class CooldownStorage {
       sessionData.lastUse = now;
       
       const maxUses = MAX_USES_PER_SESSION[stage][action];
-      console.log(`📈 SESSION CONTINUE | ${action} | ${blobbiId} | ${stage} | Session ${sessionData.usesInSession}/${maxUses}`);
-      
+
       // Check if we've reached max uses and should start global cooldown
       if (sessionData.usesInSession >= maxUses) {
         const globalCooldownDuration = GLOBAL_COOLDOWN_DURATIONS[stage][action];
         if (globalCooldownDuration > 0) {
           sessionData.globalCooldownStart = now;
-          console.log(`🚫 GLOBAL COOLDOWN | ${action} | ${blobbiId} | ${stage} | ${formatCooldownTime(globalCooldownDuration)}`);
+
         }
       }
     }
@@ -476,7 +475,7 @@ class CooldownStorage {
       const individualCooldown = COOLDOWN_DURATIONS[stage][action];
       const individualRemaining = individualCooldown - (now - lastUse);
       if (individualRemaining > 0) {
-        console.log(`⏳ INDIVIDUAL COOLDOWN | ${action} | ${blobbiId} | ${stage} | ${formatCooldownTime(individualRemaining)}`);
+
         return true;
       }
     }
@@ -492,14 +491,13 @@ class CooldownStorage {
         if (globalCooldownDuration > 0) {
           const globalRemaining = globalCooldownDuration - (now - sessionData.globalCooldownStart);
           if (globalRemaining > 0) {
-            console.log(`🚫 GLOBAL COOLDOWN | ${action} | ${blobbiId} | ${stage} | ${formatCooldownTime(globalRemaining)}`);
+
             return true;
           }
         }
       }
     }
 
-    console.log(`✅ AVAILABLE | ${action} | ${blobbiId} | ${stage} | Ready to use`);
     return false;
   }
 
@@ -764,7 +762,6 @@ class CooldownStorage {
     this.saveSessionCacheToLocalStorage();
     this.saveLocalDataTrackerToLocalStorage();
 
-    console.log(`📊 COOLDOWNS INITIALIZED FROM BLOBBI STATE | ${blobbiId} | ${stage} | Actions with timestamps: ${Object.keys(actionTimestamps).join(', ')}`);
   }
 
   /**

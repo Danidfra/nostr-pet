@@ -9,7 +9,6 @@ import { useAddCoins } from '@/hooks/useBlobbonautProfile';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 
-
 interface Bubble {
   id: number;
   x: number;

@@ -25,10 +25,6 @@ function NostrProviderWithRelays({ children, fallbackRelays }: { children: React
   // Use enabled relays if available, otherwise fallback
   const relays = enabledRelays.length > 0 ? enabledRelays : fallbackRelays;
 
-  React.useEffect(() => {
-    console.log('🔗 Active relays updated:', relays);
-  }, [relays]);
-
   return (
     <NostrProvider relays={relays}>
       {children}
@@ -54,16 +50,6 @@ const queryClient = new QueryClient({
 });
 
 export function App() {
-  // Initialize interaction logging system
-  React.useEffect(() => {
-    console.group('🎮 BLOBBI INTERACTION SYSTEM INITIALIZED');
-    console.log('⏰ Timestamp:', new Date().toLocaleString());
-    console.log('🔧 Logging: All interactions will be logged to console');
-    console.log('📊 Tracking: Action name, Blobbi ID, current stage, timestamp');
-    console.log('⏱️ Cooldowns: System ready to track and verify cooldown functionality');
-    console.log('🎯 Coverage: Triggered, blocked (cooldown), blocked (unavailable), and error interactions');
-    console.groupEnd();
-  }, []);
 
   return (
     <ThemeProvider defaultTheme="system" storageKey="blobbi-theme">

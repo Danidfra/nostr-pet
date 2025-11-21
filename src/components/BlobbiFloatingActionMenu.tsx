@@ -276,7 +276,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   const handlePlayModalClose = (actionPerformed?: boolean) => {
     setIsPlayModalOpen(false);
     if (actionPerformed) {
-      console.log('Play action performed on companion');
+
     }
   };
 
@@ -289,7 +289,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     // If an action was performed, we could add additional logic here if needed
     if (actionPerformed) {
       // The fake status system will handle the UI updates automatically
-      console.log('Medicine action performed on companion');
+
     }
   };
 
@@ -302,12 +302,11 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     // If an action was performed, we could add additional logic here if needed
     if (actionPerformed) {
       // The fake status system will handle the UI updates automatically
-      console.log('Cleaning action performed on companion');
+
     }
   };
 
   if (!shouldShow || !companionData?.blobbi?.id) return null;
-
 
   const iconSrc = resolvedTheme === 'dark' ? '/blobbi-white.svg' : '/blobbi-black.svg';
 
@@ -350,7 +349,6 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
 
   return (
     <>
-
 
       <div
         ref={dragRef}

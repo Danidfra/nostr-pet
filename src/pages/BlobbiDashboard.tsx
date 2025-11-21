@@ -67,7 +67,7 @@ const track = (eventName: string) => {
       event_label: 'blobbi_dashboard',
     });
   }
-  console.log('📊 Analytics:', eventName);
+
 };
 
 // Add gtag type declaration
@@ -141,7 +141,6 @@ export default function BlobbiDashboard() {
   const [showPushModal, setShowPushModal] = useState(false);
   const [isBuyCoinsModalOpen, setIsBuyCoinsModalOpen] = useState(false);
 
-
   // Redirect to adoption page if user doesn't have a profile (kind 31125)
   useEffect(() => {
     if (user && !isProfileLoading && !profile) {
@@ -204,7 +203,6 @@ export default function BlobbiDashboard() {
         <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
           <div className="container mx-auto py-8 px-4">
 
-
             <Card className="max-w-2xl mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardHeader>
                 <CardTitle className="text-gray-900 dark:text-gray-100">Welcome to Blobbi!</CardTitle>
@@ -233,7 +231,6 @@ export default function BlobbiDashboard() {
       <BlobbiLayout>
         <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
           <div className="container mx-auto py-8 px-4">
-
 
             <Card className="max-w-2xl mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
               <CardContent className="p-8">
@@ -311,7 +308,6 @@ export default function BlobbiDashboard() {
     <BlobbiLayout>
       <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
         <div className="container mx-auto pt-2 pb-8 px-4">
-
 
       <div className="grid lg:grid-cols-4 gap-6">
         {/* Sidebar - Profile & Quick Stats */}

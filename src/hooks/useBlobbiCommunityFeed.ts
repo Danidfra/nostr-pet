@@ -85,7 +85,7 @@ export function useBlobbiCommunityFeed(limit: number = 50) {
 
         // If no results, try fallback query without tag filters and filter client-side
         if (events.length === 0) {
-          console.log('[Blobbi Community] No results with tag filters, trying fallback query...');
+
           const allEvents = await nostr.query([
             {
               kinds: [1],
@@ -97,8 +97,7 @@ export function useBlobbiCommunityFeed(limit: number = 50) {
           events = allEvents.filter(event => 
             hasBlobbiEcosystemTag(event.tags) && hasBlobbiTopicTag(event.tags)
           );
-          
-          console.log(`[Blobbi Community] Fallback query found ${events.length} matching events`);
+
         }
 
         // Transform events into CommunityPost format

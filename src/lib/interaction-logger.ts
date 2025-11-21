@@ -136,48 +136,43 @@ function logInteractionDetails(data: InteractionLogData): void {
   } = data;
 
   // Basic information
-  console.log(`🎯 Action: ${actionName}`);
-  console.log(`🔮 Blobbi ID: ${blobbiId}`);
-  console.log(`📊 Current Stage: ${currentStage}`);
-  console.log(`⏰ Timestamp: ${formatTimestamp(timestamp)}`);
-  console.log(`📝 Type: ${interactionType}`);
 
   // Cooldown information
   if (cooldownRemaining !== undefined) {
     if (cooldownRemaining > 0) {
-      console.log(`⏳ Cooldown Remaining: ${formatCooldownTime(cooldownRemaining)}`);
+
     } else {
-      console.log(`✅ No Cooldown Active`);
+
     }
   }
 
   // Error information
   if (errorMessage) {
-    console.log(`❌ Error: ${errorMessage}`);
+
   }
 
   // Item usage
   if (itemUsed) {
-    console.log(`🎒 Item Used: ${itemUsed}`);
+
   }
 
   // Experience gained
   if (experienceGained) {
-    console.log(`⭐ Experience Gained: +${experienceGained} XP`);
+
   }
 
   // Stat changes
   if (statChanges && Object.keys(statChanges).length > 0) {
-    console.log(`📈 Stat Changes:`);
+
     for (const [stat, change] of Object.entries(statChanges)) {
       const sign = change >= 0 ? '+' : '';
-      console.log(`   ${stat}: ${sign}${change}`);
+
     }
   }
 
   // Before/after stats comparison
   if (previousStats && newStats) {
-    console.log(`📊 Stats Comparison:`);
+
     console.table({
       'Previous': previousStats,
       'New': newStats,
@@ -198,8 +193,7 @@ export function logInteraction(data: InteractionLogData): void {
   logInteractionDetails(data);
   
   // Add a separator for better readability
-  console.log(`${'─'.repeat(50)}`);
-  
+
   // End the group
   console.groupEnd();
   
@@ -207,10 +201,7 @@ export function logInteraction(data: InteractionLogData): void {
   const { actionName, blobbiId, currentStage, timestamp, interactionType, cooldownRemaining } = data;
   const timeStr = formatTimestamp(timestamp);
   const cooldownStr = cooldownRemaining ? ` (cooldown: ${formatCooldownTime(cooldownRemaining)})` : '';
-  
-  console.log(
-    `🎮 ${timeStr} | ${actionName} | ${blobbiId} | ${currentStage} | ${interactionType}${cooldownStr}`
-  );
+
 }
 
 /**
@@ -298,9 +289,7 @@ export function logInteractionError(
  */
 export function logCooldownSystemInit(blobbiId: string): void {
   console.group(`🔧 COOLDOWN SYSTEM INITIALIZED`);
-  console.log(`🔮 Blobbi ID: ${blobbiId}`);
-  console.log(`⏰ Timestamp: ${formatTimestamp(Date.now())}`);
-  console.log(`📝 System: Ready to track interactions and cooldowns`);
+
   console.groupEnd();
 }
 
@@ -321,10 +310,7 @@ export function logCooldownSync(blobbiId: string, syncedActions: string[], sourc
   };
 
   console.group(`🔄 COOLDOWN SYNC`);
-  console.log(`🔮 Blobbi ID: ${blobbiId}`);
-  console.log(`⏰ Timestamp: ${formatTimestamp(Date.now())}`);
-  console.log(`${sourceEmoji[source]} Source: ${sourceDescription[source]}`);
-  console.log(`🎯 Synced Actions: ${syncedActions.join(', ') || 'none'}`);
+
   console.groupEnd();
 }
 
@@ -336,7 +322,7 @@ export class InteractionLogger {
   
   static setVerbose(enabled: boolean): void {
     InteractionLogger.verboseMode = enabled;
-    console.log(`🔧 Interaction logging ${enabled ? 'ENABLED' : 'DISABLED'}`);
+
   }
   
   static isVerbose(): boolean {

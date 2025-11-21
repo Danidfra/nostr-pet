@@ -200,12 +200,10 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi, onPhotoPosted }: P
     }
 
     setIsCapturing(true);
-    console.log('📸 Starting photo capture with html-to-image');
 
     try {
       // Wait for fonts to be loaded
       await document.fonts.ready;
-      console.log('✅ Fonts loaded');
 
       // Wait for images to be loaded
       const images = polaroidRootRef.current.querySelectorAll('img');
@@ -221,18 +219,15 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi, onPhotoPosted }: P
           });
         })
       );
-      console.log('✅ Images loaded');
 
       // Calculate pixel ratio for quality
       const pixelRatio = Math.min(3, window.devicePixelRatio || 1);
-      console.log('📱 Using pixel ratio:', pixelRatio);
 
       // Capture polaroid root element
       const dataUrl = await toPng(polaroidRootRef.current, {
         pixelRatio,
       });
 
-      console.log('✅ Photo captured successfully');
       setCapturedPolaroid(dataUrl);
 
       // Analytics tracking

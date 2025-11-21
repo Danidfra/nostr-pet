@@ -165,7 +165,6 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     }
   }, [realBlobbi, isSleeping, isOwner, wakeUp]);
 
-
   // Helper function to get valid size for components
   const getValidSize = (size?: string): 'tiny' | 'small' | 'medium' | 'large' => {
     if (size && isValidSize(size)) {
@@ -192,8 +191,6 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     markPhotoTaskCompleted
   } = useBlobbiIncubationSystem();
 
-
-
   const [showShop, setShowShop] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [showGames, setShowGames] = useState(false);
@@ -217,8 +214,6 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     }
     // Baby evolution is now handled in the Growth Hub dashboard
   }, [realBlobbi, blobbiId, selectEgg, startIncubation]);
-
-
 
   // Auto-start details tour based on sessionStorage
   useEffect(() => {
@@ -280,8 +275,6 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   // Calculate evolution readiness
   const eggReadiness = realBlobbi.lifeStage === 'egg' ? checkEggHatchingReadiness(realBlobbi) : null;
   const babyReadiness = realBlobbi.lifeStage === 'baby' ? checkBabyEvolutionReadiness(realBlobbi) : null;
-
-
 
   // Mock zaps received (in a real app, this would come from Nostr events)
   const zapsReceived = [
@@ -398,10 +391,6 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
               onTakePhoto={() => setShowPolaroidModal(true)}
             />
           )}
-
-
-
-
 
           {/* Quick Info */}
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
@@ -713,8 +702,6 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
               </Card>
             </TabsContent>
 
-
-
             {/* Social Tab */}
             <TabsContent value="social" className="space-y-6">
               {/* Zaps Received */}
@@ -798,7 +785,6 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                 </CardContent>
               </Card>
             </TabsContent>
-
 
           </Tabs>
         </div>

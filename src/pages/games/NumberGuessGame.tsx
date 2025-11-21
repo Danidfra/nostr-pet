@@ -523,7 +523,6 @@ export function NumberGuessGame() {
                 </div>
               )}
 
-
             </div>
           </CardContent>
         </Card>

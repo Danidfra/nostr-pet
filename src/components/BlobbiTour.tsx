@@ -514,12 +514,6 @@ export function BlobbiTour({
       effectiveStep.imageOffsetY = effectiveStep.imageOffsetY ?? 0;
 
       // Debug logging
-      console.log('📱 Mobile effective props:', {
-        imagePosition: effectiveStep.imagePosition,
-        imageOffsetX: effectiveStep.imageOffsetX,
-        imageOffsetY: effectiveStep.imageOffsetY,
-        imageUrl: effectiveStep.imageUrl
-      });
 
       return effectiveStep;
     }
@@ -541,12 +535,6 @@ export function BlobbiTour({
     effectiveStep.imageOffsetY = effectiveStep.imageOffsetY ?? 0;
 
     // Debug logging
-    console.log('🖥️ Desktop effective props:', {
-      imagePosition: effectiveStep.imagePosition,
-      imageOffsetX: effectiveStep.imageOffsetX,
-      imageOffsetY: effectiveStep.imageOffsetY,
-      imageUrl: effectiveStep.imageUrl
-    });
 
     return effectiveStep;
   };

@@ -203,8 +203,6 @@ function ManifestationEffect({ type, patternIdPrefix }: { type: string; patternI
     case 'ring_mark':
   return <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="2" />;
 
-
-
     case 'glow_ring':
       return (
         <svg width="600" height="600" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">

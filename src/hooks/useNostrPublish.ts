@@ -69,7 +69,7 @@ export function useNostrPublish() {
       console.error("Failed to publish event:", error);
     },
     onSuccess: (data) => {
-      console.log("Event published successfully:", data);
+
     },
   });
 }

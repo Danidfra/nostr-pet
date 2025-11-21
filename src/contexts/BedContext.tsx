@@ -18,7 +18,7 @@ const BedContext = createContext<BedContextType | undefined>(undefined);
 
 export function BedProvider({ children }: { children: ReactNode }) {
   const { data: companionData } = useCurrentCompanion();
-  
+
   const [isBedVisible, setIsBedVisible] = useState(() => {
     try {
       const saved = localStorage.getItem(BED_VISIBILITY_KEY);
@@ -47,7 +47,7 @@ export function BedProvider({ children }: { children: ReactNode }) {
 
   const setBedVisibility = useCallback((visible: boolean, isManual: boolean = false) => {
     setIsBedVisible(visible);
-    
+
     // ✅ FIXED: Set manual override when user manually toggles bed
     if (isManual) {
       setIsManualOverride(visible);
@@ -57,7 +57,7 @@ export function BedProvider({ children }: { children: ReactNode }) {
         console.error('Failed to save manual override to localStorage:', error);
       }
     }
-    
+
     try {
       localStorage.setItem(BED_VISIBILITY_KEY, JSON.stringify(visible));
     } catch (error) {
@@ -72,7 +72,7 @@ export function BedProvider({ children }: { children: ReactNode }) {
 
   // ✅ NEW: Function to set companion loaded state
   const setCompanionLoaded = useCallback((loaded: boolean) => {
-    console.log(`🔄 Companion loaded state changed: ${loaded}`);
+
     setIsCompanionLoaded(loaded);
   }, []);
 
@@ -81,13 +81,13 @@ export function BedProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (companionData?.blobbi && isCompanionLoaded) {
       const isCompanionSleeping = companionData.blobbi.isSleeping || false;
-      
+
       // Track sleep state changes
       if (previousSleepState.current !== null && previousSleepState.current !== isCompanionSleeping) {
         // Sleep state changed
         if (isCompanionSleeping) {
           // Companion just went to sleep - always show bed and clear manual override
-          console.log('🛏️ Auto-showing bed because companion went to sleep');
+
           setIsManualOverride(false);
           setBedVisibility(true, false);
           try {
@@ -98,20 +98,20 @@ export function BedProvider({ children }: { children: ReactNode }) {
         } else {
           // Companion just woke up - only auto-hide if no manual override
           if (!isManualOverride) {
-            console.log('🛏️ Auto-hiding bed because companion woke up (no manual override)');
+
             setBedVisibility(false, false);
           } else {
-            console.log('🛏️ Keeping bed visible due to manual override');
+
           }
         }
       } else if (previousSleepState.current === null && isCompanionLoaded) {
         // Initial load after companion is loaded - show bed if companion is sleeping
         if (isCompanionSleeping && (!isManualOverride || isBedVisible)) {
-          console.log('🛏️ Auto-showing bed on load because companion is sleeping');
+          
           setBedVisibility(true, false);
         }
       }
-      
+
       previousSleepState.current = isCompanionSleeping;
     }
   }, [companionData?.blobbi?.isSleeping, isCompanionLoaded, isManualOverride, isBedVisible, setBedVisibility]);
@@ -119,14 +119,14 @@ export function BedProvider({ children }: { children: ReactNode }) {
   // ✅ NEW: Only render bed when companion is loaded and bed should be visible
   const shouldRenderBed = isCompanionLoaded && isBedVisible;
 
-  const value = { 
-    isBedVisible, 
-    isCompanionLoaded, 
-    shouldRenderBed, 
-    showBed, 
-    hideBed, 
-    toggleBed, 
-    setCompanionLoaded 
+  const value = {
+    isBedVisible,
+    isCompanionLoaded,
+    shouldRenderBed,
+    showBed,
+    hideBed,
+    toggleBed,
+    setCompanionLoaded
   };
 
   return <BedContext.Provider value={value}>{children}</BedContext.Provider>;

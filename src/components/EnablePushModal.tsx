@@ -49,9 +49,9 @@ export function EnablePushModal({ open, onClose }: EnablePushModalProps) {
       const isValidNpub = typeof npub === "string" && /^npub1[0-9a-z]+$/.test(npub);
 
       if (isValidNpub) {
-        console.log("npub attached");
+
       } else {
-        console.log("invalid npub, skipping");
+
         npub = undefined;
       }
 

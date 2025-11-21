@@ -77,8 +77,6 @@ export function useBlobbiCooldowns(blobbi: Blobbi | null): UseBlobbiCooldownsRet
       
       // Log successful initialization
       logCooldownSync(blobbi.id, Object.keys(actionTimestamps), 'relay');
-      
-      console.log(`📊 COOLDOWNS INITIALIZED FROM BLOBBI STATE | ${blobbi.id} | ${blobbi.lifeStage} | Actions: ${Object.keys(actionTimestamps).join(', ')}`);
 
     } catch (err) {
       console.error('Failed to initialize cooldowns from Blobbi data:', err);

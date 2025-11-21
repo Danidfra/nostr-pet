@@ -611,7 +611,6 @@ export function filterEggTagsForBaby(
   existingTags: Array<[string, string]>,
   blobbi: Blobbi
 ): Array<[string, string]> {
-  console.log(`🐣 [HatchFilter] Filtering ${existingTags.length} tags for baby stage`);
 
   const EGG_ONLY_TAGS = new Set([
     'egg_temperature',
@@ -645,30 +644,28 @@ export function filterEggTagsForBaby(
   // 🔥 FIX: Enhanced filtering with detailed logging
   const filteredTags = existingTags.filter(([tagName, tagValue]) => {
     if (!tagName || !tagValue) {
-      console.log(`🚫 [HatchFilter] Removing invalid tag: ${tagName}=${tagValue}`);
+
       return false;
     }
 
     // Remove egg-only tags
     if (EGG_ONLY_TAGS.has(tagName)) {
-      console.log(`🥚 [HatchFilter] Removing egg tag: ${tagName}=${tagValue}`);
+
       return false;
     }
 
     // Remove task-related tags by pattern
     for (const pattern of TASK_PATTERNS) {
       if (tagName.includes(pattern)) {
-        console.log(`📋 [HatchFilter] Removing task tag: ${tagName}=${tagValue}`);
+
         return false;
       }
     }
 
     // Keep all other tags
-    console.log(`✅ [HatchFilter] Keeping tag: ${tagName}=${tagValue}`);
+
     return true;
   });
-
-  console.log(`🐣 [HatchFilter] Filtered to ${filteredTags.length} tags, rebuilding canonical order`);
 
   // Rebuild tags in canonical order for baby stage
   return rebuildCanonicalBabyTags(filteredTags as [string, string][], blobbi);

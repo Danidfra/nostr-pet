@@ -26,4 +26,3 @@ export function getActionDisplayName(action: BlobbiAction): string {
   return actionLabels[action] || action;
 }
 
-

@@ -160,8 +160,6 @@ export function shouldHibernate(blobbi: Blobbi, currentTime: number = Date.now()
   return daysSinceInteraction > 7 && blobbi.state !== 'hibernating';
 }
 
-
-
 // Apply an action to Blobbi
 export function applyAction(blobbi: Blobbi, action: BlobbiAction, currentTime: number = Date.now(), itemEffects?: Partial<BlobbiStats>): Blobbi {
   // First, calculate current stats with decay

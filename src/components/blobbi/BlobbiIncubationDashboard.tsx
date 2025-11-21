@@ -128,7 +128,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
       if (babyBlobbis.length > 0) {
         const firstBaby = babyBlobbis[0];
         selectBaby(firstBaby.id);
-        console.log(`🐣 Auto-selected first baby: ${firstBaby.name}`);
+
       }
     }
   }, [blobbis, eggBlobbis, babyBlobbis, selectedEggId, selectedBabyId, selectEgg, selectBaby]);
@@ -647,8 +647,6 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
         </Card>
       )}
 
-
-
       {/* Adult Blobbis Section */}
       {adultBlobbis.length > 0 && (
         <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-yellow-200 dark:border-yellow-600">
@@ -723,8 +721,6 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
           </Collapsible>
         </Card>
       )}
-
-
 
       {/* Debug Information */}
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">

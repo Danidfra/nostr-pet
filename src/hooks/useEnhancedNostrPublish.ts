@@ -82,7 +82,6 @@ export function useEnhancedNostrPublish() {
       console.error("Failed to publish event:", error);
     },
     onSuccess: (data) => {
-      console.log("Event published successfully:", data);
 
       // Targeted query invalidation based on event type
       if (data.kind === BLOBBI_EVENT_KINDS.INTERACTION) {
@@ -194,20 +193,6 @@ async function handleInteractionStateUpdate(
     });
 
     await nostr.event(stateEvent, { signal: AbortSignal.timeout(5000) });
-
-    console.log('✅ Auto-generated state event for interaction:', {
-      blobbiId,
-      interaction: interactionEvent.id,
-      state: stateEvent.id,
-      taskProgressIncluded: !!taskProgressUpdate,
-      ...(taskProgressUpdate && {
-        taskProgress: {
-          newProgress: taskProgressUpdate.newProgress,
-          confirmed: taskProgressUpdate.addConfirmation,
-          lastInteractionUpdated: taskProgressUpdate.updateLastInteractionTime
-        }
-      })
-    });
 
   } catch (error) {
     console.error('Failed to auto-generate state event for interaction:', error);
@@ -379,13 +364,13 @@ async function calculateInteract6Progress(
   const validEggActions = ['warm', 'check', 'sing', 'talk', 'medicine', 'clean'];
 
   if (!action || !validEggActions.includes(action)) {
-    console.log(`⏭️ Action ${action} not valid for interact_6 task`);
+
     return null;
   }
 
   // Check if this is an egg
   if (currentBlobbi.lifeStage !== 'egg') {
-    console.log(`⏭️ Blobbi ${currentBlobbi.id} is not an egg (stage: ${currentBlobbi.lifeStage}), skipping interact_6 progress`);
+
     return null;
   }
 
@@ -393,14 +378,14 @@ async function calculateInteract6Progress(
   const { extractTagValues } = await import('@/lib/blobbi-state-merge');
   const startIncubationTags = extractTagValues({ tags: currentTags } as any, 'start_incubation');
   if (startIncubationTags.length === 0) {
-    console.log(`⏭️ No start_incubation tag for ${currentBlobbi.id}, skipping interact_6 progress`);
+
     return null;
   }
 
   // Check if already confirmed
   const interact6ConfirmedTag = currentTags.find(tag => tag[0] === 'interact_6_confirmed');
   if (interact6ConfirmedTag) {
-    console.log(`⏭️ interact_6 already confirmed for ${currentBlobbi.id}, skipping progress`);
+
     return null;
   }
 
@@ -416,16 +401,13 @@ async function calculateInteract6Progress(
   const interactionTimestamp = interactionEvent.created_at;
   const cooldownPassed = interactionTimestamp - lastInteractionTime >= 3;
 
-  console.log(`⏱️ Cooldown check: current=${interactionTimestamp}, last=${lastInteractionTime}, diff=${interactionTimestamp - lastInteractionTime}, passed=${cooldownPassed}`);
-
   if (!cooldownPassed) {
-    console.log(`⏭️ Cooldown not passed for ${currentBlobbi.id}, skipping interact_6 progress`);
+
     return null;
   }
 
   // Increment progress
   const newProgress = currentProgress + 1;
-  console.log(`📈 Updating interact_6 progress: ${currentProgress} → ${newProgress}${newProgress >= 6 ? ' (COMPLETED)' : ''}`);
 
   return {
     updateProgress: true,

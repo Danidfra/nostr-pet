@@ -75,13 +75,13 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
     
     // Prevent duplicate recovery for the same sleep session
     if (processedBlobbiRef.current === recoveryKey) {
-      console.log('Passive recovery already processed for this sleep session');
+
       return;
     }
 
     const { totalRecovery, newBlocks } = calculatePassiveRecovery(blobbi);
     if (newBlocks <= 0) {
-      console.log('No new recovery blocks to apply');
+
       // Mark as processed even if no recovery to prevent repeated checks
       processedBlobbiRef.current = recoveryKey;
       return;
@@ -92,8 +92,7 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
     const energyGained = newEnergy - blobbi.stats.energy;
 
     if (energyGained > 0) {
-      console.log(`Passive sleep recovery: +${energyGained} energy (${newBlocks} new blocks, ${totalRecovery} total calculated)`);
-      
+
       try {
         // ⚠️ IMPORTANT: For passive recovery, emit only kind 31124 (state update) with last_sleep_update tag
         // Do NOT emit kind 14919 (interaction event) for passive recovery
@@ -122,7 +121,7 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
 
         // Log the result
         if (newEnergy >= 100) {
-          console.log('Blobbi automatically woke up - energy reached 100% (single event)');
+
           // Clear recovery tracking when waking up
           processedBlobbiRef.current = null;
         }
@@ -156,8 +155,7 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
       const energyGained = newEnergy - blobbi.stats.energy;
 
       if (energyGained > 0) {
-        console.log(`Active sleep recovery: +${energyGained} energy`);
-        
+
         try {
           // ⚠️ IMPORTANT: For active recovery, emit only kind 31124 (state update) with last_sleep_update tag
           // Do NOT emit kind 14919 (interaction event) for active recovery
@@ -185,8 +183,7 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
 
           // Log the result
           if (newEnergy >= 100) {
-            console.log('Blobbi automatically woke up - energy reached 100% (single event)');
-            
+
             // Reset recovery tracking when auto-waking
             processedBlobbiRef.current = null;
             lastPassiveRecoveryRef.current = 0;
@@ -202,7 +199,6 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
   const putToSleep = useCallback(async () => {
     if (!blobbi || !isOwner || blobbi.isSleeping) return;
 
-    console.log('Putting Blobbi to sleep...');
     setOptimisticSleepState?.(true);
 
     // Reset recovery tracking when starting new sleep session
@@ -253,7 +249,6 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
   const wakeUp = useCallback(async () => {
     if (!blobbi || !isOwner || !blobbi.isSleeping) return;
 
-    console.log('Waking up Blobbi...');
     setOptimisticSleepState?.(false);
     
     // Reset recovery tracking when manually waking up
@@ -330,8 +325,7 @@ export function useBlobbiSleepSystem({ blobbi, isOwner, setOptimisticSleepState 
   // Migrate existing sleeping Blobbis to have sleepStartedAt
   const migrateSleepingBlobbi = useCallback(async (blobbi: Blobbi) => {
     if (blobbi.isSleeping && !blobbi.sleepStartedAt && isOwner) {
-      console.log('Migrating sleeping Blobbi to include sleepStartedAt...');
-      
+
       const updatedBlobbi: Blobbi = {
         ...blobbi,
         sleepStartedAt: blobbi.lastInteraction, // Use lastInteraction as sleep start time

@@ -204,8 +204,7 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
       }
 
       try {
-        console.log('🛏️ Bed clicked - triggering wake-up sequence for:', blobbi.name);
-        
+
         // Trigger the wake-up sequence
         await wakeUp();
         
@@ -213,8 +212,7 @@ export const DraggableBed = forwardRef<HTMLDivElement, DraggableBedProps>(
           title: "Blobbi Woke Up!",
           description: `${blobbi.name} has been gently woken up from their nap.`,
         });
-        
-        console.log('✅ Wake-up sequence completed successfully');
+
       } catch (error) {
         console.error('❌ Failed to wake up Blobbi:', error);
         toast({

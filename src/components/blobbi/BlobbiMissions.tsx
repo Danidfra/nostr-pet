@@ -45,7 +45,6 @@ export function BlobbiMissions() {
   const hasHatchedFirstEgg = userBlobbis.some(blobbi => blobbi.lifeStage !== 'egg');
   const hasClaimedWelcomeMission = profile?.achievements.includes('welcome_mission') ?? false;
 
-
   // Define missions
   const missions: Mission[] = [
     {

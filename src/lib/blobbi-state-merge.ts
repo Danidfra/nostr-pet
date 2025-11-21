@@ -128,7 +128,7 @@ export function mergeBlobbiStateTags(
         if (options.updateTaskProgress && tagName === `${options.updateTaskProgress.taskId}_progress`) {
           // Replace this specific progress tag with new value
           result.push([tagName, options.updateTaskProgress.progress.toString()]);
-          console.log(`🔄 Updating progress tag: ${tagName} = ${options.updateTaskProgress.progress}`);
+
           // Don't break here - continue to check if this is also a confirmation tag
         }
 
@@ -137,7 +137,7 @@ export function mergeBlobbiStateTags(
           // Replace this specific confirmation tag with timestamp
           const timestamp = Math.floor(Date.now() / 1000).toString();
           result.push([tagName, timestamp]);
-          console.log(`✅ Updating confirmation tag: ${tagName} = ${timestamp}`);
+
           // Don't break here - continue to preservation logic
         }
 
@@ -146,7 +146,7 @@ export function mergeBlobbiStateTags(
 
         if (CORE_STAT_TAGS.has(tagName)) {
           // 🔥 CRITICAL: Skip preserved stat tags - they will be overridden by additionalTags with current values
-          console.log(`🚫 [TagMerge] Skipping preserved stat tag (will be overridden): ${tagName}`);
+
           return; // Don't preserve any stat tags - always use fresh values
         }
 
@@ -216,7 +216,7 @@ export function mergeBlobbiStateTags(
     if (existingProgressIndex === -1) {
       // Tag doesn't exist yet, add it
       result.push([progressTagName, options.updateTaskProgress.progress.toString()]);
-      console.log(`➕ Adding new progress tag: ${progressTagName} = ${options.updateTaskProgress.progress}`);
+
     }
     // If it exists, it was already updated in the switch logic above
   }

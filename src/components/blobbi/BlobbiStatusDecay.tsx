@@ -23,8 +23,6 @@ export function BlobbiStatusDecay({ blobbi, className }: BlobbiStatusDecayProps)
     return 'text-red-600';
   };
 
-
-
   const formatTime = (hours: number) => {
     if (hours < 1) {
       const minutes = Math.floor(hours * 60);

@@ -129,7 +129,6 @@ export function createShellIntegrityPenaltyEvent(
 
 // Create Kind 31124: Blobbi Current State Event
 export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
-  console.log(`🏗️ [StateEvent] Creating state event for ${blobbi.name} (${blobbi.id}) - Stage: ${blobbi.lifeStage}`);
 
   // 🔥 DIVINE PRESERVATION: Ensure Divine tags are present before processing
   const divinePreservedBlobbi = ensureDivineTags(blobbi);
@@ -143,9 +142,8 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
       .filter(([k, v]) => k && v) // Only include tags with both key and value
       .map(([k, v]) => [k, v] as [string, string]);
 
-    console.log(`🏷️ [StateEvent] Preserving ${preservedTags.length} existing tags`);
   } else {
-    console.log(`🏷️ [StateEvent] No existing tags to preserve, creating fresh tags`);
+
   }
 
   // SPECIAL HANDLING FOR HATCHING: If this is a baby stage that was just hatched,
@@ -165,12 +163,12 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
           blobbi
         );
         preservedTags = filteredTags.filter(([k, v]) => k && v);
-        console.log(`🐣 [StateEvent] Applied hatching filter, preserved ${preservedTags.length} tags`);
+
       } catch (error) {
         console.warn('[Hatching] Could not apply egg tag filter, using original tags:', error);
       }
     } else {
-      console.log(`🐣 [StateEvent] Tags already filtered for baby stage`);
+
     }
   }
 
@@ -198,8 +196,6 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
     ['care_streak', Math.max(0, blobbi.careStreak || 0).toString()],
     ['last_interaction', Math.floor(blobbi.lastInteraction || Date.now() / 1000).toString()],
   ];
-
-  console.log(`📊 [StateEvent] Core stats - H:${coreUpdates[4][1]} Ha:${coreUpdates[5][1]} He:${coreUpdates[6][1]} Hy:${coreUpdates[7][1]} E:${coreUpdates[8][1]}`);
 
   // 🔥 FIX: Create a map to merge preserved tags with updates
   const stateTagMap = new Map<string, string>();
@@ -230,7 +226,7 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
       }
 
       if (isEggOrTaskTag) {
-        console.log(`🚫 [StateEvent] Filtering out egg/task tag for baby: ${key}`);
+
         return; // Skip egg-specific tags for baby stage
       }
     }
@@ -238,7 +234,7 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
     // 🔥 FIX: Never override core stats with potentially stale preserved values
     const CORE_STAT_TAGS = new Set(['hunger', 'happiness', 'health', 'hygiene', 'energy', 'experience', 'care_streak']);
     if (CORE_STAT_TAGS.has(key)) {
-      console.log(`🔄 [StateEvent] Skipping preserved stat tag (will be overridden): ${key}=${value}`);
+
       return; // Skip preserved stats - they will be overridden with current values
     }
 
@@ -248,9 +244,9 @@ export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): O
   // 🔥 FIX: Then override with core updates (these always take precedence)
   coreUpdates.forEach(([key, value]) => {
     if (stateTagMap.has(key)) {
-      console.log(`🔄 [StateEvent] Overriding preserved tag: ${key} (${stateTagMap.get(key)} → ${value})`);
+
     } else {
-      console.log(`➕ [StateEvent] Adding new core tag: ${key}=${value}`);
+
     }
     stateTagMap.set(key, value);
   });
@@ -722,8 +718,6 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       hygiene: Math.max(0, Math.min(100, parseInt(hygieneStr))),
       energy: Math.max(0, Math.min(100, parseInt(energyStr))),
     };
-
-    console.log(`📊 [ParseBlobbi] Parsed stats for ${id}: H:${stats.hunger} Ha:${stats.happiness} He:${stats.health} Hy:${stats.hygiene} E:${stats.energy}`);
 
     const experience = parseInt(getTagValue(tags, 'experience') || '0');
     const careStreak = parseInt(getTagValue(tags, 'care_streak') || '0');

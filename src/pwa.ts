@@ -17,15 +17,15 @@ export function setupPWA(options: PWARegisterOptions = {}) {
 
   const updateSW = registerSW({
     onOfflineReady() {
-      console.log('App is ready to work offline');
+
       onOfflineReady?.();
     },
     onNeedRefresh() {
-      console.log('New content available, please refresh');
+
       onNeedRefresh?.();
     },
     onRegistered(registration) {
-      console.log('Service Worker registered:', registration);
+
       onRegistered?.(registration);
     },
     onRegisterError(error) {
@@ -46,7 +46,7 @@ export function createPWAToastHandler() {
       }
     },
     onOfflineReady: () => {
-      console.log('Ready for offline use');
+
       // Optionally show a toast notification
       if ('toast' in window && typeof window.toast === 'function') {
         // @ts-ignore - toast might be available globally

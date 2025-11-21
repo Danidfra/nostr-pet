@@ -188,11 +188,6 @@ export function useBlobbiInteractionWithFakeStatus() {
       queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', variables.blobbiId] });
 
-      console.log('Interaction recorded with fake status and automatic state update:', {
-        blobbiId: variables.blobbiId,
-        action: variables.action,
-        interactionId: data.interactionEvent.id,
-      });
     },
     onError: (error, variables) => {
       // On error, decrement pending interactions but keep fake status
@@ -252,12 +247,6 @@ export function useBlobbiGameInteractionWithFakeStatus() {
       queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', variables.blobbiId] });
 
-      console.log('Game interaction recorded with fake status and automatic state update:', {
-        blobbiId: variables.blobbiId,
-        gameType: variables.gameType,
-        score: variables.score,
-        interactionId: data.interactionEvent.id,
-      });
     },
     onError: (error, variables) => {
       console.error('Failed to record game interaction with fake status:', {
@@ -333,11 +322,6 @@ export function useBlobbiCareInteractionWithFakeStatus() {
       queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', variables.blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', variables.blobbiId] });
 
-      console.log('Care interaction recorded with fake status and automatic state update:', {
-        blobbiId: variables.blobbiId,
-        action: variables.action,
-        interactionId: data.interactionEvent.id,
-      });
     },
     onError: (error, variables) => {
       console.error('Failed to record care interaction with fake status:', {
@@ -348,8 +332,6 @@ export function useBlobbiCareInteractionWithFakeStatus() {
     },
   });
 }
-
-
 
 // Helper functions
 function getTimeOfDay(): string {

@@ -197,7 +197,6 @@ const SpecialMarkSVGs = {
     </svg>
   ),
 
-
 };
 
 // Animation variants for different special marks
@@ -348,8 +347,6 @@ export const SpecialMarkFallback: React.FC<{
         };
     }
   }, [specialMark]);
-
-
 
   if (!fallbackStyle) return null;
 

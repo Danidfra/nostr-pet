@@ -61,8 +61,6 @@ export function useBlobbiOnLoadDecayManager() {
           return;
         }
 
-        console.log(`🔄 Silently applying on-load decay to ${blobbisNeedingDecay.length} Blobbis (30+ min since last interaction)...`);
-
         // Process each Blobbi that needs decay with minimal blocking
         const processPromises = blobbisNeedingDecay.map(async (blobbi, index) => {
           // Stagger the processing to avoid overwhelming the relay
@@ -119,10 +117,9 @@ export function useBlobbiOnLoadDecayManager() {
                 });
               }
 
-              console.log(`✅ Silently applied decay to ${blobbi.name} (${blobbi.id})`);
               return blobbi.id;
             } else {
-              console.log(`⏭️ No significant changes for ${blobbi.name} (${blobbi.id})`);
+
               return null;
             }
           } catch (error) {

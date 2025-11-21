@@ -28,11 +28,11 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
 
       // 🔥 FIX: More conservative sync - only clear if real data is much newer AND no pending interactions
       if (timeDifference >= 30 && pendingInteractionCount === 0) {
-        console.log(`🔄 [FakeStatus] Clearing outdated fake status for ${effectiveBlobbiId} (real: ${realTimestamp}, fake: ${fakeTimestamp})`);
+
         syncWithRealData(effectiveBlobbiId, originalHook.blobbi);
       } else if (timeDifference < -60) {
         // 🔥 FIX: If fake data is more than 60 seconds ahead of real data, something is wrong - clear it
-        console.log(`⚠️ [FakeStatus] Fake status too far ahead of real data for ${effectiveBlobbiId}, clearing`);
+
         syncWithRealData(effectiveBlobbiId, originalHook.blobbi);
       }
     }
@@ -45,8 +45,6 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
     // 🔥 CRITICAL: Use real data only, never create fake status from potentially stale data
     const currentBlobbi = originalHook.blobbi;
     if (!currentBlobbi) return originalHook.performAction(action as 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar', itemEffect);
-
-    console.log(`🎮 [FakeStatus] Performing action "${action}" for ${effectiveBlobbiId}`);
 
     // Calculate optimistic stat changes for immediate UI feedback
     const statChanges: Array<[string, number]> = [];
@@ -91,7 +89,6 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
       // Update lastInteraction to current timestamp for proper sync logic
       updatedBlobbi.lastInteraction = Math.floor(Date.now() / 1000);
 
-      console.log(`📊 [FakeStatus] Creating optimistic update:`, statChanges);
       setFakeStatus(effectiveBlobbiId, updatedBlobbi);
       incrementPendingInteractions(effectiveBlobbiId);
     }
@@ -99,7 +96,7 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
     // Perform the real action in the background
     try {
       const result = await originalHook.performAction(action as 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar', itemEffect);
-      console.log(`✅ [FakeStatus] Real action "${action}" completed successfully`);
+
       return result;
     } catch (error) {
       console.error(`❌ [FakeStatus] Real action "${action}" failed:`, error);
@@ -177,10 +174,10 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
       // 2. The difference is reasonable (< 5 minutes to prevent stale data)
       // 3. There are pending interactions (indicating legitimate optimistic state)
       if (timeDifference > 0 && timeDifference < 300 && pendingInteractionCount > 0) {
-        console.log(`🎭 [FakeStatus] Using fake status for ${effectiveBlobbiId} (fake: ${fakeTimestamp}, real: ${realTimestamp}, pending: ${pendingInteractionCount})`);
+
         return fakeStatus;
       } else {
-        console.log(`📊 [FakeStatus] Using real status for ${effectiveBlobbiId} - fake data invalid or stale`);
+
         return originalHook.blobbi;
       }
     }

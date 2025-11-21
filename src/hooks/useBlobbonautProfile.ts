@@ -330,7 +330,7 @@ export function useCreateInitialProfile() {
         }
       } catch (error) {
         // Ignore errors when fetching metadata, we'll use fallback
-        console.log('Could not fetch user metadata for default name:', error);
+
       }
 
       const initialProfile: BlobbonautProfile = {

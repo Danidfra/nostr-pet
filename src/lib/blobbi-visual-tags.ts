@@ -337,8 +337,6 @@ export function getVisualEffectRarity(effectType: string): 'common' | 'uncommon'
 
     'glow_blue': 'rare',
 
-
-    
     // Legendary
     'sigil_eye': 'legendary',
 
@@ -347,7 +345,6 @@ export function getVisualEffectRarity(effectType: string): 'common' | 'uncommon'
     'divine_circle': 'legendary',
 
     'angel_halo': 'legendary',
-
 
   };
   

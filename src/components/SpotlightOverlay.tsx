@@ -154,15 +154,6 @@ export function SpotlightOverlay({
         finalTop = Math.max(viewportPadding, Math.min(viewportHeight - estimatedImageHeight - viewportPadding, finalTop));
 
         // Debug logging
-        console.log('🎯 SpotlightOverlay final position:', {
-          spotlightRect: { x: spotlightRect.x, y: spotlightRect.y, width: spotlightRect.width, height: spotlightRect.height },
-          imagePosition: position,
-          offsets: { x: finalOffsetX, y: finalOffsetY },
-          beforeClamp: { left, top },
-          afterClamp: { left: finalLeft, top: finalTop },
-          transform,
-          viewport: { width: viewportWidth, height: viewportHeight }
-        });
 
         setImagePositionState({ top: finalTop, left: finalLeft, transform });
       } else {
@@ -404,11 +395,6 @@ export function SpotlightOverlay({
                 // Clamp to viewport boundaries
                 finalLeft = Math.max(viewportPadding, Math.min(viewportWidth - actualWidth - viewportPadding, finalLeft));
                 finalTop = Math.max(viewportPadding, Math.min(viewportHeight - actualHeight - viewportPadding, finalTop));
-
-                console.log('🖼️ Image loaded - recalculated position:', {
-                  actualSize: { width: actualWidth, height: actualHeight },
-                  finalPosition: { left: finalLeft, top: finalTop, transform }
-                });
 
                 setImagePositionState({ top: finalTop, left: finalLeft, transform });
               }

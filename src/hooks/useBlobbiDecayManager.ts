@@ -81,8 +81,7 @@ export function useBlobbiDecayManager({
               
               // Invalidate queries to refresh UI
               queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
-              
-              console.log(`Shell integrity penalty: ${carePointsDeducted} care points deducted for ${decayedBlobbi.name}`);
+
             }
           } else {
             // Reset tracking if shell integrity is above threshold

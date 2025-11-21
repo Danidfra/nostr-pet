@@ -72,13 +72,6 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
     return map;
   }, [blobbi?.tags]);
 
-  console.log('confere aqui: ',blobbi)
-
-  // 🚀 CENTRALIZED DIVINE DETECTION: Use utility function
-  const isDivine = React.useMemo(() => {
-    return isDivineEgg(blobbi);
-  }, [blobbi]);
-
   // Initialize special mark hook for dynamic rendering
   const specialMarkHook = useSpecialMark(blobbi?.specialMark || null, {
     animated,
@@ -199,6 +192,8 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
   };
 
   // Get actual warmth from blobbi or use prop
+  // Check if this is a divine egg
+  const isDivine = blobbi ? isDivineEgg(blobbi) : false;
   const actualWarmth = blobbi?.eggTemperature ?? warmth;
 
   // Get base color from blobbi or use warmth-based fallback
@@ -513,8 +508,6 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
             <path d="M60 59 L57 53" stroke="rgba(255, 255, 255, 0.1)" strokeWidth="0.4" strokeLinecap="round" />
           </svg>
         )}
-
-
 
         {/* Title display for special eggs */}
         {blobbi?.title && (

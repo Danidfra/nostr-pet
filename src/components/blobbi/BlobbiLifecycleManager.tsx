@@ -55,7 +55,7 @@ export const BlobbiLifecycleManager: React.FC<BlobbiLifecycleManagerProps> = ({ 
     updateBlobbi: async (updatedBlobbi) => {
       // This would need to be connected to the actual update function
       // For now, we'll just log the decay
-      console.log('Blobbi decay applied:', updatedBlobbi);
+
     },
     enabled: !!blobbi,
   });

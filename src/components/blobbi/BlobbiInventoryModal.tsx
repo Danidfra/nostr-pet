@@ -162,7 +162,6 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
   };
 
   const placeToyInCompanion = async (toy: BlobbiItem) => {
-    console.log('🎾 Placing toy in companion:', toy);
 
     // First, remove the toy from storage
     await removeFromStorage({
@@ -172,7 +171,6 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
 
     // ✅ NEW: Handle Build Blocks differently - don't create a toy element
     if (toy.id === 'toy_blocks') {
-      console.log('🧱 Build Blocks selected - will trigger block selection menu');
 
       // Dispatch toy-placed event with null element to trigger block selection menu
       window.dispatchEvent(new CustomEvent('toy-placed', {
@@ -322,10 +320,6 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
       currentBlobbi: blobbi,
     });
   };
-
-
-
-
 
   const getActionTitle = () => {
     switch (actionType) {

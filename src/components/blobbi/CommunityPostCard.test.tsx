@@ -101,5 +101,4 @@ describe('CommunityPostCard', () => {
     expect(image?.className).toContain('object-contain');
   });
 
-  
 });

@@ -65,8 +65,6 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
     mutationFn: async ({ blobbi, fees }: { blobbi: Blobbi; fees?: number }) => {
       if (!user) throw new Error('Must be logged in to update Blobbi state');
 
-      console.log(`🔄 [StateUpdate] Updating state for ${blobbi.name} (${blobbi.id})`);
-
       // Fetch current state to compare and merge tags safely
       const signal = AbortSignal.timeout(5000);
       const currentEvents = await nostr.query([
@@ -112,11 +110,10 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
             currentBlobbi.isSleeping !== blobbi.isSleeping;
 
           if (!statsChanged && !significantOtherChanges && !eggChanges && !customizationChanges) {
-            console.log(`⏭️ [StateUpdate] No significant changes detected (thresholds: stats ±2, time ±30s), skipping update for ${blobbi.id}`);
+
             return blobbi; // No meaningful changes, skip update
           }
 
-          console.log(`📊 [StateUpdate] Changes detected - Stats: ${statsChanged}, Other: ${significantOtherChanges}, Egg: ${eggChanges}, Customization: ${customizationChanges}`);
         }
       }
 
@@ -141,7 +138,7 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
         const tagMap = new Map(updatedTags);
         coreStatTags.forEach(([tagName, tagValue]) => {
           tagMap.set(tagName, tagValue);
-          console.log(`🔒 [StateUpdate] Force-setting core stat: ${tagName}=${tagValue}`);
+
         });
         updatedTags = Array.from(tagMap.entries());
       } else {
@@ -151,8 +148,6 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
       }
 
       const baseContent = `${blobbi.name} is a ${blobbi.lifeStage} Blobbi.`;
-
-      console.log(`📤 [StateUpdate] Publishing state event with ${updatedTags.length} tags`);
 
       await publishEvent({
         kind: BLOBBI_EVENT_KINDS.STATE,

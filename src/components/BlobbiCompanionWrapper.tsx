@@ -437,11 +437,11 @@ export function BlobbiCompanionWrapper() {
       if (!bedElement || !window.blobbiCompanion) {
         // ✅ ENHANCED: Retry positioning up to 3 times with increasing delays
         if (retryCount < 3) {
-          console.log(`🛏️ Bed or companion not found for positioning, retrying... (${retryCount + 1}/3)`);
+
           positionBlobbiOnBed(blobbiId, retryCount + 1);
           return;
         }
-        console.log('🛏️ Bed or companion not found for positioning after retries');
+
         return;
       }
 
@@ -470,7 +470,6 @@ export function BlobbiCompanionWrapper() {
       // Position the companion
       window.blobbiCompanion.setPosition(boundedX, boundedY);
 
-      console.log(`🛏️ Positioned sleeping Blobbi on bed at (${boundedX}, ${boundedY})`);
       positionedForSleep.current = blobbiId;
     }, 300 + (retryCount * 200)); // Increase delay with each retry
   }, []);
@@ -545,7 +544,7 @@ export function BlobbiCompanionWrapper() {
 
       // ✅ NEW: Check if we need to position for sleep
       if (blobbi.isSleeping && positionedForSleep.current !== blobbiId) {
-        console.log('🛏️ Same companion but now sleeping, positioning on bed');
+
         positionBlobbiOnBed(blobbiId);
       } else if (!blobbi.isSleeping) {
         // Reset positioning tracking if not sleeping
@@ -636,7 +635,7 @@ export function BlobbiCompanionWrapper() {
           try {
             // Use the local SVG resolver to pre-cache assets
             await preloadBlobbiSvgs(blobbi);
-            console.log(`✅ Preloaded local SVGs for ${blobbi.lifeStage} stage ${blobbi.evolutionForm || 'baby'}`);
+
           } catch (preloadError) {
             console.warn('Failed to preload local SVGs:', preloadError);
           }
@@ -656,7 +655,7 @@ export function BlobbiCompanionWrapper() {
 
         // ✅ NEW: If Blobbi is sleeping, position it on the bed after a short delay
         if (blobbi.isSleeping) {
-          console.log('🛏️ Blobbi is sleeping, will position on bed');
+
           positionBlobbiOnBed(blobbiId);
         } else {
           // Reset positioning tracking if not sleeping
@@ -689,11 +688,10 @@ export function BlobbiCompanionWrapper() {
       if (cachedSvg) {
         // Quick switch using cached SVG
         updateSvgInDom(cachedSvg);
-        console.log(`✅ Switched to ${isSleeping ? 'sleeping' : 'awake'} SVG from cache`);
 
         // ✅ NEW: Position Blobbi on bed if now sleeping
         if (isSleeping && positionedForSleep.current !== blobbiId) {
-          console.log('🛏️ Blobbi switched to sleeping, positioning on bed');
+
           positionBlobbiOnBed(blobbiId);
         } else if (!isSleeping) {
           // Reset positioning tracking if not sleeping
@@ -708,11 +706,10 @@ export function BlobbiCompanionWrapper() {
 
             sessionStorage.setItem(currentCacheKey, customizedSvg);
             updateSvgInDom(customizedSvg);
-            console.log(`✅ Resolved and switched to ${isSleeping ? 'sleeping' : 'awake'} local SVG`);
 
             // 🛏️ Position Blobbi on bed if now sleeping
             if (isSleeping && positionedForSleep.current !== blobbiId) {
-              console.log('🛏️ Blobbi switched to sleeping, positioning on bed');
+
               positionBlobbiOnBed(blobbiId);
             } else if (!isSleeping) {
               // Reset positioning tracking if not sleeping
@@ -738,16 +735,15 @@ export function BlobbiCompanionWrapper() {
 
     // If Blobbi is sleeping but hasn't been positioned yet, try to position it
     if (blobbi.isSleeping && positionedForSleep.current !== blobbiId) {
-      console.log('🛏️ Companion loaded and sleeping, checking for bed to position');
 
       // Check if bed is available immediately
       const bedElement = document.querySelector('img[src*="bed.png"]') as HTMLElement;
       if (bedElement && window.blobbiCompanion) {
-        console.log('🛏️ Bed found immediately, positioning sleeping Blobbi');
+
         positionBlobbiOnBed(blobbiId);
       } else {
         // Wait for bed to become available
-        console.log('🛏️ Bed not found, will retry positioning');
+
         positionBlobbiOnBed(blobbiId);
       }
     }

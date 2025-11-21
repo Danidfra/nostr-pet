@@ -114,7 +114,6 @@ export function useLightningPayment() {
       // For now, we'll generate a hash from the invoice string
       // In production, you'd want to properly parse the BOLT11 invoice
       const paymentHash = `invoice-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      console.log('Generated payment hash for invoice:', paymentHash);
 
       setInvoice(invoiceResponse.pr);
       setPaymentHash(paymentHash);

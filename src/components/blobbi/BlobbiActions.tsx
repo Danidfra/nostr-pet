@@ -55,8 +55,6 @@ export function BlobbiActions({
   const { mutateAsync: createInitialProfile } = useCreateInitialProfile();
   const { toast } = useToast();
 
-
-
   // Use the enhanced interaction system that automatically handles both 14919 and 31124 events
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteractionWithFakeStatus();
 
@@ -95,7 +93,7 @@ export function BlobbiActions({
   const handleAction = async (action: BlobbiAction) => {
     // Prevent rapid successive actions
     if (actionInProgress) {
-      console.log(`Action ${actionInProgress} already in progress, ignoring ${action}`);
+
       return;
     }
 
@@ -112,8 +110,6 @@ export function BlobbiActions({
       });
       return;
     }
-
-
 
     // For actions that require items, open the inventory modal
     if (['feed', 'play', 'clean', 'medicine'].includes(action)) {
@@ -340,7 +336,6 @@ export function BlobbiActions({
             {actions.map(({ action, icon: Icon, label, color, disabled, tooltip }, index) => {
               // Check if action is available for this stage
               const isAvailableForStage = isActionAvailableForStage(action, blobbi.lifeStage);
-
 
               const isThisActionInProgress = actionInProgress === action;
               const isDisabled = !isAvailableForStage || disabled || isPerformingAction || !!actionInProgress;

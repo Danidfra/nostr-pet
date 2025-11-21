@@ -17,7 +17,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   // Memoize the pool configuration to prevent unnecessary recreations
   const poolConfig = useMemo(() => ({
     open(url: string) {
-      console.log('🔗 Opening connection to relay:', url);
+
       return new NRelay1(url);
     },
     reqRouter(filters: NostrFilter[]) {
@@ -39,9 +39,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     const oldPool = pool.current;
     if (oldPool) {
       cleanupInProgress.current = true;
-      console.log('🧹 Cleaning up old Nostr pool...');
+
       oldPool.close().then(() => {
-        console.log('✅ Old pool cleanup completed');
+
         cleanupInProgress.current = false;
       }).catch((error) => {
         console.warn('⚠️ Error during pool cleanup:', error);
@@ -51,7 +51,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
     if (relays.length > 0) {
       pool.current = new NPool(poolConfig);
-      console.log('🔗 Nostr pool updated with relays:', relays);
+
     } else {
       pool.current = undefined;
     }
@@ -60,7 +60,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     return () => {
       if (pool.current && !cleanupInProgress.current) {
         cleanupInProgress.current = true;
-        console.log('🔄 Effect cleanup: closing pool...');
+
         pool.current.close().then(() => {
           cleanupInProgress.current = false;
         }).catch((error) => {
