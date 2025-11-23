@@ -14,7 +14,7 @@ import {
   parseRecordFromEvent,
   validateBlobbiEvent,
 } from '@/lib/blobbi-events';
-import { mergeBlobbiStateTags } from '@/lib/blobbi-state-merge';
+import { buildBlobbiStateTags } from '@/lib/blobbi-state-builder';
 import {
   Blobbi,
   BlobbiInteractionData,
@@ -60,12 +60,14 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
   // Parse Blobbi from state event
   const blobbi = stateEvent ? parseBlobbiFromStateEvent(stateEvent) : null;
 
-  // 🔥 FIX: Update Blobbi state with enhanced change detection and tag preservation
+  // Update Blobbi state using the new deterministic builder
   const updateStateMutation = useMutation({
     mutationFn: async ({ blobbi, fees }: { blobbi: Blobbi; fees?: number }) => {
       if (!user) throw new Error('Must be logged in to update Blobbi state');
 
-      // Fetch current state to compare and merge tags safely
+      console.log('[STATE] Updating state for:', blobbi.id);
+
+      // Fetch current state to preserve incubation/evolution/task tags
       const signal = AbortSignal.timeout(5000);
       const currentEvents = await nostr.query([
         {
@@ -78,81 +80,28 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
 
       const currentEvent = currentEvents[0];
 
-      // 🔥 FIX: Enhanced change detection - only update when truly necessary
-      if (currentEvent) {
-        const currentBlobbi = parseBlobbiFromStateEvent(currentEvent);
-        if (currentBlobbi) {
-          // 🔥 CRITICAL: More precise change detection with higher thresholds
-          const statsChanged =
-            Math.abs(currentBlobbi.stats.hunger - blobbi.stats.hunger) >= 2 ||
-            Math.abs(currentBlobbi.stats.happiness - blobbi.stats.happiness) >= 2 ||
-            Math.abs(currentBlobbi.stats.health - blobbi.stats.health) >= 2 ||
-            Math.abs(currentBlobbi.stats.hygiene - blobbi.stats.hygiene) >= 2 ||
-            Math.abs(currentBlobbi.stats.energy - blobbi.stats.energy) >= 2;
+      // Build tags using the new deterministic builder
+      // Use source='user' to prevent auto-reaction
+      const tags = buildBlobbiStateTags(blobbi, currentEvent?.tags, 'user');
 
-          const significantOtherChanges =
-            currentBlobbi.lifeStage !== blobbi.lifeStage ||
-            Math.abs(currentBlobbi.experience - blobbi.experience) >= 5 ||
-            Math.abs(currentBlobbi.careStreak - blobbi.careStreak) >= 1 ||
-            Math.abs(currentBlobbi.lastInteraction - blobbi.lastInteraction) >= 30; // 30+ second difference for meaningful interactions
-
-          const eggChanges =
-            blobbi.lifeStage === 'egg' && (
-              Math.abs((currentBlobbi.eggTemperature || 0) - (blobbi.eggTemperature || 0)) >= 2 ||
-              Math.abs((currentBlobbi.shellIntegrity || 100) - (blobbi.shellIntegrity || 100)) >= 2
-            );
-
-          const customizationChanges =
-            currentBlobbi.baseColor !== blobbi.baseColor ||
-            currentBlobbi.secondaryColor !== blobbi.secondaryColor ||
-            currentBlobbi.pattern !== blobbi.pattern ||
-            currentBlobbi.specialMark !== blobbi.specialMark ||
-            currentBlobbi.isSleeping !== blobbi.isSleeping;
-
-          if (!statsChanged && !significantOtherChanges && !eggChanges && !customizationChanges) {
-
-            return blobbi; // No meaningful changes, skip update
-          }
-
+      // Add fees tag if provided
+      if (fees !== undefined) {
+        const existingFeesIndex = tags.findIndex(([name]) => name === 'fees');
+        if (existingFeesIndex >= 0) {
+          tags[existingFeesIndex] = ['fees', fees.toString()];
+        } else {
+          tags.push(['fees', fees.toString()]);
         }
       }
 
-      // 🔥 FIX: Enhanced tag merging with stat override protection
-      let updatedTags: Array<[string, string]>;
+      const content = `${blobbi.name} is a ${blobbi.lifeStage} Blobbi.`;
 
-      if (currentEvent) {
-        // Use merge helper to preserve existing tags while ensuring current stats take precedence
-        const stateEventData = createBlobbiStateEvent(blobbi, fees);
-
-        // 🔥 CRITICAL: Ensure current stats always override any preserved values
-        const coreStatTags = stateEventData.tags.filter(([tagName]) =>
-          ['hunger', 'happiness', 'health', 'hygiene', 'energy', 'experience', 'care_streak', 'last_interaction'].includes(tagName)
-        );
-
-        updatedTags = mergeBlobbiStateTags(currentEvent.tags, {
-          additionalTags: stateEventData.tags,
-          preserveIncubationAndQuestTags: true,
-        });
-
-        // 🔥 DOUBLE-CHECK: Force override core stats to prevent stale values
-        const tagMap = new Map(updatedTags);
-        coreStatTags.forEach(([tagName, tagValue]) => {
-          tagMap.set(tagName, tagValue);
-
-        });
-        updatedTags = Array.from(tagMap.entries());
-      } else {
-        // No existing event, create new tags
-        const stateEventData = createBlobbiStateEvent(blobbi, fees);
-        updatedTags = stateEventData.tags.map(tag => [tag[0] || '', tag[1] || '']) as Array<[string, string]>;
-      }
-
-      const baseContent = `${blobbi.name} is a ${blobbi.lifeStage} Blobbi.`;
+      console.log('[STATE] Publishing 31124 with', tags.length, 'tags', 'source: user');
 
       await publishEvent({
         kind: BLOBBI_EVENT_KINDS.STATE,
-        content: baseContent,
-        tags: updatedTags,
+        content,
+        tags,
       });
 
       return blobbi;
@@ -449,8 +398,8 @@ export function useCreateBlobbi() {
 
       // Then create the initial state with adoption fees
       const adoptionFees = 100; // Standard adoption cost
-      const stateEventData = createBlobbiStateEvent(newBlobbi, adoptionFees);
-      // check if there's already one (unlikely, but keeps same pattern)
+
+      // Check if there's already a state (unlikely, but keeps same pattern)
       const signal = AbortSignal.timeout(3000);
       const existing = await nostr.query([
         {
@@ -461,15 +410,16 @@ export function useCreateBlobbi() {
         },
       ], { signal });
 
-      const finalTags =
-        existing.length > 0
-          ? mergeBlobbiStateTags(existing[0].tags, { additionalTags: stateEventData.tags })
-          : stateEventData.tags;
+      // Use source='user' for adoption
+      const tags = buildBlobbiStateTags(newBlobbi, existing[0]?.tags, 'user');
+
+      // Add fees tag
+      tags.push(['fees', adoptionFees.toString()]);
 
       await publishEvent({
         kind: BLOBBI_EVENT_KINDS.STATE,
-        content: stateEventData.content,
-        tags: finalTags,
+        content: `${newBlobbi.name} is a ${newBlobbi.lifeStage} Blobbi.`,
+        tags,
       });
 
       return newBlobbi;

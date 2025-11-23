@@ -53,7 +53,7 @@ export function BlobbiCompanionIntegration() {
   const { data: companionData } = useCurrentCompanion();
 
   // ✅ FIXED: Use the current companion's Blobbi ID instead of falling back to user's first Blobbi
-  const { blobbi, performAction, setSleepStateOptimistic } = useBlobbiWithFakeStatus(
+  const { blobbi, performAction } = useBlobbiWithFakeStatus(
     companionData?.blobbi?.ownerPubkey,
     companionData?.blobbiId
   );
@@ -64,7 +64,6 @@ export function BlobbiCompanionIntegration() {
   const { putToSleep, wakeUp, isSleeping } = useBlobbiSleepSystem({
     blobbi,
     isOwner: !!user && blobbi?.ownerPubkey === user.pubkey,
-    setOptimisticSleepState: setSleepStateOptimistic,
   });
 
   // Set up global event listeners for companion interactions
@@ -287,7 +286,7 @@ export function BlobbiCompanionIntegration() {
       window.removeEventListener('companion-wake-up-request', handleWakeUpRequest);
       delete (window as unknown as { openFeedModal?: () => void }).openFeedModal;
     };
-  }, [selectedFood, blobbi, user, isPlacingFood, performAction, toast, removeFromStorage, putToSleep, wakeUp, isSleeping, companionData, setSleepStateOptimistic]);
+  }, [selectedFood, blobbi, user, isPlacingFood, performAction, toast, removeFromStorage, putToSleep, wakeUp, isSleeping, companionData]);
 
   // Notify companion when sleep state changes from React side
   useEffect(() => {

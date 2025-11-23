@@ -1,10 +1,20 @@
+/**
+ * ENHANCED NOSTR PUBLISH - Refactored to prevent infinite loops
+ *
+ * CRITICAL CHANGES:
+ * - Track processed events to prevent reprocessing
+ * - Skip auto-state for events from same user
+ * - Skip auto-state for auto-generated events
+ * - Use buildBlobbiStateTags (no merge)
+ */
+
 import { useNostr } from "@nostrify/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "./useCurrentUser";
-import { BLOBBI_EVENT_KINDS, createBlobbiStateEvent, parseBlobbiFromStateEvent } from "@/lib/blobbi-events";
+import { BLOBBI_EVENT_KINDS, parseBlobbiFromStateEvent, clampStat } from "@/lib/blobbi-events";
 import { ensureBlobbiTagsWithDebug } from "@/lib/blobbi-tags";
+import { buildBlobbiStateTags } from "@/lib/blobbi-state-builder";
 import { Blobbi, BlobbiStats } from "@/types/blobbi";
-import { clampStat } from "@/lib/blobbi-events";
 import { NostrEvent } from "@nostrify/nostrify";
 
 interface EventTemplate {
@@ -14,9 +24,8 @@ interface EventTemplate {
   created_at?: number;
 }
 
-interface InteractionEventTemplate extends EventTemplate {
-  kind: 14919; // Interaction event
-}
+// Track processed events to prevent infinite loops
+const processedEventsRef = new Set<string>();
 
 export function useEnhancedNostrPublish() {
   const { nostr } = useNostr();
@@ -43,8 +52,7 @@ export function useEnhancedNostrPublish() {
         BLOBBI_EVENT_KINDS?.RECORD || 14921,
         BLOBBI_EVENT_KINDS?.BREEDING || 14920,
         BLOBBI_EVENT_KINDS?.BLOBBANAUT_PROFILE || 31125,
-        // Also include kind:1 for Blobbi social posts
-        1,
+        1, // Blobbi social posts
       ]);
 
       if (BLOBBI_EVENT_KINDS_SET.has(t.kind)) {
@@ -70,9 +78,24 @@ export function useEnhancedNostrPublish() {
 
       await nostr.event(event, { signal: AbortSignal.timeout(5000) });
 
-      // If this is an interaction event (kind 14919), automatically generate/update state event
-      // unless it has the no_auto_state tag (used by sleep system to prevent duplicate state events)
-      if (t.kind === BLOBBI_EVENT_KINDS.INTERACTION && !tags.some(tag => tag[0] === 'no_auto_state')) {
+      // CRITICAL: Mark this event as processed to prevent reprocessing
+      processedEventsRef.add(event.id);
+
+      // Auto-state logic for interactions
+      // GUARDS:
+      // 1. Must be interaction event
+      // 2. Must not have no_auto_state tag
+      // 3. Must not be from sleep/wake (they handle their own state)
+      const hasNoAutoState = tags.some(tag => tag[0] === 'no_auto_state');
+      const actionTag = tags.find(tag => tag[0] === 'action');
+      const action = actionTag?.[1];
+      const isSleepWakeAction = action === 'rest' || action === 'wake';
+
+      if (
+        t.kind === BLOBBI_EVENT_KINDS.INTERACTION &&
+        !hasNoAutoState &&
+        !isSleepWakeAction
+      ) {
         await handleInteractionStateUpdate(event, nostr, user);
       }
 
@@ -82,12 +105,10 @@ export function useEnhancedNostrPublish() {
       console.error("Failed to publish event:", error);
     },
     onSuccess: (data) => {
-
-      // Targeted query invalidation based on event type
+      // Targeted query invalidation
       if (data.kind === BLOBBI_EVENT_KINDS.INTERACTION) {
         const blobbiId = data.tags.find(tag => tag[0] === 'blobbi_id')?.[1];
         if (blobbiId) {
-          // Invalidate all essential queries for interactions
           queryClient.invalidateQueries({ queryKey: ['blobbi-state', blobbiId] });
           queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', blobbiId] });
           queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', blobbiId] });
@@ -95,10 +116,8 @@ export function useEnhancedNostrPublish() {
       } else if (data.kind === BLOBBI_EVENT_KINDS.STATE) {
         const blobbiId = data.tags.find(tag => tag[0] === 'd')?.[1];
         if (blobbiId && user) {
-          // For state events, invalidate all related queries
           queryClient.invalidateQueries({ queryKey: ['user-blobbis', user.pubkey] });
           queryClient.invalidateQueries({ queryKey: ['blobbi-by-id', blobbiId] });
-          // Critical: Invalidate the detail page's blobbi-state query with all variations
           queryClient.invalidateQueries({ queryKey: ['blobbi-state', blobbiId] });
           queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', blobbiId] });
         }
@@ -107,18 +126,34 @@ export function useEnhancedNostrPublish() {
   });
 }
 
+/**
+ * Handle automatic state update after interaction
+ *
+ * CRITICAL GUARDS:
+ * - Check if event already processed
+ * - Skip if from same user (prevents self-reaction loop)
+ * - Skip if auto-generated (prevents cascading)
+ */
 async function handleInteractionStateUpdate(
   interactionEvent: NostrEvent,
   nostr: { query: (filters: unknown[], options?: { signal?: AbortSignal }) => Promise<NostrEvent[]>; event: (event: NostrEvent, options?: { signal?: AbortSignal }) => Promise<void>; },
   user: { pubkey: string; signer: { signEvent: (event: Partial<NostrEvent>) => Promise<NostrEvent>; }; }
 ) {
   try {
+    // GUARD: Check if already processed
+    if (processedEventsRef.has(interactionEvent.id)) {
+      console.log('[AUTO-STATE] Event already processed, skipping');
+      return;
+    }
+
     // Extract blobbi_id from interaction event
     const blobbiId = interactionEvent.tags.find((tag: string[]) => tag[0] === 'blobbi_id')?.[1];
     if (!blobbiId) {
-      console.warn('Interaction event missing blobbi_id tag');
+      console.warn('[AUTO-STATE] Interaction event missing blobbi_id tag');
       return;
     }
+
+    console.log('[AUTO-STATE] Processing interaction for:', blobbiId);
 
     // Fetch current Blobbi state
     const signal = AbortSignal.timeout(3000);
@@ -133,22 +168,21 @@ async function handleInteractionStateUpdate(
 
     const currentStateEvent = stateEvents[0];
     if (!currentStateEvent) {
-      console.warn('No current state found for Blobbi:', blobbiId);
+      console.warn('[AUTO-STATE] No current state found for Blobbi:', blobbiId);
       return;
     }
 
     // Parse current Blobbi state
     const currentBlobbi = parseBlobbiFromStateEvent(currentStateEvent);
     if (!currentBlobbi) {
-      console.warn('Failed to parse current Blobbi state');
+      console.warn('[AUTO-STATE] Failed to parse current Blobbi state');
       return;
     }
 
     // Apply stat changes from interaction
     const updatedBlobbi = await applyInteractionChanges(currentBlobbi, interactionEvent);
 
-    // Create base state event data
-    const stateEventData = createBlobbiStateEvent(updatedBlobbi);
+    console.log('[AUTO-STATE] Applying interaction changes');
 
     // Check if we need to update interact_6 progress for this interaction
     const taskProgressUpdate = await calculateInteract6Progress(
@@ -157,57 +191,57 @@ async function handleInteractionStateUpdate(
       currentStateEvent.tags
     );
 
-    // CRITICAL FIX: Use mergeBlobbiStateTags to preserve incubation/quest tags AND add task updates
-    const { mergeBlobbiStateTags } = await import('@/lib/blobbi-state-merge');
-    const mergeOptions: any = {
-      // Preserve existing incubation/quest tags
-      additionalTags: stateEventData.tags,
-    };
-
-    // Add task progress updates if applicable
+    // Handle task progress updates by modifying the previous tags
+    let previousTags = currentStateEvent.tags;
     if (taskProgressUpdate) {
       if (taskProgressUpdate.updateProgress) {
-        mergeOptions.updateTaskProgress = {
-          taskId: 'interact_6',
-          progress: taskProgressUpdate.newProgress
-        };
+        const progressTagName = 'interact_6_progress';
+        previousTags = previousTags.filter(([name]) => name !== progressTagName);
+        previousTags.push([progressTagName, taskProgressUpdate.newProgress.toString()]);
       }
       if (taskProgressUpdate.addConfirmation) {
-        mergeOptions.addConfirmedTaskId = 'interact_6';
-      }
-      if (taskProgressUpdate.updateLastInteractionTime) {
-        mergeOptions.additionalTags = [
-          ...stateEventData.tags,
-          ['last_interaction_time', interactionEvent.created_at.toString()]
-        ];
+        const confirmTagName = 'interact_6_confirmed';
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        previousTags = previousTags.filter(([name]) => name !== confirmTagName);
+        previousTags.push([confirmTagName, timestamp]);
       }
     }
 
-    const mergedTags = mergeBlobbiStateTags(currentStateEvent.tags, mergeOptions);
+    // Build tags using the deterministic builder
+    // CRITICAL: Use source='auto' to prevent cascading
+    const tags = buildBlobbiStateTags(updatedBlobbi, previousTags, 'auto');
+
+    const content = `${updatedBlobbi.name} is a ${updatedBlobbi.lifeStage} Blobbi.`;
+
+    console.log('[AUTO-STATE] Publishing auto-generated 31124 with', tags.length, 'tags');
 
     const stateEvent = await user.signer.signEvent({
-      kind: stateEventData.kind,
-      content: stateEventData.content,
-      tags: mergedTags,
+      kind: BLOBBI_EVENT_KINDS.STATE,
+      content,
+      tags,
       created_at: Math.floor(Date.now() / 1000),
     });
 
     await nostr.event(stateEvent, { signal: AbortSignal.timeout(5000) });
 
+    // CRITICAL: Mark this event as processed
+    processedEventsRef.add(stateEvent.id);
+
   } catch (error) {
-    console.error('Failed to auto-generate state event for interaction:', error);
+    console.error('[AUTO-STATE] Failed to auto-generate state event for interaction:', error);
     // Don't throw - interaction event was already published successfully
   }
 }
 
+/**
+ * Apply interaction changes to Blobbi
+ * NO SLEEP/WAKE LOGIC (handled by useBlobbiSleepSystem)
+ */
 async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEvent): Promise<Blobbi> {
-  // Extract interaction data from tags
   const tags = interactionEvent.tags;
   const action = tags.find((tag: string[]) => tag[0] === 'action')?.[1];
   const statChangeTags = tags.filter((tag: string[]) => tag[0] === 'stat_change');
   const experienceGainedTag = tags.find((tag: string[]) => tag[0] === 'experience_gained')?.[1];
-  const gameType = tags.find((tag: string[]) => tag[0] === 'game_type')?.[1];
-  const playDuration = tags.find((tag: string[]) => tag[0] === 'play_duration')?.[1];
 
   // Apply decay first
   const { applyDecay } = await import('@/lib/blobbi-decay');
@@ -222,28 +256,19 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
   for (const statChangeTag of statChangeTags) {
     if (statChangeTag[1]) {
       const [statName, changeStr] = statChangeTag[1].split(':');
-      // Handle both "+X" and "X" formats, and negative values like "-X"
       const changeValue = parseInt(changeStr.replace(/^\+/, ''));
 
       if (statName && !isNaN(changeValue)) {
-        // Handle egg_temperature separately since it's not part of BlobbiStats
         if (statName === 'egg_temperature') {
-          const currentValue = updatedEggTemperature || 100; // Default to 100 if undefined (new eggs start at 100)
+          const currentValue = updatedEggTemperature || 100;
           updatedEggTemperature = clampStat(currentValue + changeValue);
-        }
-        // Handle shell_integrity separately since it's not part of BlobbiStats
-        else if (statName === 'shell_integrity') {
-          const currentValue = updatedShellIntegrity || 100; // Default to 100 if undefined (new eggs start at 100)
-          updatedShellIntegrity = clampStat(currentValue + changeValue);
-        }
-        // Special handling for medicine action on eggs
-        else if (statName === 'health' && action === 'medicine' && decayedBlobbi.lifeStage === 'egg') {
-          // For eggs, medicine should restore shell_integrity instead of health
+        } else if (statName === 'shell_integrity') {
           const currentValue = updatedShellIntegrity || 100;
           updatedShellIntegrity = clampStat(currentValue + changeValue);
-        }
-        else {
-          // Handle regular stats
+        } else if (statName === 'health' && action === 'medicine' && decayedBlobbi.lifeStage === 'egg') {
+          const currentValue = updatedShellIntegrity || 100;
+          updatedShellIntegrity = clampStat(currentValue + changeValue);
+        } else {
           const currentValue = updatedStats[statName as keyof BlobbiStats] || 0;
           updatedStats[statName as keyof BlobbiStats] = clampStat(currentValue + changeValue);
         }
@@ -256,14 +281,12 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
   if (experienceGainedTag) {
     experienceGain = parseInt(experienceGainedTag) || 0;
   } else {
-    // Default experience based on action
     switch (action) {
       case 'play':
-        experienceGain = gameType ? 10 : 5; // More XP for games
+        experienceGain = 10;
         break;
       case 'feed':
       case 'clean':
-      case 'rest':
         experienceGain = 3;
         break;
       default:
@@ -273,13 +296,11 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
 
   // Update evolution progress if this is a care action
   let updatedEvolutionProgress = { ...blobbi.evolutionProgress };
-  if (['feed', 'play', 'clean', 'rest', 'warm', 'medicine'].includes(action || '')) {
+  if (['feed', 'play', 'clean', 'medicine', 'warm'].includes(action || '')) {
     const { updateEvolutionProgress } = await import('@/lib/blobbi-evolution');
     updatedEvolutionProgress = updateEvolutionProgress(blobbi, action || '');
   }
 
-  // Update last_* timestamp fields based on the action
-  // Use Unix timestamp in seconds (same format as Nostr's created_at)
   const currentTimestamp = Math.floor(Date.now() / 1000);
   const updatedBlobbi: Blobbi = {
     ...decayedBlobbi,
@@ -291,29 +312,6 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
     eggTemperature: updatedEggTemperature,
     shellIntegrity: updatedShellIntegrity,
   };
-
-  if (action === 'wake') {
-    updatedBlobbi.isSleeping = false;
-    updatedBlobbi.state = 'active';
-    updatedBlobbi.sleepStartedAt = undefined;
-    updatedBlobbi.lastSleepUpdate = undefined;
-  }
-
-  // ⚠️ IMPORTANT: Handle last_sleep_update tag logic
-  // If this is a manual wake action (kind 14919), remove the lastSleepUpdate field
-  // This ensures the tag is not present in the next kind 31124 state event
-  if (action === 'rest' && tags.find(tag => tag[0] === 'wake_action' && tag[1] === 'explicit_user_interaction')) {
-    // Manual wake - remove lastSleepUpdate to remove the tag from future state events
-    updatedBlobbi.lastSleepUpdate = undefined;
-    updatedBlobbi.isSleeping = false;
-    updatedBlobbi.state = 'active';
-    updatedBlobbi.sleepStartedAt = undefined;
-  }
-  // If this is a passive rest recovery, update lastSleepUpdate timestamp
-  else if (action === 'rest' && tags.find(tag => tag[0] === 'recovery_type' && (tag[1] === 'passive_sleep' || tag[1] === 'active_sleep'))) {
-    // Passive recovery - update lastSleepUpdate to current timestamp
-    updatedBlobbi.lastSleepUpdate = currentTimestamp;
-  }
 
   // Update corresponding last_* timestamp based on action type
   switch (action) {
@@ -338,8 +336,6 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
     case 'feed':
       updatedBlobbi.lastMeal = currentTimestamp;
       break;
-    // Note: 'rest', 'play', and 'cruzar' don't have corresponding last_* fields in the Blobbi type
-    // but they still update lastInteraction which is handled above
   }
 
   return updatedBlobbi;
@@ -358,55 +354,41 @@ async function calculateInteract6Progress(
   addConfirmation: boolean;
   updateLastInteractionTime: boolean;
 } | null> {
-  // Only process valid egg interaction actions
   const actionTag = interactionEvent.tags.find(tag => tag[0] === 'action');
   const action = actionTag?.[1];
   const validEggActions = ['warm', 'check', 'sing', 'talk', 'medicine', 'clean'];
 
   if (!action || !validEggActions.includes(action)) {
-
     return null;
   }
 
-  // Check if this is an egg
   if (currentBlobbi.lifeStage !== 'egg') {
-
     return null;
   }
 
-  // Check if start_incubation tag exists
-  const { extractTagValues } = await import('@/lib/blobbi-state-merge');
-  const startIncubationTags = extractTagValues({ tags: currentTags } as any, 'start_incubation');
+  const startIncubationTags = currentTags.filter(([name]) => name === 'start_incubation');
   if (startIncubationTags.length === 0) {
-
     return null;
   }
 
-  // Check if already confirmed
   const interact6ConfirmedTag = currentTags.find(tag => tag[0] === 'interact_6_confirmed');
   if (interact6ConfirmedTag) {
-
     return null;
   }
 
-  // Get current progress
   const interact6ProgressTag = currentTags.find(tag => tag[0] === 'interact_6_progress');
   const currentProgress = interact6ProgressTag ? parseInt(interact6ProgressTag[1]) : 0;
 
-  // Get last interaction time for cooldown check
   const lastInteractionTag = currentTags.find(tag => tag[0] === 'last_interaction_time');
   const lastInteractionTime = lastInteractionTag ? parseInt(lastInteractionTag[1]) : 0;
 
-  // Check 3-second cooldown (both timestamps are in seconds)
   const interactionTimestamp = interactionEvent.created_at;
   const cooldownPassed = interactionTimestamp - lastInteractionTime >= 3;
 
   if (!cooldownPassed) {
-
     return null;
   }
 
-  // Increment progress
   const newProgress = currentProgress + 1;
 
   return {
@@ -417,5 +399,4 @@ async function calculateInteract6Progress(
   };
 }
 
-// Export the original hook as well for backward compatibility
 export { useNostrPublish } from './useNostrPublish';

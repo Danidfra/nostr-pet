@@ -152,8 +152,6 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   // Use the sleep system
   const {
     isSleeping,
-    sleepStartTime,
-    calculatePassiveRecovery,
     wakeUp
   } = useBlobbiSleepSystem({
     blobbi: realBlobbi || null,
@@ -481,16 +479,10 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                   {isSleeping && ' 💤'}
                 </Badge>
               </div>
-              {isSleeping && sleepStartTime && (
+              {isSleeping && blobbi.sleepStartedAt && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Sleeping Since</span>
-                  <span className="font-medium">{formatDistanceToNow(sleepStartTime, { addSuffix: true })}</span>
-                </div>
-              )}
-              {isSleeping && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Energy Recovery</span>
-                  <span className="font-medium text-green-600">+{calculatePassiveRecovery()} pending</span>
+                  <span className="font-medium">{formatDistanceToNow(blobbi.sleepStartedAt * 1000, { addSuffix: true })}</span>
                 </div>
               )}
               <div className="flex items-center justify-between text-sm">

@@ -87,7 +87,6 @@ export function BlobbiActions({
   } = useBlobbiSleepSystem({
     blobbi,
     isOwner: true, // Assuming this component is only shown to owners
-    setOptimisticSleepState, // Enable optimistic updates for immediate UI feedback
   });
 
   const handleAction = async (action: BlobbiAction) => {

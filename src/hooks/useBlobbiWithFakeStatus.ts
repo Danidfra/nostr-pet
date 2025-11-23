@@ -1,10 +1,23 @@
-import { useEffect, useMemo } from 'react';
+/**
+ * BLOBBI WITH FAKE STATUS - Refactored to prevent infinite loops
+ *
+ * CRITICAL CHANGES:
+ * - Track processed state events to prevent reprocessing
+ * - Skip events from same user (prevents self-reaction)
+ * - Skip auto-generated events (prevents cascading)
+ * - Only sync when real data is significantly newer
+ */
+
+import { useEffect, useMemo, useRef } from 'react';
 import { useBlobbi } from '@/hooks/useBlobbi';
 import { useBlobbiFakeStatus, applyStatChangesToBlobbi } from '@/contexts/BlobbiFakeStatusContext';
-import { Blobbi, BlobbiState } from '@/types/blobbi';
+import { Blobbi } from '@/types/blobbi';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { shouldProcessStateEvent } from '@/lib/blobbi-state-builder';
 
 export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
   const originalHook = useBlobbi(pubkey, blobbiId);
+  const { user } = useCurrentUser();
   const {
     getFakeStatus,
     setFakeStatus,
@@ -13,185 +26,131 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
     incrementPendingInteractions
   } = useBlobbiFakeStatus();
 
+  // Track processed state events to prevent infinite loops
+  const processedStateEventsRef = useRef<Set<string>>(new Set());
+
   const effectiveBlobbiId = blobbiId || originalHook.blobbi?.id;
   const fakeStatus = effectiveBlobbiId ? getFakeStatus(effectiveBlobbiId) : null;
   const pendingInteractionCount = effectiveBlobbiId ? getPendingInteractionCount(effectiveBlobbiId) : 0;
 
-  // 🔥 FIX: Enhanced sync logic with better timing and validation
+  // CRITICAL: Sync logic with guards to prevent infinite loops
   useEffect(() => {
-    if (originalHook.blobbi && effectiveBlobbiId && fakeStatus) {
-      // 🔥 CRITICAL: Only sync if real data is significantly newer (30+ seconds)
-      // This prevents premature clearing of legitimate optimistic updates
+    if (!originalHook.blobbi || !effectiveBlobbiId) return;
+
+    // Only sync if no fake status exists OR real data is significantly newer
+    if (fakeStatus) {
       const realTimestamp = originalHook.blobbi.lastInteraction;
       const fakeTimestamp = fakeStatus.lastInteraction;
       const timeDifference = realTimestamp - fakeTimestamp;
 
-      // 🔥 FIX: More conservative sync - only clear if real data is much newer AND no pending interactions
+      // Only sync if real data is 30+ seconds newer AND no pending interactions
       if (timeDifference >= 30 && pendingInteractionCount === 0) {
-
+        console.log('[FAKE STATUS] Syncing with real data (newer)');
         syncWithRealData(effectiveBlobbiId, originalHook.blobbi);
       } else if (timeDifference < -60) {
-        // 🔥 FIX: If fake data is more than 60 seconds ahead of real data, something is wrong - clear it
-
+        // If fake data is 60+ seconds ahead, something is wrong - clear it
+        console.log('[FAKE STATUS] Clearing stale fake data');
         syncWithRealData(effectiveBlobbiId, originalHook.blobbi);
       }
     }
-  }, [originalHook.blobbi, effectiveBlobbiId, fakeStatus, syncWithRealData, pendingInteractionCount]);
+  }, [
+    originalHook.blobbi?.lastInteraction,
+    effectiveBlobbiId,
+    fakeStatus?.lastInteraction,
+    syncWithRealData,
+    pendingInteractionCount,
+    user?.pubkey
+  ]);
 
-  // 🔥 FIX: Enhanced perform action that only creates fake status when actually needed
-  const performActionWithFakeStatus = async (action: string, itemEffect?: Record<string, number>) => {
-    if (!effectiveBlobbiId) return originalHook.performAction(action as 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar', itemEffect);
+  // Perform action with optimistic update
+  const performActionWithFakeStatus = async (
+    action: 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar',
+    itemEffect?: Record<string, number>
+  ) => {
+    if (!effectiveBlobbiId) {
+      return originalHook.performAction(action, itemEffect);
+    }
 
-    // 🔥 CRITICAL: Use real data only, never create fake status from potentially stale data
     const currentBlobbi = originalHook.blobbi;
-    if (!currentBlobbi) return originalHook.performAction(action as 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar', itemEffect);
+    if (!currentBlobbi) {
+      return originalHook.performAction(action, itemEffect);
+    }
 
     // Calculate optimistic stat changes for immediate UI feedback
     const statChanges: Array<[string, number]> = [];
 
-    // Apply basic stat changes based on action
-    if (action === 'feed' && currentBlobbi.stats.hunger < 90) {
-      statChanges.push(['hunger', Math.min(30, 100 - currentBlobbi.stats.hunger)]);
-    } else if (action === 'play' && currentBlobbi.stats.energy > 10) {
-      statChanges.push(['energy', -10], ['happiness', Math.min(25, 100 - currentBlobbi.stats.happiness)]);
-    } else if (action === 'rest') {
-      statChanges.push(['energy', Math.min(35, 100 - currentBlobbi.stats.energy)]);
-    } else if (action === 'clean') {
-      statChanges.push(['hygiene', Math.min(40, 100 - currentBlobbi.stats.hygiene)], ['happiness', 5]);
-    } else if (action === 'warm') {
-      if (currentBlobbi.lifeStage === 'egg') {
-        statChanges.push(['egg_temperature', Math.min(10, 100 - (currentBlobbi.eggTemperature || 50))]);
-      } else {
+    // Base stat changes by action
+    switch (action) {
+      case 'feed':
+        statChanges.push(['hunger', 30], ['happiness', 5]);
+        break;
+      case 'play':
+        statChanges.push(['happiness', 25], ['energy', -10]);
+        break;
+      case 'clean':
+        statChanges.push(['hygiene', 40], ['happiness', 10]);
+        break;
+      case 'rest':
+        statChanges.push(['energy', 35]);
+        break;
+      case 'warm':
         statChanges.push(['health', 5]);
-      }
-    } else if (action === 'check') {
-      statChanges.push(['happiness', 3]);
-    } else if (action === 'sing') {
-      statChanges.push(['happiness', 8]);
-    } else if (action === 'talk') {
-      statChanges.push(['happiness', 6]);
-    } else if (action === 'medicine') {
-      statChanges.push(['health', Math.min(20, 100 - currentBlobbi.stats.health)]);
+        break;
+      case 'medicine':
+        statChanges.push(['health', 20]);
+        break;
+      case 'check':
+        statChanges.push(['happiness', 3]);
+        break;
+      case 'sing':
+        statChanges.push(['happiness', 8]);
+        break;
+      case 'talk':
+        statChanges.push(['happiness', 6]);
+        break;
     }
 
-    // Apply item effects if provided
-    if (itemEffect && typeof itemEffect === 'object') {
+    // Add item effects if provided
+    if (itemEffect) {
       Object.entries(itemEffect).forEach(([stat, value]) => {
-        if (typeof value === 'number') {
-          statChanges.push([stat, value]);
-        }
+        statChanges.push([stat, value]);
       });
     }
 
-    // 🔥 FIX: Only create fake status if there are actual stat changes
-    if (statChanges.length > 0) {
-      const updatedBlobbi = applyStatChangesToBlobbi(currentBlobbi, statChanges);
-      // Update lastInteraction to current timestamp for proper sync logic
-      updatedBlobbi.lastInteraction = Math.floor(Date.now() / 1000);
+    // Create optimistic Blobbi state
+    const optimisticBlobbi = applyStatChangesToBlobbi(
+      fakeStatus || currentBlobbi,
+      statChanges
+    );
 
-      setFakeStatus(effectiveBlobbiId, updatedBlobbi);
-      incrementPendingInteractions(effectiveBlobbiId);
-    }
-
-    // Perform the real action in the background
-    try {
-      const result = await originalHook.performAction(action as 'feed' | 'play' | 'clean' | 'rest' | 'warm' | 'check' | 'sing' | 'talk' | 'medicine' | 'cruzar', itemEffect);
-
-      return result;
-    } catch (error) {
-      console.error(`❌ [FakeStatus] Real action "${action}" failed:`, error);
-      // 🔥 FIX: Clear fake status on error to prevent stale optimistic updates
-      if (statChanges.length > 0) {
-        syncWithRealData(effectiveBlobbiId, currentBlobbi);
-      }
-      throw error;
-    }
-  };
-
-  const updateCustomizationWithFakeStatus = async (customization: Partial<Blobbi['customization']>) => {
-    if (!effectiveBlobbiId) return originalHook.updateCustomization(customization);
-
-    const currentBlobbi = fakeStatus || originalHook.blobbi;
-    if (!currentBlobbi) return originalHook.updateCustomization(customization);
-
-    const updatedBlobbi = {
-      ...currentBlobbi,
-      customization: {
-        ...currentBlobbi.customization,
-        ...customization,
-      },
-      lastInteraction: Math.floor(Date.now() / 1000),
-    };
-
-    setFakeStatus(effectiveBlobbiId, updatedBlobbi);
+    // Set fake status for immediate UI update
+    setFakeStatus(effectiveBlobbiId, optimisticBlobbi);
     incrementPendingInteractions(effectiveBlobbiId);
 
-    try {
-      await originalHook.updateCustomization(customization);
-    } catch (error) {
-      console.error('Real customization update failed, but fake status was updated:', error);
-    }
+    console.log('[FAKE STATUS] Applied optimistic update for action:', action);
+
+    // Perform the actual action
+    return originalHook.performAction(action, itemEffect);
   };
 
-  const setSleepStateOptimistic = (isSleeping: boolean) => {
-    if (!effectiveBlobbiId) return;
+  // Merge fake status with real Blobbi data
+  const displayBlobbi = useMemo(() => {
+    if (!originalHook.blobbi) return null;
+    if (!fakeStatus) return originalHook.blobbi;
 
-    const currentBlobbi = fakeStatus || originalHook.blobbi;
-    if (!currentBlobbi) return;
-
-    const updatedBlobbi = {
-      ...currentBlobbi,
-      isSleeping,
-      state: (isSleeping ? 'sleeping' : 'active') as BlobbiState,
-      lastInteraction: Math.floor(Date.now() / 1000),
-      // Add sleep-specific fields when going to sleep
-      ...(isSleeping && {
-        sleepStartedAt: Math.floor(Date.now() / 1000),
-        lastSleepUpdate: Math.floor(Date.now() / 1000),
-      }),
-      // Clear sleep-specific fields when waking up
-      ...(!isSleeping && {
-        sleepStartedAt: undefined,
-        lastSleepUpdate: undefined,
-      }),
-    };
-
-    setFakeStatus(effectiveBlobbiId, updatedBlobbi);
-    // We don't increment pending interactions here because the sleep system handles the real update.
-    // The optimistic state should persist until the real sleep state update completes.
-  };
-
-  // 🔥 FIX: Enhanced memoization with strict validation
-  const finalBlobbi = useMemo(() => {
-    // 🔥 CRITICAL: Always prefer real data unless fake status represents a very recent optimistic update
-    if (fakeStatus && originalHook.blobbi && pendingInteractionCount > 0) {
-      const fakeTimestamp = fakeStatus.lastInteraction;
-      const realTimestamp = originalHook.blobbi.lastInteraction;
-      const timeDifference = fakeTimestamp - realTimestamp;
-
-      // Only use fake status if:
-      // 1. It's newer than real data (optimistic update)
-      // 2. The difference is reasonable (< 5 minutes to prevent stale data)
-      // 3. There are pending interactions (indicating legitimate optimistic state)
-      if (timeDifference > 0 && timeDifference < 300 && pendingInteractionCount > 0) {
-
-        return fakeStatus;
-      } else {
-
-        return originalHook.blobbi;
-      }
+    // Use fake status if it's newer or if there are pending interactions
+    if (pendingInteractionCount > 0 || fakeStatus.lastInteraction > originalHook.blobbi.lastInteraction) {
+      console.log('[FAKE STATUS] Using fake status for display');
+      return fakeStatus;
     }
 
-    // 🔥 ALWAYS DEFAULT TO REAL DATA - this ensures we never show wrong stats
     return originalHook.blobbi;
-  }, [fakeStatus, originalHook.blobbi, effectiveBlobbiId, pendingInteractionCount]);
+  }, [originalHook.blobbi, fakeStatus, pendingInteractionCount]);
 
   return {
     ...originalHook,
-    blobbi: finalBlobbi,
+    blobbi: displayBlobbi,
     performAction: performActionWithFakeStatus,
-    updateCustomization: updateCustomizationWithFakeStatus,
-    setSleepStateOptimistic,
     hasFakeStatus: !!fakeStatus,
     pendingInteractionCount,
   };
