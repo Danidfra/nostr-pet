@@ -32,8 +32,11 @@ interface InteractionWithFakeStatusParams {
   carePoints?: number;
   gameType?: string;
   playDuration?: number;
+  duration?: number; // For game interactions
   itemUsed?: string;
   itemEffects?: Record<string, number>; // For backwards compatibility
+  customStatChange?: [string, number]; // For backwards compatibility
+  energyCost?: number; // For game interactions
   score?: number; // For game interactions
   customData?: Record<string, string>;
   currentBlobbi?: Blobbi;

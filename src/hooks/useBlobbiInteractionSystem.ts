@@ -69,6 +69,7 @@ export function useBlobbiInteractionSystem(pubkey?: string, blobbiId?: string) {
 
     return await gameInteraction.mutateAsync({
       blobbiId: blobbiHook.blobbi.id,
+      action: 'play', // Game interactions use 'play' action
       gameType,
       score,
       duration,
@@ -201,6 +202,7 @@ export function useBlobbiGameSystem(blobbiId?: string) {
 
     return await gameInteraction.mutateAsync({
       blobbiId: blobbi.id,
+      action: 'play', // Game interactions use 'play' action
       gameType,
       score,
       duration,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -158,11 +158,38 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     isOwner
   });
 
+  // CRITICAL FIX: Auto-wake guard to prevent infinite loop
+  // This effect was causing the infinite 14919 loop because it ran on every realBlobbi change
+  // We now use a ref to track if we've already auto-woken for this sleep session
+  const hasAutoWokenRef = useRef<string | null>(null);
+
   useEffect(() => {
+    // Only attempt auto-wake if:
+    // 1. Blobbi exists
+    // 2. Energy is at 100
+    // 3. Currently sleeping
+    // 4. User is owner
+    // 5. Haven't already auto-woken this sleep session
     if (realBlobbi && realBlobbi.stats.energy === 100 && isSleeping && isOwner) {
-      wakeUp();
+      // Create a unique key for this sleep session
+      const sleepSessionKey = `${realBlobbi.id}-${realBlobbi.sleepStartedAt || 'unknown'}`;
+
+      // Guard: Only wake up ONCE per sleep session
+      if (hasAutoWokenRef.current !== sleepSessionKey) {
+        console.log('[AUTO-WAKE] Triggering auto-wake at 100 energy for session:', sleepSessionKey);
+        hasAutoWokenRef.current = sleepSessionKey;
+        // wakeUp();
+        performAction("rest");
+      } else {
+        console.log('[AUTO-WAKE] Already woke for this session, skipping');
+      }
     }
-  }, [realBlobbi, isSleeping, isOwner, wakeUp]);
+
+    // Reset guard when Blobbi wakes up manually or goes to sleep
+    if (!isSleeping) {
+      hasAutoWokenRef.current = null;
+    }
+  }, [realBlobbi?.stats.energy, realBlobbi?.id, realBlobbi?.sleepStartedAt, isSleeping, isOwner, wakeUp]);
 
   // Helper function to get valid size for components
   const getValidSize = (size?: string): 'tiny' | 'small' | 'medium' | 'large' => {

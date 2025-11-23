@@ -1,4 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+/**
+ * BLOBBI COMPANION INTEGRATION - Refactored to prevent infinite loops
+ *
+ * CRITICAL FIXES:
+ * - Action fuses prevent concurrent interactions
+ * - Idempotency guards prevent duplicate events
+ * - Stable event handlers prevent re-registration loops
+ * - No dependency on performAction/putToSleep/wakeUp in effects
+ */
+
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { BlobbiFeedModal } from './BlobbiFeedModal';
 import { BlobbiShop } from './BlobbiShop';
 import { BlobbiItem } from '@/types/blobbi';
@@ -10,6 +20,7 @@ import { useToast } from '@/hooks/useToast';
 import { getBlobbiMood } from '@/lib/blobbi';
 import { useAudio } from '@/contexts/AudioContext';
 import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
+import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
 
 export function BlobbiCompanionIntegration() {
   const [isFeedModalOpen, setIsFeedModalOpen] = useState(false);
@@ -18,32 +29,33 @@ export function BlobbiCompanionIntegration() {
   const [selectedFood, setSelectedFood] = useState<BlobbiItem | null>(null);
   const [isPlacingFood, setIsPlacingFood] = useState(false);
 
-  // Hunger monitoring state
+  // CRITICAL: Action fuse to prevent concurrent interactions
+  const actionInProgressRef = useRef(false);
+  const lastActionIdRef = useRef<string | null>(null);
+  const lastSleepStateRef = useRef<boolean | null>(null);
+
+  // Monitoring state refs
   const hungerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastHungerLevelRef = useRef<number | null>(null);
   const originalTitleRef = useRef<string | null>(null);
   const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialCheckRef = useRef<boolean>(false);
 
-  // Health monitoring state
   const healthIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastHealthLevelRef = useRef<number | null>(null);
   const healthTitleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialHealthCheckRef = useRef<boolean>(false);
 
-  // Energy monitoring state
   const energyIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastEnergyLevelRef = useRef<number | null>(null);
   const energyTitleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialEnergyCheckRef = useRef<boolean>(false);
 
-  // Hygiene monitoring state
   const hygieneIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastHygieneLevelRef = useRef<number | null>(null);
   const hygieneTitleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialHygieneCheckRef = useRef<boolean>(false);
 
-  // Happiness monitoring state
   const happinessIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastHappinessLevelRef = useRef<number | null>(null);
   const happinessTitleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -52,7 +64,6 @@ export function BlobbiCompanionIntegration() {
   const { user } = useCurrentUser();
   const { data: companionData } = useCurrentCompanion();
 
-  // ✅ FIXED: Use the current companion's Blobbi ID instead of falling back to user's first Blobbi
   const { blobbi, performAction } = useBlobbiWithFakeStatus(
     companionData?.blobbi?.ownerPubkey,
     companionData?.blobbiId
@@ -61,29 +72,117 @@ export function BlobbiCompanionIntegration() {
   const { toast } = useToast();
   const { playSound } = useAudio();
   const { removeFromStorage } = useBlobbonautProfileWithFakeInventory();
+  const { getFakeStatus, updateFakeStatus } = useBlobbiFakeStatus();
+
   const { putToSleep, wakeUp, isSleeping } = useBlobbiSleepSystem({
     blobbi,
     isOwner: !!user && blobbi?.ownerPubkey === user.pubkey,
+    onOptimisticUpdate: (updatedBlobbi) => {
+      if (blobbi?.id) {
+        updateFakeStatus(blobbi.id, updatedBlobbi);
+      }
+    },
   });
 
+  // CRITICAL: Create stable refs for action functions
+  const performActionRef = useRef(performAction);
+  const putToSleepRef = useRef(putToSleep);
+  const wakeUpRef = useRef(wakeUp);
+  const removeFromStorageRef = useRef(removeFromStorage);
+
+  // Update refs when functions change
+  useEffect(() => {
+    performActionRef.current = performAction;
+    putToSleepRef.current = putToSleep;
+    wakeUpRef.current = wakeUp;
+    removeFromStorageRef.current = removeFromStorage;
+  }, [performAction, putToSleep, wakeUp, removeFromStorage]);
+
+  /**
+   * CRITICAL: Action guard to prevent duplicate interactions
+   */
+  const withActionGuard = useCallback(async <T,>(
+    actionId: string,
+    actionFn: () => Promise<T>
+  ): Promise<T | null> => {
+    // Check if action is already in progress
+    if (actionInProgressRef.current) {
+      console.log('[ACTION GUARD] Action already in progress, blocking:', actionId);
+      return null;
+    }
+
+    // Check if this is a duplicate action
+    if (lastActionIdRef.current === actionId) {
+      console.log('[ACTION GUARD] Duplicate action blocked:', actionId);
+      return null;
+    }
+
+    console.log('[ACTION GUARD] Allowing action:', actionId);
+
+    // Set fuse
+    actionInProgressRef.current = true;
+    lastActionIdRef.current = actionId;
+
+    try {
+      const result = await actionFn();
+      return result;
+    } finally {
+      // Release fuse after a delay to prevent rapid re-triggering
+      setTimeout(() => {
+        actionInProgressRef.current = false;
+      }, 1000);
+    }
+  }, []);
+
+  /**
+   * CRITICAL: Sleep state guard to prevent duplicate sleep/wake actions
+   */
+  const withSleepGuard = useCallback(async (
+    targetState: boolean,
+    actionFn: () => Promise<void>
+  ): Promise<void> => {
+    const currentSleepState = blobbi?.isSleeping ?? false;
+
+    // Check if already in target state
+    if (currentSleepState === targetState) {
+      console.log('[SLEEP GUARD] Already in target state, blocking:', targetState ? 'sleep' : 'wake');
+      return;
+    }
+
+    // Check if last known state matches target (prevents duplicate transitions)
+    if (lastSleepStateRef.current === targetState) {
+      console.log('[SLEEP GUARD] Duplicate sleep transition blocked:', targetState ? 'sleep' : 'wake');
+      return;
+    }
+
+    console.log('[SLEEP GUARD] Allowing sleep transition:', targetState ? 'sleep' : 'wake');
+
+    // Update last known state
+    lastSleepStateRef.current = targetState;
+
+    await actionFn();
+  }, [blobbi?.isSleeping]);
+
   // Set up global event listeners for companion interactions
+  // CRITICAL: Use refs in handlers to prevent re-registration
   useEffect(() => {
     // Function to handle feed button click from companion
     const handleFeedClick = () => {
+      console.log('[COMPANION EVENT] Feed click');
       setIsFeedModalOpen(true);
     };
 
     // Function to handle food placement
     const handleFoodPlacement = async (event: CustomEvent) => {
+      console.log('[COMPANION EVENT] Food placement');
 
       if (!selectedFood || !blobbi || !user || !companionData) {
-
+        console.log('[COMPANION EVENT] Food placement blocked - missing data');
         return;
       }
 
-      // ✅ FIXED: Ensure we're interacting with the current companion
       if (companionData.blobbiId !== blobbi.id) {
-
+        console.log('[COMPANION EVENT] Food placement blocked - companion mismatch');
         toast({
           title: "Error",
           description: "Cannot feed - companion mismatch. Please refresh the page.",
@@ -95,21 +194,15 @@ export function BlobbiCompanionIntegration() {
       const { x, y } = event.detail;
 
       try {
-        // Create food element on screen
         createFoodElement(selectedFood, x, y);
-
-        // Set placing food state
         setIsPlacingFood(true);
-
-        // Store the food data for later use (don't clear selectedFood yet)
-        // We'll clear it when Blobbi reaches the food
 
         toast({
           title: "Food Placed!",
           description: `${selectedFood.name} placed on screen. Your Blobbi will walk to it!`,
         });
       } catch (error) {
-        console.error('Failed to place food:', error);
+        console.error('[COMPANION EVENT] Failed to place food:', error);
         toast({
           title: "Failed to place food",
           description: "Please try again.",
@@ -120,15 +213,15 @@ export function BlobbiCompanionIntegration() {
 
     // Function to handle when Blobbi reaches food
     const handleFoodReached = async (event: CustomEvent) => {
+      console.log('[COMPANION EVENT] Food reached');
 
       if (!blobbi || !user || !isPlacingFood || !companionData) {
-
+        console.log('[COMPANION EVENT] Food reached blocked - missing data');
         return;
       }
 
-      // ✅ FIXED: Ensure we're interacting with the current companion
       if (companionData.blobbiId !== blobbi.id) {
-
+        console.log('[COMPANION EVENT] Food reached blocked - companion mismatch');
         toast({
           title: "Error",
           description: "Cannot feed - companion mismatch. Please refresh the page.",
@@ -137,59 +230,57 @@ export function BlobbiCompanionIntegration() {
         return;
       }
 
-      // Get food data from the event (passed by companion script)
       const { food } = event.detail;
       if (!food) {
-        console.error('❌ React: No food data in companion-food-reached event');
+        console.error('[COMPANION EVENT] No food data in event');
         return;
       }
 
-      try {
-        // Play sound first
-        playSound('eating');
+      // CRITICAL: Use action guard to prevent duplicate feeding
+      await withActionGuard(`feed-${food.id}-${Date.now()}`, async () => {
+        try {
+          playSound('eating');
 
-        // First, remove the food item from storage (emit kind 31125)
+          // Remove from storage
+          await removeFromStorageRef.current({
+            itemId: food.id,
+            quantity: 1,
+          });
 
-        await removeFromStorage({
-          itemId: food.id,
-          quantity: 1,
-        });
+          // Perform feed action
+          await performActionRef.current('feed', food.effect);
 
-        // Then, perform the feed action with the food's effects (emit kind 31124)
+          toast({
+            title: "Blobbi Fed!",
+            description: `Your Blobbi enjoyed the ${food.name}!`,
+          });
 
-        await performAction('feed', food.effect);
-
-        toast({
-          title: "Blobbi Fed!",
-          description: `Your Blobbi enjoyed the ${food.name}!`,
-        });
-
-        // Clear placing food state and selected food
-        setIsPlacingFood(false);
-        setSelectedFood(null);
-      } catch (error) {
-        console.error('❌ React: Failed to feed Blobbi:', error);
-        toast({
-          title: "Failed to feed Blobbi",
-          description: error instanceof Error ? error.message : "Please try again.",
-          variant: "destructive",
-        });
-        setIsPlacingFood(false);
-        setSelectedFood(null);
-      }
+          setIsPlacingFood(false);
+          setSelectedFood(null);
+        } catch (error) {
+          console.error('[COMPANION EVENT] Failed to feed Blobbi:', error);
+          toast({
+            title: "Failed to feed Blobbi",
+            description: error instanceof Error ? error.message : "Please try again.",
+            variant: "destructive",
+          });
+          setIsPlacingFood(false);
+          setSelectedFood(null);
+        }
+      });
     };
 
     // Function to handle wake-up request from floating menu
     const handleWakeUpRequest = async () => {
+      console.log('[COMPANION EVENT] Wake up request');
 
       if (!blobbi || !user || !companionData || !isSleeping) {
-
+        console.log('[COMPANION EVENT] Wake up blocked - missing data or not sleeping');
         return;
       }
 
-      // ✅ FIXED: Ensure we're interacting with the current companion
       if (companionData.blobbiId !== blobbi.id) {
-
+        console.log('[COMPANION EVENT] Wake up blocked - companion mismatch');
         toast({
           title: "Error",
           description: "Cannot wake up - companion mismatch. Please refresh the page.",
@@ -198,36 +289,37 @@ export function BlobbiCompanionIntegration() {
         return;
       }
 
-      try {
-        // Wake up Blobbi (bed visibility will be handled automatically by BedContext)
+      // CRITICAL: Use sleep guard to prevent duplicate wake actions
+      await withSleepGuard(false, async () => {
+        try {
+          await wakeUpRef.current();
 
-        await wakeUp();
-
-        toast({
-          title: "Blobbi Woke Up",
-          description: "Your Blobbi is refreshed and ready to play!",
-        });
-      } catch (error) {
-        console.error('❌ React: Failed to wake up Blobbi:', error);
-        toast({
-          title: "Wake Up Failed",
-          description: error instanceof Error ? error.message : "Please try again.",
-          variant: "destructive",
-        });
-      }
+          toast({
+            title: "Blobbi Woke Up",
+            description: "Your Blobbi is refreshed and ready to play!",
+          });
+        } catch (error) {
+          console.error('[COMPANION EVENT] Failed to wake up Blobbi:', error);
+          toast({
+            title: "Wake Up Failed",
+            description: error instanceof Error ? error.message : "Please try again.",
+            variant: "destructive",
+          });
+        }
+      });
     };
 
     // Function to handle sleep state changes from companion
     const handleSleepChange = async (event: CustomEvent) => {
+      console.log('[COMPANION EVENT] Sleep change request');
 
       if (!blobbi || !user || !companionData) {
-
+        console.log('[COMPANION EVENT] Sleep change blocked - missing data');
         return;
       }
 
-      // ✅ FIXED: Ensure we're interacting with the current companion
       if (companionData.blobbiId !== blobbi.id) {
-
+        console.log('[COMPANION EVENT] Sleep change blocked - companion mismatch');
         toast({
           title: "Error",
           description: "Cannot change sleep state - companion mismatch. Please refresh the page.",
@@ -238,34 +330,31 @@ export function BlobbiCompanionIntegration() {
 
       const { shouldSleep } = event.detail;
 
-      try {
-        if (shouldSleep && !isSleeping) {
-          // Put Blobbi to sleep (bed will be shown automatically by BedContext)
-
-          await putToSleep();
-
+      // CRITICAL: Use sleep guard to prevent duplicate sleep/wake actions
+      await withSleepGuard(shouldSleep, async () => {
+        try {
+          if (shouldSleep) {
+            await putToSleepRef.current();
+            toast({
+              title: "Blobbi is Sleeping",
+              description: "Your Blobbi has settled down on the bed for a nap!",
+            });
+          } else {
+            await wakeUpRef.current();
+            toast({
+              title: "Blobbi Woke Up",
+              description: "Your Blobbi is refreshed and ready to play!",
+            });
+          }
+        } catch (error) {
+          console.error('[COMPANION EVENT] Failed to change sleep state:', error);
           toast({
-            title: "Blobbi is Sleeping",
-            description: "Your Blobbi has settled down on the bed for a nap!",
-          });
-        } else if (!shouldSleep && isSleeping) {
-          // Wake up Blobbi (bed visibility will be handled automatically by BedContext)
-
-          await wakeUp();
-
-          toast({
-            title: "Blobbi Woke Up",
-            description: "Your Blobbi is refreshed and ready to play!",
+            title: "Sleep Action Failed",
+            description: error instanceof Error ? error.message : "Please try again.",
+            variant: "destructive",
           });
         }
-      } catch (error) {
-        console.error('❌ React: Failed to change sleep state:', error);
-        toast({
-          title: "Sleep Action Failed",
-          description: error instanceof Error ? error.message : "Please try again.",
-          variant: "destructive",
-        });
-      }
+      });
     };
 
     // Add global event listeners
@@ -278,6 +367,8 @@ export function BlobbiCompanionIntegration() {
     // Expose functions to global scope for companion script
     (window as unknown as { openFeedModal: () => void }).openFeedModal = handleFeedClick;
 
+    console.log('[COMPANION] Event listeners registered');
+
     return () => {
       window.removeEventListener('companion-feed-click', handleFeedClick);
       window.removeEventListener('companion-food-placement', handleFoodPlacement as EventListener);
@@ -285,49 +376,71 @@ export function BlobbiCompanionIntegration() {
       window.removeEventListener('companion-sleep-change', handleSleepChange as EventListener);
       window.removeEventListener('companion-wake-up-request', handleWakeUpRequest);
       delete (window as unknown as { openFeedModal?: () => void }).openFeedModal;
+
+      console.log('[COMPANION] Event listeners removed');
     };
-  }, [selectedFood, blobbi, user, isPlacingFood, performAction, toast, removeFromStorage, putToSleep, wakeUp, isSleeping, companionData]);
+  }, [
+    // CRITICAL: Only depend on stable values, NOT on action functions
+    selectedFood,
+    blobbi?.id,
+    blobbi?.isSleeping,
+    user?.pubkey,
+    isPlacingFood,
+    companionData?.blobbiId,
+    toast,
+    playSound,
+    withActionGuard,
+    withSleepGuard,
+  ]);
 
   // Notify companion when sleep state changes from React side
+  // CRITICAL: Add guard to prevent duplicate notifications
   useEffect(() => {
-    if (blobbi) {
-      // ✅ FIXED: Add a small delay to ensure companion script is fully initialized
-      // This is especially important for the initial load when Blobbi is already sleeping
-      const notifyCompanion = () => {
-        window.dispatchEvent(new CustomEvent('react-sleep-state-change', {
-          detail: { isSleeping: blobbi.isSleeping }
-        }));
+    if (!blobbi) return;
 
-        // ✅ FIXED: Log for debugging
+    const currentSleepState = blobbi.isSleeping;
 
+    // Guard: Only notify if sleep state actually changed
+    if (lastSleepStateRef.current === (currentSleepState ?? false)) {
+      console.log('[COMPANION] Sleep state unchanged, skipping notification');
+      return;
+    }
+
+    console.log('[COMPANION] Sleep state changed:', currentSleepState);
+    lastSleepStateRef.current = currentSleepState ?? false;
+
+    const notifyCompanion = () => {
+      window.dispatchEvent(new CustomEvent('react-sleep-state-change', {
+        detail: { isSleeping: currentSleepState }
+      }));
+      console.log('[COMPANION] Notified companion of sleep state:', currentSleepState);
+    };
+
+    // Check if companion is available
+    if (window.blobbiCompanion) {
+      notifyCompanion();
+    } else {
+      // Wait for companion to initialize
+      let retryCount = 0;
+      const maxRetries = 10;
+      const retryInterval = 300;
+
+      const retryNotify = () => {
+        if (window.blobbiCompanion) {
+          notifyCompanion();
+        } else if (retryCount < maxRetries) {
+          retryCount++;
+          setTimeout(retryNotify, retryInterval);
+        } else {
+          console.warn('[COMPANION] Failed to initialize after maximum retries');
+        }
       };
 
-      // Check if companion is available, if not wait a bit
-      if (window.blobbiCompanion) {
-        notifyCompanion();
-      } else {
-        // ✅ ENHANCED: Wait longer and retry multiple times for initial load
-        let retryCount = 0;
-        const maxRetries = 10;
-        const retryInterval = 300;
-
-        const retryNotify = () => {
-          if (window.blobbiCompanion) {
-            notifyCompanion();
-          } else if (retryCount < maxRetries) {
-            retryCount++;
-
-            setTimeout(retryNotify, retryInterval);
-          } else {
-            console.warn('🔄 React: Companion failed to initialize after maximum retries');
-          }
-        };
-
-        setTimeout(retryNotify, retryInterval);
-      }
+      setTimeout(retryNotify, retryInterval);
     }
-  }, [blobbi]);
+  }, [blobbi?.isSleeping, blobbi?.id]); // Only depend on sleep state and ID
 
+  // Mood sound effect
   useEffect(() => {
     if (blobbi) {
       const mood = getBlobbiMood(blobbi.stats, blobbi.state);
@@ -335,141 +448,100 @@ export function BlobbiCompanionIntegration() {
         playSound('angry');
       }
     }
-  }, [blobbi, playSound]);
+  }, [blobbi?.stats.happiness, blobbi?.stats.health, blobbi?.state, playSound]);
 
-  // Hunger monitoring system for current companion
+  // Hunger monitoring system
   useEffect(() => {
-    // Clear any existing interval
     if (hungerIntervalRef.current) {
       clearInterval(hungerIntervalRef.current);
       hungerIntervalRef.current = null;
     }
 
-    // Only monitor hunger if we have a current companion Blobbi
     if (!blobbi || !companionData || companionData.blobbiId !== blobbi.id) {
-
       lastHungerLevelRef.current = null;
       hasInitialCheckRef.current = false;
-      // Restore title when companion is removed or changed
       restoreOriginalTitle();
       return;
     }
 
     const currentHunger = blobbi.stats.hunger;
-    const previousHunger = lastHungerLevelRef.current;
-    const isInitialLoad = !hasInitialCheckRef.current;
-
-    // Update the last known hunger level
     lastHungerLevelRef.current = currentHunger;
     hasInitialCheckRef.current = true;
 
-    // Check if hunger is below 30
     if (currentHunger < 30) {
-
-      // Play the first sound immediately (especially important on initial load)
       playStomachRumbleSound();
       showHungerNotification();
 
-      // Set up interval to play sound every 60 seconds
       hungerIntervalRef.current = setInterval(() => {
-        // Double-check that hunger is still below 30 and we still have the same companion
         if (blobbi && companionData && companionData.blobbiId === blobbi.id && blobbi.stats.hunger < 30) {
-
           playStomachRumbleSound();
           showHungerNotification();
         } else {
-
           if (hungerIntervalRef.current) {
             clearInterval(hungerIntervalRef.current);
             hungerIntervalRef.current = null;
           }
         }
-      }, 20000); // 60 seconds = 60,000 milliseconds
+      }, 20000);
     } else {
-      // Hunger is 30 or above, make sure no sounds are playing
-      if (previousHunger !== null && previousHunger < 30) {
-
-      }
-      // Clear any existing title notification when hunger recovers
       restoreOriginalTitle();
     }
 
-    // Cleanup function
     return () => {
       if (hungerIntervalRef.current) {
         clearInterval(hungerIntervalRef.current);
         hungerIntervalRef.current = null;
       }
     };
-  }, [blobbi?.stats.hunger, blobbi?.id, companionData?.blobbiId]); // Dependencies: hunger level, blobbi ID, and companion ID
+  }, [blobbi?.stats.hunger, blobbi?.id, companionData?.blobbiId]);
 
-  // Health monitoring system for current companion
+  // Health monitoring system
   useEffect(() => {
-    // Clear any existing interval
     if (healthIntervalRef.current) {
       clearInterval(healthIntervalRef.current);
       healthIntervalRef.current = null;
     }
 
-    // Only monitor health if we have a current companion Blobbi
     if (!blobbi || !companionData || companionData.blobbiId !== blobbi.id) {
-
       lastHealthLevelRef.current = null;
       hasInitialHealthCheckRef.current = false;
-      // Restore title when companion is removed or changed
       restoreHealthTitle();
       return;
     }
 
     const currentHealth = blobbi.stats.health;
-    const previousHealth = lastHealthLevelRef.current;
-    const isInitialLoad = !hasInitialHealthCheckRef.current;
-
-    // Update the last known health level
     lastHealthLevelRef.current = currentHealth;
     hasInitialHealthCheckRef.current = true;
 
-    // Determine health alert behavior
     let shouldAlert = false;
     let alertInterval = 0;
     let alertMessage = '';
 
     if (currentHealth < 30) {
-      // Critical health - every 20 seconds
       shouldAlert = true;
-      alertInterval = 20000; // 20 seconds
+      alertInterval = 20000;
       alertMessage = 'Blobbi needs urgent medical attention!';
-
     } else if (currentHealth < 60) {
-      // Low health - every 60 seconds
       shouldAlert = true;
-      alertInterval = 60000; // 60 seconds
+      alertInterval = 60000;
       alertMessage = 'Blobbi is feeling unwell!';
-
     }
 
     if (shouldAlert) {
-      // Play the first sound immediately (especially important on initial load)
       playSickSound();
       showHealthNotification(alertMessage);
 
-      // Set up interval to play sound at appropriate frequency
       healthIntervalRef.current = setInterval(() => {
-        // Double-check that health is still low and we still have the same companion
         if (blobbi && companionData && companionData.blobbiId === blobbi.id) {
           const currentHealthInInterval = blobbi.stats.health;
 
-          // Determine if we should still alert and at what frequency
           if (currentHealthInInterval < 30) {
-
             playSickSound();
             showHealthNotification('Blobbi needs urgent medical attention!');
           } else if (currentHealthInInterval < 60) {
-
             playSickSound();
             showHealthNotification('Blobbi is feeling unwell!');
           } else {
-
             if (healthIntervalRef.current) {
               clearInterval(healthIntervalRef.current);
               healthIntervalRef.current = null;
@@ -477,7 +549,6 @@ export function BlobbiCompanionIntegration() {
             restoreHealthTitle();
           }
         } else {
-
           if (healthIntervalRef.current) {
             clearInterval(healthIntervalRef.current);
             healthIntervalRef.current = null;
@@ -485,97 +556,67 @@ export function BlobbiCompanionIntegration() {
         }
       }, alertInterval);
     } else {
-      // Health is 60 or above, make sure no sounds are playing
-      if (previousHealth !== null && previousHealth < 60) {
-
-      }
-      // Clear any existing title notification when health recovers
       restoreHealthTitle();
     }
 
-    // Cleanup function
     return () => {
       if (healthIntervalRef.current) {
         clearInterval(healthIntervalRef.current);
         healthIntervalRef.current = null;
       }
     };
-  }, [blobbi?.stats.health, blobbi?.id, companionData?.blobbiId]); // Dependencies: health level, blobbi ID, and companion ID
+  }, [blobbi?.stats.health, blobbi?.id, companionData?.blobbiId, toast]);
 
-  // Energy monitoring system for current companion
+  // Energy monitoring system
   useEffect(() => {
-    // Clear any existing interval
     if (energyIntervalRef.current) {
       clearInterval(energyIntervalRef.current);
       energyIntervalRef.current = null;
     }
 
-    // Only monitor energy if we have a current companion Blobbi
     if (!blobbi || !companionData || companionData.blobbiId !== blobbi.id) {
-
       lastEnergyLevelRef.current = null;
       hasInitialEnergyCheckRef.current = false;
-      // Restore title when companion is removed or changed
       restoreEnergyTitle();
       return;
     }
 
     const currentEnergy = blobbi.stats.energy;
     const isAwake = !blobbi.isSleeping;
-    const previousEnergy = lastEnergyLevelRef.current;
-    const isInitialLoad = !hasInitialEnergyCheckRef.current;
-
-    // Update the last known energy level
     lastEnergyLevelRef.current = currentEnergy;
     hasInitialEnergyCheckRef.current = true;
 
-    // Determine energy alert behavior - only if awake and energy is low
     let shouldAlert = false;
     let alertInterval = 0;
     let alertMessage = '';
 
     if (isAwake && currentEnergy < 30) {
-      // Very low energy - every 20 seconds (only if awake)
       shouldAlert = true;
-      alertInterval = 20000; // 20 seconds
+      alertInterval = 20000;
       alertMessage = 'Blobbi is exhausted!';
-
     } else if (isAwake && currentEnergy < 60) {
-      // Low energy - every 60 seconds (only if awake)
       shouldAlert = true;
-      alertInterval = 60000; // 60 seconds
+      alertInterval = 60000;
       alertMessage = 'Blobbi is getting tired!';
-
-    } else if (!isAwake && currentEnergy < 60) {
-      // Energy is low but Blobbi is sleeping - don't play sounds but show message
-
     }
 
     if (shouldAlert) {
-      // Play the first sound immediately (especially important on initial load or when waking up)
       playTiredSound();
       showEnergyNotification(alertMessage);
 
-      // Set up interval to play sound at appropriate frequency
       energyIntervalRef.current = setInterval(() => {
-        // Double-check that energy is still low, Blobbi is awake, and we still have the same companion
         if (blobbi && companionData && companionData.blobbiId === blobbi.id) {
           const currentEnergyInInterval = blobbi.stats.energy;
           const isAwakeInInterval = !blobbi.isSleeping;
 
-          // Only play sounds if Blobbi is awake
           if (isAwakeInInterval) {
-            // Determine if we should still alert and at what frequency
             if (currentEnergyInInterval < 30) {
-
               playTiredSound();
               showEnergyNotification('Blobbi is exhausted!');
             } else if (currentEnergyInInterval < 60) {
-
               playTiredSound();
               showEnergyNotification('Blobbi is getting tired!');
             } else {
-
               if (energyIntervalRef.current) {
                 clearInterval(energyIntervalRef.current);
                 energyIntervalRef.current = null;
@@ -583,8 +624,6 @@ export function BlobbiCompanionIntegration() {
               restoreEnergyTitle();
             }
           } else {
-            // Blobbi fell asleep, stop the alert loop
-
             if (energyIntervalRef.current) {
               clearInterval(energyIntervalRef.current);
               energyIntervalRef.current = null;
@@ -592,7 +631,6 @@ export function BlobbiCompanionIntegration() {
             restoreEnergyTitle();
           }
         } else {
-
           if (energyIntervalRef.current) {
             clearInterval(energyIntervalRef.current);
             energyIntervalRef.current = null;
@@ -600,94 +638,64 @@ export function BlobbiCompanionIntegration() {
         }
       }, alertInterval);
     } else {
-      // Energy is 60 or above, or Blobbi is sleeping - make sure no sounds are playing
-      if (previousEnergy !== null && previousEnergy < 60) {
-        if (!isAwake) {
-
-        } else {
-
-        }
-      }
-      // Clear any existing title notification when energy recovers or Blobbi sleeps
       restoreEnergyTitle();
     }
 
-    // Cleanup function
     return () => {
       if (energyIntervalRef.current) {
         clearInterval(energyIntervalRef.current);
         energyIntervalRef.current = null;
       }
     };
-  }, [blobbi?.stats.energy, blobbi?.isSleeping, blobbi?.id, companionData?.blobbiId]); // Dependencies: energy level, sleep state, blobbi ID, and companion ID
+  }, [blobbi?.stats.energy, blobbi?.isSleeping, blobbi?.id, companionData?.blobbiId]);
 
-  // Hygiene monitoring system for current companion
+  // Hygiene monitoring system
   useEffect(() => {
-    // Clear any existing interval
     if (hygieneIntervalRef.current) {
       clearInterval(hygieneIntervalRef.current);
       hygieneIntervalRef.current = null;
     }
 
-    // Only monitor hygiene if we have a current companion Blobbi
     if (!blobbi || !companionData || companionData.blobbiId !== blobbi.id) {
-
       lastHygieneLevelRef.current = null;
       hasInitialHygieneCheckRef.current = false;
-      // Restore title when companion is removed or changed
       restoreHygieneTitle();
       return;
     }
 
     const currentHygiene = blobbi.stats.hygiene;
-    const previousHygiene = lastHygieneLevelRef.current;
-    const isInitialLoad = !hasInitialHygieneCheckRef.current;
-
-    // Update the last known hygiene level
     lastHygieneLevelRef.current = currentHygiene;
     hasInitialHygieneCheckRef.current = true;
 
-    // Determine hygiene alert behavior
     let shouldAlert = false;
     let alertInterval = 0;
     let alertMessage = '';
 
     if (currentHygiene < 30) {
-      // Very low hygiene - every 20 seconds
       shouldAlert = true;
-      alertInterval = 20000; // 20 seconds
+      alertInterval = 20000;
       alertMessage = 'Blobbi is very dirty!';
-
     } else if (currentHygiene < 60) {
-      // Low hygiene - every 60 seconds
       shouldAlert = true;
-      alertInterval = 60000; // 60 seconds
+      alertInterval = 60000;
       alertMessage = 'Blobbi needs cleaning!';
-
     }
 
     if (shouldAlert) {
-      // Play the first sound immediately (especially important on initial load)
       playYuckSound();
       showHygieneNotification(alertMessage);
 
-      // Set up interval to play sound at appropriate frequency
       hygieneIntervalRef.current = setInterval(() => {
-        // Double-check that hygiene is still low and we still have the same companion
         if (blobbi && companionData && companionData.blobbiId === blobbi.id) {
           const currentHygieneInInterval = blobbi.stats.hygiene;
 
-          // Determine if we should still alert and at what frequency
           if (currentHygieneInInterval < 30) {
-
             playYuckSound();
             showHygieneNotification('Blobbi is very dirty!');
           } else if (currentHygieneInInterval < 60) {
-
             playYuckSound();
             showHygieneNotification('Blobbi needs cleaning!');
           } else {
-
             if (hygieneIntervalRef.current) {
               clearInterval(hygieneIntervalRef.current);
               hygieneIntervalRef.current = null;
@@ -695,7 +703,6 @@ export function BlobbiCompanionIntegration() {
             restoreHygieneTitle();
           }
         } else {
-
           if (hygieneIntervalRef.current) {
             clearInterval(hygieneIntervalRef.current);
             hygieneIntervalRef.current = null;
@@ -703,90 +710,64 @@ export function BlobbiCompanionIntegration() {
         }
       }, alertInterval);
     } else {
-      // Hygiene is 60 or above, make sure no sounds are playing
-      if (previousHygiene !== null && previousHygiene < 60) {
-
-      }
-      // Clear any existing title notification when hygiene recovers
       restoreHygieneTitle();
     }
 
-    // Cleanup function
     return () => {
       if (hygieneIntervalRef.current) {
         clearInterval(hygieneIntervalRef.current);
         hygieneIntervalRef.current = null;
       }
     };
-  }, [blobbi?.stats.hygiene, blobbi?.id, companionData?.blobbiId]); // Dependencies: hygiene level, blobbi ID, and companion ID
+  }, [blobbi?.stats.hygiene, blobbi?.id, companionData?.blobbiId]);
 
-  // Happiness monitoring system for current companion
+  // Happiness monitoring system
   useEffect(() => {
-    // Clear any existing interval
     if (happinessIntervalRef.current) {
       clearInterval(happinessIntervalRef.current);
       happinessIntervalRef.current = null;
     }
 
-    // Only monitor happiness if we have a current companion Blobbi
     if (!blobbi || !companionData || companionData.blobbiId !== blobbi.id) {
-
       lastHappinessLevelRef.current = null;
       hasInitialHappinessCheckRef.current = false;
-      // Restore title when companion is removed or changed
       restoreHappinessTitle();
       return;
     }
 
     const currentHappiness = blobbi.stats.happiness;
-    const previousHappiness = lastHappinessLevelRef.current;
-    const isInitialLoad = !hasInitialHappinessCheckRef.current;
-
-    // Update the last known happiness level
     lastHappinessLevelRef.current = currentHappiness;
     hasInitialHappinessCheckRef.current = true;
 
-    // Determine happiness alert behavior
     let shouldAlert = false;
     let alertInterval = 0;
     let alertMessage = '';
 
     if (currentHappiness < 30) {
-      // Very low happiness - every 20 seconds
       shouldAlert = true;
-      alertInterval = 20000; // 20 seconds
+      alertInterval = 20000;
       alertMessage = 'Blobbi is very sad!';
-
     } else if (currentHappiness < 60) {
-      // Low happiness - every 60 seconds
       shouldAlert = true;
-      alertInterval = 60000; // 60 seconds
+      alertInterval = 60000;
       alertMessage = 'Blobbi is feeling down!';
-
     }
 
     if (shouldAlert) {
-      // Play the first sound immediately (especially important on initial load)
       playSadSound();
       showHappinessNotification(alertMessage);
 
-      // Set up interval to play sound at appropriate frequency
       happinessIntervalRef.current = setInterval(() => {
-        // Double-check that happiness is still low and we still have the same companion
         if (blobbi && companionData && companionData.blobbiId === blobbi.id) {
           const currentHappinessInInterval = blobbi.stats.happiness;
 
-          // Determine if we should still alert and at what frequency
           if (currentHappinessInInterval < 30) {
-
             playSadSound();
             showHappinessNotification('Blobbi is very sad!');
           } else if (currentHappinessInInterval < 60) {
-
             playSadSound();
             showHappinessNotification('Blobbi is feeling down!');
           } else {
-
             if (happinessIntervalRef.current) {
               clearInterval(happinessIntervalRef.current);
               happinessIntervalRef.current = null;
@@ -794,7 +775,6 @@ export function BlobbiCompanionIntegration() {
             restoreHappinessTitle();
           }
         } else {
-
           if (happinessIntervalRef.current) {
             clearInterval(happinessIntervalRef.current);
             happinessIntervalRef.current = null;
@@ -802,425 +782,266 @@ export function BlobbiCompanionIntegration() {
         }
       }, alertInterval);
     } else {
-      // Happiness is 60 or above, make sure no sounds are playing
-      if (previousHappiness !== null && previousHappiness < 60) {
-
-      }
-      // Clear any existing title notification when happiness recovers
       restoreHappinessTitle();
     }
 
-    // Cleanup function
     return () => {
       if (happinessIntervalRef.current) {
         clearInterval(happinessIntervalRef.current);
         happinessIntervalRef.current = null;
       }
     };
-  }, [blobbi?.stats.happiness, blobbi?.id, companionData?.blobbiId]); // Dependencies: happiness level, blobbi ID, and companion ID
+  }, [blobbi?.stats.happiness, blobbi?.id, companionData?.blobbiId]);
 
-  // Function to play stomach rumble sound
-  const playStomachRumbleSound = () => {
-    try {
-      // Create audio element and play stomach-rumble.mp3
-      const audio = new Audio('/companion/sounds/stomach-rumble.mp3');
-
-      // Get current audio settings from the audio context
-      const volume = localStorage.getItem('blobbi_audio_volume');
-      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
-
-      // Set volume based on user settings
-      if (isMuted) {
-        audio.volume = 0;
-      } else {
-        audio.volume = volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5;
-      }
-
-      audio.play()
-        .catch(error => console.error('❌ Error playing stomach rumble sound:', error));
-    } catch (error) {
-      console.error('❌ Error creating stomach rumble audio:', error);
-    }
-  };
-
-  // Function to show hunger notification in browser tab
-  const showHungerNotification = () => {
-    try {
-      // Store original title if not already stored
-      if (originalTitleRef.current === null) {
-        originalTitleRef.current = document.title;
-
-      }
-
-      // Clear any existing title timeout
-      if (titleTimeoutRef.current) {
-        clearTimeout(titleTimeoutRef.current);
-        titleTimeoutRef.current = null;
-      }
-
-      // Set hungry notification title
-      const hungryTitle = '🍽️ Blobbi is hungry!';
-      document.title = hungryTitle;
-
-      // Restore original title after 8 seconds
-      titleTimeoutRef.current = setTimeout(() => {
-        restoreOriginalTitle();
-        titleTimeoutRef.current = null;
-      }, 8000); // 8 seconds
-    } catch (error) {
-      console.error('❌ Error showing hunger notification:', error);
-    }
-  };
-
-  // Function to restore original tab title
-  const restoreOriginalTitle = () => {
-    try {
-      if (originalTitleRef.current !== null) {
-        document.title = originalTitleRef.current;
-      }
-
-      // Clear title timeout if it exists
-      if (titleTimeoutRef.current) {
-        clearTimeout(titleTimeoutRef.current);
-        titleTimeoutRef.current = null;
-      }
-    } catch (error) {
-      console.error('❌ Error restoring original title:', error);
-    }
-  };
-
-  // Function to play sick sound
-  const playSickSound = () => {
-    try {
-      // Create audio element and play sick.mp3
-      const audio = new Audio('/companion/sounds/sick.mp3');
-
-      // Get current audio settings from the audio context
-      const volume = localStorage.getItem('blobbi_audio_volume');
-      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
-
-      // Set volume based on user settings
-      if (isMuted) {
-        audio.volume = 0;
-      } else {
-        audio.volume = volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5;
-      }
-
-      audio.play()
-        .catch(error => console.error('❌ Error playing sick sound:', error));
-    } catch (error) {
-      console.error('❌ Error creating sick audio:', error);
-    }
-  };
-
-  // Function to show health notification in browser tab
-  const showHealthNotification = (message: string) => {
-    try {
-      // Store original title if not already stored
-      if (originalTitleRef.current === null) {
-        originalTitleRef.current = document.title;
-
-      }
-
-      // Clear any existing health title timeout
-      if (healthTitleTimeoutRef.current) {
-        clearTimeout(healthTitleTimeoutRef.current);
-        healthTitleTimeoutRef.current = null;
-      }
-
-      // Set health notification title
-      const healthTitle = `🏥 ${message}`;
-      document.title = healthTitle;
-
-      // Restore original title after 8 seconds
-      healthTitleTimeoutRef.current = setTimeout(() => {
-        restoreHealthTitle();
-        healthTitleTimeoutRef.current = null;
-      }, 8000); // 8 seconds
-    } catch (error) {
-      console.error('❌ Error showing health notification:', error);
-    }
-  };
-
-  // Function to restore original tab title from health notifications
-  const restoreHealthTitle = () => {
-    try {
-      if (originalTitleRef.current !== null) {
-        document.title = originalTitleRef.current;
-      }
-
-      // Clear health title timeout if it exists
-      if (healthTitleTimeoutRef.current) {
-        clearTimeout(healthTitleTimeoutRef.current);
-        healthTitleTimeoutRef.current = null;
-      }
-    } catch (error) {
-      console.error('❌ Error restoring original title from health notification:', error);
-    }
-  };
-
-  // Function to play tired sound
-  const playTiredSound = () => {
-    try {
-      // Create audio element and play tired.mp3
-      const audio = new Audio('/companion/sounds/tired.mp3');
-
-      // Get current audio settings from the audio context
-      const volume = localStorage.getItem('blobbi_audio_volume');
-      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
-
-      // Set volume based on user settings
-      if (isMuted) {
-        audio.volume = 0;
-      } else {
-        audio.volume = volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5;
-      }
-
-      audio.play()
-        .catch(error => console.error('❌ Error playing tired sound:', error));
-    } catch (error) {
-      console.error('❌ Error creating tired audio:', error);
-    }
-  };
-
-  // Function to show energy notification in browser tab
-  const showEnergyNotification = (message: string) => {
-    try {
-      // Store original title if not already stored
-      if (originalTitleRef.current === null) {
-        originalTitleRef.current = document.title;
-
-      }
-
-      // Clear any existing energy title timeout
-      if (energyTitleTimeoutRef.current) {
-        clearTimeout(energyTitleTimeoutRef.current);
-        energyTitleTimeoutRef.current = null;
-      }
-
-      // Set energy notification title
-      const energyTitle = `⚡ ${message}`;
-      document.title = energyTitle;
-
-      // Restore original title after 8 seconds
-      energyTitleTimeoutRef.current = setTimeout(() => {
-        restoreEnergyTitle();
-        energyTitleTimeoutRef.current = null;
-      }, 8000); // 8 seconds
-    } catch (error) {
-      console.error('❌ Error showing energy notification:', error);
-    }
-  };
-
-  // Function to restore original tab title from energy notifications
-  const restoreEnergyTitle = () => {
-    try {
-      if (originalTitleRef.current !== null) {
-        document.title = originalTitleRef.current;
-      }
-
-      // Clear energy title timeout if it exists
-      if (energyTitleTimeoutRef.current) {
-        clearTimeout(energyTitleTimeoutRef.current);
-        energyTitleTimeoutRef.current = null;
-      }
-    } catch (error) {
-      console.error('❌ Error restoring original title from energy notification:', error);
-    }
-  };
-
-  // Function to play yuck sound
-  const playYuckSound = () => {
-    try {
-      // Create audio element and play yuck.mp3
-      const audio = new Audio('/companion/sounds/yuck.mp3');
-
-      // Get current audio settings from the audio context
-      const volume = localStorage.getItem('blobbi_audio_volume');
-      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
-
-      // Set volume based on user settings
-      if (isMuted) {
-        audio.volume = 0;
-      } else {
-        audio.volume = volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5;
-      }
-
-      audio.play()
-        .catch(error => console.error('❌ Error playing yuck sound:', error));
-    } catch (error) {
-      console.error('❌ Error creating yuck audio:', error);
-    }
-  };
-
-  // Function to show hygiene notification in browser tab
-  const showHygieneNotification = (message: string) => {
-    try {
-      // Store original title if not already stored
-      if (originalTitleRef.current === null) {
-        originalTitleRef.current = document.title;
-
-      }
-
-      // Clear any existing hygiene title timeout
-      if (hygieneTitleTimeoutRef.current) {
-        clearTimeout(hygieneTitleTimeoutRef.current);
-        hygieneTitleTimeoutRef.current = null;
-      }
-
-      // Set hygiene notification title
-      const hygieneTitle = `🧼 ${message}`;
-      document.title = hygieneTitle;
-
-      // Restore original title after 8 seconds
-      hygieneTitleTimeoutRef.current = setTimeout(() => {
-        restoreHygieneTitle();
-        hygieneTitleTimeoutRef.current = null;
-      }, 8000); // 8 seconds
-    } catch (error) {
-      console.error('❌ Error showing hygiene notification:', error);
-    }
-  };
-
-  // Function to restore original tab title from hygiene notifications
-  const restoreHygieneTitle = () => {
-    try {
-      if (originalTitleRef.current !== null) {
-        document.title = originalTitleRef.current;
-      }
-
-      // Clear hygiene title timeout if it exists
-      if (hygieneTitleTimeoutRef.current) {
-        clearTimeout(hygieneTitleTimeoutRef.current);
-        hygieneTitleTimeoutRef.current = null;
-      }
-    } catch (error) {
-      console.error('❌ Error restoring original title from hygiene notification:', error);
-    }
-  };
-
-  // Function to play sad sound
-  const playSadSound = () => {
-    try {
-      // Create audio element and play sad.mp3
-      const audio = new Audio('/companion/sounds/sad.mp3');
-
-      // Get current audio settings from the audio context
-      const volume = localStorage.getItem('blobbi_audio_volume');
-      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
-
-      // Set volume based on user settings
-      if (isMuted) {
-        audio.volume = 0;
-      } else {
-        audio.volume = volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5;
-      }
-
-      audio.play()
-        .catch(error => console.error('❌ Error playing sad sound:', error));
-    } catch (error) {
-      console.error('❌ Error creating sad audio:', error);
-    }
-  };
-
-  // Function to show happiness notification in browser tab
-  const showHappinessNotification = (message: string) => {
-    try {
-      // Store original title if not already stored
-      if (originalTitleRef.current === null) {
-        originalTitleRef.current = document.title;
-
-      }
-
-      // Clear any existing happiness title timeout
-      if (happinessTitleTimeoutRef.current) {
-        clearTimeout(happinessTitleTimeoutRef.current);
-        happinessTitleTimeoutRef.current = null;
-      }
-
-      // Set happiness notification title
-      const happinessTitle = `😢 ${message}`;
-      document.title = happinessTitle;
-
-      // Restore original title after 8 seconds
-      happinessTitleTimeoutRef.current = setTimeout(() => {
-        restoreHappinessTitle();
-        happinessTitleTimeoutRef.current = null;
-      }, 8000); // 8 seconds
-    } catch (error) {
-      console.error('❌ Error showing happiness notification:', error);
-    }
-  };
-
-  // Function to restore original tab title from happiness notifications
-  const restoreHappinessTitle = () => {
-    try {
-      if (originalTitleRef.current !== null) {
-        document.title = originalTitleRef.current;
-      }
-
-      // Clear happiness title timeout if it exists
-      if (happinessTitleTimeoutRef.current) {
-        clearTimeout(happinessTitleTimeoutRef.current);
-        happinessTitleTimeoutRef.current = null;
-      }
-    } catch (error) {
-      console.error('❌ Error restoring original title from happiness notification:', error);
-    }
-  };
-
-  // Cleanup hunger, health, energy, hygiene, and happiness monitoring on component unmount
+  // Cleanup all monitoring on unmount
   useEffect(() => {
     return () => {
-      if (hungerIntervalRef.current) {
+      if (hungerIntervalRef.current) clearInterval(hungerIntervalRef.current);
+      if (healthIntervalRef.current) clearInterval(healthIntervalRef.current);
+      if (energyIntervalRef.current) clearInterval(energyIntervalRef.current);
+      if (hygieneIntervalRef.current) clearInterval(hygieneIntervalRef.current);
+      if (happinessIntervalRef.current) clearInterval(happinessIntervalRef.current);
 
-        clearInterval(hungerIntervalRef.current);
-        hungerIntervalRef.current = null;
-      }
-
-      if (healthIntervalRef.current) {
-
-        clearInterval(healthIntervalRef.current);
-        healthIntervalRef.current = null;
-      }
-
-      if (energyIntervalRef.current) {
-
-        clearInterval(energyIntervalRef.current);
-        energyIntervalRef.current = null;
-      }
-
-      if (hygieneIntervalRef.current) {
-
-        clearInterval(hygieneIntervalRef.current);
-        hygieneIntervalRef.current = null;
-      }
-
-      if (happinessIntervalRef.current) {
-
-        clearInterval(happinessIntervalRef.current);
-        happinessIntervalRef.current = null;
-      }
-
-      // Restore original title on unmount
       restoreOriginalTitle();
       restoreHealthTitle();
       restoreEnergyTitle();
       restoreHygieneTitle();
       restoreHappinessTitle();
-
     };
   }, []);
 
-  // Function to create food element on screen
+  // Helper functions for sound and notifications
+  const playStomachRumbleSound = () => {
+    try {
+      const audio = new Audio('/companion/sounds/stomach-rumble.mp3');
+      const volume = localStorage.getItem('blobbi_audio_volume');
+      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
+      audio.volume = isMuted ? 0 : (volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5);
+      audio.play().catch(error => console.error('Error playing stomach rumble sound:', error));
+    } catch (error) {
+      console.error('Error creating stomach rumble audio:', error);
+    }
+  };
+
+  const showHungerNotification = () => {
+    try {
+      if (originalTitleRef.current === null) {
+        originalTitleRef.current = document.title;
+      }
+      if (titleTimeoutRef.current) {
+        clearTimeout(titleTimeoutRef.current);
+        titleTimeoutRef.current = null;
+      }
+      document.title = '🍽️ Blobbi is hungry!';
+      titleTimeoutRef.current = setTimeout(() => {
+        restoreOriginalTitle();
+        titleTimeoutRef.current = null;
+      }, 8000);
+    } catch (error) {
+      console.error('Error showing hunger notification:', error);
+    }
+  };
+
+  const restoreOriginalTitle = () => {
+    try {
+      if (originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+      }
+      if (titleTimeoutRef.current) {
+        clearTimeout(titleTimeoutRef.current);
+        titleTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error restoring original title:', error);
+    }
+  };
+
+  const playSickSound = () => {
+    try {
+      const audio = new Audio('/companion/sounds/sick.mp3');
+      const volume = localStorage.getItem('blobbi_audio_volume');
+      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
+      audio.volume = isMuted ? 0 : (volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5);
+      audio.play().catch(error => console.error('Error playing sick sound:', error));
+    } catch (error) {
+      console.error('Error creating sick audio:', error);
+    }
+  };
+
+  const showHealthNotification = (message: string) => {
+    try {
+      if (originalTitleRef.current === null) {
+        originalTitleRef.current = document.title;
+      }
+      if (healthTitleTimeoutRef.current) {
+        clearTimeout(healthTitleTimeoutRef.current);
+        healthTitleTimeoutRef.current = null;
+      }
+      document.title = `🏥 ${message}`;
+      healthTitleTimeoutRef.current = setTimeout(() => {
+        restoreHealthTitle();
+        healthTitleTimeoutRef.current = null;
+      }, 8000);
+    } catch (error) {
+      console.error('Error showing health notification:', error);
+    }
+  };
+
+  const restoreHealthTitle = () => {
+    try {
+      if (originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+      }
+      if (healthTitleTimeoutRef.current) {
+        clearTimeout(healthTitleTimeoutRef.current);
+        healthTitleTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error restoring health title:', error);
+    }
+  };
+
+  const playTiredSound = () => {
+    try {
+      const audio = new Audio('/companion/sounds/tired.mp3');
+      const volume = localStorage.getItem('blobbi_audio_volume');
+      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
+      audio.volume = isMuted ? 0 : (volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5);
+      audio.play().catch(error => console.error('Error playing tired sound:', error));
+    } catch (error) {
+      console.error('Error creating tired audio:', error);
+    }
+  };
+
+  const showEnergyNotification = (message: string) => {
+    try {
+      if (originalTitleRef.current === null) {
+        originalTitleRef.current = document.title;
+      }
+      if (energyTitleTimeoutRef.current) {
+        clearTimeout(energyTitleTimeoutRef.current);
+        energyTitleTimeoutRef.current = null;
+      }
+      document.title = `⚡ ${message}`;
+      energyTitleTimeoutRef.current = setTimeout(() => {
+        restoreEnergyTitle();
+        energyTitleTimeoutRef.current = null;
+      }, 8000);
+    } catch (error) {
+      console.error('Error showing energy notification:', error);
+    }
+  };
+
+  const restoreEnergyTitle = () => {
+    try {
+      if (originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+      }
+      if (energyTitleTimeoutRef.current) {
+        clearTimeout(energyTitleTimeoutRef.current);
+        energyTitleTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error restoring energy title:', error);
+    }
+  };
+
+  const playYuckSound = () => {
+    try {
+      const audio = new Audio('/companion/sounds/yuck.mp3');
+      const volume = localStorage.getItem('blobbi_audio_volume');
+      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
+      audio.volume = isMuted ? 0 : (volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5);
+      audio.play().catch(error => console.error('Error playing yuck sound:', error));
+    } catch (error) {
+      console.error('Error creating yuck audio:', error);
+    }
+  };
+
+  const showHygieneNotification = (message: string) => {
+    try {
+      if (originalTitleRef.current === null) {
+        originalTitleRef.current = document.title;
+      }
+      if (hygieneTitleTimeoutRef.current) {
+        clearTimeout(hygieneTitleTimeoutRef.current);
+        hygieneTitleTimeoutRef.current = null;
+      }
+      document.title = `🧼 ${message}`;
+      hygieneTitleTimeoutRef.current = setTimeout(() => {
+        restoreHygieneTitle();
+        hygieneTitleTimeoutRef.current = null;
+      }, 8000);
+    } catch (error) {
+      console.error('Error showing hygiene notification:', error);
+    }
+  };
+
+  const restoreHygieneTitle = () => {
+    try {
+      if (originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+      }
+      if (hygieneTitleTimeoutRef.current) {
+        clearTimeout(hygieneTitleTimeoutRef.current);
+        hygieneTitleTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error restoring hygiene title:', error);
+    }
+  };
+
+  const playSadSound = () => {
+    try {
+      const audio = new Audio('/companion/sounds/sad.mp3');
+      const volume = localStorage.getItem('blobbi_audio_volume');
+      const isMuted = localStorage.getItem('blobbi_audio_muted') === 'true';
+      audio.volume = isMuted ? 0 : (volume ? Math.max(0, Math.min(1, parseFloat(volume))) : 0.5);
+      audio.play().catch(error => console.error('Error playing sad sound:', error));
+    } catch (error) {
+      console.error('Error creating sad audio:', error);
+    }
+  };
+
+  const showHappinessNotification = (message: string) => {
+    try {
+      if (originalTitleRef.current === null) {
+        originalTitleRef.current = document.title;
+      }
+      if (happinessTitleTimeoutRef.current) {
+        clearTimeout(happinessTitleTimeoutRef.current);
+        happinessTitleTimeoutRef.current = null;
+      }
+      document.title = `😢 ${message}`;
+      happinessTitleTimeoutRef.current = setTimeout(() => {
+        restoreHappinessTitle();
+        happinessTitleTimeoutRef.current = null;
+      }, 8000);
+    } catch (error) {
+      console.error('Error showing happiness notification:', error);
+    }
+  };
+
+  const restoreHappinessTitle = () => {
+    try {
+      if (originalTitleRef.current !== null) {
+        document.title = originalTitleRef.current;
+      }
+      if (happinessTitleTimeoutRef.current) {
+        clearTimeout(happinessTitleTimeoutRef.current);
+        happinessTitleTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error restoring happiness title:', error);
+    }
+  };
+
   const createFoodElement = (food: BlobbiItem, x: number, y: number) => {
-    // Remove any existing food
     const existingFood = document.querySelector('.companion-food');
     if (existingFood) {
       existingFood.remove();
     }
 
-    // Create food element
     const foodElement = document.createElement('div');
     foodElement.className = 'companion-food';
     foodElement.style.cssText = `
@@ -1235,7 +1056,6 @@ export function BlobbiCompanionIntegration() {
     `;
     foodElement.textContent = food.icon || '🍎';
 
-    // Add drop animation
     const style = document.createElement('style');
     style.textContent = `
       @keyframes foodDrop {
@@ -1253,13 +1073,11 @@ export function BlobbiCompanionIntegration() {
 
     document.body.appendChild(foodElement);
 
-    // Store food data for companion script
     (window as unknown as { currentFood: { element: HTMLElement; data: BlobbiItem } }).currentFood = {
       element: foodElement,
       data: food
     };
 
-    // Notify companion script that food is placed
     window.dispatchEvent(new CustomEvent('food-placed', {
       detail: {
         element: foodElement,
@@ -1273,27 +1091,22 @@ export function BlobbiCompanionIntegration() {
   const handleFoodSelected = (food: BlobbiItem) => {
     setSelectedFood(food);
 
-    // Enable food placement mode
     toast({
       title: "Food Ready!",
       description: "Click anywhere on the screen to place the food for your Blobbi.",
     });
 
-    // Set up click listener for food placement
     const handleClick = (e: MouseEvent) => {
-      // Don't place food on UI elements
       if ((e.target as Element).closest('.blobbi-container') ||
           (e.target as Element).closest('[role="dialog"]') ||
           (e.target as Element).closest('button')) {
         return;
       }
 
-      // Place food at click location
       window.dispatchEvent(new CustomEvent('companion-food-placement', {
         detail: { x: e.clientX, y: e.clientY }
       }));
 
-      // Remove click listener
       document.removeEventListener('click', handleClick);
     };
 
@@ -1301,13 +1114,12 @@ export function BlobbiCompanionIntegration() {
   };
 
   const handleOpenShop = () => {
-    setShopActiveTab('food'); // Set food tab as active
+    setShopActiveTab('food');
     setIsShopModalOpen(true);
   };
 
   return (
     <>
-      {/* Feed Modal */}
       <BlobbiFeedModal
         isOpen={isFeedModalOpen}
         onClose={() => setIsFeedModalOpen(false)}
@@ -1315,7 +1127,6 @@ export function BlobbiCompanionIntegration() {
         onFoodSelected={handleFoodSelected}
       />
 
-      {/* Shop Modal */}
       <BlobbiShop
         isOpen={isShopModalOpen}
         onClose={() => setIsShopModalOpen(false)}
