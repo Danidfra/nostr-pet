@@ -192,7 +192,7 @@ export function BlobbiCard({
               )}
             </div>
             {showStatus && (
-              <CardDescription className={cn(config.descriptionSize, "text-gray-600 dark:text-gray-400")}>
+              <div className={cn(config.descriptionSize, "text-gray-600 dark:text-gray-400")}>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge
                     variant="outline"
@@ -206,7 +206,7 @@ export function BlobbiCard({
                   <span className="text-gray-400">•</span>
                   <span>{formatDistanceToNow(blobbi.birthTime)} old</span>
                 </div>
-              </CardDescription>
+              </div>
             )}
           </div>
         </div>

@@ -252,7 +252,7 @@ describe('Divine SVG Localization', () => {
         created_at: Math.floor(Date.now() / 1000),
         kind: BLOBBI_EVENT_KINDS.STATE,
         content: 'DivineBlobbi is a baby Blobbi.',
-        tags: mockDivineBlobbi.tags,
+        tags: mockDivineBlobbi.tags || [],
         sig: 'test-signature',
       };
 
@@ -313,7 +313,7 @@ describe('Divine SVG Localization', () => {
         created_at: Math.floor(Date.now() / 1000),
         kind: BLOBBI_EVENT_KINDS.STATE,
         content: 'Divine integration test',
-        tags: mockDivineBlobbi.tags,
+        tags: mockDivineBlobbi.tags || [],
         sig: 'test-sig',
       };
 

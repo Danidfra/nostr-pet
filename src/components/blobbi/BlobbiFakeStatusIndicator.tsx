@@ -20,7 +20,7 @@ export function BlobbiFakeStatusIndicator({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
+      <TooltipTrigger>
         <Badge 
           variant="secondary" 
           className={cn(

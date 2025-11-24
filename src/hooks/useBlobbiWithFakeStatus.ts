@@ -13,7 +13,7 @@ import { useBlobbi } from '@/hooks/useBlobbi';
 import { useBlobbiFakeStatus, applyStatChangesToBlobbi } from '@/contexts/BlobbiFakeStatusContext';
 import { Blobbi } from '@/types/blobbi';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { shouldProcessStateEvent } from '@/lib/blobbi-state-builder';
+
 
 export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
   const originalHook = useBlobbi(pubkey, blobbiId);

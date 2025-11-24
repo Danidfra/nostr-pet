@@ -81,12 +81,6 @@ function validateBlobbiStats(blobbi: Blobbi, context: string): void {
   const statValues = Object.values(stats);
   const uniqueValues = new Set(statValues);
 
-  if (statValues.every(v => v === 0)) {
-    issues.push('All stats are zero');
-  } else if (uniqueValues.size === 1 && statValues.length > 1) {
-    issues.push(`All stats have same value: ${statValues[0]}`);
-  }
-
   // Check for missing required fields
   if (!blobbi.id) issues.push('Missing Blobbi ID');
   if (!blobbi.name) issues.push('Missing Blobbi name');
@@ -678,16 +672,23 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
 
     const tags = event.tags;
 
+    const normalizedTags = event.tags.map(tag => [tag[0] ?? '', tag[1] ?? '']) as [string, string][];
+
     // 🔥 FIX: Check critical fields first before general validation
     const id = getTagValue(tags, 'd');
     const stage = getTagValue(tags, 'stage') as BlobbiLifeStage;
 
+    if (!id || !tags) {
+      return null;
+    }
+
     // 🔥 NEW: Try to recover missing stats from timestamps
-    const { stats: recoveredStats, usedRecovery, warningMessage } = recoverMissingStatsFromTimestamps(id, tags);
+    const { stats: recoveredStats, usedRecovery, warningMessage } = recoverMissingStatsFromTimestamps(id, normalizedTags);
 
     // Parse existing stats if available, otherwise use recovered stats
     const hungerStr = getTagValue(tags, 'hunger');
     const happinessStr = getTagValue(tags, 'happiness');
+
     const healthStr = getTagValue(tags, 'health');
     const hygieneStr = getTagValue(tags, 'hygiene');
     const energyStr = getTagValue(tags, 'energy');

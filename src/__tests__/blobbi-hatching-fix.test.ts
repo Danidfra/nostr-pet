@@ -134,7 +134,7 @@ describe('Blobbi Hatching Logic', () => {
     expect(updatedBlobbi.secondaryColor).toBeUndefined();
 
     // Check tags array has divine tags
-    const tagMap = new Map(updatedBlobbi.tags || [] as [string, string][]);
+    const tagMap = new Map<string, string>(updatedBlobbi.tags || [] as any);
     expect(tagMap.get('theme')).toBe('divine');
     expect(tagMap.get('crossover_app')).toBe('divine');
     expect(tagMap.get('special_mark')).toBe('divine_wordmark');
@@ -200,7 +200,7 @@ describe('Blobbi Hatching Logic', () => {
     expect(updatedBlobbi.specialMark).toBe('divine_wordmark');
 
     // Check tags array has appearance tags
-    const tagMap = new Map(updatedBlobbi.tags || [] as [string, string][]);
+    const tagMap = new Map<string, string>(updatedBlobbi.tags || [] as any);
     expect(tagMap.get('base_color')).toBe('#55C4A2');
     expect(tagMap.get('special_mark')).toBe('divine_wordmark');
   });
