@@ -53,7 +53,7 @@ export function useBlobbiAdoption() {
         stage: 'egg',
         birthData: adoptionRecord
       });
-      
+
       // Update Blobbanaut Profile to add the Blobbi AND deduct coins in a single transaction
       try {
         // Don't add if already owned
@@ -75,7 +75,7 @@ export function useBlobbiAdoption() {
         console.error('Failed to update Blobbanaut Profile after adoption:', error);
         throw new Error(`Failed to complete adoption: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-      
+
       return createdBlobbi;
     },
     onSuccess: (blobbi) => {
@@ -85,8 +85,8 @@ export function useBlobbiAdoption() {
       queryClient.invalidateQueries({ queryKey: ['user-blobbis'] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-state'] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-records'] });
-      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile'] });
-      
+      queryClient.invalidateQueries({ queryKey: ['blobbonaut-profile'] });
+
       // Invalidate specific Blobbi queries
       if (blobbi.id) {
         queryClient.invalidateQueries({ queryKey: ['blobbi', blobbi.id] });

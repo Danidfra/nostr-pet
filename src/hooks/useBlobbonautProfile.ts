@@ -1,14 +1,6 @@
-// Hook to get storage item quantity
-export function useStorageItemQuantity(itemId: string): number {
-  const { data: currentProfile } = useBlobbonautProfile();
-
-  if (!currentProfile) return 0;
-
-  const storageItem = currentProfile.storage.find(item => item.itemId === itemId);
-  return storageItem?.quantity || 0;
-}
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
+import { useMemo } from 'react';
 
 import { useCurrentUser } from './useCurrentUser';
 import { useNostrPublish } from './useNostrPublish';
@@ -19,292 +11,331 @@ import {
   parseBlobbonautProfileFromEvent
 } from '@/lib/blobbi-events';
 
-// Hook to get the current user's Blobbanaut Profile
+// ========================
+// QUERY HOOKS
+// ========================
+
+/** Hook to get a Blobbonaut Profile by ID or current user */
 export function useBlobbonautProfile(profileId?: string) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const effectiveProfileId = profileId || (user ? `Blobbanaut-${user.pubkey.slice(0, 8)}` : undefined);
+  
+  const effectiveProfileId = useMemo(() => 
+    profileId ?? (user ? `Blobbonaut-${user.pubkey.slice(0, 8)}` : undefined),
+    [profileId, user?.pubkey]
+  );
 
   return useQuery({
-    queryKey: ['blobbanaut-profile', effectiveProfileId],
+    queryKey: ['blobbonaut-profile', effectiveProfileId],
     queryFn: async ({ signal }) => {
-      if (!effectiveProfileId) return null;
+      if (!effectiveProfileId || !nostr) return null;
 
       const events = await nostr.query(
         [{
           kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE],
           '#d': [effectiveProfileId],
-          limit: 1, // We only need the latest one
+          limit: 1,
         }],
         { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
       );
 
       if (events.length === 0) return null;
-
-      // Assuming the first event is the latest due to relay sorting, but we can sort just in case
-      const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
-
-      return parseBlobbonautProfileFromEvent(latestEvent);
+      return parseBlobbonautProfileFromEvent(events[0]);
     },
-    enabled: !!effectiveProfileId,
+    enabled: !!effectiveProfileId && !!nostr,
+    staleTime: 30000, // 30 seconds
   });
 }
 
-// Hook to get multiple Blobbanaut Profiles by their IDs
+/** Hook to get multiple Blobbonaut Profiles by their IDs */
 export function useBlobbonautProfiles(profileIds: string[]) {
   const { nostr } = useNostr();
 
-  return useQuery({
-    queryKey: ['blobbanaut-profiles', profileIds.sort()],
+  const sortedProfileIds = useMemo(() => 
+    [...profileIds].sort(), 
+    [profileIds]
+  );
+
+  return useQuery<BlobbonautProfile[]>({
+    queryKey: ['blobbonaut-profiles', sortedProfileIds],
     queryFn: async ({ signal }) => {
-      if (profileIds.length === 0) return [];
+      if (!sortedProfileIds.length || !nostr) return [];
 
       const events = await nostr.query(
         [{
           kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE],
-          '#d': profileIds,
+          '#d': sortedProfileIds,
         }],
         { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
       );
 
-      // Group events by profile ID and get the latest for each
-      const profileMap = new Map<string, BlobbonautProfile>();
-
-      // Group events by profile ID and get the latest for each
       const eventsByProfile = new Map<string, { profile: BlobbonautProfile; created_at: number }>();
 
       events.forEach(event => {
         const profile = parseBlobbonautProfileFromEvent(event);
-        if (profile) {
-          const existing = eventsByProfile.get(profile.id);
-          if (!existing || event.created_at > existing.created_at) {
-            eventsByProfile.set(profile.id, { profile, created_at: event.created_at });
-          }
+        if (!profile) return;
+
+        const existing = eventsByProfile.get(profile.id);
+        if (!existing || event.created_at > existing.created_at) {
+          eventsByProfile.set(profile.id, { profile, created_at: event.created_at });
         }
       });
 
       return Array.from(eventsByProfile.values()).map(({ profile }) => profile);
     },
-    enabled: profileIds.length > 0,
+    enabled: sortedProfileIds.length > 0 && !!nostr,
+    staleTime: 30000, // 30 seconds
   });
 }
 
-// Hook to update/create a Blobbanaut Profile
+// ========================
+// MUTATION HOOKS
+// ========================
+
+/** Core hook to update Blobbonaut Profile with partial updates */
 export function useUpdateBlobbonautProfile() {
-  const { mutate: publishEvent } = useNostrPublish();
+  const { mutateAsync: publishEvent } = useNostrPublish();
+  const { data: currentProfile } = useBlobbonautProfile();
   const queryClient = useQueryClient();
-  const { user } = useCurrentUser();
 
   return useMutation({
-    mutationFn: async (profile: BlobbonautProfile) => {
-      if (!user) {
-        throw new Error('User must be logged in to update profile');
+    mutationFn: async (partialUpdate: Partial<BlobbonautProfile>) => {
+      if (!currentProfile) {
+        throw new Error('Profile not found. Cannot update without existing profile.');
       }
 
-      const eventTemplate = createBlobbonautProfileEvent(profile);
-      return publishEvent(eventTemplate);
-    },
-    onSuccess: (_, profile) => {
-      // Invalidate and refetch the profile
-      queryClient.invalidateQueries({
-        queryKey: ['blobbanaut-profile', profile.id]
-      });
+      // Merge partial update with current profile to create complete snapshot
+      const updatedProfile: BlobbonautProfile = {
+        ...currentProfile,
+        ...partialUpdate,
+        id: currentProfile.id,                    // Never lose the ID
+        ownerPubkey: currentProfile.ownerPubkey,  // Never lose the owner
+        lastModified: Math.floor(Date.now() / 1000),
+      };
 
-      // Also invalidate profiles list if this profile is part of any list
+      const eventTemplate = createBlobbonautProfileEvent(updatedProfile);
+      await publishEvent(eventTemplate);
+      
+      return updatedProfile;
+    },
+    onSuccess: (updatedProfile) => {
+      // Invalidate profile queries with consistent keys
       queryClient.invalidateQueries({
-        queryKey: ['blobbanaut-profiles']
+        queryKey: ['blobbonaut-profile'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['blobbonaut-profiles'],
+      });
+      
+      // Invalidate specific profile query
+      queryClient.invalidateQueries({
+        queryKey: ['blobbonaut-profile', updatedProfile.id],
       });
     },
     onError: (error) => {
-      console.error('Failed to update Blobbanaut Profile:', error);
+      console.error('Failed to update Blobbonaut Profile:', error);
     },
   });
 }
 
-// Hook to add coins to the current user's profile
+/** Hook to add coins to current user's profile */
 export function useAddCoins() {
   const { data: currentProfile } = useBlobbonautProfile();
-  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
-  const { user } = useCurrentUser();
+  const { mutateAsync: updateProfile } = useUpdateBlobbonautProfile();
 
   return useMutation({
     mutationFn: async (coinsToAdd: number) => {
-      if (!user || !currentProfile) {
-        throw new Error('User must be logged in and have a profile');
+      if (!currentProfile) {
+        throw new Error('Profile not found');
       }
 
-      const updatedProfile: BlobbonautProfile = {
-        ...currentProfile,
-        coins: currentProfile.coins + coinsToAdd,
-      };
+      if (coinsToAdd <= 0) {
+        throw new Error('Coins to add must be positive');
+      }
 
-      return new Promise<void>((resolve, reject) => {
-        updateProfile(updatedProfile, {
-          onSuccess: () => resolve(),
-          onError: reject,
-        });
+      await updateProfile({
+        id: currentProfile.id,
+        coins: currentProfile.coins + coinsToAdd,
       });
     },
   });
 }
 
-// Hook to spend coins from the current user's profile
+/** Hook to spend coins from current user's profile */
 export function useSpendCoins() {
   const { data: currentProfile } = useBlobbonautProfile();
-  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
-  const { user } = useCurrentUser();
+  const { mutateAsync: updateProfile } = useUpdateBlobbonautProfile();
 
   return useMutation({
     mutationFn: async (coinsToSpend: number) => {
-      if (!user || !currentProfile) {
-        throw new Error('User must be logged in and have a profile');
+      if (!currentProfile) {
+        throw new Error('Profile not found');
+      }
+
+      if (coinsToSpend <= 0) {
+        throw new Error('Coins to spend must be positive');
       }
 
       if (currentProfile.coins < coinsToSpend) {
         throw new Error('Insufficient coins');
       }
 
-      const updatedProfile: BlobbonautProfile = {
-        ...currentProfile,
+      await updateProfile({
+        id: currentProfile.id,
         coins: currentProfile.coins - coinsToSpend,
-      };
-
-      return new Promise<void>((resolve, reject) => {
-        updateProfile(updatedProfile, {
-          onSuccess: () => resolve(),
-          onError: reject,
-        });
       });
     },
   });
 }
 
-// Hook to add a Blobbi to the user's collection
+/** Hook to add a Blobbi to user's collection */
 export function useAddBlobbi() {
   const { data: currentProfile } = useBlobbonautProfile();
-  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
-  const { user } = useCurrentUser();
+  const { mutateAsync: updateProfile } = useUpdateBlobbonautProfile();
 
   return useMutation({
     mutationFn: async (blobbiId: string) => {
-      if (!user || !currentProfile) {
-        throw new Error('User must be logged in and have a profile');
+      if (!currentProfile) {
+        throw new Error('Profile not found');
       }
 
-      // Don't add if already owned
       if (currentProfile.ownedBlobbis.includes(blobbiId)) {
-        return;
+        return; // Already owned
       }
 
-      const updatedProfile: BlobbonautProfile = {
-        ...currentProfile,
+      await updateProfile({
+        id: currentProfile.id,
         ownedBlobbis: [...currentProfile.ownedBlobbis, blobbiId],
         lifetimeBlobbis: currentProfile.lifetimeBlobbis + 1,
-        // Set as starter Blobbi if this is the first one
         starterBlobbi: currentProfile.ownedBlobbis.length === 0 ? blobbiId : currentProfile.starterBlobbi,
-      };
-
-      return new Promise<void>((resolve, reject) => {
-        updateProfile(updatedProfile, {
-          onSuccess: () => resolve(),
-          onError: reject,
-        });
       });
     },
   });
 }
 
-// Hook to remove a Blobbi from the user's collection (for trading/releasing)
+/** Hook to remove a Blobbi from user's collection */
 export function useRemoveBlobbi() {
   const { data: currentProfile } = useBlobbonautProfile();
-  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
-  const { user } = useCurrentUser();
+  const { mutateAsync: updateProfile } = useUpdateBlobbonautProfile();
 
   return useMutation({
     mutationFn: async (blobbiId: string) => {
-      if (!user || !currentProfile) {
-        throw new Error('User must be logged in and have a profile');
+      if (!currentProfile) {
+        throw new Error('Profile not found');
       }
 
-      const updatedProfile: BlobbonautProfile = {
-        ...currentProfile,
+      await updateProfile({
+        id: currentProfile.id,
         ownedBlobbis: currentProfile.ownedBlobbis.filter(id => id !== blobbiId),
-        // Clear favorite if it was the removed Blobbi
         favoriteBlobbi: currentProfile.favoriteBlobbi === blobbiId ? undefined : currentProfile.favoriteBlobbi,
-      };
-
-      return new Promise<void>((resolve, reject) => {
-        updateProfile(updatedProfile, {
-          onSuccess: () => resolve(),
-          onError: reject,
-        });
       });
     },
   });
 }
 
-// Hook to update petting level
+/** Hook to update petting level */
 export function useUpdatePettingLevel() {
   const { data: currentProfile } = useBlobbonautProfile();
-  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
-  const { user } = useCurrentUser();
+  const { mutateAsync: updateProfile } = useUpdateBlobbonautProfile();
 
   return useMutation({
     mutationFn: async (newLevel: number) => {
-      if (!user || !currentProfile) {
-        throw new Error('User must be logged in and have a profile');
+      if (!currentProfile) {
+        throw new Error('Profile not found');
       }
 
-      const updatedProfile: BlobbonautProfile = {
-        ...currentProfile,
+      await updateProfile({
+        id: currentProfile.id,
         pettingLevel: Math.max(0, newLevel),
-      };
-
-      return new Promise<void>((resolve, reject) => {
-        updateProfile(updatedProfile, {
-          onSuccess: () => resolve(),
-          onError: reject,
-        });
       });
     },
   });
 }
 
-// Hook to add an achievement
+/** Hook to add an achievement */
 export function useAddAchievement() {
   const { data: currentProfile } = useBlobbonautProfile();
-  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
-  const { user } = useCurrentUser();
+  const { mutateAsync: updateProfile } = useUpdateBlobbonautProfile();
 
   return useMutation({
     mutationFn: async (achievementId: string) => {
-      if (!user || !currentProfile) {
-        throw new Error('User must be logged in and have a profile');
+      if (!currentProfile) {
+        throw new Error('Profile not found');
       }
 
-      // Don't add if already achieved
       if (currentProfile.achievements.includes(achievementId)) {
-        return;
+        return; // Already achieved
       }
 
-      const updatedProfile: BlobbonautProfile = {
-        ...currentProfile,
+      await updateProfile({
+        id: currentProfile.id,
         achievements: [...currentProfile.achievements, achievementId],
-      };
-
-      return new Promise<void>((resolve, reject) => {
-        updateProfile(updatedProfile, {
-          onSuccess: () => resolve(),
-          onError: reject,
-        });
       });
     },
   });
 }
 
-// Hook to create initial profile for new users
+/** Hook to add items to storage */
+export function useAddToStorage() {
+  const { data: currentProfile } = useBlobbonautProfile();
+  const { mutateAsync: updateProfile } = useUpdateBlobbonautProfile();
+
+  return useMutation({
+    mutationFn: async ({ itemId, quantity = 1 }: { itemId: string; quantity?: number }) => {
+      if (!currentProfile) {
+        throw new Error('Profile not found');
+      }
+
+      if (quantity <= 0) {
+        throw new Error('Quantity must be positive');
+      }
+
+      const existingItemIndex = currentProfile.storage.findIndex(item => item.itemId === itemId);
+      let updatedStorage: BlobbonautStorageItem[];
+
+      if (existingItemIndex >= 0) {
+        // Update existing item
+        updatedStorage = [...currentProfile.storage];
+        updatedStorage[existingItemIndex] = {
+          ...updatedStorage[existingItemIndex],
+          quantity: updatedStorage[existingItemIndex].quantity + quantity,
+        };
+      } else {
+        // Add new item
+        updatedStorage = [...currentProfile.storage, { itemId, quantity }];
+      }
+
+      await updateProfile({
+        id: currentProfile.id,
+        storage: updatedStorage,
+      });
+    },
+  });
+}
+
+/** Hook to set onboarding completion status */
+export function useSetOnboardingDone() {
+  const { data: currentProfile } = useBlobbonautProfile();
+  const { mutateAsync: updateProfile } = useUpdateBlobbonautProfile();
+
+  return useMutation({
+    mutationFn: async (done: boolean = true) => {
+      if (!currentProfile) {
+        throw new Error('Profile not found');
+      }
+
+      await updateProfile({
+        id: currentProfile.id,
+        onboardingDone: done,
+      });
+    },
+  });
+}
+
+/** Hook to create initial profile for new users */
 export function useCreateInitialProfile() {
-  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
+  const { mutateAsync: publishEvent } = useNostrPublish();
+  const queryClient = useQueryClient();
   const { user } = useCurrentUser();
   const { nostr } = useNostr();
 
@@ -314,125 +345,78 @@ export function useCreateInitialProfile() {
         throw new Error('User must be logged in to create profile');
       }
 
-      const defaultProfileId = `Blobbanaut-${user.pubkey.slice(0, 8)}`;
+      const defaultProfileId = `Blobbonaut-${user.pubkey.slice(0, 8)}`;
 
-      // Try to get user's Nostr metadata for default name
+      // Get user's Nostr metadata for default name
       let defaultName: string | undefined;
       try {
-        const [metadataEvent] = await nostr.query(
-          [{ kinds: [0], authors: [user.pubkey], limit: 1 }],
-          { signal: AbortSignal.timeout(2000) }
-        );
+        if (nostr) {
+          const [metadataEvent] = await nostr.query(
+            [{ kinds: [0], authors: [user.pubkey], limit: 1 }],
+            { signal: AbortSignal.timeout(2000) }
+          );
 
-        if (metadataEvent) {
-          const metadata = JSON.parse(metadataEvent.content);
-          defaultName = metadata.name || metadata.display_name;
+          if (metadataEvent) {
+            const metadata = JSON.parse(metadataEvent.content);
+            defaultName = metadata.name || metadata.display_name;
+          }
         }
       } catch (error) {
-        // Ignore errors when fetching metadata, we'll use fallback
-
+        // Ignore errors when fetching metadata
       }
 
+      // Build complete initial profile with all required fields
       const initialProfile: BlobbonautProfile = {
         id: defaultProfileId,
         ownerPubkey: user.pubkey,
-        name: defaultName, // Include default name from Nostr metadata
-        coins: 500, // Starting coins
+        name: defaultName,
+        coins: 500,
         ownedBlobbis: [],
         pettingLevel: 0,
         lifetimeBlobbis: 0,
         achievements: [],
-        storage: [], // Initialize empty storage
-        onboardingDone: false, // Default to false for new profiles
+        storage: [],
+        onboardingDone: false,
         lastModified: Math.floor(Date.now() / 1000),
         ...customizations,
       };
 
-      return new Promise<BlobbonautProfile>((resolve, reject) => {
-        updateProfile(initialProfile, {
-          onSuccess: () => resolve(initialProfile),
-          onError: reject,
-        });
+      // Publish complete profile event directly
+      const eventTemplate = createBlobbonautProfileEvent(initialProfile);
+      await publishEvent(eventTemplate);
+
+      return initialProfile;
+    },
+    onSuccess: (initialProfile) => {
+      // Invalidate all profile-related queries
+      queryClient.invalidateQueries({
+        queryKey: ['blobbonaut-profile'],
       });
+      queryClient.invalidateQueries({
+        queryKey: ['blobbonaut-profiles'],
+      });
+      
+      // Invalidate specific profile query
+      queryClient.invalidateQueries({
+        queryKey: ['blobbonaut-profile', initialProfile.id],
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to create initial Blobbonaut Profile:', error);
     },
   });
 }
 
-// Hook to add items to storage
-export function useAddToStorage() {
+// ========================
+// HELPER HOOKS
+// ========================
+
+/** Hook to get storage item quantity */
+export function useStorageItemQuantity(itemId: string): number {
   const { data: currentProfile } = useBlobbonautProfile();
-  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
-  const { user } = useCurrentUser();
 
-  return useMutation({
-    mutationFn: async ({ itemId, quantity = 1 }: { itemId: string; quantity?: number }) => {
-      if (!user || !currentProfile) {
-        throw new Error('User must be logged in and have a profile');
-      }
-
-      if (quantity <= 0) {
-        throw new Error('Quantity must be positive');
-      }
-
-      // Find existing item in storage
-      const existingItemIndex = currentProfile.storage.findIndex(item => item.itemId === itemId);
-
-      let updatedStorage: BlobbonautStorageItem[];
-
-      if (existingItemIndex >= 0) {
-        // Update existing item quantity
-        updatedStorage = [...currentProfile.storage];
-        updatedStorage[existingItemIndex] = {
-          ...updatedStorage[existingItemIndex],
-          quantity: updatedStorage[existingItemIndex].quantity + quantity,
-        };
-      } else {
-        // Add new item to storage
-        updatedStorage = [
-          ...currentProfile.storage,
-          { itemId, quantity },
-        ];
-      }
-
-      const updatedProfile: BlobbonautProfile = {
-        ...currentProfile,
-        storage: updatedStorage,
-      };
-
-      return new Promise<void>((resolve, reject) => {
-        updateProfile(updatedProfile, {
-          onSuccess: () => resolve(),
-          onError: reject,
-        });
-      });
-    },
-  });
+  return useMemo(() => {
+    if (!currentProfile) return 0;
+    return currentProfile.storage.find(item => item.itemId === itemId)?.quantity ?? 0;
+  }, [currentProfile, itemId]);
 }
-
-// Hook to set onboarding completion status
-export function useSetOnboardingDone() {
-  const { data: currentProfile } = useBlobbonautProfile();
-  const { mutate: updateProfile } = useUpdateBlobbonautProfile();
-  const { user } = useCurrentUser();
-
-  return useMutation({
-    mutationFn: async (done: boolean = true) => {
-      if (!user || !currentProfile) {
-        throw new Error('User must be logged in and have a profile');
-      }
-
-      const updatedProfile: BlobbonautProfile = {
-        ...currentProfile,
-        onboardingDone: done,
-      };
-
-      return new Promise<void>((resolve, reject) => {
-        updateProfile(updatedProfile, {
-          onSuccess: () => resolve(),
-          onError: reject,
-        });
-      });
-    },
-  });
-}
-

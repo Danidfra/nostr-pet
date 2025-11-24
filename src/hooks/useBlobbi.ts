@@ -26,7 +26,7 @@ function mapActionToInteractionType(action: BlobbiAction): BlobbiInteractionType
 
 // Calculate stat changes based on action and item effects
 function calculateStatChanges(
-  action: BlobbiAction, 
+  action: BlobbiAction,
   currentStats: BlobbiStats,
   itemEffect?: Partial<BlobbiStats & { egg_temperature?: number }>,
   lifeStage?: 'egg' | 'baby' | 'adult'
@@ -50,7 +50,7 @@ function calculateStatChanges(
   if (staticChange) {
     return [staticChange];
   }
-  
+
   // Fallback
   return [['happiness', 5]];
 }
@@ -61,17 +61,17 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
   const queryClient = useQueryClient();
   const { data: blobbonautProfile } = useBlobbonautProfile();
   const { mutateAsync: addCoins } = useAddCoins();
-  
+
   // Use provided pubkey or current user's pubkey
   const targetPubkey = pubkey || user?.pubkey;
   const targetBlobbiId = blobbiId;
-  
+
   // If no specific Blobbi ID is provided and we're looking at the current user,
   // try to find their Blobbi automatically
   const { data: userBlobbi, isLoading: isLoadingUserBlobbi } = useUserBlobbi();
   const shouldUseUserBlobbi = !targetBlobbiId && !pubkey && user;
   const effectiveBlobbiId = targetBlobbiId || (shouldUseUserBlobbi ? userBlobbi?.id : '');
-  
+
   // Use new lifecycle management system
   const {
     blobbi,
@@ -85,7 +85,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
     updateCustomization,
     isUpdatingCustomization,
   } = useBlobbiLifecycle(effectiveBlobbiId || '');
-  
+
   // Combine loading states
   const isLoading = isLoadingLifecycle || (shouldUseUserBlobbi && isLoadingUserBlobbi);
 
@@ -114,7 +114,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
   const createBlobbiMutation = useMutation({
     mutationFn: async ({ name, stage = 'egg' }: { name: string; stage?: 'egg' | 'baby' | 'adult' }) => {
       if (!user) throw new Error('Must be logged in to create a Blobbi');
-      
+
       return await createBlobbiFromEvents({
         name,
         stage,
@@ -132,39 +132,39 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       queryClient.invalidateQueries({ queryKey: ['user-blobbi'] });
     },
   });
-  
+
   // Perform action using new care system
   const performActionMutation = useMutation({
-    mutationFn: async ({ 
-      action, 
-      itemEffect 
-    }: { 
-      action: BlobbiAction; 
-      itemEffect?: Partial<BlobbiStats> 
+    mutationFn: async ({
+      action,
+      itemEffect
+    }: {
+      action: BlobbiAction;
+      itemEffect?: Partial<BlobbiStats>
     }) => {
       if (!user) throw new Error('Must be logged in');
       if (!currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only interact with your own Blobbi');
-      
+
       // Import cooldown utilities and logger
       const { cooldownStorage, isActionAvailableForStage } = await import('@/lib/cooldown-storage');
-      const { 
-        logInteractionTriggered, 
-        logInteractionBlockedByCooldown, 
-        logInteractionBlockedUnavailable, 
-        logInteractionError 
+      const {
+        logInteractionTriggered,
+        logInteractionBlockedByCooldown,
+        logInteractionBlockedUnavailable,
+        logInteractionError
       } = await import('@/lib/interaction-logger');
-      
+
       // Store previous stats for logging
       const previousStats = { ...currentBlobbi.stats };
-      
+
       try {
         // Check if action is available for this stage
         if (!isActionAvailableForStage(action, currentBlobbi.lifeStage)) {
           logInteractionBlockedUnavailable(action, currentBlobbi.id, currentBlobbi.lifeStage);
           throw new Error(`Action "${action}" is not available for ${currentBlobbi.lifeStage} stage`);
         }
-        
+
         // Check cooldown
         const isOnCooldown = await cooldownStorage.isOnCooldown(currentBlobbi.id, action, currentBlobbi.lifeStage);
         if (isOnCooldown) {
@@ -173,11 +173,11 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
           const { formatCooldownTime } = await import('@/lib/cooldown-storage');
           throw new Error(`Action is on cooldown. Time remaining: ${formatCooldownTime(remaining)}`);
         }
-        
+
         const interactionType = mapActionToInteractionType(action);
         const statChanges = calculateStatChanges(action, currentBlobbi.stats, itemEffect, currentBlobbi.lifeStage);
         const primaryStatChange = statChanges[0];
-        
+
         const result = await performCare({
           action: interactionType,
           customStatChange: primaryStatChange,
@@ -185,16 +185,16 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
           carePoints: action === 'feed' || action === 'play' ? 2 : 1,
           itemUsed: itemEffect ? 'item' : undefined,
         });
-        
+
         // Record cooldown after successful action
         await cooldownStorage.setCooldown(currentBlobbi.id, action, Date.now(), currentBlobbi.lifeStage);
-        
+
         // Calculate new stats for logging
         const newStats = {
           ...previousStats,
           [primaryStatChange[0]]: Math.min(100, Math.max(0, previousStats[primaryStatChange[0] as keyof BlobbiStats] + primaryStatChange[1]))
         };
-        
+
         // Log successful interaction
         logInteractionTriggered(action, currentBlobbi.id, currentBlobbi.lifeStage, {
           statChanges: { [primaryStatChange[0]]: primaryStatChange[1] },
@@ -203,7 +203,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
           previousStats,
           newStats
         });
-        
+
         return result;
       } catch (error) {
         // Log error if it's not already logged
@@ -218,17 +218,17 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status'] });
     },
   });
-  
+
   // Manual evolution trigger
   const triggerEvolutionMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Must be logged in');
       if (!currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only evolve your own Blobbi');
-      
+
       let newStage: 'baby' | 'adult';
       let reason: string;
-      
+
       if (currentBlobbi.lifeStage === 'egg') {
         newStage = 'baby';
         reason = 'Manual hatching triggered';
@@ -238,7 +238,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       } else {
         throw new Error('Blobbi is already fully evolved');
       }
-      
+
       return await evolve({ newStage, evolutionReason: reason });
     },
   });
@@ -257,7 +257,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       if (!user) throw new Error('Must be logged in');
       if (!currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only create memories for your own Blobbi');
-      
+
       return await createMemory({
         memoryTitle: title,
         memoryDescription: description,
@@ -276,7 +276,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
       if (!user) throw new Error('Must be logged in');
       if (!currentBlobbi) throw new Error('No Blobbi found');
       if (!isOwner) throw new Error('You can only customize your own Blobbi');
-      
+
       const updatedBlobbi = {
         ...currentBlobbi,
         baseColor: customization.color || currentBlobbi.baseColor,
@@ -286,7 +286,7 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
           ...customization,
         },
       };
-      
+
       await updateState(updatedBlobbi);
       return updatedBlobbi;
     },
@@ -299,14 +299,14 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
   const addCoinsMutation = useMutation({
     mutationFn: async (amount: number) => {
       if (!user) throw new Error('Must be logged in');
-      
+
       // Add coins to Blobbanaut Profile
       await addCoins(amount);
-      
+
       return amount;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['blobbonaut-profile'] });
     },
   });
 
@@ -316,13 +316,13 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
     isLoading,
     error: null,
     isOwner,
-    
+
     // Lifecycle status
     lifecycleStatus,
-    
+
     // Actions
     createBlobbi: createBlobbiMutation.mutateAsync,
-    performAction: (action: BlobbiAction, itemEffect?: Partial<BlobbiStats>) => 
+    performAction: (action: BlobbiAction, itemEffect?: Partial<BlobbiStats>) =>
       performActionMutation.mutateAsync({ action, itemEffect }),
     updateCustomization,
     triggerEvolution: triggerEvolutionMutation.mutateAsync,
@@ -339,23 +339,23 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
 export function useBlobbis(limit: number = 20) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  
+
   return useQuery({
     queryKey: ['blobbis-new', limit, user?.pubkey],
     queryFn: async () => {
       if (!user) return [];
-      
+
       const signal = AbortSignal.timeout(5000);
-      
+
       // Query recent state events ONLY from the current user
       const stateEvents = await nostr.query([
-        { 
+        {
           kinds: [31124], // Blobbi state events
           authors: [user.pubkey], // Only fetch events from the current user
           limit: limit,
         }
       ], { signal });
-      
+
       // Parse and filter unique Blobbis
       const { parseBlobbiFromStateEvent } = await import('@/lib/blobbi-events');
       const blobbis = stateEvents
@@ -395,20 +395,20 @@ export function useBlobbis(limit: number = 20) {
 // Hook to fetch community Blobbis from different users (for community feed)
 export function useCommunityBlobbis(limit: number = 20) {
   const { nostr } = useNostr();
-  
+
   return useQuery({
     queryKey: ['community-blobbis', limit],
     queryFn: async () => {
       const signal = AbortSignal.timeout(5000);
-      
+
       // Query recent state events from different users
       const stateEvents = await nostr.query([
-        { 
+        {
           kinds: [31124], // Blobbi state events
           limit: limit * 2, // Get more to filter unique users
         }
       ], { signal });
-      
+
       // Parse and filter unique Blobbis
       const { parseBlobbiFromStateEvent } = await import('@/lib/blobbi-events');
       const blobbis = stateEvents

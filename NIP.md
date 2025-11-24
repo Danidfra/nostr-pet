@@ -192,7 +192,7 @@ Represents the current state of a single Blobbi pet. This is a replaceable event
 {
   "kind": 31125,
   "tags": [
-    ["d", "blobbanaut-profile"],
+    ["d", "blobbonaut-profile"],
     ["name", "BlobbiMaster"],
     ["coins", "2500"],
     ["pettingLevel", "15"],

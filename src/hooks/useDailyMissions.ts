@@ -75,7 +75,7 @@ export function useDailyMissions() {
 
   // Fetch latest Kind 31125 (Blobbanaut Profile) for user
   const { data: profileEvent, isLoading: isLoadingProfile } = useQuery({
-    queryKey: ['blobbanaut-profile-event', user?.pubkey],
+    queryKey: ['blobbonaut-profile-event', user?.pubkey],
     queryFn: async () => {
       if (!user) return null;
 
@@ -232,8 +232,8 @@ export function useDailyMissions() {
     },
     onSuccess: () => {
       // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile-event', user?.pubkey] });
-      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['blobbonaut-profile-event', user?.pubkey] });
+      queryClient.invalidateQueries({ queryKey: ['blobbonaut-profile'] });
       queryClient.invalidateQueries({ queryKey: ['daily-missions', user?.pubkey] });
     },
   });
@@ -280,8 +280,8 @@ export function useDailyMissions() {
     },
     onSuccess: () => {
       // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile-event', user?.pubkey] });
-      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['blobbonaut-profile-event', user?.pubkey] });
+      queryClient.invalidateQueries({ queryKey: ['blobbonaut-profile'] });
       queryClient.invalidateQueries({ queryKey: ['daily-missions', user?.pubkey] });
     },
   });
@@ -333,8 +333,8 @@ export function useDailyMissions() {
     },
     onSuccess: () => {
       // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile-event', user?.pubkey] });
-      queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['blobbonaut-profile-event', user?.pubkey] });
+      queryClient.invalidateQueries({ queryKey: ['blobbonaut-profile'] });
       queryClient.invalidateQueries({ queryKey: ['daily-missions', user?.pubkey] });
     },
   });

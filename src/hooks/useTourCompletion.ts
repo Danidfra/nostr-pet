@@ -43,13 +43,13 @@ export function useTourCompletion() {
       }
 
       const latestEvent = events[0];
-      
+
       // Create a copy of existing tags
       const updatedTags = [...latestEvent.tags];
-      
+
       // Find and remove any existing onboarding_done tags
       const filteredTags = updatedTags.filter(([tagName]) => tagName !== 'onboarding_done');
-      
+
       // Add the new onboarding_done tag with value "true"
       filteredTags.push(['onboarding_done', 'true']);
 
@@ -66,7 +66,7 @@ export function useTourCompletion() {
     onSuccess: () => {
       // Invalidate and refetch the profile to get the updated data
       queryClient.invalidateQueries({
-        queryKey: ['blobbanaut-profile']
+        queryKey: ['blobbonaut-profile']
       });
     },
     onError: (error) => {

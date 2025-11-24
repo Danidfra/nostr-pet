@@ -85,7 +85,7 @@ export function useSetCurrentCompanion() {
         publishEvent(eventTemplate, {
           onSuccess: () => {
             // Invalidate queries
-            queryClient.invalidateQueries({ queryKey: ['blobbanaut-profile'] });
+            queryClient.invalidateQueries({ queryKey: ['blobbonaut-profile'] });
             queryClient.invalidateQueries({ queryKey: ['current-companion'] });
             resolve();
           },
