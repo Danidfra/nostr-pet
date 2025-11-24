@@ -436,12 +436,3 @@ export function useSetOnboardingDone() {
   });
 }
 
-// Hook to check if onboarding is done
-export function useOnboardingDone() {
-  const { data: profile } = useBlobbonautProfile();
-
-  return {
-    isOnboardingDone: profile?.onboardingDone ?? false,
-    isLoading: !profile,
-  };
-}

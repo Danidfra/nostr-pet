@@ -1,8 +1,6 @@
 # NIP-BB: Blobbi Virtual Pet Events
 
-`draft` `optional`
-
-This NIP defines event kinds for managing virtual pets called "Blobbi" on Nostr.
+This NIP defines the standardized event kinds, tags, and behaviors for managing virtual Blobbi pets on the Nostr protocol. It ensures interoperability between different Blobbi implementations while maintaining data integrity and providing a rich, interactive pet experience.
 
 ## Event Kinds
 
@@ -16,26 +14,99 @@ This NIP defines event kinds for managing virtual pets called "Blobbi" on Nostr.
 
 Blobbi pets have three stages: **egg** → **baby** → **adult**
 
-### Egg Stage
-- Requires daily care for 4+ days to hatch
-- Care actions: warm, clean, check, sing, talk
-- Each action gives care points (max 10 per day)
-- Need 40+ total care points to hatch
+### Kind 31124: Blobbi Current State (Addressable)
+Represents the current state of a single Blobbi pet. This is a replaceable event where the latest event per `(pubkey, kind, d)` combination is stored by relays.
 
-### Baby Stage
-- Newly hatched pets need 10 days of care
-- Care actions: feed, play, clean, rest
-- Stats: hunger, happiness, health, hygiene, energy (0-100)
+**Required Tags:**
+- `d`: Blobbi ID (format: "blobbi-{name}")
+- `stage`: Life stage ("egg", "baby", "adult")
+- `breeding_ready`: Whether ready to breed ("true" or "false")
+- `generation`: Generation number
+- `experience`: Total XP earned
+- `care_streak`: Consecutive care days
 
-### Adult Stage
-- Fully evolved pets with established traits
-- Lower maintenance requirements
-- Can breed with other adults
+**Optional Core Stats Tags:**
+- `hunger`, `happiness`, `health`, `hygiene`, `energy`: 0-100 stat values
+
+**Optional Appearance Tags:**
+- `base_color`: Primary color
+- `secondary_color`: Secondary color (if applicable)
+- `pattern`: Visual pattern
+- `eye_color`: Eye color
+- `special_mark`: Special marking
+- `adult_type`: Evolution form for adults
+- `manifestation`: Special manifestation
+- `visual_effect`: Visual effects
+- `blessing`: Special blessing
+
+**Optional Behavior Tags:**
+- `is_sleeping`: Sleep state ("true" or "false")
+- `state`: Current state ("active", "sleeping", "hibernating")
+
+**Optional Egg-Specific Tags (only for stage="egg"):**
+- `incubation_time`: Time spent incubating (Unix timestamp)
+- `incubation_progress`: Progress percentage
+- `egg_temperature`: Temperature 0-100
+- `egg_status`: Current egg status
+- `shell_integrity`: Shell condition 0-100
+
+**Optional Personality Tags:**
+- `personality`: Personality traits (multiple values allowed)
+- `trait`: Character traits (multiple values allowed)
+- `mood`: Current mood
+- `favorite_food`: Preferred food
+- `voice_type`: Voice characteristics
+- `size`: Physical size
+- `title`: Special title
+- `skill`: Special skills
+
+**Optional Social Tags:**
+- `adopted_by`: Adopter pubkey
+- `adopted_from`: Previous owner
+- `current_location`: Current location
+- `in_party`: Party participation ("true" or "false")
+- `visible_to_others`: Visibility setting
+
+**Optional Care Tracking Tags (Unix timestamps):**
+- `last_interaction`: Last interaction time
+- `last_meal`: Last feeding time
+- `last_clean`: Last cleaning time
+- `last_warm`: Last warming time
+- `last_check`: Last check time
+- `last_sing`: Last singing time
+- `last_talk`: Last talking time
+- `last_medicine`: Last medicine time
+
+**Optional Special Tags:**
+- `fees`: Adoption fees
+- `penalty`: Penalty type
+- `value`: Penalty value
+- `care_points_deducted`: Care points lost
+
+**Profile-Specific Tags (Kind 31125):**
+- `coins`: Currency amount
+- `pettingLevel`: Interaction level
+- `lifetimeBlobbis`: Total Blobbis owned
+- `favoriteBlobbi`: Favorite Blobbi ID
+- `starterBlobbi`: First Blobbi ID
+- `current_companion`: Currently selected companion
+- `style`: Aesthetic style
+- `background`: Background theme
+- `title`: Custom title
+- `has`: Owned pet IDs (multiple)
+- `achievements`: Achievement IDs (multiple)
+- `storage`: Item storage ("item_id:quantity" format, multiple)
+- `onboarding_done`: Onboarding completion
+
+**Divine-Specific Tags:**
+- `theme`: Divine theme identifier ("divine")
+- `crossover_app`: Crossover application identifier
+- `manifestation`: Special manifestation
+- `blessing`: Special blessing
 
 ## Event Examples
 
 ### Kind 31124: Pet State
-
 ```json
 {
   "kind": 31124,
@@ -61,7 +132,6 @@ Blobbi pets have three stages: **egg** → **baby** → **adult**
 ```
 
 ### Kind 14919: Interaction
-
 ```json
 {
   "kind": 14919,
@@ -81,15 +151,14 @@ Blobbi pets have three stages: **egg** → **baby** → **adult**
 ```
 
 ### Kind 14920: Breeding
-
 ```json
 {
   "kind": 14920,
   "tags": [
     ["parent_a", "blobbi-fluffy"],
     ["parent_b", "blobbi-sparkle"],
-    ["owner_a", "npub1..."],
-    ["owner_b", "npub2..."],
+    ["owner_a", "npub1abc..."],
+    ["owner_b", "npub2xyz..."],
     ["breed_time", "2024-01-15T10:30:00Z"],
     ["success", "true"],
     ["offspring_id", "blobbi-baby"]
@@ -99,7 +168,6 @@ Blobbi pets have three stages: **egg** → **baby** → **adult**
 ```
 
 ### Kind 14921: Record
-
 ```json
 {
   "kind": 14921,
@@ -110,7 +178,7 @@ Blobbi pets have three stages: **egg** → **baby** → **adult**
     ["origin", "wild"],
     ["rarity", "uncommon"],
     ["birth_location", "enchanted_grove"],
-    ["weather_at_birth", "clear_sky"],
+    ["weather_at_birth", "misty_morning"],
     ["shell_color", "purple"],
     ["initial_trait", "curious"],
     ["initial_trait", "playful"]
@@ -120,7 +188,6 @@ Blobbi pets have three stages: **egg** → **baby** → **adult**
 ```
 
 ### Kind 31125: Owner Profile
-
 ```json
 {
   "kind": 31125,
@@ -131,18 +198,71 @@ Blobbi pets have three stages: **egg** → **baby** → **adult**
     ["pettingLevel", "15"],
     ["lifetimeBlobbis", "3"],
     ["favoriteBlobbi", "blobbi-fluffy"],
-    ["starterBlobbi", "blobbi-sparkle"],
     ["has", "blobbi-fluffy"],
     ["has", "blobbi-sparkle"],
     ["achievements", "first_adoption"],
     ["achievements", "care_master"],
-    ["welcome_mission", "claimed"],
     ["storage", "berry:5"],
     ["storage", "toy_ball:2"]
   ],
   "content": ""
 }
 ```
+
+## Tag Validation Rules
+
+### Required Tags
+- Must be present for the event kind to be considered valid
+- Values must be properly formatted (numbers for stats, timestamps for dates, valid strings for identifiers)
+
+### Optional Tags
+- May be included based on event type and context
+- Multi-value tags are allowed for arrays (personality, traits, achievements, storage)
+
+### Divine Blobbi Behavior
+Divine Blobbis are special pets with unique characteristics:
+- **Theme**: Set to "divine"
+- **Crossover**: Use crossover application identifier
+- **Secondary Color**: Always removed (divine Blobbis don't have secondary colors)
+- **Special Traits**: Include manifestation and blessing tags
+
+### Lifecycle Management
+Blobbi pets progress through three distinct stages:
+1. **Egg Stage** (0-4 days minimum)
+   - Requires daily care interactions
+   - Care actions: warm, clean, check, sing, talk
+   - Maximum 10 care points per day
+   - Temperature management critical
+
+2. **Baby Stage** (10 days for egg-hatched, 7 days for direct adoption)
+   - Core care actions: feed, play, clean, rest
+   - Stat management: hunger, happiness, health, hygiene, energy
+   - Social interactions and personality development
+
+3. **Adult Stage** (fully evolved)
+   - Breeding capabilities with other adults
+   - Lower maintenance requirements
+   - Advanced social features
+
+### Stat System
+All stats are maintained in 0-100 range:
+- **Decay**: Stats decrease over time when not cared for
+- **Interactions**: Actions modify stats according to defined formulas
+- **Bounds**: No stat can exceed 0-100 range
+- **Recovery**: Special actions can restore stats
+
+### Data Persistence
+- **State Events**: Kind 31124 (addressable) for current state
+- **Interaction Events**: Kind 14919 (regular) for all actions
+- **Record Events**: Kind 14921 (regular) for permanent history
+- **Profile Events**: Kind 31125 (addressable) for owner data
+
+### Interoperability
+This specification ensures that different Blobbi implementations can:
+- Understand each other's events through standardized tags
+- Maintain data integrity through proper validation
+- Provide consistent user experience across clients
+- Support advanced features while maintaining backward compatibility
 
 ## Key Tags
 
@@ -377,7 +497,6 @@ Blobbi pets have three stages: **egg** → **baby** → **adult**
 - `has`: Owned pet IDs (multiple)
 - `achievements`: Achievement IDs (multiple)
 - `storage`: "item_id:quantity" format (multiple)
-
 ## Implementation Notes
 
 1. Query Kind 31124 for current pet state
@@ -385,3 +504,39 @@ Blobbi pets have three stages: **egg** → **baby** → **adult**
 3. Use Kind 14921 for permanent history
 4. Stats decay over time without care
 5. All pet IDs use format: "blobbi-{name}"
+
+### ID Format
+All Blobbi IDs use the format: "blobbi-{name}"
+- Names are normalized to lowercase with hyphens
+- Special characters allowed for display names
+
+### Time Handling
+All timestamps are Unix timestamps (seconds since epoch)
+- Interaction times track when actions occurred
+- Care streaks calculated from daily interaction patterns
+
+### Validation
+All events should include required tags for their kind
+- Optional tags are validated for proper format and value ranges
+- Events with missing or invalid required tags must be rejected
+
+### Security
+- All events must be signed by the creator's private key
+- Pet ownership is verified through pubkey matching
+- Sensitive actions require proper authorization
+
+## Future Extensions
+
+The specification is designed to accommodate:
+- New pet types and evolution forms
+- Additional stat categories or behaviors
+- Enhanced social features and community interactions
+- Cross-client breeding with genetic inheritance
+- Advanced customization and personalization options
+
+---
+
+**Implementation Status**: ✅ Fully implemented in current codebase
+**Compatibility**: ✅ Compatible with existing Nostr ecosystem
+**Validation**: ✅ Comprehensive tag and data validation
+**Extensibility**: ✅ Designed for future enhancements

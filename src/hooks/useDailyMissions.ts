@@ -22,7 +22,7 @@ interface MissionStatus {
   progressMax?: number;
 }
 
-interface DailyMissionsData {
+export interface DailyMissionsData {
   mission1: MissionStatus;
   mission2: MissionStatus;
   bonus: MissionStatus;
