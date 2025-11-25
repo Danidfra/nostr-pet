@@ -15,6 +15,7 @@ import { BedProvider } from '@/contexts/BedContext';
 import { BlobbiFakeInventoryProvider } from '@/contexts/BlobbiFakeInventoryContext';
 import { BlobbiFakeStatusProvider } from '@/contexts/BlobbiFakeStatusContext';
 import { BlobbiOnLoadDecayIntegration } from '@/components/BlobbiOnLoadDecayIntegration';
+import { BlobbiAutoRepairIntegration } from '@/components/BlobbiAutoRepairIntegration';
 import AppRouter from './AppRouter';
 
 // Component that connects relay context to NostrProvider
@@ -65,6 +66,7 @@ export function App() {
                         <Toaster />
                         <BlobbiCompanionIntegration />
                         <BlobbiOnLoadDecayIntegration />
+                        <BlobbiAutoRepairIntegration />
                         <AppRouter />
                       </BedProvider>
                     </AudioProvider>

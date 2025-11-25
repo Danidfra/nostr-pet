@@ -1435,9 +1435,28 @@ export function useBlobbiIncubationSystem() {
       const currentEvent = currentBlobbiEvents[0];
       const now = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
 
+      console.log('[Incubation Start] Original event tags:', currentEvent.tags.length);
+      console.log('[Incubation Start] Original stats:', {
+        hunger: currentEvent.tags.find(([n]) => n === 'hunger')?.[1],
+        happiness: currentEvent.tags.find(([n]) => n === 'happiness')?.[1],
+        health: currentEvent.tags.find(([n]) => n === 'health')?.[1],
+        experience: currentEvent.tags.find(([n]) => n === 'experience')?.[1],
+        care_streak: currentEvent.tags.find(([n]) => n === 'care_streak')?.[1],
+      });
+
       // Use the new merge helper to safely update tags
       const updatedTags = mergeBlobbiStateTags(currentEvent.tags, {
         startIncubation: now,
+      });
+
+      console.log('[Incubation Start] Merged tags:', updatedTags.length);
+      console.log('[Incubation Start] Merged stats:', {
+        hunger: updatedTags.find(([n]) => n === 'hunger')?.[1],
+        happiness: updatedTags.find(([n]) => n === 'happiness')?.[1],
+        health: updatedTags.find(([n]) => n === 'health')?.[1],
+        experience: updatedTags.find(([n]) => n === 'experience')?.[1],
+        care_streak: updatedTags.find(([n]) => n === 'care_streak')?.[1],
+        start_incubation: updatedTags.find(([n]) => n === 'start_incubation')?.[1],
       });
 
       // Publish the updated event

@@ -2,9 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
-import { BLOBBI_EVENT_KINDS, parseBlobbiFromStateEvent } from '@/lib/blobbi-events';
+import { BLOBBI_EVENT_KINDS, parseBlobbiFromStateEvent, repairEventIfNeeded } from '@/lib/blobbi-events';
 import { calculateStatDegradation, clampStat } from '@/lib/blobbi-events';
 import { Blobbi } from '@/types/blobbi';
+import { NostrEvent } from '@nostrify/nostrify';
 
 /**
  * Hook to fetch all Blobbis owned by the current user
@@ -35,10 +36,24 @@ export function useUserBlobbis() {
       // Parse and collect all valid Blobbis
       const blobbis: Blobbi[] = [];
       const seenIds = new Set<string>();
+      const latestEventPerBlobbi = new Map<string, NostrEvent>();
 
       // Sort events by created_at descending to get latest state for each Blobbi
       const sortedEvents = stateEvents.sort((a, b) => b.created_at - a.created_at);
 
+      // First pass: identify latest event per Blobbi and trigger repairs
+      for (const event of sortedEvents) {
+        const blobbiId = event.tags.find(([name]) => name === 'd')?.[1];
+        if (blobbiId && !latestEventPerBlobbi.has(blobbiId)) {
+          latestEventPerBlobbi.set(blobbiId, event);
+          // Trigger repair for latest event only (fire and forget)
+          repairEventIfNeeded(event).catch(error => {
+            console.error(`[AutoRepair] Error repairing ${blobbiId}:`, error);
+          });
+        }
+      }
+
+      // Second pass: parse all Blobbis
       for (const event of sortedEvents) {
         try {
           const blobbi = parseBlobbiFromStateEvent(event);

@@ -17,7 +17,7 @@ import {
   BlobbiMood,
   BlobbiEvolutionForm
 } from '@/types/blobbi';
-import { ensureBlobbiTagsWithDebug, hasBlobbiEcosystemTag, hasBlobbiTopicTag } from './blobbi-tags';
+import { ensureBlobbiTagsWithDebug } from './blobbi-tags';
 import { filterEggTagsForBaby } from './blobbi-evolution';
 import {
   isDivineBlobbi,
@@ -28,47 +28,155 @@ import {
   DIVINE_CROSSOVER_APP
 } from './blobbi-divine-utils';
 
-// Event kinds according to the specification
+// ============================================================================
+// AUTO-REPAIR CALLBACK REGISTRY
+// ============================================================================
+
+type PublishEventCallback = (event: Omit<NostrEvent, 'id' | 'sig'>) => Promise<void>;
+
+let autoRepairPublishCallback: PublishEventCallback | null = null;
+const repairedEventIds = new Set<string>(); // Track by event ID to prevent loops
+const repairedBlobbis = new Set<string>(); // Track by Blobbi ID for session deduplication
+
+export function registerAutoRepairCallback(callback: PublishEventCallback | null): void {
+  autoRepairPublishCallback = callback;
+}
+
+export function clearRepairedBlobbisCache(): void {
+  repairedEventIds.clear();
+  repairedBlobbis.clear();
+}
+
+// Check if an event needs repair (missing required stat tags)
+export function eventNeedsRepair(event: NostrEvent): boolean {
+  const tags = event.tags;
+  const hungerStr = getTagValue(tags, 'hunger');
+  const happinessStr = getTagValue(tags, 'happiness');
+  const healthStr = getTagValue(tags, 'health');
+  const hygieneStr = getTagValue(tags, 'hygiene');
+  const energyStr = getTagValue(tags, 'energy');
+
+  return !(hungerStr && happinessStr && healthStr && hygieneStr && energyStr);
+}
+
+// Check if a Blobbi object needs repair based on its tags
+export function blobbiNeedsRepair(blobbi: Blobbi): boolean {
+  if (!blobbi.tags || blobbi.tags.length === 0) return true;
+
+  const hungerTag = blobbi.tags.find(([name]) => name === 'hunger');
+  const happinessTag = blobbi.tags.find(([name]) => name === 'happiness');
+  const healthTag = blobbi.tags.find(([name]) => name === 'health');
+  const hygieneTag = blobbi.tags.find(([name]) => name === 'hygiene');
+  const energyTag = blobbi.tags.find(([name]) => name === 'energy');
+
+  return !(hungerTag && happinessTag && healthTag && hygieneTag && energyTag);
+}
+
+// Repair a specific event if needed
+export async function repairEventIfNeeded(event: NostrEvent): Promise<void> {
+  // Skip if already repaired this specific event
+  if (repairedEventIds.has(event.id)) {
+    return;
+  }
+
+  // Skip if event doesn't need repair
+  if (!eventNeedsRepair(event)) {
+    return;
+  }
+
+  const blobbiId = getTagValue(event.tags, 'd');
+  if (!blobbiId) return;
+
+  // Skip if we already repaired this Blobbi in this session
+  if (repairedBlobbis.has(blobbiId)) {
+    return;
+  }
+
+  // Parse the event to get a Blobbi object
+  const blobbi = parseBlobbiFromStateEvent(event);
+  if (!blobbi) return;
+
+  // Mark as being repaired
+  repairedEventIds.add(event.id);
+  repairedBlobbis.add(blobbiId);
+
+  // Publish the corrected event
+  await publishCorrectedStateEvent(blobbiId, blobbi, event);
+}
+
+// ============================================================================
+// EVENT KIND CONSTANTS
+// ============================================================================
+
 export const BLOBBI_EVENT_KINDS = {
-  STATE: 31124,      // Addressable - current state
-  INTERACTION: 14919, // Regular - individual interactions
-  BREEDING: 14920,   // Regular - breeding events
-  RECORD: 14921,     // Regular - immutable records
+  STATE: 31124,              // Addressable - current state
+  INTERACTION: 14919,        // Regular - individual interactions
+  BREEDING: 14920,           // Regular - breeding events
+  RECORD: 14921,             // Regular - immutable records
   BLOBBONAUT_PROFILE: 31125, // Addressable - Blobbonaut (owner) profile
 } as const;
 
-// Validation schemas for required and optional tags
-// 🔥 FIX: Removed stat tags from required since we now support recovery
+// ============================================================================
+// VALIDATION SCHEMAS
+// ============================================================================
+
 const REQUIRED_STATE_TAGS = ['d', 'stage', 'breeding_ready', 'generation', 'experience', 'care_streak'];
 const OPTIONAL_STAT_TAGS = ['hunger', 'happiness', 'health', 'hygiene', 'energy'];
 const REQUIRED_INTERACTION_TAGS = ['blobbi_id', 'action', 'action_category', 'stat_change'];
 const REQUIRED_RECORD_TAGS = ['blobbi_id', 'record_type'];
 const REQUIRED_BREEDING_TAGS = ['parent_a', 'parent_b', 'owner_a', 'owner_b', 'breed_time', 'success'];
-const REQUIRED_BLOBBONAUT_TAGS = ['d']; // Only 'd' tag is required for Blobbonaut Profile
+const REQUIRED_BLOBBONAUT_TAGS = ['d'];
 
-// Helper function to validate required tags
-function validateRequiredTags(tags: string[][], requiredTags: string[]): boolean {
-  const tagNames = tags.map(tag => tag[0]).filter(Boolean);
-  return requiredTags.every(required => tagNames.includes(required));
-}
+const VALID_ACTIONS = ['feed', 'play', 'clean', 'rest', 'warm', 'check', 'sing', 'talk', 'medicine', 'cruzar'] as const;
+const VALID_STAGES: BlobbiLifeStage[] = ['egg', 'baby', 'adult'];
+const VALID_STAT_NAMES = ['hunger', 'happiness', 'health', 'hygiene', 'energy', 'egg_temperature'] as const;
 
-// Helper function to get tag value
+const EGG_ONLY_TAGS = new Set([
+  'egg_temperature', 'egg_status', 'shell_integrity', 'hatch_time',
+  'start_incubation', 'incubation_time', 'start_evolution',
+  'last_warm', 'last_check', 'last_talk', 'last_medicine', 'last_sing'
+]);
+
+const TASK_TAG_PATTERNS = ['_progress', '_confirmed', 'quest_', 'task_', 'incubation_'];
+
+// ============================================================================
+// TAG HELPER FUNCTIONS
+// ============================================================================
+
 function getTagValue(tags: string[][], tagName: string): string | undefined {
   const tag = tags.find(tag => tag[0] === tagName);
   return tag && tag[1] ? tag[1] : undefined;
 }
 
-// Helper function to get all tag values for a tag name (for multi-value tags)
 function getTagValues(tags: string[][], tagName: string): string[] {
   return tags.filter(tag => tag[0] === tagName).map(tag => tag[1]).filter(Boolean);
 }
 
-// 🔥 FIX: Validation function to detect and log stat corruption
+function validateRequiredTags(tags: string[][], requiredTags: string[]): boolean {
+  const tagNames = tags.map(tag => tag[0]).filter(Boolean);
+  return requiredTags.every(required => tagNames.includes(required));
+}
+
+// ============================================================================
+// STAT VALIDATION AND SAFETY HELPERS
+// ============================================================================
+
+function validateStat(value: number, statName: string): number {
+  const cleanValue = Math.max(0, Math.min(100, Math.round(value || 0)));
+  if (cleanValue !== value) {
+    console.warn(`⚠️ [StateEvent] Corrected invalid ${statName}: ${value} → ${cleanValue}`);
+  }
+  return cleanValue;
+}
+
+export function clampStat(value: number): number {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 function validateBlobbiStats(blobbi: Blobbi, context: string): void {
   const stats = blobbi.stats;
   const issues: string[] = [];
 
-  // Check for invalid stat values
   Object.entries(stats).forEach(([statName, value]) => {
     if (typeof value !== 'number' || isNaN(value)) {
       issues.push(`${statName} is not a number: ${value}`);
@@ -77,11 +185,6 @@ function validateBlobbiStats(blobbi: Blobbi, context: string): void {
     }
   });
 
-  // Check for suspicious stat patterns (all zeros, all same value, etc.)
-  const statValues = Object.values(stats);
-  const uniqueValues = new Set(statValues);
-
-  // Check for missing required fields
   if (!blobbi.id) issues.push('Missing Blobbi ID');
   if (!blobbi.name) issues.push('Missing Blobbi name');
   if (!blobbi.lifeStage) issues.push('Missing life stage');
@@ -98,80 +201,265 @@ function validateBlobbiStats(blobbi: Blobbi, context: string): void {
   }
 }
 
-// Create Kind 31124: Shell Integrity Penalty Event
-export function createShellIntegrityPenaltyEvent(
-  blobbi: Blobbi,
-  carePointsDeducted: number
-): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
-  const tags: Array<[string, string]> = [
-    ['d', blobbi.id],
-    ['penalty', 'shell_integrity_breach'],
-    ['value', (blobbi.shellIntegrity ?? 100).toString()],
-    ['care_points_deducted', carePointsDeducted.toString()],
-  ];
+// ============================================================================
+// STAT RECOVERY FROM TIMESTAMPS
+// ============================================================================
 
-  // Ensure all Blobbi tags are present
-  const finalTags = ensureBlobbiTagsWithDebug(
-    tags.map(tag => [tag[0] || '', tag[1] || '']),
-    'createShellIntegrityPenaltyEvent',
-    BLOBBI_EVENT_KINDS.STATE
-  );
+function recoverMissingStatsFromTimestamps(
+  blobbiId: string,
+  tags: Array<[string, string]>,
+  currentTime: number = Date.now()
+): { stats: BlobbiStats; usedRecovery: boolean; warningMessage: string } {
+  const hungerStr = getTagValue(tags, 'hunger');
+  const happinessStr = getTagValue(tags, 'happiness');
+  const healthStr = getTagValue(tags, 'health');
+  const hygieneStr = getTagValue(tags, 'hygiene');
+  const energyStr = getTagValue(tags, 'energy');
+
+  if (hungerStr && happinessStr && healthStr && hygieneStr && energyStr) {
+    return {
+      stats: {
+        hunger: clampStat(parseInt(hungerStr)),
+        happiness: clampStat(parseInt(happinessStr)),
+        health: clampStat(parseInt(healthStr)),
+        hygiene: clampStat(parseInt(hygieneStr)),
+        energy: clampStat(parseInt(energyStr)),
+      },
+      usedRecovery: false,
+      warningMessage: ''
+    };
+  }
+
+  const lastMeal = getTagValue(tags, 'last_meal') ? parseInt(getTagValue(tags, 'last_meal')!) : undefined;
+  const lastClean = getTagValue(tags, 'last_clean') ? parseInt(getTagValue(tags, 'last_clean')!) : undefined;
+  const lastWarm = getTagValue(tags, 'last_warm') ? parseInt(getTagValue(tags, 'last_warm')!) : undefined;
+  const lastTalk = getTagValue(tags, 'last_talk') ? parseInt(getTagValue(tags, 'last_talk')!) : undefined;
+  const lastCheck = getTagValue(tags, 'last_check') ? parseInt(getTagValue(tags, 'last_check')!) : undefined;
+  const lastSing = getTagValue(tags, 'last_sing') ? parseInt(getTagValue(tags, 'last_sing')!) : undefined;
+  const lastMedicine = getTagValue(tags, 'last_medicine') ? parseInt(getTagValue(tags, 'last_medicine')!) : undefined;
+  const lastInteractionTime = getTagValue(tags, 'last_interaction_time') ? parseInt(getTagValue(tags, 'last_interaction_time')!) : undefined;
+
+  const interactionTimes = [lastMeal, lastClean, lastWarm, lastTalk, lastCheck, lastSing, lastMedicine, lastInteractionTime];
+  const validTimes = interactionTimes.filter((t): t is number => typeof t === 'number');
+  const mostRecentInteraction = validTimes.length > 0 ? Math.max(...validTimes) : undefined;
+
+  if (!mostRecentInteraction) {
+    return {
+      stats: {
+        hunger: 80,
+        happiness: 80,
+        health: 80,
+        hygiene: 80,
+        energy: 80,
+      },
+      usedRecovery: true,
+      warningMessage: 'No timestamp tags found, using safe defaults'
+    };
+  }
+
+  const hoursPassed = (currentTime / 1000 - mostRecentInteraction) / (60 * 60);
+  const safeHoursPassed = Math.max(0, Math.min(hoursPassed, 24));
+
+  let currentHunger = hungerStr ? clampStat(parseInt(hungerStr)) : 80;
+  let currentHappiness = happinessStr ? clampStat(parseInt(happinessStr)) : 80;
+  let currentHealth = healthStr ? clampStat(parseInt(healthStr)) : 80;
+  let currentHygiene = hygieneStr ? clampStat(parseInt(hygieneStr)) : 80;
+  let currentEnergy = energyStr ? clampStat(parseInt(energyStr)) : 80;
+
+  const HUNGER_DECAY_RATE = -5;
+  const HAPPINESS_DECAY_RATE = -3;
+  const HYGIENE_DECAY_RATE = -4;
+  const ENERGY_DECAY_RATE = -5;
+  const HEALTH_DECAY_RATE = -1;
+
+  currentHunger = clampStat(currentHunger + (HUNGER_DECAY_RATE * safeHoursPassed));
+  currentHappiness = clampStat(currentHappiness + (HAPPINESS_DECAY_RATE * safeHoursPassed));
+  currentHygiene = clampStat(currentHygiene + (HYGIENE_DECAY_RATE * safeHoursPassed));
+  currentEnergy = clampStat(currentEnergy + (ENERGY_DECAY_RATE * safeHoursPassed));
+  currentHealth = clampStat(currentHealth + (HEALTH_DECAY_RATE * safeHoursPassed));
+
+  if (currentHunger < 30) currentHealth = Math.max(0, currentHealth - 2);
+  if (currentHygiene < 20) currentHealth = Math.max(0, currentHealth - 1);
+  if (currentEnergy < 20) currentHealth = Math.max(0, currentHealth - 1);
+  if (currentHappiness < 30) currentHealth = Math.max(0, currentHealth - 1);
+
+  const recoveredStats = {
+    hunger: currentHunger,
+    happiness: currentHappiness,
+    health: currentHealth,
+    hygiene: currentHygiene,
+    energy: currentEnergy,
+  };
 
   return {
-    kind: BLOBBI_EVENT_KINDS.STATE,
-    content: `${blobbi.name}'s shell integrity is critically low (${blobbi.shellIntegrity ?? 100}%). Care points deducted: ${carePointsDeducted}`,
-    tags: finalTags as Array<[string, string]>,
+    stats: recoveredStats,
+    usedRecovery: true,
+    warningMessage: `Reconstructed from ${safeHoursPassed.toFixed(1)} hours of decay`
   };
 }
 
-// Create Kind 31124: Blobbi Current State Event
-export function createBlobbiStateEvent(blobbi: Blobbi, adoptionFees?: number): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
+async function publishCorrectedStateEvent(
+  blobbiId: string,
+  correctedBlobbi: Blobbi,
+  originalEvent: NostrEvent
+): Promise<void> {
+  if (!autoRepairPublishCallback) {
+    console.warn(`[AutoRepair] No publish callback registered for ${blobbiId}`);
+    return;
+  }
 
-  // 🔥 DIVINE PRESERVATION: Ensure Divine tags are present before processing
+  try {
+    console.log(`[AutoRepair] Detected incomplete Blobbi ${blobbiId}, publishing repair...`);
+
+    const correctedEvent = createBlobbiStateEvent(correctedBlobbi);
+
+    const eventToPublish: Omit<NostrEvent, 'id' | 'sig'> = {
+      kind: correctedEvent.kind,
+      content: correctedEvent.content,
+      tags: correctedEvent.tags,
+      pubkey: originalEvent.pubkey,
+      created_at: Math.floor(Date.now() / 1000),
+    };
+
+    await autoRepairPublishCallback(eventToPublish);
+
+    console.log(`✅ Published repair for ${blobbiId}`);
+  } catch (error) {
+    console.error(`[AutoRepair] Failed to publish repair for ${blobbiId}:`, error);
+    // Remove from repaired sets so it can be retried
+    repairedEventIds.delete(originalEvent.id);
+    repairedBlobbis.delete(blobbiId);
+  }
+}
+
+// ============================================================================
+// TAG FILTERING FOR STAGE TRANSITIONS
+// ============================================================================
+
+function isEggOnlyTag(tagName: string): boolean {
+  if (EGG_ONLY_TAGS.has(tagName)) return true;
+
+  for (const pattern of TASK_TAG_PATTERNS) {
+    if (tagName.includes(pattern)) return true;
+  }
+
+  return false;
+}
+
+function filterTagsForStage(tags: Array<[string, string]>, stage: BlobbiLifeStage): Array<[string, string]> {
+  if (stage === 'egg') return tags;
+
+  return tags.filter(([key]) => !isEggOnlyTag(key));
+}
+
+// ============================================================================
+// BLOBBI ID HELPERS
+// ============================================================================
+
+export function validateBlobbiId(blobbiId: string): boolean {
+  return /^blobbi-[a-z0-9_-]+$/.test(blobbiId) && blobbiId.length > 7 && blobbiId.length <= 57;
+}
+
+export function createBlobbiId(blobbiName: string): string {
+  if (!isValidBlobbiName(blobbiName)) {
+    throw new Error('Invalid Blobbi name: must contain at least one alphanumeric character');
+  }
+  const cleanName = normalizeBlobbiName(blobbiName);
+  return `blobbi-${cleanName}`;
+}
+
+export function extractBlobbiName(blobbiId: string): string {
+  if (!validateBlobbiId(blobbiId)) {
+    throw new Error('Invalid blobbiId format');
+  }
+  return blobbiId.replace('blobbi-', '');
+}
+
+export function normalizeBlobbiName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+}
+
+export function isValidBlobbiName(name: string): boolean {
+  const normalized = normalizeBlobbiName(name);
+  return normalized.length > 0 && normalized.length <= 50;
+}
+
+// ============================================================================
+// UTILITY HELPERS
+// ============================================================================
+
+export function extractActionTimestamps(blobbi: Blobbi): Record<string, number> {
+  const actionTimestamps: Record<string, number> = {};
+
+  if (blobbi.lastMeal) actionTimestamps.feed = blobbi.lastMeal * 1000;
+  if (blobbi.lastClean) actionTimestamps.clean = blobbi.lastClean * 1000;
+  if (blobbi.lastWarm) actionTimestamps.warm = blobbi.lastWarm * 1000;
+  if (blobbi.lastTalk) actionTimestamps.talk = blobbi.lastTalk * 1000;
+  if (blobbi.lastCheck) actionTimestamps.check = blobbi.lastCheck * 1000;
+  if (blobbi.lastSing) actionTimestamps.sing = blobbi.lastSing * 1000;
+  if (blobbi.lastMedicine) actionTimestamps.medicine = blobbi.lastMedicine * 1000;
+
+  return actionTimestamps;
+}
+
+export function calculateStatDegradation(
+  lastInteraction: number,
+  currentTime: number = Date.now()
+): Partial<BlobbiStats> {
+  const hoursPassed = (currentTime - lastInteraction) / (1000 * 60 * 60);
+
+  const degradationRates = {
+    hunger: -5,
+    happiness: -3,
+    hygiene: -2,
+    energy: -4,
+  };
+
+  return {
+    hunger: Math.max(0, degradationRates.hunger * hoursPassed),
+    happiness: Math.max(0, degradationRates.happiness * hoursPassed),
+    hygiene: Math.max(0, degradationRates.hygiene * hoursPassed),
+    energy: Math.max(0, degradationRates.energy * hoursPassed),
+  };
+}
+
+// ============================================================================
+// EVENT CREATION FUNCTIONS
+// ============================================================================
+
+export function createBlobbiStateEvent(
+  blobbi: Blobbi,
+  adoptionFees?: number
+): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
+  validateBlobbiStats(blobbi, 'createBlobbiStateEvent');
+
   const divinePreservedBlobbi = ensureDivineTags(blobbi);
 
-  // 🔥 FIX: Only preserve tags if they exist and are valid
-  // Never start with empty or undefined tags that could cause fallback values
   let preservedTags: Array<[string, string]> = [];
 
   if (divinePreservedBlobbi.tags && Array.isArray(divinePreservedBlobbi.tags) && divinePreservedBlobbi.tags.length > 0) {
     preservedTags = divinePreservedBlobbi.tags
-      .filter(([k, v]) => k && v) // Only include tags with both key and value
+      .filter(([k, v]) => k && v)
       .map(([k, v]) => [k, v] as [string, string]);
-
   }
 
-  // SPECIAL HANDLING FOR HATCHING: If this is a baby stage that was just hatched,
-  // ensure we use the pre-filtered tags from the hatching process
   if (blobbi.lifeStage === 'baby' && blobbi.tags && blobbi.tags.length > 0) {
-    // Check if tags have already been filtered (look for canonical order indicators)
     const hasBlobbiTag = blobbi.tags.some(([name]) => name === 'b');
     const hasTopicTag = blobbi.tags.some(([name]) => name === 't');
     const hasCanonicalOrder = hasBlobbiTag && hasTopicTag;
 
-if (!hasCanonicalOrder) {
-  // Tags might not be filtered yet, apply hatching filter
-  try {
-    const filteredTags = filterEggTagsForBaby(
-      (blobbi.tags || []).map(([k, v]) => [k || '', v || '']) as [string, string][],
-      blobbi
-    );
-    preservedTags = filteredTags.filter(([k, v]) => k && v);
-  } catch (error) {
-    console.warn('[Hatching] Could not apply egg tag filter, using original tags:', error);
-  }
-}
-  }
-
-  // 🔥 FIX: Core required tags with strict validation and corruption prevention
-  // Ensure stats are always valid numbers between 0-100
-  const validateStat = (value: number, statName: string): number => {
-    const cleanValue = Math.max(0, Math.min(100, Math.round(value || 0)));
-    if (cleanValue !== value) {
-      console.warn(`⚠️ [StateEvent] Corrected invalid ${statName}: ${value} → ${cleanValue}`);
+    if (!hasCanonicalOrder) {
+      try {
+        const filteredTags = filterEggTagsForBaby(
+          (blobbi.tags || []).map(([k, v]) => [k || '', v || '']) as [string, string][],
+          blobbi
+        );
+        preservedTags = filteredTags.filter(([k, v]) => k && v);
+      } catch (error) {
+        console.warn('[Hatching] Could not apply egg tag filter, using original tags:', error);
+      }
     }
-    return cleanValue;
-  };
+  }
 
   const coreUpdates: Array<[string, string]> = [
     ['d', blobbi.id],
@@ -188,91 +476,51 @@ if (!hasCanonicalOrder) {
     ['last_interaction', Math.floor(blobbi.lastInteraction || Date.now() / 1000).toString()],
   ];
 
-  // 🔥 FIX: Create a map to merge preserved tags with updates
   const stateTagMap = new Map<string, string>();
 
-  // First, add all preserved tags (with proper filtering for stage transitions)
   preservedTags.forEach(([key, value]) => {
-    if (!key || !value) return; // Skip invalid tags
+    if (!key || !value) return;
 
-    // 🔥 FIX: Enhanced tag filtering for stage transitions
-    if (blobbi.lifeStage === 'baby') {
-      const EGG_ONLY_TAGS = new Set([
-        'egg_temperature', 'egg_status', 'shell_integrity', 'hatch_time',
-        'start_incubation', 'incubation_time', 'start_evolution',
-        'last_warm', 'last_check', 'last_talk', 'last_medicine', 'last_sing'
-      ]);
-      const TASK_PATTERNS = ['_progress', '_confirmed', 'quest_', 'task_', 'incubation_'];
-
-      let isEggOrTaskTag = false;
-      if (EGG_ONLY_TAGS.has(key)) {
-        isEggOrTaskTag = true;
-      } else {
-        for (const pattern of TASK_PATTERNS) {
-          if (key.includes(pattern)) {
-            isEggOrTaskTag = true;
-            break;
-          }
-        }
-      }
-
-      if (isEggOrTaskTag) {
-
-        return; // Skip egg-specific tags for baby stage
-      }
+    if (blobbi.lifeStage === 'baby' && isEggOnlyTag(key)) {
+      return;
     }
 
-    // 🔥 FIX: Never override core stats with potentially stale preserved values
     const CORE_STAT_TAGS = new Set(['hunger', 'happiness', 'health', 'hygiene', 'energy', 'experience', 'care_streak']);
     if (CORE_STAT_TAGS.has(key)) {
-
-      return; // Skip preserved stats - they will be overridden with current values
+      return;
     }
 
     stateTagMap.set(key, value);
   });
 
-  // 🔥 FIX: Then override with core updates (these always take precedence)
   coreUpdates.forEach(([key, value]) => {
-    // if (stateTagMap.has(key)) {
-
-    // } else {
-
-    // }
     stateTagMap.set(key, value);
   });
 
-  // Add fees tag for adoption events
   if (adoptionFees !== undefined) {
     stateTagMap.set('fees', adoptionFees.toString());
   }
 
-  // Update appearance tags with current values (preserving existing ones if not specified)
   if (blobbi.baseColor) stateTagMap.set('base_color', blobbi.baseColor);
   if (blobbi.secondaryColor) stateTagMap.set('secondary_color', blobbi.secondaryColor);
   if (blobbi.pattern) stateTagMap.set('pattern', blobbi.pattern);
   if (blobbi.eyeColor) stateTagMap.set('eye_color', blobbi.eyeColor);
   if (blobbi.specialMark) stateTagMap.set('special_mark', blobbi.specialMark);
 
-  // 🔥 DIVINE PRESERVATION: Always ensure Divine tags are set if Blobbi is Divine
   const isDivine = isDivineBlobbi(blobbi);
   if (isDivine) {
     stateTagMap.set('theme', DIVINE_THEME);
     stateTagMap.set('crossover_app', DIVINE_CROSSOVER_APP);
-    // For divine Blobbis, ensure secondary_color is removed
     stateTagMap.delete('secondary_color');
   } else {
-    // For non-Divine Blobbis, use their specific theme values
     if (blobbi.themeVariant) stateTagMap.set('theme', blobbi.themeVariant);
     if (blobbi.crossoverApp) stateTagMap.set('crossover_app', blobbi.crossoverApp);
   }
 
-  // Add adult type tag for evolved adult Blobbis
   if (blobbi.lifeStage === 'adult' && blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi') {
     stateTagMap.set('adult_type', blobbi.evolutionForm);
   }
 
-  // Update other single-value tags
   if (blobbi.mood) stateTagMap.set('mood', blobbi.mood);
   if (blobbi.favoriteFood) stateTagMap.set('favorite_food', blobbi.favoriteFood);
   if (blobbi.voiceType) stateTagMap.set('voice_type', blobbi.voiceType);
@@ -280,15 +528,12 @@ if (!hasCanonicalOrder) {
   if (blobbi.title) stateTagMap.set('title', blobbi.title);
   if (blobbi.skill) stateTagMap.set('skill', blobbi.skill);
 
-  // Remove existing personality and trait tags to avoid duplicates
   const singleValueTags = Array.from(stateTagMap.entries()).filter(([key]) =>
     key !== 'personality' && key !== 'trait'
   );
 
-  // Start building the final tags array
   const stateTags: Array<[string, string]> = [...singleValueTags];
 
-  // Re-add current personality and traits
   if (blobbi.personality) {
     blobbi.personality.forEach(trait => stateTags.push(['personality', trait]));
   }
@@ -296,7 +541,6 @@ if (!hasCanonicalOrder) {
     blobbi.traits.forEach(trait => stateTags.push(['trait', trait]));
   }
 
-  // Add egg-specific tags only for eggs
   if (blobbi.lifeStage === 'egg') {
     if (blobbi.incubationTime) stateTagMap.set('incubation_time', blobbi.incubationTime.toString());
     if (blobbi.incubationProgress) stateTagMap.set('incubation_progress', blobbi.incubationProgress.toString());
@@ -304,27 +548,19 @@ if (!hasCanonicalOrder) {
     if (blobbi.eggStatus) stateTagMap.set('egg_status', blobbi.eggStatus);
     if (blobbi.shellIntegrity) stateTagMap.set('shell_integrity', blobbi.shellIntegrity.toString());
   }
-  // Note: egg-specific tags like shell_integrity are intentionally excluded for baby/adult stages
 
-  // Add behavior tags
   if (blobbi.isSleeping) stateTagMap.set('is_sleeping', blobbi.isSleeping.toString());
   if (blobbi.isDirty) stateTagMap.set('is_dirty', blobbi.isDirty.toString());
   if (blobbi.hasBuff) stateTagMap.set('has_buff', blobbi.hasBuff);
   if (blobbi.hasDebuff) stateTagMap.set('has_debuff', blobbi.hasDebuff);
   if (blobbi.lastInteraction) stateTagMap.set('last_interaction', blobbi.lastInteraction.toString());
 
-  // Add sleep system tags
   if (blobbi.sleepStartedAt) stateTagMap.set('sleep_started_at', blobbi.sleepStartedAt.toString());
 
-  // Add last_sleep_update tag only when Blobbi is sleeping
-  // This tag tracks the last time energy was updated during rest mode
   if (blobbi.isSleeping && blobbi.lastSleepUpdate) {
     stateTagMap.set('last_sleep_update', blobbi.lastSleepUpdate.toString());
   }
 
-  // Add last care tracking fields - Unix timestamps in seconds (same format as Nostr's created_at)
-  // These fields track when specific actions were last performed and are used for cooldowns and evolution
-  // Only include these tags if the actions have actually been performed (not just initialized during adoption)
   if (blobbi.lastMeal) stateTagMap.set('last_meal', blobbi.lastMeal.toString());
   if (blobbi.lastClean) stateTagMap.set('last_clean', blobbi.lastClean.toString());
   if (blobbi.lastWarm) stateTagMap.set('last_warm', blobbi.lastWarm.toString());
@@ -333,30 +569,23 @@ if (!hasCanonicalOrder) {
   if (blobbi.lastSing) stateTagMap.set('last_sing', blobbi.lastSing.toString());
   if (blobbi.lastMedicine) stateTagMap.set('last_medicine', blobbi.lastMedicine.toString());
 
-  // Add social tags
   if (blobbi.adoptedBy) stateTagMap.set('adopted_by', blobbi.adoptedBy);
   if (blobbi.adoptedFrom) stateTagMap.set('adopted_from', blobbi.adoptedFrom);
   if (blobbi.currentLocation) stateTagMap.set('current_location', blobbi.currentLocation);
   if (blobbi.inParty) stateTagMap.set('in_party', blobbi.inParty.toString());
   if (blobbi.visibleToOthers !== undefined) stateTagMap.set('visible_to_others', blobbi.visibleToOthers.toString());
 
-  // Rebuild single-value tags (excluding personality and trait which we handle separately)
   const updatedSingleValueTags = Array.from(stateTagMap.entries()).filter(([key]) =>
     key !== 'personality' && key !== 'trait'
   );
 
-  // Final tags array - merge all tags
   const finalStateTagsArray: Array<[string, string]> = [
-    ...stateTags, // This includes personality and trait tags
+    ...stateTags,
     ...updatedSingleValueTags.filter(([key]) =>
-      !stateTags.some(([existingKey]) => existingKey === key) // Avoid duplicates
+      !stateTags.some(([existingKey]) => existingKey === key)
     )
   ];
 
-  // 🔥 FIX: Validate stats before creating event
-  validateBlobbiStats(blobbi, 'createBlobbiStateEvent');
-
-  // Ensure all Blobbi tags are present
   const finalStateTags = ensureBlobbiTagsWithDebug(
     finalStateTagsArray.map(tag => [tag[0] || '', tag[1] || '']),
     'createBlobbiStateEvent',
@@ -370,7 +599,30 @@ if (!hasCanonicalOrder) {
   };
 }
 
-// Create Kind 14919: Blobbi Interaction Event
+export function createShellIntegrityPenaltyEvent(
+  blobbi: Blobbi,
+  carePointsDeducted: number
+): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
+  const tags: Array<[string, string]> = [
+    ['d', blobbi.id],
+    ['penalty', 'shell_integrity_breach'],
+    ['value', (blobbi.shellIntegrity ?? 100).toString()],
+    ['care_points_deducted', carePointsDeducted.toString()],
+  ];
+
+  const finalTags = ensureBlobbiTagsWithDebug(
+    tags.map(tag => [tag[0] || '', tag[1] || '']),
+    'createShellIntegrityPenaltyEvent',
+    BLOBBI_EVENT_KINDS.STATE
+  );
+
+  return {
+    kind: BLOBBI_EVENT_KINDS.STATE,
+    content: `${blobbi.name}'s shell integrity is critically low (${blobbi.shellIntegrity ?? 100}%). Care points deducted: ${carePointsDeducted}`,
+    tags: finalTags as Array<[string, string]>,
+  };
+}
+
 export function createBlobbiInteractionEvent(
   blobbiId: string,
   interactionData: BlobbiInteractionData
@@ -382,15 +634,12 @@ export function createBlobbiInteractionEvent(
     ['stat_change', `${interactionData.statChange[0]}:${interactionData.statChange[1]}`],
   ];
 
-  // Add multiple stat changes if provided (for items with multiple effects)
   if (interactionData.statChanges && interactionData.statChanges.length > 1) {
-    // Skip the first one since it's already added as the primary stat_change
     interactionData.statChanges.slice(1).forEach(([stat, value]) => {
       tags.push(['stat_change', `${stat}:${value}`]);
     });
   }
 
-  // Add optional interaction tags
   if (interactionData.itemUsed) tags.push(['item_used', interactionData.itemUsed]);
   if (interactionData.itemQuality) tags.push(['item_quality', interactionData.itemQuality]);
   if (interactionData.timeOfDay) tags.push(['time_of_day', interactionData.timeOfDay]);
@@ -407,7 +656,6 @@ export function createBlobbiInteractionEvent(
   if (interactionData.specialEvent) tags.push(['special_event', interactionData.specialEvent]);
   if (interactionData.memoryCreated) tags.push(['memory_created', interactionData.memoryCreated]);
 
-  // Add action-specific tags
   if (interactionData.gameType) tags.push(['game_type', interactionData.gameType]);
   if (interactionData.toyUsed) tags.push(['toy_used', interactionData.toyUsed]);
   if (interactionData.playDuration) tags.push(['play_duration', interactionData.playDuration.toString()]);
@@ -436,7 +684,6 @@ export function createBlobbiInteractionEvent(
   if (interactionData.sharedMemory) tags.push(['shared_memory', interactionData.sharedMemory]);
   if (interactionData.interactionContext) tags.push(['interaction_context', interactionData.interactionContext]);
 
-  // Ensure all Blobbi tags are present
   const finalTags = ensureBlobbiTagsWithDebug(
     tags.map(tag => [tag[0] || '', tag[1] || '']),
     'createBlobbiInteractionEvent',
@@ -450,7 +697,6 @@ export function createBlobbiInteractionEvent(
   };
 }
 
-// Create Kind 14921: Blobbi Record Event
 export function createBlobbiRecordEvent(
   blobbiId: string,
   recordData: BlobbiRecordData,
@@ -461,7 +707,6 @@ export function createBlobbiRecordEvent(
     ['record_type', recordData.recordType],
   ];
 
-  // Add conditional tags based on record type
   switch (recordData.recordType) {
     case 'birth':
       if (recordData.generation) tags.push(['generation', recordData.generation.toString()]);
@@ -540,7 +785,6 @@ export function createBlobbiRecordEvent(
       break;
   }
 
-  // Ensure all Blobbi tags are present
   const finalTags = ensureBlobbiTagsWithDebug(
     tags.map(tag => [tag[0] || '', tag[1] || '']),
     'createBlobbiRecordEvent',
@@ -554,7 +798,6 @@ export function createBlobbiRecordEvent(
   };
 }
 
-// Create Kind 14920: Blobbi Breeding Event
 export function createBlobbiBreedingEvent(
   parentA: string,
   parentB: string,
@@ -575,14 +818,12 @@ export function createBlobbiBreedingEvent(
 
   if (offspringId) tags.push(['offspring_id', offspringId]);
 
-  // Add additional breeding data
   if (additionalData) {
     Object.entries(additionalData).forEach(([key, value]) => {
       tags.push([key, value]);
     });
   }
 
-  // Ensure all Blobbi tags are present
   const finalTags = ensureBlobbiTagsWithDebug(
     tags.map(tag => [tag[0] || '', tag[1] || '']),
     'createBlobbiBreedingEvent',
@@ -596,7 +837,6 @@ export function createBlobbiBreedingEvent(
   };
 }
 
-// Create Kind 31125: Blobbonaut Profile Event
 export function createBlobbonautProfileEvent(
   profile: BlobbonautProfile
 ): Omit<BlobbonautProfileEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
@@ -604,10 +844,9 @@ export function createBlobbonautProfileEvent(
     ['d', profile.id],
     ["b", "blobbi:ecosystem:v1"],
     ["t", "blobbi"],
-    ['name', profile.name || ''], // Always include name tag, even if empty
+    ['name', profile.name || ''],
   ];
 
-  // Add optional tags
   if (profile.coins !== undefined) tags.push(['coins', profile.coins.toString()]);
   if (profile.pettingLevel !== undefined) tags.push(['pettingLevel', profile.pettingLevel.toString()]);
   if (profile.lifetimeBlobbis !== undefined) tags.push(['lifetimeBlobbis', profile.lifetimeBlobbis.toString()]);
@@ -618,42 +857,34 @@ export function createBlobbonautProfileEvent(
   if (profile.title) tags.push(['title', profile.title]);
   if (profile.currentCompanion) tags.push(['current_companion', profile.currentCompanion]);
 
-  // Always include onboarding_done tag (default to false if not set)
   tags.push(['onboarding_done', (profile.onboardingDone ?? false).toString()]);
 
-  // Add owned Blobbis (multiple 'has' tags)
   profile.ownedBlobbis.forEach(blobbiId => {
     tags.push(['has', blobbiId]);
   });
 
-  // Add achievements (multiple 'achievements' tags)
   profile.achievements.forEach(achievement => {
     tags.push(['achievements', achievement]);
   });
 
-  // Add storage items (multiple 'storage' tags in format "item_id:quantity")
   profile.storage.forEach(storageItem => {
     tags.push(['storage', `${storageItem.itemId}:${storageItem.quantity}`]);
   });
 
-  // Add additional tags from the flexible storage
   if (profile.additionalTags) {
     Object.entries(profile.additionalTags).forEach(([tagName, tagValue]) => {
       if (Array.isArray(tagValue)) {
-        // Handle array values (like achievements, has, etc.)
         tagValue.forEach(value => {
           if (typeof value === 'string' && value.trim() !== '') {
             tags.push([tagName, value]);
           }
         });
       } else if (typeof tagValue === 'string' && tagValue.trim() !== '') {
-        // Handle single string values
         tags.push([tagName, tagValue]);
       }
     });
   }
 
-  // Ensure all Blobbi tags are present
   const finalTags = ensureBlobbiTagsWithDebug(
     tags.map(tag => [tag[0] || '', tag[1] || '']),
     'createBlobbonautProfileEvent',
@@ -662,21 +893,22 @@ export function createBlobbonautProfileEvent(
 
   return {
     kind: BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE,
-    content: '', // Content must be empty according to spec
+    content: '',
     tags: finalTags as Array<[string, string]>,
   };
 }
 
-// Parse Blobbi from Kind 31124 state event
+// ============================================================================
+// EVENT PARSING FUNCTIONS
+// ============================================================================
+
 export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
   try {
     if (event.kind !== BLOBBI_EVENT_KINDS.STATE) return null;
 
     const tags = event.tags;
-
     const normalizedTags = event.tags.map(tag => [tag[0] ?? '', tag[1] ?? '']) as [string, string][];
 
-    // 🔥 FIX: Check critical fields first before general validation
     const id = getTagValue(tags, 'd');
     const stage = getTagValue(tags, 'stage') as BlobbiLifeStage;
 
@@ -684,23 +916,18 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       return null;
     }
 
-    // 🔥 NEW: Try to recover missing stats from timestamps
-    const { stats: recoveredStats, usedRecovery, warningMessage } = recoverMissingStatsFromTimestamps(id, normalizedTags);
+    const { stats: recoveredStats, usedRecovery } = recoverMissingStatsFromTimestamps(id, normalizedTags);
 
-    // Parse existing stats if available, otherwise use recovered stats
     const hungerStr = getTagValue(tags, 'hunger');
     const happinessStr = getTagValue(tags, 'happiness');
-
     const healthStr = getTagValue(tags, 'health');
     const hygieneStr = getTagValue(tags, 'hygiene');
     const energyStr = getTagValue(tags, 'energy');
 
-    // Use existing stat values if present, otherwise use recovered values
     let stats: BlobbiStats;
     let needsStateUpdate = false;
 
     if (hungerStr && happinessStr && healthStr && hygieneStr && energyStr) {
-      // All stats present, parse normally
       stats = {
         hunger: Math.max(0, Math.min(100, parseInt(hungerStr))),
         happiness: Math.max(0, Math.min(100, parseInt(happinessStr))),
@@ -708,40 +935,33 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
         hygiene: Math.max(0, Math.min(100, parseInt(hygieneStr))),
         energy: Math.max(0, Math.min(100, parseInt(energyStr))),
       };
+
+      if (usedRecovery) {
+        needsStateUpdate = true;
+      }
     } else {
-      // Some or all stats missing, use recovered stats
       stats = recoveredStats;
       needsStateUpdate = true;
     }
 
-    // Log recovery if used
-    if (usedRecovery && warningMessage) {
-      console.warn(`[ParseBlobbi] ${warningMessage} for blobbi ${id}`);
-    }
-
-    // Now do general validation for other required tags (excluding stats since we handle them above)
-    const nonStatRequiredTags = REQUIRED_STATE_TAGS.filter(tag => !['hunger', 'happiness', 'health', 'hygiene', 'energy'].includes(tag));
-    if (!validateRequiredTags(tags, nonStatRequiredTags)) return null;
-
+    // Use defaults for missing non-stat required tags instead of failing
     const breedingReady = getTagValue(tags, 'breeding_ready') === 'true';
     const generation = parseInt(getTagValue(tags, 'generation') || '1');
-
     const experience = parseInt(getTagValue(tags, 'experience') || '0');
     const careStreak = parseInt(getTagValue(tags, 'care_streak') || '0');
 
-    if (!id || !stage) return null;
+    // Only fail if we don't have stage - use 'baby' as default if missing
+    const finalStage = stage || 'baby';
 
-    // Check for divine Blobbi status
     const isDivine = getTagValue(tags, 'theme') === 'divine' || getTagValue(tags, 'crossover_app') === 'divine';
 
-    // Create base Blobbi object with stage-appropriate tag filtering
     const blobbi: Blobbi = {
       id,
       ownerPubkey: event.pubkey,
-      name: extractBlobbiName(id), // Extract name from ID using helper
+      name: extractBlobbiName(id),
       birthTime: event.created_at * 1000,
       lastInteraction: getTagValue(tags, 'last_interaction') ? parseInt(getTagValue(tags, 'last_interaction')!) : event.created_at,
-      lifeStage: stage,
+      lifeStage: finalStage,
       state: getTagValue(tags, 'is_sleeping') === 'true' ? 'sleeping' : 'active',
       stats,
       customization: {
@@ -750,8 +970,8 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
         accessories: [],
       },
       experience,
-      coins: 0, // Not stored in state event
-      inventory: [], // Not stored in state event
+      coins: 0,
+      inventory: [],
       generation,
       breedingReady,
       careStreak,
@@ -763,18 +983,14 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
         isEligibleForEvolution: false,
         nextEvolutionCheck: Date.now(),
       },
-      // PRESERVE ALL ORIGINAL TAGS - this ensures no metadata is lost
       tags: tags.map(([k, v]) => [k || '', v || '']),
-      // Theme-related fields derived from tags
       themeVariant: getTagValue(tags, 'theme'),
       crossoverApp: getTagValue(tags, 'crossover_app'),
-      // Optional appearance fields
       baseColor: getTagValue(tags, 'base_color'),
-      secondaryColor: isDivine ? undefined : getTagValue(tags, 'secondary_color'), // Remove secondary_color for divine
+      secondaryColor: isDivine ? undefined : getTagValue(tags, 'secondary_color'),
       pattern: getTagValue(tags, 'pattern'),
       eyeColor: getTagValue(tags, 'eye_color'),
       specialMark: getTagValue(tags, 'special_mark'),
-      // Personality fields
       personality: getTagValues(tags, 'personality'),
       traits: getTagValues(tags, 'trait'),
       mood: getTagValue(tags, 'mood') as BlobbiMood,
@@ -783,24 +999,19 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       size: getTagValue(tags, 'size'),
       title: getTagValue(tags, 'title'),
       skill: getTagValue(tags, 'skill'),
-      // Egg-specific fields - only set for egg stage
-      ...(stage === 'egg' && {
+      ...(finalStage === 'egg' && {
         incubationTime: getTagValue(tags, 'incubation_time') ? parseInt(getTagValue(tags, 'incubation_time')!) : undefined,
         incubationProgress: getTagValue(tags, 'incubation_progress') ? parseInt(getTagValue(tags, 'incubation_progress')!) : undefined,
         eggTemperature: getTagValue(tags, 'egg_temperature') ? parseInt(getTagValue(tags, 'egg_temperature')!) : undefined,
         eggStatus: getTagValue(tags, 'egg_status'),
         shellIntegrity: getTagValue(tags, 'shell_integrity') ? parseInt(getTagValue(tags, 'shell_integrity')!) : undefined,
       }),
-      // Behavior fields
       isSleeping: getTagValue(tags, 'is_sleeping') === 'true',
       isDirty: getTagValue(tags, 'is_dirty') === 'true',
       hasBuff: getTagValue(tags, 'has_buff'),
       hasDebuff: getTagValue(tags, 'has_debuff'),
-      // Sleep system fields
       sleepStartedAt: getTagValue(tags, 'sleep_started_at') ? parseInt(getTagValue(tags, 'sleep_started_at')!) : undefined,
       lastSleepUpdate: getTagValue(tags, 'last_sleep_update') ? parseInt(getTagValue(tags, 'last_sleep_update')!) : undefined,
-      // Last care tracking fields - Unix timestamps in seconds (same format as Nostr's created_at)
-      // These fields track when specific actions were last performed and are used for cooldowns and evolution
       lastMeal: getTagValue(tags, 'last_meal') ? parseInt(getTagValue(tags, 'last_meal')!) : undefined,
       lastClean: getTagValue(tags, 'last_clean') ? parseInt(getTagValue(tags, 'last_clean')!) : undefined,
       lastWarm: getTagValue(tags, 'last_warm') ? parseInt(getTagValue(tags, 'last_warm')!) : undefined,
@@ -808,20 +1019,16 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       lastCheck: getTagValue(tags, 'last_check') ? parseInt(getTagValue(tags, 'last_check')!) : undefined,
       lastSing: getTagValue(tags, 'last_sing') ? parseInt(getTagValue(tags, 'last_sing')!) : undefined,
       lastMedicine: getTagValue(tags, 'last_medicine') ? parseInt(getTagValue(tags, 'last_medicine')!) : undefined,
-      // Social fields
       adoptedBy: getTagValue(tags, 'adopted_by'),
       adoptedFrom: getTagValue(tags, 'adopted_from'),
       currentLocation: getTagValue(tags, 'current_location'),
       inParty: getTagValue(tags, 'in_party') === 'true',
-      visibleToOthers: getTagValue(tags, 'visible_to_others') !== 'false', // Default to true
-      // Evolution form from adult_type tag
+      visibleToOthers: getTagValue(tags, 'visible_to_others') !== 'false',
       evolutionForm: getTagValue(tags, 'adult_type') as BlobbiEvolutionForm || undefined,
     };
 
-    // 🔥 DIVINE TAG PRESERVATION: Synchronize model fields with tags
     const syncedBlobbi = syncDivineModelFields(blobbi);
 
-    // 🔥 DIVINE VALIDATION: Log any consistency issues in development
     if (process.env.NODE_ENV !== 'production') {
       const validation = validateDivineConsistency(syncedBlobbi);
       if (!validation.isValid) {
@@ -829,18 +1036,7 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       }
     }
 
-    // 🔥 FIX: Validate parsed stats before returning
     validateBlobbiStats(syncedBlobbi, `parseBlobbiFromStateEvent(${id})`);
-
-    // 🔥 NEW: If recovery was used, publish corrected state event
-    if (needsStateUpdate) {
-      // Log the recovered stats for debugging
-      console.warn(`[ParseBlobbi] Missing stat tags, applying defaults for blobbi ${id}`);
-      console.log(`[ParseBlobbi] Recovered stats for ${id}:`, syncedBlobbi.stats);
-
-      // Create and publish corrected state event with reconstructed stats
-      publishCorrectedStateEvent(id, syncedBlobbi, event);
-    }
 
     return syncedBlobbi;
   } catch (error) {
@@ -849,37 +1045,6 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
   }
 }
 
-// 🔥 NEW: Publish corrected state event with recovered stats
-// Note: This function creates the corrected event but delegates actual publishing to avoid React hook issues
-async function publishCorrectedStateEvent(
-  blobbiId: string,
-  correctedBlobbi: Blobbi,
-  originalEvent: NostrEvent
-): Promise<void> {
-  try {
-    // Create corrected state event using existing helper
-    const correctedEvent = createBlobbiStateEvent(correctedBlobbi);
-
-    // Add recovery metadata to content
-    correctedEvent.content = `${correctedBlobbi.name} is a ${correctedBlobbi.lifeStage} Blobbi. (Stats recovered from timestamps)`;
-
-    // Log the corrected event data for debugging
-    console.log(`[ParseBlobbi] Corrected state event created for blobbi ${blobbiId}:`, {
-      kind: correctedEvent.kind,
-      content: correctedEvent.content,
-      tagCount: correctedEvent.tags.length,
-      stats: correctedBlobbi.stats
-    });
-
-    // Note: Actual publishing should be handled by calling code with proper hook access
-    // This avoids React hook violations in non-React functions
-
-  } catch (error) {
-    console.error(`[ParseBlobbi] Error creating corrected state for ${blobbiId}:`, error);
-  }
-}
-
-// Parse interaction data from Kind 14919 event
 export function parseInteractionFromEvent(event: NostrEvent): BlobbiInteractionData | null {
   try {
     if (event.kind !== BLOBBI_EVENT_KINDS.INTERACTION) return null;
@@ -902,7 +1067,6 @@ export function parseInteractionFromEvent(event: NostrEvent): BlobbiInteractionD
       action,
       actionCategory,
       statChange,
-      // Parse all optional fields
       itemUsed: getTagValue(tags, 'item_used'),
       itemQuality: getTagValue(tags, 'item_quality'),
       timeOfDay: getTagValue(tags, 'time_of_day'),
@@ -917,7 +1081,6 @@ export function parseInteractionFromEvent(event: NostrEvent): BlobbiInteractionD
       achievementUnlocked: getTagValue(tags, 'achievement_unlocked'),
       specialEvent: getTagValue(tags, 'special_event'),
       memoryCreated: getTagValue(tags, 'memory_created'),
-      // Action-specific fields
       gameType: getTagValue(tags, 'game_type'),
       toyUsed: getTagValue(tags, 'toy_used'),
       playDuration: getTagValue(tags, 'play_duration') ? parseInt(getTagValue(tags, 'play_duration')!) : undefined,
@@ -944,7 +1107,6 @@ export function parseInteractionFromEvent(event: NostrEvent): BlobbiInteractionD
       interactionContext: getTagValue(tags, 'interaction_context'),
     };
 
-    // Parse complex tags
     const achievementProgressTag = tags.find(([name]) => name === 'achievement_progress');
     if (achievementProgressTag) {
       const parts = achievementProgressTag[1].split(':');
@@ -984,7 +1146,6 @@ export function parseInteractionFromEvent(event: NostrEvent): BlobbiInteractionD
   }
 }
 
-// Parse record data from Kind 14921 event
 export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null {
   try {
     if (event.kind !== BLOBBI_EVENT_KINDS.RECORD) return null;
@@ -1000,7 +1161,6 @@ export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null
       generation: getTagValue(tags, 'generation') ? parseInt(getTagValue(tags, 'generation')!) : undefined,
     };
 
-    // Parse fields based on record type
     switch (recordType) {
       case 'birth': {
         recordData.origin = getTagValue(tags, 'origin');
@@ -1081,7 +1241,6 @@ export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null
   }
 }
 
-// Parse Blobbonaut Profile from Kind 31125 event
 export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautProfile | null {
   try {
     if (event.kind !== BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE) {
@@ -1091,24 +1250,20 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
 
     const tags = event.tags;
 
-    // Be more lenient - only require 'd' tag, not all tags
     const id = getTagValue(tags, 'd');
     if (!id) {
       console.warn('[Blobbonaut Parser] Missing required "d" tag');
       return null;
     }
 
-    // Accept both old format (Blobbanaut-xxx) and new format (Blobbonaut-xxx)
     console.log('[Blobbonaut Parser] Parsing profile with id:', id);
 
-    // Define known tag names for mapping
     const knownTagNames = [
       'd', 'name', 'coins', 'has', 'pettingLevel', 'lifetimeBlobbis',
       'achievements', 'storage', 'favoriteBlobbi', 'starterBlobbi', 'style',
       'background', 'title', 'current_companion', 'onboarding_done'
     ];
 
-    // Parse storage items from storage tags
     const storageTagValues = getTagValues(tags, 'storage');
     const storage: BlobbonautStorageItem[] = storageTagValues
       .map(storageValue => {
@@ -1124,54 +1279,49 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
       })
       .filter((item): item is BlobbonautStorageItem => item !== null);
 
-    // Parse onboarding_done tag - default to false if not present
     const onboardingDoneValue = getTagValue(tags, 'onboarding_done');
     const onboardingDone = onboardingDoneValue !== undefined ? onboardingDoneValue === 'true' : false;
 
-    // Parse additional (unknown) tags for future compatibility
     const additionalTags: Record<string, string | string[]> = {};
     tags.forEach(([tagName, tagValue]) => {
       if (tagName && tagValue && !knownTagNames.includes(tagName)) {
         if (additionalTags[tagName]) {
-          // If we already have this tag name, convert to array
           if (Array.isArray(additionalTags[tagName])) {
             (additionalTags[tagName] as string[]).push(tagValue);
           } else {
             additionalTags[tagName] = [additionalTags[tagName] as string, tagValue];
           }
         } else {
-          // First occurrence of this tag name
           additionalTags[tagName] = tagValue;
         }
       }
     });
 
-    // Build profile with safe defaults for all fields
     const profile: BlobbonautProfile = {
       id,
       ownerPubkey: event.pubkey,
       name: (() => {
         const nameValue = getTagValue(tags, 'name');
         return nameValue && nameValue.trim() !== '' ? nameValue : undefined;
-      })(), // Convert empty string to undefined
+      })(),
       coins: (() => {
         const coinsValue = getTagValue(tags, 'coins');
         const parsed = parseInt(coinsValue || '0');
-        return isNaN(parsed) ? 0 : Math.max(0, parsed); // Default to 0, never negative
+        return isNaN(parsed) ? 0 : Math.max(0, parsed);
       })(),
-      ownedBlobbis: getTagValues(tags, 'has') || [], // Default to empty array
+      ownedBlobbis: getTagValues(tags, 'has') || [],
       pettingLevel: (() => {
         const levelValue = getTagValue(tags, 'pettingLevel');
         const parsed = parseInt(levelValue || '0');
-        return isNaN(parsed) ? 0 : Math.max(0, parsed); // Default to 0, never negative
+        return isNaN(parsed) ? 0 : Math.max(0, parsed);
       })(),
       lifetimeBlobbis: (() => {
         const lifetimeValue = getTagValue(tags, 'lifetimeBlobbis');
         const parsed = parseInt(lifetimeValue || '0');
-        return isNaN(parsed) ? 0 : Math.max(0, parsed); // Default to 0, never negative
+        return isNaN(parsed) ? 0 : Math.max(0, parsed);
       })(),
-      achievements: getTagValues(tags, 'achievements') || [], // Default to empty array
-      storage: storage || [], // Default to empty array
+      achievements: getTagValues(tags, 'achievements') || [],
+      storage: storage || [],
       favoriteBlobbi: getTagValue(tags, 'favoriteBlobbi'),
       starterBlobbi: getTagValue(tags, 'starterBlobbi'),
       style: getTagValue(tags, 'style'),
@@ -1193,68 +1343,58 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
     return profile;
   } catch (error) {
     console.error('[Blobbonaut Parser] Error parsing Blobbonaut Profile from event:', error);
-    // Return null only if absolutely invalid (should rarely happen)
     return null;
   }
 }
 
-// Enhanced validation for specific record types
+// ============================================================================
+// VALIDATION FUNCTIONS
+// ============================================================================
+
 function validateRecordTypeSpecificTags(tags: string[][], recordType: string): boolean {
   const tagNames = tags.map(tag => tag[0]).filter(Boolean);
 
   switch (recordType) {
     case 'birth':
-      // Birth records should have generation
       return tagNames.includes('generation');
     case 'hatched':
-      // Hatched records should have hatched_at or hatched_by
       return tagNames.includes('hatched_at') || tagNames.includes('hatched_by');
     case 'evolution':
-      // Evolution records should have evolution_stage
       return tagNames.includes('evolution_stage');
     case 'memory':
-      // Memory records should have memory_title or achievement or milestone
       return tagNames.includes('memory_title') || tagNames.includes('achievement') || tagNames.includes('milestone');
     case 'adoption':
-      // Adoption records should have adopted_by or title
       return tagNames.includes('adopted_by') || tagNames.includes('title');
     default:
-      return true; // Unknown record types are allowed
+      return true;
   }
 }
 
-// Validate stat change format
 function validateStatChange(statChangeTag: string): boolean {
   const parts = statChangeTag.split(':');
   if (parts.length !== 2) return false;
 
   const [stat, change] = parts;
-  const validStats = ['hunger', 'happiness', 'health', 'hygiene', 'energy', 'egg_temperature'];
   const changeNum = parseInt(change);
 
-  return validStats.includes(stat) && !isNaN(changeNum) && Math.abs(changeNum) <= 100;
+  return VALID_STAT_NAMES.includes(stat as typeof VALID_STAT_NAMES[number]) && !isNaN(changeNum) && Math.abs(changeNum) <= 100;
 }
 
-// Validate timestamp format
 function validateTimestamp(timestamp: string): boolean {
   const date = new Date(timestamp);
   return !isNaN(date.getTime()) && date.getTime() > 0;
 }
 
-// Validate event structure with enhanced checks
 export function validateBlobbiEvent(event: NostrEvent): boolean {
   try {
-    // Basic kind validation
     if (!Object.values(BLOBBI_EVENT_KINDS).includes(event.kind as typeof BLOBBI_EVENT_KINDS[keyof typeof BLOBBI_EVENT_KINDS])) {
       return false;
     }
 
-    // Validate required tags
     switch (event.kind) {
       case BLOBBI_EVENT_KINDS.STATE: {
         if (!validateRequiredTags(event.tags, REQUIRED_STATE_TAGS)) return false;
 
-        // Validate stat values are within range
         const statTags = ['hunger', 'happiness', 'health', 'hygiene', 'energy'];
         for (const statTag of statTags) {
           const value = getTagValue(event.tags, statTag);
@@ -1264,9 +1404,8 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
           }
         }
 
-        // Validate stage is valid
         const stage = getTagValue(event.tags, 'stage');
-        if (stage && !['egg', 'baby', 'adult'].includes(stage)) return false;
+        if (stage && !VALID_STAGES.includes(stage as BlobbiLifeStage)) return false;
 
         break;
       }
@@ -1274,14 +1413,11 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
       case BLOBBI_EVENT_KINDS.INTERACTION: {
         if (!validateRequiredTags(event.tags, REQUIRED_INTERACTION_TAGS)) return false;
 
-        // Validate stat change format
         const statChangeTag = event.tags.find(([name]) => name === 'stat_change');
         if (statChangeTag && !validateStatChange(statChangeTag[1])) return false;
 
-        // Validate action type
         const action = getTagValue(event.tags, 'action');
-        const validActions = ['feed', 'play', 'clean', 'rest', 'warm', 'check', 'sing', 'talk', 'medicine', 'cruzar'];
-        if (action && !validActions.includes(action)) return false;
+        if (action && !VALID_ACTIONS.includes(action as typeof VALID_ACTIONS[number])) return false;
 
         break;
       }
@@ -1289,11 +1425,9 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
       case BLOBBI_EVENT_KINDS.RECORD: {
         if (!validateRequiredTags(event.tags, REQUIRED_RECORD_TAGS)) return false;
 
-        // Validate record type specific requirements
         const recordType = getTagValue(event.tags, 'record_type');
         if (recordType && !validateRecordTypeSpecificTags(event.tags, recordType)) return false;
 
-        // Validate timestamp fields
         const timestampFields = ['hatched_at', 'adopted_on'];
         for (const field of timestampFields) {
           const timestamp = getTagValue(event.tags, field);
@@ -1306,11 +1440,9 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
       case BLOBBI_EVENT_KINDS.BREEDING: {
         if (!validateRequiredTags(event.tags, REQUIRED_BREEDING_TAGS)) return false;
 
-        // Validate breed_time timestamp
         const breedTime = getTagValue(event.tags, 'breed_time');
         if (breedTime && !validateTimestamp(breedTime)) return false;
 
-        // Validate success is boolean
         const success = getTagValue(event.tags, 'success');
         if (success && !['true', 'false'].includes(success)) return false;
 
@@ -1320,10 +1452,8 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
       case BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE: {
         if (!validateRequiredTags(event.tags, REQUIRED_BLOBBONAUT_TAGS)) return false;
 
-        // Validate content is empty
         if (event.content !== '') return false;
 
-        // Validate numeric fields if present
         const numericFields = ['coins', 'pettingLevel', 'lifetimeBlobbis'];
         for (const field of numericFields) {
           const value = getTagValue(event.tags, field);
@@ -1340,9 +1470,8 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
         return false;
     }
 
-    // Validate event timestamp is reasonable (not too far in future, not before 2020)
     const minTimestamp = new Date('2020-01-01').getTime() / 1000;
-    const maxTimestamp = (Date.now() + 5 * 60 * 1000) / 1000; // 5 minutes in future
+    const maxTimestamp = (Date.now() + 5 * 60 * 1000) / 1000;
 
     if (event.created_at < minTimestamp || event.created_at > maxTimestamp) {
       return false;
@@ -1352,203 +1481,4 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
   } catch {
     return false;
   }
-}
-
-// Helper function to validate Blobbi ID format
-export function validateBlobbiId(blobbiId: string): boolean {
-  // Must start with "blobbi-" followed by at least one valid character
-  return /^blobbi-[a-z0-9_-]+$/.test(blobbiId) && blobbiId.length > 7 && blobbiId.length <= 57;
-}
-
-// Helper function to create Blobbi ID from name
-export function createBlobbiId(blobbiName: string): string {
-  if (!isValidBlobbiName(blobbiName)) {
-    throw new Error('Invalid Blobbi name: must contain at least one alphanumeric character');
-  }
-  const cleanName = normalizeBlobbiName(blobbiName);
-  return `blobbi-${cleanName}`;
-}
-
-// Helper function to extract Blobbi name from ID
-export function extractBlobbiName(blobbiId: string): string {
-  if (!validateBlobbiId(blobbiId)) {
-    throw new Error('Invalid blobbiId format');
-  }
-  return blobbiId.replace('blobbi-', '');
-}
-
-// Helper function to normalize a name for use in blobbiId
-export function normalizeBlobbiName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9_-]/g, '');
-}
-
-// Helper function to check if a name would create a valid blobbiId
-export function isValidBlobbiName(name: string): boolean {
-  const normalized = normalizeBlobbiName(name);
-  return normalized.length > 0 && normalized.length <= 50; // Reasonable length limit
-}
-
-// Helper function to clamp stat values
-export function clampStat(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-// 🔥 NEW: Recovery function to compute missing stats from timestamps
-function recoverMissingStatsFromTimestamps(
-  blobbiId: string,
-  tags: Array<[string, string]>,
-  currentTime: number = Date.now()
-): { stats: BlobbiStats; usedRecovery: boolean; warningMessage: string } {
-  // Check if any core stats are missing
-  const hungerStr = getTagValue(tags, 'hunger');
-  const happinessStr = getTagValue(tags, 'happiness');
-  const healthStr = getTagValue(tags, 'health');
-  const hygieneStr = getTagValue(tags, 'hygiene');
-  const energyStr = getTagValue(tags, 'energy');
-
-  // If all stats are present, no recovery needed
-  if (hungerStr && happinessStr && healthStr && hygieneStr && energyStr) {
-    return {
-      stats: {
-        hunger: clampStat(parseInt(hungerStr)),
-        happiness: clampStat(parseInt(happinessStr)),
-        health: clampStat(parseInt(healthStr)),
-        hygiene: clampStat(parseInt(hygieneStr)),
-        energy: clampStat(parseInt(energyStr)),
-      },
-      usedRecovery: false,
-      warningMessage: ''
-    };
-  }
-
-  console.warn(`[ParseBlobbi] Missing stat tags, reconstructing from last_* timestamps for blobbi ${blobbiId}`);
-
-  // Extract timestamp tags (Unix timestamps in seconds)
-  const lastMeal = getTagValue(tags, 'last_meal') ? parseInt(getTagValue(tags, 'last_meal')!) : undefined;
-  const lastClean = getTagValue(tags, 'last_clean') ? parseInt(getTagValue(tags, 'last_clean')!) : undefined;
-  const lastWarm = getTagValue(tags, 'last_warm') ? parseInt(getTagValue(tags, 'last_warm')!) : undefined;
-  const lastTalk = getTagValue(tags, 'last_talk') ? parseInt(getTagValue(tags, 'last_talk')!) : undefined;
-  const lastCheck = getTagValue(tags, 'last_check') ? parseInt(getTagValue(tags, 'last_check')!) : undefined;
-  const lastSing = getTagValue(tags, 'last_sing') ? parseInt(getTagValue(tags, 'last_sing')!) : undefined;
-  const lastMedicine = getTagValue(tags, 'last_medicine') ? parseInt(getTagValue(tags, 'last_medicine')!) : undefined;
-  const lastInteractionTime = getTagValue(tags, 'last_interaction_time') ? parseInt(getTagValue(tags, 'last_interaction_time')!) : undefined;
-
-  // Determine the most recent interaction time
-  const interactionTimes = [lastMeal, lastClean, lastWarm, lastTalk, lastCheck, lastSing, lastMedicine, lastInteractionTime];
-  const validTimes = interactionTimes.filter((t): t is number => typeof t === 'number');
-  const mostRecentInteraction = validTimes.length > 0 ? Math.max(...validTimes) : undefined;
-
-  // If we have no timestamp information, use safe defaults
-  if (!mostRecentInteraction) {
-    console.warn(`[ParseBlobbi] No timestamp tags found for blobbi ${blobbiId}, using safe defaults`);
-    return {
-      stats: {
-        hunger: 80,
-        happiness: 80,
-        health: 80,
-        hygiene: 80,
-        energy: 80,
-      },
-      usedRecovery: true,
-      warningMessage: 'No timestamp tags found, using safe defaults'
-    };
-  }
-
-  // Calculate hours passed since last interaction
-  const hoursPassed = (currentTime / 1000 - mostRecentInteraction) / (60 * 60);
-  if (hoursPassed < 0) {
-    // Future timestamp, treat as no time passed
-    console.warn(`[ParseBlobbi] Future timestamp detected for blobbi ${blobbiId}, using minimal decay`);
-  }
-
-  const safeHoursPassed = Math.max(0, Math.min(hoursPassed, 24)); // Cap at 24 hours to prevent extreme values
-
-  // Use existing stat values as baseline, or defaults if completely missing
-  let currentHunger = hungerStr ? clampStat(parseInt(hungerStr)) : 80;
-  let currentHappiness = happinessStr ? clampStat(parseInt(happinessStr)) : 80;
-  let currentHealth = healthStr ? clampStat(parseInt(healthStr)) : 80;
-  let currentHygiene = hygieneStr ? clampStat(parseInt(hygieneStr)) : 80;
-  let currentEnergy = energyStr ? clampStat(parseInt(energyStr)) : 80;
-
-  // Apply decay based on time passed using same rates as blobbi-decay.ts
-  // We'll use baby/adult rates since eggs don't have these stats in the same way
-  const HUNGER_DECAY_RATE = -5; // per hour
-  const HAPPINESS_DECAY_RATE = -3; // per hour
-  const HYGIENE_DECAY_RATE = -4; // per hour
-  const ENERGY_DECAY_RATE = -5; // per hour (when awake)
-  const HEALTH_DECAY_RATE = -1; // per hour
-
-  // Apply decay
-  currentHunger = clampStat(currentHunger + (HUNGER_DECAY_RATE * safeHoursPassed));
-  currentHappiness = clampStat(currentHappiness + (HAPPINESS_DECAY_RATE * safeHoursPassed));
-  currentHygiene = clampStat(currentHygiene + (HYGIENE_DECAY_RATE * safeHoursPassed));
-  currentEnergy = clampStat(currentEnergy + (ENERGY_DECAY_RATE * safeHoursPassed));
-  currentHealth = clampStat(currentHealth + (HEALTH_DECAY_RATE * safeHoursPassed));
-
-  // If any stat would go below 30, apply health decay modifiers
-  if (currentHunger < 30) currentHealth = Math.max(0, currentHealth - 2);
-  if (currentHygiene < 20) currentHealth = Math.max(0, currentHealth - 1);
-  if (currentEnergy < 20) currentHealth = Math.max(0, currentHealth - 1);
-  if (currentHappiness < 30) currentHealth = Math.max(0, currentHealth - 1);
-
-  const recoveredStats = {
-    hunger: currentHunger,
-    happiness: currentHappiness,
-    health: currentHealth,
-    hygiene: currentHygiene,
-    energy: currentEnergy,
-  };
-
-  console.warn(`[ParseBlobbi] Recovered stats for blobbi ${blobbiId}:`, recoveredStats);
-
-  return {
-    stats: recoveredStats,
-    usedRecovery: true,
-    warningMessage: `Reconstructed from ${safeHoursPassed.toFixed(1)} hours of decay`
-  };
-}
-
-// Helper function to extract action timestamps from Blobbi object
-// Maps last_<action> fields to their corresponding action names
-export function extractActionTimestamps(blobbi: Blobbi): Record<string, number> {
-  const actionTimestamps: Record<string, number> = {};
-
-  // Map last_<action> fields to action names
-  if (blobbi.lastMeal) actionTimestamps.feed = blobbi.lastMeal * 1000; // Convert to milliseconds
-  if (blobbi.lastClean) actionTimestamps.clean = blobbi.lastClean * 1000;
-  if (blobbi.lastWarm) actionTimestamps.warm = blobbi.lastWarm * 1000;
-  if (blobbi.lastTalk) actionTimestamps.talk = blobbi.lastTalk * 1000;
-  if (blobbi.lastCheck) actionTimestamps.check = blobbi.lastCheck * 1000;
-  if (blobbi.lastSing) actionTimestamps.sing = blobbi.lastSing * 1000;
-  if (blobbi.lastMedicine) actionTimestamps.medicine = blobbi.lastMedicine * 1000;
-
-  // Note: rest, play, and cruzar don't have corresponding last_* fields in the Blobbi type
-  // but they still update lastInteraction which is handled separately
-
-  return actionTimestamps;
-}
-
-// Helper function to calculate stat degradation over time
-// Note: This function is deprecated in favor of the comprehensive decay system in blobbi-decay.ts
-// It's kept for backward compatibility but should use applyDecay() for new implementations
-export function calculateStatDegradation(
-  lastInteraction: number,
-  currentTime: number = Date.now()
-): Partial<BlobbiStats> {
-  const hoursPassed = (currentTime - lastInteraction) / (1000 * 60 * 60);
-
-  // Degradation rates per hour (simplified version for compatibility)
-  const degradationRates = {
-    hunger: -5,
-    happiness: -3,
-    hygiene: -2,
-    energy: -4, // Only during active periods
-  };
-
-  return {
-    hunger: Math.max(0, degradationRates.hunger * hoursPassed),
-    happiness: Math.max(0, degradationRates.happiness * hoursPassed),
-    hygiene: Math.max(0, degradationRates.hygiene * hoursPassed),
-    energy: Math.max(0, degradationRates.energy * hoursPassed),
-  };
 }

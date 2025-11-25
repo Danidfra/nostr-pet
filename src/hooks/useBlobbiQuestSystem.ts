@@ -1282,10 +1282,29 @@ export function useBlobbiQuestSystem() {
 
       const now = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
 
+      console.log('[Evolution Start] Original event tags:', currentEvent.tags.length);
+      console.log('[Evolution Start] Original stats:', {
+        hunger: currentEvent.tags.find(([n]) => n === 'hunger')?.[1],
+        happiness: currentEvent.tags.find(([n]) => n === 'happiness')?.[1],
+        health: currentEvent.tags.find(([n]) => n === 'health')?.[1],
+        experience: currentEvent.tags.find(([n]) => n === 'experience')?.[1],
+        care_streak: currentEvent.tags.find(([n]) => n === 'care_streak')?.[1],
+      });
+
       // Use the merge helper to safely update tags
       const { mergeBlobbiStateTags } = await import('@/lib/blobbi-state-merge');
       const updatedTags = mergeBlobbiStateTags(currentEvent.tags, {
         startEvolution: now,
+      });
+
+      console.log('[Evolution Start] Merged tags:', updatedTags.length);
+      console.log('[Evolution Start] Merged stats:', {
+        hunger: updatedTags.find(([n]) => n === 'hunger')?.[1],
+        happiness: updatedTags.find(([n]) => n === 'happiness')?.[1],
+        health: updatedTags.find(([n]) => n === 'health')?.[1],
+        experience: updatedTags.find(([n]) => n === 'experience')?.[1],
+        care_streak: updatedTags.find(([n]) => n === 'care_streak')?.[1],
+        start_evolution: updatedTags.find(([n]) => n === 'start_evolution')?.[1],
       });
 
       // Publish the updated event

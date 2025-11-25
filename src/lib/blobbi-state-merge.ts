@@ -137,47 +137,37 @@ export function mergeBlobbiStateTags(
           // Replace this specific confirmation tag with timestamp
           const timestamp = Math.floor(Date.now() / 1000).toString();
           result.push([tagName, timestamp]);
-
-          // Don't break here - continue to preservation logic
+          return; // Skip default processing for this tag
         }
-
-        // 🔥 FIX: Never preserve core stat tags - they must always be current
-        const CORE_STAT_TAGS = new Set(['hunger', 'happiness', 'health', 'hygiene', 'energy', 'experience', 'care_streak', 'last_interaction']);
-
-        if (CORE_STAT_TAGS.has(tagName)) {
-          // 🔥 CRITICAL: Skip preserved stat tags - they will be overridden by additionalTags with current values
-
-          return; // Don't preserve any stat tags - always use fresh values
-        }
-
-        // Check if this tag should be preserved (incubation/quest tags only)
-        const shouldPreserveTag = preserveIncubationAndQuestTags && (
-          tagName === 'start_incubation' ||
-          tagName === 'start_evolution' ||
-          tagName === 'hatch_time' ||
-          tagName.endsWith('_confirmed') ||
-          tagName.endsWith('_progress') ||
-          // Add other patterns that should be preserved
-          tagName.includes('quest_') ||
-          tagName.includes('task_') ||
-          tagName.includes('incubation_')
-        );
 
         // Check if this tag is being overridden by additionalTags
         const isBeingOverridden = options.additionalTags?.some(([name]) => name === tagName);
 
-        // Only add the original values if we haven't already processed this tag
-        const wasProgressUpdated = options.updateTaskProgress && tagName === `${options.updateTaskProgress.taskId}_progress`;
-        const wasConfirmationUpdated = options.addConfirmedTaskId && tagName === `${options.addConfirmedTaskId}_confirmed`;
+        if (isBeingOverridden) {
+          // Special handling for incubation/quest tags - they should be preserved unless explicitly overridden
+          const shouldPreserveTag = preserveIncubationAndQuestTags && (
+            tagName === 'start_incubation' ||
+            tagName === 'start_evolution' ||
+            tagName === 'hatch_time' ||
+            tagName.endsWith('_confirmed') ||
+            tagName.endsWith('_progress') ||
+            tagName.includes('quest_') ||
+            tagName.includes('task_') ||
+            tagName.includes('incubation_')
+          );
 
-        if (!wasProgressUpdated && !wasConfirmationUpdated) {
-          if (isBeingOverridden && !shouldPreserveTag) {
+          if (shouldPreserveTag) {
+            // Keep the original value, don't override
+            values.forEach(value => result.push([tagName, value]));
+          } else {
             // Skip this tag - it will be replaced by additionalTags
             processedAdditionalTags.add(tagName);
-          } else {
-            // Keep all other tags as-is
-            values.forEach(value => result.push([tagName, value]));
           }
+        } else {
+          // ✅ PRESERVE ALL TAGS BY DEFAULT
+          // Keep all tags as-is (including stat tags, visual tags, ecosystem tags, etc.)
+          // This is the core principle: "Keep everything unless explicitly changed or removed"
+          values.forEach(value => result.push([tagName, value]));
         }
         break;
       }
@@ -265,7 +255,7 @@ export function mergeBlobbiStateTags(
 
   // Ensure all Blobbi tags are preserved (never removed accidentally)
   if (!hasBlobbiEcosystemTag(result) || !hasBlobbiTopicTag(result)) {
-    console.warn('[Blobbi Tags] Blobbi tags were lost during merge, restoring them');
+    console.warn('[Tag Merge] Blobbi ecosystem/topic tags were lost during merge, restoring them');
     // Add both tags if either is missing
     if (!hasBlobbiEcosystemTag(result)) {
       result.unshift(['b', 'blobbi:ecosystem:v1']);
@@ -274,6 +264,38 @@ export function mergeBlobbiStateTags(
       result.unshift(['t', 'Blobbi']);
       result.unshift(['t', 'blobbi']);
     }
+  }
+
+  // Defensive logging in development mode
+  if (process.env.NODE_ENV === 'development') {
+    const originalTagNames = Array.from(existingTags.keys());
+    const resultTagNames = result.map(([name]) => name);
+    const droppedTags = originalTagNames.filter(name =>
+      !resultTagNames.includes(name) && !options.removeTags?.includes(name)
+    );
+
+    if (droppedTags.length > 0) {
+      console.warn('[Tag Merge] WARNING: Tags were dropped during merge:', droppedTags);
+    }
+
+    console.log('[Tag Merge] Merge complete:', {
+      originalTags: originalEventTags.length,
+      resultTags: result.length,
+      hasEcosystemTag: hasBlobbiEcosystemTag(result),
+      hasTopicTag: hasBlobbiTopicTag(result),
+      hasStartIncubation: result.some(([name]) => name === 'start_incubation'),
+      hasStartEvolution: result.some(([name]) => name === 'start_evolution'),
+      hasStats: {
+        hunger: result.some(([name]) => name === 'hunger'),
+        happiness: result.some(([name]) => name === 'happiness'),
+        health: result.some(([name]) => name === 'health'),
+        hygiene: result.some(([name]) => name === 'hygiene'),
+        energy: result.some(([name]) => name === 'energy'),
+        experience: result.some(([name]) => name === 'experience'),
+        careStreak: result.some(([name]) => name === 'care_streak'),
+      },
+      droppedTags,
+    });
   }
 
   return result;

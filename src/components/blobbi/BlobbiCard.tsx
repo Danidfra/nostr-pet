@@ -7,7 +7,7 @@ import { EggGraphic } from './EggGraphic';
 import { SetCompanionButton } from '@/components/SetCompanionButton';
 import { Blobbi } from '@/types/blobbi';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, Sparkles, Zap, Smile, Crown, Activity, Eye } from 'lucide-react';
+import { Heart, Sparkles, Zap, Smile, Crown, Activity, Eye, AlertTriangle } from 'lucide-react';
 import { getBlobbiMood } from '@/lib/blobbi';
 import { BlobbiFakeStatusIndicator } from './BlobbiFakeStatusIndicator';
 import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { isValidSize } from '@/lib/blobbi-egg-validation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@/hooks/useNostr';
-import { BLOBBI_EVENT_KINDS } from '@/lib/blobbi-events';
+import { BLOBBI_EVENT_KINDS, blobbiNeedsRepair } from '@/lib/blobbi-events';
 
 type BlobbiCardSize = 'sm' | 'md' | 'lg';
 
@@ -188,6 +188,15 @@ export function BlobbiCard({
                 )}>
                   <Crown className="w-3 h-3 mr-1" />
                   #{showRank}
+                </Badge>
+              )}
+              {blobbiNeedsRepair(blobbi) && (
+                <Badge variant="outline" className={cn(
+                  config.badgeSize,
+                  "bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-600 text-orange-700 dark:text-orange-300"
+                )}>
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                  Repairing
                 </Badge>
               )}
             </div>
