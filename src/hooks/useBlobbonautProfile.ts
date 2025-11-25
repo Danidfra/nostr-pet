@@ -15,7 +15,7 @@ import {
 // QUERY HOOKS
 // ========================
 
-/** Hook to get a Blobbanaut Profile by ID or current user */
+/** Hook to get a Blobbonaut Profile by ID or current user */
 export function useBlobbonautProfile(profileId?: string) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
@@ -23,7 +23,7 @@ export function useBlobbonautProfile(profileId?: string) {
   const effectiveProfileId = useMemo(() => {
     if (profileId) return profileId;
     if (!user) return undefined;
-    return `Blobbanaut-${user.pubkey.slice(0, 8)}`;
+    return `Blobbonaut-${user.pubkey.slice(0, 8)}`;
   }, [profileId, user?.pubkey]);
 
   return useQuery({

@@ -19,39 +19,39 @@ export function BlobbiAdoption() {
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [profileValidationError, setProfileValidationError] = useState<string | null>(null);
   const [profileCreated, setProfileCreated] = useState(false);
-  
+
   // Adoption state
   const [petName, setPetName] = useState('');
   const [adoptionSuccess, setAdoptionSuccess] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [adoptedBlobbi, setAdoptedBlobbi] = useState<Blobbi | null>(null);
-  
+
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const { adoptBlobbi, isAdopting, error, reset, validatePetName } = useBlobbiAdoption();
   const { data: blobbonautProfile, isLoading: isLoadingProfile, refetch: refetchProfile } = useBlobbonautProfile();
   const { mutateAsync: createInitialProfile } = useCreateInitialProfile();
-  
+
   // Profile validation function
   const validateProfileName = (name: string): { isValid: boolean; error?: string } => {
     if (!name.trim()) {
       return { isValid: false, error: 'Profile name is required' };
     }
-    
+
     if (name.trim().length < 2) {
       return { isValid: false, error: 'Profile name must be at least 2 characters long' };
     }
-    
+
     if (name.trim().length > 30) {
       return { isValid: false, error: 'Profile name must be 30 characters or less' };
     }
-    
+
     // Allow letters, numbers, spaces, and common punctuation
     if (!/^[a-zA-Z0-9\s\-_'.]+$/.test(name.trim())) {
       return { isValid: false, error: 'Profile name can only contain letters, numbers, spaces, hyphens, underscores, apostrophes, and periods' };
     }
-    
+
     return { isValid: true };
   };
 
@@ -60,18 +60,19 @@ export function BlobbiAdoption() {
     if (!user) {
       return;
     }
-    
+
     const validation = validateProfileName(profileName);
     if (!validation.isValid) {
       setProfileValidationError(validation.error || 'Invalid profile name');
       return;
     }
-    
+
     setProfileValidationError(null);
     setIsCreatingProfile(true);
-    
+
     try {
-      await createInitialProfile({
+      // Create the initial profile - this publishes the event and invalidates queries
+      const createdProfile = await createInitialProfile({
         name: profileName.trim(),
         coins: 100,
         ownedBlobbis: [],
@@ -80,29 +81,27 @@ export function BlobbiAdoption() {
         achievements: [],
         storage: [],
       });
-      
-      // Wait a moment for the event to propagate
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Refetch the profile to check if it was created successfully
-      const { data: updatedProfile } = await refetchProfile();
-      
-      if (updatedProfile) {
-        setProfileCreated(true);
-        toast({
-          title: "Profile Created! 🎉",
-          description: `Welcome to Blobbi World, ${profileName.trim()}! You can now adopt your first Blobbi.`,
-          duration: 3000,
-        });
-        setProfileName(''); // Clear the form
-      } else {
-        throw new Error('Profile creation verification failed');
-      }
+
+      // Profile was successfully created and published
+      // The mutation's onSuccess callback already invalidated the queries
+      // So the useBlobbonautProfile hook will automatically refetch
+
+      setProfileCreated(true);
+      toast({
+        title: "Profile Created! 🎉",
+        description: `Welcome to Blobbi World, ${profileName.trim()}! You can now adopt your first Blobbi.`,
+        duration: 3000,
+      });
+      setProfileName(''); // Clear the form
+
+      // Optionally trigger a manual refetch to ensure UI updates immediately
+      // This is belt-and-suspenders since the invalidation should handle it
+      refetchProfile();
     } catch (error) {
-      console.error('Failed to create Blobganaut profile:', error);
+      console.error('Failed to create Blobbonaut profile:', error);
       toast({
         title: "Profile Creation Failed",
-        description: "There was an error creating your profile. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error creating your profile. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -120,28 +119,28 @@ export function BlobbiAdoption() {
     if (!user) {
       return;
     }
-    
+
     const validation = validatePetName(petName);
     if (!validation.isValid) {
       setValidationError(validation.error || 'Invalid pet name');
       return;
     }
-    
+
     setValidationError(null);
-    
+
     try {
       const newBlobbi = await adoptBlobbi({ petName: petName.trim() });
       setAdoptedBlobbi(newBlobbi);
       setAdoptionSuccess(true);
       setPetName('');
-      
+
       // Show success toast
       toast({
         title: "Adoption Successful! 🎉",
         description: `${newBlobbi.name} has been adopted and is ready for care!`,
         duration: 3000,
       });
-      
+
       // Navigate to the new Blobbi's page after a short delay to show success message
       setTimeout(() => {
         navigate('/blobbi');
@@ -155,23 +154,23 @@ export function BlobbiAdoption() {
       });
     }
   };
-  
+
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPetName(e.target.value);
     setValidationError(null); // Clear validation error when user types
   };
-  
+
   const handleReset = () => {
     setAdoptionSuccess(false);
     setValidationError(null);
     setAdoptedBlobbi(null);
     reset();
   };
-  
+
   const handleGoToBlobbi = () => {
     navigate('/blobbi');
   };
-  
+
   if (!user) {
     return (
       <Card className="w-full max-w-md mx-auto">
@@ -218,7 +217,7 @@ export function BlobbiAdoption() {
   const hasProfile = !!blobbonautProfile;
   const currentStep = hasProfile ? 2 : 1;
   const hasEnoughCoins = hasProfile && blobbonautProfile.coins >= ADOPTION_FEE;
-  
+
   // Show adoption success screen
   if (adoptionSuccess) {
     return (
@@ -236,7 +235,7 @@ export function BlobbiAdoption() {
                     <Sparkles className="h-12 w-12 text-white animate-pulse" />
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
                     🎉 Adoption Complete!
@@ -284,17 +283,17 @@ export function BlobbiAdoption() {
 
                 {/* Action Buttons */}
                 <div className="space-y-3">
-                  <Button 
-                    onClick={handleGoToBlobbi} 
+                  <Button
+                    onClick={handleGoToBlobbi}
                     className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg"
                     size="lg"
                   >
                     <Baby className="mr-2 h-5 w-5" />
                     Meet Your Blobbi
                   </Button>
-                  <Button 
-                    onClick={handleReset} 
-                    variant="outline" 
+                  <Button
+                    onClick={handleReset}
+                    variant="outline"
                     className="w-full border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
                   >
                     <Gift className="mr-2 h-4 w-4" />
@@ -317,7 +316,7 @@ export function BlobbiAdoption() {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
       {/* Header Section */}
@@ -334,9 +333,9 @@ export function BlobbiAdoption() {
               <Heart className="h-6 w-6 text-white" />
             </div>
           </div>
-          
+
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Welcome to the magical world of Blobbis! These adorable digital creatures are waiting for a loving home. 
+            Welcome to the magical world of Blobbis! These adorable digital creatures are waiting for a loving home.
             Each Blobbi is unique, with its own personality and needs special care to grow and thrive.
           </p>
 
@@ -367,8 +366,8 @@ export function BlobbiAdoption() {
           {/* Step 1 */}
           <div className="flex items-center">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-              currentStep >= 1 
-                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg' 
+              currentStep >= 1
+                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
                 : 'bg-gray-200 text-gray-400'
             }`}>
               {hasProfile ? <CheckCircle className="h-5 w-5" /> : <User className="h-5 w-5" />}
@@ -379,17 +378,17 @@ export function BlobbiAdoption() {
               Create Profile
             </span>
           </div>
-          
+
           {/* Arrow */}
           <ArrowRight className={`h-5 w-5 transition-colors duration-300 ${
             hasProfile ? 'text-purple-400 dark:text-purple-500' : 'text-gray-300 dark:text-gray-600'
           }`} />
-          
+
           {/* Step 2 */}
           <div className="flex items-center">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-              currentStep >= 2 
-                ? 'bg-gradient-to-r from-pink-500 to-blue-500 text-white shadow-lg' 
+              currentStep >= 2
+                ? 'bg-gradient-to-r from-pink-500 to-blue-500 text-white shadow-lg'
                 : 'bg-gray-200 text-gray-400'
             }`}>
               <Heart className="h-5 w-5" />
@@ -406,11 +405,11 @@ export function BlobbiAdoption() {
       {/* Main Content */}
       <div className="max-w-2xl mx-auto px-4 pb-12">
         <div className="space-y-8">
-          
+
           {/* Step 1: Profile Setup */}
           <Card className={`transition-all duration-500 transform ${
-            hasProfile 
-              ? 'border-green-300 dark:border-green-600 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 shadow-lg scale-95' 
+            hasProfile
+              ? 'border-green-300 dark:border-green-600 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 shadow-lg scale-95'
               : 'border-purple-300 dark:border-purple-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-xl scale-100'
           }`}>
             <CardHeader className="text-center pb-4">
@@ -425,8 +424,8 @@ export function BlobbiAdoption() {
                   </div>
                 )}
                 <Badge variant={hasProfile ? "default" : "secondary"} className={
-                  hasProfile 
-                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-600" 
+                  hasProfile
+                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-600"
                     : "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-600"
                 }>
                   Step 1
@@ -436,13 +435,13 @@ export function BlobbiAdoption() {
                 {hasProfile ? '✨ Profile Complete!' : '🌟 Create Your Blobganaut Profile'}
               </CardTitle>
               <CardDescription className="text-base">
-                {hasProfile 
+                {hasProfile
                   ? 'Your magical journey profile is ready for adventure!'
                   : 'Every great Blobganaut needs a name to begin their magical journey'
                 }
               </CardDescription>
             </CardHeader>
-            
+
             <CardContent className="space-y-6">
               {hasProfile ? (
                 <div className="space-y-4">
@@ -474,7 +473,7 @@ export function BlobbiAdoption() {
                       Choose a special name that will represent you in the Blobbi world
                     </p>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <Label htmlFor="profileName" className="text-base font-medium text-purple-700 dark:text-purple-300">
                       Your Blobganaut Name
@@ -493,15 +492,15 @@ export function BlobbiAdoption() {
                       Choose wisely! This name will be known throughout the Blobbi realm
                     </p>
                   </div>
-                  
+
                   {profileValidationError && (
                     <Alert variant="destructive" className="border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
                       <AlertDescription className="text-red-700 dark:text-red-300">{profileValidationError}</AlertDescription>
                     </Alert>
                   )}
-                  
-                  <Button 
-                    onClick={handleCreateProfile} 
+
+                  <Button
+                    onClick={handleCreateProfile}
                     disabled={isCreatingProfile || !profileName.trim() || !!profileValidationError}
                     className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg text-lg py-6"
                   >
@@ -524,22 +523,22 @@ export function BlobbiAdoption() {
 
           {/* Step 2: Blobbi Adoption */}
           <Card className={`transition-all duration-500 transform ${
-            hasProfile 
-              ? 'border-pink-300 dark:border-pink-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-xl scale-100' 
+            hasProfile
+              ? 'border-pink-300 dark:border-pink-600 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-xl scale-100'
               : 'border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 opacity-60 scale-95 pointer-events-none'
           }`}>
             <CardHeader className="text-center pb-4">
               <div className="flex items-center justify-center gap-3 mb-2">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                  hasProfile 
-                    ? 'bg-gradient-to-r from-pink-400 to-blue-400' 
+                  hasProfile
+                    ? 'bg-gradient-to-r from-pink-400 to-blue-400'
                     : 'bg-gray-300'
                 }`}>
                   <Heart className="h-6 w-6 text-white" />
                 </div>
                 <Badge variant={hasProfile ? "default" : "secondary"} className={
-                  hasProfile 
-                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-600" 
+                  hasProfile
+                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-600"
                     : "bg-gray-100 dark:bg-gray-700/30 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600"
                 }>
                   Step 2
@@ -549,13 +548,13 @@ export function BlobbiAdoption() {
                 💝 Adopt Your First Blobbi
               </CardTitle>
               <CardDescription className="text-base">
-                {hasProfile 
+                {hasProfile
                   ? 'Choose a special name for your new magical companion'
                   : 'Complete your profile first to unlock this magical step'
                 }
               </CardDescription>
             </CardHeader>
-            
+
             <CardContent className="space-y-6">
               {!hasProfile && (
                 <Alert className="border-amber-200 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20">
@@ -574,12 +573,12 @@ export function BlobbiAdoption() {
                   </AlertDescription>
                 </Alert>
               )}
-              
+
               {/* Blobbi Preview */}
               <div className="relative">
                 <div className={`text-center p-8 rounded-2xl border-2 border-dashed transition-all duration-300 ${
-                  hasProfile 
-                    ? 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20 border-pink-200 dark:border-pink-600' 
+                  hasProfile
+                    ? 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20 border-pink-200 dark:border-pink-600'
                     : 'bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-600'
                 }`}>
                   <div className="absolute top-3 left-3">
@@ -588,25 +587,25 @@ export function BlobbiAdoption() {
                   <div className="absolute top-3 right-3">
                     <Sparkles className={`h-4 w-4 ${hasProfile ? 'text-purple-400 dark:text-purple-300 animate-pulse' : 'text-gray-300 dark:text-gray-600'}`} />
                   </div>
-                  
+
                   <div className={`text-8xl mb-4 transition-all duration-[2000ms] ${
                     hasProfile ? 'animate-bounce' : 'grayscale'
                   }`}>
                     🥚
                   </div>
-                  
+
                   <h3 className={`text-xl font-semibold mb-2 ${
                     hasProfile ? 'text-purple-700 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'
                   }`}>
                     {petName.trim() || 'Your Blobbi'}
                   </h3>
-                  
+
                   <p className={`text-sm ${hasProfile ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`}>
                     A magical egg waiting to begin its journey of growth and friendship
                   </p>
                 </div>
               </div>
-              
+
               <div className="space-y-3">
                 <Label htmlFor="petName" className={`text-base font-medium ${
                   hasProfile ? 'text-pink-700 dark:text-pink-300' : 'text-gray-400 dark:text-gray-500'
@@ -627,13 +626,13 @@ export function BlobbiAdoption() {
                   This name will be cherished as your Blobbi grows and evolves
                 </p>
               </div>
-              
+
               {error && (
                 <Alert variant="destructive" className="border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
                   <AlertDescription className="text-red-700 dark:text-red-300">{error.message || 'An error occurred'}</AlertDescription>
                 </Alert>
               )}
-              
+
               {validationError && (
                 <Alert variant="destructive" className="border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
                   <AlertDescription className="text-red-700 dark:text-red-300">{validationError}</AlertDescription>
@@ -643,22 +642,22 @@ export function BlobbiAdoption() {
               {/* Adoption Fee Information */}
               {hasProfile && (
                 <div className={`p-4 rounded-xl border transition-all duration-300 ${
-                  hasEnoughCoins 
-                    ? 'bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-emerald-200 dark:border-emerald-600' 
+                  hasEnoughCoins
+                    ? 'bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-emerald-200 dark:border-emerald-600'
                     : 'bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-red-200 dark:border-red-600'
                 }`}>
                   <div className="flex items-center justify-between mb-2">
                     <h4 className={`font-semibold flex items-center gap-2 ${
-                      hasEnoughCoins 
-                        ? 'text-emerald-800 dark:text-emerald-300' 
+                      hasEnoughCoins
+                        ? 'text-emerald-800 dark:text-emerald-300'
                         : 'text-red-800 dark:text-red-300'
                     }`}>
                       <Coins className="h-4 w-4" />
                       Adoption Fee
                     </h4>
                     <div className={`text-lg font-bold ${
-                      hasEnoughCoins 
-                        ? 'text-emerald-700 dark:text-emerald-300' 
+                      hasEnoughCoins
+                        ? 'text-emerald-700 dark:text-emerald-300'
                         : 'text-red-700 dark:text-red-300'
                     }`}>
                       {ADOPTION_FEE} coins
@@ -681,9 +680,9 @@ export function BlobbiAdoption() {
                   </div>
                 </div>
               )}
-              
-              <Button 
-                onClick={handleAdoption} 
+
+              <Button
+                onClick={handleAdoption}
                 disabled={isAdopting || !petName.trim() || !!validationError || !hasProfile || !hasEnoughCoins}
                 className="w-full bg-gradient-to-r from-pink-500 to-blue-500 hover:from-pink-600 hover:to-blue-600 text-white shadow-lg text-lg py-6"
               >
@@ -699,7 +698,7 @@ export function BlobbiAdoption() {
                   </>
                 )}
               </Button>
-              
+
               {hasProfile && (
                 <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-600">
                   <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
