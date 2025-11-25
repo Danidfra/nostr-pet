@@ -54,7 +54,7 @@ export function useBlobbiAdoption() {
         birthData: adoptionRecord
       });
 
-      // Update Blobbanaut Profile to add the Blobbi AND deduct coins in a single transaction
+      // Update Blobbonaut Profile to add the Blobbi AND deduct coins in a single transaction
       try {
         // Don't add if already owned
         if (!blobbonautProfile.ownedBlobbis.includes(createdBlobbi.id)) {
@@ -72,7 +72,7 @@ export function useBlobbiAdoption() {
           await updateProfile(updatedProfile);
         }
       } catch (error) {
-        console.error('Failed to update Blobbanaut Profile after adoption:', error);
+        console.error('Failed to update Blobbonaut Profile after adoption:', error);
         throw new Error(`Failed to complete adoption: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
 

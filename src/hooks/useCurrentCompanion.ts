@@ -22,10 +22,10 @@ export function useCurrentCompanion() {
     queryFn: async ({ signal }) => {
       if (!user) return null;
 
-      // First, get the user's Blobbanaut profile to find the current companion
+      // First, get the user's Blobbonaut profile to find the current companion
       const profileEvents = await nostr.query(
         [{
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE],
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
           authors: [user.pubkey],
           limit: 1
         }],

@@ -73,7 +73,7 @@ export function useDailyMissions() {
   const { mutateAsync: publishEvent } = useNostrPublish();
   const { data: blobbonautProfile } = useBlobbonautProfile();
 
-  // Fetch latest Kind 31125 (Blobbanaut Profile) for user
+  // Fetch latest Kind 31125 (Blobbonaut Profile) for user
   const { data: profileEvent, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['blobbonaut-profile-event', user?.pubkey],
     queryFn: async () => {
@@ -82,7 +82,7 @@ export function useDailyMissions() {
       const signal = AbortSignal.timeout(5000);
       const events = await nostr.query([
         {
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE],
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
           authors: [user.pubkey],
           limit: 1,
         }
@@ -223,7 +223,7 @@ export function useDailyMissions() {
 
       // Publish new Kind 31125 event with both mission claim and coins update
       await publishEvent({
-        kind: BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE,
+        kind: BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE,
         content: '',
         tags: newTags,
       });
@@ -271,7 +271,7 @@ export function useDailyMissions() {
 
       // Publish new Kind 31125 event with both mission claim and coins update
       await publishEvent({
-        kind: BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE,
+        kind: BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE,
         content: '',
         tags: newTags,
       });
@@ -324,7 +324,7 @@ export function useDailyMissions() {
 
       // Publish new Kind 31125 event with both mission claim and coins update
       await publishEvent({
-        kind: BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE,
+        kind: BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE,
         content: '',
         tags: newTags,
       });

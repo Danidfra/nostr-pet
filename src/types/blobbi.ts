@@ -150,23 +150,23 @@ export interface BlobbiRecordEvent {
   tags: Array<[string, string]>; // Record-specific tags based on record_type
 }
 
-// Kind 31125: Blobbanaut Profile (Addressable)
+// Kind 31125: Blobbonaut Profile (Addressable)
 export interface BlobbonautProfileEvent {
   kind: 31125;
   content: string; // Must be empty according to spec
   tags: Array<[string, string]>; // Profile-specific tags
 }
 
-// Storage item for Blobbanaut Profile
+// Storage item for Blobbonaut Profile
 export interface BlobbonautStorageItem {
   itemId: string; // Item identifier
   quantity: number; // Quantity owned
 }
 
-// Blobbanaut Profile data structure
+// Blobbonaut Profile data structure
 export interface BlobbonautProfile {
   id: string; // Unique identifier (d tag value)
-  ownerPubkey: string; // Nostr pubkey of the Blobbanaut
+  ownerPubkey: string; // Nostr pubkey of the Blobbonaut
   name?: string; // Display name of the user
   coins: number; // Amount of in-game coins
   ownedBlobbis: string[]; // Array of Blobbi IDs owned

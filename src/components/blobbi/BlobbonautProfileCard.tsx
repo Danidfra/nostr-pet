@@ -52,7 +52,7 @@ export function BlobbonautProfileCard({
     return (
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
         <CardContent className="p-4">
-          <p className="text-gray-600 dark:text-gray-400">No Blobbanaut Profile found</p>
+          <p className="text-gray-600 dark:text-gray-400">No Blobbonaut Profile found</p>
         </CardContent>
       </Card>
     );
@@ -87,7 +87,7 @@ export function BlobbonautProfileCard({
                 )}
               </CardTitle>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Blobbanaut Level {Math.floor(profile.pettingLevel / 10) + 1}
+                Blobbonaut Level {Math.floor(profile.pettingLevel / 10) + 1}
               </p>
             </div>
           </div>

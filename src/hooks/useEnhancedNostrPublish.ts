@@ -51,7 +51,7 @@ export function useEnhancedNostrPublish() {
         BLOBBI_EVENT_KINDS?.INTERACTION || 14919,
         BLOBBI_EVENT_KINDS?.RECORD || 14921,
         BLOBBI_EVENT_KINDS?.BREEDING || 14920,
-        BLOBBI_EVENT_KINDS?.BLOBBANAUT_PROFILE || 31125,
+        BLOBBI_EVENT_KINDS?.BLOBBONAUT_PROFILE || 31125,
         1, // Blobbi social posts
       ]);
 

@@ -15,32 +15,39 @@ import {
 // QUERY HOOKS
 // ========================
 
-/** Hook to get a Blobbonaut Profile by ID or current user */
+/** Hook to get a Blobbanaut Profile by ID or current user */
 export function useBlobbonautProfile(profileId?: string) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  
-  const effectiveProfileId = useMemo(() => 
-    profileId ?? (user ? `Blobbonaut-${user.pubkey.slice(0, 8)}` : undefined),
-    [profileId, user?.pubkey]
-  );
+
+  const effectiveProfileId = useMemo(() => {
+    if (profileId) return profileId;
+    if (!user) return undefined;
+    return `Blobbanaut-${user.pubkey.slice(0, 8)}`;
+  }, [profileId, user?.pubkey]);
 
   return useQuery({
     queryKey: ['blobbonaut-profile', effectiveProfileId],
     queryFn: async ({ signal }) => {
-      if (!effectiveProfileId || !nostr) return null;
+      if (!effectiveProfileId || !nostr) {
+        return null;
+      }
 
       const events = await nostr.query(
         [{
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE],
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
           '#d': [effectiveProfileId],
           limit: 1,
         }],
         { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
       );
 
-      if (events.length === 0) return null;
-      return parseBlobbonautProfileFromEvent(events[0]);
+      if (events.length === 0) {
+        return null;
+      }
+
+      const profile = parseBlobbonautProfileFromEvent(events[0]);
+      return profile;
     },
     enabled: !!effectiveProfileId && !!nostr,
     staleTime: 30000, // 30 seconds
@@ -51,8 +58,8 @@ export function useBlobbonautProfile(profileId?: string) {
 export function useBlobbonautProfiles(profileIds: string[]) {
   const { nostr } = useNostr();
 
-  const sortedProfileIds = useMemo(() => 
-    [...profileIds].sort(), 
+  const sortedProfileIds = useMemo(() =>
+    [...profileIds].sort(),
     [profileIds]
   );
 
@@ -63,7 +70,7 @@ export function useBlobbonautProfiles(profileIds: string[]) {
 
       const events = await nostr.query(
         [{
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE],
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
           '#d': sortedProfileIds,
         }],
         { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
@@ -115,7 +122,7 @@ export function useUpdateBlobbonautProfile() {
 
       const eventTemplate = createBlobbonautProfileEvent(updatedProfile);
       await publishEvent(eventTemplate);
-      
+
       return updatedProfile;
     },
     onSuccess: (updatedProfile) => {
@@ -126,7 +133,7 @@ export function useUpdateBlobbonautProfile() {
       queryClient.invalidateQueries({
         queryKey: ['blobbonaut-profiles'],
       });
-      
+
       // Invalidate specific profile query
       queryClient.invalidateQueries({
         queryKey: ['blobbonaut-profile', updatedProfile.id],
@@ -395,7 +402,7 @@ export function useCreateInitialProfile() {
       queryClient.invalidateQueries({
         queryKey: ['blobbonaut-profiles'],
       });
-      
+
       // Invalidate specific profile query
       queryClient.invalidateQueries({
         queryKey: ['blobbonaut-profile', initialProfile.id],

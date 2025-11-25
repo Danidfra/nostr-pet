@@ -139,7 +139,7 @@ export default function Blobbi() {
         {/* Sidebar */}
         {user && (
           <div className="lg:col-span-1 space-y-4">
-            {/* Blobbanaut Profile */}
+            {/* Blobbonaut Profile */}
             <BlobbonautProfileCard />
 
             {/* Daily Missions */}

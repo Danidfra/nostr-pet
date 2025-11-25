@@ -295,12 +295,12 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
     },
   });
 
-  // Add coins (for game rewards) - now integrates with Blobbanaut Profile
+  // Add coins (for game rewards) - now integrates with Blobbonaut Profile
   const addCoinsMutation = useMutation({
     mutationFn: async (amount: number) => {
       if (!user) throw new Error('Must be logged in');
 
-      // Add coins to Blobbanaut Profile
+      // Add coins to Blobbonaut Profile
       await addCoins(amount);
 
       return amount;

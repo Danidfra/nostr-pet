@@ -27,10 +27,10 @@ export function useTourCompletion() {
       }
 
       // Get the latest kind 31125 event for this user
-      const profileId = `Blobbanaut-${user.pubkey.slice(0, 8)}`;
+      const profileId = `Blobbonaut-${user.pubkey.slice(0, 8)}`;
       const events = await nostr.query(
         [{
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE],
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
           '#d': [profileId],
           authors: [user.pubkey],
           limit: 1,
@@ -55,7 +55,7 @@ export function useTourCompletion() {
 
       // Create the updated event
       const updatedEvent = {
-        kind: BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE,
+        kind: BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE,
         content: '', // Content must be empty according to spec
         tags: filteredTags,
       };

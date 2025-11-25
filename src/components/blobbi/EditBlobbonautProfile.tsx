@@ -88,7 +88,7 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
           <DialogHeader>
             <DialogTitle>Access Denied</DialogTitle>
             <DialogDescription>
-              You can only edit your own Blobbanaut Profile.
+              You can only edit your own Blobbonaut Profile.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -113,7 +113,7 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
       onSuccess: () => {
         toast({
           title: "Profile Updated",
-          description: "Your Blobbanaut Profile has been successfully updated.",
+          description: "Your Blobbonaut Profile has been successfully updated.",
         });
         onClose();
       },
@@ -191,9 +191,9 @@ export function EditBlobbonautProfile({ isOpen, onClose, profileId }: EditBlobbo
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Edit Blobbanaut Profile</DialogTitle>
+          <DialogTitle>Edit Blobbonaut Profile</DialogTitle>
           <DialogDescription>
-            Customize your Blobbanaut Profile appearance and information.
+            Customize your Blobbonaut Profile appearance and information.
           </DialogDescription>
         </DialogHeader>
 

@@ -9,7 +9,7 @@
  */
 
 import { Blobbi } from '@/types/blobbi';
-import { ensureBlobbiTags } from './blobbi-tags';
+import { ensureBlobbiTagsWithDebug } from './blobbi-tags';
 
 /**
  * Tags that should be preserved from previous state events
@@ -192,5 +192,5 @@ export function buildBlobbiStateTags(
   console.log('[STATE BUILDER] Final tag count:', tags.length);
 
   // 12. ENSURE BLOBBI ECOSYSTEM TAGS
-  return ensureBlobbiTags(tags as Array<[string, string]>, 'buildBlobbiStateTags', 31124);
+  return ensureBlobbiTagsWithDebug(tags as Array<[string, string]>, 'buildBlobbiStateTags', 31124) as Array<[string, string]>;
 }

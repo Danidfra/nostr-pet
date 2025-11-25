@@ -23,7 +23,7 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  // Get items by category from Blobbanaut Profile storage
+  // Get items by category from Blobbonaut Profile storage
   const getItemsByCategory = (category: string) => {
     if (!blobbonautProfile || !blobbonautProfile.storage) return [];
 

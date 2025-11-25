@@ -91,6 +91,7 @@ export default function BlobbiDashboard() {
   // Redirect to adoption page if user doesn't have a profile
   useEffect(() => {
     if (user && !isProfileLoading && !profile) {
+      console.log('No profile found, redirecting to adoption page');
       navigate('/blobbi/adopt');
     }
   }, [user, profile, isProfileLoading, navigate]);

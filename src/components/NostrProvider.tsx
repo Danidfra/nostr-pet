@@ -10,69 +10,65 @@ interface NostrProviderProps {
 const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const { children, relays } = props;
 
-  // Create NPool instance and update it when relays change
-  const pool = useRef<NPool | undefined>(undefined);
-  const cleanupInProgress = useRef(false);
+  // Use a ref to store the pool instance to avoid React state updates
+  const poolRef = useRef<NPool | undefined>(undefined);
+  const relaysRef = useRef<string>('');
 
-  // Memoize the pool configuration to prevent unnecessary recreations
-  const poolConfig = useMemo(() => ({
-    open(url: string) {
+  // Memoize the pool configuration
+  const pool = useMemo(() => {
+    const relayString = relays.join(',');
 
-      return new NRelay1(url);
-    },
-    reqRouter(filters: NostrFilter[]) {
-      return new Map(relays.map((url) => [url, filters]));
-    },
-    eventRouter(_event: NostrEvent) {
-      return relays;
-    },
-  }), [relays]);
-
-  // Create or recreate pool when configuration changes
-  useEffect(() => {
-    // Prevent multiple simultaneous cleanup operations
-    if (cleanupInProgress.current) {
-      return;
+    // Only recreate pool if relays actually changed
+    if (relayString === relaysRef.current && poolRef.current) {
+      return poolRef.current;
     }
 
-    // Cleanup old pool if it exists
-    const oldPool = pool.current;
-    if (oldPool) {
-      cleanupInProgress.current = true;
-
-      oldPool.close().then(() => {
-
-        cleanupInProgress.current = false;
-      }).catch((error) => {
-        console.warn('⚠️ Error during pool cleanup:', error);
-        cleanupInProgress.current = false;
+    // Close old pool if it exists
+    if (poolRef.current) {
+      poolRef.current.close().catch((error) => {
+        console.warn('⚠️ Error closing old pool:', error);
       });
     }
 
-    if (relays.length > 0) {
-      pool.current = new NPool(poolConfig);
-
-    } else {
-      pool.current = undefined;
+    // Only create pool if we have relays
+    if (relays.length === 0) {
+      poolRef.current = undefined;
+      relaysRef.current = '';
+      return undefined;
     }
 
-    // Cleanup function for when component unmounts or relays change
-    return () => {
-      if (pool.current && !cleanupInProgress.current) {
-        cleanupInProgress.current = true;
+    // Create new pool instance
+    const newPool = new NPool({
+      open(url: string) {
+        return new NRelay1(url);
+      },
+      reqRouter(filters: NostrFilter[]) {
+        return new Map(relays.map((url) => [url, filters]));
+      },
+      eventRouter(_event: NostrEvent) {
+        return relays;
+      },
+    });
 
-        pool.current.close().then(() => {
-          cleanupInProgress.current = false;
-        }).catch((error) => {
-          console.warn('⚠️ Error during effect cleanup:', error);
-          cleanupInProgress.current = false;
+    poolRef.current = newPool;
+    relaysRef.current = relayString;
+
+    return newPool;
+  }, [relays]);
+
+  // Cleanup on unmount only
+  useEffect(() => {
+    return () => {
+      if (poolRef.current) {
+        poolRef.current.close().catch((error) => {
+          console.warn('⚠️ Error during unmount cleanup:', error);
         });
       }
     };
-  }, [poolConfig, relays]);
+  }, []);
 
   return (
-    <NostrContext.Provider value={{ nostr: pool.current! }}>
+    <NostrContext.Provider value={{ nostr: pool! }}>
       {children}
     </NostrContext.Provider>
   );

@@ -34,7 +34,7 @@ export const BLOBBI_EVENT_KINDS = {
   INTERACTION: 14919, // Regular - individual interactions
   BREEDING: 14920,   // Regular - breeding events
   RECORD: 14921,     // Regular - immutable records
-  BLOBBANAUT_PROFILE: 31125, // Addressable - Blobbanaut (owner) profile
+  BLOBBONAUT_PROFILE: 31125, // Addressable - Blobbonaut (owner) profile
 } as const;
 
 // Validation schemas for required and optional tags
@@ -44,7 +44,7 @@ const OPTIONAL_STAT_TAGS = ['hunger', 'happiness', 'health', 'hygiene', 'energy'
 const REQUIRED_INTERACTION_TAGS = ['blobbi_id', 'action', 'action_category', 'stat_change'];
 const REQUIRED_RECORD_TAGS = ['blobbi_id', 'record_type'];
 const REQUIRED_BREEDING_TAGS = ['parent_a', 'parent_b', 'owner_a', 'owner_b', 'breed_time', 'success'];
-const REQUIRED_BLOBBANAUT_TAGS = ['d']; // Only 'd' tag is required for Blobbanaut Profile
+const REQUIRED_BLOBBONAUT_TAGS = ['d']; // Only 'd' tag is required for Blobbonaut Profile
 
 // Helper function to validate required tags
 function validateRequiredTags(tags: string[][], requiredTags: string[]): boolean {
@@ -596,12 +596,14 @@ export function createBlobbiBreedingEvent(
   };
 }
 
-// Create Kind 31125: Blobbanaut Profile Event
+// Create Kind 31125: Blobbonaut Profile Event
 export function createBlobbonautProfileEvent(
   profile: BlobbonautProfile
 ): Omit<BlobbonautProfileEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
   const tags: Array<[string, string]> = [
     ['d', profile.id],
+    ["b", "blobbi:ecosystem:v1"],
+    ["t", "blobbi"],
     ['name', profile.name || ''], // Always include name tag, even if empty
   ];
 
@@ -655,11 +657,11 @@ export function createBlobbonautProfileEvent(
   const finalTags = ensureBlobbiTagsWithDebug(
     tags.map(tag => [tag[0] || '', tag[1] || '']),
     'createBlobbonautProfileEvent',
-    BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE
+    BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE
   );
 
   return {
-    kind: BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE,
+    kind: BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE,
     content: '', // Content must be empty according to spec
     tags: finalTags as Array<[string, string]>,
   };
@@ -1079,13 +1081,13 @@ export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null
   }
 }
 
-// Parse Blobbanaut Profile from Kind 31125 event
+// Parse Blobbonaut Profile from Kind 31125 event
 export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautProfile | null {
   try {
-    if (event.kind !== BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE) return null;
+    if (event.kind !== BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE) return null;
 
     const tags = event.tags;
-    if (!validateRequiredTags(tags, REQUIRED_BLOBBANAUT_TAGS)) return null;
+    if (!validateRequiredTags(tags, REQUIRED_BLOBBONAUT_TAGS)) return null;
 
     const id = getTagValue(tags, 'd');
     if (!id) return null;
@@ -1161,7 +1163,7 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
 
     return profile;
   } catch (error) {
-    console.error('Error parsing Blobbanaut Profile from event:', error);
+    console.error('Error parsing Blobbonaut Profile from event:', error);
     return null;
   }
 }
@@ -1285,8 +1287,8 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
         break;
       }
 
-      case BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE: {
-        if (!validateRequiredTags(event.tags, REQUIRED_BLOBBANAUT_TAGS)) return false;
+      case BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE: {
+        if (!validateRequiredTags(event.tags, REQUIRED_BLOBBONAUT_TAGS)) return false;
 
         // Validate content is empty
         if (event.content !== '') return false;

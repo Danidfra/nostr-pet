@@ -17,10 +17,12 @@ export function useUserBlobbis() {
   const queryResult = useQuery({
     queryKey: ['user-blobbis', user?.pubkey],
     queryFn: async () => {
-      if (!user) return [];
-      
+      if (!user || !nostr) {
+        return [];
+      }
+
       const signal = AbortSignal.timeout(10000);
-      
+
       // Query for all state events from the user
       const stateEvents = await nostr.query([
         {
@@ -29,20 +31,20 @@ export function useUserBlobbis() {
           limit: 50, // Get up to 50 Blobbis per user
         }
       ], { signal });
-      
+
       // Parse and collect all valid Blobbis
       const blobbis: Blobbi[] = [];
       const seenIds = new Set<string>();
-      
+
       // Sort events by created_at descending to get latest state for each Blobbi
       const sortedEvents = stateEvents.sort((a, b) => b.created_at - a.created_at);
-      
+
       for (const event of sortedEvents) {
         try {
           const blobbi = parseBlobbiFromStateEvent(event);
           if (blobbi && !seenIds.has(blobbi.id)) {
             seenIds.add(blobbi.id);
-            
+
             // Apply stat degradation
             const degradation = calculateStatDegradation(blobbi.lastInteraction * 1000);
             const updatedBlobbi = {
@@ -55,18 +57,18 @@ export function useUserBlobbis() {
                 energy: clampStat(blobbi.stats.energy + (degradation.energy || 0)),
               },
             };
-            
+
             blobbis.push(updatedBlobbi);
           }
         } catch (error) {
           console.warn('Failed to parse Blobbi event:', error);
         }
       }
-      
+
       // Sort by creation time (newest first)
       return blobbis.sort((a, b) => b.birthTime - a.birthTime);
     },
-    enabled: !!user,
+    enabled: !!user && !!nostr,
     refetchInterval: 60000, // Refetch every minute
   });
 
@@ -97,10 +99,12 @@ export function useBlobbiById(blobbiId: string) {
   return useQuery({
     queryKey: ['blobbi-by-id', blobbiId, user?.pubkey],
     queryFn: async () => {
-      if (!blobbiId) return null;
-      
+      if (!blobbiId || !nostr) {
+        return null;
+      }
+
       const signal = AbortSignal.timeout(10000);
-      
+
       // Query for state events with the specific Blobbi ID
       const stateEvents = await nostr.query([
         {
@@ -109,16 +113,16 @@ export function useBlobbiById(blobbiId: string) {
           limit: 10,
         }
       ], { signal });
-      
+
       // Get the most recent state event
       const latestEvent = stateEvents.sort((a, b) => b.created_at - a.created_at)[0];
-      
+
       if (!latestEvent) return null;
-      
+
       try {
         const blobbi = parseBlobbiFromStateEvent(latestEvent);
         if (!blobbi) return null;
-        
+
         // Apply stat degradation
         const degradation = calculateStatDegradation(blobbi.lastInteraction * 1000);
         return {
@@ -136,7 +140,7 @@ export function useBlobbiById(blobbiId: string) {
         return null;
       }
     },
-    enabled: !!blobbiId,
+    enabled: !!blobbiId && !!nostr,
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 }

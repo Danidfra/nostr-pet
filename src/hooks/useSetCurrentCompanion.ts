@@ -59,7 +59,7 @@ export function useSetCurrentCompanion() {
       // Fetch the latest profile event to ensure we have all tags
       const profileEvents = await nostr.query(
         [{
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBANAUT_PROFILE],
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
           authors: [user.pubkey],
           limit: 1
         }],

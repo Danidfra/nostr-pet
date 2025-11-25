@@ -105,7 +105,7 @@ export function useDailyCheckIn() {
       if (newStreak >= 7) coinReward += 20; // Week streak bonus
       if (newStreak >= 30) coinReward += 50; // Month streak bonus
       
-      // Update Blobbanaut Profile with coins
+      // Update Blobbonaut Profile with coins
       try {
         if (!blobbonautProfile) {
           // Create initial profile if it doesn't exist
@@ -115,7 +115,7 @@ export function useDailyCheckIn() {
           await addCoins(coinReward);
         }
       } catch (error) {
-        console.error('Failed to update Blobbanaut Profile with coins:', error);
+        console.error('Failed to update Blobbonaut Profile with coins:', error);
         // Don't fail the check-in if profile update fails
       }
       
