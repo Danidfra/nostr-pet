@@ -20,36 +20,76 @@ export function useBlobbonautProfile(profileId?: string) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
 
-  const effectiveProfileId = useMemo(() => {
-    if (profileId) return profileId;
-    if (!user) return undefined;
-    return `Blobbonaut-${user.pubkey.slice(0, 8)}`;
+  // Use a stable query key based on profileId or user pubkey
+  const queryKey = useMemo(() => {
+    if (profileId) return ['blobbonaut-profile', profileId];
+    if (user) return ['blobbonaut-profile', user.pubkey];
+    return ['blobbonaut-profile', 'none'];
   }, [profileId, user?.pubkey]);
 
   return useQuery({
-    queryKey: ['blobbonaut-profile', effectiveProfileId],
+    queryKey,
     queryFn: async ({ signal }) => {
-      if (!effectiveProfileId || !nostr) {
+      if (!nostr) {
         return null;
       }
 
-      const events = await nostr.query(
-        [{
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
-          '#d': [effectiveProfileId],
-          limit: 1,
-        }],
-        { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
-      );
+      let events;
+
+      if (profileId) {
+        // If a specific profileId is provided, query by that exact ID
+        console.log('[Blobbonaut] Querying by specific profileId:', profileId);
+        events = await nostr.query(
+          [{
+            kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
+            '#d': [profileId],
+            limit: 1,
+          }],
+          { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
+        );
+      } else if (user) {
+        // If no profileId, query by author to support both old and new formats
+        console.log('[Blobbonaut] Querying by author pubkey:', user.pubkey.slice(0, 8));
+        events = await nostr.query(
+          [{
+            kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
+            authors: [user.pubkey],
+            limit: 10, // Get multiple to find the latest
+          }],
+          { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
+        );
+
+        // Filter to only Blobbi ecosystem events
+        events = events.filter(event => {
+          const hasBlobbiTag = event.tags.some(([name, value]) =>
+            name === 'b' && value === 'blobbi:ecosystem:v1'
+          );
+          const hasTopicTag = event.tags.some(([name, value]) =>
+            name === 't' && (value === 'blobbi' || value === 'Blobbi')
+          );
+          return hasBlobbiTag || hasTopicTag;
+        });
+
+        // Sort by created_at to get the latest
+        events.sort((a, b) => b.created_at - a.created_at);
+      } else {
+        return null;
+      }
+
+      console.log('[Blobbonaut] Found profile events:', events.length);
 
       if (events.length === 0) {
         return null;
       }
 
-      const profile = parseBlobbonautProfileFromEvent(events[0]);
+      // Use the most recent event
+      const latestEvent = events[0];
+      console.log('[Blobbonaut] Using profile event:', latestEvent.id.slice(0, 8), latestEvent.created_at, latestEvent.tags.find(t => t[0] === 'd'));
+
+      const profile = parseBlobbonautProfileFromEvent(latestEvent);
       return profile;
     },
-    enabled: !!effectiveProfileId && !!nostr,
+    enabled: (!!profileId || !!user) && !!nostr,
     staleTime: 30000, // 30 seconds
   });
 }
@@ -103,6 +143,7 @@ export function useBlobbonautProfiles(profileIds: string[]) {
 export function useUpdateBlobbonautProfile() {
   const { mutateAsync: publishEvent } = useNostrPublish();
   const { data: currentProfile } = useBlobbonautProfile();
+  const { user } = useCurrentUser();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -111,11 +152,22 @@ export function useUpdateBlobbonautProfile() {
         throw new Error('Profile not found. Cannot update without existing profile.');
       }
 
+      // Automatic migration: Convert old ID format to new format
+      let profileId = currentProfile.id;
+
+      // Check if this is an old format ID (Blobbanaut-xxx)
+      if (profileId.startsWith('Blobbanaut-') && user) {
+        // Migrate to new format (Blobbonaut-xxx)
+        const newProfileId = `Blobbonaut-${user.pubkey.slice(0, 8)}`;
+        console.log('[Blobbonaut Migration] Migrating profile ID:', profileId, '→', newProfileId);
+        profileId = newProfileId;
+      }
+
       // Merge partial update with current profile to create complete snapshot
       const updatedProfile: BlobbonautProfile = {
         ...currentProfile,
         ...partialUpdate,
-        id: currentProfile.id,                    // Never lose the ID
+        id: profileId,                            // Use migrated ID
         ownerPubkey: currentProfile.ownerPubkey,  // Never lose the owner
         lastModified: Math.floor(Date.now() / 1000),
       };
@@ -125,7 +177,7 @@ export function useUpdateBlobbonautProfile() {
 
       return updatedProfile;
     },
-    onSuccess: (updatedProfile) => {
+    onSuccess: (updatedProfile, variables, context) => {
       // Invalidate profile queries with consistent keys
       queryClient.invalidateQueries({
         queryKey: ['blobbonaut-profile'],
@@ -134,10 +186,25 @@ export function useUpdateBlobbonautProfile() {
         queryKey: ['blobbonaut-profiles'],
       });
 
-      // Invalidate specific profile query
+      // Invalidate specific profile query (new ID)
       queryClient.invalidateQueries({
         queryKey: ['blobbonaut-profile', updatedProfile.id],
       });
+
+      // If ID was migrated, also invalidate the old ID query
+      if (currentProfile && currentProfile.id !== updatedProfile.id) {
+        console.log('[Blobbonaut Migration] Invalidating old profile ID:', currentProfile.id);
+        queryClient.invalidateQueries({
+          queryKey: ['blobbonaut-profile', currentProfile.id],
+        });
+      }
+
+      // Also invalidate by pubkey (for author-based queries)
+      if (user) {
+        queryClient.invalidateQueries({
+          queryKey: ['blobbonaut-profile', user.pubkey],
+        });
+      }
     },
     onError: (error) => {
       console.error('Failed to update Blobbonaut Profile:', error);

@@ -1084,13 +1084,22 @@ export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null
 // Parse Blobbonaut Profile from Kind 31125 event
 export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautProfile | null {
   try {
-    if (event.kind !== BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE) return null;
+    if (event.kind !== BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE) {
+      console.warn('[Blobbonaut Parser] Invalid event kind:', event.kind);
+      return null;
+    }
 
     const tags = event.tags;
-    if (!validateRequiredTags(tags, REQUIRED_BLOBBONAUT_TAGS)) return null;
 
+    // Be more lenient - only require 'd' tag, not all tags
     const id = getTagValue(tags, 'd');
-    if (!id) return null;
+    if (!id) {
+      console.warn('[Blobbonaut Parser] Missing required "d" tag');
+      return null;
+    }
+
+    // Accept both old format (Blobbanaut-xxx) and new format (Blobbonaut-xxx)
+    console.log('[Blobbonaut Parser] Parsing profile with id:', id);
 
     // Define known tag names for mapping
     const knownTagNames = [
@@ -1137,6 +1146,7 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
       }
     });
 
+    // Build profile with safe defaults for all fields
     const profile: BlobbonautProfile = {
       id,
       ownerPubkey: event.pubkey,
@@ -1144,12 +1154,24 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
         const nameValue = getTagValue(tags, 'name');
         return nameValue && nameValue.trim() !== '' ? nameValue : undefined;
       })(), // Convert empty string to undefined
-      coins: parseInt(getTagValue(tags, 'coins') || '0'),
-      ownedBlobbis: getTagValues(tags, 'has'),
-      pettingLevel: parseInt(getTagValue(tags, 'pettingLevel') || '0'),
-      lifetimeBlobbis: parseInt(getTagValue(tags, 'lifetimeBlobbis') || '0'),
-      achievements: getTagValues(tags, 'achievements'),
-      storage,
+      coins: (() => {
+        const coinsValue = getTagValue(tags, 'coins');
+        const parsed = parseInt(coinsValue || '0');
+        return isNaN(parsed) ? 0 : Math.max(0, parsed); // Default to 0, never negative
+      })(),
+      ownedBlobbis: getTagValues(tags, 'has') || [], // Default to empty array
+      pettingLevel: (() => {
+        const levelValue = getTagValue(tags, 'pettingLevel');
+        const parsed = parseInt(levelValue || '0');
+        return isNaN(parsed) ? 0 : Math.max(0, parsed); // Default to 0, never negative
+      })(),
+      lifetimeBlobbis: (() => {
+        const lifetimeValue = getTagValue(tags, 'lifetimeBlobbis');
+        const parsed = parseInt(lifetimeValue || '0');
+        return isNaN(parsed) ? 0 : Math.max(0, parsed); // Default to 0, never negative
+      })(),
+      achievements: getTagValues(tags, 'achievements') || [], // Default to empty array
+      storage: storage || [], // Default to empty array
       favoriteBlobbi: getTagValue(tags, 'favoriteBlobbi'),
       starterBlobbi: getTagValue(tags, 'starterBlobbi'),
       style: getTagValue(tags, 'style'),
@@ -1161,9 +1183,17 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
       additionalTags: Object.keys(additionalTags).length > 0 ? additionalTags : undefined,
     };
 
+    console.log('[Blobbonaut Parser] Successfully parsed profile:', {
+      id: profile.id,
+      name: profile.name,
+      coins: profile.coins,
+      ownedBlobbis: profile.ownedBlobbis.length,
+    });
+
     return profile;
   } catch (error) {
-    console.error('Error parsing Blobbonaut Profile from event:', error);
+    console.error('[Blobbonaut Parser] Error parsing Blobbonaut Profile from event:', error);
+    // Return null only if absolutely invalid (should rarely happen)
     return null;
   }
 }
