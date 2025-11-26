@@ -96,7 +96,17 @@ export function useEnhancedNostrPublish() {
         !hasNoAutoState &&
         !isSleepWakeAction
       ) {
-        await handleInteractionStateUpdate(event, nostr, user);
+        const updatedBlobbiId = await handleInteractionStateUpdate(event, nostr, user);
+
+        // 🔥 FIX: Immediately invalidate queries after auto-state
+        if (updatedBlobbiId) {
+          console.log('[AUTO-STATE] Invalidating queries immediately for:', updatedBlobbiId);
+          queryClient.invalidateQueries({ queryKey: ['blobbi-state', updatedBlobbiId] });
+          queryClient.invalidateQueries({ queryKey: ['blobbi-by-id', updatedBlobbiId] });
+          queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', updatedBlobbiId] });
+          queryClient.invalidateQueries({ queryKey: ['user-blobbis'] });
+          queryClient.invalidateQueries({ queryKey: ['user-blobbi'] });
+        }
       }
 
       return event;
@@ -105,21 +115,28 @@ export function useEnhancedNostrPublish() {
       console.error("Failed to publish event:", error);
     },
     onSuccess: (data) => {
-      // Targeted query invalidation
+      // 🔥 FIX: Comprehensive query invalidation for UI updates
       if (data.kind === BLOBBI_EVENT_KINDS.INTERACTION) {
         const blobbiId = data.tags.find(tag => tag[0] === 'blobbi_id')?.[1];
         if (blobbiId) {
+          console.log('[ENHANCED PUBLISH] Invalidating queries after interaction:', blobbiId);
           queryClient.invalidateQueries({ queryKey: ['blobbi-state', blobbiId] });
           queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', blobbiId] });
           queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', blobbiId] });
+          queryClient.invalidateQueries({ queryKey: ['blobbi-by-id', blobbiId] });
+          queryClient.invalidateQueries({ queryKey: ['user-blobbis'] });
+          queryClient.invalidateQueries({ queryKey: ['user-blobbi'] });
         }
       } else if (data.kind === BLOBBI_EVENT_KINDS.STATE) {
         const blobbiId = data.tags.find(tag => tag[0] === 'd')?.[1];
         if (blobbiId && user) {
+          console.log('[ENHANCED PUBLISH] Invalidating queries after state update:', blobbiId);
           queryClient.invalidateQueries({ queryKey: ['user-blobbis', user.pubkey] });
           queryClient.invalidateQueries({ queryKey: ['blobbi-by-id', blobbiId] });
           queryClient.invalidateQueries({ queryKey: ['blobbi-state', blobbiId] });
           queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', blobbiId] });
+          queryClient.invalidateQueries({ queryKey: ['user-blobbis'] });
+          queryClient.invalidateQueries({ queryKey: ['user-blobbi'] });
         }
       }
     },
@@ -138,19 +155,13 @@ async function handleInteractionStateUpdate(
   interactionEvent: NostrEvent,
   nostr: { query: (filters: unknown[], options?: { signal?: AbortSignal }) => Promise<NostrEvent[]>; event: (event: NostrEvent, options?: { signal?: AbortSignal }) => Promise<void>; },
   user: { pubkey: string; signer: { signEvent: (event: Partial<NostrEvent>) => Promise<NostrEvent>; }; }
-) {
+): Promise<string | null> {
   try {
-    // GUARD: Check if already processed
-    if (processedEventsRef.has(interactionEvent.id)) {
-      console.log('[AUTO-STATE] Event already processed, skipping');
-      return;
-    }
-
     // Extract blobbi_id from interaction event
     const blobbiId = interactionEvent.tags.find((tag: string[]) => tag[0] === 'blobbi_id')?.[1];
     if (!blobbiId) {
       console.warn('[AUTO-STATE] Interaction event missing blobbi_id tag');
-      return;
+      return null;
     }
 
     console.log('[AUTO-STATE] Processing interaction for:', blobbiId);
@@ -169,14 +180,14 @@ async function handleInteractionStateUpdate(
     const currentStateEvent = stateEvents[0];
     if (!currentStateEvent) {
       console.warn('[AUTO-STATE] No current state found for Blobbi:', blobbiId);
-      return;
+      return null;
     }
 
     // Parse current Blobbi state
     const currentBlobbi = parseBlobbiFromStateEvent(currentStateEvent);
     if (!currentBlobbi) {
       console.warn('[AUTO-STATE] Failed to parse current Blobbi state');
-      return;
+      return null;
     }
 
     // Apply stat changes from interaction
@@ -227,9 +238,15 @@ async function handleInteractionStateUpdate(
     // CRITICAL: Mark this event as processed
     processedEventsRef.add(stateEvent.id);
 
+    console.log('[AUTO-STATE] Successfully published auto-generated 31124 for:', blobbiId);
+
+    // 🔥 FIX: Return the blobbi ID so we can invalidate queries in the caller
+    return blobbiId;
+
   } catch (error) {
     console.error('[AUTO-STATE] Failed to auto-generate state event for interaction:', error);
     // Don't throw - interaction event was already published successfully
+    return null;
   }
 }
 
@@ -252,6 +269,8 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
   let updatedEggTemperature = decayedBlobbi.eggTemperature;
   let updatedShellIntegrity = decayedBlobbi.shellIntegrity;
 
+  console.log('[AUTO-STATE] Applying', statChangeTags.length, 'stat changes from interaction');
+
   // Apply all stat changes from the interaction
   for (const statChangeTag of statChangeTags) {
     if (statChangeTag[1]) {
@@ -259,6 +278,8 @@ async function applyInteractionChanges(blobbi: Blobbi, interactionEvent: NostrEv
       const changeValue = parseInt(changeStr.replace(/^\+/, ''));
 
       if (statName && !isNaN(changeValue)) {
+        console.log(`[AUTO-STATE] Applying ${statName}: ${changeValue > 0 ? '+' : ''}${changeValue}`);
+
         if (statName === 'egg_temperature') {
           const currentValue = updatedEggTemperature || 100;
           updatedEggTemperature = clampStat(currentValue + changeValue);

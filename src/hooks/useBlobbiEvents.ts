@@ -51,10 +51,14 @@ export function useBlobbiState(blobbiId?: string, pubkey?: string) {
         }
       ], { signal });
 
+      console.log('[BLOBBI STATE] Fetched state event for:', targetBlobbiId);
       return events[0] || null;
     },
     enabled: !!targetPubkey && !!targetBlobbiId,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 0, // 🔥 FIX: Always consider data stale for immediate refetch
+    refetchInterval: 30000, // Refetch every 30 seconds as backup
+    refetchOnMount: true, // 🔥 FIX: Refetch when component mounts
+    refetchOnWindowFocus: true, // 🔥 FIX: Refetch when window gains focus
   });
 
   // Parse Blobbi from state event

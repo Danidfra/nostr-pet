@@ -72,6 +72,59 @@ function updateActionTimestamp(blobbi: Blobbi, action: string, timestamp: number
 }
 
 /**
+ * 🔥 NEW: Calculate stat changes based on action type and Blobbi state
+ */
+function calculateActionStatChanges(
+  action: BlobbiInteractionType,
+  blobbi: Blobbi
+): Array<[string, number]> {
+  switch (action) {
+    case 'feed':
+      return [['hunger', 30], ['happiness', 5]];
+
+    case 'play':
+      return [['happiness', 25], ['energy', -10]];
+
+    case 'clean':
+      return [['hygiene', 40], ['happiness', 10]];
+
+    case 'rest':
+      return [['energy', 35]];
+
+    case 'warm':
+      // 🔥 CRITICAL: Warm action for eggs applies 3 stat changes
+      if (blobbi.lifeStage === 'egg') {
+        return [
+          ['egg_temperature', 10],
+          ['health', 5],
+          ['shell_integrity', 5]
+        ];
+      }
+      // For non-eggs, just health boost
+      return [['health', 5]];
+
+    case 'medicine':
+      // Medicine for eggs affects shell_integrity
+      if (blobbi.lifeStage === 'egg') {
+        return [['shell_integrity', 20], ['health', 10]];
+      }
+      return [['health', 20]];
+
+    case 'check':
+      return [['happiness', 3]];
+
+    case 'sing':
+      return [['happiness', 8]];
+
+    case 'talk':
+      return [['happiness', 6]];
+
+    default:
+      return [['happiness', 5]];
+  }
+}
+
+/**
  * Hook for publishing Blobbi interactions with optimistic fake status updates
  *
  * FLOW:
@@ -112,9 +165,27 @@ export function useBlobbiInteractionWithFakeStatus() {
 
       console.log('[INTERACTION] Publishing interaction:', action);
 
-      // 1. OPTIMISTIC UPDATE (fake status first)
+      // 🔥 FIX: OPTIMISTIC UPDATE - use item effects or action-based stat changes
       if (currentBlobbi) {
-        const allStatChanges = statChanges || (statChange ? [statChange] : []);
+        // 🔥 CRITICAL: Build stat changes from item effects OR action type
+        let allStatChanges: Array<[string, number]> = [];
+
+        if (itemEffects && Object.keys(itemEffects).length > 0) {
+          // Use all item effects
+          allStatChanges = Object.entries(itemEffects)
+            .filter(([_, value]) => value !== undefined && value !== 0)
+            .map(([stat, value]) => [stat, value as number]);
+        } else if (statChanges) {
+          // Use explicitly provided stat changes
+          allStatChanges = statChanges;
+        } else if (statChange) {
+          // Use single stat change
+          allStatChanges = [statChange];
+        } else {
+          // 🔥 NEW: Calculate stat changes based on action type and Blobbi state
+          allStatChanges = calculateActionStatChanges(action, currentBlobbi);
+        }
+
         const optimisticBlobbi = applyStatChangesToBlobbi(
           getFakeStatus(blobbiId) || currentBlobbi,
           allStatChanges
@@ -130,15 +201,43 @@ export function useBlobbiInteractionWithFakeStatus() {
         setFakeStatus(blobbiId, optimisticBlobbi);
         incrementPendingInteractions(blobbiId);
 
-        console.log('[INTERACTION] Applied optimistic update');
+        console.log('[INTERACTION] Applied optimistic update with', allStatChanges.length, 'stat changes:', allStatChanges.map(([s, v]) => `${s}:${v}`).join(', '));
       }
 
-      // 2. Build interaction data
+      // 🔥 FIX: Build interaction data with proper item effects or action-based changes
+      // Convert itemEffects to statChanges array
+      let finalStatChanges: Array<[string, string]> = [];
+
+      if (itemEffects && Object.keys(itemEffects).length > 0) {
+        // 🔥 CRITICAL: Include ALL item effects as stat changes
+        finalStatChanges = Object.entries(itemEffects)
+          .filter(([_, value]) => value !== undefined && value !== 0)
+          .map(([stat, value]) => [stat, value.toString()]);
+      } else if (statChanges) {
+        // Use provided statChanges
+        finalStatChanges = statChanges.map(([stat, value]) => [stat, value.toString()]);
+      } else if (statChange) {
+        // Use single statChange
+        finalStatChanges = [[statChange[0], statChange[1].toString()]];
+      } else if (currentBlobbi) {
+        // 🔥 NEW: Calculate stat changes based on action type and Blobbi state
+        const calculatedChanges = calculateActionStatChanges(action, currentBlobbi);
+        finalStatChanges = calculatedChanges.map(([stat, value]) => [stat, value.toString()]);
+      } else {
+        // Default fallback
+        finalStatChanges = [['happiness', '5']];
+      }
+
+      // The first stat change is the primary one (for backward compatibility)
+      const primaryStatChange = finalStatChanges[0];
+
+      console.log('[INTERACTION] Building event with stat changes:', finalStatChanges.map(([s, v]) => `${s}:${v}`).join(', '));
+
       const interactionData: BlobbiInteractionData = {
         action,
         actionCategory,
-        statChange: statChange ? [statChange[0], statChange[1].toString()] : ['happiness', '5'],
-        statChanges: statChanges?.map(([stat, value]) => [stat, value.toString()]),
+        statChange: primaryStatChange,
+        statChanges: finalStatChanges, // 🔥 CRITICAL: Include ALL stat changes
         experienceGained,
         carePoints,
         gameType,
@@ -162,9 +261,18 @@ export function useBlobbiInteractionWithFakeStatus() {
       return interactionData;
     },
     onSuccess: (_, { blobbiId }) => {
-      // Invalidate queries to refresh data
+      // 🔥 FIX: Comprehensive query invalidation to ensure UI updates
+      console.log('[INTERACTION] Invalidating queries for', blobbiId);
+
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', blobbiId] });
       queryClient.invalidateQueries({ queryKey: ['blobbi-state', blobbiId] });
+      queryClient.invalidateQueries({ queryKey: ['blobbi-lifecycle-status', blobbiId] });
+      queryClient.invalidateQueries({ queryKey: ['blobbi-by-id', blobbiId] });
+
+      // Also invalidate user blobbis list
+      queryClient.invalidateQueries({ queryKey: ['user-blobbis'] });
+      queryClient.invalidateQueries({ queryKey: ['user-blobbi'] });
     },
     onError: (error, { blobbiId }) => {
       console.error('[INTERACTION] Failed to publish interaction:', error);

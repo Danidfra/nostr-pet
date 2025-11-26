@@ -129,7 +129,7 @@ const REQUIRED_BLOBBONAUT_TAGS = ['d'];
 
 const VALID_ACTIONS = ['feed', 'play', 'clean', 'rest', 'warm', 'check', 'sing', 'talk', 'medicine', 'cruzar'] as const;
 const VALID_STAGES: BlobbiLifeStage[] = ['egg', 'baby', 'adult'];
-const VALID_STAT_NAMES = ['hunger', 'happiness', 'health', 'hygiene', 'energy', 'egg_temperature'] as const;
+const VALID_STAT_NAMES = ['hunger', 'happiness', 'health', 'hygiene', 'energy', 'egg_temperature', 'shell_integrity'] as const;
 
 const EGG_ONLY_TAGS = new Set([
   'egg_temperature', 'egg_status', 'shell_integrity', 'hatch_time',
@@ -631,13 +631,17 @@ export function createBlobbiInteractionEvent(
     ['blobbi_id', blobbiId],
     ['action', interactionData.action],
     ['action_category', interactionData.actionCategory],
-    ['stat_change', `${interactionData.statChange[0]}:${interactionData.statChange[1]}`],
   ];
 
-  if (interactionData.statChanges && interactionData.statChanges.length > 1) {
-    interactionData.statChanges.slice(1).forEach(([stat, value]) => {
+  // 🔥 FIX: Add ALL stat changes as separate tags
+  if (interactionData.statChanges && interactionData.statChanges.length > 0) {
+    // Use statChanges array if provided (includes all effects)
+    interactionData.statChanges.forEach(([stat, value]) => {
       tags.push(['stat_change', `${stat}:${value}`]);
     });
+  } else {
+    // Fallback to single statChange for backward compatibility
+    tags.push(['stat_change', `${interactionData.statChange[0]}:${interactionData.statChange[1]}`]);
   }
 
   if (interactionData.itemUsed) tags.push(['item_used', interactionData.itemUsed]);

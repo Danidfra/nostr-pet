@@ -33,19 +33,20 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
   const fakeStatus = effectiveBlobbiId ? getFakeStatus(effectiveBlobbiId) : null;
   const pendingInteractionCount = effectiveBlobbiId ? getPendingInteractionCount(effectiveBlobbiId) : 0;
 
-  // CRITICAL: Sync logic with guards to prevent infinite loops
+  // 🔥 FIX: Sync logic - always prefer real data when it's newer
   useEffect(() => {
     if (!originalHook.blobbi || !effectiveBlobbiId) return;
 
-    // Only sync if no fake status exists OR real data is significantly newer
+    // If we have fake status, check if real data is newer
     if (fakeStatus) {
       const realTimestamp = originalHook.blobbi.lastInteraction;
       const fakeTimestamp = fakeStatus.lastInteraction;
       const timeDifference = realTimestamp - fakeTimestamp;
 
-      // Only sync if real data is 30+ seconds newer AND no pending interactions
-      if (timeDifference >= 30 && pendingInteractionCount === 0) {
-        console.log('[FAKE STATUS] Syncing with real data (newer)');
+      // 🔥 CRITICAL: Clear fake status when real data is equal or newer
+      // This ensures UI always shows the latest Nostr state
+      if (timeDifference >= 0) {
+        console.log('[FAKE STATUS] Real data is current, clearing fake status');
         syncWithRealData(effectiveBlobbiId, originalHook.blobbi);
       } else if (timeDifference < -60) {
         // If fake data is 60+ seconds ahead, something is wrong - clear it
@@ -94,7 +95,17 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
         statChanges.push(['energy', 35]);
         break;
       case 'warm':
-        statChanges.push(['health', 5]);
+        // 🔥 FIX: Warm action for eggs applies 3 stat changes
+        if (currentBlobbi.lifeStage === 'egg') {
+          statChanges.push(
+            ['egg_temperature', 10],
+            ['health', 5],
+            ['shell_integrity', 5]
+          );
+        } else {
+          // For non-eggs, just a small health boost
+          statChanges.push(['health', 5]);
+        }
         break;
       case 'medicine':
         statChanges.push(['health', 20]);
@@ -133,17 +144,27 @@ export function useBlobbiWithFakeStatus(pubkey?: string, blobbiId?: string) {
     return originalHook.performAction(action, itemEffect);
   };
 
-  // Merge fake status with real Blobbi data
+  // 🔥 FIX: Display logic - prefer real data unless fake is genuinely newer
   const displayBlobbi = useMemo(() => {
     if (!originalHook.blobbi) return null;
+
+    // 🔥 CRITICAL: Only use fake status if it's genuinely ahead of real data
+    // This ensures the UI updates immediately when new real data arrives
     if (!fakeStatus) return originalHook.blobbi;
 
-    // Use fake status if it's newer or if there are pending interactions
-    if (pendingInteractionCount > 0 || fakeStatus.lastInteraction > originalHook.blobbi.lastInteraction) {
-      console.log('[FAKE STATUS] Using fake status for display');
+    const realTimestamp = originalHook.blobbi.lastInteraction;
+    const fakeTimestamp = fakeStatus.lastInteraction;
+
+    // Use fake status ONLY if:
+    // 1. Fake is newer than real (optimistic update hasn't been confirmed yet)
+    // 2. AND there are pending interactions
+    if (fakeTimestamp > realTimestamp && pendingInteractionCount > 0) {
+      console.log('[FAKE STATUS] Using fake status for display (optimistic)');
       return fakeStatus;
     }
 
+    // Otherwise, always use real data
+    console.log('[FAKE STATUS] Using real data for display');
     return originalHook.blobbi;
   }, [originalHook.blobbi, fakeStatus, pendingInteractionCount]);
 
