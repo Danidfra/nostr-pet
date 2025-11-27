@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useBlobbonautProfile, useUpdateBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useCoinBalance } from '@/hooks/useCoinBalance';
 import { useBlobbiFakeInventory } from '@/contexts/BlobbiFakeInventoryContext';
@@ -17,21 +17,33 @@ export function useBlobbonautProfileWithFakeInventory(profileId?: string) {
   const { data: coinBalance } = useCoinBalance();
 
   const effectiveProfileId = profileId || originalHook.data?.id;
-  const fakeInventory = effectiveProfileId ? getFakeInventory(effectiveProfileId) : null;
 
-  // Initialize fake inventory when real profile loads
+  // 🔥 FIX: Track initialization to prevent redundant setFakeInventory calls
+  const initializedRef = useRef<Set<string>>(new Set());
+
+  // 🔥 FIX: Get fake inventory in useMemo to avoid calling during every render
+  const fakeInventory = useMemo(() => {
+    return effectiveProfileId ? getFakeInventory(effectiveProfileId) : null;
+  }, [effectiveProfileId, getFakeInventory]);
+
+  // 🔥 FIX: Initialize fake inventory only once per profile
   useEffect(() => {
-    if (originalHook.data && effectiveProfileId && !fakeInventory) {
+    if (originalHook.data && effectiveProfileId && !fakeInventory && !initializedRef.current.has(effectiveProfileId)) {
+      console.log('[FAKE INVENTORY] Initializing for profile:', effectiveProfileId);
       setFakeInventory(effectiveProfileId, { ...originalHook.data });
+      initializedRef.current.add(effectiveProfileId);
     }
   }, [originalHook.data, effectiveProfileId, fakeInventory, setFakeInventory]);
 
-  // Sync fake inventory with real inventory when it updates
+  // 🔥 FIX: Sync only when real data's lastModified actually changes
+  const lastSyncedModified = useRef<number>(0);
   useEffect(() => {
-    if (originalHook.data && effectiveProfileId) {
+    if (originalHook.data && effectiveProfileId && originalHook.data.lastModified !== lastSyncedModified.current) {
+      console.log('[FAKE INVENTORY] Syncing with real data, lastModified:', originalHook.data.lastModified);
       syncWithRealData(effectiveProfileId, originalHook.data);
+      lastSyncedModified.current = originalHook.data.lastModified;
     }
-  }, [originalHook.data, effectiveProfileId, syncWithRealData]);
+  }, [originalHook.data?.lastModified, effectiveProfileId, syncWithRealData]);
 
   // Enhanced update function that updates fake inventory immediately
   const updateProfileWithFakeInventory = async (updatedProfile: BlobbonautProfile) => {

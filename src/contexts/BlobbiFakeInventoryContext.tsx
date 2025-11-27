@@ -12,13 +12,13 @@ interface BlobbiFakeInventoryContextType {
   setFakeInventory: (profileId: string, inventory: BlobbonautProfile) => void;
   updateFakeInventory: (profileId: string, updates: Partial<BlobbonautProfile>) => void;
   clearFakeInventory: (profileId: string) => void;
-  
+
   incrementPendingInteractions: (profileId: string) => void;
   decrementPendingInteractions: (profileId: string) => void;
   getPendingInteractionCount: (profileId: string) => number;
-  
+
   hasFakeInventory: (profileId: string) => boolean;
-  
+
   syncWithRealData: (profileId: string, realInventory: BlobbonautProfile) => void;
 }
 
@@ -39,7 +39,7 @@ export function BlobbiFakeInventoryProvider({ children }: { children: React.Reac
         const validEntries = Object.entries(data).filter(([_, value]: [string, FakeInventoryData]) => {
           return now - value.lastFakeUpdate < FAKE_INVENTORY_EXPIRY_MS;
         });
-        
+
         if (validEntries.length > 0) {
           const newMap = new Map(validEntries as [string, FakeInventoryData][]);
           setFakeInventoryMap(newMap);
@@ -68,14 +68,14 @@ export function BlobbiFakeInventoryProvider({ children }: { children: React.Reac
       setFakeInventoryMap(prev => {
         const newMap = new Map(prev);
         let hasChanges = false;
-        
+
         newMap.forEach((value, key) => {
           if (now - value.lastFakeUpdate > FAKE_INVENTORY_EXPIRY_MS) {
             newMap.delete(key);
             hasChanges = true;
           }
         });
-        
+
         return hasChanges ? newMap : prev;
       });
     };
@@ -84,19 +84,17 @@ export function BlobbiFakeInventoryProvider({ children }: { children: React.Reac
     return () => clearInterval(interval);
   }, []);
 
+  // 🔥 FIX: Never update state during render - just return null if expired
+  // The cleanup effect will handle removing expired entries
   const getFakeInventory = useCallback((profileId: string): BlobbonautProfile | null => {
     const data = fakeInventoryMap.get(profileId);
     if (!data) return null;
-    
+
+    // Check if expired but DON'T update state here
     if (Date.now() - data.lastFakeUpdate > FAKE_INVENTORY_EXPIRY_MS) {
-      setFakeInventoryMap(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(profileId);
-        return newMap;
-      });
       return null;
     }
-    
+
     return data.inventory;
   }, [fakeInventoryMap]);
 
@@ -118,7 +116,7 @@ export function BlobbiFakeInventoryProvider({ children }: { children: React.Reac
       const newMap = new Map(prev);
       const existing = newMap.get(profileId);
       if (!existing) return prev;
-      
+
       newMap.set(profileId, {
         ...existing,
         inventory: { ...existing.inventory, ...updates },
@@ -141,7 +139,7 @@ export function BlobbiFakeInventoryProvider({ children }: { children: React.Reac
       const newMap = new Map(prev);
       const existing = newMap.get(profileId);
       if (!existing) return prev;
-      
+
       newMap.set(profileId, {
         ...existing,
         pendingInteractions: existing.pendingInteractions + 1,
@@ -156,9 +154,9 @@ export function BlobbiFakeInventoryProvider({ children }: { children: React.Reac
       const newMap = new Map(prev);
       const existing = newMap.get(profileId);
       if (!existing) return prev;
-      
+
       const newPendingCount = Math.max(0, existing.pendingInteractions - 1);
-      
+
       if (newPendingCount === 0) {
         newMap.delete(profileId);
       } else {
@@ -184,7 +182,7 @@ export function BlobbiFakeInventoryProvider({ children }: { children: React.Reac
   const syncWithRealData = useCallback((profileId: string, realInventory: BlobbonautProfile) => {
     const fakeData = fakeInventoryMap.get(profileId);
     if (!fakeData) return;
-    
+
     if (realInventory.lastModified > fakeData.inventory.lastModified && fakeData.pendingInteractions === 0) {
       clearFakeInventory(profileId);
     } else if (fakeData.pendingInteractions > 0) {
