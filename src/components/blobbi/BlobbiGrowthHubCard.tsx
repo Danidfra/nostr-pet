@@ -14,7 +14,7 @@ import { formatDistanceToNow } from 'date-fns';
 interface BlobbiGrowthHubCardProps {
   blobbi: Blobbi;
   mode: 'egg' | 'baby';
-  
+
   // Egg mode props
   eggTasks?: any[];
   isReadyToHatch?: boolean;
@@ -26,8 +26,8 @@ interface BlobbiGrowthHubCardProps {
   onMarkPhotoTaskCompleted?: (id: string) => void;
   onMarkFirstPostTaskCompleted?: (id: string) => void;
   isTaskCompleted?: (task: any, blobbiId: string) => boolean;
-  
-  // Baby mode props  
+
+  // Baby mode props
   babyQuests?: any[];
   questProgress?: { completed: number; total: number; percentage: number };
   isReadyToEvolve?: boolean;
@@ -38,13 +38,13 @@ interface BlobbiGrowthHubCardProps {
   onStopEvolution?: () => void;
   onTriggerEvolution?: () => void;
   isEvolving?: boolean;
-  
+
   // Common props
   onTakePhoto?: () => void;
   className?: string;
 }
 
-export function BlobbiGrowthHubCard({ 
+export function BlobbiGrowthHubCard({
   blobbi,
   mode,
   // Egg props
@@ -71,7 +71,7 @@ export function BlobbiGrowthHubCard({
   isEvolving = false,
   // Common props
   onTakePhoto,
-  className 
+  className
 }: BlobbiGrowthHubCardProps) {
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
@@ -81,11 +81,11 @@ export function BlobbiGrowthHubCard({
   if (!shouldShow) return null;
 
   // Calculate progress based on mode
-  const completedTasks = mode === 'egg' 
+  const completedTasks = mode === 'egg'
     ? eggTasks.filter(task => isTaskCompleted?.(task, blobbi.id))
     : babyQuests.filter(quest => quest.completed);
   const totalTasks = mode === 'egg' ? eggTasks.length : babyQuests.length;
-  const progressPercentage = mode === 'egg' 
+  const progressPercentage = mode === 'egg'
     ? (completedTasks.length / totalTasks) * 100
     : questProgress.percentage;
 
@@ -119,7 +119,7 @@ export function BlobbiGrowthHubCard({
     if (mode === 'egg') {
       return 'Complete these tasks to help your egg hatch';
     } else {
-      return hasStartTime 
+      return hasStartTime
         ? 'Complete these social interaction quests to help your baby evolve'
         : "Click 'Start Evolution' to begin tracking your Nostr interactions for evolution quests";
     }
@@ -214,6 +214,7 @@ export function BlobbiGrowthHubCard({
             onClick={onStartQuestTracking}
             size="sm"
             className="bg-purple-600 hover:bg-purple-700 text-white"
+            disabled={true}
           >
             <Sparkles className="w-4 h-4 mr-2" />
             Start Evolution
@@ -243,12 +244,12 @@ export function BlobbiGrowthHubCard({
 
   const renderTasks = () => {
     const tasks = mode === 'egg' ? eggTasks : babyQuests;
-    
+
     return (
       <div className="space-y-3">
         {tasks.map((task, index) => {
-          const isCompleted = mode === 'egg' 
-            ? isTaskCompleted?.(task, blobbi.id) 
+          const isCompleted = mode === 'egg'
+            ? isTaskCompleted?.(task, blobbi.id)
             : task.completed;
           let currentProgress = task.progress || 0;
 
@@ -343,9 +344,9 @@ export function BlobbiGrowthHubCard({
                   {isCompleted && (
                     <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
                       <CheckCircle className="h-3 w-3" />
-                      {mode === 'egg' && task.id === 'shell_integrity_above_50' 
-                        ? 'Shell integrity requirement met' 
-                        : mode === 'egg' 
+                      {mode === 'egg' && task.id === 'shell_integrity_above_50'
+                        ? 'Shell integrity requirement met'
+                        : mode === 'egg'
                           ? 'Task confirmed on Nostr'
                           : 'Quest confirmed on Nostr'
                       }
@@ -394,7 +395,18 @@ export function BlobbiGrowthHubCard({
   return (
     <>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <Card className={cn("bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600", className)}>
+        <Card className={cn("relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600", className)}>
+          {/* Soon overlay for baby mode */}
+          {mode === 'baby' && blobbi.lifeStage === 'baby' && (
+            <div className="absolute inset-0 bg-white/70 dark:bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-lg border border-purple-300 dark:border-purple-700">
+              <h2 className="text-xl font-bold text-purple-700 dark:text-purple-300">
+                Evolution Coming Soon
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                This feature is temporarily unavailable.
+              </p>
+            </div>
+          )}
           <CollapsibleTrigger asChild>
             <CardHeader className="pb-3 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
               <div className="flex items-center justify-between">
@@ -420,28 +432,30 @@ export function BlobbiGrowthHubCard({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent className="space-y-4">
-              {/* Progress Overview */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{getProgressLabel()}</span>
-                  <span className="font-medium">{getProgressCount()}</span>
+              <div className={cn(mode === 'baby' && blobbi.lifeStage === 'baby' && "pointer-events-none opacity-40")}>
+                {/* Progress Overview */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{getProgressLabel()}</span>
+                    <span className="font-medium">{getProgressCount()}</span>
+                  </div>
+                  <Progress value={progressPercentage} className="h-2" />
+                  {getReadyButton()}
                 </div>
-                <Progress value={progressPercentage} className="h-2" />
-                {getReadyButton()}
+
+                {/* Task/Quest List */}
+                {renderTasks()}
+
+                {/* Tracking info */}
+                {hasStartTime && (
+                  <div className="text-xs text-muted-foreground text-center pt-2 border-t">
+                    {mode === 'egg'
+                      ? `Incubation started: ${new Date(incubationStartTime!).toLocaleDateString()}`
+                      : `Evolution started: ${formatDistanceToNow(questStartTime!, { addSuffix: true })}`
+                    }
+                  </div>
+                )}
               </div>
-
-              {/* Task/Quest List */}
-              {renderTasks()}
-
-              {/* Tracking info */}
-              {hasStartTime && (
-                <div className="text-xs text-muted-foreground text-center pt-2 border-t">
-                  {mode === 'egg' 
-                    ? `Incubation started: ${new Date(incubationStartTime!).toLocaleDateString()}`
-                    : `Evolution started: ${formatDistanceToNow(questStartTime!, { addSuffix: true })}`
-                  }
-                </div>
-              )}
             </CardContent>
           </CollapsibleContent>
         </Card>
