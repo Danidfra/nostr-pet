@@ -787,83 +787,30 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
 
             {/* Social Tab */}
             <TabsContent value="social" className="space-y-6">
-              {/* Zaps Received */}
               <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Zap className="w-5 h-5" />
-                    Zaps Received
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                    <MessageCircle className="w-5 h-5 text-purple-500" />
+                    Social Features
                   </CardTitle>
-                  <CardDescription>
-                    Lightning tips received for this Blobbi
+                  <CardDescription className="text-gray-600 dark:text-gray-300">
+                    Interactions, comments and zaps for your Blobbi are not available yet.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {zapsReceived.map((zap) => (
-                      <div key={zap.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                        <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
-                          <Zap className="w-4 h-4 text-yellow-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="font-medium">{zap.amount} sats</div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(zap.timestamp, { addSuffix: true })}
-                            </div>
-                          </div>
-                          <div className="text-sm text-muted-foreground mb-1">
-                            From {zap.from.slice(0, 12)}...
-                          </div>
-                          {zap.message && (
-                            <div className="text-sm">"{zap.message}"</div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {zapsReceived.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        No zaps received yet
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Comments */}
-              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageCircle className="w-5 h-5" />
-                    Comments
-                  </CardTitle>
-                  <CardDescription>
-                    What others are saying about this Blobbi
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {comments.map((comment) => (
-                      <div key={comment.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                          <MessageCircle className="w-4 h-4 text-green-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="font-medium">{comment.author.slice(0, 12)}...</div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(comment.timestamp, { addSuffix: true })}
-                            </div>
-                          </div>
-                          <div className="text-sm">{comment.content}</div>
-                        </div>
-                      </div>
-                    ))}
-                    {comments.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        No comments yet
-                      </div>
-                    )}
+                <CardContent className="py-8">
+                  <div className="flex flex-col items-center text-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center">
+                      <Sparkles className="w-6 h-6 text-purple-600 dark:text-purple-300" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      Social is coming soon ✨
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md">
+                      Soon you'll be able to see zaps, comments, and other Nostr interactions connected to this Blobbi here.
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500">
+                      For now, you can keep taking care of your Blobbi and getting it ready for the social spotlight.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
