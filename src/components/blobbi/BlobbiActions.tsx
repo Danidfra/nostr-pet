@@ -13,6 +13,8 @@ import { useBlobbonautProfile, useCreateInitialProfile } from '@/hooks/useBlobbo
 import { useToast } from '@/hooks/useToast';
 import { isActionAvailableForStage } from '@/lib/cooldown-storage';
 import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
+import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
+import { useBlobbiQuestSystem } from '@/hooks/useBlobbiQuestSystem';
 import { BlobbiGrowthHubCard } from './BlobbiGrowthHubCard';
 
 interface BlobbiActionsProps {
@@ -46,6 +48,31 @@ export function BlobbiActions({
 }: BlobbiActionsProps) {
   // Get fake status information
   const { hasFakeStatus, getPendingInteractionCount, updateFakeStatus } = useBlobbiFakeStatus();
+
+  // Incubation system for eggs
+  const {
+    eggTasks,
+    isReadyToHatch,
+    incubationStartTime,
+    taskSubscriptionActive,
+    startIncubation,
+    stopIncubation,
+    hatchBlobbi,
+    markPhotoTaskCompleted,
+    isTaskCompleted
+  } = useBlobbiIncubationSystem();
+
+  // Quest system for baby blobbis
+  const {
+    babyToAdultQuests,
+    questProgress,
+    isReadyToEvolve: isQuestReadyToEvolve,
+    questStartTime,
+    questSubscriptionActive,
+    isListening,
+    startQuestTracking,
+    stopEvolution,
+  } = useBlobbiQuestSystem();
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<BlobbiAction | null>(null);
   const [actionInProgress, setActionInProgress] = useState<BlobbiAction | null>(null);
@@ -290,12 +317,66 @@ export function BlobbiActions({
 
   return (
     <div className="space-y-4">
-      {/* Growth Hub for eggs */}
-      <BlobbiGrowthHubCard
-        blobbi={blobbi}
-        mode={blobbi.lifeStage === 'egg' ? 'egg' : 'baby'}
-        onTakePhoto={onTakePhoto}
-      />
+      {/* Growth Hub for eggs and babies - only show if conditions are met */}
+      {(() => {
+        // Check if Growth Hub should be shown based on stage and tags
+        if (blobbi.lifeStage === 'egg') {
+          // For eggs: show if has incubation tags or active tasks
+          const hasIncubationTag = blobbi.tags?.some((tag: string[]) =>
+            tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
+          );
+          const hasActiveTasks = eggTasks.length > 0;
+
+          if (!hasIncubationTag && !hasActiveTasks) {
+            return null; // Hide Growth Hub for eggs without incubation
+          }
+        } else if (blobbi.lifeStage === 'baby') {
+          // For babies: show if has evolution tags or active quests
+          const hasEvolutionTag = blobbi.tags?.some((tag: string[]) =>
+            tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
+          );
+          const hasActiveQuests = babyToAdultQuests.length > 0;
+
+          if (!hasEvolutionTag && !hasActiveQuests) {
+            return null; // Hide Growth Hub for babies without evolution
+          }
+        } else {
+          // For adults: never show Growth Hub
+          return null;
+        }
+
+        // Show Growth Hub if conditions are met
+        return (
+          <BlobbiGrowthHubCard
+            blobbi={blobbi}
+            mode={blobbi.lifeStage === 'egg' ? 'egg' : 'baby'}
+            // Egg mode props
+            eggTasks={eggTasks}
+            isReadyToHatch={isReadyToHatch}
+            incubationStartTime={incubationStartTime || undefined}
+            taskSubscriptionActive={taskSubscriptionActive}
+            onStartIncubation={startIncubation}
+            onStopIncubation={stopIncubation}
+            onHatchBlobbi={hatchBlobbi}
+            onMarkPhotoTaskCompleted={markPhotoTaskCompleted}
+            onMarkFirstPostTaskCompleted={() => {}} // Not used in actions view
+            isTaskCompleted={isTaskCompleted}
+            // Baby mode props
+            babyQuests={babyToAdultQuests}
+            questProgress={questProgress}
+            isReadyToEvolve={isQuestReadyToEvolve}
+            questStartTime={questStartTime || undefined}
+            questSubscriptionActive={questSubscriptionActive}
+            isQuestListening={isListening}
+            onStartQuestTracking={startQuestTracking}
+            onStopEvolution={stopEvolution}
+            onTriggerEvolution={onEvolution}
+            isEvolving={isPerformingAction}
+            // Common props
+            onTakePhoto={onTakePhoto}
+          />
+        );
+      })()}
 
       {/* Regular Actions */}
       <Card className={cn("bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600", className)}>

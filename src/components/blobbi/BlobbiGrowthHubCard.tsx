@@ -74,7 +74,15 @@ export function BlobbiGrowthHubCard({
   className
 }: BlobbiGrowthHubCardProps) {
   const [showCreatePost, setShowCreatePost] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('isGrowthHubCardOpen');
+      if (stored === null) return false;
+      return stored === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Determine if we should show this card
   const shouldShow = mode === 'egg' ? blobbi.lifeStage === 'egg' : blobbi.lifeStage === 'baby';
@@ -192,7 +200,7 @@ export function BlobbiGrowthHubCard({
           <>
             <Badge className={isTrackingActive ? 'bg-green-600 text-white' : 'bg-amber-500 text-white'}>
               <Wifi className="w-3 h-3 mr-1" />
-              {isTrackingActive ? 'Listening for events...' : 'Incubating (waiting for events)'}
+              {isTrackingActive ? 'Listening for events...' : 'Incubating'}
             </Badge>
             <Button
               onClick={onStopIncubation}
@@ -225,7 +233,7 @@ export function BlobbiGrowthHubCard({
           <>
             <Badge className={isQuestListening ? 'bg-green-600 text-white' : 'bg-amber-500 text-white'}>
               <Wifi className="w-3 h-3 mr-1" />
-              {isQuestListening ? 'Listening for evolution events...' : 'Evolution started — waiting for events'}
+              {isQuestListening ? 'Listening for evolution events...' : 'Evolution started'}
             </Badge>
             <Button
               onClick={onStopEvolution}
@@ -394,7 +402,11 @@ export function BlobbiGrowthHubCard({
 
   return (
     <>
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Collapsible open={isOpen} onOpenChange={(e) => {
+        setIsOpen(e)
+        sessionStorage.setItem('isGrowthHubCardOpen', String(e))
+      }
+      }>
         <Card className={cn("relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600", className)}>
           {/* Soon overlay for baby mode */}
           {mode === 'baby' && blobbi.lifeStage === 'baby' && (
