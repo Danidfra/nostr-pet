@@ -119,19 +119,61 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
   });
   const hasEvolutionInProgress = babiesWithEvolution.length > 0;
 
-  // The auto-selection is now handled in the hook when fetching metadata
-  // This useEffect is no longer needed for eggs, but we'll keep baby auto-selection
+  // Auto-selection logic with proper priority order
   useEffect(() => {
-    // Only auto-select baby if nothing is currently selected and we have blobbis but no eggs with start_incubation
-    if (!selectedEggId && !selectedBabyId && blobbis.length > 0 && eggBlobbis.length === 0) {
-      // Fallback to babies if no eggs are available
-      if (babyBlobbis.length > 0) {
-        const firstBaby = babyBlobbis[0];
-        selectBaby(firstBaby.id);
+    // Only auto-select if nothing is currently selected and we have blobbis
+    if (!selectedEggId && !selectedBabyId && blobbis.length > 0) {
 
+      // Priority 1: Auto-select eggs (if any exist)
+      if (eggBlobbis.length > 0) {
+        // Priority 1a: Find egg with start_incubation tag
+        const eggWithIncubation = eggBlobbis.find(blobbi =>
+          blobbi.tags?.some(tag => tag[0] === 'start_incubation')
+        );
+
+        if (eggWithIncubation) {
+          // Select the egg that has incubation started
+          selectEgg(eggWithIncubation.id);
+          console.log('[AUTO-SELECT] Selected egg with start_incubation tag:', eggWithIncubation.id);
+        } else {
+          // Priority 1b: Fallback to first egg in the list
+          const firstEgg = eggBlobbis[0];
+          selectEgg(firstEgg.id);
+          console.log('[AUTO-SELECT] Selected first egg:', firstEgg.id);
+        }
       }
+      // Priority 2: Auto-select babies (only if no eggs exist)
+      else if (babyBlobbis.length > 0) {
+        // Priority 2a: Find baby with start_evolution tag
+        const babyWithEvolution = babyBlobbis.find(blobbi =>
+          blobbi.tags?.some(tag => tag[0] === 'start_evolution')
+        );
+
+        if (babyWithEvolution) {
+          // Select the baby that has evolution started
+          selectBaby(babyWithEvolution.id);
+          console.log('[AUTO-SELECT] Selected baby with start_evolution tag:', babyWithEvolution.id);
+        } else {
+          // Priority 2b: Fallback to first baby in the list
+          const firstBaby = babyBlobbis[0];
+          selectBaby(firstBaby.id);
+          console.log('[AUTO-SELECT] Selected first baby:', firstBaby.id);
+        }
+      }
+      // Note: Adult blobbis are never auto-selected
     }
-  }, [blobbis, eggBlobbis, babyBlobbis, selectedEggId, selectedBabyId, selectEgg, selectBaby]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Note: We only depend on lengths and selection state to avoid infinite loops
+    // The arrays themselves change on every render, but we only care about count changes
+  }, [
+    blobbis.length,
+    eggBlobbis.length,
+    babyBlobbis.length,
+    selectedEggId,
+    selectedBabyId,
+    selectEgg,
+    selectBaby,
+  ]);
 
   const selectedBlobbiProgress = getProgress(selectedEggId);
 

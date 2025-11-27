@@ -9,7 +9,7 @@ export default function BlobbiEvolutionPage() {
             Evolution Guide
           </h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1 sm:mt-2">
-            Discover how your Blobbi transforms after 4 days of loving care
+            Discover how your Blobbi transforms after 4 Moments of loving care
           </p>
         </div>
 

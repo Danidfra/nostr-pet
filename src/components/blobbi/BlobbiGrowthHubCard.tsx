@@ -279,7 +279,7 @@ export function BlobbiGrowthHubCard({
               <div className="flex w-full space-y-1">
                 <div className='flex-1 space-x-1'>
                   <div className="flex items-center justify-between">
-                    <h4 className={cn(
+                    <h4 id={`tab-growth-hub-tasks-${index}`} className={cn(
                       "font-medium text-sm",
                       isCompleted ? "text-green-800 dark:text-green-200" : "text-gray-900 dark:text-gray-100"
                     )}>
@@ -419,7 +419,7 @@ export function BlobbiGrowthHubCard({
                     {getDescription()}
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" id="tab-growth-hub-start-incubation">
                   {getStartStopButtons()}
                   {isOpen ? (
                     <ChevronUp className="w-5 h-5 text-muted-foreground" />

@@ -102,12 +102,6 @@ export function BlobbiDashboardSidebar({
               Evolution Guide
             </Button>
           </Link>
-          <Link to="/blobbi/community">
-            <Button variant="outline" className="w-full justify-start gap-2 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
-              <Activity className="w-4 h-4" />
-              Community
-            </Button>
-          </Link>
           <Button
             variant="outline"
             className="w-full justify-start gap-2 border-green-200 dark:border-green-600 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
@@ -138,7 +132,7 @@ export function BlobbiDashboardSidebar({
             <Package className="w-4 h-4" />
             Storage
           </Button>
-          {stats.incubatingBlobbis > 0 && (
+          {/* {stats.incubatingBlobbis > 0 && (
             <Button
               variant="outline"
               className="w-full justify-start gap-2 border-yellow-200 dark:border-yellow-600 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
@@ -147,7 +141,7 @@ export function BlobbiDashboardSidebar({
               <Egg className="w-4 h-4" />
               View Growth Hub ({stats.incubatingBlobbis})
             </Button>
-          )}
+          )} */}
         </CardContent>
       </Card>
     </div>

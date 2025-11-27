@@ -344,7 +344,7 @@ export function BlobbiAdoption() {
             <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-purple-200 dark:border-purple-600">
               <div className="text-4xl mb-3">🥚</div>
               <h3 className="font-semibold text-purple-700 dark:text-purple-300 mb-2">Start as an Egg</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Your Blobbi begins life as a magical egg that needs days of loving care</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Your Blobbi begins life as a magical egg that needs moments of loving care</p>
             </div>
             <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-pink-200 dark:border-pink-600">
               <div className="text-4xl mb-3">🐣</div>
@@ -432,12 +432,12 @@ export function BlobbiAdoption() {
                 </Badge>
               </div>
               <CardTitle className={`text-2xl ${hasProfile ? 'text-green-700 dark:text-green-300' : 'text-purple-700 dark:text-purple-300'}`}>
-                {hasProfile ? '✨ Profile Complete!' : '🌟 Create Your Blobganaut Profile'}
+                {hasProfile ? '✨ Profile Complete!' : '🌟 Create Your Blobbonaut Profile'}
               </CardTitle>
               <CardDescription className="text-base">
                 {hasProfile
                   ? 'Your magical journey profile is ready for adventure!'
-                  : 'Every great Blobganaut needs a name to begin their magical journey'
+                  : 'Every great Blobbonaut needs a name to begin their magical journey'
                 }
               </CardDescription>
             </CardHeader>
@@ -449,7 +449,7 @@ export function BlobbiAdoption() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="text-center">
                         <div className="text-2xl mb-1">👤</div>
-                        <p className="text-sm font-medium text-green-700 dark:text-green-300">Blobganaut</p>
+                        <p className="text-sm font-medium text-green-700 dark:text-green-300">Blobbonaut</p>
                         <p className="text-xs text-gray-600 dark:text-gray-300">{blobbonautProfile.name || 'Anonymous'}</p>
                       </div>
                       <div className="text-center">
@@ -476,7 +476,7 @@ export function BlobbiAdoption() {
 
                   <div className="space-y-3">
                     <Label htmlFor="profileName" className="text-base font-medium text-purple-700 dark:text-purple-300">
-                      Your Blobganaut Name
+                      Your Blobbonaut Name
                     </Label>
                     <Input
                       id="profileName"
@@ -560,7 +560,7 @@ export function BlobbiAdoption() {
                 <Alert className="border-amber-200 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20">
                   <Star className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   <AlertDescription className="text-amber-700 dark:text-amber-300">
-                    <strong>Almost there!</strong> Complete your Blobganaut profile above to unlock Blobbi adoption.
+                    <strong>Almost there!</strong> Complete your Blobbonaut profile above to unlock Blobbi adoption.
                   </AlertDescription>
                 </Alert>
               )}
@@ -710,7 +710,7 @@ export function BlobbiAdoption() {
                       <span>🥚</span> Magical egg creation
                     </div>
                     <div className="flex items-center gap-1">
-                      <span>💝</span> Days of loving care
+                      <span>💝</span> Moments of loving care
                     </div>
                     <div className="flex items-center gap-1">
                       <span>🐣</span> Hatching celebration

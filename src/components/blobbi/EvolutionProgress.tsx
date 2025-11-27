@@ -24,7 +24,7 @@ export function EvolutionProgress({ evolutionProgress, hasEvolved }: EvolutionPr
             Evolution Complete!
           </CardTitle>
           <CardDescription className="text-gray-600 dark:text-gray-300">
-            Your Blobbi has evolved after {evolutionProgress.totalCareDays} days of loving care!
+            Your Blobbi has evolved after {evolutionProgress.totalCareDays} Moments of loving care!
           </CardDescription>
         </CardHeader>
       </Card>

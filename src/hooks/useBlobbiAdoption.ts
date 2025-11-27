@@ -28,7 +28,7 @@ export function useBlobbiAdoption() {
 
       // Check if user has a profile and sufficient coins
       if (!blobbonautProfile) {
-        throw new Error('You must create a Blobganaut profile before adopting a Blobbi');
+        throw new Error('You must create a Blobbonaut profile before adopting a Blobbi');
       }
 
       if (blobbonautProfile.coins < ADOPTION_FEE) {
