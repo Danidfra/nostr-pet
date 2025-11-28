@@ -29,6 +29,7 @@ import {
   Users,
   ExternalLink,
   Egg,
+  EggOff,
   Camera,
 } from 'lucide-react';
 import { DailyMissionsCard } from '@/components/blobbi/DailyMissionsCard';
@@ -51,9 +52,12 @@ import { EggGraphic } from '@/components/blobbi/EggGraphic';
 import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { PolaroidPhotoModal } from '@/components/blobbi/PolaroidPhotoModal';
+import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
+import { useBlobbiQuestSystem } from '@/hooks/useBlobbiQuestSystem';
 
 import { formatDistanceToNow } from 'date-fns';
 import { getActionDisplayName } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { BlobbiAction } from '@/types/blobbi';
 import { checkEggHatchingReadiness, checkBabyEvolutionReadiness } from '@/lib/blobbi-evolution';
 import { isValidSize } from '@/lib/blobbi-egg-validation';
@@ -93,6 +97,75 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const { toast } = useToast();
 
   const isOwner = user?.pubkey === realBlobbi?.ownerPubkey;
+
+  // Local state to track when user initiates stop action
+  const [isStoppingIncubation, setIsStoppingIncubation] = useState(false);
+  const [isStoppingEvolution, setIsStoppingEvolution] = useState(false);
+
+  // Pending states for incubation and evolution
+  const [pendingEggToIncubate, setPendingEggToIncubate] = useState<string | null>(null);
+  const [pendingBabyToTrack, setPendingBabyToTrack] = useState<string | null>(null);
+
+  // Simple UI flags for immediate feedback
+  const [isIncubatingUI, setIsIncubatingUI] = useState(false);
+  const [isEvolvingUI, setIsEvolvingUI] = useState(false);
+
+  // Incubation system for eggs
+  const {
+    selectEgg,
+    startIncubation,
+    stopIncubation,
+    selectedEggId,
+    taskSubscriptionActive,
+  } = useBlobbiIncubationSystem();
+
+  // Quest system for baby blobbis
+  const {
+    selectBaby,
+    startQuestTracking,
+    stopEvolution,
+    selectedBabyId,
+    questSubscriptionActive,
+  } = useBlobbiQuestSystem();
+
+  // NEW — derived booleans to avoid race conditions (moved before early return)
+  const hasIncubationTag = realBlobbi?.tags?.some((tag: string[]) =>
+    tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
+  );
+  const isIncubatingThisEgg =
+    realBlobbi?.lifeStage === 'egg' &&
+    (
+      hasIncubationTag ||
+      (selectedEggId === realBlobbi.id && taskSubscriptionActive) ||
+      isIncubatingUI // Add UI flag for immediate feedback
+    );
+  const hasEvolutionTag = realBlobbi?.tags?.some((tag: string[]) =>
+    tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
+  );
+  const isEvolvingThisBaby =
+    realBlobbi?.lifeStage === 'baby' &&
+    (
+      hasEvolutionTag ||
+      (selectedBabyId === realBlobbi.id && questSubscriptionActive) ||
+      isEvolvingUI // Add UI flag for immediate feedback
+    );
+
+  // Effect: Sync UI flags with real state to prevent drift (moved before early return)
+  useEffect(() => {
+    // Reset incubation UI flag when real state shows it's not incubating
+    if (isIncubatingUI && !isIncubatingThisEgg && !hasIncubationTag && !(realBlobbi && selectedEggId === realBlobbi.id && taskSubscriptionActive)) {
+      console.log('[UI SYNC] Clearing incubation UI flag - real state shows not incubating');
+      setIsIncubatingUI(false);
+    }
+  }, [isIncubatingUI, isIncubatingThisEgg, hasIncubationTag, selectedEggId, taskSubscriptionActive, realBlobbi?.id]);
+
+  useEffect(() => {
+    // Reset evolution UI flag when real state shows it's not evolving
+    if (isEvolvingUI && !isEvolvingThisBaby && !hasEvolutionTag && !(realBlobbi && selectedBabyId === realBlobbi.id && questSubscriptionActive)) {
+      console.log('[UI SYNC] Clearing evolution UI flag - real state shows not evolving');
+      setIsEvolvingUI(false);
+    }
+  }, [isEvolvingUI, isEvolvingThisBaby, hasEvolutionTag, selectedBabyId, questSubscriptionActive, realBlobbi?.id]);
 
   const handleClaimCheckIn = async () => {
     await claimMission1(undefined, {
@@ -190,6 +263,46 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
     }
   }, [realBlobbi?.stats.energy, realBlobbi?.id, realBlobbi?.sleepStartedAt, isSleeping, isOwner, wakeUp]);
 
+  // Effect: Handle pending egg incubation when selectedEggId updates
+  useEffect(() => {
+    if (pendingEggToIncubate && selectedEggId === pendingEggToIncubate) {
+      console.log('[INCUBATION] Starting incubation for pending egg:', pendingEggToIncubate);
+
+      // Set UI flag immediately for instant feedback
+      setIsIncubatingUI(true);
+
+      startIncubation()
+        .catch(error => {
+          console.error('[INCUBATION] Failed to start incubation:', error);
+          // Reset UI flag on error
+          setIsIncubatingUI(false);
+        });
+
+      setPendingEggToIncubate(null);
+    }
+  }, [selectedEggId, pendingEggToIncubate, startIncubation]);
+
+  // Effect: Handle pending baby evolution when selectedBabyId updates
+  useEffect(() => {
+    if (pendingBabyToTrack && selectedBabyId === pendingBabyToTrack) {
+      console.log('[EVOLUTION] Starting quest tracking for pending baby:', pendingBabyToTrack);
+
+      // Set UI flag immediately for instant feedback
+      setIsEvolvingUI(true);
+
+      startQuestTracking()
+        .catch(error => {
+          console.error('[EVOLUTION] Failed to start quest tracking:', error);
+          // Reset UI flag on error
+          setIsEvolvingUI(false);
+        });
+
+      setPendingBabyToTrack(null);
+    }
+  }, [selectedBabyId, pendingBabyToTrack, startQuestTracking]);
+
+
+
   // Helper function to get valid size for components
   const getValidSize = (size?: string): 'tiny' | 'small' | 'medium' | 'large' => {
     if (size && isValidSize(size)) {
@@ -264,6 +377,9 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
 
 
 
+
+
+
   // Calculate evolution readiness
   const eggReadiness = realBlobbi.lifeStage === 'egg' ? checkEggHatchingReadiness(realBlobbi) : null;
   const babyReadiness = realBlobbi.lifeStage === 'baby' ? checkBabyEvolutionReadiness(realBlobbi) : null;
@@ -291,6 +407,81 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
           {/* Blobbi Visual */}
           <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 group" id="blobbi-details-visual">
             <CardContent className="p-4 sm:p-6 relative">
+              {/* Quick Action Buttons */}
+              {isOwner && (
+                <>
+                  {/* Start/Stop Incubation Button for Eggs */}
+                  {blobbi.lifeStage === 'egg' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "absolute top-3 left-3 z-20 p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
+                        isIncubatingThisEgg
+                          ? "bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-600 hover:bg-red-200 dark:hover:bg-red-900/30"
+                          : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                      )}
+                      onClick={async () => {
+                        if (isIncubatingThisEgg) {
+                          setIsStoppingIncubation(true);
+                          try {
+                            // Clear UI flag immediately for instant feedback
+                            setIsIncubatingUI(false);
+
+                            await stopIncubation();
+                          } finally {
+                            setIsStoppingIncubation(false);
+                          }
+                        } else {
+                          // Set pending state, then select the egg
+                          setPendingEggToIncubate(realBlobbi.id);
+                          selectEgg(realBlobbi.id);
+                        }
+                      }}
+                      title={isIncubatingThisEgg ? "Stop Incubation" : "Start Incubation"}
+                      disabled={isStoppingIncubation}
+                    >
+                      {hasIncubationTag ? <EggOff className="h-4 w-4 text-purple-600 dark:text-purple-400" /> :
+                      <Egg className="h-4 w-4 text-purple-600 dark:text-purple-400" /> }
+                    </Button>
+                  )}
+
+                  {/* Start/Stop Evolution Button for Babies */}
+                  {blobbi.lifeStage === 'baby' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "absolute top-3 left-3 z-20 p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
+                        isEvolvingThisBaby
+                          ? "bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-600 hover:bg-red-200 dark:hover:bg-red-900/30"
+                          : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                      )}
+                      onClick={() => {
+                        if (isEvolvingThisBaby) {
+                          setIsStoppingEvolution(true);
+
+                          // Clear UI flag immediately for instant feedback
+                          setIsEvolvingUI(false);
+
+                          stopEvolution().finally(() => {
+                            setIsStoppingEvolution(false);
+                          });
+                        } else {
+                          // Set pending state, then select the baby
+                          setPendingBabyToTrack(realBlobbi.id);
+                          selectBaby(realBlobbi.id);
+                        }
+                      }}
+                      title={isEvolvingThisBaby ? "Stop Evolution" : "Start Evolution"}
+                      disabled={isStoppingEvolution}
+                    >
+                      <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    </Button>
+                  )}
+                </>
+              )}
+
               {/* Camera Button */}
               {isOwner && (
                 <Button
@@ -470,7 +661,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                   <Palette className="w-4 h-4" />
                   Customize
                 </Button>
-                
+
                 {realBlobbi.state === 'hibernating' && (
                   <Button
                     variant="outline"
@@ -541,6 +732,8 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                     evolutionStatus: eggReadiness || babyReadiness || undefined
                   }}
                   onEvolution={triggerEvolution}
+                  isIncubatingUI={isIncubatingUI}
+                  isEvolvingUI={isEvolvingUI}
                 />
               ) : (
                 <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">

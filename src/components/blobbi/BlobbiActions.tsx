@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BlobbiAction, Blobbi, BlobbiInteractionType } from '@/types/blobbi';
 import { Utensils, Gamepad2, Bath, Moon, Sun, Pill, Trophy, Thermometer, Eye, Music, MessageCircle, Heart, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { BlobbiInventoryModal } from './BlobbiInventoryModal';
 
@@ -33,6 +33,9 @@ interface BlobbiActionsProps {
     };
   };
   onEvolution?: () => void;
+  // Optimistic UI flags for immediate feedback
+  isIncubatingUI?: boolean;
+  isEvolvingUI?: boolean;
 }
 
 export function BlobbiActions({
@@ -44,10 +47,20 @@ export function BlobbiActions({
   onOpenShop,
   onTakePhoto,
   lifecycleStatus,
-  onEvolution
+  onEvolution,
+  isIncubatingUI = false,
+  isEvolvingUI = false
 }: BlobbiActionsProps) {
   // Get fake status information
   const { hasFakeStatus, getPendingInteractionCount, updateFakeStatus } = useBlobbiFakeStatus();
+
+  // Local optimistic flags for showing
+  const [isIncubatingLocalUI, setIsIncubatingLocalUI] = useState(false);
+  const [isEvolvingLocalUI, setIsEvolvingLocalUI] = useState(false);
+
+  // Local override flags to force-hide while stop action is in flight
+  const [hideIncubationUI, setHideIncubationUI] = useState(false);
+  const [hideEvolutionUI, setHideEvolutionUI] = useState(false);
 
   // Incubation system for eggs
   const {
@@ -199,6 +212,86 @@ export function BlobbiActions({
     setActionInProgress(null);
   };
 
+  // Optimistic wrapper handlers for incubation and evolution
+  const handleStartIncubation = async () => {
+    setIsIncubatingLocalUI(true);
+    try {
+      await startIncubation();
+    } catch (error) {
+      console.error('[OPTIMISTIC] Failed to start incubation:', error);
+      // Rollback on failure
+      setIsIncubatingLocalUI(false);
+    }
+  };
+
+  const handleStopIncubation = async () => {
+    // Immediately set override flags to hide UI
+    setHideIncubationUI(true);
+    setIsIncubatingLocalUI(false);
+    try {
+      await stopIncubation();
+    } catch (error) {
+      console.error('[OPTIMISTIC] Failed to stop incubation:', error);
+      // Rollback on failure
+      setHideIncubationUI(false);
+      setIsIncubatingLocalUI(true);
+    }
+  };
+
+  const handleStartQuestTracking = async () => {
+    setIsEvolvingLocalUI(true);
+    try {
+      await startQuestTracking();
+    } catch (error) {
+      console.error('[OPTIMISTIC] Failed to start quest tracking:', error);
+      // Rollback on failure
+      setIsEvolvingLocalUI(false);
+    }
+  };
+
+  const handleStopEvolution = async () => {
+    // Immediately set override flags to hide UI
+    setHideEvolutionUI(true);
+    setIsEvolvingLocalUI(false);
+    try {
+      await stopEvolution();
+    } catch (error) {
+      console.error('[OPTIMISTIC] Failed to stop evolution:', error);
+      // Rollback on failure
+      setHideEvolutionUI(false);
+      setIsEvolvingLocalUI(true);
+    }
+  };
+
+  // Sync effects to clear overrides once real state matches
+  useEffect(() => {
+    if (
+      hideIncubationUI &&
+      !blobbi.tags?.some((tag: string[]) =>
+        tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
+      ) &&
+      !taskSubscriptionActive &&
+      !isIncubatingUI &&
+      !isIncubatingLocalUI
+    ) {
+      setHideIncubationUI(false);
+    }
+  }, [hideIncubationUI, blobbi.tags, taskSubscriptionActive, isIncubatingUI, isIncubatingLocalUI]);
+
+  useEffect(() => {
+    if (
+      hideEvolutionUI &&
+      !blobbi.tags?.some((tag: string[]) =>
+        tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
+      ) &&
+      !questSubscriptionActive &&
+      !isEvolvingUI &&
+      !isEvolvingLocalUI
+    ) {
+      setHideEvolutionUI(false);
+    }
+  }, [hideEvolutionUI, blobbi.tags, questSubscriptionActive, isEvolvingUI, isEvolvingLocalUI]);
+
   const getActionsForStage = () => {
     if (blobbi.lifeStage === 'egg') {
       return [
@@ -315,67 +408,100 @@ export function BlobbiActions({
 
   const actions = getActionsForStage();
 
+  // Compute tags and visibility booleans
+  const hasIncubationTag = blobbi.tags?.some((tag: string[]) =>
+    tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
+  );
+  const hasEvolutionTag = blobbi.tags?.some((tag: string[]) =>
+    tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
+  );
+
+  const shouldShowEggGrowthHub =
+    !hideIncubationUI && (
+      hasIncubationTag ||
+      taskSubscriptionActive ||
+      isIncubatingUI ||
+      isIncubatingLocalUI
+    );
+
+  const shouldShowBabyGrowthHub =
+    !hideEvolutionUI && (
+      hasEvolutionTag ||
+      questSubscriptionActive ||
+      isEvolvingUI ||
+      isEvolvingLocalUI
+    );
+
   return (
     <div className="space-y-4">
       {/* Growth Hub for eggs and babies - only show if conditions are met */}
       {(() => {
-        // Check if Growth Hub should be shown based on stage and tags
         if (blobbi.lifeStage === 'egg') {
-          // For eggs: show if has incubation tags or active tasks
-          const hasIncubationTag = blobbi.tags?.some((tag: string[]) =>
-            tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
-          );
-          const hasActiveTasks = eggTasks.length > 0;
-
-          if (!hasIncubationTag && !hasActiveTasks) {
-            return null; // Hide Growth Hub for eggs without incubation
-          }
+          return shouldShowEggGrowthHub ? (
+            <BlobbiGrowthHubCard
+              blobbi={blobbi}
+              mode="egg"
+              // Egg mode props
+              eggTasks={eggTasks}
+              isReadyToHatch={isReadyToHatch}
+              incubationStartTime={incubationStartTime || undefined}
+              taskSubscriptionActive={taskSubscriptionActive}
+              onStartIncubation={handleStartIncubation}
+              onStopIncubation={handleStopIncubation}
+              onHatchBlobbi={hatchBlobbi}
+              onMarkPhotoTaskCompleted={markPhotoTaskCompleted}
+              onMarkFirstPostTaskCompleted={() => {}} // Not used in actions view
+              isTaskCompleted={isTaskCompleted}
+              // Baby mode props (not used for egg mode)
+              babyQuests={[]}
+              questProgress={{ completed: 0, total: 0, percentage: 0 }}
+              isReadyToEvolve={false}
+              questStartTime={undefined}
+              questSubscriptionActive={false}
+              isQuestListening={false}
+              onStartQuestTracking={() => {}}
+              onStopEvolution={() => {}}
+              onTriggerEvolution={() => {}}
+              isEvolving={false}
+              // Common props
+              onTakePhoto={onTakePhoto}
+            />
+          ) : null;
         } else if (blobbi.lifeStage === 'baby') {
-          // For babies: show if has evolution tags or active quests
-          const hasEvolutionTag = blobbi.tags?.some((tag: string[]) =>
-            tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
-          );
-          const hasActiveQuests = babyToAdultQuests.length > 0;
-
-          if (!hasEvolutionTag && !hasActiveQuests) {
-            return null; // Hide Growth Hub for babies without evolution
-          }
+          return shouldShowBabyGrowthHub ? (
+            <BlobbiGrowthHubCard
+              blobbi={blobbi}
+              mode="baby"
+              // Egg mode props (not used for baby mode)
+              eggTasks={[]}
+              isReadyToHatch={false}
+              incubationStartTime={undefined}
+              taskSubscriptionActive={false}
+              onStartIncubation={() => {}}
+              onStopIncubation={() => {}}
+              onHatchBlobbi={() => {}}
+              onMarkPhotoTaskCompleted={() => {}}
+              onMarkFirstPostTaskCompleted={() => {}}
+              isTaskCompleted={() => false}
+              // Baby mode props
+              babyQuests={babyToAdultQuests}
+              questProgress={questProgress}
+              isReadyToEvolve={isQuestReadyToEvolve}
+              questStartTime={questStartTime || undefined}
+              questSubscriptionActive={questSubscriptionActive}
+              isQuestListening={isListening}
+              onStartQuestTracking={handleStartQuestTracking}
+              onStopEvolution={handleStopEvolution}
+              onTriggerEvolution={onEvolution}
+              isEvolving={isPerformingAction}
+              // Common props
+              onTakePhoto={onTakePhoto}
+            />
+          ) : null;
         } else {
           // For adults: never show Growth Hub
           return null;
         }
-
-        // Show Growth Hub if conditions are met
-        return (
-          <BlobbiGrowthHubCard
-            blobbi={blobbi}
-            mode={blobbi.lifeStage === 'egg' ? 'egg' : 'baby'}
-            // Egg mode props
-            eggTasks={eggTasks}
-            isReadyToHatch={isReadyToHatch}
-            incubationStartTime={incubationStartTime || undefined}
-            taskSubscriptionActive={taskSubscriptionActive}
-            onStartIncubation={startIncubation}
-            onStopIncubation={stopIncubation}
-            onHatchBlobbi={hatchBlobbi}
-            onMarkPhotoTaskCompleted={markPhotoTaskCompleted}
-            onMarkFirstPostTaskCompleted={() => {}} // Not used in actions view
-            isTaskCompleted={isTaskCompleted}
-            // Baby mode props
-            babyQuests={babyToAdultQuests}
-            questProgress={questProgress}
-            isReadyToEvolve={isQuestReadyToEvolve}
-            questStartTime={questStartTime || undefined}
-            questSubscriptionActive={questSubscriptionActive}
-            isQuestListening={isListening}
-            onStartQuestTracking={startQuestTracking}
-            onStopEvolution={stopEvolution}
-            onTriggerEvolution={onEvolution}
-            isEvolving={isPerformingAction}
-            // Common props
-            onTakePhoto={onTakePhoto}
-          />
-        );
       })()}
 
       {/* Regular Actions */}
