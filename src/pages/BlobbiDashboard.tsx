@@ -14,8 +14,6 @@ import { BlobbiDashboardTabsHeader } from '@/components/blobbi/BlobbiDashboardTa
 import { BlobbisTab } from '@/components/blobbi/dashboard/BlobbisTab';
 import { MissionsTab } from '@/components/blobbi/dashboard/MissionsTab';
 import { IncubationTab } from '@/components/blobbi/dashboard/IncubationTab';
-import { ActivityTab } from '@/components/blobbi/dashboard/ActivityTab';
-import { StatsTab } from '@/components/blobbi/dashboard/StatsTab';
 import { DashboardNotLoggedIn } from '@/components/blobbi/dashboard/DashboardNotLoggedIn';
 import { DashboardLoading } from '@/components/blobbi/dashboard/DashboardLoading';
 import { DashboardModals } from '@/components/blobbi/dashboard/DashboardModals';
@@ -218,23 +216,6 @@ export default function BlobbiDashboard() {
 
                 <TabsContent value="incubation">
                   <IncubationTab />
-                </TabsContent>
-
-                <TabsContent value="activity">
-                  <ActivityTab
-                    recentActivity={recentActivity}
-                    navigate={navigate}
-                  />
-                </TabsContent>
-
-                <TabsContent value="stats">
-                  <StatsTab
-                    stats={stats}
-                    profile={profile || null}
-                    progress={progress}
-                    isReadyToHatch={!!isReadyToHatch}
-                    isReadyToEvolve={!!isReadyToEvolve}
-                  />
                 </TabsContent>
               </Tabs>
             </div>

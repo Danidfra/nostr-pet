@@ -35,18 +35,6 @@ export function BlobbiDashboardTabsHeader({
           >
             Growth Hub
           </TabsTrigger>
-          <TabsTrigger
-            value="activity"
-            className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-md text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md"
-          >
-            Activity
-          </TabsTrigger>
-          <TabsTrigger
-            value="stats"
-            className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-md text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-md"
-          >
-            Statistics
-          </TabsTrigger>
         </TabsList>
       </CardContent>
     </Card>
