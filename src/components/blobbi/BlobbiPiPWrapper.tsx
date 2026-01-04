@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useSafeLocation } from '@/hooks/useSafeLocation';
 import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { BlobbiPiPManager } from './BlobbiPiPManager';
 import { BlobbiFloatingCompanion } from './BlobbiFloatingCompanion';
@@ -23,7 +23,7 @@ const EXCLUDED_ROUTES = [
  * Uses native PiP API when available, falls back to floating companion
  */
 export function BlobbiPiPWrapper() {
-  const location = useLocation();
+  const location = useSafeLocation();
   const { data: companionData } = useCurrentCompanion();
   const companion = companionData?.blobbi ?? null;
   const [showFloatingCompanion, setShowFloatingCompanion] = useState(false);

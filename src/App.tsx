@@ -2,6 +2,7 @@
 // To add new routes, edit the AppRouter.tsx file.
 
 import React from 'react';
+import { BrowserRouter } from 'react-router-dom';
 import NostrProvider from '@/components/NostrProvider'
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -64,12 +65,14 @@ export function App() {
                   <TooltipProvider>
                     <AudioProvider>
                       <BedProvider>
-                        <Toaster />
-                        <BlobbiCompanionIntegration />
-                        <BlobbiOnLoadDecayIntegration />
-                        <BlobbiAutoRepairIntegration />
-                        <BlobbiPiPWrapper />
-                        <AppRouter />
+                        <BrowserRouter>
+                          <Toaster />
+                          <BlobbiCompanionIntegration />
+                          <BlobbiOnLoadDecayIntegration />
+                          <BlobbiAutoRepairIntegration />
+                          <BlobbiPiPWrapper />
+                          <AppRouter />
+                        </BrowserRouter>
                       </BedProvider>
                     </AudioProvider>
                   </TooltipProvider>

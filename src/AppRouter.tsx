@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -65,10 +65,7 @@ function AppContent() {
 }
 
 export function AppRouter() {
-  return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
-  );
+  // BrowserRouter is now in App.tsx, so we just return AppContent directly
+  return <AppContent />;
 }
 export default AppRouter;

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useSafeLocation } from './useSafeLocation';
 import { Blobbi } from '@/types/blobbi';
 
 interface BlobbiPiPState {
@@ -30,7 +30,7 @@ const EXCLUDED_ROUTES = [
  * Automatically activates when user leaves game screens
  */
 export function useBlobbiPiP(blobbi: Blobbi | null): BlobbiPiPState {
-  const location = useLocation();
+  const location = useSafeLocation();
   const [isActive, setIsActive] = useState(false);
   const [isPiPSupported] = useState(() => {
     return 'documentPictureInPicture' in window;

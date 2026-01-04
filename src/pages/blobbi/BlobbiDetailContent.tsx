@@ -31,6 +31,7 @@ import {
   Egg,
   EggOff,
   Camera,
+  PictureInPicture2,
 } from 'lucide-react';
 import { DailyMissionsCard } from '@/components/blobbi/DailyMissionsCard';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
@@ -68,6 +69,8 @@ import { TourCompletionModal } from '@/components/TourCompletionModal';
 import { useToast } from '@/hooks/useToast';
 import { useDailyMissions } from '@/hooks/useDailyMissions';
 import { useTourCompletion } from '@/hooks/useTourCompletion';
+import { useBlobbiPiPController } from '@/hooks/useBlobbiPiPController';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const { user } = useCurrentUser();
@@ -97,6 +100,19 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
   const { toast } = useToast();
 
   const isOwner = user?.pubkey === realBlobbi?.ownerPubkey;
+
+  // PiP controller
+  const {
+    isPiPActive,
+    activeBlobbiId,
+    isLoading: isPiPLoading,
+    isPiPSupported,
+    startPiP,
+    stopPiP,
+  } = useBlobbiPiPController();
+
+  // Check if PiP is active for this specific Blobbi
+  const isPiPActiveForThisBlobbi = isPiPActive && activeBlobbiId === blobbiId;
 
   // Local state to track when user initiates stop action
   const [isStoppingIncubation, setIsStoppingIncubation] = useState(false);
@@ -482,17 +498,76 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                 </>
               )}
 
-              {/* Camera Button */}
+              {/* Action Buttons (PiP & Camera) */}
               {isOwner && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-3 right-3 z-20 p-2 h-8 w-8 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105 transition-all duration-200"
-                  onClick={() => setShowPolaroidModal(true)}
-                  aria-label="Take photo"
-                >
-                  <Camera className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                </Button>
+                <div className="absolute top-3 right-3 z-20 flex gap-2">
+                  {/* PiP Button */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
+                            isPiPActiveForThisBlobbi
+                              ? "bg-purple-100 dark:bg-purple-900/40 border-purple-400 dark:border-purple-500 hover:bg-purple-200 dark:hover:bg-purple-900/60"
+                              : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105"
+                          )}
+                          onClick={() => {
+                            if (isPiPActiveForThisBlobbi) {
+                              stopPiP();
+                            } else {
+                              startPiP({ blobbiId, blobbi: realBlobbi });
+                            }
+                          }}
+                          disabled={isPiPLoading || !isPiPSupported}
+                          aria-label={isPiPActiveForThisBlobbi ? "Close PiP" : "Open PiP"}
+                        >
+                          {isPiPLoading ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+                          ) : (
+                            <PictureInPicture2
+                              className={cn(
+                                "h-4 w-4",
+                                isPiPActiveForThisBlobbi
+                                  ? "text-purple-700 dark:text-purple-300"
+                                  : "text-purple-600 dark:text-purple-400"
+                              )}
+                            />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {!isPiPSupported
+                          ? "PiP not supported"
+                          : isPiPActiveForThisBlobbi
+                          ? "Close PiP"
+                          : "Open PiP"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  {/* Camera Button */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="p-2 h-8 w-8 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105 transition-all duration-200"
+                          onClick={() => setShowPolaroidModal(true)}
+                          aria-label="Take photo"
+                        >
+                          <Camera className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Take photo
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 transition-all duration-300 z-0"></div>
               <div className="relative z-10">
