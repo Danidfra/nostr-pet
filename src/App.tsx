@@ -16,6 +16,7 @@ import { BlobbiFakeInventoryProvider } from '@/contexts/BlobbiFakeInventoryConte
 import { BlobbiFakeStatusProvider } from '@/contexts/BlobbiFakeStatusContext';
 import { BlobbiOnLoadDecayIntegration } from '@/components/BlobbiOnLoadDecayIntegration';
 import { BlobbiAutoRepairIntegration } from '@/components/BlobbiAutoRepairIntegration';
+import { BlobbiPiPWrapper } from '@/components/blobbi/BlobbiPiPWrapper';
 import AppRouter from './AppRouter';
 
 // Component that connects relay context to NostrProvider
@@ -67,6 +68,7 @@ export function App() {
                         <BlobbiCompanionIntegration />
                         <BlobbiOnLoadDecayIntegration />
                         <BlobbiAutoRepairIntegration />
+                        <BlobbiPiPWrapper />
                         <AppRouter />
                       </BedProvider>
                     </AudioProvider>

@@ -23,5 +23,16 @@ declare global {
     };
     openFeedModal?: () => void;
     flammiToast?: (message: string, title?: string) => void;
+    documentPictureInPicture?: {
+      requestWindow(options?: {
+        width?: number;
+        height?: number;
+      }): Promise<Window>;
+      window: Window | null;
+    };
+  }
+
+  interface DocumentPictureInPictureEvent extends Event {
+    window: Window;
   }
 }

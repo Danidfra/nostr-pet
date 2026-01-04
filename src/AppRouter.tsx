@@ -12,6 +12,7 @@ import { BubblePopGame } from "./pages/games/BubblePopGame";
 import { NumberGuessGame } from "./pages/games/NumberGuessGame";
 import { TicTacToeGame } from "./pages/games/TicTacToeGame";
 import EggDemo from "./pages/EggDemo";
+import PiPDemo from "./pages/PiPDemo";
 
 // DEV-ONLY: Import debug pages (will not be included in production build)
 import BlobbiStatusDebug from "./pages/dev/BlobbiStatusDebug";
@@ -49,6 +50,7 @@ function AppContent() {
         <Route path="/games/number-guess" element={<NumberGuessGame />} />
         <Route path="/games/tic-tac-toe" element={<TicTacToeGame />} />
         <Route path="/egg-demo" element={<EggDemo />} />
+        <Route path="/pip-demo" element={<PiPDemo />} />
 
         {/* DEV-ONLY ROUTES */}
         {process.env.NODE_ENV === 'development' && (
