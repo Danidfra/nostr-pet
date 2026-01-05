@@ -234,9 +234,9 @@ export function BlobbiActions({
 
       {/* Regular Actions - Delegate to footer component */}
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <Gamepad2 className="w-5 h-5" />
+        <CardHeader className="py-3 pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Gamepad2 className="w-4 h-4" />
             Actions
             <BlobbiFakeStatusIndicator
               hasFakeStatus={hasFakeStatus(blobbi.id)}

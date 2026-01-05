@@ -6,7 +6,7 @@ interface BlobbiLayoutProps {
 
 export function BlobbiLayout({ children }: BlobbiLayoutProps) {
   return (
-    <div className="relative min-h-screen">
+    <div className="relative">
       {children}
     </div>
   );

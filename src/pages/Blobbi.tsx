@@ -4,10 +4,22 @@ import { BlobbiGame } from '@/components/blobbi/BlobbiGame';
 import { DailyCheckIn } from '@/components/blobbi/DailyCheckIn';
 import { DailyMissionsCard } from '@/components/blobbi/DailyMissionsCard';
 import { BlobbonautProfileCard } from '@/components/blobbi/BlobbonautProfileCard';
+import { BlobbiFooter } from '@/components/blobbi/BlobbiFooter';
+import { BlobbiActionsModal } from '@/components/blobbi/BlobbiActionsModal';
+import { FloatingMenuButton } from '@/components/blobbi/FloatingMenuButton';
+import { BlobbiSelectorDrawer } from '@/components/blobbi/BlobbiSelectorDrawer';
+import { BlobbiShop } from '@/components/blobbi/BlobbiShop';
+import { BlobbiStorage } from '@/components/blobbi/BlobbiStorage';
+import { BlobbiGamesModal } from '@/components/blobbi/BlobbiGamesModal';
+import { StatsModal } from '@/components/blobbi/StatsModal';
+import { MissionsModal } from '@/components/blobbi/MissionsModal';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
+import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useDailyMissions } from '@/hooks/useDailyMissions';
+import { useUserBlobbis } from '@/hooks/useUserBlobbis';
+import { useSetCurrentCompanion } from '@/hooks/useSetCurrentCompanion';
 import { useToast } from '@/hooks/useToast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { SettingsButton } from '@/components/SettingsButton';
@@ -17,8 +29,19 @@ import { EnablePushModal } from '@/components/EnablePushModal';
 
 export default function Blobbi() {
   const { user } = useCurrentUser();
-  const { blobbi } = useBlobbiWithFakeStatus();
+  const { blobbi, performAction } = useBlobbiWithFakeStatus();
+  const { data: blobbonautProfile } = useBlobbonautProfile();
+  const { data: userBlobbis = [] } = useUserBlobbis();
+  const { mutate: setCurrentCompanion } = useSetCurrentCompanion();
+  const [isPerformingAction, setIsPerformingAction] = useState(false);
   const [showPushModal, setShowPushModal] = useState(false);
+  const [showActionsModal, setShowActionsModal] = useState(false);
+  const [showBlobbiSelector, setShowBlobbiSelector] = useState(false);
+  const [showShop, setShowShop] = useState(false);
+  const [showStorage, setShowStorage] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showMissions, setShowMissions] = useState(false);
+  const [showGames, setShowGames] = useState(false);
   const {
     missions,
     isLoading: isLoadingMissions,
@@ -28,6 +51,11 @@ export default function Blobbi() {
     isClaiming
   } = useDailyMissions();
   const { toast } = useToast();
+
+  const handleSelectBlobbi = (blobbiId: string) => {
+    setCurrentCompanion(blobbiId);
+    setShowBlobbiSelector(false);
+  };
 
   const handleClaimCheckIn = async () => {
     await claimMission1(undefined, {
@@ -120,13 +148,23 @@ export default function Blobbi() {
     checkPushNotificationStatus();
   }, []); // Run only on mount
 
+  // Lock body scroll on this route
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-[100dvh] overflow-hidden">
       {/* Fixed Header */}
       <div className="flex-shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
-            <h1 className="text-4xl font-bold">Blobbi</h1>
+            <h1 className="text-3xl font-bold">Blobbi</h1>
             <div className="flex items-center gap-2">
               <SettingsButton />
               <ThemeToggle />
@@ -136,17 +174,17 @@ export default function Blobbi() {
         </div>
       </div>
 
-      {/* Main Content Area - Scrollable */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="container mx-auto px-4 py-6">
-          <div className="grid lg:grid-cols-4 gap-4">
-            <div className="lg:col-span-3">
+      {/* Main Content Area - NO SCROLLING */}
+      <div className="flex-1 overflow-hidden">
+        <div className="container mx-auto px-4 py-3 h-full">
+          <div className="grid lg:grid-cols-4 gap-3 h-full">
+            <div className="lg:col-span-3 overflow-hidden">
               <BlobbiGame />
             </div>
 
             {/* Sidebar */}
             {user && (
-              <div className="lg:col-span-1 space-y-4">
+              <div className="lg:col-span-1 space-y-3 overflow-hidden">
                 {/* Blobbonaut Profile */}
                 <BlobbonautProfileCard />
 
@@ -176,17 +214,106 @@ export default function Blobbi() {
 
             {blobbi && <DailyCheckIn />}
 
-            <Link to="/blobbi/evolution">
-              <Button variant="outline" className="w-full gap-2">
-                <Sparkles className="w-4 h-4" />
-                Evolution Guide
-              </Button>
-            </Link>
-          </div>
-        )}
+                <Link to="/blobbi/evolution">
+                  <Button variant="outline" className="w-full gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Evolution Guide
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Fixed Footer - Only show if user has a blobbi */}
+      {user && blobbi && (
+        <BlobbiFooter onOpenActions={() => setShowActionsModal(true)} />
+      )}
+
+      {/* Floating Menu Button - Only show if logged in */}
+      {user && blobbi && (
+        <FloatingMenuButton
+          coinBalance={blobbonautProfile?.coins || 0}
+          onOpenShop={() => setShowShop(true)}
+          onOpenStorage={() => setShowStorage(true)}
+          onOpenStats={() => setShowStats(true)}
+          onOpenMissions={() => setShowMissions(true)}
+          onOpenBlobbiSelector={() => setShowBlobbiSelector(true)}
+        />
+      )}
+
+      {/* Modals */}
+      {blobbi && (
+        <>
+          <BlobbiActionsModal
+            isOpen={showActionsModal}
+            onClose={() => setShowActionsModal(false)}
+            blobbi={blobbi}
+            onAction={performAction}
+            isPerformingAction={isPerformingAction}
+            onGamesClick={() => setShowGames(true)}
+            onOpenShop={() => setShowShop(true)}
+          />
+
+          <BlobbiSelectorDrawer
+            blobbis={userBlobbis}
+            selectedBlobbiId={blobbi.id}
+            onSelectBlobbi={handleSelectBlobbi}
+            open={showBlobbiSelector}
+            onOpenChange={setShowBlobbiSelector}
+          />
+
+          <BlobbiShop
+            isOpen={showShop}
+            onClose={() => setShowShop(false)}
+          />
+
+          <BlobbiStorage
+            isOpen={showStorage}
+            onClose={() => setShowStorage(false)}
+          />
+
+          <BlobbiGamesModal
+            isOpen={showGames}
+            onClose={() => setShowGames(false)}
+            blobbiId={blobbi.id}
+          />
+
+          {/* Stats Modal */}
+          <StatsModal
+            isOpen={showStats}
+            onClose={() => setShowStats(false)}
+            blobbi={blobbi}
+          />
+
+          {/* Missions Modal */}
+          <MissionsModal
+            isOpen={showMissions}
+            onClose={() => setShowMissions(false)}
+            state={{
+              checkIn: {
+                status: missions?.mission1.status || 'LOCKED',
+                claimedAt: missions?.mission1.claimedAt
+              },
+              care3: {
+                status: missions?.mission2.status || 'LOCKED',
+                progress: missions?.mission2.progress,
+                progressMax: missions?.mission2.progressMax,
+                claimedAt: missions?.mission2.claimedAt
+              },
+              bonus: {
+                status: missions?.bonus.status || 'LOCKED',
+                claimedAt: missions?.bonus.claimedAt
+              }
+            }}
+            onClaimCheckIn={handleClaimCheckIn}
+            onClaimCare3={handleClaimCare3}
+            onClaimBonus={handleClaimBonus}
+            isClaiming={isClaiming}
+          />
+        </>
+      )}
 
       {/* Push Notification Modal */}
       <EnablePushModal

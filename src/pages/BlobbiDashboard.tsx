@@ -352,7 +352,7 @@ export default function BlobbiDashboard() {
 
   return (
     <BlobbiLayout>
-      <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 pb-24">
+      <div className="bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
         {/* Floating Menu Button */}
         <FloatingMenuButton
           coinBalance={stats.totalCoins}
@@ -360,7 +360,6 @@ export default function BlobbiDashboard() {
           onOpenStorage={() => setIsStorageOpen(true)}
           onOpenStats={() => setIsStatsOpen(true)}
           onOpenMissions={() => setIsMissionsOpen(true)}
-          onOpenQuickActions={() => setIsActionsOpen(true)}
           onOpenBlobbiSelector={() => setIsSelectorOpen(true)}
         />
 

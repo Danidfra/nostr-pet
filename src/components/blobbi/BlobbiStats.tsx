@@ -16,7 +16,7 @@ export function BlobbiStats({ blobbi, className, hasFakeStatus = false, pendingI
   const eggTemperature = blobbi?.eggTemperature ?? 50;
   // Get shell integrity, default to 100 if not available
   const shellIntegrity = blobbi?.shellIntegrity ?? 100;
-  
+
   // Define stats for egg stage
   const eggStatConfig = [
     {
@@ -102,20 +102,20 @@ export function BlobbiStats({ blobbi, className, hasFakeStatus = false, pendingI
 
   return (
     <Card className={cn("bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600", className)}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <BarChart3 className="w-5 h-5" />
+      <CardHeader className="py-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <BarChart3 className="w-4 h-4" />
           Stats
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-xs">
           {lifeStage === 'egg' ? 'Monitor your egg\'s development' : 'Keep track of your Blobbi\'s wellbeing'}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2 pb-3">
         {statConfig.map((stat) => {
           const Icon = stat.icon;
           const isLow = stat.value < stat.lowThreshold;
-          
+
           return (
             <div key={stat.name} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
@@ -130,7 +130,7 @@ export function BlobbiStats({ blobbi, className, hasFakeStatus = false, pendingI
               </div>
               <div className="relative">
                 <div className="w-full bg-secondary/50 rounded-full h-3 overflow-hidden">
-                  <div 
+                  <div
                     className={`h-full ${stat.color} transition-all duration-300`}
                     style={{ width: `${stat.value}%` }}
                   />

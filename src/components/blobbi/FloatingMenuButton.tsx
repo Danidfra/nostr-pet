@@ -1,23 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import {
-  Coins,
-  ShoppingBag,
-  Package,
-  Trophy,
-  Target,
-  Settings,
-  Menu,
-  Sparkles,
-} from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FloatingMenuModal } from './FloatingMenuModal';
 
 interface Position {
   x: number;
@@ -68,7 +53,6 @@ interface FloatingMenuButtonProps {
   onOpenStorage: () => void;
   onOpenStats: () => void;
   onOpenMissions: () => void;
-  onOpenQuickActions: () => void;
   onOpenBlobbiSelector: () => void;
   className?: string;
 }
@@ -79,7 +63,6 @@ export function FloatingMenuButton({
   onOpenStorage,
   onOpenStats,
   onOpenMissions,
-  onOpenQuickActions,
   onOpenBlobbiSelector,
   className,
 }: FloatingMenuButtonProps) {
@@ -163,11 +146,6 @@ export function FloatingMenuButton({
     }
   };
 
-  const handleMenuAction = (action: () => void) => {
-    action();
-    setIsOpen(false);
-  };
-
   return (
     <>
       {/* Floating Action Button - Draggable */}
@@ -196,94 +174,17 @@ export function FloatingMenuButton({
         <Menu className="h-6 w-6 text-white" />
       </Button>
 
-      {/* Menu Sheet */}
-      <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-sm">
-          <SheetHeader>
-            <SheetTitle>Game Menu</SheetTitle>
-            <SheetDescription>
-              Quick access to all features
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="mt-6 space-y-3">
-            {/* Coins Display */}
-            <div className="flex items-center justify-center gap-2 p-4 bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/40 dark:to-amber-900/40 rounded-lg">
-              <Coins className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-              <span className="font-bold text-lg text-yellow-700 dark:text-yellow-300">
-                {coinBalance} Coins
-              </span>
-            </div>
-
-            {/* Menu Items */}
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => handleMenuAction(onOpenBlobbiSelector)}
-                className="w-full justify-start gap-3"
-              >
-                <Sparkles className="w-5 h-5" />
-                Switch Blobbi
-              </Button>
-
-              <div className="border-t my-2" />
-
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => handleMenuAction(onOpenShop)}
-                className="w-full justify-start gap-3"
-              >
-                <ShoppingBag className="w-5 h-5" />
-                Shop
-              </Button>
-
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => handleMenuAction(onOpenStorage)}
-                className="w-full justify-start gap-3"
-              >
-                <Package className="w-5 h-5" />
-                Storage
-              </Button>
-
-              <div className="border-t my-2" />
-
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => handleMenuAction(onOpenStats)}
-                className="w-full justify-start gap-3"
-              >
-                <Trophy className="w-5 h-5" />
-                Stats
-              </Button>
-
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => handleMenuAction(onOpenMissions)}
-                className="w-full justify-start gap-3"
-              >
-                <Target className="w-5 h-5" />
-                Missions
-              </Button>
-
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => handleMenuAction(onOpenQuickActions)}
-                className="w-full justify-start gap-3"
-              >
-                <Settings className="w-5 h-5" />
-                Quick Actions
-              </Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Menu Modal */}
+      <FloatingMenuModal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        coinBalance={coinBalance}
+        onOpenShop={onOpenShop}
+        onOpenStorage={onOpenStorage}
+        onOpenStats={onOpenStats}
+        onOpenMissions={onOpenMissions}
+        onOpenBlobbiSelector={onOpenBlobbiSelector}
+      />
     </>
   );
 }

@@ -25,22 +25,22 @@ import { formatDistanceToNow } from 'date-fns';
 export function BlobbiGame() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
-  const { 
-    blobbi, 
-    isLoading, 
-    performAction, 
+  const {
+    blobbi,
+    isLoading,
+    performAction,
     isPerformingCareAction: isPerformingAction,
     hasPendingInteractions,
     pendingInteractionCount
   } = useBlobbiInteractionSystem();
-  
+
   const isOwner = user?.pubkey === blobbi?.ownerPubkey;
-  
+
   const [showShop, setShowShop] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [showGames, setShowGames] = useState(false);
   const [showStorage, setShowStorage] = useState(false);
-  
+
   if (!user) {
     return (
       <Card className="max-w-2xl mx-auto">
@@ -64,7 +64,7 @@ export function BlobbiGame() {
       </Card>
     );
   }
-  
+
   if (isLoading) {
     return (
       <Card className="max-w-2xl mx-auto">
@@ -76,7 +76,7 @@ export function BlobbiGame() {
       </Card>
     );
   }
-  
+
   if (!blobbi) {
     return (
       <Card className="max-w-2xl mx-auto">
@@ -88,8 +88,8 @@ export function BlobbiGame() {
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">
           <div className="flex items-center justify-center py-8">
-            <EggGraphic 
-              size="medium" 
+            <EggGraphic
+              size="medium"
               animated={true}
               warmth={60}
             />
@@ -108,38 +108,38 @@ export function BlobbiGame() {
       </Card>
     );
   }
-  
+
   return (
-    <div className="max-w-6xl mx-auto space-y-4">
-      <Tabs defaultValue="blobbi" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+    <div className="max-w-6xl mx-auto space-y-2 h-full flex flex-col overflow-hidden">
+      <Tabs defaultValue="blobbi" className="w-full flex flex-col overflow-hidden flex-1">
+        <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
           <TabsTrigger value="blobbi">My Blobbi</TabsTrigger>
           <TabsTrigger value="incubation" className="flex items-center gap-2">
             <Sparkles className="w-4 h-4" />
             Growth Hub
           </TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="blobbi" className="space-y-4">
+
+        <TabsContent value="blobbi" className="space-y-2 flex-1 overflow-hidden">
           {/* Header with pet info */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between flex-wrap gap-4">
+          <Card className="flex-shrink-0">
+            <CardHeader className="py-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="text-2xl">{blobbi.name}</CardTitle>
-                    <BlobbiFakeStatusIndicator 
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-xl">{blobbi.name}</CardTitle>
+                    <BlobbiFakeStatusIndicator
                       hasFakeStatus={hasPendingInteractions()}
                       pendingInteractionCount={pendingInteractionCount}
                     />
                   </div>
-                  <CardDescription>
-                    {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} • 
+                  <CardDescription className="text-xs">
+                    {blobbi.lifeStage.charAt(0).toUpperCase() + blobbi.lifeStage.slice(1)} •
                     Born {formatDistanceToNow(blobbi.birthTime, { addSuffix: true })}
                   </CardDescription>
                 </div>
                 <div className="flex gap-2 items-center flex-wrap">
-                  <div className="flex gap-4 text-sm">
+                  <div className="flex gap-3 text-sm">
                     <div className="flex items-center gap-1">
                       <Coins className="w-4 h-4 text-yellow-600" />
                       <span className="font-semibold">{blobbi.coins}</span>
@@ -150,12 +150,12 @@ export function BlobbiGame() {
                     </div>
                   </div>
                   {isOwner && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setShowShop(true)}
-                        className="gap-1"
+                        className="gap-1 h-8"
                       >
                         <ShoppingBag className="w-3 h-3" />
                         Shop
@@ -164,7 +164,7 @@ export function BlobbiGame() {
                         size="sm"
                         variant="outline"
                         onClick={() => setShowStorage(true)}
-                        className="gap-1"
+                        className="gap-1 h-8"
                       >
                         <Package className="w-3 h-3" />
                         Storage
@@ -173,7 +173,7 @@ export function BlobbiGame() {
                         size="sm"
                         variant="outline"
                         onClick={() => setShowCustomization(true)}
-                        className="gap-1"
+                        className="gap-1 h-8"
                       >
                         <Palette className="w-3 h-3" />
                         Customize
@@ -184,44 +184,44 @@ export function BlobbiGame() {
               </div>
             </CardHeader>
           </Card>
-          
-          <div className="grid md:grid-cols-2 gap-4">
+
+          <div className="grid md:grid-cols-2 gap-2 flex-1 overflow-hidden">
             {/* Left column - Visual and stats */}
-            <div className="space-y-4">
+            <div className="space-y-2 overflow-hidden">
               <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                <CardContent className="p-8">
-                  <div className="flex items-center justify-center transition-all duration-500 min-h-[380px] p-12 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-center transition-all duration-500 min-h-[280px] p-6 bg-gradient-to-br from-purple-50/60 to-pink-50/60 rounded-3xl border-2 border-purple-100/50">
                     {blobbi.lifeStage === 'egg' ? (
-                      <EggGraphic 
+                      <EggGraphic
                         blobbi={blobbi}
-                        size="large" 
+                        size="large"
                         animated={true}
                         warmth={blobbi.eggTemperature || 60}
                       />
                     ) : blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
-                      <BlobbiEvolvedVisual 
-                        blobbi={blobbi} 
+                      <BlobbiEvolvedVisual
+                        blobbi={blobbi}
                         size="medium"
                         onClick={() => isOwner && performAction('play')}
                       />
                     ) : (
-                      <BlobbiVisual 
-                        blobbi={blobbi} 
+                      <BlobbiVisual
+                        blobbi={blobbi}
                         size={blobbi.lifeStage === 'baby' ? 'medium' : 'large'}
                         onClick={() => isOwner && performAction('play')}
                       />
                     )}
                   </div>
                   {blobbi.state === 'hibernating' && (
-                    <p className="text-center text-sm text-muted-foreground mt-4">
+                    <p className="text-center text-xs text-muted-foreground mt-2">
                       Your Blobbi is hibernating. Interact with it to wake it up!
                     </p>
                   )}
 
                   {blobbi.evolutionForm && (
-                    <div className="text-center mt-4 space-y-1">
-                      <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
-                        <Sparkles className="w-4 h-4" />
+                    <div className="text-center mt-2 space-y-1">
+                      <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                        <Sparkles className="w-3 h-3" />
                         <span>Evolved into {blobbi.evolutionForm.charAt(0).toUpperCase() + blobbi.evolutionForm.slice(1)}</span>
                       </div>
                       {blobbi.evolutionTime && (
@@ -233,22 +233,22 @@ export function BlobbiGame() {
                   )}
                 </CardContent>
               </Card>
-              
+
               <BlobbiStats blobbi={blobbi} />
-              
+
               {/* Evolution Progress - show for owner only */}
               {isOwner && (
-                <EvolutionProgress 
-                  evolutionProgress={blobbi.evolutionProgress} 
+                <EvolutionProgress
+                  evolutionProgress={blobbi.evolutionProgress}
                   hasEvolved={!!blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi'}
                 />
               )}
             </div>
-            
+
             {/* Right column - Actions and info */}
-            <div className="space-y-4">
+            <div className="space-y-2 overflow-hidden">
               {isOwner ? (
-                <BlobbiActions 
+                <BlobbiActions
                   blobbi={blobbi}
                   onAction={performAction}
                   isPerformingAction={isPerformingAction}
@@ -267,7 +267,7 @@ export function BlobbiGame() {
                   </CardContent>
                 </Card>
               )}
-              
+
               {/* Pet info */}
               <Card>
                 <CardHeader>
@@ -305,21 +305,21 @@ export function BlobbiGame() {
             </div>
           </div>
         </TabsContent>
-        
+
         <TabsContent value="incubation" className="space-y-4">
           <BlobbiIncubationDashboard />
         </TabsContent>
       </Tabs>
-      
+
       {/* Shop, Storage, Customization, and Games Dialogs */}
       {isOwner && (
         <>
           <BlobbiShop isOpen={showShop} onClose={() => setShowShop(false)} />
           <BlobbiStorage isOpen={showStorage} onClose={() => setShowStorage(false)} />
           <BlobbiCustomization isOpen={showCustomization} onClose={() => setShowCustomization(false)} />
-          <BlobbiGamesModal 
-            isOpen={showGames} 
-            onClose={() => setShowGames(false)} 
+          <BlobbiGamesModal
+            isOpen={showGames}
+            onClose={() => setShowGames(false)}
             blobbiId={blobbi.id}
           />
         </>

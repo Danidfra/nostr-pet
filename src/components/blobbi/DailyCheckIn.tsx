@@ -7,16 +7,16 @@ import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 
 export function DailyCheckIn() {
-  const { 
-    checkInData, 
-    isLoading, 
-    canCheckIn, 
-    isStreakActive, 
-    checkIn, 
-    isCheckingIn 
+  const {
+    checkInData,
+    isLoading,
+    canCheckIn,
+    isStreakActive,
+    checkIn,
+    isCheckingIn
   } = useDailyCheckIn();
   const { toast } = useToast();
-  
+
   const handleCheckIn = () => {
     checkIn(undefined, {
       onSuccess: (data) => {
@@ -34,7 +34,7 @@ export function DailyCheckIn() {
       },
     });
   };
-  
+
   if (isLoading || !checkInData) {
     return (
       <Card>
@@ -47,16 +47,16 @@ export function DailyCheckIn() {
       </Card>
     );
   }
-  
+
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
+      <CardHeader className="py-3 pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
           <Calendar className="w-4 h-4" />
           Daily Check-in
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2 pb-3">
         {/* Streak Display */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -70,7 +70,7 @@ export function DailyCheckIn() {
             {checkInData.streak} {checkInData.streak === 1 ? 'day' : 'days'}
           </Badge>
         </div>
-        
+
         {/* Total Check-ins */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -79,10 +79,10 @@ export function DailyCheckIn() {
           </div>
           <span className="text-sm font-semibold">{checkInData.totalCheckIns}</span>
         </div>
-        
+
         {/* Check-in Button */}
-        <Button 
-          className="w-full" 
+        <Button
+          className="w-full"
           onClick={handleCheckIn}
           disabled={!canCheckIn || isCheckingIn}
           variant={canCheckIn ? "default" : "secondary"}
@@ -98,7 +98,7 @@ export function DailyCheckIn() {
             "Already Checked In Today"
           )}
         </Button>
-        
+
         {/* Streak Bonuses Info */}
         {canCheckIn && (
           <div className="text-xs text-muted-foreground space-y-1">

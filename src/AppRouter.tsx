@@ -22,6 +22,7 @@ import { BlobbiFloatingActionMenu } from "./components/BlobbiFloatingActionMenu"
 import { DraggableBed } from "./components/DraggableBed";
 import { GlobalHeader } from "./components/GlobalHeader";
 import { useBed } from "./contexts/BedContext";
+import { useEffect } from "react";
 
 function AppContent() {
   const location = useLocation();
@@ -29,6 +30,23 @@ function AppContent() {
 
   // Show header on all pages except homepage
   const showHeader = location.pathname !== '/';
+
+  useEffect(() => {
+    const isBlobbi = location.pathname === '/blobbi';
+
+    if (!isBlobbi) return;
+
+    const prevHtml = document.documentElement.style.overflow;
+    const prevBody = document.body.style.overflow;
+
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.documentElement.style.overflow = prevHtml;
+      document.body.style.overflow = prevBody;
+    };
+  }, [location.pathname]);
 
   return (
     <>
