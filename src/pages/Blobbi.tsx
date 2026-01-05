@@ -121,26 +121,34 @@ export default function Blobbi() {
   }, []); // Run only on mount
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold">Blobbi</h1>
-        <div className="flex items-center gap-2">
-          <SettingsButton />
-          <ThemeToggle />
-          <LoginArea />
+    <div className="flex flex-col h-screen overflow-hidden">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-4xl font-bold">Blobbi</h1>
+            <div className="flex items-center gap-2">
+              <SettingsButton />
+              <ThemeToggle />
+              <LoginArea />
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-4 gap-4">
-        <div className="lg:col-span-3">
-          <BlobbiGame />
-        </div>
+      {/* Main Content Area - Scrollable */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="container mx-auto px-4 py-6">
+          <div className="grid lg:grid-cols-4 gap-4">
+            <div className="lg:col-span-3">
+              <BlobbiGame />
+            </div>
 
-        {/* Sidebar */}
-        {user && (
-          <div className="lg:col-span-1 space-y-4">
-            {/* Blobbonaut Profile */}
-            <BlobbonautProfileCard />
+            {/* Sidebar */}
+            {user && (
+              <div className="lg:col-span-1 space-y-4">
+                {/* Blobbonaut Profile */}
+                <BlobbonautProfileCard />
 
             {/* Daily Missions */}
             <DailyMissionsCard
@@ -176,6 +184,8 @@ export default function Blobbi() {
             </Link>
           </div>
         )}
+          </div>
+        </div>
       </div>
 
       {/* Push Notification Modal */}

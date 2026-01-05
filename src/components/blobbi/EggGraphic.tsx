@@ -341,7 +341,7 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
   return (
     <div
       className={cn(
-        'relative flex items-center justify-center',
+        'relative flex flex-col items-center justify-end',
         sizeClasses.medium,
         className
       )}
@@ -355,13 +355,14 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
         style={{
           background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
           transform: 'scale(1.2)',
+          zIndex: 0,
         }}
       />
 
       {/* Main egg shape */}
       <div
         className={cn(
-          'relative transition-all duration-500',
+          'relative transition-all duration-500 z-10',
           animated && !cracking && 'animate-egg-sway',
           animated && actualWarmth > 60 && 'animate-egg-warmth',
           cracking && 'animate-egg-crack'
@@ -373,8 +374,7 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
           borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%',
           boxShadow: `
             inset -10px -10px 20px ${shadow}33,
-            inset 10px 10px 20px ${highlight}26,
-            0 10px 30px rgba(0, 0, 0, 0.2)
+            inset 10px 10px 20px ${highlight}26
           `,
           filter: cracking ? 'brightness(1.1)' : 'brightness(1)',
         }}
@@ -568,6 +568,15 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
           />
         </>
       )}
+
+      {/* Ground shadow - appears below the egg */}
+      <div
+        className="w-20 h-2 bg-black/15 dark:bg-black/25 rounded-full blur-sm mt-1 z-0"
+        style={{
+          transform: animated ? 'scale(1)' : 'scale(0.95)',
+          transition: 'transform 0.5s ease-in-out',
+        }}
+      />
     </div>
   );
 };
