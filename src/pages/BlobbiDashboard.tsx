@@ -352,7 +352,13 @@ export default function BlobbiDashboard() {
 
   return (
     <BlobbiLayout>
-      <div className="bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
+      <div
+        className="bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 overflow-y-hidden"
+        style={{
+          height: 'calc(100dvh - var(--app-header-h))',
+          paddingBottom: 'var(--app-footer-h)'
+        }}
+      >
         {/* Floating Menu Button */}
         <FloatingMenuButton
           coinBalance={stats.totalCoins}

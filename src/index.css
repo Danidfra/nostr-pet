@@ -26,6 +26,10 @@
 
 @layer base {
   :root {
+    /* App Layout Variables */
+    --app-header-h: 0px;
+    --app-footer-h: 0px;
+
     /* Elegant Design System - Light Mode */
     /* Converting hex colors to HSL for Tailwind compatibility */
 

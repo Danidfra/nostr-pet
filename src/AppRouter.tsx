@@ -30,11 +30,22 @@ function AppContent() {
 
   // Show header on all pages except homepage
   const showHeader = location.pathname !== '/';
+  const isBlobbiDashboard = location.pathname === '/blobbi';
 
+  // Set CSS variables for header and footer heights
   useEffect(() => {
-    const isBlobbi = location.pathname === '/blobbi';
+    const root = document.documentElement;
 
-    if (!isBlobbi) return;
+    // Header height: 80px when shown, 0px when hidden
+    root.style.setProperty('--app-header-h', showHeader ? '112px' : '0px');
+
+    // Footer height: 88px on /blobbi dashboard, 0px elsewhere
+    root.style.setProperty('--app-footer-h', isBlobbiDashboard ? '88px' : '0px');
+  }, [showHeader, isBlobbiDashboard]);
+
+  // Disable body scroll on /blobbi dashboard
+  useEffect(() => {
+    if (!isBlobbiDashboard) return;
 
     const prevHtml = document.documentElement.style.overflow;
     const prevBody = document.body.style.overflow;
@@ -46,7 +57,7 @@ function AppContent() {
       document.documentElement.style.overflow = prevHtml;
       document.body.style.overflow = prevBody;
     };
-  }, [location.pathname]);
+  }, [isBlobbiDashboard]);
 
   return (
     <>
@@ -56,7 +67,8 @@ function AppContent() {
 
       {showHeader && <GlobalHeader />}
 
-      <Routes>
+      <div style={{ paddingTop: 'var(--app-header-h)' }}>
+        <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/blobbi" element={<BlobbiDashboard />} />
         <Route path="/blobbi/:blobbiId" element={<BlobbiDetail />} />
@@ -78,6 +90,7 @@ function AppContent() {
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </div>
     </>
   );
 }
