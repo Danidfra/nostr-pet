@@ -489,27 +489,29 @@ export default function BlobbiDashboard() {
                       </div>
 
                       {/* Blobbi Visual - Constrained height */}
-                      <div className="flex items-center justify-center" style={{ height: 'clamp(250px, 40vh, 350px)' }}>
-                        {selectedBlobbi.lifeStage === 'egg' ? (
-                          <EggGraphic
-                            blobbi={selectedBlobbi}
-                            size="large"
-                            animated={true}
-                            warmth={selectedBlobbi.eggTemperature || 60}
-                          />
-                        ) : selectedBlobbi.evolutionForm && selectedBlobbi.evolutionForm !== 'blobbi' ? (
-                          <BlobbiEvolvedVisual
-                            blobbi={selectedBlobbi}
-                            size="large"
-                            onClick={() => performAction('play')}
-                          />
-                        ) : (
-                          <BlobbiVisual
-                            blobbi={selectedBlobbi}
-                            size="large"
-                            onClick={() => performAction('play')}
-                          />
-                        )}
+                      <div className="flex items-center justify-center">
+                        <div className="h-[clamp(250px,40vh,350px)] aspect-square">
+                          {selectedBlobbi.lifeStage === 'egg' ? (
+                            <EggGraphic
+                              blobbi={selectedBlobbi}
+                              sizeVariant="tiny"
+                              animated={true}
+                              warmth={selectedBlobbi.eggTemperature || 60}
+                            />
+                          ) : selectedBlobbi.evolutionForm && selectedBlobbi.evolutionForm !== 'blobbi' ? (
+                            <BlobbiEvolvedVisual
+                              blobbi={selectedBlobbi}
+                              size="tiny"
+                              onClick={() => performAction('play')}
+                            />
+                          ) : (
+                            <BlobbiVisual
+                              blobbi={selectedBlobbi}
+                              size="tiny"
+                              onClick={() => performAction('play')}
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>

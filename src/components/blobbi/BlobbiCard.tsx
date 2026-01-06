@@ -118,10 +118,7 @@ export function BlobbiCard({
     return 'medium'; // Default fallback
   };
 
-  // Always use medium size for visual consistency across all Blobbis
-  const getBlobbiVisualSize = (): 'medium' => {
-    return 'medium';
-  };
+  // Removed getBlobbiVisualSize - container now controls size via slot
 
   // Size-based configurations
   const sizeConfig = {
@@ -222,24 +219,24 @@ export function BlobbiCard({
       </CardHeader>
 
       <CardContent id="tab-my-blobbies-card" className={config.contentPadding}>
-        {/* Blobbi Visual - Fixed size container, only Blobbi scales */}
+        {/* Blobbi Visual - Container controls size, visual fills slot */}
         <div className="flex items-center justify-center transition-all duration-500 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border-2 border-purple-100/60 dark:border-purple-600/30 mb-4 group-hover:border-purple-200/80 dark:group-hover:border-purple-500/50 min-h-[300px] p-8">
           {blobbi.lifeStage === 'egg' ? (
             <EggGraphic
               blobbi={blobbi}
-              size={getBlobbiVisualSize()}
+              sizeVariant="small"
               animated={true}
               warmth={blobbi.eggTemperature || 60}
             />
           ) : blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
             <BlobbiEvolvedVisual
               blobbi={blobbi}
-              size={getBlobbiVisualSize()}
+              size="medium"
             />
           ) : (
             <BlobbiVisual
               blobbi={blobbi}
-              size={getBlobbiVisualSize()}
+              size="medium"
             />
           )}
         </div>

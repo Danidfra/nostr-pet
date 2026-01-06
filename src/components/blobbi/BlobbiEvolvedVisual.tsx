@@ -12,10 +12,19 @@ interface BlobbiEvolvedVisualProps {
 }
 
 export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClick, forceInlineSvg = false }: BlobbiEvolvedVisualProps) {
-  // Always use medium size for visual consistency across all Blobbis
-  const displaySize = 'medium';
   const mood = getBlobbiMood(blobbi.stats, blobbi.state);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // NORMALIZED: Stage-based internal scale normalization
+  // Adult/Evolved Blobbis are baseline
+  const stageScale = {
+    tiny: 0.80,    // Adult at 80% for compact UI slots
+    small: 0.90,   // Adult at 90% for small contexts
+    medium: 1.0,   // Adult at 100% baseline
+    large: 1.1,    // Adult at 110% for hero displays
+  };
+
+  const scale = stageScale[size as keyof typeof stageScale] || stageScale.medium;
 
   // Create unique IDs for patterns to avoid conflicts
   const patternIdPrefix = `blobbi-${blobbi.id}-`;
@@ -95,12 +104,7 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
     };
   }, [hasMouseSupport, blobbi.state]);
 
-  const sizeClasses = {
-    tiny: 'w-48 h-48',
-    small: 'w-48 h-48',
-    medium: 'w-48 h-48',
-    large: 'w-48 h-48',
-  };
+  // NORMALIZED: No hardcoded size classes - fill parent container
 
   // Animation classes based on state
   const animationClass = blobbi.state === 'sleeping'
@@ -2348,53 +2352,69 @@ export function BlobbiEvolvedVisual({ blobbi, size = 'medium', className, onClic
   return (
     <div
       className={cn(
-        'relative cursor-pointer transition-transform hover:scale-105',
-        sizeClasses[displaySize as keyof typeof sizeClasses],
+        // NORMALIZED: Fill parent container
+        'w-full h-full',
+        // Center content
+        'relative flex items-center justify-center',
+        'cursor-pointer transition-transform hover:scale-105',
         className
       )}
       onClick={onClick}
     >
-      {/* Fixed shadow that scales */}
-      <svg
-        viewBox="0 0 100 20"
-        className={cn(
-          "absolute bottom-0 left-0 w-full",
-          blobbi.state === 'sleeping' ? 'animate-pulse' : mood === 'happy' ? 'animate-blobbi-shadow' : ''
-        )}
-        style={{ transformOrigin: 'center bottom' }}
+      {/* Inner container with stage-based scaling */}
+      <div
+        className="relative w-full h-full flex items-center justify-center"
+        style={{
+          transform: `scale(${scale})`,
+        }}
       >
-        <ellipse
-          cx="50"
-          cy="10"
-          rx="25"
-          ry="3"
-          fill="currentColor"
-          className="text-black/25 dark:text-black/35"
-        />
-      </svg>
+        {/* Fixed shadow that scales */}
+        <svg
+          viewBox="0 0 100 20"
+          className={cn(
+            "absolute bottom-0 left-0 w-full",
+            blobbi.state === 'sleeping' ? 'animate-pulse' : mood === 'happy' ? 'animate-blobbi-shadow' : ''
+          )}
+          style={{ transformOrigin: 'center bottom' }}
+        >
+          <ellipse
+            cx="50"
+            cy="10"
+            rx="25"
+            ry="3"
+            fill="currentColor"
+            className="text-black/25 dark:text-black/35"
+          />
+        </svg>
 
-      <svg ref={svgRef} viewBox="0 0 200 200" className={cn("w-full h-full", animationClass)}>
-        {renderPet()}
-        {renderSleepingZ()}
-        {renderDirt()}
+        <svg
+          ref={svgRef}
+          viewBox="0 0 200 200"
+          className={cn("w-full h-full", animationClass)}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          {renderPet()}
+          {renderSleepingZ()}
+          {renderDirt()}
 
-        {/* Pattern definitions */}
-        <defs>
-          <pattern id={`${patternIdPrefix}stripes`} patternUnits="userSpaceOnUse" width="8" height="8">
-            <line x1="0" y1="0" x2="0" y2="8" stroke="#000" strokeWidth="1" opacity="0.2" />
-          </pattern>
-          <pattern id={`${patternIdPrefix}dots`} patternUnits="userSpaceOnUse" width="12" height="12">
-            <circle cx="6" cy="6" r="2" fill="#000" opacity="0.2" />
-          </pattern>
-        </defs>
-      </svg>
+          {/* Pattern definitions */}
+          <defs>
+            <pattern id={`${patternIdPrefix}stripes`} patternUnits="userSpaceOnUse" width="8" height="8">
+              <line x1="0" y1="0" x2="0" y2="8" stroke="#000" strokeWidth="1" opacity="0.2" />
+            </pattern>
+            <pattern id={`${patternIdPrefix}dots`} patternUnits="userSpaceOnUse" width="12" height="12">
+              <circle cx="6" cy="6" r="2" fill="#000" opacity="0.2" />
+            </pattern>
+          </defs>
+        </svg>
 
-      {/* Hibernation indicator */}
-      {blobbi.state === 'hibernating' && (
-        <div className="absolute inset-0 bg-gray-900/50 rounded-full flex items-center justify-center">
-          <span className="text-white text-xs font-bold">Hibernating</span>
-        </div>
-      )}
+        {/* Hibernation indicator */}
+        {blobbi.state === 'hibernating' && (
+          <div className="absolute inset-0 bg-gray-900/50 rounded-full flex items-center justify-center">
+            <span className="text-white text-xs font-bold">Hibernating</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

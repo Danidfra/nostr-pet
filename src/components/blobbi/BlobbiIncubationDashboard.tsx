@@ -376,7 +376,7 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                             <div className="relative flex flex-col items-center justify-end h-full scale-75">
                               <EggGraphic
                                 blobbi={blobbi}
-                                size="small"
+                                sizeVariant="small"
                                 animated={true}
                                 warmth={blobbi.eggTemperature || (60 + (getProgress(blobbi.id).egg.percentage * 0.4))}
                               />

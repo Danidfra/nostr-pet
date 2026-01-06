@@ -87,9 +87,9 @@ export function BlobbiGame() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center w-64 h-64 mx-auto">
             <EggGraphic
-              size="medium"
+              sizeVariant="small"
               animated={true}
               warmth={60}
             />
@@ -194,7 +194,7 @@ export function BlobbiGame() {
                     {blobbi.lifeStage === 'egg' ? (
                       <EggGraphic
                         blobbi={blobbi}
-                        size="large"
+                        sizeVariant="large"
                         animated={true}
                         warmth={blobbi.eggTemperature || 60}
                       />

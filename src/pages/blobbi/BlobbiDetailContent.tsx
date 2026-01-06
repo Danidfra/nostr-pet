@@ -581,7 +581,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
                   {blobbi.lifeStage === 'egg' ? (
                     <EggGraphic
                       blobbi={blobbi}
-                      size="medium"
+                      sizeVariant="large"
                       animated={true}
                       warmth={blobbi.eggTemperature || 60}
                     />

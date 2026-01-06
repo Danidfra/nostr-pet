@@ -170,26 +170,36 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi, onPhotoPosted }: P
 
   // Render Blobbi component with inline SVG for capture
   const renderBlobbi = () => {
-    const commonProps = {
-      blobbi,
-      size: 'medium' as const,
-      className: 'blobbi-character',
-      forceInlineSvg: true, // Force inline SVG for capture
-    };
-
     if (blobbi.lifeStage === 'egg') {
       return (
         <EggGraphic
-          {...commonProps}
+          blobbi={blobbi}
+          sizeVariant="medium"
+          className="blobbi-character"
+          forceInlineSvg={true}
           animated={true}
           cracking={!!(blobbi.incubationProgress && blobbi.incubationProgress > 80)}
           warmth={blobbi.eggTemperature || 60}
         />
       );
     } else if (blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi') {
-      return <BlobbiEvolvedVisual {...commonProps} />;
+      return (
+        <BlobbiEvolvedVisual
+          blobbi={blobbi}
+          size="medium"
+          className="blobbi-character"
+          forceInlineSvg={true}
+        />
+      );
     } else {
-      return <BlobbiVisual {...commonProps} />;
+      return (
+        <BlobbiVisual
+          blobbi={blobbi}
+          size="medium"
+          className="blobbi-character"
+          forceInlineSvg={true}
+        />
+      );
     }
   };
 
