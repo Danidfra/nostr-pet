@@ -1,12 +1,11 @@
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { BlobbiAction, Blobbi } from '@/types/blobbi';
-import { Utensils, Gamepad2, Bath, Moon, Sun, Pill, Trophy, Thermometer, Eye, Music, MessageCircle, Heart, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Gamepad2, Package, Sparkles } from 'lucide-react';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { BlobbiInventoryModal } from './BlobbiInventoryModal';
+import { BlobbiActionsModal } from './BlobbiActionsModal';
 import { useBlobbiCareInteractionWithFakeStatus } from '@/hooks/useBlobbiInteractionWithFakeStatus';
-import { BlobbiFakeStatusIndicator } from './BlobbiFakeStatusIndicator';
 import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
 import { useBlobbonautProfile, useCreateInitialProfile } from '@/hooks/useBlobbonautProfile';
 import { useToast } from '@/hooks/useToast';
@@ -20,22 +19,31 @@ interface BlobbiActionsFooterProps {
   className?: string;
   onGamesClick?: () => void;
   onOpenShop?: () => void;
+  onSwitchBlobbi?: () => void;
+  onOpenInventory?: () => void;
 }
 
 /**
  * Reusable Blobbi actions footer component
  * Used in both the detail page and dashboard
+ *
+ * Simple 3-button layout:
+ * - Left: Switch Blobbi
+ * - Center: Actions (opens modal)
+ * - Right: Inventory
  */
 export function BlobbiActionsFooter({
   blobbi,
   onAction,
   isPerformingAction,
   className,
-  onGamesClick,
   onOpenShop,
+  onSwitchBlobbi,
+  onOpenInventory,
 }: BlobbiActionsFooterProps) {
-  const { hasFakeStatus, getPendingInteractionCount, updateFakeStatus } = useBlobbiFakeStatus();
+  const { updateFakeStatus } = useBlobbiFakeStatus();
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
+  const [actionsModalOpen, setActionsModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<BlobbiAction | null>(null);
   const [actionInProgress, setActionInProgress] = useState<BlobbiAction | null>(null);
 
@@ -142,163 +150,87 @@ export function BlobbiActionsFooter({
     setActionInProgress(null);
   };
 
-  const getActionsForStage = () => {
-    if (blobbi.lifeStage === 'egg') {
-      return [
-        {
-          action: 'warm' as BlobbiAction,
-          icon: Thermometer,
-          label: 'Warm',
-          color: 'hover:bg-orange-100 dark:hover:bg-orange-900/20',
-          disabled: false,
-          tooltip: 'Keep the egg warm',
-        },
-        {
-          action: 'check' as BlobbiAction,
-          icon: Eye,
-          label: 'Check',
-          color: 'hover:bg-blue-100 dark:hover:bg-blue-900/20',
-          disabled: false,
-          tooltip: 'Check on the egg',
-        },
-        {
-          action: 'sing' as BlobbiAction,
-          icon: Music,
-          label: 'Sing',
-          color: 'hover:bg-purple-100 dark:hover:bg-purple-900/20',
-          disabled: false,
-          tooltip: 'Sing to the egg',
-        },
-        {
-          action: 'talk' as BlobbiAction,
-          icon: MessageCircle,
-          label: 'Talk',
-          color: 'hover:bg-green-100 dark:hover:bg-green-900/20',
-          disabled: false,
-          tooltip: 'Talk to the egg',
-        },
-      ];
-    }
-
-    const baseActions = [
-      {
-        action: 'feed' as BlobbiAction,
-        icon: Utensils,
-        label: 'Feed',
-        color: 'hover:bg-orange-100 dark:hover:bg-orange-900/20',
-        disabled: blobbi.stats.hunger > 90 || blobbi.state === 'sleeping',
-        tooltip: blobbi.stats.hunger > 90 ? 'Already full!' : blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : 'Feed your Blobbi',
-      },
-      {
-        action: 'play' as BlobbiAction,
-        icon: Gamepad2,
-        label: 'Play',
-        color: 'hover:bg-yellow-100 dark:hover:bg-yellow-900/20',
-        disabled: blobbi.stats.energy < 20 || blobbi.state === 'sleeping',
-        tooltip: blobbi.stats.energy < 20 ? 'Too tired to play' : blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : 'Play with your Blobbi',
-      },
-      {
-        action: 'clean' as BlobbiAction,
-        icon: Bath,
-        label: 'Clean',
-        color: 'hover:bg-purple-100 dark:hover:bg-purple-900/20',
-        disabled: blobbi.state === 'sleeping',
-        tooltip: blobbi.state === 'sleeping' ? 'Blobbi is sleeping' : 'Clean your Blobbi',
-      },
-      {
-        action: 'rest' as BlobbiAction,
-        icon: isSleeping ? Sun : Moon,
-        label: isSleeping ? 'Wake' : 'Sleep',
-        color: 'hover:bg-blue-100 dark:hover:bg-blue-900/20',
-        disabled: isSleeping ? !canWakeUp : !canSleep || blobbi.stats.energy > 70,
-        tooltip: isSleeping ? (canWakeUp ? 'Wake up your Blobbi' : 'Cannot wake up') : (blobbi.stats.energy > 70 ? 'Not tired yet' : 'Put your Blobbi to sleep'),
-      },
-      {
-        action: 'medicine' as BlobbiAction,
-        icon: Pill,
-        label: 'Medicine',
-        color: 'hover:bg-red-100 dark:hover:bg-red-900/20',
-        disabled: false,
-        tooltip: 'Give medicine to your Blobbi',
-      },
-    ];
-
-    if (blobbi.lifeStage === 'adult') {
-      baseActions.push({
-        action: 'cruzar' as BlobbiAction,
-        icon: Heart,
-        label: 'Breed',
-        color: 'hover:bg-pink-100 dark:hover:bg-pink-900/20',
-        disabled: true,
-        tooltip: 'Breeding feature coming soon',
-      });
-    }
-
-    return baseActions;
-  };
-
-  const actions = getActionsForStage();
+  // Determine if we're in dashboard mode (all 3 buttons) or detail page mode (actions modal only)
+  const isDashboardMode = onSwitchBlobbi && onOpenInventory;
 
   return (
     <>
       <div className={cn("bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t-2 border-purple-300 dark:border-purple-600 shadow-lg", className)}>
         <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-center gap-2 max-w-4xl mx-auto">
-            <div className="flex items-center justify-center gap-2 flex-wrap w-full">
-              {actions.map(({ action, icon: Icon, label, color, disabled, tooltip }) => {
-                const isAvailableForStage = isActionAvailableForStage(action, blobbi.lifeStage);
-                const isThisActionInProgress = actionInProgress === action;
-                const isDisabled = !isAvailableForStage || disabled || isPerformingAction || !!actionInProgress;
+          {isDashboardMode ? (
+            // Dashboard mode: 3-button layout
+            <div className="flex items-center justify-between sm:justify-center sm:gap-10 max-w-4xl mx-auto">
+              {/* Left: Switch Blobbi */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onSwitchBlobbi}
+                disabled={isPerformingAction}
+                className="flex items-center gap-2 px-4 py-2.5 h-auto rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/20"
+                title="Switch to another Blobbi"
+              >
+                <Sparkles className="w-5 h-5" />
+                <span className="text-sm font-medium hidden sm:inline">Switch</span>
+              </Button>
 
-                let actionTooltip = tooltip;
-                if (!isAvailableForStage) {
-                  actionTooltip = `Not available in ${blobbi.lifeStage} stage`;
-                }
+              {/* Center: Actions */}
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setActionsModalOpen(true)}
+                disabled={isPerformingAction}
+                className="flex items-center gap-2 px-6 py-2.5 h-auto rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300"
+                title="Open actions menu"
+              >
+                <Gamepad2 className="w-5 h-5" />
+                <span className="text-sm font-medium">Actions</span>
+              </Button>
 
-                return (
-                  <Button
-                    key={action}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleAction(action)}
-                    disabled={isDisabled}
-                    className={cn(
-                      'flex items-center gap-1.5 px-4 py-2.5 h-auto rounded-full',
-                      !isDisabled && isAvailableForStage && color,
-                      !isAvailableForStage && 'opacity-50'
-                    )}
-                    title={actionTooltip}
-                  >
-                    {isThisActionInProgress ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Icon className="w-5 h-5" />
-                    )}
-                    <span className="text-sm font-medium hidden sm:inline">{label}</span>
-                  </Button>
-                );
-              })}
-
-              {blobbi.lifeStage !== 'egg' && onGamesClick && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onGamesClick}
-                  disabled={isPerformingAction}
-                  className={cn(
-                    'flex items-center gap-1.5 px-4 py-2.5 h-auto rounded-full',
-                    !isPerformingAction && 'hover:bg-purple-100 dark:hover:bg-purple-900/20'
-                  )}
-                >
-                  <Trophy className="w-5 h-5" />
-                  <span className="text-sm font-medium hidden sm:inline">Games</span>
-                </Button>
-              )}
+              {/* Right: Inventory */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenInventory}
+                disabled={isPerformingAction}
+                className="flex items-center gap-2 px-4 py-2.5 h-auto rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/20"
+                title="Open inventory"
+              >
+                <Package className="w-5 h-5" />
+                <span className="text-sm font-medium hidden sm:inline">Inventory</span>
+              </Button>
             </div>
-          </div>
+          ) : (
+            // Detail page mode: Just the Actions button centered
+            <div className="flex items-center justify-center max-w-4xl mx-auto">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setActionsModalOpen(true)}
+                disabled={isPerformingAction}
+                className="flex items-center gap-2 px-6 py-2.5 h-auto rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300"
+                title="Open actions menu"
+              >
+                <Gamepad2 className="w-5 h-5" />
+                <span className="text-sm font-medium">Actions</span>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Actions Modal */}
+      <BlobbiActionsModal
+        isOpen={actionsModalOpen}
+        onClose={() => setActionsModalOpen(false)}
+        blobbi={blobbi}
+        onAction={handleAction}
+        actionInProgress={actionInProgress}
+        isSleeping={isSleeping}
+        canSleep={canSleep ?? false}
+        canWakeUp={canWakeUp ?? false}
+      />
+
+      {/* Inventory Modal */}
       {selectedAction && (
         <BlobbiInventoryModal
           isOpen={inventoryModalOpen}

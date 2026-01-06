@@ -38,8 +38,8 @@ function StatRing({ label, value, color, icon }: StatRingProps) {
   return (
     <div className="flex flex-col items-center gap-0.5">
       {/* Circular Progress Ring */}
-      <div className="relative w-14 h-14">
-        <svg className="transform -rotate-90 w-14 h-14">
+      <div className="relative w-12 h-12 sm:w-14 sm:h-14">
+        <svg viewBox="0 0 56 56" className="transform -rotate-90 w-12 h-12 sm:w-14 sm:h-14">
           {/* Background circle */}
           <circle
             cx="28"
@@ -66,13 +66,13 @@ function StatRing({ label, value, color, icon }: StatRingProps) {
         </svg>
         {/* Center text */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xs font-bold" style={{ color: strokeColor }}>
+          <span className="text-[11px] sm:text-xs font-bold" style={{ color: strokeColor }}>
             {icon}
           </span>
         </div>
       </div>
       {/* Label */}
-      <span className="text-[10px] font-medium text-gray-600 dark:text-gray-400">
+      <span className="text-[9px] sm:text-[10px] font-medium text-gray-600 dark:text-gray-400">
         {label}
       </span>
     </div>

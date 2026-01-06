@@ -16,10 +16,8 @@ interface FloatingMenuModalProps {
   onClose: () => void;
   coinBalance: number;
   onOpenShop: () => void;
-  onOpenStorage: () => void;
   onOpenStats: () => void;
   onOpenMissions: () => void;
-  onOpenBlobbiSelector: () => void;
 }
 
 export function FloatingMenuModal({
@@ -27,10 +25,8 @@ export function FloatingMenuModal({
   onClose,
   coinBalance,
   onOpenShop,
-  onOpenStorage,
   onOpenStats,
   onOpenMissions,
-  onOpenBlobbiSelector,
 }: FloatingMenuModalProps) {
   const handleMenuAction = (action: () => void) => {
     action();
@@ -39,22 +35,10 @@ export function FloatingMenuModal({
 
   const menuItems = [
     {
-      icon: Sparkles,
-      label: 'Switch Blobbi',
-      action: onOpenBlobbiSelector,
-      color: 'purple',
-    },
-    {
       icon: ShoppingBag,
       label: 'Shop',
       action: onOpenShop,
       color: 'blue',
-    },
-    {
-      icon: Package,
-      label: 'Storage',
-      action: onOpenStorage,
-      color: 'green',
     },
     {
       icon: BarChart3,

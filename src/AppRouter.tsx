@@ -23,10 +23,12 @@ import { DraggableBed } from "./components/DraggableBed";
 import { GlobalHeader } from "./components/GlobalHeader";
 import { useBed } from "./contexts/BedContext";
 import { useEffect } from "react";
+import { useIsMobile } from "./hooks/useIsMobile";
 
 function AppContent() {
   const location = useLocation();
   const { shouldRenderBed, hideBed } = useBed();
+  const isMobile = useIsMobile()
 
   // Show header on all pages except homepage
   const showHeader = location.pathname !== '/';
@@ -36,12 +38,15 @@ function AppContent() {
   useEffect(() => {
     const root = document.documentElement;
 
-    // Header height: 80px when shown, 0px when hidden
-    root.style.setProperty('--app-header-h', showHeader ? '112px' : '0px');
+    // Header height: 112px desktop, 80px mobile
+    const headerHeight = showHeader
+      ? (isMobile ? '80px' : '112px')
+      : '0px';
+    root.style.setProperty('--app-header-h', headerHeight);
 
     // Footer height: 88px on /blobbi dashboard, 0px elsewhere
     root.style.setProperty('--app-footer-h', isBlobbiDashboard ? '88px' : '0px');
-  }, [showHeader, isBlobbiDashboard]);
+  }, [showHeader, isBlobbiDashboard, isMobile]);
 
   // Disable body scroll on /blobbi dashboard
   useEffect(() => {

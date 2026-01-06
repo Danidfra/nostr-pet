@@ -24,11 +24,9 @@ interface Position {
 interface FloatingDashboardMenuProps {
   coinBalance: number;
   onOpenShop: () => void;
-  onOpenStorage: () => void;
   onOpenStats: () => void;
   onOpenMissions: () => void;
   onOpenQuickActions: () => void;
-  onOpenBlobbiSelector: () => void;
   className?: string;
 }
 
@@ -37,10 +35,10 @@ const DEFAULT_POSITION: Position = { x: 20, y: 20 };
 
 function parsePosition(stored: string | null): Position {
   if (!stored) return DEFAULT_POSITION;
-  
+
   try {
     const parsed = JSON.parse(stored) as unknown;
-    
+
     if (
       typeof parsed === 'object' &&
       parsed !== null &&
@@ -51,7 +49,7 @@ function parsePosition(stored: string | null): Position {
     ) {
       return parsed as Position;
     }
-    
+
     return DEFAULT_POSITION;
   } catch {
     return DEFAULT_POSITION;
@@ -61,7 +59,7 @@ function parsePosition(stored: string | null): Position {
 function clampPosition(pos: Position, menuWidth: number, menuHeight: number): Position {
   const maxX = window.innerWidth - menuWidth - 20;
   const maxY = window.innerHeight - menuHeight - 20;
-  
+
   return {
     x: Math.max(20, Math.min(pos.x, maxX)),
     y: Math.max(20, Math.min(pos.y, maxY)),
@@ -71,22 +69,20 @@ function clampPosition(pos: Position, menuWidth: number, menuHeight: number): Po
 export function FloatingDashboardMenu({
   coinBalance,
   onOpenShop,
-  onOpenStorage,
   onOpenStats,
   onOpenMissions,
   onOpenQuickActions,
-  onOpenBlobbiSelector,
   className,
 }: FloatingDashboardMenuProps) {
   const [position, setPosition] = useState<Position>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     return parsePosition(stored);
   });
-  
+
   const [isExpanded, setIsExpanded] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
-  
+
   const menuRef = useRef<HTMLDivElement>(null);
   const dragHandleRef = useRef<HTMLDivElement>(null);
 
@@ -101,7 +97,7 @@ export function FloatingDashboardMenu({
       if (menuRef.current) {
         const rect = menuRef.current.getBoundingClientRect();
         const clamped = clampPosition(position, rect.width, rect.height);
-        
+
         if (clamped.x !== position.x || clamped.y !== position.y) {
           setPosition(clamped);
         }
@@ -212,21 +208,6 @@ export function FloatingDashboardMenu({
           {/* Expanded Menu Items */}
           {isExpanded && (
             <div className="space-y-1">
-              {/* Switch Blobbi */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onOpenBlobbiSelector}
-                className="w-full justify-start gap-2 h-8 text-xs"
-                title="Switch to another Blobbi"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                Switch Blobbi
-              </Button>
-
-              {/* Divider */}
-              <div className="border-t border-purple-200 dark:border-purple-700 my-1" />
-
               {/* Shop */}
               <Button
                 variant="outline"
@@ -237,18 +218,6 @@ export function FloatingDashboardMenu({
               >
                 <ShoppingBag className="w-3.5 h-3.5" />
                 Shop
-              </Button>
-
-              {/* Storage */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onOpenStorage}
-                className="w-full justify-start gap-2 h-8 text-xs"
-                title="Open storage"
-              >
-                <Package className="w-3.5 h-3.5" />
-                Storage
               </Button>
 
               {/* Divider */}
@@ -296,7 +265,7 @@ export function FloatingDashboardMenu({
           {!isExpanded && (
             <div className="text-center">
               <Badge variant="secondary" className="text-xs">
-                8 items
+                4 items
               </Badge>
             </div>
           )}

@@ -21,6 +21,9 @@ import { useDailyMissions } from '@/hooks/useDailyMissions';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useSetCurrentCompanion } from '@/hooks/useSetCurrentCompanion';
 import { useToast } from '@/hooks/useToast';
+import { useBlobbiSleepSystem } from '@/hooks/useBlobbiSleepSystem';
+import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
+import { BlobbiAction } from '@/types/blobbi';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { SettingsButton } from '@/components/SettingsButton';
 import { Button } from '@/components/ui/button';
@@ -33,6 +36,7 @@ export default function Blobbi() {
   const { data: blobbonautProfile } = useBlobbonautProfile();
   const { data: userBlobbis = [] } = useUserBlobbis();
   const { mutate: setCurrentCompanion } = useSetCurrentCompanion();
+  const { updateFakeStatus } = useBlobbiFakeStatus();
   const [isPerformingAction, setIsPerformingAction] = useState(false);
   const [showPushModal, setShowPushModal] = useState(false);
   const [showActionsModal, setShowActionsModal] = useState(false);
@@ -42,6 +46,21 @@ export default function Blobbi() {
   const [showStats, setShowStats] = useState(false);
   const [showMissions, setShowMissions] = useState(false);
   const [showGames, setShowGames] = useState(false);
+  const [actionInProgress, setActionInProgress] = useState<BlobbiAction | null>(null);
+
+  const {
+    isSleeping,
+    canSleep,
+    canWakeUp,
+  } = useBlobbiSleepSystem({
+    blobbi: blobbi ?? null,
+    isOwner: true,
+    onOptimisticUpdate: (updatedBlobbi) => {
+      if (blobbi) {
+        updateFakeStatus(blobbi.id, updatedBlobbi);
+      }
+    },
+  });
   const {
     missions,
     isLoading: isLoadingMissions,
@@ -236,10 +255,8 @@ export default function Blobbi() {
         <FloatingMenuButton
           coinBalance={blobbonautProfile?.coins || 0}
           onOpenShop={() => setShowShop(true)}
-          onOpenStorage={() => setShowStorage(true)}
           onOpenStats={() => setShowStats(true)}
           onOpenMissions={() => setShowMissions(true)}
-          onOpenBlobbiSelector={() => setShowBlobbiSelector(true)}
         />
       )}
 
@@ -250,10 +267,14 @@ export default function Blobbi() {
             isOpen={showActionsModal}
             onClose={() => setShowActionsModal(false)}
             blobbi={blobbi}
-            onAction={performAction}
-            isPerformingAction={isPerformingAction}
-            onGamesClick={() => setShowGames(true)}
-            onOpenShop={() => setShowShop(true)}
+            onAction={(action) => {
+              setActionInProgress(action);
+              performAction(action).finally(() => setActionInProgress(null));
+            }}
+            actionInProgress={actionInProgress}
+            isSleeping={isSleeping}
+            canSleep={canSleep ?? false}
+            canWakeUp={canWakeUp ?? false}
           />
 
           <BlobbiSelectorDrawer

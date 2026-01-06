@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useCoinBalance } from '@/hooks/useCoinBalance';
@@ -34,6 +35,7 @@ import {
   Sparkles,
   Egg,
   EggOff,
+  Info,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -58,12 +60,13 @@ export default function BlobbiDashboard() {
   const [isTourActive, setIsTourActive] = useState(false);
   const [showTourCompletionModal, setShowTourCompletionModal] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
-  const [isStorageOpen, setIsStorageOpen] = useState(false);
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [showPushModal, setShowPushModal] = useState(false);
   const [isBuyCoinsModalOpen, setIsBuyCoinsModalOpen] = useState(false);
   const [showGamesModal, setShowGamesModal] = useState(false);
   const [showPolaroidModal, setShowPolaroidModal] = useState(false);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [isBlobbiInfoOpen, setIsBlobbiInfoOpen] = useState(false);
 
   // Panel states
   const [isStatsOpen, setIsStatsOpen] = useState(false);
@@ -363,10 +366,8 @@ export default function BlobbiDashboard() {
         <FloatingMenuButton
           coinBalance={stats.totalCoins}
           onOpenShop={() => setIsShopOpen(true)}
-          onOpenStorage={() => setIsStorageOpen(true)}
           onOpenStats={() => setIsStatsOpen(true)}
           onOpenMissions={() => setIsMissionsOpen(true)}
-          onOpenBlobbiSelector={() => setIsSelectorOpen(true)}
         />
 
         {/* Dashboard Panels (Sheets) */}
@@ -412,13 +413,14 @@ export default function BlobbiDashboard() {
           onOpenChange={setIsSelectorOpen}
         />
 
-        {/* Centered Main Content - Constrained to viewport */}
-        <div className="container mx-auto px-4 py-4">
-          {selectedBlobbi ? (
-            <div className="max-w-4xl mx-auto space-y-4">
-                {/* Blobbi Hero Card - Centered Game UI */}
-                <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-                  <CardContent className="p-4 sm:p-6 md:p-8 relative">
+        {/* Centered Main Content - Fills available height */}
+        <div className="h-full flex flex-col">
+          <div className="container mx-auto px-4 py-4 flex-1 flex flex-col">
+            {selectedBlobbi ? (
+              <div className="max-w-4xl mx-auto flex-1 flex flex-col gap-4">
+                {/* Blobbi Hero Card - Fills available vertical space */}
+                <Card className="relative min-w-80 sm:min-w-96 overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 flex-1 flex flex-col">
+                  <CardContent className="p-4 sm:p-6 md:p-8 relative h-full flex flex-col">
                     {/* Incubation/Evolution Toggle Buttons */}
                     {selectedBlobbi.lifeStage === 'egg' && (
                       <Button
@@ -457,40 +459,35 @@ export default function BlobbiDashboard() {
 
                     <div className="absolute inset-0 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 z-0"></div>
 
-                    <div className="relative z-10">
-                      {/* Blobbi Name & Info */}
-                      <div className="text-center mb-3">
-                        <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-gray-100 capitalize mb-2">
-                          {selectedBlobbi.name}
-                        </h1>
-                        <div className="flex items-center justify-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs sm:text-sm">
-                            {selectedBlobbi.lifeStage}
-                          </Badge>
-                          {selectedBlobbi.evolutionForm && selectedBlobbi.evolutionForm !== 'blobbi' && (
-                            <Badge variant="default" className="gap-1 text-xs sm:text-sm">
-                              <Sparkles className="w-3 h-3" />
-                              {selectedBlobbi.evolutionForm}
-                            </Badge>
-                          )}
-                          <Badge variant="secondary" className="text-xs sm:text-sm">
-                            {selectedBlobbi.state}
-                          </Badge>
+                    <div className="relative z-10 h-full flex flex-col">
+                      {/* Blobbi Name & Info - Fixed height header */}
+                      <div className="text-center mb-3 flex-shrink-0">
+                        <div className="relative inline-block">
+                          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-gray-100 capitalize">
+                            {selectedBlobbi.name}
+                          </h1>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute -right-10 top-1/2 -translate-y-1/2 h-8 w-8 p-0 rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/30"
+                            onClick={() => setIsBlobbiInfoOpen(true)}
+                            aria-label="Blobbi info"
+                          >
+                            <Info className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
                         </div>
-                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          Born {formatDistanceToNow(selectedBlobbi.birthTime, { addSuffix: true })}
-                        </p>
+                      </div>
 
-                        {/* Circular Status Indicators */}
+                      {/* Circular Status Indicators - Fixed height */}
+                      <div className="flex-shrink-0 mb-3">
                         <CircularStatusIndicators
                           stats={selectedBlobbi.stats}
-                          className="mb-3"
                         />
                       </div>
 
-                      {/* Blobbi Visual - Constrained height */}
-                      <div className="flex items-center justify-center">
-                        <div className="h-[clamp(250px,40vh,350px)] aspect-square">
+                      {/* Blobbi Visual - Takes remaining vertical space */}
+                      <div className="flex-1 flex items-center justify-center min-h-0">
+                        <div className="w-2/3 max-w-md aspect-square max-h-full">
                           {selectedBlobbi.lifeStage === 'egg' ? (
                             <EggGraphic
                               blobbi={selectedBlobbi}
@@ -501,13 +498,13 @@ export default function BlobbiDashboard() {
                           ) : selectedBlobbi.evolutionForm && selectedBlobbi.evolutionForm !== 'blobbi' ? (
                             <BlobbiEvolvedVisual
                               blobbi={selectedBlobbi}
-                              size="tiny"
+                              size="large"
                               onClick={() => performAction('play')}
                             />
                           ) : (
                             <BlobbiVisual
                               blobbi={selectedBlobbi}
-                              size="tiny"
+                              size="large"
                               onClick={() => performAction('play')}
                             />
                           )}
@@ -573,18 +570,19 @@ export default function BlobbiDashboard() {
                     onTakePhoto={() => setShowPolaroidModal(true)}
                   />
                 )}
-            </div>
-          ) : (
-            <div className="max-w-4xl mx-auto">
-              <Card className="border-dashed">
-                <CardContent className="py-12 text-center">
-                  <p className="text-muted-foreground">
-                    No Blobbi selected. Please select one from the floating menu.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="max-w-4xl mx-auto">
+                <Card className="border-dashed">
+                  <CardContent className="py-12 text-center">
+                    <p className="text-muted-foreground">
+                      No Blobbi selected. Please select one from the floating menu.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Modals */}
@@ -599,8 +597,8 @@ export default function BlobbiDashboard() {
           setShowPushModal={setShowPushModal}
           isShopOpen={isShopOpen}
           setIsShopOpen={setIsShopOpen}
-          isStorageOpen={isStorageOpen}
-          setIsStorageOpen={setIsStorageOpen}
+          isStorageOpen={isInventoryOpen}
+          setIsStorageOpen={setIsInventoryOpen}
           isBuyCoinsModalOpen={isBuyCoinsModalOpen}
           setIsBuyCoinsModalOpen={setIsBuyCoinsModalOpen}
           setActiveTab={() => {}}
@@ -618,6 +616,90 @@ export default function BlobbiDashboard() {
               onClose={() => setShowPolaroidModal(false)}
               blobbi={selectedBlobbi}
             />
+
+            {/* Blobbi Info Modal */}
+            <Dialog open={isBlobbiInfoOpen} onOpenChange={setIsBlobbiInfoOpen}>
+              <DialogContent
+                className={cn(
+                  "w-[calc(100vw-2rem)]",      // mobile: almost full
+                  "sm:w-full",                 // sm+: controled by min/max
+                  "sm:min-w-[420px]",          // MIN desktop
+                  "sm:max-w-[560px]"           // MAX desktop
+                )}
+              >
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold capitalize">
+                    {selectedBlobbi.name}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  {/* Life Stage */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Life Stage
+                    </span>
+                    <Badge variant="outline" className="capitalize">
+                      {selectedBlobbi.lifeStage}
+                    </Badge>
+                  </div>
+
+                  {/* State */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      State
+                    </span>
+                    <Badge variant="secondary" className="capitalize">
+                      {selectedBlobbi.state}
+                    </Badge>
+                  </div>
+
+                  {/* Evolution Form */}
+                  {selectedBlobbi.evolutionForm && selectedBlobbi.evolutionForm !== 'blobbi' && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        Evolution
+                      </span>
+                      <Badge variant="default" className="gap-1 capitalize">
+                        <Sparkles className="w-3 h-3" />
+                        {selectedBlobbi.evolutionForm}
+                      </Badge>
+                    </div>
+                  )}
+
+                  {/* Born */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Born
+                    </span>
+                    <span className="text-sm text-gray-900 dark:text-gray-100">
+                      {formatDistanceToNow(selectedBlobbi.birthTime, { addSuffix: true })}
+                    </span>
+                  </div>
+
+                  {/* Generation (if available) */}
+                  {selectedBlobbi.generation && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        Generation
+                      </span>
+                      <span className="text-sm text-gray-900 dark:text-gray-100">
+                        {selectedBlobbi.generation}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Experience */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Experience
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {selectedBlobbi.experience} XP
+                    </span>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </>
         )}
 
@@ -628,8 +710,9 @@ export default function BlobbiDashboard() {
               blobbi={selectedBlobbi}
               onAction={performAction}
               isPerformingAction={isPerformingAction}
-              onGamesClick={() => setShowGamesModal(true)}
               onOpenShop={() => setIsShopOpen(true)}
+              onSwitchBlobbi={() => setIsSelectorOpen(true)}
+              onOpenInventory={() => setIsInventoryOpen(true)}
             />
           </div>
         )}
