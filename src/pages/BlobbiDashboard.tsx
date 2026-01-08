@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useCoinBalance } from '@/hooks/useCoinBalance';
@@ -14,6 +15,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
 import { useWelcomeConfetti } from '@/hooks/useWelcomeConfetti';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
+import { useBlobbiPiPController } from '@/hooks/useBlobbiPiPController';
 import { DashboardNotLoggedIn } from '@/components/blobbi/dashboard/DashboardNotLoggedIn';
 import { DashboardLoading } from '@/components/blobbi/dashboard/DashboardLoading';
 import { DashboardModals } from '@/components/blobbi/dashboard/DashboardModals';
@@ -35,6 +37,8 @@ import {
   Sparkles,
   Egg,
   Info,
+  Camera,
+  PictureInPicture2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -53,6 +57,16 @@ export default function BlobbiDashboard() {
   const { data: userBlobbis = [] } = useUserBlobbis();
   const { data: coinBalance } = useCoinBalance();
   const { missions, claimMission1, claimMission2, claimBonus, isClaiming } = useDailyMissions();
+
+  // PiP controller
+  const {
+    isPiPActive,
+    activeBlobbiId,
+    isLoading: isPiPLoading,
+    isPiPSupported,
+    startPiP,
+    stopPiP,
+  } = useBlobbiPiPController();
 
   // State hooks
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -107,6 +121,9 @@ export default function BlobbiDashboard() {
     isEvolving,
     isLoading: isBlobbiLoading
   } = useBlobbiWithFakeStatus(undefined, selectedBlobbiId || undefined);
+
+  // Check if PiP is active for the selected Blobbi
+  const isPiPActiveForSelectedBlobbi =  isPiPActive && !!selectedBlobbi && activeBlobbiId === selectedBlobbi.id;
 
   // Incubation and quest systems
   const {
@@ -455,6 +472,77 @@ export default function BlobbiDashboard() {
                         <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                       </Button>
                     )}
+
+                    {/* Quick Action Buttons (PiP & Camera) */}
+                    <div className="absolute top-3 right-3 z-20 flex gap-2">
+                      {/* PiP Button */}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
+                                isPiPActiveForSelectedBlobbi
+                                  ? "bg-purple-100 dark:bg-purple-900/40 border-purple-400 dark:border-purple-500 hover:bg-purple-200 dark:hover:bg-purple-900/60"
+                                  : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105"
+                              )}
+                              onClick={() => {
+                                if (isPiPActiveForSelectedBlobbi) {
+                                  stopPiP();
+                                } else if (selectedBlobbi) {
+                                  startPiP({ blobbiId: selectedBlobbi.id, blobbi: selectedBlobbi });
+                                }
+                              }}
+                              disabled={isPiPLoading || !isPiPSupported}
+                              aria-label={isPiPActiveForSelectedBlobbi ? "Close PiP" : "Open PiP"}
+                            >
+                              {isPiPLoading ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+                              ) : (
+                                <PictureInPicture2
+                                  className={cn(
+                                    "h-4 w-4",
+                                    isPiPActiveForSelectedBlobbi
+                                      ? "text-purple-700 dark:text-purple-300"
+                                      : "text-purple-600 dark:text-purple-400"
+                                  )}
+                                />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {!isPiPSupported
+                              ? "PiP not supported"
+                              : isPiPActiveForSelectedBlobbi
+                              ? "Close PiP"
+                              : "Open PiP"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      {/* Camera Button */}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="p-2 h-8 w-8 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105 transition-all duration-200"
+                              onClick={() => setShowPolaroidModal(true)}
+                              disabled={!selectedBlobbi}
+                              aria-label="Take photo"
+                            >
+                              <Camera className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Take photo
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
 
                     <div className="absolute inset-0 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 z-0"></div>
 
