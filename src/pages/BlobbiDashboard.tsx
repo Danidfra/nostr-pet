@@ -23,7 +23,7 @@ import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 import { EggGraphic } from '@/components/blobbi/EggGraphic';
 import { BlobbiActionsFooter } from '@/components/blobbi/BlobbiActionsFooter';
 import { BlobbiSelectorDrawer } from '@/components/blobbi/BlobbiSelectorDrawer';
-import { BlobbiGrowthHubCard } from '@/components/blobbi/BlobbiGrowthHubCard';
+import { BlobbiGrowthHubModal } from '@/components/blobbi/BlobbiGrowthHubModal';
 import { FloatingMenuButton } from '@/components/blobbi/FloatingMenuButton';
 import { DashboardPanels } from '@/components/blobbi/DashboardPanels';
 import { CircularStatusIndicators } from '@/components/blobbi/CircularStatusIndicators';
@@ -34,7 +34,6 @@ import { PolaroidPhotoModal } from '@/components/blobbi/PolaroidPhotoModal';
 import {
   Sparkles,
   Egg,
-  EggOff,
   Info,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -67,6 +66,7 @@ export default function BlobbiDashboard() {
   const [showPolaroidModal, setShowPolaroidModal] = useState(false);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [isBlobbiInfoOpen, setIsBlobbiInfoOpen] = useState(false);
+  const [isGrowthHubOpen, setIsGrowthHubOpen] = useState(false);
 
   // Panel states
   const [isStatsOpen, setIsStatsOpen] = useState(false);
@@ -421,7 +421,7 @@ export default function BlobbiDashboard() {
                 {/* Blobbi Hero Card - Fills available vertical space */}
                 <Card className="relative min-w-80 sm:min-w-96 overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 flex-1 flex flex-col">
                   <CardContent className="p-4 sm:p-6 md:p-8 relative h-full flex flex-col">
-                    {/* Incubation/Evolution Toggle Buttons */}
+                    {/* Growth Hub Icon Button - Opens Modal */}
                     {selectedBlobbi.lifeStage === 'egg' && (
                       <Button
                         variant="ghost"
@@ -429,15 +429,13 @@ export default function BlobbiDashboard() {
                         className={cn(
                           "absolute top-3 left-3 z-20 p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
                           shouldShowEggGrowthHub
-                            ? "bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-600"
+                            ? "bg-purple-100 dark:bg-purple-900/20 border-purple-300 dark:border-purple-600"
                             : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600"
                         )}
-                        onClick={shouldShowEggGrowthHub ? handleStopIncubation : handleStartIncubation}
+                        onClick={() => setIsGrowthHubOpen(true)}
+                        aria-label="Open Growth Hub"
                       >
-                        {shouldShowEggGrowthHub ?
-                          <EggOff className="h-4 w-4 text-purple-600 dark:text-purple-400" /> :
-                          <Egg className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                        }
+                        <Egg className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                       </Button>
                     )}
 
@@ -448,10 +446,11 @@ export default function BlobbiDashboard() {
                         className={cn(
                           "absolute top-3 left-3 z-20 p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
                           shouldShowBabyGrowthHub
-                            ? "bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-600"
+                            ? "bg-purple-100 dark:bg-purple-900/20 border-purple-300 dark:border-purple-600"
                             : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600"
                         )}
-                        onClick={shouldShowBabyGrowthHub ? handleStopEvolution : handleStartQuestTracking}
+                        onClick={() => setIsGrowthHubOpen(true)}
+                        aria-label="Open Growth Hub"
                       >
                         <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                       </Button>
@@ -513,63 +512,6 @@ export default function BlobbiDashboard() {
                     </div>
                   </CardContent>
                 </Card>
-
-                {/* Growth Hub */}
-                {shouldShowEggGrowthHub && (
-                  <BlobbiGrowthHubCard
-                    blobbi={selectedBlobbi}
-                    mode="egg"
-                    eggTasks={eggTasks}
-                    isReadyToHatch={isReadyToHatch}
-                    incubationStartTime={incubationStartTime || undefined}
-                    taskSubscriptionActive={taskSubscriptionActive}
-                    onStartIncubation={handleStartIncubation}
-                    onStopIncubation={handleStopIncubation}
-                    onHatchBlobbi={hatchBlobbi}
-                    onMarkPhotoTaskCompleted={markPhotoTaskCompleted}
-                    onMarkFirstPostTaskCompleted={() => {}}
-                    isTaskCompleted={isTaskCompleted}
-                    babyQuests={[]}
-                    questProgress={{ completed: 0, total: 0, percentage: 0 }}
-                    isReadyToEvolve={false}
-                    questStartTime={undefined}
-                    questSubscriptionActive={false}
-                    isQuestListening={false}
-                    onStartQuestTracking={() => {}}
-                    onStopEvolution={() => {}}
-                    onTriggerEvolution={() => {}}
-                    isEvolving={false}
-                    onTakePhoto={() => setShowPolaroidModal(true)}
-                  />
-                )}
-
-                {shouldShowBabyGrowthHub && (
-                  <BlobbiGrowthHubCard
-                    blobbi={selectedBlobbi}
-                    mode="baby"
-                    eggTasks={[]}
-                    isReadyToHatch={false}
-                    incubationStartTime={undefined}
-                    taskSubscriptionActive={false}
-                    onStartIncubation={() => {}}
-                    onStopIncubation={() => {}}
-                    onHatchBlobbi={() => {}}
-                    onMarkPhotoTaskCompleted={() => {}}
-                    onMarkFirstPostTaskCompleted={() => {}}
-                    isTaskCompleted={() => false}
-                    babyQuests={babyToAdultQuests}
-                    questProgress={questProgress}
-                    isReadyToEvolve={isQuestReadyToEvolve}
-                    questStartTime={questStartTime || undefined}
-                    questSubscriptionActive={questSubscriptionActive}
-                    isQuestListening={isListening}
-                    onStartQuestTracking={handleStartQuestTracking}
-                    onStopEvolution={handleStopEvolution}
-                    onTriggerEvolution={triggerEvolution}
-                    isEvolving={isPerformingAction}
-                    onTakePhoto={() => setShowPolaroidModal(true)}
-                  />
-                )}
               </div>
             ) : (
               <div className="max-w-4xl mx-auto">
@@ -616,6 +558,47 @@ export default function BlobbiDashboard() {
               onClose={() => setShowPolaroidModal(false)}
               blobbi={selectedBlobbi}
             />
+
+            {/* Growth Hub Modal */}
+            {selectedBlobbi.lifeStage === 'egg' && (
+              <BlobbiGrowthHubModal
+                open={isGrowthHubOpen}
+                onOpenChange={setIsGrowthHubOpen}
+                blobbi={selectedBlobbi}
+                mode="egg"
+                eggTasks={eggTasks}
+                isReadyToHatch={isReadyToHatch}
+                incubationStartTime={incubationStartTime || undefined}
+                taskSubscriptionActive={taskSubscriptionActive}
+                onStartIncubation={handleStartIncubation}
+                onStopIncubation={handleStopIncubation}
+                onHatchBlobbi={hatchBlobbi}
+                onMarkPhotoTaskCompleted={markPhotoTaskCompleted}
+                onMarkFirstPostTaskCompleted={() => {}}
+                isTaskCompleted={isTaskCompleted}
+                onTakePhoto={() => setShowPolaroidModal(true)}
+              />
+            )}
+
+            {selectedBlobbi.lifeStage === 'baby' && (
+              <BlobbiGrowthHubModal
+                open={isGrowthHubOpen}
+                onOpenChange={setIsGrowthHubOpen}
+                blobbi={selectedBlobbi}
+                mode="baby"
+                babyQuests={babyToAdultQuests}
+                questProgress={questProgress}
+                isReadyToEvolve={isQuestReadyToEvolve}
+                questStartTime={questStartTime || undefined}
+                questSubscriptionActive={questSubscriptionActive}
+                isQuestListening={isListening}
+                onStartQuestTracking={handleStartQuestTracking}
+                onStopEvolution={handleStopEvolution}
+                onTriggerEvolution={triggerEvolution}
+                isEvolving={isPerformingAction}
+                onTakePhoto={() => setShowPolaroidModal(true)}
+              />
+            )}
 
             {/* Blobbi Info Modal */}
             <Dialog open={isBlobbiInfoOpen} onOpenChange={setIsBlobbiInfoOpen}>
