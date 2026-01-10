@@ -4,7 +4,6 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import BlobbiDashboard from "./pages/BlobbiDashboard";
 import BlobbiDetail from "./pages/BlobbiDetail";
-import BlobbiProfile from "./pages/BlobbiProfile";
 import BlobbiCommunity from "./pages/BlobbiCommunity";
 import BlobbiEvolution from "./pages/BlobbiEvolution";
 import { BlobbiAdoptionPage } from "./pages/BlobbiAdoptionPage";
@@ -80,7 +79,6 @@ function AppContent() {
         <Route path="/blobbi/adopt" element={<BlobbiAdoptionPage />} />
         <Route path="/blobbi/evolution" element={<BlobbiEvolution />} />
         <Route path="/blobbi/community" element={<BlobbiCommunity />} />
-        <Route path="/blobbi/profile/:pubkey" element={<BlobbiProfile />} />
         <Route path="/games/bubble-pop" element={<BubblePopGame />} />
         <Route path="/games/number-guess" element={<NumberGuessGame />} />
         <Route path="/games/tic-tac-toe" element={<TicTacToeGame />} />
