@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { BlobbiAction, Blobbi } from '@/types/blobbi';
-import { Gamepad2, Package, Sparkles } from 'lucide-react';
+import { Gamepad2, Package, Sparkles, ShoppingBag, Target } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { BlobbiInventoryModal } from './BlobbiInventoryModal';
@@ -21,16 +21,22 @@ interface BlobbiActionsFooterProps {
   onOpenShop?: () => void;
   onSwitchBlobbi?: () => void;
   onOpenInventory?: () => void;
+  onOpenMissions?: () => void;
 }
 
 /**
  * Reusable Blobbi actions footer component
  * Used in both the detail page and dashboard
  *
- * Simple 3-button layout:
- * - Left: Switch Blobbi
+ * Dashboard mode: 5-button layout
+ * - Left: Shop
+ * - Left-center: Inventory
  * - Center: Actions (opens modal)
- * - Right: Inventory
+ * - Right-center: Blobbies (Switch)
+ * - Right: Missions
+ *
+ * Detail page mode: 1-button layout
+ * - Center: Actions (opens modal)
  */
 export function BlobbiActionsFooter({
   blobbi,
@@ -40,6 +46,7 @@ export function BlobbiActionsFooter({
   onOpenShop,
   onSwitchBlobbi,
   onOpenInventory,
+  onOpenMissions,
 }: BlobbiActionsFooterProps) {
   const { updateFakeStatus } = useBlobbiFakeStatus();
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
@@ -158,20 +165,37 @@ export function BlobbiActionsFooter({
       <div className={cn("bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t-2 border-purple-300 dark:border-purple-600 shadow-lg", className)}>
         <div className="container mx-auto px-4 py-3">
           {isDashboardMode ? (
-            // Dashboard mode: 3-button layout
-            <div className="flex items-center justify-between sm:justify-center sm:gap-10 max-w-4xl mx-auto">
-              {/* Left: Switch Blobbi */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onSwitchBlobbi}
-                disabled={isPerformingAction}
-                className="flex items-center gap-2 px-4 py-2.5 h-auto rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/20"
-                title="Switch to another Blobbi"
-              >
-                <Sparkles className="w-5 h-5" />
-                <span className="text-sm font-medium hidden sm:inline">Switch</span>
-              </Button>
+            // Dashboard mode: 5-button layout
+            <div className="flex items-center justify-between sm:justify-center sm:gap-4 lg:gap-8 max-w-6xl mx-auto">
+              {/* Left: Shop */}
+              {onSwitchBlobbi && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onSwitchBlobbi}
+                  disabled={isPerformingAction}
+                  className="flex items-center gap-2 px-3 py-2.5 h-auto rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/20"
+                  title="Switch to another Blobbi"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  <span className="text-sm font-medium hidden sm:inline">Blobbies</span>
+                </Button>
+              )}
+
+              {/* Right: Missions */}
+              {onOpenMissions && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onOpenMissions}
+                  disabled={isPerformingAction}
+                  className="flex items-center gap-2 px-3 py-2.5 h-auto rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/20"
+                  title="Open missions"
+                >
+                  <Target className="w-5 h-5" />
+                  <span className="text-sm font-medium hidden sm:inline">Missions</span>
+                </Button>
+              )}
 
               {/* Center: Actions */}
               <Button
@@ -186,18 +210,35 @@ export function BlobbiActionsFooter({
                 <span className="text-sm font-medium">Actions</span>
               </Button>
 
-              {/* Right: Inventory */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onOpenInventory}
-                disabled={isPerformingAction}
-                className="flex items-center gap-2 px-4 py-2.5 h-auto rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/20"
-                title="Open inventory"
-              >
-                <Package className="w-5 h-5" />
-                <span className="text-sm font-medium hidden sm:inline">Inventory</span>
-              </Button>
+              {/* Right-center: Blobbies (Switch) */}
+              {onOpenShop && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onOpenShop}
+                  disabled={isPerformingAction}
+                  className="flex items-center gap-2 px-3 py-2.5 h-auto rounded-full hover:bg-green-100 dark:hover:bg-green-900/20"
+                  title="Open shop"
+                >
+                  <ShoppingBag className="w-5 h-5" />
+                  <span className="text-sm font-medium hidden sm:inline">Shop</span>
+                </Button>
+              )}
+
+              {/* Left-center: Inventory */}
+              {onOpenInventory && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onOpenInventory}
+                  disabled={isPerformingAction}
+                  className="flex items-center gap-2 px-3 py-2.5 h-auto rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/20"
+                  title="Open inventory"
+                >
+                  <Package className="w-5 h-5" />
+                  <span className="text-sm font-medium hidden sm:inline">Inventory</span>
+                </Button>
+              )}
             </div>
           ) : (
             // Detail page mode: Just the Actions button centered

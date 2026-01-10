@@ -1,8 +1,8 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LoginArea } from '@/components/auth/LoginArea';
-import { ThemeToggle } from '@/components/theme-toggle';
-import { SettingsButton } from '@/components/SettingsButton';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useCoinBalance } from '@/hooks/useCoinBalance';
+import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,14 +11,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Home, ArrowLeft, Users } from 'lucide-react';
+import { MoreVertical, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function HeaderActions() {
+  const { data: coinBalance } = useCoinBalance();
+  const { data: profile } = useBlobbonautProfile();
+  const totalCoins = coinBalance?.balance || profile?.coins || 0;
+
   return (
     <>
-      <SettingsButton />
-      <ThemeToggle />
+      {/* Coin Balance Display */}
+      <div className={cn(
+        "px-3 py-1.5 rounded-full backdrop-blur-sm border transition-all duration-200",
+        "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600",
+        "flex items-center gap-1.5"
+      )}>
+        <span className="text-base">🪙</span>
+        <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+          {totalCoins}
+        </span>
+      </div>
       <div className="max-w-40">
         <LoginArea />
       </div>
@@ -27,6 +40,10 @@ function HeaderActions() {
 }
 
 function MobileHeaderMenu() {
+  const { data: coinBalance } = useCoinBalance();
+  const { data: profile } = useBlobbonautProfile();
+  const totalCoins = coinBalance?.balance || profile?.coins || 0;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -63,16 +80,18 @@ function MobileHeaderMenu() {
           </div>
         </div>
         <DropdownMenuSeparator className="my-1" />
-        <SettingsButton
-          variant="ghost"
-          size="default"
-          className={cn(
-            "w-full justify-start h-auto py-2 px-3",
-            "hover:bg-accent/80 rounded-md transition-all duration-200",
-            "focus-visible:ring-0 focus-visible:ring-offset-0"
-          )}
-          showLabel={true}
-        />
+        <div className="p-3">
+          <div className={cn(
+            "px-3 py-2 rounded-md backdrop-blur-sm border",
+            "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600",
+            "flex items-center gap-2"
+          )}>
+            <span className="text-base">🪙</span>
+            <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+              {totalCoins} Coins
+            </span>
+          </div>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -105,7 +124,7 @@ export function GlobalHeader() {
               </Button>
             )}
             <Link
-              to="/"
+              to="/blobbi"
               className="flex items-center gap-3 hover:opacity-80 transition-opacity duration-200"
             >
               <img
@@ -123,36 +142,6 @@ export function GlobalHeader() {
 
           {/* Navigation Actions */}
           <div className="flex items-center gap-2">
-            {/* Home button */}
-            <Link to="/blobbi">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors",
-                  location.pathname === '/blobbi' && "text-foreground bg-purple-50 dark:bg-purple-900/20"
-                )}
-              >
-                <Home className="h-4 w-4" />
-                Home
-              </Button>
-            </Link>
-
-            {/* Community button */}
-            <Link to="/blobbi/community">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors",
-                  isCommunityPage && "text-foreground bg-purple-50 dark:bg-purple-900/20"
-                )}
-              >
-                <Users className="h-4 w-4" />
-                Community
-              </Button>
-            </Link>
-
             {/* Desktop: Show individual buttons */}
             <div className="hidden md:flex items-center gap-2">
               <HeaderActions />
@@ -160,33 +149,6 @@ export function GlobalHeader() {
 
             {/* Mobile: Show dropdown menu */}
             <div className="flex md:hidden gap-2">
-              <Link to="/blobbi">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "text-muted-foreground hover:text-foreground transition-colors",
-                    location.pathname === '/blobbi' && "text-foreground bg-purple-50 dark:bg-purple-900/20"
-                  )}
-                >
-                  <Home className="h-4 w-4" />
-                  <span className="sr-only">Home</span>
-                </Button>
-              </Link>
-              <Link to="/blobbi/community">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "text-muted-foreground hover:text-foreground transition-colors",
-                    isCommunityPage && "text-foreground bg-purple-50 dark:bg-purple-900/20"
-                  )}
-                >
-                  <Users className="h-4 w-4" />
-                  <span className="sr-only">Community</span>
-                </Button>
-              </Link>
-              <ThemeToggle />
               <MobileHeaderMenu />
             </div>
           </div>

@@ -49,17 +49,13 @@ function clampPosition(pos: Position): Position {
 
 interface FloatingMenuButtonProps {
   coinBalance: number;
-  onOpenShop: () => void;
   onOpenStats: () => void;
-  onOpenMissions: () => void;
   className?: string;
 }
 
 export function FloatingMenuButton({
   coinBalance,
-  onOpenShop,
   onOpenStats,
-  onOpenMissions,
   className,
 }: FloatingMenuButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -175,9 +171,7 @@ export function FloatingMenuButton({
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         coinBalance={coinBalance}
-        onOpenShop={onOpenShop}
         onOpenStats={onOpenStats}
-        onOpenMissions={onOpenMissions}
       />
     </>
   );

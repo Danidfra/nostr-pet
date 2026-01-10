@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -29,16 +28,17 @@ import { BlobbiGrowthHubModal } from '@/components/blobbi/BlobbiGrowthHubModal';
 import { FloatingMenuButton } from '@/components/blobbi/FloatingMenuButton';
 import { DashboardPanels } from '@/components/blobbi/DashboardPanels';
 import { CircularStatusIndicators } from '@/components/blobbi/CircularStatusIndicators';
-import { BlobbiShop } from '@/components/blobbi/BlobbiShop';
-import { BlobbiStorage } from '@/components/blobbi/BlobbiStorage';
 import { BlobbiGamesModal } from '@/components/blobbi/BlobbiGamesModal';
 import { PolaroidPhotoModal } from '@/components/blobbi/PolaroidPhotoModal';
+import { SettingsModal } from '@/components/SettingsModal';
 import {
   Sparkles,
   Egg,
   Info,
   Camera,
   PictureInPicture2,
+  Users,
+  Settings,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -46,6 +46,32 @@ import { cn } from '@/lib/utils';
 declare global {
   interface Window {
     gtag?: (command: string, eventName: string, params?: unknown) => void;
+  }
+}
+
+// LocalStorage helpers for persisting selected Blobbi
+const LAST_SELECTED_KEY_BASE = "blobbi:lastSelectedId:v1";
+
+function getStorageKey(userPubkey?: string): string {
+  return userPubkey ? `${LAST_SELECTED_KEY_BASE}:${userPubkey}` : LAST_SELECTED_KEY_BASE;
+}
+
+function getLastSelectedId(userPubkey?: string): string | null {
+  try {
+    const key = getStorageKey(userPubkey);
+    return localStorage.getItem(key);
+  } catch (error) {
+    console.warn('Failed to read last selected blobbi from localStorage:', error);
+    return null;
+  }
+}
+
+function setLastSelectedId(id: string, userPubkey?: string): void {
+  try {
+    const key = getStorageKey(userPubkey);
+    localStorage.setItem(key, id);
+  } catch (error) {
+    console.warn('Failed to save last selected blobbi to localStorage:', error);
   }
 }
 
@@ -81,6 +107,9 @@ export default function BlobbiDashboard() {
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [isBlobbiInfoOpen, setIsBlobbiInfoOpen] = useState(false);
   const [isGrowthHubOpen, setIsGrowthHubOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showSwitchIncubationModal, setShowSwitchIncubationModal] = useState(false);
+  const [pendingIncubationTargetId, setPendingIncubationTargetId] = useState<string | null>(null);
 
   // Panel states
   const [isStatsOpen, setIsStatsOpen] = useState(false);
@@ -94,23 +123,54 @@ export default function BlobbiDashboard() {
   const { toast } = useToast();
   useWelcomeConfetti(showTourCompletionModal);
 
-  // Initialize selected Blobbi
+  // Initialize selected Blobbi with localStorage persistence
   useEffect(() => {
-    if (!selectedBlobbiId && userBlobbis.length > 0) {
-      // Priority: currentCompanion > first active > first blobbi
-      const companionBlobbi = profile?.currentCompanion
-        ? userBlobbis.find(b => b.id === profile.currentCompanion)
-        : null;
+    // Only initialize when we don't have a selection and blobbis are loaded
+    if (selectedBlobbiId || userBlobbis.length === 0) return;
 
-      const firstActive = userBlobbis.find(b => b.state === 'active');
-      const fallback = userBlobbis[0];
-
-      const initialBlobbi = companionBlobbi || firstActive || fallback;
-      if (initialBlobbi) {
-        setSelectedBlobbiId(initialBlobbi.id);
-      }
+    // Priority 1: Last selected blobbi from localStorage (if still exists)
+    const lastSelectedId = getLastSelectedId(user?.pubkey);
+    if (lastSelectedId && userBlobbis.some(b => b.id === lastSelectedId)) {
+      setSelectedBlobbiId(lastSelectedId);
+      return;
     }
-  }, [userBlobbis, profile?.currentCompanion, selectedBlobbiId]);
+
+    // Priority 2: Current companion (if exists in blobbis)
+    const companionBlobbi = profile?.currentCompanion
+      ? userBlobbis.find(b => b.id === profile.currentCompanion)
+      : null;
+    if (companionBlobbi) {
+      setSelectedBlobbiId(companionBlobbi.id);
+      return;
+    }
+
+    // Priority 3: First active blobbi
+    const firstActive = userBlobbis.find(b => b.state === 'active');
+    if (firstActive) {
+      setSelectedBlobbiId(firstActive.id);
+      return;
+    }
+
+    // Priority 4: First blobbi
+    if (userBlobbis[0]) {
+      setSelectedBlobbiId(userBlobbis[0].id);
+    }
+  }, [selectedBlobbiId, userBlobbis, profile?.currentCompanion, user?.pubkey]);
+
+  // Persist selected Blobbi to localStorage whenever it changes
+  useEffect(() => {
+    if (selectedBlobbiId && userBlobbis.some(b => b.id === selectedBlobbiId)) {
+      setLastSelectedId(selectedBlobbiId, user?.pubkey);
+    }
+  }, [selectedBlobbiId, userBlobbis, user?.pubkey]);
+
+  // Validate selected Blobbi still exists - reset if deleted
+  useEffect(() => {
+    if (selectedBlobbiId && userBlobbis.length > 0 && !userBlobbis.some(b => b.id === selectedBlobbiId)) {
+      // Selected blobbi no longer exists, reset to null to trigger re-initialization
+      setSelectedBlobbiId(null);
+    }
+  }, [selectedBlobbiId, userBlobbis]);
 
   // Get the selected Blobbi with fake status
   const {
@@ -153,9 +213,9 @@ export default function BlobbiDashboard() {
     selectedBabyId,
   } = useBlobbiQuestSystem();
 
-  // Local UI flags
-  const [isIncubatingUI, setIsIncubatingUI] = useState(false);
-  const [isEvolvingUI, setIsEvolvingUI] = useState(false);
+  // Local UI flags - SCOPED to blobbi ID for correctness
+  const [incubatingUiBlobbiId, setIncubatingUiBlobbiId] = useState<string | null>(null);
+  const [evolvingUiBlobbiId, setEvolvingUiBlobbiId] = useState<string | null>(null);
   const [hideIncubationUI, setHideIncubationUI] = useState(false);
   const [hideEvolutionUI, setHideEvolutionUI] = useState(false);
   const [pendingEggToIncubate, setPendingEggToIncubate] = useState<string | null>(null);
@@ -228,10 +288,10 @@ export default function BlobbiDashboard() {
   // Effect: Handle pending egg incubation
   useEffect(() => {
     if (pendingEggToIncubate && selectedEggId === pendingEggToIncubate) {
-      setIsIncubatingUI(true);
+      setIncubatingUiBlobbiId(pendingEggToIncubate);
       startIncubation().catch(error => {
         console.error('[INCUBATION] Failed to start incubation:', error);
-        setIsIncubatingUI(false);
+        setIncubatingUiBlobbiId(null);
       });
       setPendingEggToIncubate(null);
     }
@@ -240,31 +300,45 @@ export default function BlobbiDashboard() {
   // Effect: Handle pending baby evolution
   useEffect(() => {
     if (pendingBabyToTrack && selectedBabyId === pendingBabyToTrack) {
-      setIsEvolvingUI(true);
+      setEvolvingUiBlobbiId(pendingBabyToTrack);
       startQuestTracking().catch(error => {
         console.error('[EVOLUTION] Failed to start quest tracking:', error);
-        setIsEvolvingUI(false);
+        setEvolvingUiBlobbiId(null);
       });
       setPendingBabyToTrack(null);
     }
   }, [selectedBabyId, pendingBabyToTrack, startQuestTracking]);
 
-  // Sync UI flags
+  // Sync UI flags - clear optimistic state when tags appear or subscription ends
   useEffect(() => {
-    if (isIncubatingUI && !selectedBlobbi?.tags?.some((tag: string[]) =>
-      tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
-    ) && !taskSubscriptionActive) {
-      setIsIncubatingUI(false);
+    if (incubatingUiBlobbiId) {
+      const blobbi = userBlobbis.find(b => b.id === incubatingUiBlobbiId);
+      if (blobbi?.tags?.some((tag: string[]) =>
+        tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
+      )) {
+        // Tags appeared, clear optimistic UI
+        setIncubatingUiBlobbiId(null);
+      } else if (!taskSubscriptionActive) {
+        // Subscription ended without tags appearing, clear optimistic UI
+        setIncubatingUiBlobbiId(null);
+      }
     }
-  }, [isIncubatingUI, selectedBlobbi?.tags, taskSubscriptionActive]);
+  }, [incubatingUiBlobbiId, userBlobbis, taskSubscriptionActive]);
 
   useEffect(() => {
-    if (isEvolvingUI && !selectedBlobbi?.tags?.some((tag: string[]) =>
-      tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
-    ) && !questSubscriptionActive) {
-      setIsEvolvingUI(false);
+    if (evolvingUiBlobbiId) {
+      const blobbi = userBlobbis.find(b => b.id === evolvingUiBlobbiId);
+      if (blobbi?.tags?.some((tag: string[]) =>
+        tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
+      )) {
+        // Tags appeared, clear optimistic UI
+        setEvolvingUiBlobbiId(null);
+      } else if (!questSubscriptionActive) {
+        // Subscription ended without tags appearing, clear optimistic UI
+        setEvolvingUiBlobbiId(null);
+      }
     }
-  }, [isEvolvingUI, selectedBlobbi?.tags, questSubscriptionActive]);
+  }, [evolvingUiBlobbiId, userBlobbis, questSubscriptionActive]);
 
   // Memoized stats
   const stats = useMemo(() => ({
@@ -278,23 +352,119 @@ export default function BlobbiDashboard() {
     careStreak: Math.max(...userBlobbis.map(b => b.careStreak || 0), 0),
   }), [userBlobbis, coinBalance, profile]);
 
+  // Find which blobbi is currently incubating (if any)
+  const incubatingBlobbi = useMemo(() => {
+    return userBlobbis.find(b =>
+      b.lifeStage === 'egg' &&
+      b.tags?.some((tag: string[]) =>
+        tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
+      )
+    );
+  }, [userBlobbis]);
+
+  // Find which blobbi is currently evolving (if any)
+  const evolvingBlobbi = useMemo(() => {
+    return userBlobbis.find(b =>
+      b.lifeStage === 'baby' &&
+      b.tags?.some((tag: string[]) =>
+        tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
+      )
+    );
+  }, [userBlobbis]);
+
+  // Check if the selected blobbi is actually incubating - SOURCE OF TRUTH
+  const isSelectedIncubating = useMemo(() => {
+    if (!selectedBlobbi || selectedBlobbi.lifeStage !== 'egg') return false;
+    return selectedBlobbi.tags?.some((tag: string[]) =>
+      tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
+    ) || false;
+  }, [selectedBlobbi]);
+
+  // Check if the selected blobbi is actually evolving - SOURCE OF TRUTH
+  const isSelectedEvolving = useMemo(() => {
+    if (!selectedBlobbi || selectedBlobbi.lifeStage !== 'baby') return false;
+    return selectedBlobbi.tags?.some((tag: string[]) =>
+      tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
+    ) || false;
+  }, [selectedBlobbi]);
+
+  // Check if we're optimistically showing incubation UI for the selected blobbi
+  const isOptimisticallyIncubating = incubatingUiBlobbiId === selectedBlobbi?.id;
+  const isOptimisticallyEvolving = evolvingUiBlobbiId === selectedBlobbi?.id;
+
   // Handlers for incubation/evolution
   const handleStartIncubation = async () => {
     if (!selectedBlobbi) return;
+
+    // Check if another blobbi is already incubating
+    if (incubatingBlobbi && incubatingBlobbi.id !== selectedBlobbi.id) {
+      setPendingIncubationTargetId(selectedBlobbi.id);
+      setShowSwitchIncubationModal(true);
+      return;
+    }
+
+    // Proceed with normal incubation start
     setPendingEggToIncubate(selectedBlobbi.id);
     selectEgg(selectedBlobbi.id);
   };
 
   const handleStopIncubation = async () => {
+    if (!selectedBlobbi) return;
+
     setHideIncubationUI(true);
-    setIsIncubatingUI(false);
+    setIncubatingUiBlobbiId(null);
     try {
       await stopIncubation();
     } catch (error) {
       console.error('[OPTIMISTIC] Failed to stop incubation:', error);
       setHideIncubationUI(false);
-      setIsIncubatingUI(true);
+      setIncubatingUiBlobbiId(selectedBlobbi.id);
     }
+  };
+
+  const confirmSwitchIncubation = async () => {
+    if (!pendingIncubationTargetId) return;
+
+    try {
+      // Step 1: Stop current incubation (await it)
+      await stopIncubation();
+
+      // Step 2: Select the new egg
+      selectEgg(pendingIncubationTargetId);
+
+      // Step 3: Start incubation on new egg
+      setIncubatingUiBlobbiId(pendingIncubationTargetId);
+      setPendingEggToIncubate(pendingIncubationTargetId);
+
+      // Close modal and reset
+      setShowSwitchIncubationModal(false);
+      setPendingIncubationTargetId(null);
+
+      toast({
+        title: "Incubation Switched",
+        description: "Successfully switched incubation to the new egg.",
+      });
+    } catch (error) {
+      console.error('[SWITCH INCUBATION] Failed:', error);
+
+      // Clear optimistic state
+      setIncubatingUiBlobbiId(null);
+
+      toast({
+        title: "Error",
+        description: "Failed to switch incubation. Please try again.",
+        variant: "destructive",
+      });
+
+      // Reset modal state on error
+      setShowSwitchIncubationModal(false);
+      setPendingIncubationTargetId(null);
+    }
+  };
+
+  const cancelSwitchIncubation = () => {
+    setShowSwitchIncubationModal(false);
+    setPendingIncubationTargetId(null);
   };
 
   const handleStartQuestTracking = async () => {
@@ -304,14 +474,16 @@ export default function BlobbiDashboard() {
   };
 
   const handleStopEvolution = async () => {
+    if (!selectedBlobbi) return;
+
     setHideEvolutionUI(true);
-    setIsEvolvingUI(false);
+    setEvolvingUiBlobbiId(null);
     try {
       await stopEvolution();
     } catch (error) {
       console.error('[OPTIMISTIC] Failed to stop evolution:', error);
       setHideEvolutionUI(false);
-      setIsEvolvingUI(true);
+      setEvolvingUiBlobbiId(selectedBlobbi.id);
     }
   };
 
@@ -354,37 +526,34 @@ export default function BlobbiDashboard() {
   if (user && isProfileLoading) return <DashboardLoading />;
   if (user && !profile) return <DashboardLoading />;
 
-  // Check for selected blobbi
-  const hasIncubationTag = selectedBlobbi?.tags?.some((tag: string[]) =>
-    tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
-  );
-  const hasEvolutionTag = selectedBlobbi?.tags?.some((tag: string[]) =>
-    tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
-  );
-
+  // Growth Hub display flags - STRICTLY per-blobbi, no global leaks
   const shouldShowEggGrowthHub = selectedBlobbi?.lifeStage === 'egg' && !hideIncubationUI && (
-    hasIncubationTag || taskSubscriptionActive || isIncubatingUI
+    isSelectedIncubating || isOptimisticallyIncubating
   );
 
   const shouldShowBabyGrowthHub = selectedBlobbi?.lifeStage === 'baby' && !hideEvolutionUI && (
-    hasEvolutionTag || questSubscriptionActive || isEvolvingUI
+    isSelectedEvolving || isOptimisticallyEvolving
   );
 
   return (
     <BlobbiLayout>
-      <div
-        className="bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 overflow-y-hidden"
-        style={{
-          height: 'calc(100dvh - var(--app-header-h))',
-          paddingBottom: 'var(--app-footer-h)'
-        }}
-      >
+      <TooltipProvider>
+        <div
+          className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-t-2 border-t-purple-300 dark:border-t-purple-600 overflow-y-hidden px-4 py-4 sm:px-6 sm:py-6"
+          style={{
+            height: 'calc(100dvh - var(--app-header-h))',
+            paddingBottom: 'var(--app-footer-h)'
+          }}
+        >
+          {/* Decorative gradient overlay */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30" />
+
+          {/* Real content wrapper */}
+          <div className="relative z-10 h-full flex flex-col min-h-0">
         {/* Floating Menu Button */}
         <FloatingMenuButton
           coinBalance={stats.totalCoins}
-          onOpenShop={() => setIsShopOpen(true)}
           onOpenStats={() => setIsStatsOpen(true)}
-          onOpenMissions={() => setIsMissionsOpen(true)}
         />
 
         {/* Dashboard Panels (Sheets) */}
@@ -430,14 +599,14 @@ export default function BlobbiDashboard() {
           onOpenChange={setIsSelectorOpen}
         />
 
-        {/* Centered Main Content - Fills available height */}
-        <div className="h-full flex flex-col">
-          <div className="container mx-auto px-4 py-4 flex-1 flex flex-col">
+          {/* Centered Main Content - Fills available height */}
+          <div className="container mx-auto max-w-4xl flex-1 min-h-0 flex flex-col gap-4">
             {selectedBlobbi ? (
-              <div className="max-w-4xl mx-auto flex-1 flex flex-col gap-4">
-                {/* Blobbi Hero Card - Fills available vertical space */}
-                <Card className="relative min-w-80 sm:min-w-96 overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 flex-1 flex flex-col">
-                  <CardContent className="p-4 sm:p-6 md:p-8 relative h-full flex flex-col">
+              <div className="relative flex-1 min-h-0">
+                {/* Invisible Control Rail (Desktop Only) - OUTSIDE content bounds */}
+
+                {/* Hero Content (no card wrapper) */}
+                <div className="relative h-full flex flex-col min-h-0">
                     {/* Growth Hub Icon Button - Opens Modal */}
                     {selectedBlobbi.lifeStage === 'egg' && (
                       <Button
@@ -473,80 +642,111 @@ export default function BlobbiDashboard() {
                       </Button>
                     )}
 
-                    {/* Quick Action Buttons (PiP & Camera) */}
-                    <div className="absolute top-3 right-3 z-20 flex gap-2">
+                    {/* Quick Action Buttons - Vertical Column */}
+                    <div className="absolute  -right-8 sm:right-3 z-20 flex flex-col gap-2">
                       {/* PiP Button */}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className={cn(
-                                "p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
-                                isPiPActiveForSelectedBlobbi
-                                  ? "bg-purple-100 dark:bg-purple-900/40 border-purple-400 dark:border-purple-500 hover:bg-purple-200 dark:hover:bg-purple-900/60"
-                                  : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105"
-                              )}
-                              onClick={() => {
-                                if (isPiPActiveForSelectedBlobbi) {
-                                  stopPiP();
-                                } else if (selectedBlobbi) {
-                                  startPiP({ blobbiId: selectedBlobbi.id, blobbi: selectedBlobbi });
-                                }
-                              }}
-                              disabled={isPiPLoading || !isPiPSupported}
-                              aria-label={isPiPActiveForSelectedBlobbi ? "Close PiP" : "Open PiP"}
-                            >
-                              {isPiPLoading ? (
-                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
-                              ) : (
-                                <PictureInPicture2
-                                  className={cn(
-                                    "h-4 w-4",
-                                    isPiPActiveForSelectedBlobbi
-                                      ? "text-purple-700 dark:text-purple-300"
-                                      : "text-purple-600 dark:text-purple-400"
-                                  )}
-                                />
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {!isPiPSupported
-                              ? "PiP not supported"
-                              : isPiPActiveForSelectedBlobbi
-                              ? "Close PiP"
-                              : "Open PiP"}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                              "p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
+                              isPiPActiveForSelectedBlobbi
+                                ? "bg-purple-100 dark:bg-purple-900/40 border-purple-400 dark:border-purple-500 hover:bg-purple-200 dark:hover:bg-purple-900/60"
+                                : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105"
+                            )}
+                            onClick={() => {
+                              if (isPiPActiveForSelectedBlobbi) {
+                                stopPiP();
+                              } else if (selectedBlobbi) {
+                                startPiP({ blobbiId: selectedBlobbi.id, blobbi: selectedBlobbi });
+                              }
+                            }}
+                            disabled={isPiPLoading || !isPiPSupported}
+                            aria-label={isPiPActiveForSelectedBlobbi ? "Close PiP" : "Open PiP"}
+                          >
+                            {isPiPLoading ? (
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+                            ) : (
+                              <PictureInPicture2
+                                className={cn(
+                                  "h-4 w-4",
+                                  isPiPActiveForSelectedBlobbi
+                                    ? "text-purple-700 dark:text-purple-300"
+                                    : "text-purple-600 dark:text-purple-400"
+                                )}
+                              />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {!isPiPSupported
+                            ? "PiP not supported"
+                            : isPiPActiveForSelectedBlobbi
+                            ? "Close PiP"
+                            : "Open PiP"}
+                        </TooltipContent>
+                      </Tooltip>
 
                       {/* Camera Button */}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="p-2 h-8 w-8 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105 transition-all duration-200"
-                              onClick={() => setShowPolaroidModal(true)}
-                              disabled={!selectedBlobbi}
-                              aria-label="Take photo"
-                            >
-                              <Camera className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            Take photo
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-2 h-8 w-8 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105 transition-all duration-200"
+                            onClick={() => setShowPolaroidModal(true)}
+                            disabled={!selectedBlobbi}
+                            aria-label="Take photo"
+                          >
+                            <Camera className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Take photo
+                        </TooltipContent>
+                      </Tooltip>
+
+                      {/* Community Button */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-2 h-8 w-8 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105 transition-all duration-200"
+                            onClick={() => navigate('/blobbi/community')}
+                            aria-label="Community"
+                          >
+                            <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Community
+                        </TooltipContent>
+                      </Tooltip>
+
+                      {/* Settings Button */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-2 h-8 w-8 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105 transition-all duration-200"
+                            onClick={() => setIsSettingsOpen(true)}
+                            aria-label="Settings"
+                          >
+                            <Settings className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Settings
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
 
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 z-0"></div>
-
-                    <div className="relative z-10 h-full flex flex-col">
+                    {/* Content column */}
+                    <div className="h-full flex flex-col">
                       {/* Blobbi Name & Info - Fixed height header */}
                       <div className="text-center mb-3 flex-shrink-0">
                         <div className="relative inline-block">
@@ -573,8 +773,8 @@ export default function BlobbiDashboard() {
                       </div>
 
                       {/* Blobbi Visual - Takes remaining vertical space */}
-                      <div className="flex-1 flex items-center justify-center min-h-0">
-                        <div className="w-2/3 max-w-md aspect-square max-h-full">
+                      <div className="flex-1 flex items-center justify-center min-h-[220px]">
+                        <div className="mx-auto aspect-square w-[220px] max-w-full max-h-full">
                           {selectedBlobbi.lifeStage === 'egg' ? (
                             <EggGraphic
                               blobbi={selectedBlobbi}
@@ -598,22 +798,16 @@ export default function BlobbiDashboard() {
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            ) : (
-              <div className="max-w-4xl mx-auto">
-                <Card className="border-dashed">
-                  <CardContent className="py-12 text-center">
-                    <p className="text-muted-foreground">
-                      No Blobbi selected. Please select one from the floating menu.
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">
+                    No Blobbi selected. Please select one from the floating menu.
+                  </p>
+                </div>
+              )}
           </div>
-        </div>
 
         {/* Modals */}
         <DashboardModals
@@ -656,8 +850,9 @@ export default function BlobbiDashboard() {
                 mode="egg"
                 eggTasks={eggTasks}
                 isReadyToHatch={isReadyToHatch}
-                incubationStartTime={incubationStartTime || undefined}
-                taskSubscriptionActive={taskSubscriptionActive}
+                incubationStartTime={isSelectedIncubating ? (incubationStartTime || undefined) : undefined}
+                taskSubscriptionActive={isSelectedIncubating && taskSubscriptionActive}
+                isIncubatingForThisBlobbi={isSelectedIncubating || isOptimisticallyIncubating}
                 onStartIncubation={handleStartIncubation}
                 onStopIncubation={handleStopIncubation}
                 onHatchBlobbi={hatchBlobbi}
@@ -677,15 +872,64 @@ export default function BlobbiDashboard() {
                 babyQuests={babyToAdultQuests}
                 questProgress={questProgress}
                 isReadyToEvolve={isQuestReadyToEvolve}
-                questStartTime={questStartTime || undefined}
-                questSubscriptionActive={questSubscriptionActive}
-                isQuestListening={isListening}
+                questStartTime={isSelectedEvolving ? (questStartTime || undefined) : undefined}
+                questSubscriptionActive={isSelectedEvolving && questSubscriptionActive}
+                isQuestListening={isSelectedEvolving && isListening}
+                isEvolvingForThisBlobbi={isSelectedEvolving || isOptimisticallyEvolving}
                 onStartQuestTracking={handleStartQuestTracking}
                 onStopEvolution={handleStopEvolution}
                 onTriggerEvolution={triggerEvolution}
                 isEvolving={isPerformingAction}
                 onTakePhoto={() => setShowPolaroidModal(true)}
               />
+            )}
+
+            {/* Switch Incubation Confirmation Modal */}
+            {incubatingBlobbi && (
+              <Dialog open={showSwitchIncubationModal} onOpenChange={setShowSwitchIncubationModal}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Switch Incubation?</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-semibold capitalize">{incubatingBlobbi.name}</span> is currently incubating.
+                      Do you want to switch incubation to the selected egg?
+                    </p>
+
+                    {/* Thumbnail preview of currently incubating blobbi */}
+                    <div className="flex justify-center">
+                      <div className="w-32 h-32 flex items-center justify-center">
+                        <EggGraphic
+                          blobbi={incubatingBlobbi}
+                          sizeVariant="tiny"
+                          animated={true}
+                          warmth={incubatingBlobbi.eggTemperature || 60}
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground text-center">
+                      Switching will stop incubation for {incubatingBlobbi.name} and start it for the new egg.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={cancelSwitchIncubation}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={confirmSwitchIncubation}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      Yes, Switch
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             )}
 
             {/* Blobbi Info Modal */}
@@ -774,20 +1018,30 @@ export default function BlobbiDashboard() {
           </>
         )}
 
-        {/* Sticky Actions Footer - Game Controls */}
-        {selectedBlobbi && (
-          <div className="fixed bottom-0 left-0 right-0 z-40">
-            <BlobbiActionsFooter
-              blobbi={selectedBlobbi}
-              onAction={performAction}
-              isPerformingAction={isPerformingAction}
-              onOpenShop={() => setIsShopOpen(true)}
-              onSwitchBlobbi={() => setIsSelectorOpen(true)}
-              onOpenInventory={() => setIsInventoryOpen(true)}
-            />
+          {/* Sticky Actions Footer - Game Controls */}
+          {selectedBlobbi && (
+            <div className="fixed bottom-0 left-0 right-0 z-40">
+              <BlobbiActionsFooter
+                blobbi={selectedBlobbi}
+                onAction={performAction}
+                isPerformingAction={isPerformingAction}
+                onOpenShop={() => setIsShopOpen(true)}
+                onSwitchBlobbi={() => setIsSelectorOpen(true)}
+                onOpenInventory={() => setIsInventoryOpen(true)}
+                onOpenMissions={() => setIsMissionsOpen(true)}
+              />
+            </div>
+          )}
+
+          {/* Settings Modal */}
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+          />
           </div>
-        )}
-      </div>
+          {/* End of real content wrapper */}
+        </div>
+      </TooltipProvider>
     </BlobbiLayout>
   );
 }

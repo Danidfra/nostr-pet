@@ -23,6 +23,7 @@ interface BlobbiGrowthHubContentProps {
   isReadyToHatch?: boolean;
   incubationStartTime?: number;
   taskSubscriptionActive?: boolean;
+  isIncubatingForThisBlobbi?: boolean;
   onStartIncubation?: () => void;
   onStopIncubation?: () => void;
   onHatchBlobbi?: (id: string) => void;
@@ -37,6 +38,7 @@ interface BlobbiGrowthHubContentProps {
   questStartTime?: number;
   questSubscriptionActive?: boolean;
   isQuestListening?: boolean;
+  isEvolvingForThisBlobbi?: boolean;
   onStartQuestTracking?: () => void;
   onStopEvolution?: () => void;
   onTriggerEvolution?: () => void;
@@ -54,6 +56,7 @@ export function BlobbiGrowthHubContent({
   isReadyToHatch = false,
   incubationStartTime,
   taskSubscriptionActive = false,
+  isIncubatingForThisBlobbi = false,
   onStartIncubation,
   onStopIncubation,
   onHatchBlobbi,
@@ -67,6 +70,7 @@ export function BlobbiGrowthHubContent({
   questStartTime,
   questSubscriptionActive = false,
   isQuestListening = false,
+  isEvolvingForThisBlobbi = false,
   onStartQuestTracking,
   onStopEvolution,
   onTriggerEvolution,
@@ -86,9 +90,13 @@ export function BlobbiGrowthHubContent({
     ? (completedTasks.length / totalTasks) * 100
     : questProgress.percentage;
 
-  // Determine if tracking is active
-  const isTrackingActive = mode === 'egg' ? taskSubscriptionActive : questSubscriptionActive;
-  const hasStartTime = mode === 'egg' ? !!incubationStartTime : !!questStartTime;
+  // Determine if tracking is active - ONLY for THIS blobbi
+  const isTrackingActive = mode === 'egg'
+    ? (isIncubatingForThisBlobbi && taskSubscriptionActive)
+    : (isEvolvingForThisBlobbi && questSubscriptionActive);
+  const hasStartTime = mode === 'egg'
+    ? (isIncubatingForThisBlobbi && !!incubationStartTime)
+    : (isEvolvingForThisBlobbi && !!questStartTime);
 
   // Handle post creation
   const handlePostPublished = () => {
@@ -169,7 +177,8 @@ export function BlobbiGrowthHubContent({
 
   const getStartStopButtons = () => {
     if (mode === 'egg') {
-      if (!incubationStartTime && !taskSubscriptionActive) {
+      // CRITICAL: Only show incubating UI if THIS blobbi is incubating
+      if (!isIncubatingForThisBlobbi) {
         return (
           <Button
             onClick={onStartIncubation}
@@ -200,8 +209,8 @@ export function BlobbiGrowthHubContent({
         );
       }
     } else {
-      // Baby mode
-      if (!questSubscriptionActive && !questStartTime) {
+      // Baby mode - CRITICAL: Only show evolving UI if THIS blobbi is evolving
+      if (!isEvolvingForThisBlobbi) {
         return (
           <Button
             onClick={onStartQuestTracking}

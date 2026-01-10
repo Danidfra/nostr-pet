@@ -17,6 +17,7 @@ interface BlobbiGrowthHubModalProps {
   isReadyToHatch?: boolean;
   incubationStartTime?: number;
   taskSubscriptionActive?: boolean;
+  isIncubatingForThisBlobbi?: boolean;
   onStartIncubation?: () => void;
   onStopIncubation?: () => void;
   onHatchBlobbi?: (id: string) => void;
@@ -31,6 +32,7 @@ interface BlobbiGrowthHubModalProps {
   questStartTime?: number;
   questSubscriptionActive?: boolean;
   isQuestListening?: boolean;
+  isEvolvingForThisBlobbi?: boolean;
   onStartQuestTracking?: () => void;
   onStopEvolution?: () => void;
   onTriggerEvolution?: () => void;
@@ -50,6 +52,7 @@ export function BlobbiGrowthHubModal({
   isReadyToHatch = false,
   incubationStartTime,
   taskSubscriptionActive = false,
+  isIncubatingForThisBlobbi = false,
   onStartIncubation,
   onStopIncubation,
   onHatchBlobbi,
@@ -63,6 +66,7 @@ export function BlobbiGrowthHubModal({
   questStartTime,
   questSubscriptionActive = false,
   isQuestListening = false,
+  isEvolvingForThisBlobbi = false,
   onStartQuestTracking,
   onStopEvolution,
   onTriggerEvolution,
@@ -105,6 +109,7 @@ export function BlobbiGrowthHubModal({
           isReadyToHatch={isReadyToHatch}
           incubationStartTime={incubationStartTime}
           taskSubscriptionActive={taskSubscriptionActive}
+          isIncubatingForThisBlobbi={isIncubatingForThisBlobbi}
           onStartIncubation={onStartIncubation}
           onStopIncubation={onStopIncubation}
           onHatchBlobbi={onHatchBlobbi}
@@ -117,6 +122,7 @@ export function BlobbiGrowthHubModal({
           questStartTime={questStartTime}
           questSubscriptionActive={questSubscriptionActive}
           isQuestListening={isQuestListening}
+          isEvolvingForThisBlobbi={isEvolvingForThisBlobbi}
           onStartQuestTracking={onStartQuestTracking}
           onStopEvolution={onStopEvolution}
           onTriggerEvolution={onTriggerEvolution}

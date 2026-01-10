@@ -254,9 +254,7 @@ export default function Blobbi() {
       {user && blobbi && (
         <FloatingMenuButton
           coinBalance={blobbonautProfile?.coins || 0}
-          onOpenShop={() => setShowShop(true)}
           onOpenStats={() => setShowStats(true)}
-          onOpenMissions={() => setShowMissions(true)}
         />
       )}
 

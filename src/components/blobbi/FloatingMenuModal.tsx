@@ -2,10 +2,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import {
   Coins,
-  ShoppingBag,
-  Package,
-  Target,
-  Sparkles,
   BarChart3,
   Menu,
 } from 'lucide-react';
@@ -15,18 +11,14 @@ interface FloatingMenuModalProps {
   isOpen: boolean;
   onClose: () => void;
   coinBalance: number;
-  onOpenShop: () => void;
   onOpenStats: () => void;
-  onOpenMissions: () => void;
 }
 
 export function FloatingMenuModal({
   isOpen,
   onClose,
   coinBalance,
-  onOpenShop,
   onOpenStats,
-  onOpenMissions,
 }: FloatingMenuModalProps) {
   const handleMenuAction = (action: () => void) => {
     action();
@@ -35,22 +27,10 @@ export function FloatingMenuModal({
 
   const menuItems = [
     {
-      icon: ShoppingBag,
-      label: 'Shop',
-      action: onOpenShop,
-      color: 'blue',
-    },
-    {
       icon: BarChart3,
       label: 'Stats',
       action: onOpenStats,
       color: 'orange',
-    },
-    {
-      icon: Target,
-      label: 'Missions',
-      action: onOpenMissions,
-      color: 'red',
     },
   ];
 
@@ -75,8 +55,8 @@ export function FloatingMenuModal({
             </span>
           </div>
 
-          {/* Menu Items Grid */}
-          <div className="grid grid-cols-2 gap-3 pb-2">
+          {/* Menu Items */}
+          <div className="flex flex-col gap-3 pb-2">
             {menuItems.map(({ icon: Icon, label, action, color }) => (
               <button
                 key={label}
