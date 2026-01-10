@@ -31,6 +31,7 @@ import { CircularStatusIndicators } from '@/components/blobbi/CircularStatusIndi
 import { BlobbiGamesModal } from '@/components/blobbi/BlobbiGamesModal';
 import { PolaroidPhotoModal } from '@/components/blobbi/PolaroidPhotoModal';
 import { SettingsModal } from '@/components/SettingsModal';
+import { IncubatorVisual } from '@/components/blobbi/IncubatorVisual';
 import {
   Sparkles,
   Egg,
@@ -774,14 +775,34 @@ export default function BlobbiDashboard() {
 
                       {/* Blobbi Visual - Takes remaining vertical space */}
                       <div className="flex-1 flex items-center justify-center min-h-[220px]">
-                        <div className="mx-auto aspect-square w-[220px] max-w-full max-h-full">
+                        <div
+                          className={cn(
+                            "mx-auto aspect-square max-w-full transition-all duration-300",
+                            // normal
+                            "w-[220px] sm:w-[260px]",
+                            // incubando: maior
+                            (isSelectedIncubating || isOptimisticallyIncubating) && "w-[280px] sm:w-[340px]"
+                          )}
+                        >
                           {selectedBlobbi.lifeStage === 'egg' ? (
-                            <EggGraphic
-                              blobbi={selectedBlobbi}
-                              sizeVariant="tiny"
-                              animated={true}
-                              warmth={selectedBlobbi.eggTemperature || 60}
-                            />
+                            // Egg: Wrap with incubator if incubating
+                            isSelectedIncubating || isOptimisticallyIncubating ? (
+                              <IncubatorVisual className="w-full h-full">
+                                <EggGraphic
+                                  blobbi={selectedBlobbi}
+                                  sizeVariant="tiny"
+                                  animated={true}
+                                  warmth={selectedBlobbi.eggTemperature || 60}
+                                />
+                              </IncubatorVisual>
+                            ) : (
+                              <EggGraphic
+                                blobbi={selectedBlobbi}
+                                sizeVariant="tiny"
+                                animated={true}
+                                warmth={selectedBlobbi.eggTemperature || 60}
+                              />
+                            )
                           ) : selectedBlobbi.evolutionForm && selectedBlobbi.evolutionForm !== 'blobbi' ? (
                             <BlobbiEvolvedVisual
                               blobbi={selectedBlobbi}
