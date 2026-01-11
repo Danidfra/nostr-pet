@@ -614,7 +614,7 @@ export default function BlobbiDashboard() {
                         variant="ghost"
                         size="sm"
                         className={cn(
-                          "absolute top-3 left-3 z-20 p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
+                          "absolute -left-8 z-20 p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
                           shouldShowEggGrowthHub
                             ? "bg-purple-100 dark:bg-purple-900/20 border-purple-300 dark:border-purple-600"
                             : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600"
@@ -631,7 +631,7 @@ export default function BlobbiDashboard() {
                         variant="ghost"
                         size="sm"
                         className={cn(
-                          "absolute top-3 left-3 z-20 p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
+                          "absolute -left-8 z-20 p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
                           shouldShowBabyGrowthHub
                             ? "bg-purple-100 dark:bg-purple-900/20 border-purple-300 dark:border-purple-600"
                             : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600"
