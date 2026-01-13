@@ -2,12 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  Coins, 
-  Heart, 
-  Trophy, 
-  Star, 
-  Users, 
+import {
+  Coins,
+  Heart,
+  Trophy,
+  Star,
+  Users,
   Palette,
   Crown
 } from 'lucide-react';
@@ -19,13 +19,13 @@ interface BlobbonautProfileCardProps {
   profileId?: string;
 }
 
-export function BlobbonautProfileCard({ 
+export function BlobbonautProfileCard({
   profileId
 }: BlobbonautProfileCardProps) {
   const { user } = useCurrentUser();
   const { data: profile, isLoading } = useBlobbonautProfile(profileId);
   const author = useAuthor(profile?.ownerPubkey);
-  
+
   if (isLoading) {
     return (
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
@@ -59,25 +59,25 @@ export function BlobbonautProfileCard({
   }
 
   const isOwnProfile = user?.pubkey === profile.ownerPubkey;
-  const displayName = profile.name || 
-                     author.data?.metadata?.name || 
-                     author.data?.metadata?.display_name || 
+  const displayName = profile.name ||
+                     author.data?.metadata?.name ||
+                     author.data?.metadata?.display_name ||
                      profile.ownerPubkey.slice(0, 8);
   const profileImage = author.data?.metadata?.picture;
 
   return (
     <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-      <CardHeader className="pb-4">
+      <CardHeader className="py-3 pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Avatar className="w-12 h-12 border-2 border-purple-200 dark:border-purple-600">
+          <div className="flex items-center space-x-3">
+            <Avatar className="w-10 h-10 border-2 border-purple-200 dark:border-purple-600">
               <AvatarImage src={profileImage} alt={displayName} />
-              <AvatarFallback className="text-lg bg-gradient-to-r from-purple-400 to-pink-400 text-white">
+              <AvatarFallback className="text-sm bg-gradient-to-r from-purple-400 to-pink-400 text-white">
                 {displayName.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
-              <CardTitle className="flex items-center gap-2 text-base text-gray-900 dark:text-gray-100">
+              <CardTitle className="flex items-center gap-2 text-sm text-gray-900 dark:text-gray-100">
                 {displayName}
                 {profile.title && (
                   <Badge variant="secondary" className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
@@ -86,7 +86,7 @@ export function BlobbonautProfileCard({
                   </Badge>
                 )}
               </CardTitle>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-xs text-gray-600 dark:text-gray-400">
                 Blobbonaut Level {Math.floor(profile.pettingLevel / 10) + 1}
               </p>
             </div>
@@ -94,39 +94,39 @@ export function BlobbonautProfileCard({
 
         </div>
       </CardHeader>
-      
-      <CardContent className="space-y-4">
+
+      <CardContent className="space-y-2 pb-3">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-2">
           <div className="flex items-center space-x-2">
-            <Coins className="w-5 h-5 text-yellow-600" />
+            <Coins className="w-4 h-4 text-yellow-600" />
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{profile.coins.toLocaleString()}</p>
+              <p className="text-xs font-medium text-gray-900 dark:text-gray-100">{profile.coins.toLocaleString()}</p>
               <p className="text-xs text-gray-600 dark:text-gray-400">Coins</p>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
-            <Heart className="w-5 h-5 text-pink-500" />
+            <Heart className="w-4 h-4 text-pink-500" />
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{profile.pettingLevel}</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Petting Level</p>
+              <p className="text-xs font-medium text-gray-900 dark:text-gray-100">{profile.pettingLevel}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">Petting</p>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
-            <Users className="w-5 h-5 text-blue-500" />
+            <Users className="w-4 h-4 text-blue-500" />
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{profile.ownedBlobbis.length}</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Current Blobbis</p>
+              <p className="text-xs font-medium text-gray-900 dark:text-gray-100">{profile.ownedBlobbis.length}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">Current</p>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
-            <Trophy className="w-5 h-5 text-amber-500" />
+            <Trophy className="w-4 h-4 text-amber-500" />
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{profile.lifetimeBlobbis}</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Lifetime Blobbis</p>
+              <p className="text-xs font-medium text-gray-900 dark:text-gray-100">{profile.lifetimeBlobbis}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">Lifetime</p>
             </div>
           </div>
         </div>
@@ -164,7 +164,7 @@ export function BlobbonautProfileCard({
               </Badge>
             </div>
           )}
-          
+
           {profile.starterBlobbi && (
             <div>
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Starter Blobbi</p>
@@ -206,7 +206,7 @@ export function BlobbonautProfileCard({
 export function BlobbonautProfileCompact({ profileId }: { profileId: string }) {
   const { data: profile, isLoading } = useBlobbonautProfile(profileId);
   const author = useAuthor(profile?.ownerPubkey);
-  
+
   if (isLoading || !profile) {
     return (
       <div className="flex items-center space-x-3 p-3 rounded-lg border border-purple-200 dark:border-purple-600 bg-white/60 dark:bg-gray-700/60">
@@ -219,9 +219,9 @@ export function BlobbonautProfileCompact({ profileId }: { profileId: string }) {
     );
   }
 
-  const displayName = profile.name || 
-                     author.data?.metadata?.name || 
-                     author.data?.metadata?.display_name || 
+  const displayName = profile.name ||
+                     author.data?.metadata?.name ||
+                     author.data?.metadata?.display_name ||
                      profile.ownerPubkey.slice(0, 8);
   const profileImage = author.data?.metadata?.picture;
 

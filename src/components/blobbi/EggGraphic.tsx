@@ -9,7 +9,7 @@ import { isDivineEgg } from '@/lib/blobbi-divine-utils';
 
 interface EggGraphicProps {
   blobbi?: Blobbi; // Full blobbi object for visual properties
-  size?: 'small' | 'medium' | 'large' | 'tiny';
+  sizeVariant?: 'tiny' | 'small' | 'medium' | 'large'; // Internal scaling only, NOT layout size
   className?: string;
   animated?: boolean;
   cracking?: boolean;
@@ -49,17 +49,15 @@ const renderLegacySpecialMark = (specialMark: string, eggWidth: number, eggHeigh
 
 export const EggGraphic: React.FC<EggGraphicProps> = ({
   blobbi,
-  size = 'medium',
+  sizeVariant = 'medium',
   className,
   animated = false,
   cracking = false,
   warmth = 50,
   forceInlineSvg = false,
 }) => {
-  // Always use medium size for visual consistency across all Blobbis
-  // Store the original size for data purposes but always display as medium
-  const originalSize = blobbi?.size || size;
-  const displaySize = 'medium';
+  // sizeVariant controls ONLY internal scaling/details, NOT layout dimensions
+  // Parent container controls actual rendered width/height via slot
 
   // Build a quick map from blobbi.tags (["k","v"]) for easier lookups
   const tagMap = React.useMemo(() => {
@@ -79,23 +77,17 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
     performanceMode: false, // Can be made configurable
   });
 
-  const sizeClasses = {
-    tiny: 'w-32 h-40',
-    small: 'w-32 h-40',
-    medium: 'w-32 h-40',
-    large: 'w-32 h-40',
+  // Internal fill scale based on sizeVariant
+  // Controls how much of the parent slot the egg fills
+  // Parent container controls actual width/height
+  const fillScale = {
+    tiny: 0.90,    // 90% fill for compact slots
+    small: 0.94,   // 94% fill
+    medium: 0.97,  // 97% fill (baseline)
+    large: 1.00,   // 100% fill for maximum presence
   };
 
-  const baseSize = {
-    tiny: 128,
-    small: 128,
-    medium: 128,
-    large: 128,
-  };
-
-  const currentSize = baseSize['medium'];
-  const eggWidth = currentSize;
-  const eggHeight = currentSize * 1.25;
+  const scale = fillScale[sizeVariant] || fillScale.medium;
 
   // Divine color constants
   const DIVINE_PRIMARY_GREEN = '#55C4A2';
@@ -341,113 +333,125 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
   return (
     <div
       className={cn(
+        // Always fill parent container (slot-driven sizing)
+        'w-full h-full',
+        // Center content
         'relative flex items-center justify-center',
-        sizeClasses.medium,
         className
       )}
     >
-      {/* Glow effect based on warmth */}
+      {/* Inner container with sizeVariant-based fill scaling */}
       <div
-        className={cn(
-          'absolute inset-0 rounded-full blur-xl transition-all duration-1000',
-          animated && 'animate-pulse'
-        )}
+        className="relative flex items-center justify-center"
         style={{
-          background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
-          transform: 'scale(1.2)',
-        }}
-      />
-
-      {/* Main egg shape */}
-      <div
-        className={cn(
-          'relative transition-all duration-500',
-          animated && !cracking && 'animate-egg-sway',
-          animated && actualWarmth > 60 && 'animate-egg-warmth',
-          cracking && 'animate-egg-crack'
-        )}
-        style={{
-          width: eggWidth,
-          height: eggHeight,
-          background: createEggGradient(),
-          borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%',
-          boxShadow: `
-            inset -10px -10px 20px ${shadow}33,
-            inset 10px 10px 20px ${highlight}26,
-            0 10px 30px rgba(0, 0, 0, 0.2)
-          `,
-          filter: cracking ? 'brightness(1.1)' : 'brightness(1)',
+          width: '100%',
+          height: '100%',
+          transform: `scale(${scale})`,
         }}
       >
-        {/* Highlight on the egg - uses color variants instead of white */}
+        {/* Glow effect based on warmth - relative sizing */}
         <div
-          className="absolute"
+          className={cn(
+            'absolute rounded-full blur-xl transition-all duration-1000',
+            animated && 'animate-pulse'
+          )}
           style={{
-            top: '20%',
-            left: '25%',
-            width: '30%',
-            height: '25%',
-            background: (() => {
-              const effectiveBaseColor = isDivine ? DIVINE_PRIMARY_GREEN : baseColor;
-              const colors = createColorVariants(effectiveBaseColor);
-              // Use a subtle highlight variant instead of white for better color consistency
-              return `linear-gradient(135deg, ${colors.highlight}80 0%, transparent 100%)`;
-            })(),
-            borderRadius: '50%',
-            filter: 'blur(2px)',
+            width: '120%',
+            height: '120%',
+            background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
+            zIndex: 0,
           }}
         />
+
+        {/* Main egg shape - uses percentage-based sizing */}
+        <div
+          className={cn(
+            'relative transition-all duration-500 z-10',
+            animated && !cracking && 'animate-egg-sway',
+            animated && actualWarmth > 60 && 'animate-egg-warmth',
+            cracking && 'animate-egg-crack'
+          )}
+          style={{
+            width: '80%',
+            height: '100%',
+            background: createEggGradient(),
+            borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%',
+            boxShadow: `
+              inset -0.5em -0.5em 1em ${shadow}33,
+              inset 0.5em 0.5em 1em ${highlight}26
+            `,
+            filter: cracking ? 'brightness(1.1)' : 'brightness(1)',
+          }}
+        >
+          {/* Highlight on the egg - uses color variants instead of white */}
+          <div
+            className="absolute"
+            style={{
+              top: '20%',
+              left: '25%',
+              width: '30%',
+              height: '25%',
+              background: (() => {
+                const effectiveBaseColor = isDivine ? DIVINE_PRIMARY_GREEN : baseColor;
+                const colors = createColorVariants(effectiveBaseColor);
+                // Use a subtle highlight variant instead of white for better color consistency
+                return `linear-gradient(135deg, ${colors.highlight}80 0%, transparent 100%)`;
+              })(),
+              borderRadius: '50%',
+              filter: 'blur(2px)',
+            }}
+          />
 
         {/* Pattern overlay - REMOVED VISUAL DISPLAY BUT DATA PRESERVED */}
         {/* {createPatternOverlay()} */}
 
-        {/* Special marks based on effectiveSpecialMark */}
-        {effectiveSpecialMark && (
-          effectiveSpecialMark === 'divine_wordmark' ? (
-            // Divine wordmark "diVine" on the egg (bottom-left, diagonal)
-            <div
-              className="absolute"
-              style={{
-                right: '15%',
-                bottom: '10%',
-                transform: 'rotate(-18deg)',
-                fontFamily: '"Pacifico", system-ui, cursive',
-                fontSize: eggWidth * 0.18,
-                color: '#FFFFFF',
-                textShadow: '0 1px 2px rgba(0,0,0,0.35)',
-                pointerEvents: 'none',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              diVine
-            </div>
-          ) : isSpecialMarkSupported(effectiveSpecialMark) ? (
-            <SpecialMarkRenderer
-              specialMark={effectiveSpecialMark}
-              eggWidth={eggWidth}
-              eggHeight={eggHeight}
-              animated={specialMarkHook.isAnimated}
-              opacity={specialMarkHook.opacity}
-              className={specialMarkHook.getAnimationClass()}
-            />
-          ) : specialMarkHook.useFallback ? (
-            <SpecialMarkFallback
-              specialMark={effectiveSpecialMark}
-              eggWidth={eggWidth}
-              eggHeight={eggHeight}
-            />
-          ) : (
-            renderLegacySpecialMark(effectiveSpecialMark, eggWidth, eggHeight)
-          )
-        )}
+          {/* Special marks based on effectiveSpecialMark */}
+          {effectiveSpecialMark && (
+            effectiveSpecialMark === 'divine_wordmark' ? (
+              // Divine wordmark "diVine" on the egg (bottom-left, diagonal)
+              <div
+                className="absolute"
+                style={{
+                  right: '15%',
+                  bottom: '10%',
+                  transform: 'rotate(-18deg)',
+                  fontFamily: '"Pacifico", system-ui, cursive',
+                  fontSize: '1.2em', // Relative sizing
+                  color: '#FFFFFF',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+                  pointerEvents: 'none',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                diVine
+              </div>
+            ) : isSpecialMarkSupported(effectiveSpecialMark) ? (
+              <SpecialMarkRenderer
+                specialMark={effectiveSpecialMark}
+                eggWidth={100} // Use percentage-based value
+                eggHeight={125}
+                animated={specialMarkHook.isAnimated}
+                opacity={specialMarkHook.opacity}
+                className={specialMarkHook.getAnimationClass()}
+              />
+            ) : specialMarkHook.useFallback ? (
+              <SpecialMarkFallback
+                specialMark={effectiveSpecialMark}
+                eggWidth={100}
+                eggHeight={125}
+              />
+            ) : (
+              renderLegacySpecialMark(effectiveSpecialMark, 100, 125)
+            )
+          )}
 
-        {/* Crack pattern based on docs/aprovado.svg when cracking is true */}
-        {cracking && (
-          <svg
-            className="absolute inset-0 pointer-events-none"
-            viewBox="0 0 120 125"
-            style={{
-              width: '100%',
+          {/* Crack pattern based on docs/aprovado.svg when cracking is true */}
+          {cracking && (
+            <svg
+              className="absolute inset-0 pointer-events-none w-full h-full"
+              viewBox="0 0 120 125"
+              preserveAspectRatio="xMidYMid meet"
+              style={{
               height: '100%',
             }}
           >
@@ -509,65 +513,66 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
           </svg>
         )}
 
-        {/* Title display for special eggs */}
-        {blobbi?.title && (
-          <div
-            className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-center px-2 py-1 bg-black/20 rounded-full backdrop-blur-sm"
-            style={{
-              color: baseColor,
-              textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-              fontSize: '12px', // Always use medium size font
-            }}
-          >
-            {blobbi.title}
-          </div>
+          {/* Title display for special eggs */}
+          {blobbi?.title && (
+            <div
+              className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-center px-2 py-1 bg-black/20 rounded-full backdrop-blur-sm"
+              style={{
+                color: baseColor,
+                textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                fontSize: '0.75em', // Relative sizing
+              }}
+            >
+              {blobbi.title}
+            </div>
+          )}
+        </div>
+
+        {/* Floating particles for magical effect - inside scaled container */}
+        {animated && (
+          <>
+            <div
+              className="absolute animate-ping"
+              style={{
+                top: '10%',
+                left: '20%',
+                width: '0.25em',
+                height: '0.25em',
+                background: 'rgba(251, 191, 36, 0.6)',
+                borderRadius: '50%',
+                animationDelay: '0s',
+                animationDuration: '2s',
+              }}
+            />
+            <div
+              className="absolute animate-ping"
+              style={{
+                top: '20%',
+                right: '15%',
+                width: '0.2em',
+                height: '0.2em',
+                background: 'rgba(147, 197, 253, 0.6)',
+                borderRadius: '50%',
+                animationDelay: '0.5s',
+                animationDuration: '2.5s',
+              }}
+            />
+            <div
+              className="absolute animate-ping"
+              style={{
+                bottom: '15%',
+                left: '15%',
+                width: '0.15em',
+                height: '0.15em',
+                background: 'rgba(167, 243, 208, 0.6)',
+                borderRadius: '50%',
+                animationDelay: '1s',
+                animationDuration: '3s',
+              }}
+            />
+          </>
         )}
       </div>
-
-      {/* Floating particles for magical effect */}
-      {animated && (
-        <>
-          <div
-            className="absolute animate-ping"
-            style={{
-              top: '10%',
-              left: '20%',
-              width: '4px',
-              height: '4px',
-              background: 'rgba(251, 191, 36, 0.6)',
-              borderRadius: '50%',
-              animationDelay: '0s',
-              animationDuration: '2s',
-            }}
-          />
-          <div
-            className="absolute animate-ping"
-            style={{
-              top: '20%',
-              right: '15%',
-              width: '3px',
-              height: '3px',
-              background: 'rgba(147, 197, 253, 0.6)',
-              borderRadius: '50%',
-              animationDelay: '0.5s',
-              animationDuration: '2.5s',
-            }}
-          />
-          <div
-            className="absolute animate-ping"
-            style={{
-              bottom: '15%',
-              left: '15%',
-              width: '2px',
-              height: '2px',
-              background: 'rgba(167, 243, 208, 0.6)',
-              borderRadius: '50%',
-              animationDelay: '1s',
-              animationDuration: '3s',
-            }}
-          />
-        </>
-      )}
     </div>
   );
 };

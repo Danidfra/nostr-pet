@@ -370,14 +370,19 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                         }}
                       >
                         <div className="flex flex-col items-center space-y-3 p-4">
-                          {/* Updated Blobbi Visual Container */}
-                          <div className="flex items-center justify-center transition-all duration-500 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border-2 border-purple-100/60 dark:border-purple-600/30 group-hover:border-purple-200/80 dark:group-hover:border-purple-500/50 min-h-[200px] p-6 relative">
-                            <EggGraphic
-                              blobbi={blobbi} // Pass the full blobbi object for unique characteristics
-                              size="medium"
-                              animated={true}
-                              warmth={blobbi.eggTemperature || (60 + (getProgress(blobbi.id).egg.percentage * 0.4))} // Use blobbi's specific temperature or fallback
-                            />
+                          {/* Compact Blobbi Visual Container */}
+                          <div className="flex flex-col items-center justify-end transition-all duration-500 bg-gradient-to-br from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border-2 border-purple-100/60 dark:border-purple-600/30 group-hover:border-purple-200/80 dark:group-hover:border-purple-500/50 h-32 w-full p-3 relative">
+                            {/* Egg with ground shadow */}
+                            <div className="relative flex flex-col items-center justify-end h-full scale-75">
+                              <EggGraphic
+                                blobbi={blobbi}
+                                sizeVariant="small"
+                                animated={true}
+                                warmth={blobbi.eggTemperature || (60 + (getProgress(blobbi.id).egg.percentage * 0.4))}
+                              />
+                              {/* Ground shadow below the egg */}
+                              <div className="w-16 h-2 bg-black/15 dark:bg-black/25 rounded-full blur-sm -mt-2" />
+                            </div>
                             {selectedEggId === blobbi.id && (
                               <div className="absolute -top-1 -right-1">
                                 <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse">
@@ -544,9 +549,14 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                             onClick={() => selectBaby(selectedBabyId === blobbi.id ? null : blobbi.id)}
                           >
                             <div className="flex flex-col items-center space-y-3 p-4">
-                              {/* Updated Blobbi Visual Container */}
-                              <div className="flex items-center justify-center transition-all duration-500 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-2xl border-2 border-blue-100/60 dark:border-blue-600/30 group-hover:border-blue-200/80 dark:group-hover:border-blue-500/50 min-h-[200px] p-6 relative">
-                                <BlobbiVisual blobbi={blobbi} size="medium" />
+                              {/* Compact Blobbi Visual Container */}
+                              <div className="flex flex-col items-center justify-end transition-all duration-500 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-2xl border-2 border-blue-100/60 dark:border-blue-600/30 group-hover:border-blue-200/80 dark:group-hover:border-blue-500/50 h-32 w-full p-3 relative">
+                                {/* Blobbi with ground shadow */}
+                                <div className="relative flex flex-col items-center justify-end h-full scale-75">
+                                  <BlobbiVisual blobbi={blobbi} size="small" />
+                                  {/* Ground shadow below the blobbi */}
+                                  <div className="w-16 h-2 bg-black/15 dark:bg-black/25 rounded-full blur-sm -mt-2" />
+                                </div>
                                 {selectedBabyId === blobbi.id && (
                                   <div className="absolute -top-1 -right-1">
                                     <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse">
@@ -732,13 +742,18 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
                       className="group transition-all duration-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border shadow-sm hover:shadow-xl hover:shadow-yellow-200/20 dark:hover:shadow-yellow-900/20 rounded-2xl hover:scale-[1.02] border-yellow-200/60 dark:border-yellow-600/60 hover:border-yellow-300 dark:hover:border-yellow-500"
                     >
                       <div className="flex flex-col items-center space-y-3 p-4">
-                        {/* Updated Blobbi Visual Container */}
-                        <div className="flex items-center justify-center transition-all duration-500 bg-gradient-to-br from-yellow-50/80 to-orange-50/80 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-2xl border-2 border-yellow-100/60 dark:border-yellow-600/30 group-hover:border-yellow-200/80 dark:group-hover:border-yellow-500/50 min-h-[200px] p-6 relative">
-                          {blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
-                            <BlobbiEvolvedVisual blobbi={blobbi} size="medium" />
-                          ) : (
-                            <BlobbiVisual blobbi={blobbi} size="medium" />
-                          )}
+                        {/* Compact Blobbi Visual Container */}
+                        <div className="flex flex-col items-center justify-end transition-all duration-500 bg-gradient-to-br from-yellow-50/80 to-orange-50/80 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-2xl border-2 border-yellow-100/60 dark:border-yellow-600/30 group-hover:border-yellow-200/80 dark:group-hover:border-yellow-500/50 h-32 w-full p-3 relative">
+                          {/* Blobbi with ground shadow */}
+                          <div className="relative flex flex-col items-center justify-end h-full scale-75">
+                            {blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' ? (
+                              <BlobbiEvolvedVisual blobbi={blobbi} size="small" />
+                            ) : (
+                              <BlobbiVisual blobbi={blobbi} size="small" />
+                            )}
+                            {/* Ground shadow below the blobbi */}
+                            <div className="w-16 h-2 bg-black/15 dark:bg-black/25 rounded-full blur-sm -mt-2" />
+                          </div>
                           <div className="absolute -top-1 -right-1">
                             <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
                               <Sparkles className="w-2 h-2 text-white" />

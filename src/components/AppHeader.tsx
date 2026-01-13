@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
 import { LoginArea } from '@/components/auth/LoginArea';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { SettingsButton } from '@/components/SettingsButton';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { Button } from '@/components/ui/button';
@@ -11,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Palette } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface AppHeaderProps {
@@ -27,7 +26,6 @@ function HeaderActions() {
   return (
     <>
       <SettingsButton />
-      <ThemeToggle />
       <div className="max-w-40">
         <LoginArea />
       </div>
@@ -39,9 +37,9 @@ function MobileHeaderMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="icon" 
+        <Button
+          variant="outline"
+          size="icon"
           className={cn(
             "relative transition-all duration-300 ease-in-out",
             "hover:shadow-elegant hover:scale-105 hover:border-primary/30",
@@ -58,8 +56,8 @@ function MobileHeaderMenu() {
           <span className="sr-only">Open menu</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent 
-        align="end" 
+      <DropdownMenuContent
+        align="end"
         className={cn(
           "w-56 shadow-elegant-lg border-border/50 backdrop-blur-sm",
           "bg-popover/95"
@@ -72,9 +70,9 @@ function MobileHeaderMenu() {
           </div>
         </div>
         <DropdownMenuSeparator className="my-1" />
-          <SettingsButton 
-            variant="ghost" 
-            size="default" 
+          <SettingsButton
+            variant="ghost"
+            size="default"
             className={cn(
               "w-full justify-start h-auto py-2 px-3",
               "hover:bg-accent/80 rounded-md transition-all duration-200",
@@ -88,12 +86,12 @@ function MobileHeaderMenu() {
   );
 }
 
-export function AppHeader({ 
-  title, 
-  subtitle, 
+export function AppHeader({
+  title,
+  subtitle,
   logo,
   logoClassName = "w-24 h-24",
-  leftContent, 
+  leftContent,
   className = ""
 }: AppHeaderProps) {
   const isMobile = useIsMobile();
@@ -119,15 +117,14 @@ export function AppHeader({
           </div>
         )}
       </div>
-      
+
       {/* Desktop: Show individual buttons */}
       <div className="hidden md:flex items-center gap-2">
         <HeaderActions />
       </div>
-      
+
       {/* Mobile: Show dropdown menu */}
       <div className="flex md:hidden gap-2">
-        <ThemeToggle />
         <MobileHeaderMenu />
       </div>
     </div>

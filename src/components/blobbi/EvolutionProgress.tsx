@@ -18,12 +18,12 @@ export function EvolutionProgress({ evolutionProgress, hasEvolved }: EvolutionPr
   if (hasEvolved) {
     return (
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-            <Sparkles className="w-5 h-5 text-purple-500" />
+        <CardHeader className="py-3">
+          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100 text-base">
+            <Sparkles className="w-4 h-4 text-purple-500" />
             Evolution Complete!
           </CardTitle>
-          <CardDescription className="text-gray-600 dark:text-gray-300">
+          <CardDescription className="text-gray-600 dark:text-gray-300 text-xs">
             Your Blobbi has evolved after {evolutionProgress.totalCareDays} Moments of loving care!
           </CardDescription>
         </CardHeader>
@@ -33,14 +33,14 @@ export function EvolutionProgress({ evolutionProgress, hasEvolved }: EvolutionPr
 
   return (
     <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-          <Sparkles className="w-5 h-5 text-purple-500" />
+      <CardHeader className="py-3">
+        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100 text-base">
+          <Sparkles className="w-4 h-4 text-purple-500" />
           Evolution Progress
         </CardTitle>
-        <CardDescription className="text-gray-600 dark:text-gray-300">{readinessMessage}</CardDescription>
+        <CardDescription className="text-gray-600 dark:text-gray-300 text-xs">{readinessMessage}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2 pb-3">
         {/* Progress Bar */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
@@ -51,18 +51,18 @@ export function EvolutionProgress({ evolutionProgress, hasEvolved }: EvolutionPr
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-2">
           {/* Current Streak */}
-          <div className="space-y-1 p-3 border border-purple-200 dark:border-purple-600 rounded-lg bg-purple-50/50 dark:bg-purple-900/20">
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <TrendingUp className="w-4 h-4 text-purple-500" />
+          <div className="space-y-1 p-2 border border-purple-200 dark:border-purple-600 rounded-lg bg-purple-50/50 dark:bg-purple-900/20">
+            <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+              <TrendingUp className="w-3 h-3 text-purple-500" />
               Current Streak
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{evolutionProgress.currentStreak}</span>
-              <Badge 
+            <div className="flex items-center gap-1">
+              <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{evolutionProgress.currentStreak}</span>
+              <Badge
                 variant={streakStatus.isActive ? "default" : "secondary"}
-                className={streakStatus.isActive ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300" : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"}
+                className={streakStatus.isActive ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs" : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs"}
               >
                 {streakStatus.isActive ? "Active" : "Inactive"}
               </Badge>
@@ -70,19 +70,19 @@ export function EvolutionProgress({ evolutionProgress, hasEvolved }: EvolutionPr
           </div>
 
           {/* Total Care Days */}
-          <div className="space-y-1 p-3 border border-purple-200 dark:border-purple-600 rounded-lg bg-purple-50/50 dark:bg-purple-900/20">
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <Calendar className="w-4 h-4 text-purple-500" />
+          <div className="space-y-1 p-2 border border-purple-200 dark:border-purple-600 rounded-lg bg-purple-50/50 dark:bg-purple-900/20">
+            <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+              <Calendar className="w-3 h-3 text-purple-500" />
               Total Care Days
             </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{evolutionProgress.totalCareDays}</div>
+            <div className="text-xl font-bold text-gray-900 dark:text-gray-100">{evolutionProgress.totalCareDays}</div>
           </div>
         </div>
 
         {/* Streak Status Message */}
-        <div className="flex items-center gap-2 p-3 bg-purple-50/50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-600 rounded-lg">
-          <Clock className="w-4 h-4 text-purple-500" />
-          <p className="text-sm text-gray-700 dark:text-gray-300">{streakStatus.message}</p>
+        <div className="flex items-center gap-2 p-2 bg-purple-50/50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-600 rounded-lg">
+          <Clock className="w-3 h-3 text-purple-500" />
+          <p className="text-xs text-gray-700 dark:text-gray-300">{streakStatus.message}</p>
         </div>
 
         {/* Evolution Ready Badge */}

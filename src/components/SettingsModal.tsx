@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/useToast';
 import { useRelayContext } from '@/contexts/RelayContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useTheme } from '@/components/theme-provider';
 import {
   Settings,
   Wifi,
@@ -21,7 +22,11 @@ import {
   AlertCircle,
   CheckCircle,
   Globe,
-  Zap
+  Zap,
+  Sun,
+  Moon,
+  Monitor,
+  Palette
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -32,6 +37,7 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { theme, setTheme } = useTheme();
   const {
     relays,
     isLoading,
@@ -168,18 +174,99 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="relays" className="w-full flex flex-col min-h-0">
+        <Tabs defaultValue="appearance" className="w-full flex flex-col min-h-0">
           <div className={`${isMobile ? 'mb-3' : 'mb-6'}`}>
-            <TabsList className="grid w-full grid-cols-1 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50">
+            <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50">
+              <TabsTrigger
+                value="appearance"
+                className={`flex items-center gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200 ${isMobile ? 'text-sm py-2' : ''}`}
+              >
+                <Palette className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                Appearance
+              </TabsTrigger>
               <TabsTrigger
                 value="relays"
                 className={`flex items-center gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200 ${isMobile ? 'text-sm py-2' : ''}`}
               >
                 <Globe className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
-                Relay Management
+                Relays
               </TabsTrigger>
             </TabsList>
           </div>
+
+          <TabsContent value="appearance" className={`flex-1 min-h-0 ${isMobile ? 'space-y-3' : 'space-y-4'}`}>
+            <ScrollArea className={`${isMobile ? 'h-[calc(100vh-16rem)]' : 'h-[350px]'} ${isMobile ? 'pr-1' : 'pr-2'}`}>
+              {/* Theme Selection */}
+              <Card className={`bg-white/80 mb-4 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 ${isMobile ? 'rounded-lg' : 'rounded-xl'}`}>
+                <CardHeader className={isMobile ? 'pb-3' : ''}>
+                  <CardTitle className={`flex items-center gap-2 text-gray-900 dark:text-gray-100 ${isMobile ? 'text-base' : ''}`}>
+                    <div className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center flex-shrink-0`}>
+                      <Palette className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} text-purple-600`} />
+                    </div>
+                    <span className={isMobile ? 'text-sm' : ''}>Theme</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className={`${isMobile ? 'space-y-3 pt-0' : 'space-y-4'}`}>
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600 dark:text-gray-400 mb-4`}>
+                    Choose how Blobbi looks to you
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <button
+                      onClick={() => setTheme('light')}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 ${
+                        theme === 'light'
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                          : 'border-purple-200 dark:border-purple-600 hover:border-purple-300 dark:hover:border-purple-500 bg-white/50 dark:bg-gray-800/50'
+                      }`}
+                      aria-label="Light theme"
+                    >
+                      <div className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} rounded-full bg-gradient-to-br from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30 flex items-center justify-center`}>
+                        <Sun className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-amber-500`} />
+                      </div>
+                      <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-900 dark:text-gray-100`}>
+                        Light
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => setTheme('dark')}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 ${
+                        theme === 'dark'
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                          : 'border-purple-200 dark:border-purple-600 hover:border-purple-300 dark:hover:border-purple-500 bg-white/50 dark:bg-gray-800/50'
+                      }`}
+                      aria-label="Dark theme"
+                    >
+                      <div className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center`}>
+                        <Moon className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-blue-400`} />
+                      </div>
+                      <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-900 dark:text-gray-100`}>
+                        Dark
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => setTheme('system')}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 ${
+                        theme === 'system'
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                          : 'border-purple-200 dark:border-purple-600 hover:border-purple-300 dark:hover:border-purple-500 bg-white/50 dark:bg-gray-800/50'
+                      }`}
+                      aria-label="System theme"
+                    >
+                      <div className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} rounded-full bg-gradient-to-br from-gray-100 to-slate-100 dark:from-gray-700 dark:to-slate-700 flex items-center justify-center`}>
+                        <Monitor className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-gray-600 dark:text-gray-400`} />
+                      </div>
+                      <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-900 dark:text-gray-100`}>
+                        System
+                      </span>
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            </ScrollArea>
+          </TabsContent>
 
           <TabsContent value="relays" className={`flex-1 min-h-0 ${isMobile ? 'space-y-3' : 'space-y-4'}`}>
             <ScrollArea className={`${isMobile ? 'h-[calc(100vh-16rem)]' : 'h-[350px]'} ${isMobile ? 'pr-1' : 'pr-2'}`}>

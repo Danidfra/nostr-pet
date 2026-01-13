@@ -58,7 +58,7 @@ export function BlobbiEggVisual({
     <div className={cn("relative flex items-center justify-center", className)}>
       <EggGraphic
         blobbi={mockBlobbi as Blobbi}
-        size={size as 'tiny' | 'small' | 'medium' | 'large'}
+        sizeVariant={size as 'tiny' | 'small' | 'medium' | 'large'}
         animated={eggStatus === 'pulsing'}
         cracking={eggStatus === 'cracking'}
         warmth={eggTemperature}

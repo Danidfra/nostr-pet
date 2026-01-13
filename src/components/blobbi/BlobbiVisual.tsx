@@ -107,58 +107,26 @@ export function BlobbiVisual({ blobbi, size, className, onClick, forceInlineSvg 
       >
         <EggGraphic
           blobbi={blobbi}
-          size={size}
+          sizeVariant={size}
           animated={blobbi.state === 'active'}
           cracking={!!(blobbi.incubationProgress && blobbi.incubationProgress > 80)}
           warmth={blobbi.eggTemperature ?? 50}
+          forceInlineSvg={forceInlineSvg}
         />
       </div>
     );
   }
 
-  // Always use medium size for visual consistency across all Blobbis
-  const displaySize = 'medium';
-
-  // Container sizes - always use medium size for consistency
-  const sizeClasses = {
-    tiny: 'w-48 h-48',      // Use medium size for consistency
-    small: 'w-48 h-48',     // Use medium size for consistency
-    medium: 'w-48 h-48',    // Standard UI
-    large: 'w-48 h-48',     // Use medium size for consistency
+  // NORMALIZED: Stage-based internal scale normalization
+  // Baby Blobbis need to appear slightly larger in small slots
+  const stageScale = {
+    tiny: 0.85,    // Baby at 85% for compact UI slots (increased from 70%)
+    small: 0.90,   // Baby at 90% for small contexts
+    medium: 1.0,   // Baby at 100% baseline
+    large: 1.1,    // Baby at 110% for hero displays
   };
 
-  // Padding/spacing - always use medium size for consistency
-  const paddingClasses = {
-    tiny: 'p-4',
-    small: 'p-4',
-    medium: 'p-4',
-    large: 'p-4',
-  };
-
-  // Shadow intensity - always use medium size for consistency
-  const shadowClasses = {
-    tiny: 'drop-shadow-lg',
-    small: 'drop-shadow-lg',
-    medium: 'drop-shadow-lg',
-    large: 'drop-shadow-lg',
-  };
-
-  const lifeStageScale = {
-    egg: 0.6,
-    baby: 0.7,
-    adult: 1,
-  };
-
-  // Size scaling - always use medium size for visual consistency
-  const sizeScale = {
-    tiny: 1.0,    // Use medium size for consistency
-    small: 1.0,   // Use medium size for consistency
-    medium: 1.0,  // Standard size
-    large: 1.0,   // Use medium size for consistency
-  };
-
-  // Only use lifeStageScale for visual differentiation, ignore the size tag for visual scaling
-  const scale = lifeStageScale[blobbi.lifeStage];
+  const scale = stageScale[size as keyof typeof stageScale] || stageScale.medium;
 
   // Eye expressions based on mood
   const eyeExpressions = {
@@ -195,11 +163,11 @@ export function BlobbiVisual({ blobbi, size, className, onClick, forceInlineSvg 
   return (
     <div
       className={cn(
-        'relative cursor-pointer transition-all duration-300 hover:scale-105',
-        sizeClasses[displaySize as keyof typeof sizeClasses],
-        paddingClasses[displaySize as keyof typeof paddingClasses],
-        shadowClasses[displaySize as keyof typeof shadowClasses],
-        // 'rounded-full bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm',
+        // NORMALIZED: Fill parent container
+        'w-full h-full',
+        // Center content
+        'relative flex items-center justify-center',
+        'cursor-pointer transition-all duration-300 hover:scale-105',
         className
       )}
       onClick={onClick}
@@ -227,6 +195,7 @@ export function BlobbiVisual({ blobbi, size, className, onClick, forceInlineSvg 
         ref={svgRef}
         viewBox="0 0 100 100"
         className={cn("w-full h-full", animationClass)}
+        preserveAspectRatio="xMidYMid meet"
         style={{ transform: `scale(${scale})` }}
       >
 

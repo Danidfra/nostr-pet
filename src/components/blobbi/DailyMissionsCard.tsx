@@ -24,44 +24,44 @@ interface DailyMissionsCardProps {
   isClaiming?: boolean;
 }
 
-export function DailyMissionsCard({ 
-  state, 
-  onClaimCheckIn, 
-  onClaimCare3, 
-  onClaimBonus, 
-  isClaiming = false 
+export function DailyMissionsCard({
+  state,
+  onClaimCheckIn,
+  onClaimCare3,
+  onClaimBonus,
+  isClaiming = false
 }: DailyMissionsCardProps) {
-  const MissionItem = ({ 
-    mission, 
+  const MissionItem = ({
+    mission,
     onClaim,
     icon,
     isBonus = false
-  }: { 
-    mission: MissionState; 
+  }: {
+    mission: MissionState;
     onClaim: () => Promise<void>;
     icon: React.ReactNode;
     isBonus?: boolean;
   }) => (
     <div className={cn(
-      "flex items-center justify-between p-3 rounded-lg border",
+      "flex items-center justify-between p-2 rounded-lg border",
       isBonus ? "bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-600" : "border-gray-200 dark:border-gray-700"
     )}>
-      <div className="flex items-center gap-3 flex-1">
+      <div className="flex items-center gap-2 flex-1">
         <div className="text-purple-600 dark:text-purple-400">
           {mission.status === 'CLAIMED' ? (
-            <CheckCircle className="w-5 h-5" />
+            <CheckCircle className="w-4 h-4" />
           ) : mission.status === 'CLAIMABLE' ? (
-            <Circle className="w-5 h-5" />
+            <Circle className="w-4 h-4" />
           ) : (
-            <Lock className="w-5 h-5 text-gray-400" />
+            <Lock className="w-4 h-4 text-gray-400" />
           )}
         </div>
-        
+
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
               {icon}
-              {isBonus ? "Complete both daily missions" : 
+              {isBonus ? "Complete both daily missions" :
                mission.progress !== undefined ? "Care Routine" : "Check In"}
             </span>
             <Badge variant={isBonus ? "default" : "secondary"} className="text-xs">
@@ -84,16 +84,16 @@ export function DailyMissionsCard({
           )}
         </div>
       </div>
-      
+
       <div className="flex items-center gap-2">
         {mission.status === 'CLAIMABLE' && (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             onClick={onClaim}
             disabled={isClaiming}
             className={cn(
               "text-xs",
-              isBonus 
+              isBonus
                 ? "bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white"
                 : "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
             )}
@@ -108,38 +108,38 @@ export function DailyMissionsCard({
 
   return (
     <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2 text-gray-900 dark:text-gray-100" id="daily-missions-card">
-          <Target  className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+      <CardHeader className="py-3 pb-2">
+        <CardTitle className="text-sm flex items-center gap-2 text-gray-900 dark:text-gray-100" id="daily-missions-card">
+          <Target  className="w-4 h-4 text-purple-600 dark:text-purple-400" />
           Daily Missions
         </CardTitle>
-        <CardDescription className="text-gray-600 dark:text-gray-300">
+        <CardDescription className="text-xs text-gray-600 dark:text-gray-300">
           Complete these to earn coins today.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2 pb-3">
         {/* Mission 1 - Check In */}
-        <MissionItem 
+        <MissionItem
           mission={state.checkIn}
           onClaim={onClaimCheckIn}
           icon={<span className="mr-1">📝</span>}
         />
-        
+
         {/* Mission 2 - Care Routine */}
-        <MissionItem 
+        <MissionItem
           mission={state.care3}
           onClaim={onClaimCare3}
           icon={<span className="mr-1">🎮</span>}
         />
-        
+
         {/* Bonus Mission */}
-        <MissionItem 
+        <MissionItem
           mission={state.bonus}
           onClaim={onClaimBonus}
           icon={<span className="mr-1">⭐</span>}
           isBonus={true}
         />
-        
+
         {/* Total Rewards Info */}
         <div className="text-xs text-gray-600 dark:text-gray-300 mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-600">
           <div className="flex items-center justify-between">
