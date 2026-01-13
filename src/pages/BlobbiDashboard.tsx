@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,8 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { useCoinBalance } from '@/hooks/useCoinBalance';
-import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
-import { useBlobbiQuestSystem } from '@/hooks/useBlobbiQuestSystem';
+import { useBlobbiGrowthSystem } from '@/hooks/useBlobbiGrowthSystem';
 import { useDailyMissions } from '@/hooks/useDailyMissions';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
@@ -186,33 +185,8 @@ export default function BlobbiDashboard() {
   // Check if PiP is active for the selected Blobbi
   const isPiPActiveForSelectedBlobbi =  isPiPActive && !!selectedBlobbi && activeBlobbiId === selectedBlobbi.id;
 
-  // Incubation and quest systems
-  const {
-    eggTasks,
-    isReadyToHatch,
-    incubationStartTime,
-    taskSubscriptionActive,
-    startIncubation,
-    stopIncubation,
-    hatchBlobbi,
-    markPhotoTaskCompleted,
-    isTaskCompleted,
-    selectEgg,
-    selectedEggId,
-  } = useBlobbiIncubationSystem();
-
-  const {
-    babyToAdultQuests,
-    questProgress,
-    isReadyToEvolve: isQuestReadyToEvolve,
-    questStartTime,
-    questSubscriptionActive,
-    isListening,
-    startQuestTracking,
-    stopEvolution,
-    selectBaby,
-    selectedBabyId,
-  } = useBlobbiQuestSystem();
+  // Unified growth system - SINGLE SOURCE OF TRUTH
+  const growthSystem = useBlobbiGrowthSystem();
 
   // Local UI flags - SCOPED to blobbi ID for correctness
   const [incubatingUiBlobbiId, setIncubatingUiBlobbiId] = useState<string | null>(null);
@@ -221,6 +195,36 @@ export default function BlobbiDashboard() {
   const [hideEvolutionUI, setHideEvolutionUI] = useState(false);
   const [pendingEggToIncubate, setPendingEggToIncubate] = useState<string | null>(null);
   const [pendingBabyToTrack, setPendingBabyToTrack] = useState<string | null>(null);
+
+  // Helper: Check if a Blobbi is incubating (source of truth)
+  const isIncubatingForBlobbi = useCallback((blobbiId: string): boolean => {
+    // Priority 1: Growth system says it's active
+    if (growthSystem.isPhaseActive(blobbiId, 'egg')) return true;
+
+    // Priority 2: Blobbi has start_incubation tag (during metadata sync)
+    const blobbi = userBlobbis.find(b => b.id === blobbiId);
+    if (blobbi?.tags?.some((tag: string[]) => tag[0] === 'start_incubation')) return true;
+
+    // Priority 3: Optimistic UI flag
+    if (incubatingUiBlobbiId === blobbiId) return true;
+
+    return false;
+  }, [growthSystem, userBlobbis, incubatingUiBlobbiId]);
+
+  // Helper: Check if a Blobbi is evolving (source of truth)
+  const isEvolvingForBlobbi = useCallback((blobbiId: string): boolean => {
+    // Priority 1: Growth system says it's active
+    if (growthSystem.isPhaseActive(blobbiId, 'baby')) return true;
+
+    // Priority 2: Blobbi has start_evolution tag (during metadata sync)
+    const blobbi = userBlobbis.find(b => b.id === blobbiId);
+    if (blobbi?.tags?.some((tag: string[]) => tag[0] === 'start_evolution')) return true;
+
+    // Priority 3: Optimistic UI flag
+    if (evolvingUiBlobbiId === blobbiId) return true;
+
+    return false;
+  }, [growthSystem, userBlobbis, evolvingUiBlobbiId]);
 
   // Handle tour completion from details page
   useEffect(() => {
@@ -288,58 +292,66 @@ export default function BlobbiDashboard() {
 
   // Effect: Handle pending egg incubation
   useEffect(() => {
-    if (pendingEggToIncubate && selectedEggId === pendingEggToIncubate) {
+    if (pendingEggToIncubate && selectedBlobbi?.id === pendingEggToIncubate) {
       setIncubatingUiBlobbiId(pendingEggToIncubate);
-      startIncubation().catch(error => {
+      growthSystem.startPhaseTracking(pendingEggToIncubate, 'egg').catch(error => {
         console.error('[INCUBATION] Failed to start incubation:', error);
         setIncubatingUiBlobbiId(null);
       });
       setPendingEggToIncubate(null);
     }
-  }, [selectedEggId, pendingEggToIncubate, startIncubation]);
+  }, [selectedBlobbi?.id, pendingEggToIncubate, growthSystem]);
 
   // Effect: Handle pending baby evolution
   useEffect(() => {
-    if (pendingBabyToTrack && selectedBabyId === pendingBabyToTrack) {
+    if (pendingBabyToTrack && selectedBlobbi?.id === pendingBabyToTrack) {
       setEvolvingUiBlobbiId(pendingBabyToTrack);
-      startQuestTracking().catch(error => {
+      growthSystem.startPhaseTracking(pendingBabyToTrack, 'baby').catch(error => {
         console.error('[EVOLUTION] Failed to start quest tracking:', error);
         setEvolvingUiBlobbiId(null);
       });
       setPendingBabyToTrack(null);
     }
-  }, [selectedBabyId, pendingBabyToTrack, startQuestTracking]);
+  }, [selectedBlobbi?.id, pendingBabyToTrack, growthSystem]);
 
-  // Sync UI flags - clear optimistic state when tags appear or subscription ends
+  // Sync UI flags - clear optimistic state ONLY when confirmed or timed out
   useEffect(() => {
-    if (incubatingUiBlobbiId) {
-      const blobbi = userBlobbis.find(b => b.id === incubatingUiBlobbiId);
-      if (blobbi?.tags?.some((tag: string[]) =>
-        tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
-      )) {
-        // Tags appeared, clear optimistic UI
-        setIncubatingUiBlobbiId(null);
-      } else if (!taskSubscriptionActive) {
-        // Subscription ended without tags appearing, clear optimistic UI
-        setIncubatingUiBlobbiId(null);
-      }
+    if (!incubatingUiBlobbiId) return;
+
+    // Clear optimistic UI when metadata confirms the tag
+    const blobbi = userBlobbis.find(b => b.id === incubatingUiBlobbiId);
+    if (blobbi?.tags?.some((tag: string[]) => tag[0] === 'start_incubation')) {
+      setIncubatingUiBlobbiId(null);
+      return;
     }
-  }, [incubatingUiBlobbiId, userBlobbis, taskSubscriptionActive]);
+
+    // Timeout after 15 seconds if tag never appears
+    const timeout = setTimeout(() => {
+      console.warn('[Dashboard] Incubation optimistic UI timed out');
+      setIncubatingUiBlobbiId(null);
+    }, 15000);
+
+    return () => clearTimeout(timeout);
+  }, [incubatingUiBlobbiId, userBlobbis]);
 
   useEffect(() => {
-    if (evolvingUiBlobbiId) {
-      const blobbi = userBlobbis.find(b => b.id === evolvingUiBlobbiId);
-      if (blobbi?.tags?.some((tag: string[]) =>
-        tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
-      )) {
-        // Tags appeared, clear optimistic UI
-        setEvolvingUiBlobbiId(null);
-      } else if (!questSubscriptionActive) {
-        // Subscription ended without tags appearing, clear optimistic UI
-        setEvolvingUiBlobbiId(null);
-      }
+    if (!evolvingUiBlobbiId) return;
+
+    // Clear optimistic UI when metadata confirms the tag
+    const blobbi = userBlobbis.find(b => b.id === evolvingUiBlobbiId);
+    if (blobbi?.tags?.some((tag: string[]) => tag[0] === 'start_evolution')) {
+      setEvolvingUiBlobbiId(null);
+      return;
     }
-  }, [evolvingUiBlobbiId, userBlobbis, questSubscriptionActive]);
+
+    // Timeout after 15 seconds if tag never appears
+    const timeout = setTimeout(() => {
+      console.warn('[Dashboard] Evolution optimistic UI timed out');
+      setEvolvingUiBlobbiId(null);
+    }, 15000);
+
+    return () => clearTimeout(timeout);
+  }, [evolvingUiBlobbiId, userBlobbis]);
 
   // Memoized stats
   const stats = useMemo(() => ({
@@ -353,43 +365,37 @@ export default function BlobbiDashboard() {
     careStreak: Math.max(...userBlobbis.map(b => b.careStreak || 0), 0),
   }), [userBlobbis, coinBalance, profile]);
 
-  // Find which blobbi is currently incubating (if any)
+  // Find which blobbi is currently incubating (PRIMARY: growth system, FALLBACK: tags)
   const incubatingBlobbi = useMemo(() => {
+    // Priority 1: Growth system authority
+    if (growthSystem.activeEggId) {
+      return userBlobbis.find(b => b.id === growthSystem.activeEggId);
+    }
+    // Priority 2: Tag inspection (during sync)
     return userBlobbis.find(b =>
       b.lifeStage === 'egg' &&
-      b.tags?.some((tag: string[]) =>
-        tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
-      )
+      b.tags?.some((tag: string[]) => tag[0] === 'start_incubation')
     );
-  }, [userBlobbis]);
+  }, [growthSystem.activeEggId, userBlobbis]);
 
-  // Find which blobbi is currently evolving (if any)
+  // Find which blobbi is currently evolving (PRIMARY: growth system, FALLBACK: tags)
   const evolvingBlobbi = useMemo(() => {
+    // Priority 1: Growth system authority
+    if (growthSystem.activeBabyId) {
+      return userBlobbis.find(b => b.id === growthSystem.activeBabyId);
+    }
+    // Priority 2: Tag inspection (during sync)
     return userBlobbis.find(b =>
       b.lifeStage === 'baby' &&
-      b.tags?.some((tag: string[]) =>
-        tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
-      )
+      b.tags?.some((tag: string[]) => tag[0] === 'start_evolution')
     );
-  }, [userBlobbis]);
+  }, [growthSystem.activeBabyId, userBlobbis]);
 
-  // Check if the selected blobbi is actually incubating - SOURCE OF TRUTH
-  const isSelectedIncubating = useMemo(() => {
-    if (!selectedBlobbi || selectedBlobbi.lifeStage !== 'egg') return false;
-    return selectedBlobbi.tags?.some((tag: string[]) =>
-      tag[0] === 'start_incubation' || tag[0] === 'incubation_started_at'
-    ) || false;
-  }, [selectedBlobbi]);
+  // SOURCE OF TRUTH: Check if selected blobbi is incubating/evolving
+  const isSelectedIncubating = selectedBlobbi ? isIncubatingForBlobbi(selectedBlobbi.id) : false;
+  const isSelectedEvolving = selectedBlobbi ? isEvolvingForBlobbi(selectedBlobbi.id) : false;
 
-  // Check if the selected blobbi is actually evolving - SOURCE OF TRUTH
-  const isSelectedEvolving = useMemo(() => {
-    if (!selectedBlobbi || selectedBlobbi.lifeStage !== 'baby') return false;
-    return selectedBlobbi.tags?.some((tag: string[]) =>
-      tag[0] === 'start_evolution' || tag[0] === 'evolution_started_at'
-    ) || false;
-  }, [selectedBlobbi]);
-
-  // Check if we're optimistically showing incubation UI for the selected blobbi
+  // Optimistic UI flags
   const isOptimisticallyIncubating = incubatingUiBlobbiId === selectedBlobbi?.id;
   const isOptimisticallyEvolving = evolvingUiBlobbiId === selectedBlobbi?.id;
 
@@ -406,7 +412,6 @@ export default function BlobbiDashboard() {
 
     // Proceed with normal incubation start
     setPendingEggToIncubate(selectedBlobbi.id);
-    selectEgg(selectedBlobbi.id);
   };
 
   const handleStopIncubation = async () => {
@@ -415,7 +420,7 @@ export default function BlobbiDashboard() {
     setHideIncubationUI(true);
     setIncubatingUiBlobbiId(null);
     try {
-      await stopIncubation();
+      await growthSystem.stopPhaseTracking(selectedBlobbi.id, 'egg');
     } catch (error) {
       console.error('[OPTIMISTIC] Failed to stop incubation:', error);
       setHideIncubationUI(false);
@@ -424,16 +429,13 @@ export default function BlobbiDashboard() {
   };
 
   const confirmSwitchIncubation = async () => {
-    if (!pendingIncubationTargetId) return;
+    if (!pendingIncubationTargetId || !incubatingBlobbi) return;
 
     try {
       // Step 1: Stop current incubation (await it)
-      await stopIncubation();
+      await growthSystem.stopPhaseTracking(incubatingBlobbi.id, 'egg');
 
-      // Step 2: Select the new egg
-      selectEgg(pendingIncubationTargetId);
-
-      // Step 3: Start incubation on new egg
+      // Step 2: Start incubation on new egg
       setIncubatingUiBlobbiId(pendingIncubationTargetId);
       setPendingEggToIncubate(pendingIncubationTargetId);
 
@@ -471,7 +473,6 @@ export default function BlobbiDashboard() {
   const handleStartQuestTracking = async () => {
     if (!selectedBlobbi) return;
     setPendingBabyToTrack(selectedBlobbi.id);
-    selectBaby(selectedBlobbi.id);
   };
 
   const handleStopEvolution = async () => {
@@ -480,7 +481,7 @@ export default function BlobbiDashboard() {
     setHideEvolutionUI(true);
     setEvolvingUiBlobbiId(null);
     try {
-      await stopEvolution();
+      await growthSystem.stopPhaseTracking(selectedBlobbi.id, 'baby');
     } catch (error) {
       console.error('[OPTIMISTIC] Failed to stop evolution:', error);
       setHideEvolutionUI(false);
@@ -527,14 +528,9 @@ export default function BlobbiDashboard() {
   if (user && isProfileLoading) return <DashboardLoading />;
   if (user && !profile) return <DashboardLoading />;
 
-  // Growth Hub display flags - STRICTLY per-blobbi, no global leaks
-  const shouldShowEggGrowthHub = selectedBlobbi?.lifeStage === 'egg' && !hideIncubationUI && (
-    isSelectedIncubating || isOptimisticallyIncubating
-  );
-
-  const shouldShowBabyGrowthHub = selectedBlobbi?.lifeStage === 'baby' && !hideEvolutionUI && (
-    isSelectedEvolving || isOptimisticallyEvolving
-  );
+  // Growth Hub display flags - Use source of truth helpers
+  const shouldShowEggGrowthHub = selectedBlobbi?.lifeStage === 'egg' && !hideIncubationUI && isSelectedIncubating;
+  const shouldShowBabyGrowthHub = selectedBlobbi?.lifeStage === 'baby' && !hideEvolutionUI && isSelectedEvolving;
 
   return (
     <BlobbiLayout>
@@ -863,47 +859,81 @@ export default function BlobbiDashboard() {
             />
 
             {/* Growth Hub Modal */}
-            {selectedBlobbi.lifeStage === 'egg' && (
-              <BlobbiGrowthHubModal
-                open={isGrowthHubOpen}
-                onOpenChange={setIsGrowthHubOpen}
-                blobbi={selectedBlobbi}
-                mode="egg"
-                eggTasks={eggTasks}
-                isReadyToHatch={isReadyToHatch}
-                incubationStartTime={isSelectedIncubating ? (incubationStartTime || undefined) : undefined}
-                taskSubscriptionActive={isSelectedIncubating && taskSubscriptionActive}
-                isIncubatingForThisBlobbi={isSelectedIncubating || isOptimisticallyIncubating}
-                onStartIncubation={handleStartIncubation}
-                onStopIncubation={handleStopIncubation}
-                onHatchBlobbi={hatchBlobbi}
-                onMarkPhotoTaskCompleted={markPhotoTaskCompleted}
-                onMarkFirstPostTaskCompleted={() => {}}
-                isTaskCompleted={isTaskCompleted}
-                onTakePhoto={() => setShowPolaroidModal(true)}
-              />
-            )}
+            {selectedBlobbi.lifeStage === 'egg' && (() => {
+              const eggPhaseState = growthSystem.getPhaseState(selectedBlobbi.id, 'egg');
+              const eggProgress = growthSystem.getTaskProgress(selectedBlobbi.id, 'egg');
+              const isIncubating = isSelectedIncubating; // Use source of truth helper
+              const isReadyToHatch = eggPhaseState ? eggPhaseState.tasks.every(t => {
+                // Shell integrity check
+                if (t.id === 'shell_integrity_above_50') {
+                  return (selectedBlobbi.shellIntegrity || 100) >= 50;
+                }
+                return t.completed;
+              }) : false;
 
-            {selectedBlobbi.lifeStage === 'baby' && (
-              <BlobbiGrowthHubModal
-                open={isGrowthHubOpen}
-                onOpenChange={setIsGrowthHubOpen}
-                blobbi={selectedBlobbi}
-                mode="baby"
-                babyQuests={babyToAdultQuests}
-                questProgress={questProgress}
-                isReadyToEvolve={isQuestReadyToEvolve}
-                questStartTime={isSelectedEvolving ? (questStartTime || undefined) : undefined}
-                questSubscriptionActive={isSelectedEvolving && questSubscriptionActive}
-                isQuestListening={isSelectedEvolving && isListening}
-                isEvolvingForThisBlobbi={isSelectedEvolving || isOptimisticallyEvolving}
-                onStartQuestTracking={handleStartQuestTracking}
-                onStopEvolution={handleStopEvolution}
-                onTriggerEvolution={triggerEvolution}
-                isEvolving={isPerformingAction}
-                onTakePhoto={() => setShowPolaroidModal(true)}
-              />
-            )}
+              return (
+                <BlobbiGrowthHubModal
+                  open={isGrowthHubOpen}
+                  onOpenChange={setIsGrowthHubOpen}
+                  blobbi={selectedBlobbi}
+                  mode="egg"
+                  eggTasks={eggPhaseState?.tasks as any || []}
+                  isReadyToHatch={isReadyToHatch}
+                  incubationStartTime={isIncubating ? eggPhaseState?.startTime : undefined}
+                  taskSubscriptionActive={isIncubating && growthSystem.activitySubscriptionActive}
+                  isIncubatingForThisBlobbi={isIncubating}
+                  onStartIncubation={handleStartIncubation}
+                  onStopIncubation={handleStopIncubation}
+                  onHatchBlobbi={async (blobbiId: string) => {
+                    await growthSystem.hatchBlobbi(blobbiId);
+                  }}
+                  onMarkPhotoTaskCompleted={async (blobbiId: string) => {
+                    await growthSystem.markTaskCompleted(blobbiId, 'post_blobbi_photo');
+                  }}
+                  onMarkFirstPostTaskCompleted={async (blobbiId: string) => {
+                    await growthSystem.markTaskCompleted(blobbiId, 'first_post');
+                  }}
+                  isTaskCompleted={(task: any, blobbiId: string | null) => {
+                    if (task.id === 'shell_integrity_above_50' && blobbiId) {
+                      const blobbi = userBlobbis.find(b => b.id === blobbiId);
+                      return blobbi ? (blobbi.shellIntegrity || 100) >= 50 : false;
+                    }
+                    return task.completed;
+                  }}
+                  onTakePhoto={() => setShowPolaroidModal(true)}
+                />
+              );
+            })()}
+
+            {selectedBlobbi.lifeStage === 'baby' && (() => {
+              const babyPhaseState = growthSystem.getPhaseState(selectedBlobbi.id, 'baby');
+              const babyProgress = growthSystem.getTaskProgress(selectedBlobbi.id, 'baby');
+              const isEvolving = isSelectedEvolving; // Use source of truth helper
+              const isReadyToEvolve = babyProgress.completed === babyProgress.total;
+
+              return (
+                <BlobbiGrowthHubModal
+                  open={isGrowthHubOpen}
+                  onOpenChange={setIsGrowthHubOpen}
+                  blobbi={selectedBlobbi}
+                  mode="baby"
+                  babyQuests={babyPhaseState?.tasks as any || []}
+                  questProgress={babyProgress}
+                  isReadyToEvolve={isReadyToEvolve}
+                  questStartTime={isEvolving ? babyPhaseState?.startTime : undefined}
+                  questSubscriptionActive={isEvolving && growthSystem.activitySubscriptionActive}
+                  isQuestListening={isEvolving && growthSystem.activitySubscriptionActive}
+                  isEvolvingForThisBlobbi={isEvolving}
+                  onStartQuestTracking={handleStartQuestTracking}
+                  onStopEvolution={handleStopEvolution}
+                  onTriggerEvolution={async () => {
+                    await growthSystem.evolveBlobbi(selectedBlobbi.id);
+                  }}
+                  isEvolving={isPerformingAction}
+                  onTakePhoto={() => setShowPolaroidModal(true)}
+                />
+              );
+            })()}
 
             {/* Switch Incubation Confirmation Modal */}
             {incubatingBlobbi && (
