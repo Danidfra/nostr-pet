@@ -71,6 +71,22 @@ export function BlobbiActionsModal({
           disabled: false,
           tooltip: 'Talk to the egg',
         },
+        {
+          action: 'clean' as BlobbiAction,
+          icon: Bath,
+          label: 'Clean',
+          color: 'hover:bg-purple-100 dark:hover:bg-purple-900/20',
+          disabled: false,
+          tooltip: 'Clean the egg',
+        },
+        {
+          action: 'medicine' as BlobbiAction,
+          icon: Pill,
+          label: 'Medicine',
+          color: 'hover:bg-red-100 dark:hover:bg-red-900/20',
+          disabled: false,
+          tooltip: 'Give medicine to the egg',
+        },
       ];
     }
 
