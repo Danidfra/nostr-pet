@@ -19,6 +19,7 @@ import { toPng } from 'html-to-image';
 import { useUploadFile } from '@/hooks/useUploadFile';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { NPool, NRelay1, NostrEvent } from '@nostrify/nostrify';
+import { cn } from '@/lib/utils';
 import {
   Carousel,
   CarouselContent,
@@ -623,7 +624,15 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi, isIncubating = fal
 
                   {/* Blobbi in center */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="scale-75 md:scale-100">
+                    <div
+                      className={cn(
+                        "aspect-square transition-all duration-300",
+                        // Size based on life stage and incubation status
+                        blobbi.lifeStage === 'egg' && isIncubating
+                          ? "w-[260px]"  // Larger for incubating eggs (with incubator)
+                          : "w-[240px]"  // Standard size for other blobbis
+                      )}
+                    >
                       {renderBlobbi()}
                     </div>
                   </div>
