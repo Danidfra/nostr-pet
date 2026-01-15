@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/useToast';
 import { BlobbiVisual } from './BlobbiVisual';
 import { BlobbiEvolvedVisual } from './BlobbiEvolvedVisual';
 import { EggGraphic } from './EggGraphic';
+import { IncubatorVisual } from './IncubatorVisual';
 import { Blobbi } from '@/types/blobbi';
 import { toPng } from 'html-to-image';
 import { useUploadFile } from '@/hooks/useUploadFile';
@@ -48,6 +49,7 @@ interface PolaroidPhotoModalProps {
   isOpen: boolean;
   onClose: () => void;
   blobbi: Blobbi;
+  isIncubating?: boolean; // Whether the blobbi is currently incubating (for egg stage)
   onPhotoPosted?: () => void;
 }
 
@@ -124,7 +126,7 @@ const CarouselDots = ({
   );
 };
 
-export function PolaroidPhotoModal({ isOpen, onClose, blobbi, onPhotoPosted }: PolaroidPhotoModalProps) {
+export function PolaroidPhotoModal({ isOpen, onClose, blobbi, isIncubating = false, onPhotoPosted }: PolaroidPhotoModalProps) {
   const { toast } = useToast();
   const polaroidRootRef = useRef<HTMLDivElement>(null);
   const [selectedBackground, setSelectedBackground] = useState<Background>(backgrounds[0]);
@@ -169,20 +171,35 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi, onPhotoPosted }: P
   };
 
   // Render Blobbi component with inline SVG for capture
+  // MIRROR the exact rendering logic from BlobbiDashboard
   const renderBlobbi = () => {
     if (blobbi.lifeStage === 'egg') {
-      return (
-        <EggGraphic
-          blobbi={blobbi}
-          sizeVariant="medium"
-          className="blobbi-character"
-          forceInlineSvg={true}
-          animated={true}
-          cracking={!!(blobbi.incubationProgress && blobbi.incubationProgress > 80)}
-          warmth={blobbi.eggTemperature || 60}
-        />
-      );
+      // Egg stage: wrap with incubator if incubating
+      if (isIncubating) {
+        return (
+          <IncubatorVisual className="w-full h-full">
+            <EggGraphic
+              blobbi={blobbi}
+              sizeVariant="tiny"
+              animated={true}
+              warmth={blobbi.eggTemperature || 60}
+              forceInlineSvg={true}
+            />
+          </IncubatorVisual>
+        );
+      } else {
+        return (
+          <EggGraphic
+            blobbi={blobbi}
+            sizeVariant="tiny"
+            animated={true}
+            warmth={blobbi.eggTemperature || 60}
+            forceInlineSvg={true}
+          />
+        );
+      }
     } else if (blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi') {
+      // Evolved form
       return (
         <BlobbiEvolvedVisual
           blobbi={blobbi}
@@ -192,6 +209,7 @@ export function PolaroidPhotoModal({ isOpen, onClose, blobbi, onPhotoPosted }: P
         />
       );
     } else {
+      // Default blobbi (baby or adult without special evolution)
       return (
         <BlobbiVisual
           blobbi={blobbi}

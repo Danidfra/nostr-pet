@@ -856,6 +856,7 @@ export default function BlobbiDashboard() {
               isOpen={showPolaroidModal}
               onClose={() => setShowPolaroidModal(false)}
               blobbi={selectedBlobbi}
+              isIncubating={isSelectedIncubating}
             />
 
             {/* Growth Hub Modal */}

@@ -982,6 +982,7 @@ export function BlobbiDetailContent({ blobbiId }: { blobbiId: string }) {
             isOpen={showPolaroidModal}
             onClose={() => setShowPolaroidModal(false)}
             blobbi={blobbi}
+            isIncubating={isIncubatingThisEgg}
           />
         </>
       )}
