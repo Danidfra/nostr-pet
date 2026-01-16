@@ -15,6 +15,7 @@ import PiPDemo from "./pages/PiPDemo";
 
 // DEV-ONLY: Import debug pages (will not be included in production build)
 import BlobbiStatusDebug from "./pages/dev/BlobbiStatusDebug";
+import BlobbiEditor from "./pages/dev/BlobbiEditor";
 
 import { BlobbiCompanionWrapper } from "./components/BlobbiCompanionWrapper";
 import { BlobbiFloatingActionMenu } from "./components/BlobbiFloatingActionMenu";
@@ -87,7 +88,10 @@ function AppContent() {
 
         {/* DEV-ONLY ROUTES */}
         {process.env.NODE_ENV === 'development' && (
-          <Route path="/dev/blobbi-status" element={<BlobbiStatusDebug />} />
+          <>
+            <Route path="/dev/blobbi-status" element={<BlobbiStatusDebug />} />
+            <Route path="/dev/blobbi-editor" element={<BlobbiEditor />} />
+          </>
         )}
 
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
