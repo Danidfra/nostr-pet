@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/useToast';
 import { useWelcomeConfetti } from '@/hooks/useWelcomeConfetti';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbiPiPController } from '@/hooks/useBlobbiPiPController';
+import { useSetCurrentCompanion } from '@/hooks/useSetCurrentCompanion';
+import { canBlobbiBeCompanion, getCompanionValidationMessage } from '@/lib/blobbi-companion-validation';
 import { DashboardNotLoggedIn } from '@/components/blobbi/dashboard/DashboardNotLoggedIn';
 import { DashboardLoading } from '@/components/blobbi/dashboard/DashboardLoading';
 import { DashboardModals } from '@/components/blobbi/dashboard/DashboardModals';
@@ -40,6 +42,8 @@ import {
   Users,
   Settings,
   Shuffle,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -126,6 +130,13 @@ export default function BlobbiDashboard() {
 
   // Selected Blobbi state - defaults to currentCompanion or first active Blobbi
   const [selectedBlobbiId, setSelectedBlobbiId] = useState<string | null>(null);
+
+  // Hatching state
+  const [isHatching, setIsHatching] = useState(false);
+
+  // Companion state
+  const { mutate: setCompanion, isPending: isCompanionPending } = useSetCurrentCompanion();
+  const [isUpdatingCompanion, setIsUpdatingCompanion] = useState(false);
 
   // DEV-ONLY: Color randomizer state (for visual QA testing)
   const isDev = import.meta.env.DEV;
@@ -745,6 +756,110 @@ export default function BlobbiDashboard() {
                         </TooltipContent>
                       </Tooltip>
 
+                      {/* Companion Toggle Button */}
+                      {(() => {
+                        if (!user || !profile || !selectedBlobbi) return null;
+                        
+                        const isCurrentCompanion = profile.currentCompanion === selectedBlobbi.id;
+                        const ownsThisBlobbi = profile.ownedBlobbis.includes(selectedBlobbi.id);
+                        const canBeCompanion = canBlobbiBeCompanion(selectedBlobbi);
+                        const isLoading = isCompanionPending || isUpdatingCompanion;
+                        const isDisabled = isLoading || (!isCurrentCompanion && !canBeCompanion);
+
+                        if (!ownsThisBlobbi) return null;
+
+                        const handleToggleCompanion = async () => {
+                          // Check if this Blobbi can be a companion before attempting to set
+                          if (!isCurrentCompanion && !canBeCompanion) {
+                            toast({
+                              title: "Cannot Set as Companion",
+                              description: getCompanionValidationMessage(selectedBlobbi),
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+
+                          if (isCurrentCompanion) {
+                            // If already companion, remove it
+                            setIsUpdatingCompanion(true);
+                            setCompanion(null, {
+                              onSuccess: () => {
+                                toast({
+                                  title: "Companion Removed",
+                                  description: `${selectedBlobbi.name} is no longer your companion.`,
+                                });
+                                setIsUpdatingCompanion(false);
+                              },
+                              onError: (error) => {
+                                toast({
+                                  title: "Error",
+                                  description: error.message,
+                                  variant: "destructive",
+                                });
+                                setIsUpdatingCompanion(false);
+                              },
+                            });
+                          } else {
+                            // Set as new companion
+                            setIsUpdatingCompanion(true);
+                            setCompanion(selectedBlobbi.id, {
+                              onSuccess: () => {
+                                toast({
+                                  title: "Companion Selected!",
+                                  description: `${selectedBlobbi.name} is now your companion and will follow you around!`,
+                                });
+                                setIsUpdatingCompanion(false);
+                              },
+                              onError: (error) => {
+                                toast({
+                                  title: "Error",
+                                  description: error.message,
+                                  variant: "destructive",
+                                });
+                                setIsUpdatingCompanion(false);
+                              },
+                            });
+                          }
+                        };
+
+                        const ariaLabel = isCurrentCompanion ? "Remove companion" : "Set as companion";
+                        const tooltipText = !canBeCompanion 
+                          ? getCompanionValidationMessage(selectedBlobbi)
+                          : ariaLabel;
+
+                        return (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn(
+                                  "p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
+                                  isCurrentCompanion
+                                    ? "bg-purple-100 dark:bg-purple-900/40 border-purple-400 dark:border-purple-500 hover:bg-purple-200 dark:hover:bg-purple-900/60"
+                                    : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105"
+                                )}
+                                onClick={handleToggleCompanion}
+                                disabled={isDisabled}
+                                aria-label={ariaLabel}
+                                title={!canBeCompanion ? getCompanionValidationMessage(selectedBlobbi) : undefined}
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-purple-600 dark:text-purple-400" />
+                                ) : isCurrentCompanion ? (
+                                  <Check className="h-4 w-4 text-purple-700 dark:text-purple-300" />
+                                ) : (
+                                  <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {tooltipText}
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })()}
+
                       {/* Camera Button */}
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -868,7 +983,7 @@ export default function BlobbiDashboard() {
                       </div>
 
                       {/* Blobbi Visual - Takes remaining vertical space */}
-                      <div className="flex-1 flex items-center justify-center min-h-[220px]">
+                      <div className="flex-1 flex flex-col items-center justify-center min-h-[220px] gap-4">
                         <div
                           className={cn(
                             "mx-auto aspect-square max-w-full transition-all duration-300",
@@ -920,6 +1035,79 @@ export default function BlobbiDashboard() {
                             }
                           })()}
                         </div>
+
+                        {/* Hatch Button - Only show for ready eggs */}
+                        {(() => {
+                          if (selectedBlobbi.lifeStage !== 'egg') return null;
+                          
+                          const eggPhaseState = growthSystem.getPhaseState(selectedBlobbi.id, 'egg');
+                          const isReadyToHatch = eggPhaseState ? eggPhaseState.tasks.every(t => {
+                            if (t.id === 'shell_integrity_above_50') {
+                              return (selectedBlobbi.shellIntegrity || 100) >= 50;
+                            }
+                            return t.completed;
+                          }) : false;
+
+                          if (!isReadyToHatch) return null;
+
+                          const handleHatch = async () => {
+                            if (isHatching) return;
+                            
+                            setIsHatching(true);
+                            try {
+                              await growthSystem.hatchBlobbi(selectedBlobbi.id);
+                            } catch (error) {
+                              console.error('Failed to hatch blobbi:', error);
+                              toast({
+                                title: "Hatching Failed",
+                                description: "There was an error hatching your Blobbi. Please try again.",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setIsHatching(false);
+                            }
+                          };
+
+                          return (
+                            <div className="w-full max-w-[280px] px-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                              <div className="relative">
+                                {/* Glow effect */}
+                                <div className="absolute -inset-1 bg-gradient-to-r from-purple-400 via-pink-400 to-amber-400 rounded-lg blur opacity-30 animate-pulse" />
+                                
+                                <Button
+                                  onClick={handleHatch}
+                                  disabled={isHatching}
+                                  className={cn(
+                                    "relative w-full bg-gradient-to-r from-purple-500 via-pink-500 to-amber-500",
+                                    "hover:from-purple-600 hover:via-pink-600 hover:to-amber-600",
+                                    "text-white font-semibold shadow-xl",
+                                    "transition-all duration-300 hover:scale-105 active:scale-95",
+                                    "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
+                                    "py-6 text-base sm:text-lg"
+                                  )}
+                                  size="lg"
+                                >
+                                  {isHatching ? (
+                                    <>
+                                      <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                      Cracking...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Sparkles className="mr-2 h-5 w-5 animate-pulse" />
+                                      Hatch Your Blobbi
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                              
+                              {/* Helper text */}
+                              <p className="text-center text-xs text-purple-600 dark:text-purple-400 mt-2 animate-pulse">
+                                ✨ Your Blobbi is ready to hatch! ✨
+                              </p>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
