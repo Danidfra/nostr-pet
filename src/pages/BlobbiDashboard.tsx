@@ -39,9 +39,17 @@ import {
   PictureInPicture2,
   Users,
   Settings,
+  Shuffle,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import {
+  ALL_VALID_BASE_COLORS,
+  ALL_VALID_SECONDARY_COLORS,
+  ALL_VALID_EYE_COLORS,
+  VALID_PATTERNS,
+  ALL_VALID_SPECIAL_MARKS,
+} from '@/lib/blobbi-egg-validation';
 
 declare global {
   interface Window {
@@ -119,6 +127,15 @@ export default function BlobbiDashboard() {
   // Selected Blobbi state - defaults to currentCompanion or first active Blobbi
   const [selectedBlobbiId, setSelectedBlobbiId] = useState<string | null>(null);
 
+  // DEV-ONLY: Color randomizer state (for visual QA testing)
+  const isDev = import.meta.env.DEV;
+  const isLocalhost = typeof window !== 'undefined' && 
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const isDevMode = isDev && isLocalhost;
+  
+  const [isRandomizing, setIsRandomizing] = useState(false);
+  const [randomizedBlobbi, setRandomizedBlobbi] = useState<typeof selectedBlobbi>(null);
+
   // Effect hooks
   const { toast } = useToast();
   useWelcomeConfetti(showTourCompletionModal);
@@ -167,7 +184,6 @@ export default function BlobbiDashboard() {
   // Validate selected Blobbi still exists - reset if deleted
   useEffect(() => {
     if (selectedBlobbiId && userBlobbis.length > 0 && !userBlobbis.some(b => b.id === selectedBlobbiId)) {
-      // Selected blobbi no longer exists, reset to null to trigger re-initialization
       setSelectedBlobbiId(null);
     }
   }, [selectedBlobbiId, userBlobbis]);
@@ -181,6 +197,49 @@ export default function BlobbiDashboard() {
     isEvolving,
     isLoading: isBlobbiLoading
   } = useBlobbiWithFakeStatus(undefined, selectedBlobbiId || undefined);
+
+  // DEV-ONLY: Color randomizer effect (must come AFTER selectedBlobbi is defined)
+  useEffect(() => {
+    if (!isDevMode || !isRandomizing || !selectedBlobbi) {
+      setRandomizedBlobbi(null);
+      return;
+    }
+
+    // Only randomize for eggs and babies
+    if (selectedBlobbi.lifeStage !== 'egg' && selectedBlobbi.lifeStage !== 'baby') {
+      setIsRandomizing(false);
+      setRandomizedBlobbi(null);
+      return;
+    }
+
+    // Helper to pick random from array
+    const randomPick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+    // Randomize colors every 200ms
+    const interval = setInterval(() => {
+      const randomized = {
+        ...selectedBlobbi,
+        baseColor: randomPick(ALL_VALID_BASE_COLORS),
+        secondaryColor: selectedBlobbi.themeVariant !== 'divine' 
+          ? randomPick(ALL_VALID_SECONDARY_COLORS) 
+          : undefined,
+        eyeColor: randomPick(ALL_VALID_EYE_COLORS),
+        pattern: randomPick([...VALID_PATTERNS, undefined] as const),
+        specialMark: randomPick([...ALL_VALID_SPECIAL_MARKS, undefined] as const),
+      };
+      setRandomizedBlobbi(randomized);
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [isDevMode, isRandomizing, selectedBlobbi]);
+
+  // DEV-ONLY: Stop randomizing when Blobbi changes
+  useEffect(() => {
+    if (isRandomizing) {
+      setIsRandomizing(false);
+      setRandomizedBlobbi(null);
+    }
+  }, [selectedBlobbiId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check if PiP is active for the selected Blobbi
   const isPiPActiveForSelectedBlobbi =  isPiPActive && !!selectedBlobbi && activeBlobbiId === selectedBlobbi.id;
@@ -740,6 +799,45 @@ export default function BlobbiDashboard() {
                           Settings
                         </TooltipContent>
                       </Tooltip>
+
+                      {/* DEV-ONLY: Color Randomizer Button */}
+                      {isDevMode && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
+                                isRandomizing
+                                  ? "bg-orange-100 dark:bg-orange-900/40 border-orange-400 dark:border-orange-500 hover:bg-orange-200 dark:hover:bg-orange-900/60"
+                                  : "bg-white/80 dark:bg-gray-800/80 border-orange-200 dark:border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:scale-105"
+                              )}
+                              onClick={() => setIsRandomizing(!isRandomizing)}
+                              disabled={!selectedBlobbi || (selectedBlobbi.lifeStage !== 'egg' && selectedBlobbi.lifeStage !== 'baby')}
+                              aria-label="Randomize colors (DEV)"
+                            >
+                              <Shuffle 
+                                className={cn(
+                                  "h-4 w-4",
+                                  isRandomizing
+                                    ? "text-orange-700 dark:text-orange-300 animate-pulse"
+                                    : "text-orange-600 dark:text-orange-400"
+                                )}
+                              />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {!selectedBlobbi
+                              ? "No Blobbi selected"
+                              : selectedBlobbi.lifeStage !== 'egg' && selectedBlobbi.lifeStage !== 'baby'
+                              ? "Only for egg/baby"
+                              : isRandomizing
+                              ? "Stop randomizing (DEV)"
+                              : "Randomize colors (DEV)"}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
 
                     {/* Content column */}
@@ -780,38 +878,47 @@ export default function BlobbiDashboard() {
                             (isSelectedIncubating || isOptimisticallyIncubating) && "w-[280px] sm:w-[340px]"
                           )}
                         >
-                          {selectedBlobbi.lifeStage === 'egg' ? (
-                            // Egg: Wrap with incubator if incubating
-                            isSelectedIncubating || isOptimisticallyIncubating ? (
-                              <IncubatorVisual className="w-full h-full">
+                          {(() => {
+                            // DEV-ONLY: Use randomized blobbi if randomizer is active
+                            const displayBlobbi = (isDevMode && randomizedBlobbi) || selectedBlobbi;
+                            
+                            if (displayBlobbi.lifeStage === 'egg') {
+                              // Egg: Wrap with incubator if incubating
+                              return (isSelectedIncubating || isOptimisticallyIncubating) ? (
+                                <IncubatorVisual className="w-full h-full">
+                                  <EggGraphic
+                                    blobbi={displayBlobbi}
+                                    sizeVariant="tiny"
+                                    animated={true}
+                                    warmth={displayBlobbi.eggTemperature || 60}
+                                  />
+                                </IncubatorVisual>
+                              ) : (
                                 <EggGraphic
-                                  blobbi={selectedBlobbi}
+                                  blobbi={displayBlobbi}
                                   sizeVariant="tiny"
                                   animated={true}
-                                  warmth={selectedBlobbi.eggTemperature || 60}
+                                  warmth={displayBlobbi.eggTemperature || 60}
                                 />
-                              </IncubatorVisual>
-                            ) : (
-                              <EggGraphic
-                                blobbi={selectedBlobbi}
-                                sizeVariant="tiny"
-                                animated={true}
-                                warmth={selectedBlobbi.eggTemperature || 60}
-                              />
-                            )
-                          ) : selectedBlobbi.evolutionForm && selectedBlobbi.evolutionForm !== 'blobbi' ? (
-                            <BlobbiEvolvedVisual
-                              blobbi={selectedBlobbi}
-                              size="large"
-                              onClick={() => performAction('play')}
-                            />
-                          ) : (
-                            <BlobbiVisual
-                              blobbi={selectedBlobbi}
-                              size="large"
-                              onClick={() => performAction('play')}
-                            />
-                          )}
+                              );
+                            } else if (displayBlobbi.evolutionForm && displayBlobbi.evolutionForm !== 'blobbi') {
+                              return (
+                                <BlobbiEvolvedVisual
+                                  blobbi={displayBlobbi}
+                                  size="large"
+                                  onClick={() => performAction('play')}
+                                />
+                              );
+                            } else {
+                              return (
+                                <BlobbiVisual
+                                  blobbi={displayBlobbi}
+                                  size="large"
+                                  onClick={() => performAction('play')}
+                                />
+                              );
+                            }
+                          })()}
                         </div>
                       </div>
                     </div>
