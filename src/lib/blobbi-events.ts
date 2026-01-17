@@ -645,6 +645,7 @@ export function createBlobbiInteractionEvent(
   }
 
   if (interactionData.itemUsed) tags.push(['item_used', interactionData.itemUsed]);
+  if (interactionData.itemQuantity) tags.push(['item_quantity', interactionData.itemQuantity.toString()]);
   if (interactionData.itemQuality) tags.push(['item_quality', interactionData.itemQuality]);
   if (interactionData.timeOfDay) tags.push(['time_of_day', interactionData.timeOfDay]);
   if (interactionData.blobbiMoodBefore) tags.push(['blobbi_mood_before', interactionData.blobbiMoodBefore]);

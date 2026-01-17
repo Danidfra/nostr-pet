@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/useToast';
 import { useWelcomeConfetti } from '@/hooks/useWelcomeConfetti';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbiPiPController } from '@/hooks/useBlobbiPiPController';
+import { useSetCurrentCompanion } from '@/hooks/useSetCurrentCompanion';
+import { canBlobbiBeCompanion, getCompanionValidationMessage } from '@/lib/blobbi-companion-validation';
 import { DashboardNotLoggedIn } from '@/components/blobbi/dashboard/DashboardNotLoggedIn';
 import { DashboardLoading } from '@/components/blobbi/dashboard/DashboardLoading';
 import { DashboardModals } from '@/components/blobbi/dashboard/DashboardModals';
@@ -39,9 +41,19 @@ import {
   PictureInPicture2,
   Users,
   Settings,
+  Shuffle,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import {
+  ALL_VALID_BASE_COLORS,
+  ALL_VALID_SECONDARY_COLORS,
+  ALL_VALID_EYE_COLORS,
+  VALID_PATTERNS,
+  ALL_VALID_SPECIAL_MARKS,
+} from '@/lib/blobbi-egg-validation';
 
 declare global {
   interface Window {
@@ -119,6 +131,22 @@ export default function BlobbiDashboard() {
   // Selected Blobbi state - defaults to currentCompanion or first active Blobbi
   const [selectedBlobbiId, setSelectedBlobbiId] = useState<string | null>(null);
 
+  // Hatching state
+  const [isHatching, setIsHatching] = useState(false);
+
+  // Companion state
+  const { mutate: setCompanion, isPending: isCompanionPending } = useSetCurrentCompanion();
+  const [isUpdatingCompanion, setIsUpdatingCompanion] = useState(false);
+
+  // DEV-ONLY: Color randomizer state (for visual QA testing)
+  const isDev = import.meta.env.DEV;
+  const isLocalhost = typeof window !== 'undefined' && 
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const isDevMode = isDev && isLocalhost;
+  
+  const [isRandomizing, setIsRandomizing] = useState(false);
+  const [randomizedBlobbi, setRandomizedBlobbi] = useState<typeof selectedBlobbi>(null);
+
   // Effect hooks
   const { toast } = useToast();
   useWelcomeConfetti(showTourCompletionModal);
@@ -167,7 +195,6 @@ export default function BlobbiDashboard() {
   // Validate selected Blobbi still exists - reset if deleted
   useEffect(() => {
     if (selectedBlobbiId && userBlobbis.length > 0 && !userBlobbis.some(b => b.id === selectedBlobbiId)) {
-      // Selected blobbi no longer exists, reset to null to trigger re-initialization
       setSelectedBlobbiId(null);
     }
   }, [selectedBlobbiId, userBlobbis]);
@@ -181,6 +208,49 @@ export default function BlobbiDashboard() {
     isEvolving,
     isLoading: isBlobbiLoading
   } = useBlobbiWithFakeStatus(undefined, selectedBlobbiId || undefined);
+
+  // DEV-ONLY: Color randomizer effect (must come AFTER selectedBlobbi is defined)
+  useEffect(() => {
+    if (!isDevMode || !isRandomizing || !selectedBlobbi) {
+      setRandomizedBlobbi(null);
+      return;
+    }
+
+    // Only randomize for eggs and babies
+    if (selectedBlobbi.lifeStage !== 'egg' && selectedBlobbi.lifeStage !== 'baby') {
+      setIsRandomizing(false);
+      setRandomizedBlobbi(null);
+      return;
+    }
+
+    // Helper to pick random from array
+    const randomPick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+    // Randomize colors every 200ms
+    const interval = setInterval(() => {
+      const randomized = {
+        ...selectedBlobbi,
+        baseColor: randomPick(ALL_VALID_BASE_COLORS),
+        secondaryColor: selectedBlobbi.themeVariant !== 'divine' 
+          ? randomPick(ALL_VALID_SECONDARY_COLORS) 
+          : undefined,
+        eyeColor: randomPick(ALL_VALID_EYE_COLORS),
+        pattern: randomPick([...VALID_PATTERNS, undefined] as const),
+        specialMark: randomPick([...ALL_VALID_SPECIAL_MARKS, undefined] as const),
+      };
+      setRandomizedBlobbi(randomized);
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [isDevMode, isRandomizing, selectedBlobbi]);
+
+  // DEV-ONLY: Stop randomizing when Blobbi changes
+  useEffect(() => {
+    if (isRandomizing) {
+      setIsRandomizing(false);
+      setRandomizedBlobbi(null);
+    }
+  }, [selectedBlobbiId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check if PiP is active for the selected Blobbi
   const isPiPActiveForSelectedBlobbi =  isPiPActive && !!selectedBlobbi && activeBlobbiId === selectedBlobbi.id;
@@ -686,6 +756,110 @@ export default function BlobbiDashboard() {
                         </TooltipContent>
                       </Tooltip>
 
+                      {/* Companion Toggle Button */}
+                      {(() => {
+                        if (!user || !profile || !selectedBlobbi) return null;
+                        
+                        const isCurrentCompanion = profile.currentCompanion === selectedBlobbi.id;
+                        const ownsThisBlobbi = profile.ownedBlobbis.includes(selectedBlobbi.id);
+                        const canBeCompanion = canBlobbiBeCompanion(selectedBlobbi);
+                        const isLoading = isCompanionPending || isUpdatingCompanion;
+                        const isDisabled = isLoading || (!isCurrentCompanion && !canBeCompanion);
+
+                        if (!ownsThisBlobbi) return null;
+
+                        const handleToggleCompanion = async () => {
+                          // Check if this Blobbi can be a companion before attempting to set
+                          if (!isCurrentCompanion && !canBeCompanion) {
+                            toast({
+                              title: "Cannot Set as Companion",
+                              description: getCompanionValidationMessage(selectedBlobbi),
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+
+                          if (isCurrentCompanion) {
+                            // If already companion, remove it
+                            setIsUpdatingCompanion(true);
+                            setCompanion(null, {
+                              onSuccess: () => {
+                                toast({
+                                  title: "Companion Removed",
+                                  description: `${selectedBlobbi.name} is no longer your companion.`,
+                                });
+                                setIsUpdatingCompanion(false);
+                              },
+                              onError: (error) => {
+                                toast({
+                                  title: "Error",
+                                  description: error.message,
+                                  variant: "destructive",
+                                });
+                                setIsUpdatingCompanion(false);
+                              },
+                            });
+                          } else {
+                            // Set as new companion
+                            setIsUpdatingCompanion(true);
+                            setCompanion(selectedBlobbi.id, {
+                              onSuccess: () => {
+                                toast({
+                                  title: "Companion Selected!",
+                                  description: `${selectedBlobbi.name} is now your companion and will follow you around!`,
+                                });
+                                setIsUpdatingCompanion(false);
+                              },
+                              onError: (error) => {
+                                toast({
+                                  title: "Error",
+                                  description: error.message,
+                                  variant: "destructive",
+                                });
+                                setIsUpdatingCompanion(false);
+                              },
+                            });
+                          }
+                        };
+
+                        const ariaLabel = isCurrentCompanion ? "Remove companion" : "Set as companion";
+                        const tooltipText = !canBeCompanion 
+                          ? getCompanionValidationMessage(selectedBlobbi)
+                          : ariaLabel;
+
+                        return (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn(
+                                  "p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
+                                  isCurrentCompanion
+                                    ? "bg-purple-100 dark:bg-purple-900/40 border-purple-400 dark:border-purple-500 hover:bg-purple-200 dark:hover:bg-purple-900/60"
+                                    : "bg-white/80 dark:bg-gray-800/80 border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:scale-105"
+                                )}
+                                onClick={handleToggleCompanion}
+                                disabled={isDisabled}
+                                aria-label={ariaLabel}
+                                title={!canBeCompanion ? getCompanionValidationMessage(selectedBlobbi) : undefined}
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-purple-600 dark:text-purple-400" />
+                                ) : isCurrentCompanion ? (
+                                  <Check className="h-4 w-4 text-purple-700 dark:text-purple-300" />
+                                ) : (
+                                  <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {tooltipText}
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })()}
+
                       {/* Camera Button */}
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -740,6 +914,45 @@ export default function BlobbiDashboard() {
                           Settings
                         </TooltipContent>
                       </Tooltip>
+
+                      {/* DEV-ONLY: Color Randomizer Button */}
+                      {isDevMode && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "p-2 h-8 w-8 rounded-full backdrop-blur-sm border transition-all duration-200",
+                                isRandomizing
+                                  ? "bg-orange-100 dark:bg-orange-900/40 border-orange-400 dark:border-orange-500 hover:bg-orange-200 dark:hover:bg-orange-900/60"
+                                  : "bg-white/80 dark:bg-gray-800/80 border-orange-200 dark:border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:scale-105"
+                              )}
+                              onClick={() => setIsRandomizing(!isRandomizing)}
+                              disabled={!selectedBlobbi || (selectedBlobbi.lifeStage !== 'egg' && selectedBlobbi.lifeStage !== 'baby')}
+                              aria-label="Randomize colors (DEV)"
+                            >
+                              <Shuffle 
+                                className={cn(
+                                  "h-4 w-4",
+                                  isRandomizing
+                                    ? "text-orange-700 dark:text-orange-300 animate-pulse"
+                                    : "text-orange-600 dark:text-orange-400"
+                                )}
+                              />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {!selectedBlobbi
+                              ? "No Blobbi selected"
+                              : selectedBlobbi.lifeStage !== 'egg' && selectedBlobbi.lifeStage !== 'baby'
+                              ? "Only for egg/baby"
+                              : isRandomizing
+                              ? "Stop randomizing (DEV)"
+                              : "Randomize colors (DEV)"}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
 
                     {/* Content column */}
@@ -770,7 +983,7 @@ export default function BlobbiDashboard() {
                       </div>
 
                       {/* Blobbi Visual - Takes remaining vertical space */}
-                      <div className="flex-1 flex items-center justify-center min-h-[220px]">
+                      <div className="flex-1 flex flex-col items-center justify-center min-h-[220px] gap-4">
                         <div
                           className={cn(
                             "mx-auto aspect-square max-w-full transition-all duration-300",
@@ -780,39 +993,121 @@ export default function BlobbiDashboard() {
                             (isSelectedIncubating || isOptimisticallyIncubating) && "w-[280px] sm:w-[340px]"
                           )}
                         >
-                          {selectedBlobbi.lifeStage === 'egg' ? (
-                            // Egg: Wrap with incubator if incubating
-                            isSelectedIncubating || isOptimisticallyIncubating ? (
-                              <IncubatorVisual className="w-full h-full">
+                          {(() => {
+                            // DEV-ONLY: Use randomized blobbi if randomizer is active
+                            const displayBlobbi = (isDevMode && randomizedBlobbi) || selectedBlobbi;
+                            
+                            if (displayBlobbi.lifeStage === 'egg') {
+                              // Egg: Wrap with incubator if incubating
+                              return (isSelectedIncubating || isOptimisticallyIncubating) ? (
+                                <IncubatorVisual className="w-full h-full">
+                                  <EggGraphic
+                                    blobbi={displayBlobbi}
+                                    sizeVariant="tiny"
+                                    animated={true}
+                                    warmth={displayBlobbi.eggTemperature || 60}
+                                  />
+                                </IncubatorVisual>
+                              ) : (
                                 <EggGraphic
-                                  blobbi={selectedBlobbi}
+                                  blobbi={displayBlobbi}
                                   sizeVariant="tiny"
                                   animated={true}
-                                  warmth={selectedBlobbi.eggTemperature || 60}
+                                  warmth={displayBlobbi.eggTemperature || 60}
                                 />
-                              </IncubatorVisual>
-                            ) : (
-                              <EggGraphic
-                                blobbi={selectedBlobbi}
-                                sizeVariant="tiny"
-                                animated={true}
-                                warmth={selectedBlobbi.eggTemperature || 60}
-                              />
-                            )
-                          ) : selectedBlobbi.evolutionForm && selectedBlobbi.evolutionForm !== 'blobbi' ? (
-                            <BlobbiEvolvedVisual
-                              blobbi={selectedBlobbi}
-                              size="large"
-                              onClick={() => performAction('play')}
-                            />
-                          ) : (
-                            <BlobbiVisual
-                              blobbi={selectedBlobbi}
-                              size="large"
-                              onClick={() => performAction('play')}
-                            />
-                          )}
+                              );
+                            } else if (displayBlobbi.evolutionForm && displayBlobbi.evolutionForm !== 'blobbi') {
+                              return (
+                                <BlobbiEvolvedVisual
+                                  blobbi={displayBlobbi}
+                                  size="large"
+                                  onClick={() => performAction('play')}
+                                />
+                              );
+                            } else {
+                              return (
+                                <BlobbiVisual
+                                  blobbi={displayBlobbi}
+                                  size="large"
+                                  onClick={() => performAction('play')}
+                                />
+                              );
+                            }
+                          })()}
                         </div>
+
+                        {/* Hatch Button - Only show for ready eggs */}
+                        {(() => {
+                          if (selectedBlobbi.lifeStage !== 'egg') return null;
+                          
+                          const eggPhaseState = growthSystem.getPhaseState(selectedBlobbi.id, 'egg');
+                          const isReadyToHatch = eggPhaseState ? eggPhaseState.tasks.every(t => {
+                            if (t.id === 'shell_integrity_above_50') {
+                              return (selectedBlobbi.shellIntegrity || 100) >= 50;
+                            }
+                            return t.completed;
+                          }) : false;
+
+                          if (!isReadyToHatch) return null;
+
+                          const handleHatch = async () => {
+                            if (isHatching) return;
+                            
+                            setIsHatching(true);
+                            try {
+                              await growthSystem.hatchBlobbi(selectedBlobbi.id);
+                            } catch (error) {
+                              console.error('Failed to hatch blobbi:', error);
+                              toast({
+                                title: "Hatching Failed",
+                                description: "There was an error hatching your Blobbi. Please try again.",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setIsHatching(false);
+                            }
+                          };
+
+                          return (
+                            <div className="w-full max-w-[280px] px-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                              <div className="relative">
+                                {/* Glow effect */}
+                                <div className="absolute -inset-1 bg-gradient-to-r from-purple-400 via-pink-400 to-amber-400 rounded-lg blur opacity-30 animate-pulse" />
+                                
+                                <Button
+                                  onClick={handleHatch}
+                                  disabled={isHatching}
+                                  className={cn(
+                                    "relative w-full bg-gradient-to-r from-purple-500 via-pink-500 to-amber-500",
+                                    "hover:from-purple-600 hover:via-pink-600 hover:to-amber-600",
+                                    "text-white font-semibold shadow-xl",
+                                    "transition-all duration-300 hover:scale-105 active:scale-95",
+                                    "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
+                                    "py-6 text-base sm:text-lg"
+                                  )}
+                                  size="lg"
+                                >
+                                  {isHatching ? (
+                                    <>
+                                      <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                      Cracking...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Sparkles className="mr-2 h-5 w-5 animate-pulse" />
+                                      Hatch Your Blobbi
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                              
+                              {/* Helper text */}
+                              <p className="text-center text-xs text-purple-600 dark:text-purple-400 mt-2 animate-pulse">
+                                ✨ Your Blobbi is ready to hatch! ✨
+                              </p>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -856,6 +1151,7 @@ export default function BlobbiDashboard() {
               isOpen={showPolaroidModal}
               onClose={() => setShowPolaroidModal(false)}
               blobbi={selectedBlobbi}
+              isIncubating={isSelectedIncubating}
             />
 
             {/* Growth Hub Modal */}

@@ -1007,19 +1007,27 @@ export function BlobbiIncubationDashboard({ className }: BlobbiIncubationDashboa
       />
 
       {/* Polaroid Photo Modal */}
-      {selectedBlobbi && (
-        <PolaroidPhotoModal
-          isOpen={showPolaroidModal}
-          onClose={() => setShowPolaroidModal(false)}
-          blobbi={selectedBlobbi}
-          onPhotoPosted={async () => {
-            // Mark the photo task as completed
-            await markPhotoTaskCompleted(selectedBlobbi.id);
-            // Refresh the incubation system
-            refetchMetadata();
-          }}
-        />
-      )}
+      {selectedBlobbi && (() => {
+        // Determine if selected blobbi is incubating (for egg stage)
+        const isIncubating = selectedBlobbi.lifeStage === 'egg' &&
+          (selectedBlobbi.tags?.some((tag: string[]) => tag[0] === 'start_incubation') ||
+           incubationStartTime !== undefined);
+
+        return (
+          <PolaroidPhotoModal
+            isOpen={showPolaroidModal}
+            onClose={() => setShowPolaroidModal(false)}
+            blobbi={selectedBlobbi}
+            isIncubating={isIncubating}
+            onPhotoPosted={async () => {
+              // Mark the photo task as completed
+              await markPhotoTaskCompleted(selectedBlobbi.id);
+              // Refresh the incubation system
+              refetchMetadata();
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

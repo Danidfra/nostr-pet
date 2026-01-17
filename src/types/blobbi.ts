@@ -209,6 +209,7 @@ export interface BlobbiInteractionData {
   statChange: [string, string]; // [stat_name, change_value] - kept for backward compatibility
   statChanges?: Array<[string, string]>; // Multiple stat changes for items
   itemUsed?: string;
+  itemQuantity?: number; // Number of items used in this interaction
   itemQuality?: string;
   timeOfDay?: string;
   blobbiMoodBefore?: string;
