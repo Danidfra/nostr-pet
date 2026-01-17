@@ -273,37 +273,29 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
     setIsPlayModalOpen(true);
   });
 
-  const handlePlayModalClose = (actionPerformed?: boolean) => {
+  const handlePlayModalClose = () => {
     setIsPlayModalOpen(false);
-    if (actionPerformed) {
-
-    }
   };
 
   const handleOpenMedicine = createActionHandler(() => {
     setIsMedicineModalOpen(true);
   });
 
-  const handleMedicineModalClose = (actionPerformed?: boolean) => {
+  const handleMedicineModalClose = () => {
     setIsMedicineModalOpen(false);
-    // If an action was performed, we could add additional logic here if needed
-    if (actionPerformed) {
-      // The fake status system will handle the UI updates automatically
-
-    }
   };
 
   const handleOpenCleaning = createActionHandler(() => {
     setIsCleaningModalOpen(true);
   });
 
-  const handleCleaningModalClose = (actionPerformed?: boolean) => {
+  const handleCleaningModalClose = () => {
     setIsCleaningModalOpen(false);
-    // If an action was performed, we could add additional logic here if needed
-    if (actionPerformed) {
-      // The fake status system will handle the UI updates automatically
+  };
 
-    }
+  const handleItemUsed = () => {
+    // The fake status system will handle the UI updates automatically
+    // Item was used successfully, modal stays open for more uses
   };
 
   if (!shouldShow || !companionData?.blobbi?.id) return null;
@@ -474,6 +466,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
         actionType="play"
         blobbi={companionData?.blobbi || undefined}
         isCompanionContext={true}
+        onItemUsed={handleItemUsed}
         onOpenShop={() => {
           setShopDefaultTab('toys');
           setIsShopModalOpen(true);
@@ -485,6 +478,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
         actionType="medicine"
         blobbi={companionData?.blobbi || undefined}
         isCompanionContext={true}
+        onItemUsed={handleItemUsed}
         onOpenShop={() => {
           setShopDefaultTab('medicine');
           setIsShopModalOpen(true);
@@ -496,6 +490,7 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
         actionType="clean"
         blobbi={companionData?.blobbi || undefined}
         isCompanionContext={true}
+        onItemUsed={handleItemUsed}
         onOpenShop={() => {
           setShopDefaultTab('hygiene');
           setIsShopModalOpen(true);

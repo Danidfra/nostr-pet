@@ -35,11 +35,24 @@ interface InteractionWithFakeStatusParams {
   duration?: number; // For game interactions
   itemUsed?: string;
   itemEffects?: Record<string, number>; // For backwards compatibility
+  itemQuantity?: number; // Number of items used in this interaction
   customStatChange?: [string, number]; // For backwards compatibility
   energyCost?: number; // For game interactions
   score?: number; // For game interactions
   customData?: Record<string, string>;
   currentBlobbi?: Blobbi;
+}
+
+/**
+ * Multiplies effect values by a given quantity
+ */
+function multiplyEffects(effect: Record<string, number> | undefined, qty: number): Record<string, number> | undefined {
+  if (!effect) return undefined;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(effect)) {
+    out[k] = v * qty;
+  }
+  return out;
 }
 
 /**
@@ -158,6 +171,7 @@ export function useBlobbiInteractionWithFakeStatus() {
         playDuration,
         itemUsed,
         itemEffects,
+        itemQuantity,
         score,
         customData,
         currentBlobbi,
@@ -243,6 +257,7 @@ export function useBlobbiInteractionWithFakeStatus() {
         gameType,
         playDuration,
         itemUsed,
+        itemQuantity, // Include item quantity if provided
         ...customData,
       };
 

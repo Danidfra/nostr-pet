@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,13 +13,26 @@ import { useAudio } from '@/contexts/AudioContext';
 import { Utensils, Gamepad2, Pill, Bath, Sparkles } from 'lucide-react';
 import { SHOP_ITEMS, getMedicineSoundForItem } from '@/lib/shop-items';
 
+/**
+ * Multiplies effect values by a given quantity
+ */
+function multiplyEffects(effect: Record<string, number> | undefined, qty: number): Record<string, number> | undefined {
+  if (!effect) return undefined;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(effect)) {
+    out[k] = v * qty;
+  }
+  return out;
+}
+
 interface BlobbiInventoryModalProps {
   isOpen: boolean;
-  onClose: (actionPerformed?: boolean, action?: BlobbiAction) => void;
+  onClose: () => void;
   actionType: BlobbiAction;
   onOpenShop?: () => void;
   blobbi?: Blobbi; // Optional blobbi prop for companion usage
   isCompanionContext?: boolean; // Flag to indicate if this is being used from companion context
+  onItemUsed?: (action: BlobbiAction, item: BlobbiItem) => void; // Called when an item is successfully used
 }
 
 const ACTION_TYPE_MAP: Record<BlobbiAction, string> = {
@@ -48,7 +61,7 @@ const ACTION_ICONS: Record<BlobbiAction, React.ComponentType<{ className?: strin
   cruzar: null,
 };
 
-export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, blobbi: propBlobbi, isCompanionContext = false }: BlobbiInventoryModalProps) {
+export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, blobbi: propBlobbi, isCompanionContext = false, onItemUsed }: BlobbiInventoryModalProps) {
   const { blobbi: contextBlobbi } = useBlobbiWithFakeStatus();
   const { data: blobbonautProfile, isLoading: isProfileLoading, removeFromStorage } = useBlobbonautProfileWithFakeInventory();
   const { mutateAsync: performCareInteraction } = useBlobbiCareInteractionWithFakeStatus();
@@ -56,6 +69,8 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
   const { playSound } = useAudio();
   const [selectedItem, setSelectedItem] = useState<BlobbiItem | null>(null);
   const [isUsingItem, setIsUsingItem] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
 
   // Use prop blobbi if provided (for companion), otherwise use context blobbi
   const blobbi = propBlobbi || contextBlobbi;
@@ -82,13 +97,60 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
   const inventoryItems = getStorageItemsByType(itemType);
   const ActionIcon = ACTION_ICONS[actionType];
 
-  const handleUseItem = async () => {
+  // Get current quantity for selected item
+  const getItemQuantity = (itemId: string): number => {
+    const storageItem = blobbonautProfile?.storage.find(s => s.itemId === itemId);
+    return storageItem?.quantity || 0;
+  };
+
+  // Calculate maximum usable quantity
+  const getMaxQuantity = (item: BlobbiItem & { quantity: number }): number => {
+    return item.quantity;
+  };
+
+  // Update selected item when quantities change
+  const refreshSelectedItem = () => {
+    if (!selectedItem) return;
+    
+    const currentQuantity = getItemQuantity(selectedItem.id);
+    if (currentQuantity === 0) {
+      // Item is now gone, try to select next available item
+      const remainingItems = inventoryItems.filter(item => item.quantity > 0);
+      if (remainingItems.length > 0) {
+        setSelectedItem(remainingItems[0]);
+        setSelectedQuantity(1);
+      } else {
+        setSelectedItem(null);
+        setSelectedQuantity(1);
+      }
+    }
+  };
+
+  // Open confirmation dialog
+  const handleOpenConfirmDialog = () => {
+    if (!selectedItem) return;
+    
+    // For toys, force quantity to 1
+    if (actionType === 'play' && selectedItem.type === 'toy') {
+      setSelectedQuantity(1);
+    } else {
+      setSelectedQuantity(1);
+    }
+    
+    setShowConfirmDialog(true);
+  };
+
+  // Confirm and use item(s)
+  const confirmUseItem = async () => {
     if (!selectedItem || !blobbi || isUsingItem) return;
 
     setIsUsingItem(true);
 
     try {
-      // ✅ NEW: Handle toy placement differently from other items
+      // For toys, only allow single placement
+      const quantityToUse = (actionType === 'play' && selectedItem.type === 'toy') ? 1 : selectedQuantity;
+
+      // ✅ Handle toy placement differently from other items
       if (actionType === 'play' && selectedItem.type === 'toy') {
         // Only place toys in the companion if this is being used from companion context
         if (isCompanionContext) {
@@ -126,29 +188,43 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
           playSound('cleaning');
         }
 
-        // First, remove the item from storage
+        // Remove items from storage
         await removeFromStorage({
           itemId: selectedItem.id,
-          quantity: 1,
+          quantity: quantityToUse,
         });
 
-        // Then use the enhanced care interaction system with item effects
+        // Apply effects for all items used as totals (aggregated)
+        const totalEffects = multiplyEffects(selectedItem.effect, quantityToUse);
         await performCareInteraction({
           blobbiId: blobbi.id,
           action: actionType,
-          itemEffects: selectedItem.effect,
+          itemEffects: totalEffects,
           itemUsed: selectedItem.name,
+          itemQuantity: quantityToUse,
           currentBlobbi: blobbi,
         });
       }
 
+      const quantityText = quantityToUse === 1 ? '' : ` (×${quantityToUse})`;
       toast({
         title: "Item Used!",
-        description: `${blobbi.name || 'Your Blobbi'} ${actionType === 'play' ? 'is playing with' : 'used'} ${selectedItem.name}!`,
+        description: `${blobbi.name || 'Your Blobbi'} ${actionType === 'play' ? 'is playing with' : 'used'} ${selectedItem.name}${quantityText}!`,
       });
 
-      // Close with action performed flag
-      onClose(true, actionType);
+      // Close the confirmation dialog
+      setShowConfirmDialog(false);
+      setSelectedQuantity(1);
+
+      // Notify parent if callback is provided
+      if (onItemUsed) {
+        onItemUsed(actionType, selectedItem);
+      }
+
+      // Refresh item selection after a short delay to allow data to update
+      setTimeout(() => {
+        refreshSelectedItem();
+      }, 100);
     } catch (error) {
       console.error('Failed to use item:', error);
       toast({
@@ -348,8 +424,9 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => onClose()}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
+    <>
+      <Dialog open={isOpen} onOpenChange={() => onClose()}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
         <DialogHeader className="pb-4">
           <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
             {ActionIcon && (
@@ -387,7 +464,7 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
             <div className="flex flex-col gap-3">
               <Button
                 onClick={() => {
-                  onClose(false); // Close inventory modal first
+                  onClose(); // Close inventory modal first
                   // Use a small delay to ensure modal closes before opening shop
                   setTimeout(() => {
                     if (onOpenShop) {
@@ -409,7 +486,7 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
               </Button>
               <Button
                 variant="outline"
-                onClick={() => onClose(false)}
+                onClick={() => onClose()}
                 className="h-11 rounded-xl border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium"
               >
                 Cancel
@@ -482,7 +559,7 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
                 <Button
                   variant="outline"
                   onClick={() => {
-                    onClose(false);
+                    onClose();
                     setTimeout(() => {
                       onOpenShop();
                     }, 100);
@@ -496,26 +573,184 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
                 </Button>
               )}
               <Button
-                onClick={handleUseItem}
+                onClick={handleOpenConfirmDialog}
                 disabled={!selectedItem || isUsingItem}
                 className="flex-1 h-11 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 disabled:opacity-50 font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                {isUsingItem ? (
-                  <span className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Using...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <span className="text-lg">✨</span>
-                    Use Item
-                  </span>
-                )}
+                <span className="flex items-center gap-2">
+                  <span className="text-lg">✨</span>
+                  Use Item
+                </span>
               </Button>
             </div>
           </div>
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Confirmation Dialog for Using Items */}
+    <Dialog open={showConfirmDialog} onOpenChange={(open) => {
+      setShowConfirmDialog(open);
+      if (!open) {
+        setSelectedQuantity(1); // Reset quantity when dialog closes
+      }
+    }}>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Confirm Item Use</DialogTitle>
+          <DialogDescription className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+            Select quantity and confirm to use this item
+          </DialogDescription>
+        </DialogHeader>
+        {selectedItem && (
+          <div className="space-y-4">
+            {/* Item Preview */}
+            <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl border border-blue-200/50 dark:border-blue-600/50">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                <span className="text-2xl">{selectedItem.icon}</span>
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100">{selectedItem.name}</h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Available: {getItemQuantity(selectedItem.id)}
+                </p>
+              </div>
+            </div>
+
+            {/* Quantity Selector - Only for non-toys or non-companion context */}
+            {!(actionType === 'play' && selectedItem.type === 'toy') && (
+              <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl border border-purple-200/50 dark:border-purple-600/50">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-semibold text-purple-800 dark:text-purple-300 flex items-center gap-2">
+                    <span className="text-lg">📦</span>
+                    Quantity:
+                  </label>
+                  <span className="text-xs text-purple-600 dark:text-purple-400">
+                    Max: {getItemQuantity(selectedItem.id)}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {/* Decrease Button */}
+                  <button
+                    onClick={() => setSelectedQuantity(Math.max(1, selectedQuantity - 1))}
+                    disabled={selectedQuantity <= 1}
+                    className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 flex items-center justify-center font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    −
+                  </button>
+
+                  {/* Quantity Input */}
+                  <div className="flex-1 relative">
+                    <input
+                      type="number"
+                      min="1"
+                      max={getItemQuantity(selectedItem.id)}
+                      value={selectedQuantity}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 1;
+                        const maxQty = getItemQuantity(selectedItem.id);
+                        setSelectedQuantity(Math.min(Math.max(1, value), maxQty));
+                      }}
+                      className="w-full h-10 px-3 text-center font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                    />
+                  </div>
+
+                  {/* Increase Button */}
+                  <button
+                    onClick={() => setSelectedQuantity(Math.min(getItemQuantity(selectedItem.id), selectedQuantity + 1))}
+                    disabled={selectedQuantity >= getItemQuantity(selectedItem.id)}
+                    className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 flex items-center justify-center font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Toy-specific message */}
+            {actionType === 'play' && selectedItem.type === 'toy' && (
+              <div className="p-3 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-xl border border-yellow-200/50 dark:border-yellow-600/50">
+                <p className="text-xs text-yellow-800 dark:text-yellow-300 flex items-center gap-2">
+                  <span>🎾</span>
+                  Toys are placed one at a time for your Blobbi to play with!
+                </p>
+              </div>
+            )}
+
+            {/* Effects */}
+            {selectedItem?.effect && Object.entries(selectedItem.effect).length > 0 && (
+              <div className="p-4 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-2xl border border-emerald-200/50 dark:border-emerald-700/50">
+                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 mb-3 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Effects per item:
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(selectedItem.effect).map(([stat, value]: [string, number]) => (
+                    <div key={stat} className="flex items-center gap-2 p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300 capitalize">{formatStatName(stat)}</span>
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 ml-auto">
+                        {value >= 0 ? '+' : ''}{value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Total effects for multiple items */}
+                {selectedQuantity > 1 && !(actionType === 'play' && selectedItem.type === 'toy') && (
+                  <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-700">
+                    <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-2">
+                      Total Effects (×{selectedQuantity}):
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(selectedItem.effect).map(([stat, value]: [string, number]) => (
+                        <div key={stat} className="flex items-center gap-2 p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-lg">
+                          <div className="w-2 h-2 rounded-full bg-emerald-600"></div>
+                          <span className="text-xs font-medium text-gray-900 dark:text-gray-100 capitalize">{formatStatName(stat)}</span>
+                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 ml-auto">
+                            {value >= 0 ? '+' : ''}{value * selectedQuantity}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        <DialogFooter className="pt-6 flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowConfirmDialog(false);
+              setSelectedQuantity(1);
+            }}
+            className="flex-1 h-11 rounded-xl border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmUseItem}
+            disabled={isUsingItem}
+            className="flex-1 h-11 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isUsingItem ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Using...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <span className="text-lg">✨</span>
+                Use {selectedQuantity > 1 && !(actionType === 'play' && selectedItem?.type === 'toy') ? `(×${selectedQuantity})` : ''}
+              </span>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

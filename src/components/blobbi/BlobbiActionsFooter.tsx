@@ -151,10 +151,19 @@ export function BlobbiActionsFooter({
     }
   };
 
-  const handleInventoryClose = async () => {
+  const handleInventoryClose = () => {
     setInventoryModalOpen(false);
     setSelectedAction(null);
     setActionInProgress(null);
+  };
+
+  const handleItemUsed = (action: BlobbiAction) => {
+    // Log the successful item use
+    const logSuccess = async () => {
+      const { logInteractionSuccess } = await import('@/lib/interaction-logger');
+      logInteractionSuccess(action, blobbi.id, blobbi.lifeStage, 'inventory');
+    };
+    logSuccess();
   };
 
   // Determine if we're in dashboard mode (all 3 buttons) or detail page mode (actions modal only)
@@ -279,6 +288,7 @@ export function BlobbiActionsFooter({
           actionType={selectedAction}
           onOpenShop={onOpenShop}
           blobbi={blobbi}
+          onItemUsed={handleItemUsed}
         />
       )}
     </>
