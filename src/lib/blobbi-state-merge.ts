@@ -1,5 +1,6 @@
 import { NostrEvent } from '@nostrify/nostrify';
 import { ensureBlobbiTags, hasBlobbiEcosystemTag, hasBlobbiTopicTag } from './blobbi-tags';
+import { normalizeTags, type NostrTag } from './nostr/tags';
 
 /**
  * Interface for merge options when updating Blobbi state tags
@@ -22,7 +23,7 @@ export interface BlobbiStateMergeOptions {
   /** Hatch time timestamp (Unix timestamp in seconds) */
   hatchTime?: number;
   /** Any additional tags to add/override */
-  additionalTags?: Array<[string, string]>;
+  additionalTags?: NostrTag[];
   /** Any tag names to completely remove */
   removeTags?: string[];
   /** Whether to preserve all incubation and quest-related tags (default: true) */
@@ -41,35 +42,33 @@ export interface BlobbiStateMergeOptions {
  * @returns New array of merged tags
  */
 export function mergeBlobbiStateTags(
-  originalEventTags: string[][],
+  originalEventTags: NostrTag[],
   options: BlobbiStateMergeOptions
-): Array<[string, string]> {
+): NostrTag[] {
   const preserveIncubationAndQuestTags = options.preserveIncubationAndQuestTags !== false; // Default to true
 
   // Convert original tags to a more workable format
-  const existingTags = new Map<string, string[]>();
+  const existingTags = new Map<string, NostrTag[]>();
 
   // Group tags by name to handle multiple values
   originalEventTags.forEach(tag => {
-    const [name, value] = tag;
+    const name = tag?.[0];
     if (!name) return;
 
     if (!existingTags.has(name)) {
       existingTags.set(name, []);
     }
-    if (value) {
-      existingTags.get(name)!.push(value);
-    }
+    existingTags.get(name)!.push(tag);
   });
 
   // Create the result array
-  const result: Array<[string, string]> = [];
+  const result: NostrTag[] = [];
 
   // Track which tags from additionalTags we've processed
   const processedAdditionalTags = new Set<string>();
 
   // Process each tag name from the original event
-  existingTags.forEach((values, tagName) => {
+  existingTags.forEach((tagList, tagName) => {
     // Skip tags that we're explicitly removing
     if (options.removeTags?.includes(tagName)) {
       return;
@@ -83,7 +82,7 @@ export function mergeBlobbiStateTags(
           result.push(['stage', options.stage]);
         } else {
           // Keep original stage(s)
-          values.forEach(value => result.push([tagName, value]));
+          tagList.forEach(t => result.push(t));
         }
         break;
 
@@ -96,7 +95,7 @@ export function mergeBlobbiStateTags(
           result.push(['start_incubation', options.startIncubation.toString()]);
         } else {
           // Keep original start_incubation tag(s)
-          values.forEach(value => result.push([tagName, value]));
+          tagList.forEach(t => result.push(t));
         }
         break;
 
@@ -109,7 +108,7 @@ export function mergeBlobbiStateTags(
           result.push(['start_evolution', options.startEvolution.toString()]);
         } else {
           // Keep original start_evolution tag(s)
-          values.forEach(value => result.push([tagName, value]));
+          tagList.forEach(t => result.push(t));
         }
         break;
 
@@ -119,7 +118,7 @@ export function mergeBlobbiStateTags(
           result.push(['hatch_time', options.hatchTime.toString()]);
         } else {
           // Keep original hatch_time tag(s)
-          values.forEach(value => result.push([tagName, value]));
+          tagList.forEach(t => result.push(t));
         }
         break;
 
@@ -141,7 +140,7 @@ export function mergeBlobbiStateTags(
         }
 
         // Check if this tag is being overridden by additionalTags
-        const isBeingOverridden = options.additionalTags?.some(([name]) => name === tagName);
+        const isBeingOverridden = options.additionalTags?.some(t => t?.[0] === tagName);
 
         if (isBeingOverridden) {
           // Special handling for incubation/quest tags - they should be preserved unless explicitly overridden
@@ -158,7 +157,7 @@ export function mergeBlobbiStateTags(
 
           if (shouldPreserveTag) {
             // Keep the original value, don't override
-            values.forEach(value => result.push([tagName, value]));
+            tagList.forEach(t => result.push(t));
           } else {
             // Skip this tag - it will be replaced by additionalTags
             processedAdditionalTags.add(tagName);
@@ -167,7 +166,7 @@ export function mergeBlobbiStateTags(
           // ✅ PRESERVE ALL TAGS BY DEFAULT
           // Keep all tags as-is (including stat tags, visual tags, ecosystem tags, etc.)
           // This is the core principle: "Keep everything unless explicitly changed or removed"
-          values.forEach(value => result.push([tagName, value]));
+          tagList.forEach(t => result.push(t));
         }
         break;
       }
@@ -211,6 +210,9 @@ export function mergeBlobbiStateTags(
     // If it exists, it was already updated in the switch logic above
   }
 
+  // Multi-value tags that should never be collapsed
+  const MULTI_VALUE_TAGS = new Set(['personality', 'trait', 'achievements', 'has', 'storage', 't']);
+
   // Add any additional tags
   if (options.additionalTags) {
     options.additionalTags.forEach(([name, value]) => {
@@ -241,35 +243,27 @@ export function mergeBlobbiStateTags(
         return;
       }
 
-      // Remove any existing instances of this tag first (if not preserved)
-      if (!shouldPreserveExisting || !existingTags.has(name)) {
-        const filteredResult = result.filter(tag => tag[0] !== name);
-        result.length = 0;
-        result.push(...filteredResult);
-
-        // Add the new tag
+      // Multi-value tags: just add, don't remove existing
+      if (MULTI_VALUE_TAGS.has(name)) {
         result.push([name, value]);
+      } else {
+        // Singleton tags: remove existing instances first (last-write-wins)
+        if (!shouldPreserveExisting || !existingTags.has(name)) {
+          const filteredResult = result.filter(tag => tag[0] !== name);
+          result.length = 0;
+          result.push(...filteredResult);
+
+          // Add the new tag
+          result.push([name, value]);
+        }
       }
     });
   }
 
-  // Ensure all Blobbi tags are preserved (never removed accidentally)
-  if (!hasBlobbiEcosystemTag(result) || !hasBlobbiTopicTag(result)) {
-    console.warn('[Tag Merge] Blobbi ecosystem/topic tags were lost during merge, restoring them');
-    // Add both tags if either is missing
-    if (!hasBlobbiEcosystemTag(result)) {
-      result.unshift(['b', 'blobbi:ecosystem:v1']);
-    }
-    if (!hasBlobbiTopicTag(result)) {
-      result.unshift(['t', 'Blobbi']);
-      result.unshift(['t', 'blobbi']);
-    }
-  }
-
-  // Defensive logging in development mode
-  if (process.env.NODE_ENV === 'development') {
+  // Defensive logging in development mode (Vite-safe)
+  if (import.meta.env.DEV) {
     const originalTagNames = Array.from(existingTags.keys());
-    const resultTagNames = result.map(([name]) => name);
+    const resultTagNames = result.map((tag) => tag[0]);
     const droppedTags = originalTagNames.filter(name =>
       !resultTagNames.includes(name) && !options.removeTags?.includes(name)
     );
@@ -283,22 +277,23 @@ export function mergeBlobbiStateTags(
       resultTags: result.length,
       hasEcosystemTag: hasBlobbiEcosystemTag(result),
       hasTopicTag: hasBlobbiTopicTag(result),
-      hasStartIncubation: result.some(([name]) => name === 'start_incubation'),
-      hasStartEvolution: result.some(([name]) => name === 'start_evolution'),
+      hasStartIncubation: result.some((tag) => tag[0] === 'start_incubation'),
+      hasStartEvolution: result.some((tag) => tag[0] === 'start_evolution'),
       hasStats: {
-        hunger: result.some(([name]) => name === 'hunger'),
-        happiness: result.some(([name]) => name === 'happiness'),
-        health: result.some(([name]) => name === 'health'),
-        hygiene: result.some(([name]) => name === 'hygiene'),
-        energy: result.some(([name]) => name === 'energy'),
-        experience: result.some(([name]) => name === 'experience'),
-        careStreak: result.some(([name]) => name === 'care_streak'),
+        hunger: result.some((tag) => tag[0] === 'hunger'),
+        happiness: result.some((tag) => tag[0] === 'happiness'),
+        health: result.some((tag) => tag[0] === 'health'),
+        hygiene: result.some((tag) => tag[0] === 'hygiene'),
+        energy: result.some((tag) => tag[0] === 'energy'),
+        experience: result.some((tag) => tag[0] === 'experience'),
+        careStreak: result.some((tag) => tag[0] === 'care_streak'),
       },
       droppedTags,
     });
   }
 
-  return result;
+  // Normalize and deduplicate the final result
+  return normalizeTags(result);
 }
 
 /**

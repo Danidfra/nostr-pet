@@ -6,6 +6,7 @@ import { useUserBlobbi } from '@/hooks/useUserBlobbi';
 import { useBlobbonautProfile, useAddCoins } from '@/hooks/useBlobbonautProfile';
 import { Blobbi, BlobbiAction, BlobbiItem, BlobbiStats, BlobbiInteractionType } from '@/types/blobbi';
 import { calculateStatDegradation, clampStat } from '@/lib/blobbi-events';
+import { useNostr } from '@/hooks/useNostr';
 
 // Map legacy actions to new interaction types
 function mapActionToInteractionType(action: BlobbiAction): BlobbiInteractionType {
@@ -96,13 +97,14 @@ export function useBlobbi(pubkey?: string, blobbiId?: string) {
   const currentBlobbi = blobbi ? {
     ...blobbi,
     stats: (() => {
-      const degradation = calculateStatDegradation(blobbi.lastInteraction * 1000);
+      // Calculate and SUBTRACT degradation (loss amounts)
+      const degradation = calculateStatDegradation(blobbi.lastInteraction);
       return {
-        hunger: clampStat(blobbi.stats.hunger + (degradation.hunger || 0)),
-        happiness: clampStat(blobbi.stats.happiness + (degradation.happiness || 0)),
+        hunger: clampStat(blobbi.stats.hunger - (degradation.hunger || 0)),
+        happiness: clampStat(blobbi.stats.happiness - (degradation.happiness || 0)),
         health: blobbi.stats.health, // Health doesn't auto-degrade
-        hygiene: clampStat(blobbi.stats.hygiene + (degradation.hygiene || 0)),
-        energy: clampStat(blobbi.stats.energy + (degradation.energy || 0)),
+        hygiene: clampStat(blobbi.stats.hygiene - (degradation.hygiene || 0)),
+        energy: clampStat(blobbi.stats.energy - (degradation.energy || 0)),
       };
     })(),
   } : null;
@@ -376,13 +378,13 @@ export function useBlobbis(limit: number = 20) {
       return blobbis.map(blobbi => ({
         ...blobbi,
         stats: (() => {
-          const degradation = calculateStatDegradation(blobbi.lastInteraction * 1000);
+          const degradation = calculateStatDegradation(blobbi.lastInteraction);
           return {
-            hunger: clampStat(blobbi.stats.hunger + (degradation.hunger || 0)),
-            happiness: clampStat(blobbi.stats.happiness + (degradation.happiness || 0)),
+            hunger: clampStat(blobbi.stats.hunger - (degradation.hunger || 0)),
+            happiness: clampStat(blobbi.stats.happiness - (degradation.happiness || 0)),
             health: blobbi.stats.health,
-            hygiene: clampStat(blobbi.stats.hygiene + (degradation.hygiene || 0)),
-            energy: clampStat(blobbi.stats.energy + (degradation.energy || 0)),
+            hygiene: clampStat(blobbi.stats.hygiene - (degradation.hygiene || 0)),
+            energy: clampStat(blobbi.stats.energy - (degradation.energy || 0)),
           };
         })(),
       }));
@@ -429,13 +431,13 @@ export function useCommunityBlobbis(limit: number = 20) {
       return blobbis.map(blobbi => ({
         ...blobbi,
         stats: (() => {
-          const degradation = calculateStatDegradation(blobbi.lastInteraction * 1000);
+          const degradation = calculateStatDegradation(blobbi.lastInteraction);
           return {
-            hunger: clampStat(blobbi.stats.hunger + (degradation.hunger || 0)),
-            happiness: clampStat(blobbi.stats.happiness + (degradation.happiness || 0)),
+            hunger: clampStat(blobbi.stats.hunger - (degradation.hunger || 0)),
+            happiness: clampStat(blobbi.stats.happiness - (degradation.happiness || 0)),
             health: blobbi.stats.health,
-            hygiene: clampStat(blobbi.stats.hygiene + (degradation.hygiene || 0)),
-            energy: clampStat(blobbi.stats.energy + (degradation.energy || 0)),
+            hygiene: clampStat(blobbi.stats.hygiene - (degradation.hygiene || 0)),
+            energy: clampStat(blobbi.stats.energy - (degradation.energy || 0)),
           };
         })(),
       }));
@@ -443,6 +445,3 @@ export function useCommunityBlobbis(limit: number = 20) {
     refetchInterval: 60000, // Refetch every minute
   });
 }
-
-// Import useNostr for the useBlobbis hook
-import { useNostr } from '@/hooks/useNostr';

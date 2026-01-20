@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { mergeBlobbiStateTags } from '@/lib/blobbi-state-merge';
+import type { NostrTag } from '@/lib/nostr/tags';
 
 describe('Progress Tag Updates', () => {
   it('should update existing progress tags correctly', () => {
     // Simulate existing tags with interact_6_progress = "1"
-    const existingTags: Array<[string, string]> = [
+    const existingTags: NostrTag[] = [
       ['d', 'blobbi-test'],
       ['stage', 'egg'],
       ['interact_6_progress', '1'],
@@ -25,7 +26,7 @@ describe('Progress Tag Updates', () => {
 
   it('should add new progress tags when they dont exist', () => {
     // Simulate existing tags without progress tag
-    const existingTags: Array<[string, string]> = [
+    const existingTags: NostrTag[] = [
       ['d', 'blobbi-test'],
       ['stage', 'egg'],
       ['generation', '1'],
@@ -45,7 +46,7 @@ describe('Progress Tag Updates', () => {
 
   it('should update progress tags multiple times', () => {
     // Simulate existing tags with interact_6_progress = "1"
-    let existingTags: Array<[string, string]> = [
+    let existingTags: NostrTag[] = [
       ['d', 'blobbi-test'],
       ['stage', 'egg'],
       ['interact_6_progress', '1'],

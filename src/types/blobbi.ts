@@ -52,9 +52,9 @@ export interface Blobbi {
   id: string;           // Unique ID (blobbi-{blobbi_name})
   ownerPubkey: string;  // Nostr pubkey of the owner
   name: string;         // Pet's name
-  birthTime: number;    // Unix timestamp of creation (milliseconds)
-  hatchTime?: number;   // Unix timestamp of hatching (milliseconds)
-  lastInteraction: number; // Unix timestamp of last interaction (seconds, same as Nostr created_at)
+  birthTime: number;    // Unix timestamp of creation (MILLISECONDS - UI compatibility, stored as created_at * 1000)
+  hatchTime?: number;   // Unix timestamp of hatching (MILLISECONDS - UI compatibility)
+  lastInteraction: number; // Unix timestamp of last interaction (SECONDS - Nostr standard)
   lifeStage: BlobbiLifeStage;
   state: BlobbiState;
   stats: BlobbiStats;
@@ -97,17 +97,15 @@ export interface Blobbi {
   isDirty?: boolean;
   hasBuff?: string;
   hasDebuff?: string;
-  // Behavior timestamp fields - Unix timestamps in seconds (same format as Nostr's created_at)
+  // Behavior timestamp fields - Unix timestamps in SECONDS (Nostr standard)
   lastMeal?: number;
   lastClean?: number;
-  // Last care tracking fields (for egg phase)
-  // Unix timestamps in seconds (same format as Nostr's created_at)
   lastWarm?: number;
   lastTalk?: number;
   lastCheck?: number;
   lastSing?: number;
   lastMedicine?: number;
-  // Sleep system fields
+  // Sleep system fields - Unix timestamps in SECONDS (Nostr standard)
   sleepStartedAt?: number; // Unix timestamp when sleep began
   lastSleepUpdate?: number; // Unix timestamp of last rest-based energy update (only present during sleep)
   // Social
@@ -126,35 +124,35 @@ export interface Blobbi {
 export interface BlobbiStateEvent {
   kind: 31124;
   content: string; // Description of current state
-  tags: Array<[string, string]>; // All the tags defined in the spec
+  tags: string[][]; // All the tags defined in the spec (NostrTag format)
 }
 
 // Kind 14919: Blobbi Interactions (Regular)
 export interface BlobbiInteractionEvent {
   kind: 14919;
   content: string; // Description of the interaction
-  tags: Array<[string, string]>; // Interaction-specific tags
+  tags: string[][]; // Interaction-specific tags (NostrTag format)
 }
 
 // Kind 14920: Blobbi Breeding Event (Regular)
 export interface BlobbiBreedingEvent {
   kind: 14920;
   content: string; // Description of breeding
-  tags: Array<[string, string]>; // Breeding-specific tags
+  tags: string[][]; // Breeding-specific tags (NostrTag format)
 }
 
 // Kind 14921: Blobbi Records (Regular, Immutable)
 export interface BlobbiRecordEvent {
   kind: 14921;
   content: string; // Description of the record
-  tags: Array<[string, string]>; // Record-specific tags based on record_type
+  tags: string[][]; // Record-specific tags based on record_type (NostrTag format)
 }
 
 // Kind 31125: Blobbonaut Profile (Addressable)
 export interface BlobbonautProfileEvent {
   kind: 31125;
   content: string; // Must be empty according to spec
-  tags: Array<[string, string]>; // Profile-specific tags
+  tags: string[][]; // Profile-specific tags (NostrTag format)
 }
 
 // Storage item for Blobbonaut Profile
@@ -279,7 +277,7 @@ export interface BlobbiRecordData {
   legacyTrait?: string[];
   passiveTrait?: string[];
   // Hatching record fields
-  hatchedAt?: number;
+  hatchedAt?: number; // MILLISECONDS (UI)
   hatchedBy?: string;
   eggType?: string;
   incubationTime?: string;
@@ -297,7 +295,7 @@ export interface BlobbiRecordData {
   evolutionStage?: string;
   // Adoption record fields
   adoptedBy?: string;
-  adoptedOn?: number;
+  adoptedOn?: number; // MILLISECONDS (UI)
   adoptionMethod?: string;
   title?: string;
   titleReason?: string;

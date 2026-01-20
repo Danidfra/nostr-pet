@@ -7,6 +7,7 @@ import {
   BlobbiLifeStage,
   BlobbiMood
 } from '@/types/blobbi';
+import { NostrTag } from './nostr/tags';
 
 // Constants for evolution mechanics
 const EVOLUTION_REQUIREMENTS = {
@@ -608,7 +609,7 @@ export function processHatching(
  * Ensures only appropriate tags are carried over to baby stage
  */
 export function filterEggTagsForBaby(
-  existingTags: Array<[string, string]>,
+  existingTags: NostrTag[],
   blobbi: Blobbi
 ): Array<[string, string]> {
 

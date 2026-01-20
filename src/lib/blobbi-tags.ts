@@ -5,8 +5,10 @@
  * are properly tagged with the ecosystem identifier and topic tags.
  */
 
-export const BLOBBI_ECOSYSTEM_TAG: [string, string] = ["b", "blobbi:ecosystem:v1"];
-export const BLOBBI_TOPIC_TAG: [string, string] = ["t", "blobbi"];
+import type { NostrTag } from './nostr/tags';
+
+export const BLOBBI_ECOSYSTEM_TAG: NostrTag = ["b", "blobbi:ecosystem:v1"];
+export const BLOBBI_TOPIC_TAG: NostrTag = ["t", "blobbi"];
 
 /**
  * Ensures that the Blobbi ecosystem tag is present in the tags array.
@@ -16,7 +18,7 @@ export const BLOBBI_TOPIC_TAG: [string, string] = ["t", "blobbi"];
  * @param tags - Existing tags array (optional)
  * @returns Tags array with ecosystem tag guaranteed to be present
  */
-export function ensureBlobbiEcosystemTag(tags: string[][] = []): string[][] {
+export function ensureBlobbiEcosystemTag(tags: NostrTag[] = []): NostrTag[] {
   const hasBlobbiTag = tags.some(
     (t) => t[0] === "b" && t[1] === BLOBBI_ECOSYSTEM_TAG[1]
   );
@@ -37,7 +39,7 @@ export function ensureBlobbiEcosystemTag(tags: string[][] = []): string[][] {
  * @param tags - Existing tags array (optional)
  * @returns Tags array with topic tag guaranteed to be present
  */
-export function ensureBlobbiTopicTag(tags: string[][] = []): string[][] {
+export function ensureBlobbiTopicTag(tags: NostrTag[] = []): NostrTag[] {
   const hasTopicTag = tags.some(
     (t) => t[0] === "t" && t[1]?.toLowerCase() === "blobbi"
   );
@@ -57,7 +59,7 @@ export function ensureBlobbiTopicTag(tags: string[][] = []): string[][] {
  * @param tags - Existing tags array (optional)
  * @returns Tags array with both ecosystem and topic tags guaranteed to be present
  */
-export function ensureBlobbiTags(tags: string[][] = []): string[][] {
+export function ensureBlobbiTags(tags: NostrTag[] = []): NostrTag[] {
   let finalTags = tags;
 
   // Add ecosystem tag if not present
@@ -75,7 +77,7 @@ export function ensureBlobbiTags(tags: string[][] = []): string[][] {
  * @param tags - Tags array to check
  * @returns True if ecosystem tag is present, false otherwise
  */
-export function hasBlobbiEcosystemTag(tags: string[][]): boolean {
+export function hasBlobbiEcosystemTag(tags: NostrTag[]): boolean {
   return tags.some(
     (t) => t[0] === "b" && t[1] === BLOBBI_ECOSYSTEM_TAG[1]
   );
@@ -87,7 +89,7 @@ export function hasBlobbiEcosystemTag(tags: string[][]): boolean {
  * @param tags - Tags array to check
  * @returns True if topic tag is present, false otherwise
  */
-export function hasBlobbiTopicTag(tags: string[][]): boolean {
+export function hasBlobbiTopicTag(tags: NostrTag[]): boolean {
   return tags.some(
     (t) => t[0] === "t" && t[1]?.toLowerCase() === "blobbi"
   );
@@ -99,7 +101,7 @@ export function hasBlobbiTopicTag(tags: string[][]): boolean {
  * @param tags - Tags array to check
  * @returns True if both ecosystem and topic tags are present, false otherwise
  */
-export function hasAllBlobbiTags(tags: string[][]): boolean {
+export function hasAllBlobbiTags(tags: NostrTag[]): boolean {
   return hasBlobbiEcosystemTag(tags) && hasBlobbiTopicTag(tags);
 }
 
@@ -112,10 +114,10 @@ export function hasAllBlobbiTags(tags: string[][]): boolean {
  */
 export function debugBlobbiTags(
   functionName: string,
-  tags: string[][],
+  tags: NostrTag[],
   kind?: number
 ): void {
-  if (process.env.NODE_ENV !== 'production') {
+  if (import.meta.env.DEV) {
     if (!hasBlobbiEcosystemTag(tags)) {
       console.warn(`[Blobbi Debug] Missing ecosystem tag in ${functionName}${kind ? ` (kind: ${kind})` : ''}. Adding ["b", "blobbi:ecosystem:v1"]`);
     }
@@ -134,13 +136,26 @@ export function debugBlobbiTags(
  * @returns Tags array with both ecosystem and topic tags guaranteed to be present
  */
 export function ensureBlobbiTagsWithDebug(
-  tags: string[][] = [],
+  tags: NostrTag[] = [],
   functionName?: string,
   kind?: number
-): string[][] {
-  if (functionName && process.env.NODE_ENV !== 'production') {
-    debugBlobbiTags(functionName, tags, kind);
+): NostrTag[] {
+  const next = [...tags];
+
+  const hasTag = (k: string, v?: string) =>
+    next.some(t => t?.[0] === k && (v === undefined || t?.[1] === v));
+
+  // IMPORTANT: these must be singletons
+  // Add only if missing.
+  if (!hasTag('b', 'blobbi:ecosystem:v1')) {
+    next.push(['b', 'blobbi:ecosystem:v1']);
+  }
+  if (!hasTag('t', 'blobbi')) {
+    next.push(['t', 'blobbi']);
+  }
+  if (!hasTag('client', 'blobbi')) {
+    next.push(['client', 'blobbi']);
   }
 
-  return ensureBlobbiTags(tags);
+  return next;
 }

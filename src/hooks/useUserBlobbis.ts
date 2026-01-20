@@ -60,16 +60,16 @@ export function useUserBlobbis() {
           if (blobbi && !seenIds.has(blobbi.id)) {
             seenIds.add(blobbi.id);
 
-            // Apply stat degradation
-            const degradation = calculateStatDegradation(blobbi.lastInteraction * 1000);
+            // Apply stat degradation (SUBTRACT loss amounts)
+            const degradation = calculateStatDegradation(blobbi.lastInteraction);
             const updatedBlobbi = {
               ...blobbi,
               stats: {
-                hunger: clampStat(blobbi.stats.hunger + (degradation.hunger || 0)),
-                happiness: clampStat(blobbi.stats.happiness + (degradation.happiness || 0)),
+                hunger: clampStat(blobbi.stats.hunger - (degradation.hunger || 0)),
+                happiness: clampStat(blobbi.stats.happiness - (degradation.happiness || 0)),
                 health: blobbi.stats.health, // Health doesn't auto-degrade
-                hygiene: clampStat(blobbi.stats.hygiene + (degradation.hygiene || 0)),
-                energy: clampStat(blobbi.stats.energy + (degradation.energy || 0)),
+                hygiene: clampStat(blobbi.stats.hygiene - (degradation.hygiene || 0)),
+                energy: clampStat(blobbi.stats.energy - (degradation.energy || 0)),
               },
             };
 
@@ -138,16 +138,16 @@ export function useBlobbiById(blobbiId: string) {
         const blobbi = parseBlobbiFromStateEvent(latestEvent);
         if (!blobbi) return null;
 
-        // Apply stat degradation
-        const degradation = calculateStatDegradation(blobbi.lastInteraction * 1000);
+        // Apply stat degradation (SUBTRACT loss amounts)
+        const degradation = calculateStatDegradation(blobbi.lastInteraction);
         return {
           ...blobbi,
           stats: {
-            hunger: clampStat(blobbi.stats.hunger + (degradation.hunger || 0)),
-            happiness: clampStat(blobbi.stats.happiness + (degradation.happiness || 0)),
+            hunger: clampStat(blobbi.stats.hunger - (degradation.hunger || 0)),
+            happiness: clampStat(blobbi.stats.happiness - (degradation.happiness || 0)),
             health: blobbi.stats.health, // Health doesn't auto-degrade
-            hygiene: clampStat(blobbi.stats.hygiene + (degradation.hygiene || 0)),
-            energy: clampStat(blobbi.stats.energy + (degradation.energy || 0)),
+            hygiene: clampStat(blobbi.stats.hygiene - (degradation.hygiene || 0)),
+            energy: clampStat(blobbi.stats.energy - (degradation.energy || 0)),
           },
         };
       } catch (error) {

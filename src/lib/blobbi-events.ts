@@ -18,6 +18,8 @@ import {
   BlobbiEvolutionForm
 } from '@/types/blobbi';
 import { ensureBlobbiTagsWithDebug } from './blobbi-tags';
+import { normalizeTags, detectDuplicateTags, type NostrTag } from './nostr/tags';
+import { toSecondsTimestamp, toMillisecondsTimestamp, nowInSeconds, parseTimestampTag } from './nostr/time';
 import { filterEggTagsForBaby } from './blobbi-evolution';
 import {
   isDivineBlobbi,
@@ -27,6 +29,49 @@ import {
   DIVINE_THEME,
   DIVINE_CROSSOVER_APP
 } from './blobbi-divine-utils';
+
+// ============================================================================
+// TAG NORMALIZATION HELPER - CANONICAL ENTRY POINT
+// ============================================================================
+
+/**
+ * CANONICAL ENTRY POINT for all Blobbi event tag processing
+ * 
+ * Ensures Blobbi ecosystem tags are present, normalizes and deduplicates tags.
+ * This is the ONLY function that should be used for ALL Blobbi event creation.
+ * 
+ * Process:
+ * 1. Ensure Blobbi ecosystem tags exist
+ * 2. Detect duplicates in DEV mode
+ * 3. Normalize + dedupe
+ * 4. Return canonical tags
+ *
+ * @param tags - Input tags (may be incomplete, duplicated, or unordered)
+ * @param functionName - Name of calling function (for debug logging)
+ * @param kind - Event kind (for debug logging)
+ * @returns Canonical, deduplicated, ordered NostrTag array
+ */
+function ensureBlobbiTagsAndNormalize(
+  tags: NostrTag[],
+  functionName?: string,
+  kind?: number
+): NostrTag[] {
+  // First ensure ecosystem tags are present
+  const withBlobbiTags = ensureBlobbiTagsWithDebug(tags, functionName, kind);
+  
+  // Detect duplicates in DEV mode (before normalization)
+  if (import.meta.env.DEV) {
+    detectDuplicateTags(
+      withBlobbiTags,
+      functionName ? `${functionName} (kind ${kind})` : undefined
+    );
+  }
+  
+  // Normalize and deduplicate
+  const normalized = normalizeTags(withBlobbiTags);
+  
+  return normalized;
+}
 
 // ============================================================================
 // AUTO-REPAIR CALLBACK REGISTRY
@@ -117,6 +162,17 @@ export const BLOBBI_EVENT_KINDS = {
 } as const;
 
 // ============================================================================
+// VALIDATION MODES
+// ============================================================================
+
+/**
+ * Validation mode for STATE events:
+ * - 'strict': Require all stat tags (hunger/happiness/health/hygiene/energy)
+ * - 'lenient': Allow missing stats, they can be recovered from timestamps
+ */
+export type ValidationMode = 'strict' | 'lenient';
+
+// ============================================================================
 // VALIDATION SCHEMAS
 // ============================================================================
 
@@ -143,17 +199,20 @@ const TASK_TAG_PATTERNS = ['_progress', '_confirmed', 'quest_', 'task_', 'incuba
 // TAG HELPER FUNCTIONS
 // ============================================================================
 
-function getTagValue(tags: string[][], tagName: string): string | undefined {
-  const tag = tags.find(tag => tag[0] === tagName);
-  return tag && tag[1] ? tag[1] : undefined;
+function getTagValue(tags: NostrTag[], tagName: string): string | undefined {
+  const tag = tags.find(t => t?.[0] === tagName);
+  return tag?.[1] ?? undefined;
 }
 
-function getTagValues(tags: string[][], tagName: string): string[] {
-  return tags.filter(tag => tag[0] === tagName).map(tag => tag[1]).filter(Boolean);
+function getTagValues(tags: NostrTag[], tagName: string): string[] {
+  return tags
+    .filter(t => t?.[0] === tagName && typeof t?.[1] === 'string')
+    .map(t => t[1] as string)
+    .filter(v => v.length > 0);
 }
 
-function validateRequiredTags(tags: string[][], requiredTags: string[]): boolean {
-  const tagNames = tags.map(tag => tag[0]).filter(Boolean);
+function validateRequiredTags(tags: NostrTag[], requiredTags: string[]): boolean {
+  const tagNames = tags.map(t => t?.[0]).filter(Boolean);
   return requiredTags.every(required => tagNames.includes(required));
 }
 
@@ -205,9 +264,23 @@ function validateBlobbiStats(blobbi: Blobbi, context: string): void {
 // STAT RECOVERY FROM TIMESTAMPS
 // ============================================================================
 
+/**
+ * Recovers missing stats from timestamp tags using degradation calculation.
+ * 
+ * TIME UNITS:
+ * - Tags store timestamps in SECONDS (Nostr standard)
+ * - currentTime parameter is in MILLISECONDS (default: Date.now())
+ * - Converts currentTime to seconds once at the start
+ * - All comparisons are SECONDS vs SECONDS
+ * 
+ * @param blobbiId - Blobbi identifier
+ * @param tags - Event tags (timestamps in SECONDS)
+ * @param currentTime - Current time in MILLISECONDS (default: Date.now())
+ * @returns Stats recovery result
+ */
 function recoverMissingStatsFromTimestamps(
   blobbiId: string,
-  tags: Array<[string, string]>,
+  tags: NostrTag[],
   currentTime: number = Date.now()
 ): { stats: BlobbiStats; usedRecovery: boolean; warningMessage: string } {
   const hungerStr = getTagValue(tags, 'hunger');
@@ -230,6 +303,7 @@ function recoverMissingStatsFromTimestamps(
     };
   }
 
+  // Extract timestamps from tags (all in SECONDS - Nostr standard)
   const lastMeal = getTagValue(tags, 'last_meal') ? parseInt(getTagValue(tags, 'last_meal')!) : undefined;
   const lastClean = getTagValue(tags, 'last_clean') ? parseInt(getTagValue(tags, 'last_clean')!) : undefined;
   const lastWarm = getTagValue(tags, 'last_warm') ? parseInt(getTagValue(tags, 'last_warm')!) : undefined;
@@ -237,6 +311,7 @@ function recoverMissingStatsFromTimestamps(
   const lastCheck = getTagValue(tags, 'last_check') ? parseInt(getTagValue(tags, 'last_check')!) : undefined;
   const lastSing = getTagValue(tags, 'last_sing') ? parseInt(getTagValue(tags, 'last_sing')!) : undefined;
   const lastMedicine = getTagValue(tags, 'last_medicine') ? parseInt(getTagValue(tags, 'last_medicine')!) : undefined;
+  // Legacy: last_interaction_time is deprecated in favor of last_interaction, but read for backward compat
   const lastInteractionTime = getTagValue(tags, 'last_interaction_time') ? parseInt(getTagValue(tags, 'last_interaction_time')!) : undefined;
 
   const interactionTimes = [lastMeal, lastClean, lastWarm, lastTalk, lastCheck, lastSing, lastMedicine, lastInteractionTime];
@@ -257,7 +332,25 @@ function recoverMissingStatsFromTimestamps(
     };
   }
 
-  const hoursPassed = (currentTime / 1000 - mostRecentInteraction) / (60 * 60);
+  // Calculate time passed: convert currentTime (ms) to seconds, then calculate hours
+  const currentTimeSeconds = Math.floor(currentTime / 1000);
+  
+  // Convert mostRecentInteraction to seconds if it looks like milliseconds
+  let mostRecentSeconds = mostRecentInteraction;
+  if (mostRecentInteraction > 1e12) {
+    if (import.meta.env.DEV) {
+      console.warn(
+        `[Timestamp] mostRecentInteraction looks like milliseconds (${mostRecentInteraction}), converting to seconds. ` +
+        `Blobbi: ${blobbiId}`
+      );
+    }
+    mostRecentSeconds = Math.floor(mostRecentInteraction / 1000);
+  }
+  
+  // Clock skew protection: if mostRecentSeconds is in the future, treat as 0 hours passed
+  const hoursPassed = mostRecentSeconds > currentTimeSeconds 
+    ? 0 
+    : (currentTimeSeconds - mostRecentSeconds) / (60 * 60);
   const safeHoursPassed = Math.max(0, Math.min(hoursPassed, 24));
 
   let currentHunger = hungerStr ? clampStat(parseInt(hungerStr)) : 80;
@@ -346,10 +439,11 @@ function isEggOnlyTag(tagName: string): boolean {
   return false;
 }
 
-function filterTagsForStage(tags: Array<[string, string]>, stage: BlobbiLifeStage): Array<[string, string]> {
+function filterTagsForStage(tags: NostrTag[], stage: BlobbiLifeStage): NostrTag[] {
+
   if (stage === 'egg') return tags;
 
-  return tags.filter(([key]) => !isEggOnlyTag(key));
+  return tags.filter((t) => !isEggOnlyTag(t?.[0] || ''));
 }
 
 // ============================================================================
@@ -388,33 +482,59 @@ export function isValidBlobbiName(name: string): boolean {
 // UTILITY HELPERS
 // ============================================================================
 
+/**
+ * Extracts action timestamps from a Blobbi object for UI display.
+ * 
+ * TIME UNITS:
+ * - Input (blobbi.lastX): SECONDS (internal model format)
+ * - Output: MILLISECONDS (for JavaScript Date/UI usage)
+ * 
+ * @param blobbi - Blobbi object with timestamp fields in SECONDS
+ * @returns Action timestamps in MILLISECONDS for UI
+ */
 export function extractActionTimestamps(blobbi: Blobbi): Record<string, number> {
   const actionTimestamps: Record<string, number> = {};
 
-  if (blobbi.lastMeal) actionTimestamps.feed = blobbi.lastMeal * 1000;
-  if (blobbi.lastClean) actionTimestamps.clean = blobbi.lastClean * 1000;
-  if (blobbi.lastWarm) actionTimestamps.warm = blobbi.lastWarm * 1000;
-  if (blobbi.lastTalk) actionTimestamps.talk = blobbi.lastTalk * 1000;
-  if (blobbi.lastCheck) actionTimestamps.check = blobbi.lastCheck * 1000;
-  if (blobbi.lastSing) actionTimestamps.sing = blobbi.lastSing * 1000;
-  if (blobbi.lastMedicine) actionTimestamps.medicine = blobbi.lastMedicine * 1000;
+  // Convert from seconds (model) to milliseconds (UI/Date)
+  if (blobbi.lastMeal) actionTimestamps.feed = toMillisecondsTimestamp(blobbi.lastMeal);
+  if (blobbi.lastClean) actionTimestamps.clean = toMillisecondsTimestamp(blobbi.lastClean);
+  if (blobbi.lastWarm) actionTimestamps.warm = toMillisecondsTimestamp(blobbi.lastWarm);
+  if (blobbi.lastTalk) actionTimestamps.talk = toMillisecondsTimestamp(blobbi.lastTalk);
+  if (blobbi.lastCheck) actionTimestamps.check = toMillisecondsTimestamp(blobbi.lastCheck);
+  if (blobbi.lastSing) actionTimestamps.sing = toMillisecondsTimestamp(blobbi.lastSing);
+  if (blobbi.lastMedicine) actionTimestamps.medicine = toMillisecondsTimestamp(blobbi.lastMedicine);
 
   return actionTimestamps;
 }
 
+/**
+ * Calculate stat degradation based on time passed since last interaction.
+ * 
+ * TIME UNITS:
+ * - lastInteractionSeconds: SECONDS (Nostr standard, matches Blobbi.lastInteraction)
+ * - currentTimeMs: MILLISECONDS (defaults to Date.now())
+ * - Converts currentTimeMs to seconds internally
+ * 
+ * @param lastInteractionSeconds - Last interaction time in SECONDS
+ * @param currentTimeMs - Current time in MILLISECONDS (defaults to Date.now())
+ * @returns Absolute degradation amounts (positive values) per stat to be SUBTRACTED from current values
+ */
 export function calculateStatDegradation(
-  lastInteraction: number,
-  currentTime: number = Date.now()
+  lastInteractionSeconds: number,
+  currentTimeMs: number = Date.now()
 ): Partial<BlobbiStats> {
-  const hoursPassed = (currentTime - lastInteraction) / (1000 * 60 * 60);
+  const currentTimeSeconds = Math.floor(currentTimeMs / 1000);
+  const hoursPassed = Math.max(0, (currentTimeSeconds - lastInteractionSeconds) / (60 * 60));
 
+  // Degradation rates (positive values = amount lost per hour)
   const degradationRates = {
-    hunger: -5,
-    happiness: -3,
-    hygiene: -2,
-    energy: -4,
+    hunger: 5,
+    happiness: 3,
+    hygiene: 2,
+    energy: 4,
   };
 
+  // Return positive loss amounts
   return {
     hunger: Math.max(0, degradationRates.hunger * hoursPassed),
     happiness: Math.max(0, degradationRates.happiness * hoursPassed),
@@ -427,6 +547,19 @@ export function calculateStatDegradation(
 // EVENT CREATION FUNCTIONS
 // ============================================================================
 
+/**
+ * Creates a kind 31124 STATE event from a Blobbi object.
+ * 
+ * TIME UNITS:
+ * - Input blobbi.lastInteraction, lastMeal, etc.: SECONDS (Nostr standard)
+ * - Input blobbi.birthTime, hatchTime: MILLISECONDS (UI compatibility - special case)
+ * - Output tags: ALL timestamps stored in SECONDS (Nostr standard)
+ * - toSecondsTimestamp() safely converts any milliseconds to seconds
+ * 
+ * @param blobbi - Blobbi object with current state
+ * @param adoptionFees - Optional adoption fees
+ * @returns Event template (without id, pubkey, created_at, sig)
+ */
 export function createBlobbiStateEvent(
   blobbi: Blobbi,
   adoptionFees?: number
@@ -435,12 +568,10 @@ export function createBlobbiStateEvent(
 
   const divinePreservedBlobbi = ensureDivineTags(blobbi);
 
-  let preservedTags: Array<[string, string]> = [];
+  let preservedTags: NostrTag[] = [];
 
   if (divinePreservedBlobbi.tags && Array.isArray(divinePreservedBlobbi.tags) && divinePreservedBlobbi.tags.length > 0) {
-    preservedTags = divinePreservedBlobbi.tags
-      .filter(([k, v]) => k && v)
-      .map(([k, v]) => [k, v] as [string, string]);
+    preservedTags = divinePreservedBlobbi.tags.filter((tag) => tag[0]);
   }
 
   if (blobbi.lifeStage === 'baby' && blobbi.tags && blobbi.tags.length > 0) {
@@ -451,7 +582,7 @@ export function createBlobbiStateEvent(
     if (!hasCanonicalOrder) {
       try {
         const filteredTags = filterEggTagsForBaby(
-          (blobbi.tags || []).map(([k, v]) => [k || '', v || '']) as [string, string][],
+          (blobbi.tags || []) as NostrTag[],
           blobbi
         );
         preservedTags = filteredTags.filter(([k, v]) => k && v);
@@ -461,7 +592,7 @@ export function createBlobbiStateEvent(
     }
   }
 
-  const coreUpdates: Array<[string, string]> = [
+  const coreUpdates: NostrTag[] = [
     ['d', blobbi.id],
     ['stage', blobbi.lifeStage],
     ['breeding_ready', blobbi.breedingReady.toString()],
@@ -473,19 +604,28 @@ export function createBlobbiStateEvent(
     ['energy', validateStat(blobbi.stats.energy, 'energy').toString()],
     ['experience', Math.max(0, blobbi.experience || 0).toString()],
     ['care_streak', Math.max(0, blobbi.careStreak || 0).toString()],
-    ['last_interaction', Math.floor(blobbi.lastInteraction || Date.now() / 1000).toString()],
+    ['last_interaction', toSecondsTimestamp(blobbi.lastInteraction).toString()],
   ];
 
   const stateTagMap = new Map<string, string>();
 
-  preservedTags.forEach(([key, value]) => {
-    if (!key || !value) return;
+  preservedTags.forEach((tag) => {
+    const key = tag[0];
+    const value = tag[1];
+    if (!key) return;
 
     if (blobbi.lifeStage === 'baby' && isEggOnlyTag(key)) {
       return;
     }
 
-    const CORE_STAT_TAGS = new Set(['hunger', 'happiness', 'health', 'hygiene', 'energy', 'experience', 'care_streak']);
+    // Tags that are always set in coreUpdates - don't preserve from old tags to avoid duplication
+    const CORE_STAT_TAGS = new Set([
+      'hunger', 'happiness', 'health', 'hygiene', 'energy', 
+      'experience', 'care_streak', 'last_interaction',
+      'd', 'stage', 'breeding_ready', 'generation'
+    ]);
+    // Note: last_interaction_time is NOT in coreUpdates, so if preserved tags have it, 
+    // it will be included but normalizeTags() will dedupe if both exist (keeping last_interaction)
     if (CORE_STAT_TAGS.has(key)) {
       return;
     }
@@ -528,19 +668,6 @@ export function createBlobbiStateEvent(
   if (blobbi.title) stateTagMap.set('title', blobbi.title);
   if (blobbi.skill) stateTagMap.set('skill', blobbi.skill);
 
-  const singleValueTags = Array.from(stateTagMap.entries()).filter(([key]) =>
-    key !== 'personality' && key !== 'trait'
-  );
-
-  const stateTags: Array<[string, string]> = [...singleValueTags];
-
-  if (blobbi.personality) {
-    blobbi.personality.forEach(trait => stateTags.push(['personality', trait]));
-  }
-  if (blobbi.traits) {
-    blobbi.traits.forEach(trait => stateTags.push(['trait', trait]));
-  }
-
   if (blobbi.lifeStage === 'egg') {
     if (blobbi.incubationTime) stateTagMap.set('incubation_time', blobbi.incubationTime.toString());
     if (blobbi.incubationProgress) stateTagMap.set('incubation_progress', blobbi.incubationProgress.toString());
@@ -553,21 +680,21 @@ export function createBlobbiStateEvent(
   if (blobbi.isDirty) stateTagMap.set('is_dirty', blobbi.isDirty.toString());
   if (blobbi.hasBuff) stateTagMap.set('has_buff', blobbi.hasBuff);
   if (blobbi.hasDebuff) stateTagMap.set('has_debuff', blobbi.hasDebuff);
-  if (blobbi.lastInteraction) stateTagMap.set('last_interaction', blobbi.lastInteraction.toString());
+  // Note: last_interaction is already set in coreUpdates, don't duplicate it here
 
-  if (blobbi.sleepStartedAt) stateTagMap.set('sleep_started_at', blobbi.sleepStartedAt.toString());
+  if (blobbi.sleepStartedAt) stateTagMap.set('sleep_started_at', toSecondsTimestamp(blobbi.sleepStartedAt).toString());
 
   if (blobbi.isSleeping && blobbi.lastSleepUpdate) {
-    stateTagMap.set('last_sleep_update', blobbi.lastSleepUpdate.toString());
+    stateTagMap.set('last_sleep_update', toSecondsTimestamp(blobbi.lastSleepUpdate).toString());
   }
 
-  if (blobbi.lastMeal) stateTagMap.set('last_meal', blobbi.lastMeal.toString());
-  if (blobbi.lastClean) stateTagMap.set('last_clean', blobbi.lastClean.toString());
-  if (blobbi.lastWarm) stateTagMap.set('last_warm', blobbi.lastWarm.toString());
-  if (blobbi.lastTalk) stateTagMap.set('last_talk', blobbi.lastTalk.toString());
-  if (blobbi.lastCheck) stateTagMap.set('last_check', blobbi.lastCheck.toString());
-  if (blobbi.lastSing) stateTagMap.set('last_sing', blobbi.lastSing.toString());
-  if (blobbi.lastMedicine) stateTagMap.set('last_medicine', blobbi.lastMedicine.toString());
+  if (blobbi.lastMeal) stateTagMap.set('last_meal', toSecondsTimestamp(blobbi.lastMeal).toString());
+  if (blobbi.lastClean) stateTagMap.set('last_clean', toSecondsTimestamp(blobbi.lastClean).toString());
+  if (blobbi.lastWarm) stateTagMap.set('last_warm', toSecondsTimestamp(blobbi.lastWarm).toString());
+  if (blobbi.lastTalk) stateTagMap.set('last_talk', toSecondsTimestamp(blobbi.lastTalk).toString());
+  if (blobbi.lastCheck) stateTagMap.set('last_check', toSecondsTimestamp(blobbi.lastCheck).toString());
+  if (blobbi.lastSing) stateTagMap.set('last_sing', toSecondsTimestamp(blobbi.lastSing).toString());
+  if (blobbi.lastMedicine) stateTagMap.set('last_medicine', toSecondsTimestamp(blobbi.lastMedicine).toString());
 
   if (blobbi.adoptedBy) stateTagMap.set('adopted_by', blobbi.adoptedBy);
   if (blobbi.adoptedFrom) stateTagMap.set('adopted_from', blobbi.adoptedFrom);
@@ -579,15 +706,18 @@ export function createBlobbiStateEvent(
     key !== 'personality' && key !== 'trait'
   );
 
-  const finalStateTagsArray: Array<[string, string]> = [
-    ...stateTags,
-    ...updatedSingleValueTags.filter(([key]) =>
-      !stateTags.some(([existingKey]) => existingKey === key)
-    )
-  ];
+  const finalStateTagsArray: NostrTag[] = [...updatedSingleValueTags];
 
-  const finalStateTags = ensureBlobbiTagsWithDebug(
-    finalStateTagsArray.map(tag => [tag[0] || '', tag[1] || '']),
+  // Add multi-value tags AFTER singletons are fully set
+  if (blobbi.personality) {
+    blobbi.personality.forEach(trait => finalStateTagsArray.push(['personality', trait]));
+  }
+  if (blobbi.traits) {
+    blobbi.traits.forEach(trait => finalStateTagsArray.push(['trait', trait]));
+  }
+
+  const finalStateTags = ensureBlobbiTagsAndNormalize(
+    finalStateTagsArray,
     'createBlobbiStateEvent',
     BLOBBI_EVENT_KINDS.STATE
   );
@@ -595,23 +725,43 @@ export function createBlobbiStateEvent(
   return {
     kind: BLOBBI_EVENT_KINDS.STATE,
     content: `${blobbi.name} is a ${blobbi.lifeStage} Blobbi.`,
-    tags: finalStateTags as Array<[string, string]>,
+    tags: finalStateTags,
   };
 }
 
+/**
+ * Creates a shell integrity penalty event as a valid STATE event.
+ * This is a corrective state update that includes all required STATE tags.
+ */
 export function createShellIntegrityPenaltyEvent(
   blobbi: Blobbi,
   carePointsDeducted: number
 ): Omit<BlobbiStateEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
-  const tags: Array<[string, string]> = [
+  // Include all required STATE tags to pass validation
+  const tags: NostrTag[] = [
     ['d', blobbi.id],
+    ['stage', blobbi.lifeStage],
+    ['breeding_ready', blobbi.breedingReady.toString()],
+    ['generation', blobbi.generation.toString()],
+    ['experience', Math.max(0, blobbi.experience || 0).toString()],
+    ['care_streak', Math.max(0, Math.max(0, blobbi.careStreak || 0) - carePointsDeducted).toString()],
+    
+    // Include current stats
+    ['hunger', validateStat(blobbi.stats.hunger, 'hunger').toString()],
+    ['happiness', validateStat(blobbi.stats.happiness, 'happiness').toString()],
+    ['health', validateStat(blobbi.stats.health, 'health').toString()],
+    ['hygiene', validateStat(blobbi.stats.hygiene, 'hygiene').toString()],
+    ['energy', validateStat(blobbi.stats.energy, 'energy').toString()],
+    
+    // Penalty-specific tags
     ['penalty', 'shell_integrity_breach'],
-    ['value', (blobbi.shellIntegrity ?? 100).toString()],
+    ['shell_integrity', (blobbi.shellIntegrity ?? 100).toString()],
     ['care_points_deducted', carePointsDeducted.toString()],
+    ['last_interaction', toSecondsTimestamp(blobbi.lastInteraction).toString()],
   ];
 
-  const finalTags = ensureBlobbiTagsWithDebug(
-    tags.map(tag => [tag[0] || '', tag[1] || '']),
+  const finalTags = ensureBlobbiTagsAndNormalize(
+    tags,
     'createShellIntegrityPenaltyEvent',
     BLOBBI_EVENT_KINDS.STATE
   );
@@ -619,7 +769,7 @@ export function createShellIntegrityPenaltyEvent(
   return {
     kind: BLOBBI_EVENT_KINDS.STATE,
     content: `${blobbi.name}'s shell integrity is critically low (${blobbi.shellIntegrity ?? 100}%). Care points deducted: ${carePointsDeducted}`,
-    tags: finalTags as Array<[string, string]>,
+    tags: finalTags,
   };
 }
 
@@ -627,7 +777,7 @@ export function createBlobbiInteractionEvent(
   blobbiId: string,
   interactionData: BlobbiInteractionData
 ): Omit<BlobbiInteractionEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
-  const tags: Array<[string, string]> = [
+  const tags: NostrTag[] = [
     ['blobbi_id', blobbiId],
     ['action', interactionData.action],
     ['action_category', interactionData.actionCategory],
@@ -689,8 +839,8 @@ export function createBlobbiInteractionEvent(
   if (interactionData.sharedMemory) tags.push(['shared_memory', interactionData.sharedMemory]);
   if (interactionData.interactionContext) tags.push(['interaction_context', interactionData.interactionContext]);
 
-  const finalTags = ensureBlobbiTagsWithDebug(
-    tags.map(tag => [tag[0] || '', tag[1] || '']),
+  const finalTags = ensureBlobbiTagsAndNormalize(
+    tags,
     'createBlobbiInteractionEvent',
     BLOBBI_EVENT_KINDS.INTERACTION
   );
@@ -698,7 +848,7 @@ export function createBlobbiInteractionEvent(
   return {
     kind: BLOBBI_EVENT_KINDS.INTERACTION,
     content: `Blobbi ${interactionData.action} interaction`,
-    tags: finalTags as Array<[string, string]>,
+    tags: finalTags,
   };
 }
 
@@ -707,7 +857,7 @@ export function createBlobbiRecordEvent(
   recordData: BlobbiRecordData,
   content?: string
 ): Omit<BlobbiRecordEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
-  const tags: Array<[string, string]> = [
+  const tags: NostrTag[] = [
     ['blobbi_id', blobbiId],
     ['record_type', recordData.recordType],
   ];
@@ -745,7 +895,8 @@ export function createBlobbiRecordEvent(
       break;
 
     case 'hatched':
-      if (recordData.hatchedAt) tags.push(['hatched_at', new Date(recordData.hatchedAt).toISOString()]);
+      // Store hatched_at as SECONDS (Nostr standard)
+      if (recordData.hatchedAt) tags.push(['hatched_at', toSecondsTimestamp(recordData.hatchedAt).toString()]);
       if (recordData.hatchedBy) tags.push(['hatched_by', recordData.hatchedBy]);
       if (recordData.eggType) tags.push(['egg_type', recordData.eggType]);
       if (recordData.incubationTime) tags.push(['incubation_time', recordData.incubationTime]);
@@ -768,7 +919,8 @@ export function createBlobbiRecordEvent(
 
     case 'adoption':
       if (recordData.adoptedBy) tags.push(['adopted_by', recordData.adoptedBy]);
-      if (recordData.adoptedOn) tags.push(['adopted_on', new Date(recordData.adoptedOn).toISOString()]);
+      // Store adopted_on as SECONDS (Nostr standard)
+      if (recordData.adoptedOn) tags.push(['adopted_on', toSecondsTimestamp(recordData.adoptedOn).toString()]);
       if (recordData.adoptionMethod) tags.push(['adoption_method', recordData.adoptionMethod]);
       if (recordData.title) tags.push(['title', recordData.title]);
       if (recordData.titleReason) tags.push(['title_reason', recordData.titleReason]);
@@ -790,8 +942,8 @@ export function createBlobbiRecordEvent(
       break;
   }
 
-  const finalTags = ensureBlobbiTagsWithDebug(
-    tags.map(tag => [tag[0] || '', tag[1] || '']),
+  const finalTags = ensureBlobbiTagsAndNormalize(
+    tags,
     'createBlobbiRecordEvent',
     BLOBBI_EVENT_KINDS.RECORD
   );
@@ -799,7 +951,7 @@ export function createBlobbiRecordEvent(
   return {
     kind: BLOBBI_EVENT_KINDS.RECORD,
     content: content || `Blobbi ${recordData.recordType} record`,
-    tags: finalTags as Array<[string, string]>,
+    tags: finalTags,
   };
 }
 
@@ -812,12 +964,12 @@ export function createBlobbiBreedingEvent(
   offspringId?: string,
   additionalData?: Record<string, string>
 ): Omit<BlobbiBreedingEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
-  const tags: Array<[string, string]> = [
+  const tags: NostrTag[] = [
     ['parent_a', parentA],
     ['parent_b', parentB],
     ['owner_a', ownerA],
     ['owner_b', ownerB],
-    ['breed_time', new Date().toISOString()],
+    ['breed_time', nowInSeconds().toString()], // SECONDS (Nostr standard)
     ['success', success.toString()],
   ];
 
@@ -829,8 +981,8 @@ export function createBlobbiBreedingEvent(
     });
   }
 
-  const finalTags = ensureBlobbiTagsWithDebug(
-    tags.map(tag => [tag[0] || '', tag[1] || '']),
+  const finalTags = ensureBlobbiTagsAndNormalize(
+    tags,
     'createBlobbiBreedingEvent',
     BLOBBI_EVENT_KINDS.BREEDING
   );
@@ -838,17 +990,15 @@ export function createBlobbiBreedingEvent(
   return {
     kind: BLOBBI_EVENT_KINDS.BREEDING,
     content: success ? 'New life is forming ✨' : 'Breeding attempt was unsuccessful',
-    tags: finalTags as Array<[string, string]>,
+    tags: finalTags,
   };
 }
 
 export function createBlobbonautProfileEvent(
   profile: BlobbonautProfile
 ): Omit<BlobbonautProfileEvent, 'id' | 'pubkey' | 'created_at' | 'sig'> {
-  const tags: Array<[string, string]> = [
+  const tags: NostrTag[] = [
     ['d', profile.id],
-    ["b", "blobbi:ecosystem:v1"],
-    ["t", "blobbi"],
     ['name', profile.name || ''],
   ];
 
@@ -890,8 +1040,8 @@ export function createBlobbonautProfileEvent(
     });
   }
 
-  const finalTags = ensureBlobbiTagsWithDebug(
-    tags.map(tag => [tag[0] || '', tag[1] || '']),
+  const finalTags = ensureBlobbiTagsAndNormalize(
+    tags,
     'createBlobbonautProfileEvent',
     BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE
   );
@@ -899,7 +1049,7 @@ export function createBlobbonautProfileEvent(
   return {
     kind: BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE,
     content: '',
-    tags: finalTags as Array<[string, string]>,
+    tags: finalTags,
   };
 }
 
@@ -907,6 +1057,21 @@ export function createBlobbonautProfileEvent(
 // EVENT PARSING FUNCTIONS
 // ============================================================================
 
+/**
+ * Parse a Blobbi from a kind 31124 STATE event.
+ * 
+ * TIME UNITS:
+ * - birthTime: MILLISECONDS (event.created_at * 1000) - for UI compatibility (Date, formatDistanceToNow)
+ * - lastInteraction: SECONDS (from tag or event.created_at) - Nostr standard
+ * - lastMeal, lastClean, lastWarm, etc.: SECONDS (from tags) - Nostr standard
+ * - sleepStartedAt, lastSleepUpdate: SECONDS (from tags) - Nostr standard
+ * 
+ * CONVENTION: birthTime/hatchTime are the ONLY fields stored in milliseconds for UI compatibility.
+ * All other timestamps use SECONDS (Nostr standard). Convert to ms at UI boundaries.
+ * 
+ * @param event - Nostr event of kind 31124
+ * @returns Parsed Blobbi object or null if invalid
+ */
 export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
   try {
     if (event.kind !== BLOBBI_EVENT_KINDS.STATE) return null;
@@ -921,7 +1086,7 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       return null;
     }
 
-    const { stats: recoveredStats, usedRecovery } = recoverMissingStatsFromTimestamps(id, normalizedTags);
+    const { stats: recoveredStats, usedRecovery } = recoverMissingStatsFromTimestamps(id, tags);
 
     const hungerStr = getTagValue(tags, 'hunger');
     const happinessStr = getTagValue(tags, 'happiness');
@@ -930,7 +1095,6 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
     const energyStr = getTagValue(tags, 'energy');
 
     let stats: BlobbiStats;
-    let needsStateUpdate = false;
 
     if (hungerStr && happinessStr && healthStr && hygieneStr && energyStr) {
       stats = {
@@ -940,13 +1104,10 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
         hygiene: Math.max(0, Math.min(100, parseInt(hygieneStr))),
         energy: Math.max(0, Math.min(100, parseInt(energyStr))),
       };
-
-      if (usedRecovery) {
-        needsStateUpdate = true;
-      }
+      // Note: Auto-repair is triggered separately by eventNeedsRepair() if needed
     } else {
       stats = recoveredStats;
-      needsStateUpdate = true;
+      // Note: Auto-repair is triggered separately by eventNeedsRepair() if needed
     }
 
     // Use defaults for missing non-stat required tags instead of failing
@@ -964,8 +1125,8 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
       id,
       ownerPubkey: event.pubkey,
       name: extractBlobbiName(id),
-      birthTime: event.created_at * 1000,
-      lastInteraction: getTagValue(tags, 'last_interaction') ? parseInt(getTagValue(tags, 'last_interaction')!) : event.created_at,
+      birthTime: event.created_at * 1000, // MILLISECONDS (for UI compatibility - Date, formatDistanceToNow, etc.)
+      lastInteraction: getTagValue(tags, 'last_interaction') ? parseInt(getTagValue(tags, 'last_interaction')!) : event.created_at, // SECONDS
       lifeStage: finalStage,
       state: getTagValue(tags, 'is_sleeping') === 'true' ? 'sleeping' : 'active',
       stats,
@@ -988,7 +1149,7 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
         isEligibleForEvolution: false,
         nextEvolutionCheck: Date.now(),
       },
-      tags: tags.map(([k, v]) => [k || '', v || '']),
+      tags: tags.map(t => t.filter(x => typeof x === 'string') as string[]), // preserve extra fields safely
       themeVariant: getTagValue(tags, 'theme'),
       crossoverApp: getTagValue(tags, 'crossover_app'),
       baseColor: getTagValue(tags, 'base_color'),
@@ -1034,10 +1195,38 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
 
     const syncedBlobbi = syncDivineModelFields(blobbi);
 
-    if (process.env.NODE_ENV !== 'production') {
+    // DEV: Assert timestamps are in correct units
+    if (import.meta.env.DEV) {
       const validation = validateDivineConsistency(syncedBlobbi);
       if (!validation.isValid) {
         console.warn('[Divine Tags] Inconsistency detected in parsed Blobbi:', validation.errors);
+      }
+      
+      // Check for milliseconds in SECONDS fields (birthTime/hatchTime are intentionally ms)
+      const secondsFields: Array<{ name: string; value?: number }> = [
+        { name: 'lastInteraction', value: syncedBlobbi.lastInteraction },
+        { name: 'lastMeal', value: syncedBlobbi.lastMeal },
+        { name: 'lastClean', value: syncedBlobbi.lastClean },
+        { name: 'lastWarm', value: syncedBlobbi.lastWarm },
+        { name: 'sleepStartedAt', value: syncedBlobbi.sleepStartedAt },
+        { name: 'lastSleepUpdate', value: syncedBlobbi.lastSleepUpdate },
+      ];
+      
+      for (const { name, value } of secondsFields) {
+        if (value && value > 1e12) {
+          console.warn(
+            `[Timestamp] ${name} looks like milliseconds (${value}), expected seconds. ` +
+            `Blobbi: ${id}`
+          );
+        }
+      }
+      
+      // Check birthTime is in milliseconds (should be > 1e12)
+      if (syncedBlobbi.birthTime && syncedBlobbi.birthTime < 1e12) {
+        console.warn(
+          `[Timestamp] birthTime looks like seconds (${syncedBlobbi.birthTime}), expected milliseconds. ` +
+          `Blobbi: ${id}`
+        );
       }
     }
 
@@ -1059,19 +1248,31 @@ export function parseInteractionFromEvent(event: NostrEvent): BlobbiInteractionD
 
     const action = getTagValue(tags, 'action') as BlobbiInteractionType;
     const actionCategory = getTagValue(tags, 'action_category');
-    const statChangeTag = tags.find(([name]) => name === 'stat_change');
+    
+    // Collect ALL stat_change tags
+    const statChangeTags = tags.filter(([name]) => name === 'stat_change');
+    
+    if (!action || !actionCategory || statChangeTags.length === 0) return null;
 
-    if (!action || !actionCategory || !statChangeTag) return null;
-
-    const statChangeParts = statChangeTag[1].split(':');
-    if (statChangeParts.length !== 2) return null;
-
-    const statChange: [string, string] = [statChangeParts[0], statChangeParts[1]];
+    // Parse all stat changes
+    const statChanges: Array<[string, string]> = [];
+    for (const tag of statChangeTags) {
+      const parts = tag[1]?.split(':');
+      if (parts && parts.length === 2) {
+        statChanges.push([parts[0], parts[1]]);
+      }
+    }
+    
+    if (statChanges.length === 0) return null;
+    
+    // First stat change for backward compatibility
+    const statChange: [string, string] = statChanges[0];
 
     const interactionData: BlobbiInteractionData = {
       action,
       actionCategory,
       statChange,
+      statChanges, // NEW: all stat changes
       itemUsed: getTagValue(tags, 'item_used'),
       itemQuality: getTagValue(tags, 'item_quality'),
       timeOfDay: getTagValue(tags, 'time_of_day'),
@@ -1190,7 +1391,8 @@ export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null
       }
 
       case 'hatched': {
-        recordData.hatchedAt = getTagValue(tags, 'hatched_at') ? new Date(getTagValue(tags, 'hatched_at')!).getTime() : undefined;
+        // Parse hatched_at: supports numeric seconds (new) or ISO string (legacy)
+        recordData.hatchedAt = parseTimestampTag(getTagValue(tags, 'hatched_at'));
         recordData.hatchedBy = getTagValue(tags, 'hatched_by');
         recordData.eggType = getTagValue(tags, 'egg_type');
         recordData.incubationTime = getTagValue(tags, 'incubation_time');
@@ -1214,7 +1416,8 @@ export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null
 
       case 'adoption': {
         recordData.adoptedBy = getTagValue(tags, 'adopted_by');
-        recordData.adoptedOn = getTagValue(tags, 'adopted_on') ? new Date(getTagValue(tags, 'adopted_on')!).getTime() : undefined;
+        // Parse adopted_on: supports numeric seconds (new) or ISO string (legacy)
+        recordData.adoptedOn = parseTimestampTag(getTagValue(tags, 'adopted_on'));
         recordData.adoptionMethod = getTagValue(tags, 'adoption_method');
         recordData.title = getTagValue(tags, 'title');
         recordData.titleReason = getTagValue(tags, 'title_reason');
@@ -1385,12 +1588,35 @@ function validateStatChange(statChangeTag: string): boolean {
   return VALID_STAT_NAMES.includes(stat as typeof VALID_STAT_NAMES[number]) && !isNaN(changeNum) && Math.abs(changeNum) <= 100;
 }
 
+/**
+ * Validates a timestamp tag value.
+ * Supports both formats:
+ * - Numeric seconds (new format): "1700000000"
+ * - ISO string (legacy format): "2023-11-14T22:13:20.000Z"
+ * 
+ * @param timestamp - Tag value to validate
+ * @returns true if valid timestamp
+ */
 function validateTimestamp(timestamp: string): boolean {
+  // Try parsing as numeric seconds
+  const numericValue = parseInt(timestamp, 10);
+  if (!isNaN(numericValue) && numericValue > 0) {
+    return true; // Valid numeric seconds
+  }
+  
+  // Fallback: try parsing as ISO string
   const date = new Date(timestamp);
   return !isNaN(date.getTime()) && date.getTime() > 0;
 }
 
-export function validateBlobbiEvent(event: NostrEvent): boolean {
+/**
+ * Validates a Blobbi event.
+ * 
+ * @param event - Nostr event to validate
+ * @param mode - Validation mode ('strict' or 'lenient'), defaults to 'strict'
+ * @returns true if event is valid
+ */
+export function validateBlobbiEvent(event: NostrEvent, mode: ValidationMode = 'strict'): boolean {
   try {
     if (!Object.values(BLOBBI_EVENT_KINDS).includes(event.kind as typeof BLOBBI_EVENT_KINDS[keyof typeof BLOBBI_EVENT_KINDS])) {
       return false;
@@ -1401,11 +1627,24 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
         if (!validateRequiredTags(event.tags, REQUIRED_STATE_TAGS)) return false;
 
         const statTags = ['hunger', 'happiness', 'health', 'hygiene', 'energy'];
-        for (const statTag of statTags) {
-          const value = getTagValue(event.tags, statTag);
-          if (value) {
+        
+        if (mode === 'strict') {
+          // Strict mode: require all stat tags
+          for (const statTag of statTags) {
+            const value = getTagValue(event.tags, statTag);
+            if (!value) return false; // Missing stat tag in strict mode
+            
             const numValue = parseInt(value);
             if (isNaN(numValue) || numValue < 0 || numValue > 100) return false;
+          }
+        } else {
+          // Lenient mode: validate stats if present, but don't require them
+          for (const statTag of statTags) {
+            const value = getTagValue(event.tags, statTag);
+            if (value) {
+              const numValue = parseInt(value);
+              if (isNaN(numValue) || numValue < 0 || numValue > 100) return false;
+            }
           }
         }
 
@@ -1418,8 +1657,13 @@ export function validateBlobbiEvent(event: NostrEvent): boolean {
       case BLOBBI_EVENT_KINDS.INTERACTION: {
         if (!validateRequiredTags(event.tags, REQUIRED_INTERACTION_TAGS)) return false;
 
-        const statChangeTag = event.tags.find(([name]) => name === 'stat_change');
-        if (statChangeTag && !validateStatChange(statChangeTag[1])) return false;
+        // Validate ALL stat_change tags
+        const statChangeTags = event.tags.filter(([name]) => name === 'stat_change');
+        if (statChangeTags.length === 0) return false; // At least one required
+        
+        for (const statChangeTag of statChangeTags) {
+          if (!validateStatChange(statChangeTag[1])) return false;
+        }
 
         const action = getTagValue(event.tags, 'action');
         if (action && !VALID_ACTIONS.includes(action as typeof VALID_ACTIONS[number])) return false;

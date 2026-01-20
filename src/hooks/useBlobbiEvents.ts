@@ -147,7 +147,7 @@ export function useBlobbiInteractions(blobbiId: string, limit: number = 50) {
       ], { signal });
 
       return events
-        .filter(validateBlobbiEvent)
+        .filter(event => validateBlobbiEvent(event))
         .map(event => ({
           event,
           interaction: parseInteractionFromEvent(event),
@@ -214,7 +214,7 @@ export function useBlobbiRecords(blobbiId: string, recordType?: BlobbiRecordType
       const events = await nostr.query([queryFilter], { signal });
 
       return events
-        .filter(validateBlobbiEvent)
+        .filter(event => validateBlobbiEvent(event))
         .map(event => ({
           event,
           record: parseRecordFromEvent(event),
@@ -278,7 +278,7 @@ export function useBlobbiBreeding() {
       ], { signal });
 
       return events
-        .filter(validateBlobbiEvent)
+        .filter(event => validateBlobbiEvent(event))
         .sort((a, b) => b.created_at - a.created_at);
     },
     enabled: !!user,
