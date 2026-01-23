@@ -391,6 +391,15 @@ function recoverMissingStatsFromTimestamps(
   };
 }
 
+/**
+ * Publish a corrected state event using the canonical pipeline
+ * 
+ * This function uses the canonical pipeline to ensure:
+ * - Stats are validated and clamped
+ * - Timestamps are normalized
+ * - Tags are deduplicated and ordered
+ * - No fields are lost during repair
+ */
 async function publishCorrectedStateEvent(
   blobbiId: string,
   correctedBlobbi: Blobbi,
@@ -404,6 +413,7 @@ async function publishCorrectedStateEvent(
   try {
     console.log(`[AutoRepair] Detected incomplete Blobbi ${blobbiId}, publishing repair...`);
 
+    // Use canonical pipeline for corrected event
     const correctedEvent = createBlobbiStateEvent(correctedBlobbi);
 
     const eventToPublish: Omit<NostrEvent, 'id' | 'sig'> = {

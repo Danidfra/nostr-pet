@@ -172,7 +172,7 @@ export function BlobbiActionsFooter({
   return (
     <>
       <div className={cn("bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t-2 border-purple-300 dark:border-purple-600 shadow-lg", className)}>
-        <div className="container mx-auto px-4 py-3">
+        <div className="container mx-auto px-4 py-3 sm:py-3 py-4">
           {isDashboardMode ? (
             // Dashboard mode: 5-button layout
             <div className="flex items-center justify-between sm:justify-center sm:gap-4 lg:gap-8 max-w-6xl mx-auto">

@@ -1,6 +1,15 @@
 /**
  * BLOBBI STATE BUILDER - Clean, deterministic tag generation for kind 31124 events
  *
+ * @deprecated Consider using the canonical pipeline instead:
+ * - `mergeBlobbiState()` from '@/lib/blobbi-canonical-pipeline'
+ * - Provides safer merge logic with type checking
+ * - Automatically handles timestamp normalization
+ * - Built-in stage filtering
+ * 
+ * This file is kept for specific cases where building from scratch is needed,
+ * but most state updates should use mergeBlobbiState() instead.
+ *
  * REFACTORED TO PREVENT INFINITE LOOPS:
  * - No merge logic (always build from scratch)
  * - Source tracking to prevent cascading

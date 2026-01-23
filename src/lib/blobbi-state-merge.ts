@@ -3,6 +3,17 @@ import { ensureBlobbiTags, hasBlobbiEcosystemTag, hasBlobbiTopicTag } from './bl
 import { normalizeTags, type NostrTag } from './nostr/tags';
 
 /**
+ * @deprecated This file contains legacy tag-level merge logic.
+ * 
+ * For new code, prefer using the canonical pipeline:
+ * - `mergeBlobbiState()` from '@/lib/blobbi-canonical-pipeline'
+ * - Merges at the Blobbi object level (safer, type-checked)
+ * - Automatically handles timestamps, stats, stage filtering
+ * 
+ * This file is kept for backward compatibility with existing hooks.
+ */
+
+/**
  * Interface for merge options when updating Blobbi state tags
  */
 export interface BlobbiStateMergeOptions {
