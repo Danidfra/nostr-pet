@@ -35,15 +35,14 @@ function AppContent() {
   const showHeader = location.pathname !== '/';
   const isBlobbiDashboard = location.pathname === '/blobbi';
 
-  // Set CSS variables for header and footer heights
+  // Set CSS variables for footer height (header height is now managed by GlobalHeader component)
   useEffect(() => {
     const root = document.documentElement;
 
-    // Header height: 112px desktop, 80px mobile
-    const headerHeight = showHeader
-      ? (isMobile ? '80px' : '112px')
-      : '0px';
-    root.style.setProperty('--app-header-h', headerHeight);
+    // Reset header height when no header is shown (homepage)
+    if (!showHeader) {
+      root.style.setProperty('--app-header-h', '0px');
+    }
 
     // Footer height: 96px mobile, 88px desktop on /blobbi dashboard, 0px elsewhere
     const footerHeight = isBlobbiDashboard

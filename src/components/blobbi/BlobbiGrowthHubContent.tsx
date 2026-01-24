@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, Circle, Camera, Send, Sparkles, AlertTriangle, Wifi, WifiOff, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, Circle, Camera, Send, Sparkles, AlertTriangle, Wifi, WifiOff, ChevronDown, ChevronUp, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Blobbi } from '@/types/blobbi';
 import { CreatePostModal } from './CreatePostModal';
@@ -218,7 +218,7 @@ export function BlobbiGrowthHubContent({
             className="bg-purple-600 hover:bg-purple-700 text-white"
             disabled={true}
           >
-            <Sparkles className="w-4 h-4 mr-2" />
+            <ArrowUpRight className="w-4 h-4 mr-2" />
             Start Evolution
           </Button>
         );

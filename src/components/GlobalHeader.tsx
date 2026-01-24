@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useCoinBalance } from '@/hooks/useCoinBalance';
@@ -101,14 +102,43 @@ export function GlobalHeader() {
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
+  const headerRef = useRef<HTMLElement>(null);
 
   // Check if we're on a Blobbi detail page
   const isBlobbiDetailPage = location.pathname.match(/^\/blobbi\/[^/]+$/);
   // Check if we're on the community page
   const isCommunityPage = location.pathname === '/blobbi/community';
 
+  // Dynamically measure and update header height using ResizeObserver
+  useEffect(() => {
+    const headerElement = headerRef.current;
+    if (!headerElement) return;
+
+    const updateHeaderHeight = () => {
+      const height = headerElement.offsetHeight;
+      document.documentElement.style.setProperty('--app-header-h', `${height}px`);
+    };
+
+    // Initial measurement
+    updateHeaderHeight();
+
+    // Observe size changes (handles responsive changes, zoom, font size, etc.)
+    const resizeObserver = new ResizeObserver(() => {
+      updateHeaderHeight();
+    });
+
+    resizeObserver.observe(headerElement);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header 
+      ref={headerRef}
+      className="fixed top-0 left-0 right-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+    >
       <div className="container mx-auto px-4 sm:p-4">
         <div className="flex h-20 items-center justify-between">
           {/* Logo/Brand with optional back arrow and community badge */}
