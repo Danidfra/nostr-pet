@@ -45,8 +45,11 @@ function AppContent() {
       : '0px';
     root.style.setProperty('--app-header-h', headerHeight);
 
-    // Footer height: 88px on /blobbi dashboard, 0px elsewhere
-    root.style.setProperty('--app-footer-h', isBlobbiDashboard ? '88px' : '0px');
+    // Footer height: 96px mobile, 88px desktop on /blobbi dashboard, 0px elsewhere
+    const footerHeight = isBlobbiDashboard
+      ? (isMobile ? '96px' : '88px')
+      : '0px';
+    root.style.setProperty('--app-footer-h', footerHeight);
   }, [showHeader, isBlobbiDashboard, isMobile]);
 
   // Disable body scroll on /blobbi dashboard
