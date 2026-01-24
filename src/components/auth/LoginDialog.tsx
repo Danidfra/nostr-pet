@@ -96,30 +96,30 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className='sm:max-w-md p-0 overflow-hidden rounded-2xl shadow-elegant-xl border-border/50 backdrop-blur-sm bg-popover/95'>
+      <DialogContent className='w-[calc(100vw-2rem)] max-w-md bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden p-0 shadow-elegant-xl'>
         <DialogHeader className='px-6 pt-6 pb-0 relative'>
-          <DialogTitle className='text-xl font-semibold text-center bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent'>Log in</DialogTitle>
-          <DialogDescription className='text-center text-muted-foreground mt-2'>
+          <DialogTitle className='text-lg sm:text-xl font-semibold text-center bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent'>Log in</DialogTitle>
+          <DialogDescription className='text-center text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2'>
             Access your account securely with your preferred method
           </DialogDescription>
         </DialogHeader>
 
         <div className='px-6 py-8 space-y-6'>
           <Tabs defaultValue={'nostr' in window ? 'extension' : 'key'} className='w-full'>
-            <TabsList className='grid grid-cols-3 mb-6 bg-muted/50 backdrop-blur-sm border-border/50'>
+            <TabsList className='grid grid-cols-3 mb-6 bg-purple-50/50 dark:bg-purple-900/20 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50'>
               <TabsTrigger value='extension'>Extension</TabsTrigger>
               <TabsTrigger value='key'>Nsec</TabsTrigger>
               <TabsTrigger value='bunker'>Bunker</TabsTrigger>
             </TabsList>
 
             <TabsContent value='extension' className='space-y-4'>
-              <div className='text-center p-4 rounded-lg bg-card/50 backdrop-blur-sm border-border/50 shadow-elegant'>
-                <Shield className='w-12 h-12 mx-auto mb-3 text-primary' />
-                <p className='text-sm text-muted-foreground mb-4'>
+              <div className='text-center p-4 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 shadow-elegant'>
+                <Shield className='w-12 h-12 mx-auto mb-3 text-purple-600 dark:text-purple-400' />
+                <p className='text-sm text-gray-600 dark:text-gray-400 mb-4'>
                   Login with one click using the browser extension
                 </p>
                 <Button
-                  className='w-full rounded-full py-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 hover:shadow-elegant-lg hover:scale-105'
+                  className='w-full h-11 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 hover:shadow-elegant-lg hover:scale-[1.02] font-medium'
                   onClick={handleExtensionLogin}
                   disabled={isLoading}
                 >
@@ -131,20 +131,20 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
             <TabsContent value='key' className='space-y-4'>
               <div className='space-y-4'>
                 <div className='space-y-2'>
-                  <label htmlFor='nsec' className='text-sm font-medium text-foreground'>
+                  <label htmlFor='nsec' className='text-sm font-medium text-gray-900 dark:text-gray-100'>
                     Enter your nsec
                   </label>
                   <Input
                     id='nsec'
                     value={nsec}
                     onChange={(e) => setNsec(e.target.value)}
-                    className='rounded-lg bg-background/80 border-border/50 focus:border-purple-400 focus:ring-purple-400/50 focus:bg-background placeholder:text-muted-foreground/60 backdrop-blur-sm transition-all duration-200'
+                    className='rounded-lg bg-white dark:bg-gray-800 border border-purple-200/50 dark:border-purple-600/50 focus:border-purple-400 focus:ring-purple-400/50 placeholder:text-gray-400 dark:placeholder:text-gray-500 backdrop-blur-sm transition-all duration-200'
                     placeholder='nsec1...'
                   />
                 </div>
 
                 <div className='text-center'>
-                  <p className='text-sm mb-2 text-muted-foreground'>Or upload a key file</p>
+                  <p className='text-sm mb-2 text-gray-600 dark:text-gray-400'>Or upload a key file</p>
                   <input
                     type='file'
                     accept='.txt'
@@ -154,7 +154,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                   />
                   <Button
                     variant='outline'
-                    className='w-full bg-background/80 border-border/50 hover:bg-accent/80 hover:border-purple-300 transition-all duration-200 backdrop-blur-sm'
+                    className='w-full h-11 rounded-xl bg-white dark:bg-gray-800 border-purple-200/50 dark:border-purple-600/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 dark:hover:border-purple-500 transition-all duration-200 backdrop-blur-sm font-medium'
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Upload className='w-4 h-4 mr-2' />
@@ -163,7 +163,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                 </div>
 
                 <Button
-                  className='w-full rounded-full py-6 mt-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 hover:shadow-elegant-lg hover:scale-105'
+                  className='w-full h-11 rounded-xl mt-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 hover:shadow-elegant-lg hover:scale-[1.02] font-medium'
                   onClick={handleKeyLogin}
                   disabled={isLoading || !nsec.trim()}
                 >
@@ -174,23 +174,23 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
 
             <TabsContent value='bunker' className='space-y-4'>
               <div className='space-y-2'>
-                <label htmlFor='bunkerUri' className='text-sm font-medium text-foreground'>
+                <label htmlFor='bunkerUri' className='text-sm font-medium text-gray-900 dark:text-gray-100'>
                   Bunker URI
                 </label>
                 <Input
                   id='bunkerUri'
                   value={bunkerUri}
                   onChange={(e) => setBunkerUri(e.target.value)}
-                  className='rounded-lg bg-background/80 border-border/50 focus:border-purple-400 focus:ring-purple-400/50 focus:bg-background placeholder:text-muted-foreground/60 backdrop-blur-sm transition-all duration-200'
+                  className='rounded-lg bg-white dark:bg-gray-800 border border-purple-200/50 dark:border-purple-600/50 focus:border-purple-400 focus:ring-purple-400/50 placeholder:text-gray-400 dark:placeholder:text-gray-500 backdrop-blur-sm transition-all duration-200'
                   placeholder='bunker://'
                 />
                 {bunkerUri && !bunkerUri.startsWith('bunker://') && (
-                  <p className='text-destructive text-xs'>URI must start with bunker://</p>
+                  <p className='text-red-600 dark:text-red-400 text-xs'>URI must start with bunker://</p>
                 )}
               </div>
 
               <Button
-                className='w-full rounded-full py-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 hover:shadow-elegant-lg hover:scale-105'
+                className='w-full h-11 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 hover:shadow-elegant-lg hover:scale-[1.02] font-medium'
                 onClick={handleBunkerLogin}
                 disabled={isLoading || !bunkerUri.trim() || !bunkerUri.startsWith('bunker://')}
               >
@@ -200,11 +200,11 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
           </Tabs>
 
           <div className='text-center text-sm'>
-            <p className='text-muted-foreground'>
+            <p className='text-gray-600 dark:text-gray-400'>
               Don't have an account?{' '}
               <button
                 onClick={handleSignupClick}
-                className='text-primary hover:underline font-medium transition-all duration-200 hover:text-purple-600 dark:hover:text-purple-400'
+                className='text-purple-600 dark:text-purple-400 hover:underline font-medium transition-all duration-200 hover:text-purple-700 dark:hover:text-purple-300'
               >
                 Sign up
               </button>

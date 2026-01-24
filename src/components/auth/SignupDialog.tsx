@@ -85,14 +85,14 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className='sm:max-w-md p-0 overflow-hidden rounded-2xl shadow-elegant-xl border-border/50 backdrop-blur-sm bg-popover/95'>
+      <DialogContent className='w-[calc(100vw-2rem)] max-w-md bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden p-0 shadow-elegant-xl'>
         <DialogHeader className='px-6 pt-6 pb-0 relative'>
-          <DialogTitle className='text-xl font-semibold text-center bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent'>
+          <DialogTitle className='text-lg sm:text-xl font-semibold text-center bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent'>
             {step === 'generate' && 'Create Your Account'}
             {step === 'download' && 'Download Your Key'}
             {step === 'done' && 'Setting Up Your Account'}
           </DialogTitle>
-          <DialogDescription className='text-center text-muted-foreground mt-2'>
+          <DialogDescription className='text-center text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2'>
             {step === 'generate' && 'Generate a secure key for your account'}
             {step === 'download' && "Keep your key safe - you'll need it to log in"}
             {step === 'done' && 'Finalizing your account setup'}
@@ -102,14 +102,14 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose }) => {
         <div className='px-6 py-8 space-y-6'>
           {step === 'generate' && (
             <div className='text-center space-y-6'>
-              <div className='p-4 rounded-lg bg-card/50 backdrop-blur-sm border-border/50 shadow-elegant flex items-center justify-center'>
-                <Key className='w-16 h-16 text-primary' />
+              <div className='p-4 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 shadow-elegant flex items-center justify-center'>
+                <Key className='w-16 h-16 text-purple-600 dark:text-purple-400' />
               </div>
-              <p className='text-sm text-muted-foreground'>
+              <p className='text-sm text-gray-600 dark:text-gray-400'>
                 We'll generate a secure key for your account. You'll need this key to log in later.
               </p>
               <Button
-                className='w-full rounded-full py-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 hover:shadow-elegant-lg hover:scale-105'
+                className='w-full h-11 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 hover:shadow-elegant-lg hover:scale-[1.02] font-medium'
                 onClick={generateKey}
                 disabled={isLoading}
               >
@@ -120,12 +120,12 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose }) => {
 
           {step === 'download' && (
             <div className='space-y-6'>
-              <div className='p-4 rounded-lg border border-border/50 bg-background/80 backdrop-blur-sm overflow-auto'>
-                <code className='text-xs break-all text-foreground'>{nsec}</code>
+              <div className='p-4 rounded-lg border border-purple-200/50 dark:border-purple-600/50 bg-white dark:bg-gray-800 backdrop-blur-sm overflow-auto'>
+                <code className='text-xs break-all text-gray-900 dark:text-gray-100'>{nsec}</code>
               </div>
 
-              <div className='text-sm text-muted-foreground space-y-2'>
-                <p className='font-medium text-destructive'>Important:</p>
+              <div className='text-sm text-gray-600 dark:text-gray-400 space-y-2'>
+                <p className='font-medium text-red-600 dark:text-red-400'>Important:</p>
                 <ul className='list-disc pl-5 space-y-1'>
                   <li>This is your only way to access your account</li>
                   <li>Store it somewhere safe</li>
@@ -136,7 +136,7 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose }) => {
               <div className='flex flex-col space-y-3'>
                 <Button
                   variant='outline'
-                  className='w-full bg-background/80 border-border/50 hover:bg-accent/80 transition-all duration-200 backdrop-blur-sm'
+                  className='w-full h-11 rounded-xl bg-white dark:bg-gray-800 border-purple-200/50 dark:border-purple-600/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 dark:hover:border-purple-500 transition-all duration-200 backdrop-blur-sm font-medium'
                   onClick={downloadKey}
                 >
                   <Download className='w-4 h-4 mr-2' />
@@ -144,7 +144,7 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose }) => {
                 </Button>
 
                 <Button
-                  className='w-full rounded-full py-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 hover:shadow-elegant-lg hover:scale-105'
+                  className='w-full h-11 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 hover:shadow-elegant-lg hover:scale-[1.02] font-medium'
                   onClick={finishSignup}
                 >
                   I've saved my key, continue
@@ -155,7 +155,7 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose }) => {
 
           {step === 'done' && (
             <div className='flex justify-center items-center py-8'>
-              <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary'></div>
+              <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500'></div>
             </div>
           )}
         </div>

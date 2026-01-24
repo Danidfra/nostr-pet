@@ -1,16 +1,14 @@
 import { ReactNode } from 'react';
-import { LoginArea } from '@/components/auth/LoginArea';
+import { AccountDropdownContent } from '@/components/AccountDropdownContent';
 import { SettingsButton } from '@/components/SettingsButton';
-import { useIsMobile } from '@/hooks/useIsMobile';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical } from 'lucide-react';
+import { User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface AppHeaderProps {
@@ -22,18 +20,11 @@ interface AppHeaderProps {
   className?: string;
 }
 
-function HeaderActions() {
-  return (
-    <>
-      <SettingsButton />
-      <div className="max-w-40">
-        <LoginArea />
-      </div>
-    </>
-  );
-}
-
-function MobileHeaderMenu() {
+/**
+ * Unified Account Menu - shows the same dropdown for both desktop and mobile
+ * Contains Nostr account (LoginArea) and Blobbi account info (coins + stats)
+ */
+function AccountMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -42,45 +33,42 @@ function MobileHeaderMenu() {
           size="icon"
           className={cn(
             "relative transition-all duration-300 ease-in-out",
-            "hover:shadow-elegant hover:scale-105 hover:border-primary/30",
+            "hover:shadow-elegant hover:scale-105 hover:border-purple-300 dark:hover:border-purple-500",
             "active:scale-95",
-            "focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2",
-            "bg-card/50 backdrop-blur-sm border-border/50",
-            "hover:glow-warm"
+            "focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2",
+            "bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-purple-200/50 dark:border-purple-600/50"
           )}
         >
-          <MoreVertical className={cn(
-            "h-4 w-4 transition-transform duration-200",
-            "hover:rotate-90"
+          <User className={cn(
+            "h-4 w-4 text-purple-600 dark:text-purple-400"
           )} />
-          <span className="sr-only">Open menu</span>
+          <span className="sr-only">Account menu</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
         className={cn(
-          "w-56 shadow-elegant-lg border-border/50 backdrop-blur-sm",
-          "bg-popover/95"
+          "w-80 shadow-xl backdrop-blur-sm",
+          "bg-white/95 dark:bg-gray-900/95 border border-purple-200/50 dark:border-purple-600/50 rounded-2xl"
         )}
       >
-        <div className="p-3">
-          <div className="text-sm font-medium text-muted-foreground mb-3">Account</div>
-          <div className="w-full">
-            <LoginArea />
-          </div>
-        </div>
-        <DropdownMenuSeparator className="my-1" />
+        <AccountDropdownContent />
+        
+        <DropdownMenuSeparator className="my-0 bg-purple-200/50 dark:bg-purple-600/50" />
+        
+        {/* Settings Button */}
+        <div className="p-2">
           <SettingsButton
             variant="ghost"
             size="default"
             className={cn(
               "w-full justify-start h-auto py-2 px-3",
-              "hover:bg-accent/80 rounded-md transition-all duration-200",
+              "hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-md transition-all duration-200",
               "focus-visible:ring-0 focus-visible:ring-offset-0"
             )}
             showLabel={true}
           />
-
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -94,8 +82,6 @@ export function AppHeader({
   leftContent,
   className = ""
 }: AppHeaderProps) {
-  const isMobile = useIsMobile();
-
   return (
     <div className={`flex flex-wrap justify-between items-center mb-8 gap-4 ${className}`}>
       <div className="flex items-center gap-4">
@@ -118,14 +104,9 @@ export function AppHeader({
         )}
       </div>
 
-      {/* Desktop: Show individual buttons */}
-      <div className="hidden md:flex items-center gap-2">
-        <HeaderActions />
-      </div>
-
-      {/* Mobile: Show dropdown menu */}
-      <div className="flex md:hidden gap-2">
-        <MobileHeaderMenu />
+      {/* Unified Account Menu for both desktop and mobile */}
+      <div className="flex items-center gap-2">
+        <AccountMenu />
       </div>
     </div>
   );
