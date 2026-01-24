@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { BlobbiInventoryModal } from './BlobbiInventoryModal';
 import { BlobbiActionsModal } from './BlobbiActionsModal';
+import { BlobbiPlaySelectorModal } from './BlobbiPlaySelectorModal';
+import { BlobbiGamesModal } from './BlobbiGamesModal';
 import { useBlobbiCareInteractionWithFakeStatus } from '@/hooks/useBlobbiInteractionWithFakeStatus';
 import { useBlobbiFakeStatus } from '@/contexts/BlobbiFakeStatusContext';
 import { useBlobbonautProfile, useCreateInitialProfile } from '@/hooks/useBlobbonautProfile';
@@ -51,6 +53,8 @@ export function BlobbiActionsFooter({
   const { updateFakeStatus } = useBlobbiFakeStatus();
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
   const [actionsModalOpen, setActionsModalOpen] = useState(false);
+  const [playSelectorModalOpen, setPlaySelectorModalOpen] = useState(false);
+  const [gamesModalOpen, setGamesModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<BlobbiAction | null>(null);
   const [actionInProgress, setActionInProgress] = useState<BlobbiAction | null>(null);
 
@@ -105,7 +109,14 @@ export function BlobbiActionsFooter({
 
       setActionInProgress(action);
       setSelectedAction(action);
-      setInventoryModalOpen(true);
+      
+      // Special handling for 'play' action - open selector modal
+      if (action === 'play') {
+        setPlaySelectorModalOpen(true);
+      } else {
+        // For other actions (feed, clean, medicine), open inventory directly
+        setInventoryModalOpen(true);
+      }
     } else if (action === 'rest') {
       setActionInProgress(action);
       try {
@@ -149,6 +160,26 @@ export function BlobbiActionsFooter({
         setActionInProgress(null);
       }
     }
+  };
+
+  const handlePlaySelectorClose = () => {
+    setPlaySelectorModalOpen(false);
+    setActionInProgress(null);
+    setSelectedAction(null);
+  };
+
+  const handleChooseToys = () => {
+    setInventoryModalOpen(true);
+  };
+
+  const handleChooseGames = () => {
+    setGamesModalOpen(true);
+  };
+
+  const handleGamesModalClose = () => {
+    setGamesModalOpen(false);
+    setActionInProgress(null);
+    setSelectedAction(null);
   };
 
   const handleInventoryClose = () => {
@@ -278,6 +309,22 @@ export function BlobbiActionsFooter({
         isSleeping={isSleeping}
         canSleep={canSleep ?? false}
         canWakeUp={canWakeUp ?? false}
+      />
+
+      {/* Play Selector Modal */}
+      <BlobbiPlaySelectorModal
+        isOpen={playSelectorModalOpen}
+        onClose={handlePlaySelectorClose}
+        onChooseToys={handleChooseToys}
+        onChooseGames={handleChooseGames}
+        blobbiName={blobbi.name}
+      />
+
+      {/* Games Modal */}
+      <BlobbiGamesModal
+        isOpen={gamesModalOpen}
+        onClose={handleGamesModalClose}
+        blobbiId={blobbi.id}
       />
 
       {/* Inventory Modal */}
