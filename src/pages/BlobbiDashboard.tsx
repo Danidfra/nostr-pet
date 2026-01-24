@@ -26,7 +26,6 @@ import { EggGraphic } from '@/components/blobbi/EggGraphic';
 import { BlobbiActionsFooter } from '@/components/blobbi/BlobbiActionsFooter';
 import { BlobbiSelectorDrawer } from '@/components/blobbi/BlobbiSelectorDrawer';
 import { BlobbiGrowthHubModal } from '@/components/blobbi/BlobbiGrowthHubModal';
-import { FloatingMenuButton } from '@/components/blobbi/FloatingMenuButton';
 import { DashboardPanels } from '@/components/blobbi/DashboardPanels';
 import { CircularStatusIndicators } from '@/components/blobbi/CircularStatusIndicators';
 import { BlobbiGamesModal } from '@/components/blobbi/BlobbiGamesModal';
@@ -617,12 +616,6 @@ export default function BlobbiDashboard() {
 
           {/* Real content wrapper */}
           <div className="relative z-10 h-full flex flex-col min-h-0">
-        {/* Floating Menu Button */}
-        <FloatingMenuButton
-          coinBalance={stats.totalCoins}
-          onOpenStats={() => setIsStatsOpen(true)}
-        />
-
         {/* Dashboard Panels (Sheets) */}
         <DashboardPanels
           isStatsOpen={isStatsOpen}
