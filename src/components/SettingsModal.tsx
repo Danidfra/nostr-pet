@@ -32,9 +32,10 @@ import {
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultTab?: 'appearance' | 'relays';
 }
 
-export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, defaultTab = 'appearance' }: SettingsModalProps) {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { theme, setTheme } = useTheme();
@@ -174,7 +175,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="appearance" className="w-full flex flex-col min-h-0">
+        <Tabs defaultValue={defaultTab} className="w-full flex flex-col min-h-0">
           <div className={`${isMobile ? 'mb-3' : 'mb-6'}`}>
             <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50">
               <TabsTrigger

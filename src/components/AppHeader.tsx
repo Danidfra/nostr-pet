@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { AccountDropdownContent } from '@/components/AccountDropdownContent';
 import { SettingsButton } from '@/components/SettingsButton';
+import { RelaysButton } from '@/components/RelaysButton';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -106,6 +107,7 @@ export function AppHeader({
 
       {/* Unified Account Menu for both desktop and mobile */}
       <div className="flex items-center gap-2">
+        <RelaysButton />
         <AccountMenu />
       </div>
     </div>

@@ -50,6 +50,7 @@ export function SettingsButton({
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+        defaultTab="appearance"
       />
     </>
   );

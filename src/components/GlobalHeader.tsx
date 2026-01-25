@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ArrowLeft, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { RelaysButton } from './RelaysButton';
 
 /**
  * Unified Account Menu - used for both desktop and mobile
@@ -120,6 +121,7 @@ export function GlobalHeader() {
 
           {/* Navigation Actions - Unified Account Menu for both desktop and mobile */}
           <div className="flex items-center gap-2">
+            <RelaysButton />
             <AccountMenu />
           </div>
         </div>
