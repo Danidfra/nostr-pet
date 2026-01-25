@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Play, RotateCcw, Trophy, Users, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Play, RotateCcw, Users, HelpCircle, Bot, Gamepad2 } from 'lucide-react';
 import { useBlobbiGameSystem } from '@/hooks/useBlobbiInteractionSystem';
 import { useToast } from '@/hooks/useToast';
 import { useAddCoins } from '@/hooks/useBlobbonautProfile';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
+import { cn } from '@/lib/utils';
+import { useCanvasSize } from '@/hooks/useCanvasSize';
 
 type Player = 'X' | 'O';
 type CellValue = Player | null;
@@ -25,7 +27,7 @@ interface GameState {
   gameStarted: boolean;
   moves: number;
   gameMode: GameMode | null;
-  isPlayerTurn: boolean; // For bot mode
+  isPlayerTurn: boolean;
 }
 
 interface WinLine {
@@ -34,12 +36,9 @@ interface WinLine {
 }
 
 const WINNING_COMBINATIONS = [
-  // Rows
-  [0, 1, 2], [3, 4, 5], [6, 7, 8],
-  // Columns
-  [0, 3, 6], [1, 4, 7], [2, 5, 8],
-  // Diagonals
-  [0, 4, 8], [2, 4, 6]
+  [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+  [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+  [0, 4, 8], [2, 4, 6]             // Diagonals
 ];
 
 export function TicTacToeGame() {
@@ -48,14 +47,14 @@ export function TicTacToeGame() {
   const { toast } = useToast();
   const { mutateAsync: addCoins } = useAddCoins();
 
-  // Get the specific Blobbi ID from navigation state
   const blobbiId = location.state?.blobbiId;
-
-  // Use the specific Blobbi if provided, otherwise fall back to user's Blobbi
   const { blobbi, playGame, isPlaying, isLoading } = useBlobbiGameSystem(blobbiId);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number>();
+  const endGameOnceRef = useRef<string | null>(null);
+  const roundIdRef = useRef<string>(crypto.randomUUID());
 
   const [gameState, setGameState] = useState<GameState>({
     board: Array(9).fill(null),
@@ -74,12 +73,16 @@ export function TicTacToeGame() {
   const [showHelp, setShowHelp] = useState(false);
   const [winLine, setWinLine] = useState<WinLine | null>(null);
 
-  // Use the passed blobbiId or fall back to the loaded blobbi's ID
   const effectiveBlobbiId = blobbiId || blobbi?.id;
+
+  // Canvas sizing hook - handles all DPR and resize logic
+  const { isReady: isCanvasReady, forceRecalc, logicalWidth, logicalHeight } = useCanvasSize(
+    canvasRef,
+    containerRef
+  );
 
   // Check for winner
   const checkWinner = useCallback((board: Board): { winner: Player | 'tie' | null; winLine: WinLine | null } => {
-    // Check for winning combinations
     for (const combination of WINNING_COMBINATIONS) {
       const [a, b, c] = combination;
       if (board[a] && board[a] === board[b] && board[a] === board[c]) {
@@ -95,7 +98,6 @@ export function TicTacToeGame() {
       }
     }
 
-    // Check for tie
     if (board.every(cell => cell !== null)) {
       return { winner: 'tie', winLine: null };
     }
@@ -103,15 +105,13 @@ export function TicTacToeGame() {
     return { winner: null, winLine: null };
   }, []);
 
-  // Bot AI - Simple but not too hard to beat
+  // Bot AI
   const getBotMove = useCallback((board: Board): number => {
     const availableMoves = board.map((cell, index) => cell === null ? index : null).filter(val => val !== null) as number[];
-
     if (availableMoves.length === 0) return -1;
 
-    const mistakeProbability = 0.5; // 50% chance of making a suboptimal move
+    const mistakeProbability = 0.5;
     if (Math.random() < mistakeProbability) {
-      // Make a random move instead of a smart one
       return availableMoves[Math.floor(Math.random() * availableMoves.length)];
     }
 
@@ -123,7 +123,7 @@ export function TicTacToeGame() {
       if (winner === 'O') return move;
     }
 
-    // Check if bot needs to block player from winning
+    // Check if bot needs to block
     for (const move of availableMoves) {
       const testBoard = [...board];
       testBoard[move] = 'X';
@@ -131,24 +131,21 @@ export function TicTacToeGame() {
       if (winner === 'X') return move;
     }
 
-    // Take center if available (good strategy but not too aggressive)
+    // Take center if available
     if (board[4] === null) return 4;
 
-    // Take corners with some randomness (casual difficulty)
+    // Take corners
     const corners = [0, 2, 6, 8].filter(i => board[i] === null);
     if (corners.length > 0 && Math.random() > 0.3) {
       return corners[Math.floor(Math.random() * corners.length)];
     }
 
-    // Otherwise, pick a random available move
     return availableMoves[Math.floor(Math.random() * availableMoves.length)];
   }, [checkWinner]);
 
   // Make a move
   const makeMove = useCallback((index: number, player?: Player) => {
     if (!gameState.isPlaying || gameState.board[index] || gameState.gameOver) return;
-
-    // In bot mode, only allow moves when it's player's turn (unless it's a bot move)
     if (gameState.gameMode === 'bot' && !gameState.isPlayerTurn && !player) return;
 
     setGameState(prev => {
@@ -157,6 +154,10 @@ export function TicTacToeGame() {
       newBoard[index] = currentPlayer;
 
       const { winner, winLine } = checkWinner(newBoard);
+      if (winner && winLine) {
+        setWinLine(winLine);
+      }
+
       const nextPlayer = currentPlayer === 'X' ? 'O' : 'X';
 
       return {
@@ -171,10 +172,12 @@ export function TicTacToeGame() {
     });
   }, [gameState.isPlaying, gameState.board, gameState.gameOver, gameState.gameMode, gameState.isPlayerTurn, checkWinner]);
 
-  // Start game with selected mode
+  // Start game
   const startGame = useCallback((mode: GameMode) => {
     setHasEndedGame(false);
     setWinLine(null);
+    roundIdRef.current = crypto.randomUUID();
+    endGameOnceRef.current = null;
     setGameState({
       board: Array(9).fill(null),
       currentPlayer: 'X',
@@ -185,14 +188,19 @@ export function TicTacToeGame() {
       gameStarted: true,
       moves: 0,
       gameMode: mode,
-      isPlayerTurn: true, // Player always starts as X
+      isPlayerTurn: true,
     });
-  }, []);
+    setShowHowToPlay(false);
+    // Force canvas recalculation after layout settles
+    forceRecalc();
+  }, [forceRecalc]);
 
   // Reset to mode selection
   const resetToModeSelection = useCallback(() => {
     setHasEndedGame(false);
     setWinLine(null);
+    roundIdRef.current = crypto.randomUUID();
+    endGameOnceRef.current = null;
     setGameState({
       board: Array(9).fill(null),
       currentPlayer: 'X',
@@ -205,172 +213,207 @@ export function TicTacToeGame() {
       gameMode: null,
       isPlayerTurn: true,
     });
-  }, []);
+    // Force canvas recalculation after layout settles
+    forceRecalc();
+  }, [forceRecalc]);
 
-  // End game and record interaction
-  const endGame = useCallback(async (winner: Player | 'tie' | null, moves: number) => {
+  // End game
+  const endGame = useCallback(async (winner: Player | 'tie' | null, moves: number, gameMode: GameMode | null) => {
     const gameDuration = Math.floor((Date.now() - gameState.gameStartTime) / 1000);
 
     try {
-      // Record the game interaction
       if (blobbi && effectiveBlobbiId) {
         const score = winner === 'X' ? 100 : winner === 'O' ? 50 : winner === 'tie' ? 75 : 0;
         await playGame('tic-tac-toe', score, gameDuration, 10);
       }
 
-      // Award coins based on outcome
       let coinsEarned = 0;
       let message = '';
 
-      if (winner === 'X') {
-        coinsEarned = 50; // Player X wins
-        message = 'Player X wins! You earned 50 coins!';
-      } else if (winner === 'O') {
-        coinsEarned = 50; // Player O wins
-        message = 'Player O wins! You earned 50 coins!';
-      } else if (winner === 'tie') {
-        coinsEarned = 25; // Tie game
-        message = "It's a tie! You earned 25 coins!";
+      // Bot mode coin rules: player is always X, bot is O
+      if (gameMode === 'bot') {
+        if (winner === 'X') {
+          coinsEarned = 50;
+          message = 'You win! You earned 50 coins!';
+        } else if (winner === 'O') {
+          // Bot wins - only participation reward
+          coinsEarned = 10;
+          message = 'Bot wins! You earned 10 coins for playing!';
+        } else if (winner === 'tie') {
+          coinsEarned = 25;
+          message = "It's a tie! You earned 25 coins!";
+        }
       } else {
-        coinsEarned = 10; // Participation
-        message = 'Game completed! You earned 10 coins!';
+        // Multiplayer mode
+        if (winner === 'X') {
+          coinsEarned = 50;
+          message = 'Player X wins! You earned 50 coins!';
+        } else if (winner === 'O') {
+          coinsEarned = 50;
+          message = 'Player O wins! You earned 50 coins!';
+        } else if (winner === 'tie') {
+          coinsEarned = 25;
+          message = "It's a tie! You earned 25 coins!";
+        }
       }
 
-      // Actually add the coins to the user's balance
-      await addCoins(coinsEarned);
+      if (coinsEarned > 0) {
+        await addCoins(coinsEarned);
+      }
 
       toast({
         title: 'Game Over!',
         description: message,
       });
     } catch (error) {
-      console.error('Failed to record game interaction:', error);
-      // Still show game over message even if recording fails
+      console.error('Failed to record game:', error);
       toast({
         title: 'Game Over!',
-        description: winner === 'X' ? 'Player X wins!' : winner === 'O' ? 'Player O wins!' : winner === 'tie' ? "It's a tie!" : 'Game completed!',
+        description: 'Game completed!',
       });
     }
-  }, [effectiveBlobbiId, blobbi, playGame, toast, gameState.gameStartTime, addCoins]);
-
-  // Handle bot moves
-  useEffect(() => {
-    if (gameState.gameMode === 'bot' &&
-        gameState.isPlaying &&
-        !gameState.isPlayerTurn &&
-        !gameState.gameOver &&
-        gameState.currentPlayer === 'O') {
-
-      const timer = setTimeout(() => {
-        const botMoveIndex = getBotMove(gameState.board);
-        if (botMoveIndex !== -1) {
-          makeMove(botMoveIndex, 'O');
-        }
-      }, 500); // Small delay to make bot move feel more natural
-
-      return () => clearTimeout(timer);
-    }
-  }, [gameState.gameMode, gameState.isPlaying, gameState.isPlayerTurn, gameState.gameOver, gameState.currentPlayer, gameState.board, getBotMove, makeMove]);
+  }, [effectiveBlobbiId, blobbi, playGame, toast, addCoins, gameState.gameStartTime]);
 
   // Handle game over
   useEffect(() => {
-    if (gameState.gameOver && !hasEndedGame) {
+    if (gameState.gameOver && endGameOnceRef.current !== roundIdRef.current) {
+      // Set guard immediately to prevent multiple calls
+      endGameOnceRef.current = roundIdRef.current;
       setHasEndedGame(true);
-
-      // Find and set win line for animation
-      if (gameState.winner && gameState.winner !== 'tie') {
-        const { winLine } = checkWinner(gameState.board);
-        setWinLine(winLine);
-      }
-
-      // Delay end game to show win line animation
-      setTimeout(() => {
-        endGame(gameState.winner, gameState.moves);
-      }, 1000);
+      endGame(gameState.winner, gameState.moves, gameState.gameMode);
     }
-  }, [gameState.gameOver, gameState.winner, gameState.moves, gameState.board, endGame, hasEndedGame, checkWinner]);
+  }, [gameState.gameOver, gameState.winner, gameState.moves, gameState.gameMode, endGame]);
 
-  // Handle canvas click
+  // Bot move
+  useEffect(() => {
+    if (gameState.gameMode === 'bot' && !gameState.isPlayerTurn && !gameState.gameOver && gameState.isPlaying) {
+      const timer = setTimeout(() => {
+        const move = getBotMove(gameState.board);
+        if (move !== -1) {
+          makeMove(move, 'O');
+        }
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [gameState.gameMode, gameState.isPlayerTurn, gameState.gameOver, gameState.board, gameState.isPlaying, getBotMove, makeMove]);
+
+  // Handle canvas click - use logical coordinates
   const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!gameState.isPlaying || !canvasRef.current) return;
-
-    // In bot mode, only allow clicks when it's player's turn
+    if (!gameState.isPlaying || !canvasRef.current || !isCanvasReady) return;
     if (gameState.gameMode === 'bot' && !gameState.isPlayerTurn) return;
 
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    // Calculate which cell was clicked
-    const cellWidth = canvasRef.current.width / 3;
-    const cellHeight = canvasRef.current.height / 3;
-    const col = Math.floor(x / cellWidth);
-    const row = Math.floor(y / cellHeight);
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Get click position in device pixels
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const deviceX = (event.clientX - rect.left) * scaleX;
+    const deviceY = (event.clientY - rect.top) * scaleY;
+    
+    // Convert to logical (CSS) pixels
+    const logicalX = deviceX / dpr;
+    const logicalY = deviceY / dpr;
+    
+    // Calculate cell using logical coordinates
+    const logicalW = canvas.width / dpr;
+    const logicalH = canvas.height / dpr;
+    const cellWidth = logicalW / 3;
+    const cellHeight = logicalH / 3;
+    
+    const col = Math.floor(logicalX / cellWidth);
+    const row = Math.floor(logicalY / cellHeight);
     const index = row * 3 + col;
 
     if (index >= 0 && index < 9) {
       makeMove(index);
     }
-  }, [gameState.isPlaying, gameState.gameMode, gameState.isPlayerTurn, makeMove]);
+  }, [gameState.isPlaying, gameState.gameMode, gameState.isPlayerTurn, makeMove, isCanvasReady]);
 
-  // Handle touch events for mobile
+  // Handle touch events - use logical coordinates
   const handleCanvasTouch = useCallback((event: React.TouchEvent<HTMLCanvasElement>) => {
     event.preventDefault();
-    if (!gameState.isPlaying || !canvasRef.current) return;
-
-    // In bot mode, only allow touches when it's player's turn
+    if (!gameState.isPlaying || !canvasRef.current || !isCanvasReady) return;
     if (gameState.gameMode === 'bot' && !gameState.isPlayerTurn) return;
 
-    const rect = canvasRef.current.getBoundingClientRect();
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
     const touch = event.touches[0];
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
-
-    // Calculate which cell was clicked
-    const cellWidth = canvasRef.current.width / 3;
-    const cellHeight = canvasRef.current.height / 3;
-    const col = Math.floor(x / cellWidth);
-    const row = Math.floor(y / cellHeight);
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Get touch position in device pixels
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const deviceX = (touch.clientX - rect.left) * scaleX;
+    const deviceY = (touch.clientY - rect.top) * scaleY;
+    
+    // Convert to logical (CSS) pixels
+    const logicalX = deviceX / dpr;
+    const logicalY = deviceY / dpr;
+    
+    // Calculate cell using logical coordinates
+    const logicalW = canvas.width / dpr;
+    const logicalH = canvas.height / dpr;
+    const cellWidth = logicalW / 3;
+    const cellHeight = logicalH / 3;
+    
+    const col = Math.floor(logicalX / cellWidth);
+    const row = Math.floor(logicalY / cellHeight);
     const index = row * 3 + col;
 
     if (index >= 0 && index < 9) {
       makeMove(index);
     }
-  }, [gameState.isPlaying, gameState.gameMode, gameState.isPlayerTurn, makeMove]);
+  }, [gameState.isPlaying, gameState.gameMode, gameState.isPlayerTurn, makeMove, isCanvasReady]);
 
-  // Draw the game board
+  // Draw the board using logical (CSS) pixel coordinates
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !isCanvasReady) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Single animation loop - cancel any existing one first
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
+    }
+
     const animate = () => {
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Use logical size from hook for all drawing calculations
+      const logicalW = logicalWidth;
+      const logicalH = logicalHeight;
 
-      const cellWidth = canvas.width / 3;
-      const cellHeight = canvas.height / 3;
+      // Safety check
+      if (logicalW === 0 || logicalH === 0) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      
+      // Clear using logical coordinates (transform handles DPR)
+      ctx.clearRect(0, 0, logicalW, logicalH);
 
-      // Draw grid lines with playful colors
+      // All drawing uses logical (CSS) pixels - transform handles DPR
+      const cellWidth = logicalW / 3;
+      const cellHeight = logicalH / 3;
+
+      // Draw grid lines
       ctx.strokeStyle = '#FF6B9D';
       ctx.lineWidth = 4;
       ctx.lineCap = 'round';
 
-      // Vertical lines
       for (let i = 1; i < 3; i++) {
         ctx.beginPath();
         ctx.moveTo(i * cellWidth, 10);
-        ctx.lineTo(i * cellWidth, canvas.height - 10);
+        ctx.lineTo(i * cellWidth, logicalH - 10);
         ctx.stroke();
-      }
 
-      // Horizontal lines
-      for (let i = 1; i < 3; i++) {
         ctx.beginPath();
         ctx.moveTo(10, i * cellHeight);
-        ctx.lineTo(canvas.width - 10, i * cellHeight);
+        ctx.lineTo(logicalW - 10, i * cellHeight);
         ctx.stroke();
       }
 
@@ -385,7 +428,6 @@ export function TicTacToeGame() {
         const size = Math.min(cellWidth, cellHeight) * 0.3;
 
         if (cell === 'X') {
-          // Draw X with gradient
           const gradient = ctx.createLinearGradient(centerX - size, centerY - size, centerX + size, centerY + size);
           gradient.addColorStop(0, '#FF6B9D');
           gradient.addColorStop(1, '#C44569');
@@ -394,7 +436,6 @@ export function TicTacToeGame() {
           ctx.lineWidth = 8;
           ctx.lineCap = 'round';
 
-          // Draw X
           ctx.beginPath();
           ctx.moveTo(centerX - size, centerY - size);
           ctx.lineTo(centerX + size, centerY + size);
@@ -402,7 +443,6 @@ export function TicTacToeGame() {
           ctx.lineTo(centerX - size, centerY + size);
           ctx.stroke();
         } else if (cell === 'O') {
-          // Draw O with gradient
           const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, size);
           gradient.addColorStop(0, '#4ECDC4');
           gradient.addColorStop(1, '#26A69A');
@@ -411,7 +451,6 @@ export function TicTacToeGame() {
           ctx.lineWidth = 8;
           ctx.lineCap = 'round';
 
-          // Draw O
           ctx.beginPath();
           ctx.arc(centerX, centerY, size, 0, Math.PI * 2);
           ctx.stroke();
@@ -452,27 +491,12 @@ export function TicTacToeGame() {
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = undefined;
       }
     };
-  }, [gameState.board, winLine, gameState.gameOver]);
+  }, [gameState.board, winLine, gameState.gameOver, isCanvasReady, logicalWidth, logicalHeight]);
 
-  // Resize canvas
-  useEffect(() => {
-    const handleResize = () => {
-      if (canvasRef.current) {
-        const container = canvasRef.current.parentElement;
-        if (container) {
-          const size = Math.min(container.clientWidth - 40, container.clientHeight - 40, 400);
-          canvasRef.current.width = size;
-          canvasRef.current.height = size;
-        }
-      }
-    };
 
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const getGameStatusMessage = () => {
     if (gameState.gameOver) {
@@ -490,31 +514,28 @@ export function TicTacToeGame() {
     return `Player ${gameState.currentPlayer}'s turn`;
   };
 
-  // Show loading state while Blobbi is being loaded
+  const getModeName = () => {
+    if (gameState.gameMode === 'bot') return 'vs Bot';
+    if (gameState.gameMode === 'multiplayer') return 'vs Player';
+    return 'Tic-Tac-Toe';
+  };
+
+  // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 p-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </Button>
-            </div>
-          </div>
-          <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+      <div className="fixed inset-0 overflow-hidden">
+        <div 
+          className="bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 flex items-center justify-center p-4"
+          style={{
+            height: 'calc(100dvh - var(--app-header-h, 0px))',
+            marginTop: 'var(--app-header-h, 0px)',
+          }}
+        >
+          <Card className="w-full max-w-md bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl shadow-elegant-xl">
             <CardContent className="p-8">
-              <div className="flex items-center justify-center h-[400px]">
-                <div className="text-center space-y-4">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
-                  <p className="text-gray-600 dark:text-gray-400">Loading your Blobbi...</p>
-                </div>
+              <div className="flex items-center justify-center space-y-4 flex-col">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+                <p className="text-gray-600 dark:text-gray-400">Loading your Blobbi...</p>
               </div>
             </CardContent>
           </Card>
@@ -523,33 +544,25 @@ export function TicTacToeGame() {
     );
   }
 
-  // Show error state if no Blobbi is found
+  // Error state
   if (!blobbi) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 p-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </Button>
-            </div>
-          </div>
-          <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
+      <div className="fixed inset-0 overflow-hidden">
+        <div 
+          className="bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 flex items-center justify-center p-4"
+          style={{
+            height: 'calc(100dvh - var(--app-header-h, 0px))',
+            marginTop: 'var(--app-header-h, 0px)',
+          }}
+        >
+          <Card className="w-full max-w-md bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl shadow-elegant-xl">
             <CardContent className="p-8">
-              <div className="flex items-center justify-center h-[400px]">
-                <div className="text-center space-y-4">
-                  <p className="text-gray-600 dark:text-gray-400">No Blobbi found to play with!</p>
-                  <Button onClick={() => navigate(-1)} variant="outline">
-                    Go Back
-                  </Button>
-                </div>
+              <div className="text-center space-y-4">
+                <p className="text-gray-600 dark:text-gray-400">No Blobbi found to play with!</p>
+                <Button onClick={() => navigate(-1)} variant="outline" className="border-purple-200 dark:border-purple-600">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Go Back
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -559,381 +572,201 @@ export function TicTacToeGame() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 p-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowHelp(true)}
-              className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
-            >
-              <HelpCircle className="w-4 h-4" />
-              Help
-            </Button>
-          </div>
-        </div>
+    <div className="fixed inset-0 overflow-hidden">
+      <div 
+        className="bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 flex items-center justify-center p-2 sm:p-4 min-h-0"
+        style={{
+          height: 'calc(100dvh - var(--app-header-h, 0px))',
+          marginTop: 'var(--app-header-h, 0px)',
+        }}
+      >
+        <div className="w-full h-full max-w-4xl flex items-center justify-center min-h-0">
+          <Card className="relative w-full h-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl shadow-elegant-xl overflow-hidden">
+            <CardContent className="p-0 h-full">
+              <div className="relative w-full h-full flex flex-col items-center justify-center">
+                {/* Top-Left: Back Button */}
+                <div className="absolute top-4 left-4 z-30">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(-1)}
+                    className={cn(
+                      "rounded-xl backdrop-blur-sm",
+                      "bg-white/90 dark:bg-gray-800/90",
+                      "border border-purple-200/50 dark:border-purple-600/50",
+                      "shadow-lg hover:shadow-xl transition-all"
+                    )}
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </Button>
+                </div>
 
-        {/* Game Stats */}
-        <div className="flex justify-center gap-4 mb-4">
-          <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-purple-600" />
-              <span className="font-bold text-gray-900 dark:text-gray-100">
-                {gameState.gameMode === 'bot' ? 'vs Bot' : gameState.gameMode === 'multiplayer' ? 'vs Player' : 'Tic-Tac-Toe'}
-              </span>
-            </div>
-          </Card>
+                {/* Top-Right: Help Button + Status */}
+                <div className="absolute top-4 right-4 z-30 flex flex-col gap-2 items-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowHelp(true)}
+                    className={cn(
+                      "rounded-xl backdrop-blur-sm",
+                      "bg-white/90 dark:bg-gray-800/90",
+                      "border border-purple-200/50 dark:border-purple-600/50",
+                      "shadow-lg hover:shadow-xl transition-all"
+                    )}
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                  </Button>
 
-          <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-            <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-yellow-600" />
-              <span className="font-bold text-gray-900 dark:text-gray-100">
-                {getGameStatusMessage()}
-              </span>
-            </div>
-          </Card>
-        </div>
-
-        {/* Game Area */}
-        <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-          <CardContent className="p-0">
-            <div className="relative w-full h-[600px] bg-gradient-to-t from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30">
-
-              {/* Game Content */}
-              {gameState.isPlaying && (
-                <div className="absolute inset-0 flex items-center justify-center p-4">
-                  <div className="flex flex-col items-center justify-center gap-8 w-full max-w-5xl">
-
-                    {/* Game Board */}
-                    <div className="flex flex-col items-center gap-6">
-                      <div className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                  {/* Game Mode & Status Chip */}
+                  {gameState.gameStarted && (
+                    <div className={cn(
+                      "px-3 py-2 rounded-xl backdrop-blur-sm",
+                      "bg-white/90 dark:bg-gray-800/90",
+                      "border border-purple-200/50 dark:border-purple-600/50",
+                      "shadow-lg text-center"
+                    )}>
+                      <div className="flex items-center gap-2 text-xs font-medium text-gray-900 dark:text-gray-100">
+                        {gameState.gameMode === 'bot' ? (
+                          <Bot className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                        ) : (
+                          <Users className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                        )}
+                        <span>{getModeName()}</span>
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                         {getGameStatusMessage()}
                       </div>
-
-                      {/* Canvas Game Board */}
-                      <div className="relative">
-                        <canvas
-                          ref={canvasRef}
-                          className="cursor-pointer bg-white/50 dark:bg-gray-800/50 rounded-lg shadow-lg border-2 border-purple-200 dark:border-purple-600"
-                          onClick={handleCanvasClick}
-                          onTouchStart={handleCanvasTouch}
-                          style={{ touchAction: 'none' }}
-                        />
-                      </div>
                     </div>
+                  )}
+                </div>
 
-                    {/* Blobbi Character */}
-                    {blobbi && (
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="relative">
-                          <style>
-                            {`
-                              .game-blobbi-wrapper * {
-                                animation: none !important;
-                              }
-                            `}
-                          </style>
-                          <div className="game-blobbi-wrapper">
-                            {blobbi.evolutionForm ? (
-                              <BlobbiEvolvedVisual
-                                blobbi={blobbi}
-                                size="medium"
-                              />
-                            ) : (
-                              <BlobbiVisual
-                                blobbi={blobbi}
-                                size="medium"
-                              />
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Reset Button */}
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => gameState.gameMode && startGame(gameState.gameMode)}
-                            className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                            Play Again
-                          </Button>
-                          <Button
-                            onClick={resetToModeSelection}
-                            variant="outline"
-                            className="flex items-center gap-2 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                          >
-                            <ArrowLeft className="w-4 h-4" />
-                            Change Mode
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                {/* Game Board Container */}
+                <div className="flex-1 flex items-center justify-center w-full p-4 min-h-0">
+                  <div 
+                    ref={containerRef}
+                    className="w-full max-w-[520px] aspect-square min-h-0 flex items-stretch justify-stretch"
+                  >
+                    <canvas
+                      ref={canvasRef}
+                      className="w-full h-full cursor-pointer rounded-xl shadow-lg"
+                      onClick={handleCanvasClick}
+                      onTouchStart={handleCanvasTouch}
+                    />
                   </div>
                 </div>
-              )}
 
-              {/* Mode Selection Screen */}
-              {!gameState.gameStarted && !gameState.gameOver && (
-                <div className="absolute inset-0 flex items-center justify-center p-4">
-                  <div className="flex flex-col items-center justify-center gap-8 w-full max-w-2xl">
-                    {/* Blobbi Character */}
-                    {blobbi && (
-                      <div className="flex flex-col items-center gap-6">
-                        <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">
-                          Choose Your Game Mode
-                        </div>
-                        <div className="relative">
-                          <style>
-                            {`
-                              .game-blobbi-wrapper * {
-                                animation: none !important;
-                              }
-                            `}
-                          </style>
-                          <div className="game-blobbi-wrapper">
-                            {blobbi.evolutionForm ? (
-                              <BlobbiEvolvedVisual
-                                blobbi={blobbi}
-                                size="large"
-                              />
-                            ) : (
-                              <BlobbiVisual
-                                blobbi={blobbi}
-                                size="large"
-                              />
-                            )}
-                          </div>
+                {/* Blobbi - Bottom Center (smaller) */}
+                {blobbi && (
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none scale-75">
+                    <style>
+                      {`
+                        .game-blobbi-wrapper * {
+                          animation: none !important;
+                        }
+                      `}
+                    </style>
+                    <div className="game-blobbi-wrapper">
+                      {blobbi.evolutionForm ? (
+                        <BlobbiEvolvedVisual blobbi={blobbi} size="small" />
+                      ) : (
+                        <BlobbiVisual blobbi={blobbi} size="small" />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* How to Play / Mode Selection */}
+                {showHowToPlay && !gameState.gameStarted && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-40 p-4">
+                    <Card className="w-full max-w-sm p-6 sm:p-8 text-center bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl shadow-elegant-xl">
+                      <div className="space-y-6">
+                        <div>
+                          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                            Tic-Tac-Toe
+                          </h2>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Choose your game mode
+                          </p>
                         </div>
 
-                        {/* Game Mode Buttons */}
-                        <div className="flex flex-col gap-4 w-full max-w-md">
+                        <div className="space-y-3">
                           <Button
                             onClick={() => startGame('bot')}
                             size="lg"
-                            className="flex items-center gap-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-4 text-lg font-semibold shadow-lg"
+                            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl"
                           >
-                            <Play className="w-6 h-6" />
+                            <Bot className="w-5 h-5" />
                             Play vs Bot
                           </Button>
 
                           <Button
-                            onClick={() => {/* Multiplayer coming soon */}}
+                            onClick={() => startGame('multiplayer')}
                             size="lg"
                             variant="outline"
-                            disabled
-                            className="flex items-center justify-between gap-3 border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 px-8 py-4 text-lg font-semibold opacity-60 cursor-not-allowed"
+                            className="w-full flex items-center justify-center gap-2 border-purple-200 dark:border-purple-600 rounded-xl"
                           >
-                            <div className="flex items-center gap-3">
-                              <Users className="w-6 h-6" />
-                              Play vs Another Blobbi/User
-                            </div>
-                            <span className="text-sm bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 px-2 py-1 rounded">
-                              Coming Soon
-                            </span>
+                            <Users className="w-5 h-5" />
+                            Play vs Player
+                          </Button>
+                        </div>
+
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          <p>• Get three in a row to win</p>
+                          <p>• Earn coins for wins and ties</p>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Game Over Overlay */}
+                {gameState.gameOver && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-40 p-4">
+                    <Card className="w-full max-w-sm p-6 sm:p-8 text-center bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl shadow-elegant-xl">
+                      <div className="space-y-4">
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
+                          {getGameStatusMessage()}
+                        </h2>
+
+                        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                          <Button
+                            onClick={() => startGame(gameState.gameMode!)}
+                            className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Play Again
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            onClick={resetToModeSelection}
+                            className="border-purple-200 dark:border-purple-600"
+                          >
+                            <Gamepad2 className="w-4 h-4 mr-2" />
+                            Change Mode
                           </Button>
                         </div>
                       </div>
-                    )}
+                    </Card>
                   </div>
-                </div>
-              )}
-
-              {/* Game Over Overlay */}
-              {gameState.gameOver && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
-                  <Card className="p-8 text-center bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-purple-200 dark:border-purple-600 max-w-md">
-                    <CardHeader>
-                      <CardTitle className={`text-2xl ${
-                        gameState.winner === 'tie' ? 'text-yellow-600' : 'text-gray-900 dark:text-gray-100'
-                      }`}>
-                        {gameState.winner === 'tie' ? "It's a Tie!" : `Player ${gameState.winner} Wins!`}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="text-lg text-gray-900 dark:text-gray-100">
-                        {gameState.winner === 'tie'
-                          ? "Great game! Both players played well!"
-                          : gameState.gameMode === 'bot'
-                            ? (gameState.winner === 'X' ? "Congratulations! You beat the bot!" : "The bot won this time!")
-                            : `Congratulations to Player ${gameState.winner}!`
-                        }
-                      </div>
-                      <div className="text-gray-600 dark:text-gray-400">
-                        You earned {gameState.winner === 'tie' ? 25 : 50} coins!
-                      </div>
-                      <div className="flex gap-2 justify-center">
-                        <Button
-                          onClick={() => gameState.gameMode && startGame(gameState.gameMode)}
-                          className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                          Play Again
-                        </Button>
-                        <Button
-                          onClick={resetToModeSelection}
-                          variant="outline"
-                          className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                        >
-                          Change Mode
-                        </Button>
-                        <Button variant="outline" onClick={() => navigate(-1)} className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20">
-                          Back to Games
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      {/* How to Play Modal */}
-      <Dialog open={showHowToPlay} onOpenChange={setShowHowToPlay}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-purple-600" />
-              How to Play Tic-Tac-Toe
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-gray-600 dark:text-gray-400">
-              The classic strategy game for two players! Take turns and try to get three in a row.
-            </p>
-
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-pink-500 text-white text-sm flex items-center justify-center font-bold mt-0.5">X</div>
-                <div>
-                  <p className="font-medium">Player X goes first</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Click or tap any empty cell to place your X</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-teal-500 text-white text-sm flex items-center justify-center font-bold mt-0.5">O</div>
-                <div>
-                  <p className="font-medium">Player O goes second</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Take turns placing your symbols</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-yellow-500 text-white text-sm flex items-center justify-center font-bold mt-0.5">3</div>
-                <div>
-                  <p className="font-medium">Get three in a row</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Horizontally, vertically, or diagonally</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg space-y-2">
-              <h4 className="font-semibold text-purple-800 dark:text-purple-200">Game Rules:</h4>
-              <ul className="text-sm text-purple-700 dark:text-purple-300 space-y-1">
-                <li>• Players take turns placing X's and O's</li>
-                <li>• First to get 3 in a row wins</li>
-                <li>• If all 9 spaces are filled, it's a tie</li>
-                <li>• Works on both desktop and mobile!</li>
-              </ul>
-            </div>
-
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg space-y-2">
-              <h4 className="font-semibold text-blue-800 dark:text-blue-200">Game Modes:</h4>
-              <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                <li>• <strong>vs Bot:</strong> Play against a friendly AI opponent</li>
-                <li>• <strong>vs Player:</strong> Multiplayer mode (coming soon!)</li>
-                <li>• You always play as X and go first</li>
-                <li>• The bot is casual difficulty - fun but beatable!</li>
-              </ul>
-            </div>
-
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg space-y-2">
-              <h4 className="font-semibold text-yellow-800 dark:text-yellow-200">Rewards:</h4>
-              <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
-                <li>• Winner: 50 coins</li>
-                <li>• Tie game: 25 coins each</li>
-                <li>• Have fun and play again!</li>
-              </ul>
-            </div>
-
-            <Button
-              onClick={() => setShowHowToPlay(false)}
-              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-            >
-              Got it, let's play!
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Help Modal */}
+      {/* Help Dialog */}
       <Dialog open={showHelp} onOpenChange={setShowHelp}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-purple-600" />
-              Game Help
-            </DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl text-gray-900 dark:text-gray-100">How to Play</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-gray-600 dark:text-gray-400">
-              Need help with the controls?
-            </p>
-
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded border-2 border-purple-300 flex items-center justify-center">
-                  <span className="text-xs">📱</span>
-                </div>
-                <div>
-                  <p className="font-medium">Mobile & Touch</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Tap any empty cell to place your symbol</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded border-2 border-purple-300 flex items-center justify-center">
-                  <span className="text-xs">🖱️</span>
-                </div>
-                <div>
-                  <p className="font-medium">Desktop & Mouse</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Click any empty cell to place your symbol</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Strategy Tips:</h4>
-              <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                <li>• Try to control the center square</li>
-                <li>• Block your opponent's winning moves</li>
-                <li>• Look for opportunities to create two ways to win</li>
-                <li>• Have fun and don't take it too seriously!</li>
-              </ul>
-            </div>
-
-            <Button
-              onClick={() => setShowHelp(false)}
-              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-            >
-              Back to Game
-            </Button>
+          <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+            <p><strong>Goal:</strong> Get three of your marks in a row (horizontal, vertical, or diagonal)</p>
+            <p><strong>vs Bot:</strong> Play against an AI opponent that makes strategic moves</p>
+            <p><strong>vs Player:</strong> Take turns with a friend on the same device</p>
+            <p><strong>Rewards:</strong> Win = 50 coins, Tie = 25 coins</p>
           </div>
         </DialogContent>
       </Dialog>
