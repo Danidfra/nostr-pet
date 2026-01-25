@@ -644,7 +644,7 @@ export function TicTacToeGame() {
                 <div className="flex-1 flex items-center justify-center w-full p-4 min-h-0">
                   <div 
                     ref={containerRef}
-                    className="w-full max-w-[440px] aspect-square min-h-0 flex items-stretch justify-stretch"
+                    className="w-full max-w-[380px] aspect-square min-h-0 flex items-stretch justify-stretch"
                   >
                     <canvas
                       ref={canvasRef}
@@ -657,7 +657,7 @@ export function TicTacToeGame() {
 
                 {/* Blobbi - Bottom Center (smaller) */}
                 {blobbi && (
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none scale-75">
+                  <div className="absolute bottom-4 md:-bottom-2 lg:-bottom-8 left-1/2 -translate-x-1/2 z-10 pointer-events-none scale-75">
                     <style>
                       {`
                         .game-blobbi-wrapper * {
