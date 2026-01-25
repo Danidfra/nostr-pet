@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { useAddCoins } from '@/hooks/useBlobbonautProfile';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 import { AppHeader } from '@/components/AppHeader';
+import { cn } from '@/lib/utils';
 
 interface GameState {
   currentNumber: number;
@@ -91,7 +92,10 @@ export function NumberGuessGame() {
   const makeGuess = useCallback((guess: 'higher' | 'lower') => {
     if (!gameState.isPlaying || gameState.showResult) return;
 
-    const nextNumber = generateNumber();
+    let nextNumber = generateNumber();
+    while (nextNumber === gameState.currentNumber) {
+      nextNumber = generateNumber();
+    }
     const isCorrect =
       (guess === 'higher' && nextNumber > gameState.currentNumber) ||
       (guess === 'lower' && nextNumber < gameState.currentNumber);
@@ -286,83 +290,106 @@ export function NumberGuessGame() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 p-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLeaveGame}
-              className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowHelp(true)}
-              className="flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/20"
-            >
-              <HelpCircle className="w-4 h-4" />
-              Help
-            </Button>
-          </div>
-        </div>
+    <div className="fixed inset-0 overflow-hidden">
+      <div 
+        className="bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20 flex items-center justify-center p-2 sm:p-4 min-h-0"
+        style={{
+          height: 'calc(100dvh - var(--app-header-h, 0px))',
+          marginTop: 'var(--app-header-h, 0px)',
+        }}
+      >
+        <div className="w-full h-full max-w-6xl flex items-center justify-center min-h-0">
+          {/* Game Area */}
+          <Card className="relative w-full h-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl shadow-elegant-xl overflow-hidden">
+            <CardContent className="p-0 h-full">
+              <div className="relative w-full h-full min-h-0 bg-gradient-to-t from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30">
 
-        {/* Game Stats */}
-        <div className="flex justify-center gap-4 mb-4">
-          <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-            <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-yellow-600" />
-              <span className="font-bold text-gray-900 dark:text-gray-100">
-                {gameState.correctGuesses}/{gameState.totalRounds}
-              </span>
-            </div>
-          </Card>
+              {/* Game Stats & Help - Top Row */}
+              <div className="absolute top-4 left-0 right-0 z-[60] flex items-center justify-between px-4 pointer-events-none">
+                <div className="flex-1 flex justify-start pointer-events-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLeaveGame}
+                    className={cn(
+                      "rounded-xl backdrop-blur-sm",
+                      "bg-white/90 dark:bg-gray-800/90",
+                      "border border-purple-200/50 dark:border-purple-600/50",
+                      "shadow-lg hover:shadow-xl transition-all"
+                    )}
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "px-4 py-2 rounded-xl backdrop-blur-sm",
+                    "bg-white/90 dark:bg-gray-800/90",
+                    "border border-purple-200/50 dark:border-purple-600/50",
+                    "shadow-lg"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                      <span className="font-bold text-gray-900 dark:text-gray-100">
+                        {gameState.correctGuesses}/{gameState.totalRounds}
+                      </span>
+                    </div>
+                  </div>
 
-          <Card className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-gray-900 dark:text-gray-100">
-                Round {gameState.round}/{gameState.totalRounds}
-              </span>
-            </div>
-          </Card>
-        </div>
-
-        {/* Game Area */}
-        <Card className="relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-          <CardContent className="p-0">
-            <div className="relative w-full h-[600px] bg-gradient-to-t from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30">
+                  <div className={cn(
+                    "px-4 py-2 rounded-xl backdrop-blur-sm",
+                    "bg-white/90 dark:bg-gray-800/90",
+                    "border border-purple-200/50 dark:border-purple-600/50",
+                    "shadow-lg"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-900 dark:text-gray-100">
+                        Round {gameState.round}/{gameState.totalRounds}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 flex justify-end pointer-events-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowHelp(true)}
+                    className={cn(
+                      "rounded-xl backdrop-blur-sm",
+                      "bg-white/90 dark:bg-gray-800/90",
+                      "border border-purple-200/50 dark:border-purple-600/50",
+                      "shadow-lg hover:shadow-xl transition-all"
+                    )}
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
 
               {/* Game Content */}
               {gameState.isPlaying && (
-                <div className="absolute inset-0 flex items-center justify-center p-4">
-                  <div className="flex flex-col items-center justify-center gap-8 w-full max-w-5xl">
+                <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+                  <div className="flex flex-col items-center justify-center gap-2 sm:gap-3 md:gap-4 w-full max-w-5xl">
 
                     {/* Numbers Row */}
-                    <div className="flex items-center justify-center gap-12 md:gap-16 lg:gap-24 w-full">
+                    <div className="flex items-center justify-center gap-6 sm:gap-8 md:gap-12 lg:gap-16 w-full">
                       {/* Left Number */}
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Current Number</div>
-                        <Card className="w-20 h-20 md:w-24 md:h-24 flex items-center justify-center bg-blue-500 text-white border-2 border-blue-600 shadow-lg">
-                          <span className="text-3xl md:text-4xl font-bold">{gameState.currentNumber}</span>
+                      <div className="flex flex-col items-center gap-1 sm:gap-2">
+                        <div className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Current Number</div>
+                        <Card className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 lg:w-22 lg:h-22 flex items-center justify-center bg-blue-500 text-white border-2 border-blue-600 shadow-lg">
+                          <span className="text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-bold">{gameState.currentNumber}</span>
                         </Card>
                       </div>
 
                       {/* Right Number */}
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Next Number</div>
-                        <Card className={`w-20 h-20 md:w-24 md:h-24 flex items-center justify-center border-2 shadow-lg ${
+                      <div className="flex flex-col items-center gap-1 sm:gap-2">
+                        <div className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Next Number</div>
+                        <Card className={`w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 lg:w-22 lg:h-22 flex items-center justify-center border-2 shadow-lg ${
                           gameState.nextNumber !== null
                             ? 'bg-purple-500 text-white border-purple-600'
                             : 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
                         }`}>
-                          <span className="text-3xl md:text-4xl font-bold">
+                          <span className="text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-bold">
                             {gameState.nextNumber !== null ? gameState.nextNumber : '?'}
                           </span>
                         </Card>
@@ -371,50 +398,54 @@ export function NumberGuessGame() {
 
                     {/* Blobbi Character */}
                     {blobbi && (
-                      <div className="flex flex-col items-center gap-6">
-                        <div className="text-base font-medium text-gray-700 dark:text-gray-300">
+                      <div className="flex flex-col items-center gap-1 sm:gap-2 md:gap-3">
+                        <div className="text-xs sm:text-sm md:text-base font-medium text-gray-700 dark:text-gray-300 text-center px-2">
                           {gameState.showResult ? 'Result!' : 'Will the next number be higher or lower?'}
                         </div>
-                        <div className="relative">
-                          <style>
-                            {`
-                              .game-blobbi-wrapper * {
-                                animation: none !important;
-                              }
-                            `}
-                          </style>
-                          <div className="game-blobbi-wrapper">
-                            {blobbi.evolutionForm ? (
-                              <BlobbiEvolvedVisual
-                                blobbi={blobbi}
-                                size="large"
-                              />
-                            ) : (
-                              <BlobbiVisual
-                                blobbi={blobbi}
-                                size="large"
-                              />
-                            )}
+                        <div className="flex items-center justify-center max-h-[140px] sm:max-h-[170px] md:max-h-[220px] overflow-hidden">
+                          <div className="pointer-events-none max-w-full overflow-hidden">
+                            <style>
+                              {`
+                                .game-blobbi-wrapper * {
+                                  animation: none !important;
+                                }
+                              `}
+                            </style>
+                            <div className="origin-center scale-[0.5] sm:scale-[0.55] md:scale-[0.65] lg:scale-[0.75]">
+                              <div className="game-blobbi-wrapper">
+                                {blobbi.evolutionForm ? (
+                                  <BlobbiEvolvedVisual
+                                    blobbi={blobbi}
+                                    size="medium"
+                                  />
+                                ) : (
+                                  <BlobbiVisual
+                                    blobbi={blobbi}
+                                    size="medium"
+                                  />
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
 
                         {/* Game Controls */}
                         {!gameState.showResult && (
-                          <div className="flex gap-6">
+                          <div className="flex gap-3 sm:gap-4 md:gap-6">
                             <Button
                               onClick={() => makeGuess('higher')}
-                              className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-8 py-3 text-lg font-semibold shadow-lg"
+                              className="flex items-center gap-1 sm:gap-2 bg-green-500 hover:bg-green-600 text-white px-4 sm:px-6 md:px-8 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base md:text-lg font-semibold shadow-lg"
                               size="lg"
                             >
-                              <TrendingUp className="w-6 h-6" />
+                              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
                               Higher
                             </Button>
                             <Button
                               onClick={() => makeGuess('lower')}
-                              className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-8 py-3 text-lg font-semibold shadow-lg"
+                              className="flex items-center gap-1 sm:gap-2 bg-red-500 hover:bg-red-600 text-white px-4 sm:px-6 md:px-8 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base md:text-lg font-semibold shadow-lg"
                               size="lg"
                             >
-                              <TrendingDown className="w-6 h-6" />
+                              <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
                               Lower
                             </Button>
                           </div>
@@ -422,15 +453,15 @@ export function NumberGuessGame() {
 
                         {/* Result Display */}
                         {gameState.showResult && (
-                          <div className="text-center space-y-4 max-w-md">
-                            <div className={`text-lg font-semibold ${
+                          <div className="text-center space-y-2 sm:space-y-3 md:space-y-4 max-w-md px-2">
+                            <div className={`text-sm sm:text-base md:text-lg font-semibold leading-tight ${
                               gameState.lastGuessCorrect ? 'text-green-600' : 'text-red-600'
                             }`}>
                               {getResultMessage()}
                             </div>
                             <Button
                               onClick={nextRound}
-                              className="bg-purple-500 hover:bg-purple-600 text-white px-8 py-3 text-lg font-semibold shadow-lg"
+                              className="bg-purple-500 hover:bg-purple-600 text-white px-6 sm:px-8 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base md:text-lg font-semibold shadow-lg"
                               size="lg"
                             >
                               {gameState.round >= TOTAL_ROUNDS ? 'Finish Game' : 'Next Round'}
@@ -445,34 +476,38 @@ export function NumberGuessGame() {
 
               {/* Welcome Screen */}
               {!gameState.gameStarted && !gameState.gameOver && (
-                <div className="absolute inset-0 flex items-center justify-center p-4">
-                  <div className="flex flex-col items-center justify-center gap-8 w-full max-w-2xl">
+                <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+                  <div className="flex flex-col items-center justify-center gap-4 sm:gap-6 md:gap-8 w-full max-w-2xl">
                     {/* Blobbi Character */}
                     {blobbi && (
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">
+                      <div className="flex flex-col items-center gap-2 sm:gap-3 md:gap-4">
+                        <div className="text-base sm:text-lg md:text-xl font-semibold text-gray-700 dark:text-gray-300 text-center px-2">
                           Ready to play Number Guessing?
                         </div>
-                        <div className="relative">
-                          <style>
-                            {`
-                              .game-blobbi-wrapper * {
-                                animation: none !important;
-                              }
-                            `}
-                          </style>
-                          <div className="game-blobbi-wrapper">
-                            {blobbi.evolutionForm ? (
-                              <BlobbiEvolvedVisual
-                                blobbi={blobbi}
-                                size="large"
-                              />
-                            ) : (
-                              <BlobbiVisual
-                                blobbi={blobbi}
-                                size="large"
-                              />
-                            )}
+                        <div className="flex items-center justify-center max-h-[180px] sm:max-h-[220px] md:max-h-[260px] overflow-hidden">
+                          <div className="pointer-events-none max-w-full overflow-hidden">
+                            <style>
+                              {`
+                                .game-blobbi-wrapper * {
+                                  animation: none !important;
+                                }
+                              `}
+                            </style>
+                            <div className="origin-center scale-[0.6] sm:scale-[0.65] md:scale-[0.75] lg:scale-[0.85]">
+                              <div className="game-blobbi-wrapper">
+                                {blobbi.evolutionForm ? (
+                                  <BlobbiEvolvedVisual
+                                    blobbi={blobbi}
+                                    size="medium"
+                                  />
+                                ) : (
+                                  <BlobbiVisual
+                                    blobbi={blobbi}
+                                    size="medium"
+                                  />
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
 
@@ -480,9 +515,9 @@ export function NumberGuessGame() {
                         <Button
                           onClick={startGame} disabled={isPlaying}
                           size="lg"
-                          className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-3 text-lg font-semibold shadow-lg"
+                          className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 sm:px-8 py-2.5 sm:py-3 text-base sm:text-lg font-semibold shadow-lg"
                         >
-                          <Play className="w-6 h-6" />
+                          <Play className="w-5 h-5 sm:w-6 sm:h-6" />
                           Start Game
                         </Button>
                       </div>
@@ -523,9 +558,10 @@ export function NumberGuessGame() {
                 </div>
               )}
 
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* How to Play Modal */}
