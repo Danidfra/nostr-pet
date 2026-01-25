@@ -644,7 +644,7 @@ export function TicTacToeGame() {
                 <div className="flex-1 flex items-center justify-center w-full p-4 min-h-0">
                   <div 
                     ref={containerRef}
-                    className="w-full max-w-[520px] aspect-square min-h-0 flex items-stretch justify-stretch"
+                    className="w-full max-w-[440px] aspect-square min-h-0 flex items-stretch justify-stretch"
                   >
                     <canvas
                       ref={canvasRef}
