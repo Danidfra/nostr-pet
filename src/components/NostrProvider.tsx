@@ -1,6 +1,7 @@
 import { NostrEvent, NPool, NRelay1, NostrFilter } from '@nostrify/nostrify';
 import { NostrContext } from '@nostrify/react';
 import React, { useRef, useMemo, useEffect } from 'react';
+import { BASE_RELAYS } from '@/hooks/useRelayManager';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -16,7 +17,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
   // Memoize the pool configuration
   const pool = useMemo(() => {
-    const relayString = relays.join(',');
+    // Use BASE_RELAYS as fallback to ensure we always have a working pool
+    const effectiveRelays = relays.length > 0 ? relays : BASE_RELAYS;
+    const relayString = effectiveRelays.join(',');
 
     // Only recreate pool if relays actually changed
     if (relayString === relaysRef.current && poolRef.current) {
@@ -30,23 +33,16 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       });
     }
 
-    // Only create pool if we have relays
-    if (relays.length === 0) {
-      poolRef.current = undefined;
-      relaysRef.current = '';
-      return undefined;
-    }
-
     // Create new pool instance
     const newPool = new NPool({
       open(url: string) {
         return new NRelay1(url);
       },
       reqRouter(filters: NostrFilter[]) {
-        return new Map(relays.map((url) => [url, filters]));
+        return new Map(effectiveRelays.map((url) => [url, filters]));
       },
       eventRouter(_event: NostrEvent) {
-        return relays;
+        return effectiveRelays;
       },
     });
 
@@ -66,12 +62,6 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       }
     };
   }, []);
-
-  // Only render children when pool exists to avoid providing undefined nostr
-  // This handles the edge case where relays.length === 0
-  if (!pool) {
-    return null;
-  }
 
   return (
     <NostrContext.Provider value={{ nostr: pool }}>

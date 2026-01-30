@@ -62,10 +62,10 @@ export function useNip65Sync() {
             return new NRelay1(url);
           },
           reqRouter(filters: NostrFilter[]) {
-            return new Map(queryRelays.map((url) => [url, filters]));
+            return new Map(relayUrls.map((url) => [url, filters]));
           },
           eventRouter(_event: NostrEvent) {
-            return queryRelays;
+            return relayUrls;
           },
         });
         queryPool = tempPool;
