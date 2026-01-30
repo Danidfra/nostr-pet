@@ -67,8 +67,14 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     };
   }, []);
 
+  // Only render children when pool exists to avoid providing undefined nostr
+  // This handles the edge case where relays.length === 0
+  if (!pool) {
+    return null;
+  }
+
   return (
-    <NostrContext.Provider value={{ nostr: pool! }}>
+    <NostrContext.Provider value={{ nostr: pool }}>
       {children}
     </NostrContext.Provider>
   );

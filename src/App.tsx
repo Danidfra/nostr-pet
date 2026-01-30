@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { ThemeProvider } from "@/components/theme-provider";
 import { RelayProvider, useRelayContext } from '@/contexts/RelayContext';
+import { BASE_RELAYS } from '@/hooks/useRelayManager';
 import { BlobbiCompanionIntegration } from '@/components/blobbi/BlobbiCompanionIntegration';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { BedProvider } from '@/contexts/BedContext';
@@ -36,10 +37,9 @@ function NostrProviderWithRelays({ children, fallbackRelays }: { children: React
   );
 }
 
-// DO NOT MODIFY THIS LIST UNLESS YOU ARE ABSOLUTELY CERTAIN EACH RELAY URL YOU ARE ADDING IS VALID AND THE RELAY IS CURRENTLY ONLINE AND CONFIRMED TO BE FULLY FUNCTIONAL AND WORKING.
-const defaultRelays = [
-  'wss://relay.ditto.pub', // DO NOT MODIFY THIS UNLESS EXPLICITLY REQUESTED
-];
+// Using BASE_RELAYS as the single source of truth for default/fallback relays
+// BASE_RELAYS is imported from useRelayManager
+const defaultRelays = BASE_RELAYS;
 
 const queryClient = new QueryClient({
   defaultOptions: {

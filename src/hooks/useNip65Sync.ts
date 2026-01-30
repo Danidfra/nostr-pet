@@ -5,6 +5,7 @@
 
 import { useCallback } from 'react';
 import { useNostr } from '@nostrify/react';
+import { NPool, NRelay1, NostrFilter } from '@nostrify/nostrify';
 import { useRelayContext } from '@/contexts/RelayContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -31,12 +32,14 @@ export function useNip65Sync() {
 
   /**
    * Fetch NIP-65 relay list for a pubkey
-   * Uses provided relay URLs to query
+   * Uses provided relay URLs to query (creates temporary pool if queryRelays provided)
    */
   const fetchNip65 = useCallback(async (
     pubkey: string,
     queryRelays?: string[]
   ): Promise<FetchNip65Result> => {
+    let tempPool: NPool | undefined;
+    
     try {
       const relayUrls = queryRelays || relays.filter(r => r.enabled).map(r => r.url);
 
@@ -49,7 +52,26 @@ export function useNip65Sync() {
 
       const signal = AbortSignal.timeout(5000); // 5 second timeout
 
-      const events = await nostr.query(
+      // When queryRelays is provided, create a temporary NPool to query only those relays
+      // This ensures NIP-65 bootstrap works even before the main pool is connected
+      let queryPool = nostr;
+      
+      if (queryRelays) {
+        tempPool = new NPool({
+          open(url: string) {
+            return new NRelay1(url);
+          },
+          reqRouter(filters: NostrFilter[]) {
+            return new Map(queryRelays.map((url) => [url, filters]));
+          },
+          eventRouter(_event: NostrEvent) {
+            return queryRelays;
+          },
+        });
+        queryPool = tempPool;
+      }
+
+      const events = await queryPool.query(
         [{ kinds: [10002], authors: [pubkey], limit: 1 }],
         { signal }
       );
@@ -82,6 +104,13 @@ export function useNip65Sync() {
     } catch (error) {
       console.error('[NIP-65] Failed to fetch relay list:', error);
       return { found: false, newCount: 0, updatedCount: 0 };
+    } finally {
+      // Close temporary pool if it was created
+      if (tempPool) {
+        tempPool.close().catch((error) => {
+          console.warn('[NIP-65] Error closing temporary pool:', error);
+        });
+      }
     }
   }, [nostr, relays, parseNip65Event, mergeNip65Relays, setNip65Cache]);
 

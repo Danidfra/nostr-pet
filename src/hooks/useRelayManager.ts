@@ -23,7 +23,8 @@ export interface RelayInfo {
 const STORAGE_KEY = 'nostr:relays';
 
 // Base relays used for bootstrapping NIP-65 discovery
-const BASE_RELAYS = [
+// This is the single source of truth for default/fallback relays
+export const BASE_RELAYS = [
   'wss://relay.ditto.pub',
   'wss://relay.primal.net',
   'wss://relay.nostr.band', // Widely-used relay with good uptime
