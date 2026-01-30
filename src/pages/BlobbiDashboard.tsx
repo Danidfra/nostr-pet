@@ -19,6 +19,7 @@ import { canBlobbiBeCompanion, getCompanionValidationMessage } from '@/lib/blobb
 import { DashboardNotLoggedIn } from '@/components/blobbi/dashboard/DashboardNotLoggedIn';
 import { DashboardLoading } from '@/components/blobbi/dashboard/DashboardLoading';
 import { DashboardModals } from '@/components/blobbi/dashboard/DashboardModals';
+import { BlobbiDashboardSkeleton } from '@/components/blobbi/BlobbiDashboardSkeleton';
 import { BlobbiLayout } from '@/components/BlobbiLayout';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
@@ -91,7 +92,7 @@ export default function BlobbiDashboard() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   const { data: profile, isLoading: isProfileLoading } = useBlobbonautProfile();
-  const { data: userBlobbis = [] } = useUserBlobbis();
+  const { data: userBlobbis = [], isLoading: isBlobbisLoading } = useUserBlobbis();
   const { data: coinBalance } = useCoinBalance();
   const { missions, claimMission1, claimMission2, claimBonus, isClaiming } = useDailyMissions();
 
@@ -597,6 +598,10 @@ export default function BlobbiDashboard() {
   if (user && isProfileLoading) return <DashboardLoading />;
   if (user && !profile) return <DashboardLoading />;
 
+  // Boot gate: Determine if we're still loading initial Blobbi data
+  // This prevents showing "No Blobbi selected" during boot
+  const isBlobbiBooting = isBlobbisLoading || (selectedBlobbiId && isBlobbiLoading);
+
   // Growth Hub display flags - Use source of truth helpers
   const shouldShowEggGrowthHub = selectedBlobbi?.lifeStage === 'egg' && !hideIncubationUI && isSelectedIncubating;
   const shouldShowBabyGrowthHub = selectedBlobbi?.lifeStage === 'baby' && !hideEvolutionUI && isSelectedEvolving;
@@ -661,7 +666,15 @@ export default function BlobbiDashboard() {
 
           {/* Centered Main Content - Fills available height */}
           <div className="container mx-auto max-w-4xl flex-1 min-h-0 flex flex-col gap-4">
-            {selectedBlobbi ? (
+            {isBlobbiBooting ? (
+              <BlobbiDashboardSkeleton />
+            ) : userBlobbis.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">
+                  You don't have any Blobbis yet. Start your journey by hatching your first egg!
+                </p>
+              </div>
+            ) : selectedBlobbi ? (
               <div className="relative flex-1 min-h-0">
                 {/* Invisible Control Rail (Desktop Only) - OUTSIDE content bounds */}
 
