@@ -9,10 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/useToast';
 import { useRelayContext } from '@/contexts/RelayContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/components/theme-provider';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNip65Sync } from '@/hooks/useNip65Sync';
 import {
   Settings,
   Wifi,
@@ -26,7 +29,11 @@ import {
   Sun,
   Moon,
   Monitor,
-  Palette
+  Palette,
+  Download,
+  Upload,
+  Eye,
+  Edit3
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -39,6 +46,8 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'appearance' }: Se
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { theme, setTheme } = useTheme();
+  const { user } = useCurrentUser();
+  const { fetchNip65, publishNip65 } = useNip65Sync();
   const {
     relays,
     isLoading,
@@ -46,9 +55,12 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'appearance' }: Se
     addRelay,
     removeRelay,
     connectToAllEnabled,
-    addDefaultRelays
+    addDefaultRelays,
+    updateRelayPermissions
   } = useRelayContext();
   const [newRelayUrl, setNewRelayUrl] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // No need for loadRelayInfo - relays come from context
 
@@ -111,6 +123,75 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'appearance' }: Se
     }
   };
 
+  const handleImportFromNostr = async () => {
+    if (!user?.pubkey) {
+      toast({
+        title: 'Not logged in',
+        description: 'Please log in to import your relay list from Nostr',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const result = await fetchNip65(user.pubkey);
+
+      if (result.found) {
+        toast({
+          title: 'Relay list imported',
+          description: `Imported ${result.newCount} new relays, updated ${result.updatedCount} existing relays`,
+        });
+      } else {
+        toast({
+          title: 'No relay list found',
+          description: 'No NIP-65 relay list found for your account. Publish one to sync across devices.',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to import relay list:', error);
+      toast({
+        title: 'Import failed',
+        description: error instanceof Error ? error.message : 'Failed to import relay list',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handlePublishToNostr = async () => {
+    if (!user?.pubkey) {
+      toast({
+        title: 'Not logged in',
+        description: 'Please log in to publish your relay list to Nostr',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsPublishing(true);
+    try {
+      const result = await publishNip65();
+
+      if (result.success) {
+        toast({
+          title: 'Relay list published',
+          description: `Successfully published your relay list to Nostr (Event ID: ${result.eventId?.slice(0, 8)}...)`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to publish relay list:', error);
+      toast({
+        title: 'Publish failed',
+        description: error instanceof Error ? error.message : 'Failed to publish relay list',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   const getStatusIcon = (relay: { status: string }) => {
     switch (relay.status) {
       case 'connected':
@@ -150,6 +231,33 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'appearance' }: Se
     if (hours > 0) return `${hours}h ago`;
     if (minutes > 0) return `${minutes}m ago`;
     return 'Just now';
+  };
+
+  const getPermissionBadges = (relay: { read: boolean; write: boolean }): JSX.Element[] => {
+    const badges: JSX.Element[] = [];
+    if (relay.read && relay.write) {
+      badges.push(
+        <Badge key="rw" variant="default" className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+          R+W
+        </Badge>
+      );
+    } else {
+      if (relay.read) {
+        badges.push(
+          <Badge key="r" variant="secondary" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700">
+            Read
+          </Badge>
+        );
+      }
+      if (relay.write) {
+        badges.push(
+          <Badge key="w" variant="secondary" className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-700">
+            Write
+          </Badge>
+        );
+      }
+    }
+    return badges;
   };
 
   const connectedCount = relays.filter(r => r.connected).length;
@@ -300,6 +408,42 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'appearance' }: Se
               </CardContent>
             </Card>
 
+            {/* NIP-65 Relay Sync */}
+            <Card className={`bg-white/80 mb-4 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 ${isMobile ? 'rounded-lg' : 'rounded-xl'}`}>
+              <CardHeader className={isMobile ? 'pb-3' : ''}>
+                <CardTitle className={`flex items-center gap-2 text-gray-900 dark:text-gray-100 ${isMobile ? 'text-base' : ''}`}>
+                  <div className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center flex-shrink-0`}>
+                    <Zap className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} text-purple-600`} />
+                  </div>
+                  <span className={isMobile ? 'text-sm' : ''}>NIP-65 Relay Sync</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className={`${isMobile ? 'space-y-3 pt-0' : 'space-y-4'}`}>
+                <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600 dark:text-gray-400 mb-3`}>
+                  Sync your relay list across devices using NIP-65 (Nostr relay list metadata).
+                  {!user && ' Log in to enable sync.'}
+                </p>
+                <div className={`${isMobile ? 'flex flex-col gap-2' : 'flex gap-3'}`}>
+                  <Button
+                    onClick={handleImportFromNostr}
+                    disabled={!user || isImporting}
+                    className={`bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0 ${isMobile ? 'w-full text-sm h-9' : ''}`}
+                  >
+                    <Download className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} />
+                    {isImporting ? 'Importing...' : 'Import from Nostr'}
+                  </Button>
+                  <Button
+                    onClick={handlePublishToNostr}
+                    disabled={!user || isPublishing}
+                    className={`bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 ${isMobile ? 'w-full text-sm h-9' : ''}`}
+                  >
+                    <Upload className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} />
+                    {isPublishing ? 'Publishing...' : 'Publish to Nostr'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Add New Relay */}
             <Card className={`bg-white/80 mb-4 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 ${isMobile ? 'rounded-lg' : 'rounded-xl'}`}>
               <CardHeader className={isMobile ? 'pb-3' : ''}>
@@ -371,7 +515,7 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'appearance' }: Se
                             {getStatusIcon(relay)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className={`flex items-center gap-2 ${isMobile ? 'flex-col items-start' : ''}`}>
+                            <div className={`flex items-center gap-2 ${isMobile ? 'flex-col items-start' : 'flex-wrap'}`}>
                               <p className={`font-medium text-gray-900 dark:text-gray-100 ${isMobile ? 'text-sm max-w-[160px] truncate overflow-hidden' : ''}`}>{relay.url}</p>
                               <Badge
                                 variant={relay.connected ? 'default' : 'secondary'}
@@ -383,12 +527,35 @@ export function SettingsModal({ isOpen, onClose, defaultTab = 'appearance' }: Se
                               >
                                 {getStatusText(relay)}
                               </Badge>
+                              {getPermissionBadges(relay)}
                             </div>
                             <div className={`flex items-center gap-2 ${isMobile ? 'text-xs' : 'text-xs'} text-gray-500 dark:text-gray-400 mt-1 ${isMobile ? 'flex-wrap' : 'gap-4'}`}>
                               <span>Last: {formatLastConnected(relay.lastConnected)}</span>
                               {relay.messageCount !== undefined && (
                                 <span>Messages: {relay.messageCount}</span>
                               )}
+                              <Select
+                                value={relay.read && relay.write ? 'rw' : relay.read ? 'r' : relay.write ? 'w' : 'none'}
+                                onValueChange={(value) => {
+                                  if (value === 'rw') {
+                                    updateRelayPermissions(relay.url, true, true);
+                                  } else if (value === 'r') {
+                                    updateRelayPermissions(relay.url, true, false);
+                                  } else if (value === 'w') {
+                                    updateRelayPermissions(relay.url, false, true);
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className={`${isMobile ? 'w-20 h-6 text-xs' : 'w-24 h-7 text-xs'} border-purple-200 dark:border-purple-600`}>
+                                  <Edit3 className="w-3 h-3 mr-1" />
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="rw">Read + Write</SelectItem>
+                                  <SelectItem value="r">Read Only</SelectItem>
+                                  <SelectItem value="w">Write Only</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
                         </div>

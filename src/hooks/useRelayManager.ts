@@ -1,4 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
+import {
+  parseNip65Event,
+  buildNip65Event,
+  mergeRelayLists,
+  getNip65Cache,
+  setNip65Cache,
+  normalizeRelayUrl,
+  type Nip65Relay,
+} from '@/nostr/nip65';
 
 export interface RelayInfo {
   url: string;
@@ -7,13 +16,17 @@ export interface RelayInfo {
   status: 'connecting' | 'connected' | 'disconnected' | 'error';
   lastConnected?: number;
   messageCount?: number;
+  read: boolean; // NIP-65: relay supports read operations
+  write: boolean; // NIP-65: relay supports write operations
 }
 
 const STORAGE_KEY = 'nostr:relays';
 
-// Default relays that are commonly used in the Nostr ecosystem
-const DEFAULT_RELAYS = [
-'wss://relay.ditto.pub' // DO NOT MODIFY THIS UNLESS EXPLICITLY REQUESTED
+// Base relays used for bootstrapping NIP-65 discovery
+const BASE_RELAYS = [
+  'wss://relay.ditto.pub',
+  'wss://relay.primal.net',
+  'wss://relay.nostr.band', // Widely-used relay with good uptime
 ];
 
 // Test relay connection by attempting to open a WebSocket
@@ -94,28 +107,32 @@ export function useRelayManager() {
           const parsedRelays = JSON.parse(stored) as RelayInfo[];
           setRelays(parsedRelays);
         } else {
-          // Initialize with default relays
-          const defaultRelayInfos: RelayInfo[] = DEFAULT_RELAYS.map(url => ({
+          // Initialize with base relays
+          const defaultRelayInfos: RelayInfo[] = BASE_RELAYS.map(url => ({
             url,
             connected: false,
             enabled: true,
             status: 'disconnected' as const,
             lastConnected: undefined,
             messageCount: 0,
+            read: true,
+            write: true,
           }));
           setRelays(defaultRelayInfos);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultRelayInfos));
         }
       } catch (error) {
         console.error('Failed to load relays from storage:', error);
-        // Fallback to default relays
-        const defaultRelayInfos: RelayInfo[] = DEFAULT_RELAYS.map(url => ({
+        // Fallback to base relays
+        const defaultRelayInfos: RelayInfo[] = BASE_RELAYS.map(url => ({
           url,
           connected: false,
           enabled: true,
           status: 'disconnected' as const,
           lastConnected: undefined,
           messageCount: 0,
+          read: true,
+          write: true,
         }));
         setRelays(defaultRelayInfos);
       }
@@ -208,6 +225,8 @@ export function useRelayManager() {
       status: 'disconnected',
       lastConnected: undefined,
       messageCount: 0,
+      read: true,
+      write: true,
     };
 
     setRelays(prev => [...prev, newRelay]);
@@ -236,10 +255,10 @@ export function useRelayManager() {
     }
   }, [relays, connectToRelay]);
 
-  // Add default relays that aren't already present
+  // Add base relays that aren't already present
   const addDefaultRelays = useCallback(async () => {
     const existingUrls = relays.map(r => r.url);
-    const newRelays = DEFAULT_RELAYS.filter(url => !existingUrls.includes(url));
+    const newRelays = BASE_RELAYS.filter(url => !existingUrls.includes(url));
 
     if (newRelays.length === 0) {
       throw new Error('All default relays are already added');
@@ -252,6 +271,88 @@ export function useRelayManager() {
     return newRelays.length;
   }, [relays, addRelay]);
 
+  // Update relay read/write permissions
+  const updateRelayPermissions = useCallback((url: string, read: boolean, write: boolean) => {
+    setRelays(prev => prev.map(relay =>
+      relay.url === url
+        ? { ...relay, read, write }
+        : relay
+    ));
+  }, []);
+
+  // Import relays from NIP-65 cache (synchronous, for boot sequence)
+  const importFromNip65Cache = useCallback((pubkey: string) => {
+    const cache = getNip65Cache(pubkey);
+    if (!cache) {
+      console.debug('[NIP-65] Cache miss for', pubkey);
+      return { imported: false, count: 0 };
+    }
+
+    console.debug('[NIP-65] Cache hit for', pubkey, 'with', cache.relays.length, 'relays');
+
+    const { merged, newCount, updatedCount } = mergeRelayLists(
+      relays.map(r => ({ url: r.url, read: r.read, write: r.write, enabled: r.enabled })),
+      cache.relays
+    );
+
+    // Convert merged list to RelayInfo format
+    const updatedRelays: RelayInfo[] = merged.map(r => {
+      const existing = relays.find(relay => normalizeRelayUrl(relay.url) === r.url);
+      return {
+        url: r.url,
+        connected: existing?.connected ?? false,
+        enabled: r.enabled,
+        status: existing?.status ?? ('disconnected' as const),
+        lastConnected: existing?.lastConnected,
+        messageCount: existing?.messageCount ?? 0,
+        read: r.read,
+        write: r.write,
+      };
+    });
+
+    setRelays(updatedRelays);
+
+    return { imported: true, count: newCount + updatedCount };
+  }, [relays]);
+
+  // Merge relays from a NIP-65 relay list
+  const mergeNip65Relays = useCallback((nip65Relays: Nip65Relay[]) => {
+    const { merged, newCount, updatedCount } = mergeRelayLists(
+      relays.map(r => ({ url: r.url, read: r.read, write: r.write, enabled: r.enabled })),
+      nip65Relays
+    );
+
+    // Convert merged list to RelayInfo format
+    const updatedRelays: RelayInfo[] = merged.map(r => {
+      const existing = relays.find(relay => normalizeRelayUrl(relay.url) === r.url);
+      return {
+        url: r.url,
+        connected: existing?.connected ?? false,
+        enabled: r.enabled,
+        status: existing?.status ?? ('disconnected' as const),
+        lastConnected: existing?.lastConnected,
+        messageCount: existing?.messageCount ?? 0,
+        read: r.read,
+        write: r.write,
+      };
+    });
+
+    setRelays(updatedRelays);
+
+    return { newCount, updatedCount };
+  }, [relays]);
+
+  // Get relays in NIP-65 format for publishing
+  const getRelaysForNip65 = useCallback((): Nip65Relay[] => {
+    return relays
+      .filter(r => r.enabled) // Only publish enabled relays
+      .map(r => ({
+        url: normalizeRelayUrl(r.url),
+        read: r.read,
+        write: r.write,
+      }));
+  }, [relays]);
+
   return {
     relays,
     isLoading,
@@ -261,5 +362,13 @@ export function useRelayManager() {
     removeRelay,
     connectToAllEnabled,
     addDefaultRelays,
+    updateRelayPermissions,
+    importFromNip65Cache,
+    mergeNip65Relays,
+    getRelaysForNip65,
+    parseNip65Event,
+    buildNip65Event,
+    getNip65Cache,
+    setNip65Cache,
   };
 }

@@ -18,6 +18,7 @@ import { BlobbiFakeStatusProvider } from '@/contexts/BlobbiFakeStatusContext';
 import { BlobbiOnLoadDecayIntegration } from '@/components/BlobbiOnLoadDecayIntegration';
 import { BlobbiAutoRepairIntegration } from '@/components/BlobbiAutoRepairIntegration';
 import { BlobbiPiPWrapper } from '@/components/blobbi/BlobbiPiPWrapper';
+import { Nip65Bootstrap } from '@/components/Nip65Bootstrap';
 import AppRouter from './AppRouter';
 
 // Component that connects relay context to NostrProvider
@@ -67,6 +68,7 @@ export function App() {
                       <BedProvider>
                         <BrowserRouter>
                           <Toaster />
+                          <Nip65Bootstrap />
                           <BlobbiCompanionIntegration />
                           <BlobbiOnLoadDecayIntegration />
                           <BlobbiAutoRepairIntegration />
