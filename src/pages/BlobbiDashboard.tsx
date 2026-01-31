@@ -44,6 +44,7 @@ import {
   Shuffle,
   Check,
   Loader2,
+  Pencil,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -956,6 +957,26 @@ export default function BlobbiDashboard() {
                               : isRandomizing
                               ? "Stop randomizing (DEV)"
                               : "Randomize colors (DEV)"}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+
+                      {/* DEV-ONLY: Blobbi Editor Button */}
+                      {isDevMode && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="p-2 h-8 w-8 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-orange-200 dark:border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:scale-105 transition-all duration-200"
+                              onClick={() => navigate('/dev/blobbi-editor')}
+                              aria-label="Open Blobbi Editor (DEV)"
+                            >
+                              <Pencil className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Open Blobbi Editor (DEV)
                           </TooltipContent>
                         </Tooltip>
                       )}
