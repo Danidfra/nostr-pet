@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SpotlightOverlay } from './SpotlightOverlay';
+import { CutoutOverlay } from './CutoutOverlay';
 import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
@@ -70,6 +71,25 @@ export function BlobbiTour({
 
   // Use custom steps if provided, otherwise use default steps
   const tourSteps = customSteps || [
+    // Step 0 — Dashboard Blobbi Visual (NEW - using cutout overlay)
+    {
+      selector: '#dashboard-blobbi-visual',
+      title: 'Meet Your Blobbi!',
+      description: 'This is your Blobbi companion. Take care of it by feeding, playing, and completing tasks together!',
+      cutout: {
+        shape: 'rounded',
+        padding: 16,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'right',
+          offsetX: 0,
+          offsetY: 0,
+          scale: 1,
+        },
+      },
+    },
+
     // Step 1 — My Blobbies
     {
       selector: '#tab-my-blobbies',
@@ -541,16 +561,16 @@ export function BlobbiTour({
 
   const imageProps = getImageProps();
 
-  return (
-    <SpotlightOverlay
-      targetSelector={currentTourStep.selector}
-      padding={12}
-      radius={12}
-      onClose={handleClose}
-      {...imageProps}
-    >
-      {/* Tour content card */}
-      <Card className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-2 border-purple-200 dark:border-purple-600 shadow-2xl max-w-sm mx-auto pointer-events-auto">
+  // Determine which overlay to use: CutoutOverlay if step has cutout config, otherwise SpotlightOverlay
+  const effectiveCutout = isMobile && currentTourStep.mobile?.cutout 
+    ? currentTourStep.mobile.cutout 
+    : currentTourStep.cutout;
+
+  const useCutoutOverlay = !!effectiveCutout;
+
+  // Tour content card (shared between both overlay types)
+  const tourCard = (
+    <Card className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-2 border-purple-200 dark:border-purple-600 shadow-2xl max-w-sm mx-auto pointer-events-auto">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-bold text-gray-900 dark:text-gray-100">
@@ -622,6 +642,39 @@ export function BlobbiTour({
           </div>
         </CardContent>
       </Card>
+  );
+
+  // Render with appropriate overlay type
+  if (useCutoutOverlay && effectiveCutout) {
+    return (
+      <CutoutOverlay
+        targetSelector={currentTourStep.selector}
+        padding={effectiveCutout.padding}
+        radius={effectiveCutout.radius}
+        shape={effectiveCutout.shape}
+        holeWidth={effectiveCutout.holeWidth}
+        holeHeight={effectiveCutout.holeHeight}
+        holeOffsetX={effectiveCutout.holeOffsetX}
+        holeOffsetY={effectiveCutout.holeOffsetY}
+        overlayOpacity={effectiveCutout.overlayOpacity}
+        hand={effectiveCutout.hand}
+        onClose={handleClose}
+      >
+        {tourCard}
+      </CutoutOverlay>
+    );
+  }
+
+  // Default: use SpotlightOverlay
+  return (
+    <SpotlightOverlay
+      targetSelector={currentTourStep.selector}
+      padding={12}
+      radius={12}
+      onClose={handleClose}
+      {...imageProps}
+    >
+      {tourCard}
     </SpotlightOverlay>
   );
 }
