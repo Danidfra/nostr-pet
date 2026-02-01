@@ -32,6 +32,21 @@ export const waitForVisible = (selector: string, opts: { timeout?: number } = {}
   });
 };
 
+/**
+ * Wait for layout to stabilize after DOM changes.
+ * This helps prevent incorrect positioning when tabs/layouts change.
+ * Waits for at least two animation frames to ensure layout has settled.
+ */
+export const waitForLayoutStability = (): Promise<void> => {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resolve();
+      });
+    });
+  });
+};
+
 // Utility function to sleep
 export const sleep = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -177,15 +192,21 @@ export function getScrollConfig(
 }
 
 /**
- * Apply auto-scroll with configuration
+ * Apply auto-scroll with configuration and layout stabilization.
+ * Waits for layout to stabilize before scrolling to prevent positioning issues.
  */
 export async function applyAutoScroll(
   selector: string,
   step: { scrollAlign?: "start" | "center" | "end" | "nearest"; scrollOffset?: number; mobile?: { scrollAlign?: "start" | "center" | "end" | "nearest"; scrollOffset?: number } },
   isMobile: boolean,
-  options: { behavior?: ScrollBehavior } = {}
+  options: { behavior?: ScrollBehavior; skipLayoutWait?: boolean } = {}
 ): Promise<void> {
   try {
+    // Wait for layout to stabilize unless explicitly skipped
+    if (!options.skipLayoutWait) {
+      await waitForLayoutStability();
+    }
+    
     const { align, offset } = getScrollConfig(step, isMobile);
     await scrollTourTarget(selector, {
       align,

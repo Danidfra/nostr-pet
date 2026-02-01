@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -90,10 +90,14 @@ export function CutoutOverlay({
   children,
   className,
 }: CutoutOverlayProps) {
+  // Generate unique mask ID to prevent collisions across instances and HMR
+  const maskId = useId();
+  
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
   const [holeRect, setHoleRect] = useState<Rect | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
+  const targetElementRef = useRef<Element | null>(null);
 
   // Calculate the hole rectangle based on target element and configuration
   const calculateHoleRect = useCallback((rect: DOMRect): Rect => {
@@ -127,6 +131,9 @@ export function CutoutOverlay({
     const targetElement = document.querySelector(targetSelector);
     
     if (targetElement) {
+      // Store reference for MutationObserver
+      targetElementRef.current = targetElement;
+      
       const rect = targetElement.getBoundingClientRect();
       setTargetRect({
         x: rect.left,
@@ -137,6 +144,7 @@ export function CutoutOverlay({
       setHoleRect(calculateHoleRect(rect));
     } else {
       console.warn('CutoutOverlay: Target element not found:', targetSelector);
+      targetElementRef.current = null;
       setTargetRect(null);
       setHoleRect(null);
     }
@@ -163,13 +171,15 @@ export function CutoutOverlay({
     window.addEventListener('scroll', handleUpdate, true); // Use capture to catch all scrolls
     window.addEventListener('orientationchange', handleUpdate);
 
-    // Use MutationObserver to detect DOM changes
+    // Reduced MutationObserver scope: observe only target element or its parent container
     const observer = new MutationObserver(handleUpdate);
-    observer.observe(document.body, {
+    const observeTarget = targetElementRef.current?.parentElement || document.body;
+    
+    observer.observe(observeTarget, {
       childList: true,
-      subtree: true,
+      subtree: observeTarget === document.body, // Only use subtree if observing body
       attributes: true,
-      attributeFilter: ['class', 'style'],
+      attributeFilter: ['class', 'style'], // Only watch class and style changes
     });
 
     return () => {
@@ -284,28 +294,6 @@ export function CutoutOverlay({
     return { top, left };
   }, [hand]);
 
-  // Handle clicks outside the hole
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (holeRect) {
-      const clickX = e.clientX;
-      const clickY = e.clientY;
-
-      const isInsideHole =
-        clickX >= holeRect.x &&
-        clickX <= holeRect.x + holeRect.width &&
-        clickY >= holeRect.y &&
-        clickY <= holeRect.y + holeRect.height;
-
-      if (!isInsideHole) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    } else {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
-
   const handPosition = holeRect ? getHandPosition(holeRect) : null;
   const handScale = hand?.scale || 1;
 
@@ -317,16 +305,19 @@ export function CutoutOverlay({
         className
       )}
     >
-      {/* SVG Overlay with cutout hole */}
+      {/* 
+        Layer 1: Visual overlay (SVG with mask) - no pointer events
+        This provides the visual dark overlay with cutout
+      */}
       <svg
-        className="absolute inset-0 w-full h-full pointer-events-auto"
-        onClick={handleOverlayClick}
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{ zIndex: 1 }}
       >
         <defs>
-          <mask id="cutout-mask">
+          <mask id={maskId}>
             {/* White background (visible area) */}
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
-            {/* Black hole (transparent area) - using even-odd fill rule */}
+            {/* Black hole (transparent area) */}
             {holeRect && (
               <path
                 d={generateHolePath(holeRect)}
@@ -344,7 +335,7 @@ export function CutoutOverlay({
           height="100%"
           fill="black"
           opacity={overlayOpacity}
-          mask="url(#cutout-mask)"
+          mask={`url(#${maskId})`}
         />
 
         {/* Optional subtle outline/glow around hole */}
@@ -354,20 +345,88 @@ export function CutoutOverlay({
             fill="none"
             stroke="rgba(167, 139, 250, 0.4)"
             strokeWidth="2"
-            className="pointer-events-none"
           />
         )}
       </svg>
 
-      {/* Transparent overlay on hole area to allow clicks through */}
+      {/* 
+        Layer 2: Interaction blocking divs - blocks clicks outside hole
+        This creates four divs around the hole that capture pointer events
+      */}
       {holeRect && (
+        <>
+          {/* Top blocker */}
+          <div
+            className="absolute left-0 right-0 pointer-events-auto"
+            style={{
+              top: 0,
+              height: holeRect.y,
+              zIndex: 2,
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          />
+          
+          {/* Left blocker */}
+          <div
+            className="absolute pointer-events-auto"
+            style={{
+              top: holeRect.y,
+              left: 0,
+              width: holeRect.x,
+              height: holeRect.height,
+              zIndex: 2,
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          />
+          
+          {/* Right blocker */}
+          <div
+            className="absolute pointer-events-auto"
+            style={{
+              top: holeRect.y,
+              left: holeRect.x + holeRect.width,
+              right: 0,
+              height: holeRect.height,
+              zIndex: 2,
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          />
+          
+          {/* Bottom blocker */}
+          <div
+            className="absolute left-0 right-0 pointer-events-auto"
+            style={{
+              top: holeRect.y + holeRect.height,
+              bottom: 0,
+              zIndex: 2,
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          />
+        </>
+      )}
+
+      {/* 
+        If no hole is detected, block entire screen
+      */}
+      {!holeRect && (
         <div
-          className="absolute pointer-events-none"
-          style={{
-            left: holeRect.x,
-            top: holeRect.y,
-            width: holeRect.width,
-            height: holeRect.height,
+          className="absolute inset-0 pointer-events-auto"
+          style={{ zIndex: 2 }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
           }}
         />
       )}

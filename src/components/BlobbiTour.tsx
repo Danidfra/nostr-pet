@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SpotlightOverlay } from './SpotlightOverlay';
@@ -56,9 +56,10 @@ export function BlobbiTour({
 
   // Use either controlled or uncontrolled step state
   const currentStep = propCurrentStep !== undefined ? propCurrentStep : internalCurrentStep;
+  const isControlled = propCurrentStep !== undefined;
 
-  // Create TourContext
-  const tourContext: TourContext = {
+  // Memoize TourContext to prevent unnecessary re-renders
+  const tourContext: TourContext = useMemo(() => ({
     setActiveTab: setActiveTabFromProps,
     waitForVisible,
     sleep,
@@ -67,7 +68,7 @@ export function BlobbiTour({
       // Wait a bit for navigation to complete
       await sleep(100);
     }
-  };
+  }), [setActiveTabFromProps, navigate]);
 
   // Use custom steps if provided, otherwise use default steps
   const tourSteps = customSteps || [
@@ -376,6 +377,12 @@ export function BlobbiTour({
   const handleNext = async () => {
     if (isTransitioning) return;
 
+    // Check if we're at the last step
+    if (currentStep >= tourSteps.length - 1) {
+      handleClose();
+      return;
+    }
+
     setIsTransitioning(true);
 
     try {
@@ -395,29 +402,33 @@ export function BlobbiTour({
         await currentStepData.onLeave(tourContext);
       }
 
+      // Trigger step change (controlled or uncontrolled)
       if (onNext) {
         onNext();
-      } else if (currentStep < tourSteps.length - 1) {
-        setInternalCurrentStep(currentStep + 1);
       } else {
-        handleClose();
-        return;
+        setInternalCurrentStep(prev => prev + 1);
       }
 
-      // Execute onEnter hook for the next step if it exists
-      const nextStepData = tourSteps[currentStep + 1];
-      if (nextStepData && nextStepData.onEnter) {
-        await nextStepData.onEnter(tourContext);
-      }
+      // Note: We don't access currentStep + 1 here in controlled mode
+      // The effects will handle onEnter and scroll based on the updated state
+      
+      // Store skipAutoScroll flag for the effect to use
+      if (!isControlled && !skipAutoScroll) {
+        // In uncontrolled mode, we can proceed immediately
+        const nextStepData = tourSteps[currentStep + 1];
+        if (nextStepData) {
+          // Execute onEnter hook
+          if (nextStepData.onEnter) {
+            await nextStepData.onEnter(tourContext);
+          }
 
-      // Apply auto-scroll for the new step unless explicitly skipped
-      if (!skipAutoScroll && currentStep < tourSteps.length - 1) {
-        const nextStep = tourSteps[currentStep + 1];
-        try {
-          await waitForVisible(nextStep.selector, { timeout: 2000 });
-          await applyAutoScroll(nextStep.selector, nextStep, isMobile);
-        } catch (error) {
-          console.error('Error applying auto-scroll after transition:', error);
+          // Apply auto-scroll
+          try {
+            await waitForVisible(nextStepData.selector, { timeout: 2000 });
+            await applyAutoScroll(nextStepData.selector, nextStepData, isMobile);
+          } catch (error) {
+            console.error('Error applying auto-scroll after transition:', error);
+          }
         }
       }
     } catch (error) {
@@ -430,6 +441,9 @@ export function BlobbiTour({
 
   const handlePrevious = async () => {
     if (isTransitioning) return;
+
+    // Check if we're at the first step
+    if (currentStep <= 0) return;
 
     setIsTransitioning(true);
 
@@ -450,26 +464,32 @@ export function BlobbiTour({
         await currentStepData.onLeave(tourContext);
       }
 
+      // Trigger step change (controlled or uncontrolled)
       if (onPrevious) {
         onPrevious();
-      } else if (currentStep > 0) {
-        setInternalCurrentStep(currentStep - 1);
+      } else {
+        setInternalCurrentStep(prev => prev - 1);
       }
 
-      // Execute onEnter hook for the previous step if it exists
-      const prevStepData = tourSteps[currentStep - 1];
-      if (prevStepData && prevStepData.onEnter) {
-        await prevStepData.onEnter(tourContext);
-      }
+      // Note: We don't access currentStep - 1 here in controlled mode
+      // The effects will handle onEnter and scroll based on the updated state
+      
+      // In uncontrolled mode, we can proceed immediately
+      if (!isControlled && !skipAutoScroll) {
+        const prevStepData = tourSteps[currentStep - 1];
+        if (prevStepData) {
+          // Execute onEnter hook
+          if (prevStepData.onEnter) {
+            await prevStepData.onEnter(tourContext);
+          }
 
-      // Apply auto-scroll for the new step unless explicitly skipped
-      if (!skipAutoScroll && currentStep > 0) {
-        const prevStep = tourSteps[currentStep - 1];
-        try {
-          await waitForVisible(prevStep.selector, { timeout: 2000 });
-          await applyAutoScroll(prevStep.selector, prevStep, isMobile);
-        } catch (error) {
-          console.error('Error applying auto-scroll after transition:', error);
+          // Apply auto-scroll
+          try {
+            await waitForVisible(prevStepData.selector, { timeout: 2000 });
+            await applyAutoScroll(prevStepData.selector, prevStepData, isMobile);
+          } catch (error) {
+            console.error('Error applying auto-scroll after transition:', error);
+          }
         }
       }
     } catch (error) {
