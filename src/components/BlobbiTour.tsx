@@ -11,8 +11,6 @@ import { TourStep, TourContext } from '@/types/tour';
 import { waitForVisible, sleep, applyAutoScroll } from '@/lib/tour-utils';
 
 // Import step images explicitly for proper Vite asset handling
-import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
-
 const mobileStep1Img = '/assets/overboard/blobbi-overboard-mobile-step-1.png';
 const step1Img = '/assets/overboard/blobbi-overboard-step-1.png';
 const step2Img = '/assets/overboard/blobbi-overboard-step-2.png';
@@ -52,6 +50,9 @@ export function BlobbiTour({
   const navigate = useNavigate();
   const { data: userBlobbis = [] } = useUserBlobbis();
   const isMobile = useIsMobile();
+
+  // Extract first Blobbi ID for stable memoization (only needed for last step's navigation)
+  const firstBlobbiId = userBlobbis[0]?.id;
 
   // Use either controlled or uncontrolled step state
   const currentStep = propCurrentStep !== undefined ? propCurrentStep : internalCurrentStep;
@@ -284,24 +285,21 @@ export function BlobbiTour({
       imageOffsetY: 0,
       imageHeight: 340,
       nextLabel: 'Next part',
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible, navigateTo }) {
-        if (dir === 'next' && userBlobbis.length > 0) {
-          const id = userBlobbis[0]?.id;
-          if (!id) throw new Error('NO_BLOBBI_ID');
-
+      async onBeforeAdvance(dir, { navigateTo }) {
+        if (dir === 'next' && firstBlobbiId) {
           // Store handoff token
           sessionStorage.setItem('tour.resume', JSON.stringify({
             next: 'details',
             startIndex: 0,
-            blobbiId: id
+            blobbiId: firstBlobbiId
           }));
 
-          await navigateTo(`/blobbi/${id}`);
+          await navigateTo(`/blobbi/${firstBlobbiId}`);
           // Do NOT advance step here; details tour will take over
         }
       }
     },
-  ], [customSteps, userBlobbis]);
+  ], [customSteps, firstBlobbiId]);
 
   // Reset to first step when tour opens (only for internal state)
   useEffect(() => {

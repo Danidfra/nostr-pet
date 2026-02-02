@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { scrollToElementWithAlignment, useTourScrollConfig, scrollTourTarget, applyAutoScroll, getScrollConfig } from './tour-utils';
+import { scrollToElementWithAlignment, scrollTourTarget, applyAutoScroll, getScrollConfig } from './tour-utils';
 
 // Mock DOM environment
 beforeEach(() => {
@@ -252,10 +252,7 @@ describe('scrollToElementWithAlignment', () => {
   });
 });
 
-describe('useTourScrollConfig', () => {
-  // Mock useIsMobile hook
-  const mockUseIsMobile = vi.fn();
-
+describe('getScrollConfig', () => {
   beforeEach(() => {
     vi.resetModules();
   });

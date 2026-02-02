@@ -1,5 +1,3 @@
-import { useIsMobile } from '@/hooks/useIsMobile';
-
 // Utility function to wait for an element to become visible
 export const waitForVisible = (selector: string, opts: { timeout?: number } = {}): Promise<void> => {
   const { timeout = 2000 } = opts;
@@ -11,7 +9,17 @@ export const waitForVisible = (selector: string, opts: { timeout?: number } = {}
       const element = document.querySelector(selector);
       if (element) {
         const rect = element.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
+        const computedStyle = window.getComputedStyle(element);
+        
+        // Check if element is actually visible
+        const isVisible =
+          rect.width > 0 &&
+          rect.height > 0 &&
+          computedStyle.display !== 'none' &&
+          computedStyle.visibility !== 'hidden' &&
+          parseFloat(computedStyle.opacity) > 0.01;
+
+        if (isVisible) {
           resolve();
           return;
         }
@@ -145,30 +153,7 @@ export const scrollTourTarget = async (
 };
 
 /**
- * Hook to get scroll configuration for tour steps
- */
-export function useTourScrollConfig(step: { scrollAlign?: "start" | "center" | "end" | "nearest"; scrollOffset?: number; mobile?: { scrollAlign?: "start" | "center" | "end" | "nearest"; scrollOffset?: number } }) {
-  const isMobile = useIsMobile();
-
-  // Determine scroll alignment with defaults
-  let align: "start" | "center" | "end" | "nearest" = isMobile ? "start" : "center";
-  let offset = 0;
-
-  // Check for mobile-specific overrides
-  if (isMobile && step.mobile) {
-    align = step.mobile.scrollAlign ?? align;
-    offset = step.mobile.scrollOffset ?? offset;
-  }
-
-  // Apply step-level overrides (takes precedence over defaults)
-  align = step.scrollAlign ?? align;
-  offset = step.scrollOffset ?? offset;
-
-  return { align, offset };
-}
-
-/**
- * Utility function to get scroll configuration (non-hook version)
+ * Utility function to get scroll configuration
  */
 export function getScrollConfig(
   step: { scrollAlign?: "start" | "center" | "end" | "nearest"; scrollOffset?: number; mobile?: { scrollAlign?: "start" | "center" | "end" | "nearest"; scrollOffset?: number } },

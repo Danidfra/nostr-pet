@@ -46,6 +46,9 @@ export function SpotlightOverlay({
   const [isMaskSupported, setIsMaskSupported] = useState(true);
   const [imagePositionState, setImagePositionState] = useState<{ top: number; left: number; transform: string } | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const targetElementRef = useRef<HTMLElement | null>(null);
+  const observerRef = useRef<MutationObserver | null>(null);
 
   // Helper function to compute image position
   const computeImagePosition = useCallback((
@@ -105,6 +108,9 @@ export function SpotlightOverlay({
     }
 
     if (targetElement) {
+      // Store reference for MutationObserver
+      targetElementRef.current = targetElement;
+
       const rect = targetElement.getBoundingClientRect();
       const spotlightRect = {
         x: rect.left - padding,
@@ -151,14 +157,13 @@ export function SpotlightOverlay({
         finalLeft = Math.max(viewportPadding, Math.min(viewportWidth - imageMaxWidth - viewportPadding, finalLeft));
         finalTop = Math.max(viewportPadding, Math.min(viewportHeight - estimatedImageHeight - viewportPadding, finalTop));
 
-        // Debug logging
-
         setImagePositionState({ top: finalTop, left: finalLeft, transform });
       } else {
         setImagePositionState(null);
       }
     } else {
       console.warn('SpotlightOverlay: Target element not found');
+      targetElementRef.current = null;
       setTargetRect(null);
       setImagePositionState(null);
     }
@@ -170,33 +175,82 @@ export function SpotlightOverlay({
     setIsMaskSupported('mask' in testElement.style || 'webkitMask' in testElement.style);
   }, []);
 
-  // Set up event listeners for position updates
+  // Set up event listeners for position updates (with RAF throttling)
   useEffect(() => {
     updateTargetPosition();
 
     const handleUpdate = () => {
-      updateTargetPosition();
+      // Cancel any pending RAF
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+      }
+
+      // Schedule update on next frame
+      rafRef.current = requestAnimationFrame(() => {
+        updateTargetPosition();
+        rafRef.current = null;
+      });
     };
 
     // Listen for various events that might affect positioning
     window.addEventListener('resize', handleUpdate);
-    window.addEventListener('scroll', handleUpdate);
+    window.addEventListener('scroll', handleUpdate, true); // Use capture to catch all scrolls
     window.addEventListener('orientationchange', handleUpdate);
 
-    // Use MutationObserver to detect DOM changes
-    const observer = new MutationObserver(handleUpdate);
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class', 'style']
-    });
+    // Improved MutationObserver: prefer target's parent with subtree enabled
+    const setupObserver = () => {
+      // Clean up existing observer
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+
+      const observer = new MutationObserver(() => {
+        handleUpdate();
+        
+        // Upgrade observer if target now has parent and we're observing body
+        if (currentObserveTarget === document.body) {
+          const parent = targetElementRef.current?.parentElement;
+          if (parent && parent !== document.body) {
+            // Switch to more efficient parent observation
+            observer.disconnect();
+            currentObserveTarget = parent;
+            observer.observe(parent, {
+              childList: true,
+              subtree: true, // Allow subtree on parent (not body) to catch internal layout changes
+              attributes: true,
+              attributeFilter: ['class', 'style'],
+            });
+          }
+        }
+      });
+
+      observerRef.current = observer;
+      
+      // Determine initial observe target: prefer parent, fallback to body
+      let currentObserveTarget: Element = targetElementRef.current?.parentElement || document.body;
+      
+      // Use subtree: true on parent (efficient), subtree: true on body (fallback only)
+      observer.observe(currentObserveTarget, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style'],
+      });
+    };
+
+    setupObserver();
 
     return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+      }
       window.removeEventListener('resize', handleUpdate);
-      window.removeEventListener('scroll', handleUpdate);
+      window.removeEventListener('scroll', handleUpdate, true);
       window.removeEventListener('orientationchange', handleUpdate);
-      observer.disconnect();
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
     };
   }, [updateTargetPosition]);
 
@@ -212,103 +266,10 @@ export function SpotlightOverlay({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  // Handle clicks outside the spotlight
+  // Handle clicks outside the spotlight - block all clicks
   const handleOverlayClick = (e: React.MouseEvent) => {
-    // If we have a target rect, check if click is outside the spotlight
-    if (targetRect) {
-      const clickX = e.clientX;
-      const clickY = e.clientY;
-
-      const isInsideSpotlight =
-        clickX >= targetRect.x &&
-        clickX <= targetRect.x + targetRect.width &&
-        clickY >= targetRect.y &&
-        clickY <= targetRect.y + targetRect.height;
-
-      if (!isInsideSpotlight) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    } else {
-      // No target found, allow clicking through
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
-
-  // Render the spotlight mask
-  const renderSpotlightMask = () => {
-    if (!targetRect) {
-      // No target found, render full overlay
-      return (
-        <div
-          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-          onClick={handleOverlayClick}
-        />
-      );
-    }
-
-    if (isMaskSupported) {
-      // Use CSS mask for modern browsers
-      const maskStyle: React.CSSProperties = {
-        maskImage: `radial-gradient(circle at ${targetRect.x + targetRect.width / 2}px ${targetRect.y + targetRect.height / 2}px, transparent 0%, transparent ${Math.max(targetRect.width, targetRect.height) / 2}px, black ${Math.max(targetRect.width, targetRect.height) / 2 + 1}px)`,
-        WebkitMaskImage: `radial-gradient(circle at ${targetRect.x + targetRect.width / 2}px ${targetRect.y + targetRect.height / 2}px, transparent 0%, transparent ${Math.max(targetRect.width, targetRect.height) / 2}px, black ${Math.max(targetRect.width, targetRect.height) / 2 + 1}px)`,
-        maskSize: 'cover',
-        WebkitMaskSize: 'cover',
-        maskRepeat: 'no-repeat',
-        WebkitMaskRepeat: 'no-repeat'
-      };
-
-      return (
-        <div
-          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-          style={maskStyle}
-          onClick={handleOverlayClick}
-        />
-      );
-    } else {
-      // Fallback: Use 4 divs to create the hole
-      return (
-        <>
-          {/* Top */}
-          <div
-            className="absolute left-0 right-0 top-0 bg-black/80 backdrop-blur-sm"
-            style={{ height: targetRect.y }}
-            onClick={handleOverlayClick}
-          />
-          {/* Left */}
-          <div
-            className="absolute left-0 top-0 bottom-0 bg-black/80 backdrop-blur-sm"
-            style={{
-              top: targetRect.y,
-              width: targetRect.x,
-              height: targetRect.height
-            }}
-            onClick={handleOverlayClick}
-          />
-          {/* Right */}
-          <div
-            className="absolute right-0 top-0 bottom-0 bg-black/80 backdrop-blur-sm"
-            style={{
-              top: targetRect.y,
-              left: targetRect.x + targetRect.width,
-              width: `calc(100% - ${targetRect.x + targetRect.width}px)`,
-              height: targetRect.height
-            }}
-            onClick={handleOverlayClick}
-          />
-          {/* Bottom */}
-          <div
-            className="absolute left-0 right-0 bottom-0 bg-black/80 backdrop-blur-sm"
-            style={{
-              top: targetRect.y + targetRect.height,
-              height: `calc(100% - ${targetRect.y + targetRect.height}px)`
-            }}
-            onClick={handleOverlayClick}
-          />
-        </>
-      );
-    }
+    e.preventDefault();
+    e.stopPropagation();
   };
 
   const overlayContent = (
@@ -319,10 +280,93 @@ export function SpotlightOverlay({
         className
       )}
     >
-      {/* Spotlight mask */}
-      <div className="absolute inset-0 pointer-events-auto">
-        {renderSpotlightMask()}
-      </div>
+      {/* 
+        Layer 1: Visual overlay (CSS mask) - purely visual, no pointer events
+        This provides the spotlight effect
+      */}
+      {targetRect && isMaskSupported && (
+        <div
+          className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-none"
+          style={{
+            maskImage: `radial-gradient(circle at ${targetRect.x + targetRect.width / 2}px ${targetRect.y + targetRect.height / 2}px, transparent 0%, transparent ${Math.max(targetRect.width, targetRect.height) / 2}px, black ${Math.max(targetRect.width, targetRect.height) / 2 + 1}px)`,
+            WebkitMaskImage: `radial-gradient(circle at ${targetRect.x + targetRect.width / 2}px ${targetRect.y + targetRect.height / 2}px, transparent 0%, transparent ${Math.max(targetRect.width, targetRect.height) / 2}px, black ${Math.max(targetRect.width, targetRect.height) / 2 + 1}px)`,
+            zIndex: 1,
+          }}
+        />
+      )}
+
+      {/* 
+        Layer 2: Interaction blocking divs - blocks clicks outside spotlight
+        Always use 4-div approach for consistent behavior across all browsers
+      */}
+      {targetRect ? (
+        <>
+          {/* Top blocker */}
+          <div
+            className="absolute left-0 right-0 pointer-events-auto"
+            style={{
+              top: 0,
+              height: targetRect.y,
+              zIndex: 2,
+            }}
+            onClick={handleOverlayClick}
+          />
+          
+          {/* Left blocker */}
+          <div
+            className="absolute pointer-events-auto"
+            style={{
+              top: targetRect.y,
+              left: 0,
+              width: targetRect.x,
+              height: targetRect.height,
+              zIndex: 2,
+            }}
+            onClick={handleOverlayClick}
+          />
+          
+          {/* Right blocker */}
+          <div
+            className="absolute pointer-events-auto"
+            style={{
+              top: targetRect.y,
+              left: targetRect.x + targetRect.width,
+              right: 0,
+              height: targetRect.height,
+              zIndex: 2,
+            }}
+            onClick={handleOverlayClick}
+          />
+          
+          {/* Bottom blocker */}
+          <div
+            className="absolute left-0 right-0 pointer-events-auto"
+            style={{
+              top: targetRect.y + targetRect.height,
+              bottom: 0,
+              zIndex: 2,
+            }}
+            onClick={handleOverlayClick}
+          />
+
+          {/* Fallback visual for non-mask browsers: 4 visible divs */}
+          {!isMaskSupported && (
+            <>
+              <div className="absolute left-0 right-0 bg-black/80 backdrop-blur-sm pointer-events-none" style={{ top: 0, height: targetRect.y, zIndex: 1 }} />
+              <div className="absolute bg-black/80 backdrop-blur-sm pointer-events-none" style={{ top: targetRect.y, left: 0, width: targetRect.x, height: targetRect.height, zIndex: 1 }} />
+              <div className="absolute bg-black/80 backdrop-blur-sm pointer-events-none" style={{ top: targetRect.y, left: targetRect.x + targetRect.width, right: 0, height: targetRect.height, zIndex: 1 }} />
+              <div className="absolute left-0 right-0 bg-black/80 backdrop-blur-sm pointer-events-none" style={{ top: targetRect.y + targetRect.height, bottom: 0, zIndex: 1 }} />
+            </>
+          )}
+        </>
+      ) : (
+        /* No target found - block entire screen */
+        <div
+          className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-auto"
+          style={{ zIndex: 2 }}
+          onClick={handleOverlayClick}
+        />
+      )}
 
       {/* Close button (X) in top-right */}
       <Button

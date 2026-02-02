@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useId } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useId, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -91,13 +91,15 @@ export function CutoutOverlay({
   className,
 }: CutoutOverlayProps) {
   // Generate unique mask ID to prevent collisions across instances and HMR
-  const maskId = useId();
+  // Sanitize to avoid special characters that could break SVG mask references
+  const rawId = useId();
+  const maskId = useMemo(() => 'cutout-mask-' + rawId.replace(/[^a-zA-Z0-9_-]/g, ''), [rawId]);
   
-  const [targetRect, setTargetRect] = useState<Rect | null>(null);
   const [holeRect, setHoleRect] = useState<Rect | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const targetElementRef = useRef<Element | null>(null);
+  const observerRef = useRef<MutationObserver | null>(null);
 
   // Calculate the hole rectangle based on target element and configuration
   const calculateHoleRect = useCallback((rect: DOMRect): Rect => {
@@ -126,7 +128,7 @@ export function CutoutOverlay({
     return { x, y, width, height };
   }, [padding, holeWidth, holeHeight, holeOffsetX, holeOffsetY]);
 
-  // Update target and hole positions
+  // Update hole position based on target element
   const updateTargetPosition = useCallback(() => {
     const targetElement = document.querySelector(targetSelector);
     
@@ -135,17 +137,10 @@ export function CutoutOverlay({
       targetElementRef.current = targetElement;
       
       const rect = targetElement.getBoundingClientRect();
-      setTargetRect({
-        x: rect.left,
-        y: rect.top,
-        width: rect.width,
-        height: rect.height,
-      });
       setHoleRect(calculateHoleRect(rect));
     } else {
       console.warn('CutoutOverlay: Target element not found:', targetSelector);
       targetElementRef.current = null;
-      setTargetRect(null);
       setHoleRect(null);
     }
   }, [targetSelector, calculateHoleRect]);
@@ -171,16 +166,49 @@ export function CutoutOverlay({
     window.addEventListener('scroll', handleUpdate, true); // Use capture to catch all scrolls
     window.addEventListener('orientationchange', handleUpdate);
 
-    // Reduced MutationObserver scope: observe only target element or its parent container
-    const observer = new MutationObserver(handleUpdate);
-    const observeTarget = targetElementRef.current?.parentElement || document.body;
-    
-    observer.observe(observeTarget, {
-      childList: true,
-      subtree: observeTarget === document.body, // Only use subtree if observing body
-      attributes: true,
-      attributeFilter: ['class', 'style'], // Only watch class and style changes
-    });
+    // Improved MutationObserver: prefer target's parent with subtree enabled
+    // This allows detecting layout changes within the parent without observing entire body
+    const setupObserver = () => {
+      // Clean up existing observer
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+
+      const observer = new MutationObserver(() => {
+        handleUpdate();
+        
+        // Upgrade observer if target now has parent and we're observing body
+        if (currentObserveTarget === document.body) {
+          const parent = targetElementRef.current?.parentElement;
+          if (parent && parent !== document.body) {
+            // Switch to more efficient parent observation
+            observer.disconnect();
+            currentObserveTarget = parent;
+            observer.observe(parent, {
+              childList: true,
+              subtree: true, // Allow subtree on parent (not body) to catch internal layout changes
+              attributes: true,
+              attributeFilter: ['class', 'style'],
+            });
+          }
+        }
+      });
+
+      observerRef.current = observer;
+      
+      // Determine initial observe target: prefer parent, fallback to body
+      let currentObserveTarget: Element = targetElementRef.current?.parentElement || document.body;
+      
+      // Use subtree: true on parent (efficient), subtree: true on body (fallback only)
+      observer.observe(currentObserveTarget, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style'],
+      });
+    };
+
+    setupObserver();
 
     return () => {
       if (rafRef.current !== null) {
@@ -189,7 +217,10 @@ export function CutoutOverlay({
       window.removeEventListener('resize', handleUpdate);
       window.removeEventListener('scroll', handleUpdate, true);
       window.removeEventListener('orientationchange', handleUpdate);
-      observer.disconnect();
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
     };
   }, [updateTargetPosition]);
 
