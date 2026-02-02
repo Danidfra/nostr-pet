@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SpotlightOverlay } from './SpotlightOverlay';
@@ -7,8 +7,8 @@ import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { TourStep, TourContext, Direction, OnBeforeAdvanceResult } from '@/types/tour';
-import { waitForVisible, sleep, scrollTourTarget, applyAutoScroll } from '@/lib/tour-utils';
+import { TourStep, TourContext } from '@/types/tour';
+import { waitForVisible, sleep, applyAutoScroll } from '@/lib/tour-utils';
 
 // Import step images explicitly for proper Vite asset handling
 import { useBlobbiIncubationSystem } from '@/hooks/useBlobbiIncubationSystem';
@@ -49,14 +49,15 @@ export function BlobbiTour({
 }: BlobbiTourProps) {
   const [internalCurrentStep, setInternalCurrentStep] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const { selectEgg } = useBlobbiIncubationSystem();
   const navigate = useNavigate();
   const { data: userBlobbis = [] } = useUserBlobbis();
   const isMobile = useIsMobile();
 
   // Use either controlled or uncontrolled step state
   const currentStep = propCurrentStep !== undefined ? propCurrentStep : internalCurrentStep;
-  const isControlled = propCurrentStep !== undefined;
+
+  // Ref to handle skipAutoScroll from onBeforeAdvance
+  const skipAutoScrollRef = useRef(false);
 
   // Memoize TourContext to prevent unnecessary re-renders
   const tourContext: TourContext = useMemo(() => ({
@@ -70,8 +71,9 @@ export function BlobbiTour({
     }
   }), [setActiveTabFromProps, navigate]);
 
-  // Use custom steps if provided, otherwise use default steps
-  const tourSteps = customSteps || [
+  // Memoize tourSteps to prevent unnecessary re-renders
+  // Only depends on customSteps and userBlobbis (needed for last step's navigation)
+  const tourSteps: TourStep[] = useMemo(() => customSteps || [
     // Step 0 — Dashboard Blobbi Visual (NEW - using cutout overlay)
     {
       selector: '#dashboard-blobbi-visual',
@@ -299,7 +301,7 @@ export function BlobbiTour({
         }
       }
     },
-  ];
+  ], [customSteps, userBlobbis]);
 
   // Reset to first step when tour opens (only for internal state)
   useEffect(() => {
@@ -309,6 +311,7 @@ export function BlobbiTour({
   }, [isOpen, propCurrentStep]);
 
   // Execute onEnter hook when step changes and scroll to target
+  // Single source of truth for step lifecycle
   useEffect(() => {
     if (isOpen && !isTransitioning) {
       const currentStepData = tourSteps[currentStep];
@@ -317,6 +320,17 @@ export function BlobbiTour({
         try {
           // Wait for the target element to be visible
           await waitForVisible(currentStepData.selector, { timeout: 2000 });
+
+          // Execute onEnter hook if it exists
+          if (currentStepData.onEnter) {
+            await currentStepData.onEnter(tourContext);
+          }
+
+          // Check if auto-scroll should be skipped (from onBeforeAdvance)
+          if (skipAutoScrollRef.current) {
+            skipAutoScrollRef.current = false; // Reset flag
+            return;
+          }
 
           // Apply auto-scroll using unified system
           await applyAutoScroll(currentStepData.selector, currentStepData, isMobile);
@@ -336,43 +350,33 @@ export function BlobbiTour({
 
       // Execute step change handling
       handleStepChange().catch(console.error);
-
-      // Execute onEnter hook if it exists
-      if (currentStepData.onEnter) {
-        const result = currentStepData.onEnter(tourContext);
-        if (result && typeof result.catch === 'function') {
-          result.catch(error => {
-            console.error('Error executing onEnter hook:', error);
-          });
-        }
-      }
     }
-  }, [currentStep, isOpen, isTransitioning]);
+  }, [currentStep, isOpen, isTransitioning, tourSteps, tourContext, isMobile]);
 
   // Handle orientation changes - re-apply scroll when orientation changes
   useEffect(() => {
-    if (isOpen && !isTransitioning) {
-      const currentStepData = tourSteps[currentStep];
+    if (!isOpen || isTransitioning) return;
 
-      const handleOrientationChange = async () => {
-        // Wait a bit for the orientation change to complete and layout to settle
-        await sleep(300);
+    const currentStepData = tourSteps[currentStep];
 
-        // Re-apply scroll with current step configuration
-        try {
-          await applyAutoScroll(currentStepData.selector, currentStepData, isMobile);
-        } catch (error) {
-          console.error('Error re-scrolling after orientation change:', error);
-        }
-      };
+    const handleOrientationChange = async () => {
+      // Wait a bit for the orientation change to complete and layout to settle
+      await sleep(300);
 
-      window.addEventListener('orientationchange', handleOrientationChange);
+      // Re-apply scroll with current step configuration
+      try {
+        await applyAutoScroll(currentStepData.selector, currentStepData, isMobile);
+      } catch (error) {
+        console.error('Error re-scrolling after orientation change:', error);
+      }
+    };
 
-      return () => {
-        window.removeEventListener('orientationchange', handleOrientationChange);
-      };
-    }
-  }, [currentStep, isOpen, isTransitioning]);
+    window.addEventListener('orientationchange', handleOrientationChange);
+
+    return () => {
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
+  }, [currentStep, isOpen, isTransitioning, tourSteps, isMobile]);
 
   const handleNext = async () => {
     if (isTransitioning) return;
@@ -389,11 +393,10 @@ export function BlobbiTour({
       const currentStepData = tourSteps[currentStep];
 
       // Execute onBeforeAdvance hook if it exists
-      let skipAutoScroll = false;
       if (currentStepData.onBeforeAdvance) {
         const result = await currentStepData.onBeforeAdvance('next', tourContext);
         if (result && typeof result === 'object' && result.skipAutoScroll) {
-          skipAutoScroll = true;
+          skipAutoScrollRef.current = true;
         }
       }
 
@@ -403,33 +406,11 @@ export function BlobbiTour({
       }
 
       // Trigger step change (controlled or uncontrolled)
+      // The step-change effect will handle onEnter and applyAutoScroll
       if (onNext) {
         onNext();
       } else {
         setInternalCurrentStep(prev => prev + 1);
-      }
-
-      // Note: We don't access currentStep + 1 here in controlled mode
-      // The effects will handle onEnter and scroll based on the updated state
-      
-      // Store skipAutoScroll flag for the effect to use
-      if (!isControlled && !skipAutoScroll) {
-        // In uncontrolled mode, we can proceed immediately
-        const nextStepData = tourSteps[currentStep + 1];
-        if (nextStepData) {
-          // Execute onEnter hook
-          if (nextStepData.onEnter) {
-            await nextStepData.onEnter(tourContext);
-          }
-
-          // Apply auto-scroll
-          try {
-            await waitForVisible(nextStepData.selector, { timeout: 2000 });
-            await applyAutoScroll(nextStepData.selector, nextStepData, isMobile);
-          } catch (error) {
-            console.error('Error applying auto-scroll after transition:', error);
-          }
-        }
       }
     } catch (error) {
       console.error('Error during tour step transition:', error);
@@ -451,11 +432,10 @@ export function BlobbiTour({
       const currentStepData = tourSteps[currentStep];
 
       // Execute onBeforeAdvance hook if it exists
-      let skipAutoScroll = false;
       if (currentStepData.onBeforeAdvance) {
         const result = await currentStepData.onBeforeAdvance('prev', tourContext);
         if (result && typeof result === 'object' && result.skipAutoScroll) {
-          skipAutoScroll = true;
+          skipAutoScrollRef.current = true;
         }
       }
 
@@ -465,32 +445,11 @@ export function BlobbiTour({
       }
 
       // Trigger step change (controlled or uncontrolled)
+      // The step-change effect will handle onEnter and applyAutoScroll
       if (onPrevious) {
         onPrevious();
       } else {
         setInternalCurrentStep(prev => prev - 1);
-      }
-
-      // Note: We don't access currentStep - 1 here in controlled mode
-      // The effects will handle onEnter and scroll based on the updated state
-      
-      // In uncontrolled mode, we can proceed immediately
-      if (!isControlled && !skipAutoScroll) {
-        const prevStepData = tourSteps[currentStep - 1];
-        if (prevStepData) {
-          // Execute onEnter hook
-          if (prevStepData.onEnter) {
-            await prevStepData.onEnter(tourContext);
-          }
-
-          // Apply auto-scroll
-          try {
-            await waitForVisible(prevStepData.selector, { timeout: 2000 });
-            await applyAutoScroll(prevStepData.selector, prevStepData, isMobile);
-          } catch (error) {
-            console.error('Error applying auto-scroll after transition:', error);
-          }
-        }
       }
     } catch (error) {
       console.error('Error during tour step transition:', error);
@@ -516,7 +475,6 @@ export function BlobbiTour({
     // Create effective step configuration: { ...step, ...(isMobile ? step.mobile : {}) }
     const baseStep = {
       imageUrl: currentTourStep.image,
-      imageOffset: currentTourStep.imageOffset,
       imageOffsetX: currentTourStep.imageOffsetX,
       imageOffsetY: currentTourStep.imageOffsetY,
       imagePosition: currentTourStep.imagePosition,
@@ -527,7 +485,6 @@ export function BlobbiTour({
     if (isMobile && currentTourStep.mobile) {
       const mobileOverrides = {
         imageUrl: currentTourStep.mobile.imageMobile ?? currentTourStep.image,
-        imageOffset: currentTourStep.mobile.imageOffset,
         imageOffsetX: currentTourStep.mobile.imageOffsetX,
         imageOffsetY: currentTourStep.mobile.imageOffsetY,
         imagePosition: currentTourStep.mobile.imagePosition,
@@ -538,43 +495,17 @@ export function BlobbiTour({
       // Merge: mobile overrides take precedence
       const effectiveStep = { ...baseStep, ...mobileOverrides };
 
-      // Handle legacy imageOffset mapping only if X/Y are not provided
-      if (effectiveStep.imageOffset !== undefined &&
-          effectiveStep.imageOffsetX === undefined &&
-          effectiveStep.imageOffsetY === undefined) {
-        if (effectiveStep.imagePosition === 'below' || effectiveStep.imagePosition === 'above') {
-          effectiveStep.imageOffsetY = effectiveStep.imageOffset;
-        } else if (effectiveStep.imagePosition === 'left' || effectiveStep.imagePosition === 'right') {
-          effectiveStep.imageOffsetX = effectiveStep.imageOffset;
-        }
-      }
-
       // Ensure offsets are numbers (fallback to 0)
       effectiveStep.imageOffsetX = effectiveStep.imageOffsetX ?? 0;
       effectiveStep.imageOffsetY = effectiveStep.imageOffsetY ?? 0;
 
-      // Debug logging
-
       return effectiveStep;
     }
 
-    // Desktop: handle legacy imageOffset mapping
+    // Desktop: ensure offsets are numbers (fallback to 0)
     const effectiveStep = { ...baseStep };
-    if (effectiveStep.imageOffset !== undefined &&
-        effectiveStep.imageOffsetX === undefined &&
-        effectiveStep.imageOffsetY === undefined) {
-      if (effectiveStep.imagePosition === 'below' || effectiveStep.imagePosition === 'above') {
-        effectiveStep.imageOffsetY = effectiveStep.imageOffset;
-      } else if (effectiveStep.imagePosition === 'left' || effectiveStep.imagePosition === 'right') {
-        effectiveStep.imageOffsetX = effectiveStep.imageOffset;
-      }
-    }
-
-    // Ensure offsets are numbers (fallback to 0)
     effectiveStep.imageOffsetX = effectiveStep.imageOffsetX ?? 0;
     effectiveStep.imageOffsetY = effectiveStep.imageOffsetY ?? 0;
-
-    // Debug logging
 
     return effectiveStep;
   };

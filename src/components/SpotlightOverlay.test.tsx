@@ -93,7 +93,8 @@ describe('SpotlightOverlay', () => {
         targetSelector="#test-element"
         onClose={mockOnClose}
         imageUrl="/assets/test-image.png"
-        imageOffset={20}
+        imageOffsetX={20}
+        imageOffsetY={20}
       />
     );
 

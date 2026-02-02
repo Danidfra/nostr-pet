@@ -322,7 +322,6 @@ export function BlobbiDetailsTour({
       radius={12}
       onClose={handleClose}
       imageUrl={currentTourStep.image}
-      imageOffset={currentTourStep.imageOffset}
       imageOffsetX={currentTourStep.imageOffsetX}
       imageOffsetY={currentTourStep.imageOffsetY}
       imagePosition={currentTourStep.imagePosition}

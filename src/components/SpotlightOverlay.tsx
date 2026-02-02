@@ -13,7 +13,6 @@ interface SpotlightOverlayProps {
   children?: React.ReactNode;
   className?: string;
   imageUrl?: string; // Can be a string path or imported asset
-  imageOffset?: number; // Legacy offset (maintained for backward compatibility)
   imageOffsetX?: number; // Horizontal offset relative to spotlight center
   imageOffsetY?: number; // Vertical offset relative to default placement
   imagePosition?: "below" | "above" | "left" | "right"; // Position relative to spotlight
@@ -37,7 +36,6 @@ export function SpotlightOverlay({
   children,
   className,
   imageUrl,
-  imageOffset = 12,
   imageOffsetX = 0,
   imageOffsetY = 0,
   imagePosition = "below",
