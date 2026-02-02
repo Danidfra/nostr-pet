@@ -12,11 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/useToast';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { Blobbi, BlobbiStats } from '@/types/blobbi';
+import { Blobbi, BlobbiStats, BlobbonautStorageItem } from '@/types/blobbi';
 import { NostrEvent } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
 import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
@@ -32,6 +33,14 @@ import {
   VALID_EGG_STATUSES,
   ALL_VALID_SPECIAL_MARKS,
 } from '@/lib/blobbi-egg-validation';
+import {
+  BlobbonautPatch,
+  MergedBlobbonaut,
+  parseBlobbonautFromEvent,
+  generateUpdatedTags31125,
+  validateStorageEntry,
+  parseStorageEntry,
+} from '@/lib/blobbonaut-editor';
 
 // DEV-ONLY: This component should only be available in development on localhost
 const isDevelopment = import.meta.env.DEV;
@@ -77,6 +86,8 @@ const BLESSINGS = [
 ] as const;
 
 const THEME_VARIANTS = ['divine', 'standard', 'special'] as const;
+
+type EditorMode = 'blobbi' | 'profile';
 
 interface BlobbiPatch {
   // Core fields
@@ -255,10 +266,23 @@ export default function BlobbiEditor() {
   const { mutateAsync: publishEvent } = useNostrPublish();
   const { nostr } = useNostr();
 
+  // Mode state
+  const [mode, setMode] = useState<EditorMode>('blobbi');
+
+  // Blobbi editor state (kind 31124)
   const [selectedBlobbiId, setSelectedBlobbiId] = useState<string | null>(null);
-  const [patch, setPatch] = useState<BlobbiPatch>({});
+  const [blobbiPatch, setBlobbiPatch] = useState<BlobbiPatch>({});
+  const [originalBlobbiEvent, setOriginalBlobbiEvent] = useState<NostrEvent | null>(null);
+
+  // Profile editor state (kind 31125)
+  const [profileData, setProfileData] = useState<MergedBlobbonaut | null>(null);
+  const [profilePatch, setProfilePatch] = useState<BlobbonautPatch>({});
+  const [originalProfileEvent, setOriginalProfileEvent] = useState<NostrEvent | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [newHasItem, setNewHasItem] = useState('');
+  const [newStorageEntry, setNewStorageEntry] = useState('');
+
   const [isPublishing, setIsPublishing] = useState(false);
-  const [originalEvent, setOriginalEvent] = useState<NostrEvent | null>(null);
 
   // Redirect if not in development or not localhost
   useEffect(() => {
@@ -273,11 +297,11 @@ export default function BlobbiEditor() {
     return blobbis.find(b => b.id === selectedBlobbiId) || null;
   }, [selectedBlobbiId, blobbis]);
 
-  // Fetch original event when Blobbi is selected
+  // Fetch original Blobbi event when selected
   useEffect(() => {
-    if (!selectedBlobbi) {
-      setOriginalEvent(null);
-      setPatch({});
+    if (!selectedBlobbi || mode !== 'blobbi') {
+      setOriginalBlobbiEvent(null);
+      setBlobbiPatch({});
       return;
     }
 
@@ -294,7 +318,7 @@ export default function BlobbiEditor() {
         );
         
         if (events.length > 0) {
-          setOriginalEvent(events[0]);
+          setOriginalBlobbiEvent(events[0]);
         }
       } catch (err) {
         console.error('Failed to fetch original event:', err);
@@ -307,11 +331,66 @@ export default function BlobbiEditor() {
     };
 
     fetchOriginalEvent();
-  }, [selectedBlobbi, nostr, toast]);
+  }, [selectedBlobbi, nostr, toast, mode]);
 
-  // Update a field in the patch - ONLY add if value is not NONE
-  const updatePatchField = useCallback(<K extends keyof BlobbiPatch>(field: K, value: BlobbiPatch[K] | typeof NONE) => {
-    setPatch(prev => {
+  // Fetch profile event when in profile mode
+  useEffect(() => {
+    if (mode !== 'profile' || !user) {
+      setProfileData(null);
+      setOriginalProfileEvent(null);
+      setProfilePatch({});
+      return;
+    }
+
+    const fetchProfileEvent = async () => {
+      setProfileLoading(true);
+      try {
+        const events = await nostr.query(
+          [{ 
+            kinds: [31125], 
+            authors: [user.pubkey],
+            limit: 1
+          }],
+          { signal: AbortSignal.timeout(3000) }
+        );
+        
+        if (events.length > 0) {
+          const parsed = parseBlobbonautFromEvent(events[0]);
+          if (parsed) {
+            setProfileData(parsed);
+            setOriginalProfileEvent(events[0]);
+          } else {
+            toast({
+              title: 'Error',
+              description: 'Failed to parse profile event',
+              variant: 'destructive'
+            });
+          }
+        } else {
+          toast({
+            title: 'No Profile Found',
+            description: 'No kind 31125 profile event found for your pubkey.',
+            variant: 'default'
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch profile event:', err);
+        toast({
+          title: 'Error',
+          description: 'Could not fetch profile event',
+          variant: 'destructive'
+        });
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    fetchProfileEvent();
+  }, [mode, user, nostr, toast]);
+
+  // Update a field in the blobbi patch - ONLY add if value is not NONE
+  const updateBlobbiPatchField = useCallback(<K extends keyof BlobbiPatch>(field: K, value: BlobbiPatch[K] | typeof NONE) => {
+    setBlobbiPatch(prev => {
       const newPatch = { ...prev };
       
       if (value === NONE || value === undefined || value === '') {
@@ -327,12 +406,20 @@ export default function BlobbiEditor() {
 
   // Update a stat
   const updateStat = useCallback((stat: keyof BlobbiStats, value: number) => {
-    setPatch(prev => ({
+    setBlobbiPatch(prev => ({
       ...prev,
       stats: {
         ...(prev.stats || {}),
         [stat]: Math.max(0, Math.min(100, value))
       }
+    }));
+  }, []);
+
+  // Update profile patch field
+  const updateProfilePatchField = useCallback(<K extends keyof BlobbonautPatch>(field: K, value: BlobbonautPatch[K]) => {
+    setProfilePatch(prev => ({
+      ...prev,
+      [field]: value
     }));
   }, []);
 
@@ -345,29 +432,51 @@ export default function BlobbiEditor() {
     const merged: Blobbi = JSON.parse(JSON.stringify(selectedBlobbi));
     
     // Apply patch
-    Object.keys(patch).forEach(key => {
-      const value = patch[key as keyof BlobbiPatch];
+    Object.keys(blobbiPatch).forEach(key => {
+      const value = blobbiPatch[key as keyof BlobbiPatch];
       if (value !== undefined) {
         if (key === 'stats' && typeof value === 'object') {
           merged.stats = { ...merged.stats, ...value };
         } else {
-          (merged as any)[key] = value;
+          // Use type assertion to bypass TypeScript's over-strict checking
+          (merged as unknown as Record<string, unknown>)[key] = value;
         }
       }
     });
     
     return merged;
-  }, [selectedBlobbi, patch]);
+  }, [selectedBlobbi, blobbiPatch]);
 
-  // Generate diff between original and merged
-  const diff = useMemo(() => {
+  // Get merged profile (original + patch)
+  const mergedProfile = useMemo((): MergedBlobbonaut | null => {
+    if (!profileData) return null;
+
+    const merged: MergedBlobbonaut = JSON.parse(JSON.stringify(profileData));
+
+    // Apply patch
+    if (profilePatch.name !== undefined) merged.name = profilePatch.name;
+    if (profilePatch.onboarding_done !== undefined) merged.onboarding_done = profilePatch.onboarding_done;
+    if (profilePatch.coins !== undefined) merged.coins = profilePatch.coins;
+    if (profilePatch.pettingLevel !== undefined) merged.pettingLevel = profilePatch.pettingLevel;
+    if (profilePatch.lifetimeBlobbis !== undefined) merged.lifetimeBlobbis = profilePatch.lifetimeBlobbis;
+    if (profilePatch.mission_daily_checkin_claimed_at !== undefined) {
+      merged.mission_daily_checkin_claimed_at = profilePatch.mission_daily_checkin_claimed_at;
+    }
+    if (profilePatch.has !== undefined) merged.has = profilePatch.has;
+    if (profilePatch.storage !== undefined) merged.storage = profilePatch.storage;
+
+    return merged;
+  }, [profileData, profilePatch]);
+
+  // Generate diff between original and merged Blobbi
+  const blobbiDiff = useMemo(() => {
     if (!selectedBlobbi || !mergedBlobbi) return null;
     
-    const changes: Array<{ field: string; old: any; new: any }> = [];
+    const changes: Array<{ field: string; old: never; new: never }> = [];
     
     // Check all patch fields
-    Object.keys(patch).forEach(key => {
-      const patchValue = patch[key as keyof BlobbiPatch];
+    Object.keys(blobbiPatch).forEach(key => {
+      const patchValue = blobbiPatch[key as keyof BlobbiPatch];
       if (patchValue === undefined) return;
       
       if (key === 'stats') {
@@ -378,42 +487,76 @@ export default function BlobbiEditor() {
           if (oldValue !== newValue) {
             changes.push({
               field: `stats.${statKey}`,
-              old: oldValue,
-              new: newValue
+              old: oldValue as never,
+              new: newValue as never
             });
           }
         });
       } else {
-        const oldValue = (selectedBlobbi as any)[key];
+        const oldValue = (selectedBlobbi as never)[key];
         const newValue = patchValue;
         
         // Deep comparison for arrays
         if (Array.isArray(oldValue) && Array.isArray(newValue)) {
           if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
-            changes.push({ field: key, old: oldValue, new: newValue });
+            changes.push({ field: key, old: oldValue as never, new: newValue as never });
           }
         } else if (oldValue !== newValue) {
-          changes.push({ field: key, old: oldValue, new: newValue });
+          changes.push({ field: key, old: oldValue as never, new: newValue as never });
         }
       }
     });
     
     return changes;
-  }, [selectedBlobbi, mergedBlobbi, patch]);
+  }, [selectedBlobbi, mergedBlobbi, blobbiPatch]);
+
+  // Generate diff for profile
+  const profileDiff = useMemo(() => {
+    if (!profileData || !mergedProfile) return null;
+
+    const changes: Array<{ field: string; old: never; new: never }> = [];
+
+    if (profilePatch.name !== undefined && profileData.name !== mergedProfile.name) {
+      changes.push({ field: 'name', old: profileData.name as never, new: mergedProfile.name as never });
+    }
+    if (profilePatch.onboarding_done !== undefined && profileData.onboarding_done !== mergedProfile.onboarding_done) {
+      changes.push({ field: 'onboarding_done', old: profileData.onboarding_done as never, new: mergedProfile.onboarding_done as never });
+    }
+    if (profilePatch.coins !== undefined && profileData.coins !== mergedProfile.coins) {
+      changes.push({ field: 'coins', old: profileData.coins as never, new: mergedProfile.coins as never });
+    }
+    if (profilePatch.pettingLevel !== undefined && profileData.pettingLevel !== mergedProfile.pettingLevel) {
+      changes.push({ field: 'pettingLevel', old: profileData.pettingLevel as never, new: mergedProfile.pettingLevel as never });
+    }
+    if (profilePatch.lifetimeBlobbis !== undefined && profileData.lifetimeBlobbis !== mergedProfile.lifetimeBlobbis) {
+      changes.push({ field: 'lifetimeBlobbis', old: profileData.lifetimeBlobbis as never, new: mergedProfile.lifetimeBlobbis as never });
+    }
+    if (profilePatch.mission_daily_checkin_claimed_at !== undefined && profileData.mission_daily_checkin_claimed_at !== mergedProfile.mission_daily_checkin_claimed_at) {
+      changes.push({ field: 'mission_daily_checkin_claimed_at', old: profileData.mission_daily_checkin_claimed_at as never, new: mergedProfile.mission_daily_checkin_claimed_at as never });
+    }
+    if (profilePatch.has !== undefined && JSON.stringify(profileData.has) !== JSON.stringify(mergedProfile.has)) {
+      changes.push({ field: 'has', old: profileData.has as never, new: mergedProfile.has as never });
+    }
+    if (profilePatch.storage !== undefined && JSON.stringify(profileData.storage) !== JSON.stringify(mergedProfile.storage)) {
+      changes.push({ field: 'storage', old: profileData.storage as never, new: mergedProfile.storage as never });
+    }
+
+    return changes;
+  }, [profileData, mergedProfile, profilePatch]);
 
   // Detect significant visual changes for badges
   const visualChanges = useMemo(() => {
-    if (!diff) return { stageChanged: false, evolutionChanged: false };
+    if (!blobbiDiff) return { stageChanged: false, evolutionChanged: false };
     
-    const stageChanged = diff.some(d => d.field === 'lifeStage');
-    const evolutionChanged = diff.some(d => d.field === 'evolutionForm');
+    const stageChanged = blobbiDiff.some(d => d.field === 'lifeStage');
+    const evolutionChanged = blobbiDiff.some(d => d.field === 'evolutionForm');
     
     return { stageChanged, evolutionChanged };
-  }, [diff]);
+  }, [blobbiDiff]);
 
   // Convert Blobbi to tags (preserving all original tags)
-  const generateUpdatedTags = useCallback((blobbi: Blobbi): string[][] => {
-    if (!originalEvent) {
+  const generateUpdatedBlobbiTags = useCallback((blobbi: Blobbi): string[][] => {
+    if (!originalBlobbiEvent) {
       toast({
         title: 'Error',
         description: 'Original event not loaded. Cannot safely update.',
@@ -423,7 +566,7 @@ export default function BlobbiEditor() {
     }
 
     // Start with all original tags
-    const tags: string[][] = [...originalEvent.tags];
+    const tags: string[][] = [...originalBlobbiEvent.tags];
     
     // Helper to update or add a tag
     const setTag = (tagName: string, value: string | number | boolean | undefined | null) => {
@@ -548,7 +691,7 @@ export default function BlobbiEditor() {
     setTag('has_debuff', blobbi.hasDebuff);
     
     return tags;
-  }, [originalEvent, toast]);
+  }, [originalBlobbiEvent, toast]);
 
   // Publish the update
   const handlePublish = async () => {
@@ -561,62 +704,118 @@ export default function BlobbiEditor() {
       return;
     }
 
-    if (!mergedBlobbi || !originalEvent) {
-      toast({
-        title: 'Error',
-        description: 'No Blobbi selected or original event not loaded',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    if (!diff || diff.length === 0) {
-      toast({
-        title: 'No Changes',
-        description: 'No changes to publish',
-        variant: 'default'
-      });
-      return;
-    }
-
-    setIsPublishing(true);
-
-    try {
-      const updatedTags = generateUpdatedTags(mergedBlobbi);
-      
-      if (updatedTags.length === 0) {
-        throw new Error('Failed to generate tags');
+    if (mode === 'blobbi') {
+      if (!mergedBlobbi || !originalBlobbiEvent) {
+        toast({
+          title: 'Error',
+          description: 'No Blobbi selected or original event not loaded',
+          variant: 'destructive'
+        });
+        return;
       }
 
-      await publishEvent({
-        kind: 31124,
-        content: originalEvent.content, // Preserve original content
-        tags: updatedTags,
-      });
+      if (!blobbiDiff || blobbiDiff.length === 0) {
+        toast({
+          title: 'No Changes',
+          description: 'No changes to publish',
+          variant: 'default'
+        });
+        return;
+      }
 
-      toast({
-        title: 'Success',
-        description: `Successfully updated ${mergedBlobbi.name}`,
-        variant: 'default'
-      });
+      setIsPublishing(true);
 
-      // Reset patch
-      setPatch({});
-      
-      // Reload to see changes
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-      
-    } catch (err) {
-      console.error('Failed to publish update:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to publish update. Check console for details.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsPublishing(false);
+      try {
+        const updatedTags = generateUpdatedBlobbiTags(mergedBlobbi);
+        
+        if (updatedTags.length === 0) {
+          throw new Error('Failed to generate tags');
+        }
+
+        await publishEvent({
+          kind: 31124,
+          content: originalBlobbiEvent.content, // Preserve original content
+          tags: updatedTags,
+        });
+
+        toast({
+          title: 'Success',
+          description: `Successfully updated ${mergedBlobbi.name}`,
+          variant: 'default'
+        });
+
+        // Reset patch
+        setBlobbiPatch({});
+        
+        // Reload to see changes
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+        
+      } catch (err) {
+        console.error('Failed to publish update:', err);
+        toast({
+          title: 'Error',
+          description: 'Failed to publish update. Check console for details.',
+          variant: 'destructive'
+        });
+      } finally {
+        setIsPublishing(false);
+      }
+    } else if (mode === 'profile') {
+      if (!mergedProfile || !originalProfileEvent) {
+        toast({
+          title: 'Error',
+          description: 'No profile loaded or original event not loaded',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      if (!profileDiff || profileDiff.length === 0) {
+        toast({
+          title: 'No Changes',
+          description: 'No changes to publish',
+          variant: 'default'
+        });
+        return;
+      }
+
+      setIsPublishing(true);
+
+      try {
+        const updatedTags = generateUpdatedTags31125(originalProfileEvent, mergedProfile);
+
+        await publishEvent({
+          kind: 31125,
+          content: originalProfileEvent.content, // Preserve original content
+          tags: updatedTags,
+        });
+
+        toast({
+          title: 'Success',
+          description: 'Successfully updated profile',
+          variant: 'default'
+        });
+
+        // Reset patch
+        setProfilePatch({});
+        
+        // Reload to see changes
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+        
+      } catch (err) {
+        console.error('Failed to publish profile update:', err);
+        toast({
+          title: 'Error',
+          description: 'Failed to publish update. Check console for details.',
+          variant: 'destructive'
+        });
+      } finally {
+        setIsPublishing(false);
+      }
     }
   };
 
@@ -644,24 +843,12 @@ export default function BlobbiEditor() {
     );
   }
 
-  if (!blobbis || blobbis.length === 0) {
-    return (
-      <div className="container mx-auto p-8">
-        <Card>
-          <CardContent className="py-8">
-            <p className="text-muted-foreground">
-              No Blobbis found. Adopt some Blobbis first!
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   // Deduplicate colors to avoid key conflicts
   const uniqueBaseColors = Array.from(new Set(ALL_VALID_BASE_COLORS));
   const uniqueSecondaryColors = Array.from(new Set(ALL_VALID_SECONDARY_COLORS));
   const uniqueEyeColors = Array.from(new Set(ALL_VALID_EYE_COLORS));
+
+  const currentDiff = mode === 'blobbi' ? blobbiDiff : profileDiff;
 
   return (
     <div className="container mx-auto p-6">
@@ -671,58 +858,111 @@ export default function BlobbiEditor() {
           <Badge variant="destructive">DEV ONLY</Badge>
         </div>
         <p className="text-muted-foreground">
-          Edit existing Blobbi entities for development and debugging purposes.
+          Edit existing Blobbi entities and user profile/progress for development and debugging purposes.
           Only available on localhost in dev mode.
         </p>
       </div>
 
+      {/* Mode Switcher */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Editor Mode</CardTitle>
+          <CardDescription>Choose what to edit</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={mode} onValueChange={(v) => setMode(v as EditorMode)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="blobbi">Edit Blobbi (kind 31124)</TabsTrigger>
+              <TabsTrigger value="profile">Edit User Profile/Progress (kind 31125)</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Panel - Blobbi List */}
+        {/* Left Panel */}
         <div className="lg:col-span-3">
           <Card>
             <CardHeader>
-              <CardTitle>Your Blobbis</CardTitle>
+              <CardTitle>{mode === 'blobbi' ? 'Your Blobbis' : 'Profile Event'}</CardTitle>
               <CardDescription>
-                {blobbis.length} {blobbis.length === 1 ? 'Blobbi' : 'Blobbis'}
+                {mode === 'blobbi' ? (
+                  `${blobbis?.length || 0} ${blobbis?.length === 1 ? 'Blobbi' : 'Blobbis'}`
+                ) : (
+                  'Your kind 31125 profile'
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-1 p-4">
-                  {blobbis.map(blobbi => (
-                    <Button
-                      key={blobbi.id}
-                      variant={selectedBlobbiId === blobbi.id ? 'default' : 'ghost'}
-                      className="w-full justify-start h-auto py-3"
-                      onClick={() => setSelectedBlobbiId(blobbi.id)}
-                    >
-                      <div className="flex items-center gap-3 w-full">
-                        <BlobbiThumbnail blobbi={blobbi} />
-                        <div className="flex flex-col items-start flex-1 min-w-0">
-                          <div className="font-semibold truncate w-full">{blobbi.name}</div>
-                          <div className="text-xs opacity-70 truncate w-full">
-                            {blobbi.lifeStage}
-                            {blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' && (
-                              <> • {blobbi.evolutionForm}</>
-                            )}
+              {mode === 'blobbi' ? (
+                <ScrollArea className="h-[600px]">
+                  <div className="space-y-1 p-4">
+                    {blobbis && blobbis.map(blobbi => (
+                      <Button
+                        key={blobbi.id}
+                        variant={selectedBlobbiId === blobbi.id ? 'default' : 'ghost'}
+                        className="w-full justify-start h-auto py-3"
+                        onClick={() => setSelectedBlobbiId(blobbi.id)}
+                      >
+                        <div className="flex items-center gap-3 w-full">
+                          <BlobbiThumbnail blobbi={blobbi} />
+                          <div className="flex flex-col items-start flex-1 min-w-0">
+                            <div className="font-semibold truncate w-full">{blobbi.name}</div>
+                            <div className="text-xs opacity-70 truncate w-full">
+                              {blobbi.lifeStage}
+                              {blobbi.evolutionForm && blobbi.evolutionForm !== 'blobbi' && (
+                                <> • {blobbi.evolutionForm}</>
+                              )}
+                            </div>
                           </div>
                         </div>
+                      </Button>
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <div className="p-4">
+                  {profileLoading ? (
+                    <div className="text-center py-8 text-muted-foreground">Loading profile...</div>
+                  ) : profileData ? (
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Profile Loaded</div>
+                      <div className="text-xs text-muted-foreground">
+                        ID: {profileData.id}
                       </div>
-                    </Button>
-                  ))}
+                      <div className="text-xs text-muted-foreground">
+                        Coins: {profileData.coins}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Blobbis owned: {profileData.has.length}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No profile event found
+                    </div>
+                  )}
                 </div>
-              </ScrollArea>
+              )}
             </CardContent>
           </Card>
         </div>
 
         {/* Right Panel - Editor */}
         <div className="lg:col-span-9">
-          {!selectedBlobbi ? (
+          {mode === 'blobbi' && !selectedBlobbi ? (
             <Card>
               <CardContent className="py-16 text-center">
                 <p className="text-muted-foreground">
                   Select a Blobbi from the list to edit
+                </p>
+              </CardContent>
+            </Card>
+          ) : mode === 'profile' && !profileData ? (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <p className="text-muted-foreground">
+                  {profileLoading ? 'Loading profile...' : 'No profile event found for your pubkey'}
                 </p>
               </CardContent>
             </Card>
@@ -733,37 +973,55 @@ export default function BlobbiEditor() {
                 <CardHeader>
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                     <div>
-                      <CardTitle>{selectedBlobbi.name}</CardTitle>
+                      <CardTitle>
+                        {mode === 'blobbi' ? selectedBlobbi?.name : 'Profile Editor'}
+                      </CardTitle>
                       <CardDescription>
-                        {selectedBlobbi.lifeStage} • ID: {selectedBlobbi.id}
-                        {selectedBlobbi.themeVariant === 'divine' && (
-                          <Badge variant="secondary" className="ml-2">Divine</Badge>
+                        {mode === 'blobbi' ? (
+                          <>
+                            {selectedBlobbi?.lifeStage} • ID: {selectedBlobbi?.id}
+                            {selectedBlobbi?.themeVariant === 'divine' && (
+                              <Badge variant="secondary" className="ml-2">Divine</Badge>
+                            )}
+                          </>
+                        ) : (
+                          `ID: ${profileData?.id}`
                         )}
                       </CardDescription>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
                       <Button
                         variant="outline"
-                        onClick={() => setPatch({})}
-                        disabled={Object.keys(patch).length === 0}
+                        onClick={() => {
+                          if (mode === 'blobbi') {
+                            setBlobbiPatch({});
+                          } else {
+                            setProfilePatch({});
+                          }
+                        }}
+                        disabled={
+                          mode === 'blobbi' 
+                            ? Object.keys(blobbiPatch).length === 0 
+                            : Object.keys(profilePatch).length === 0
+                        }
                         className="flex-1 sm:flex-none"
                       >
                         Reset
                       </Button>
                       <Button
                         onClick={handlePublish}
-                        disabled={!diff || diff.length === 0 || isPublishing}
+                        disabled={!currentDiff || currentDiff.length === 0 || isPublishing}
                         className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none"
                       >
-                        {isPublishing ? 'Publishing...' : `Publish (${diff?.length || 0})`}
+                        {isPublishing ? 'Publishing...' : `Publish (${currentDiff?.length || 0})`}
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
               </Card>
 
-              {/* Before/After Preview */}
-              {selectedBlobbi && mergedBlobbi && (
+              {/* Before/After Preview (only for Blobbi mode) */}
+              {mode === 'blobbi' && selectedBlobbi && mergedBlobbi && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -780,44 +1038,6 @@ export default function BlobbiEditor() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {/* DEV-ONLY DEBUG OUTPUT */}
-                    {isDevelopment && (
-                      <div className="mb-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-mono">
-                        <div className="font-bold mb-2">🔍 Debug State (DEV-ONLY)</div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <div className="font-semibold mb-1">Before (selectedBlobbi):</div>
-                            <div>baseColor: {selectedBlobbi.baseColor || 'null'}</div>
-                            <div>secondaryColor: {selectedBlobbi.secondaryColor || 'null'}</div>
-                            <div>eyeColor: {selectedBlobbi.eyeColor || 'null'}</div>
-                            <div>pattern: {selectedBlobbi.pattern || 'null'}</div>
-                            {selectedBlobbi.lifeStage === 'egg' && (
-                              <>
-                                <div>eggTemperature: {selectedBlobbi.eggTemperature || 'null'}</div>
-                                <div>eggStatus: {selectedBlobbi.eggStatus || 'null'}</div>
-                              </>
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-semibold mb-1">After (mergedBlobbi):</div>
-                            <div>baseColor: {mergedBlobbi.baseColor || 'null'}</div>
-                            <div>secondaryColor: {mergedBlobbi.secondaryColor || 'null'}</div>
-                            <div>eyeColor: {mergedBlobbi.eyeColor || 'null'}</div>
-                            <div>pattern: {mergedBlobbi.pattern || 'null'}</div>
-                            {mergedBlobbi.lifeStage === 'egg' && (
-                              <>
-                                <div>eggTemperature: {mergedBlobbi.eggTemperature || 'null'}</div>
-                                <div>eggStatus: {mergedBlobbi.eggStatus || 'null'}</div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
-                          <div className="font-semibold">Patch keys: {Object.keys(patch).join(', ') || 'none'}</div>
-                        </div>
-                      </div>
-                    )}
-                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Before */}
                       <div className="space-y-3">
@@ -827,41 +1047,6 @@ export default function BlobbiEditor() {
                         <div className="flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/30 rounded-xl border-2 border-gray-200 dark:border-gray-700 aspect-square max-w-[280px] mx-auto p-6">
                           <BlobbiPreview blobbi={selectedBlobbi} size="medium" />
                         </div>
-                        {/* Truth Test: Actual prop colors */}
-                        {isDevelopment && (
-                          <div className="flex justify-center gap-2 px-4">
-                            {selectedBlobbi.baseColor && (
-                              <div className="flex flex-col items-center gap-1">
-                                <div 
-                                  className="w-6 h-6 rounded border-2 border-gray-400" 
-                                  style={{ backgroundColor: selectedBlobbi.baseColor }}
-                                  title={`Base: ${selectedBlobbi.baseColor}`}
-                                />
-                                <span className="text-[10px] font-mono">base</span>
-                              </div>
-                            )}
-                            {selectedBlobbi.secondaryColor && (
-                              <div className="flex flex-col items-center gap-1">
-                                <div 
-                                  className="w-6 h-6 rounded border-2 border-gray-400" 
-                                  style={{ backgroundColor: selectedBlobbi.secondaryColor }}
-                                  title={`Secondary: ${selectedBlobbi.secondaryColor}`}
-                                />
-                                <span className="text-[10px] font-mono">2nd</span>
-                              </div>
-                            )}
-                            {selectedBlobbi.eyeColor && (
-                              <div className="flex flex-col items-center gap-1">
-                                <div 
-                                  className="w-6 h-6 rounded border-2 border-gray-400" 
-                                  style={{ backgroundColor: selectedBlobbi.eyeColor }}
-                                  title={`Eye: ${selectedBlobbi.eyeColor}`}
-                                />
-                                <span className="text-[10px] font-mono">eye</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
                         <div className="text-center text-xs text-muted-foreground">
                           {selectedBlobbi.name} • {selectedBlobbi.lifeStage}
                           {selectedBlobbi.evolutionForm && selectedBlobbi.evolutionForm !== 'blobbi' && (
@@ -878,41 +1063,6 @@ export default function BlobbiEditor() {
                         <div className="flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl border-2 border-purple-200 dark:border-purple-600 aspect-square max-w-[280px] mx-auto p-6">
                           <BlobbiPreview blobbi={mergedBlobbi} size="medium" />
                         </div>
-                        {/* Truth Test: Actual prop colors */}
-                        {isDevelopment && (
-                          <div className="flex justify-center gap-2 px-4">
-                            {mergedBlobbi.baseColor && (
-                              <div className="flex flex-col items-center gap-1">
-                                <div 
-                                  className="w-6 h-6 rounded border-2 border-gray-400" 
-                                  style={{ backgroundColor: mergedBlobbi.baseColor }}
-                                  title={`Base: ${mergedBlobbi.baseColor}`}
-                                />
-                                <span className="text-[10px] font-mono">base</span>
-                              </div>
-                            )}
-                            {mergedBlobbi.secondaryColor && (
-                              <div className="flex flex-col items-center gap-1">
-                                <div 
-                                  className="w-6 h-6 rounded border-2 border-gray-400" 
-                                  style={{ backgroundColor: mergedBlobbi.secondaryColor }}
-                                  title={`Secondary: ${mergedBlobbi.secondaryColor}`}
-                                />
-                                <span className="text-[10px] font-mono">2nd</span>
-                              </div>
-                            )}
-                            {mergedBlobbi.eyeColor && (
-                              <div className="flex flex-col items-center gap-1">
-                                <div 
-                                  className="w-6 h-6 rounded border-2 border-gray-400" 
-                                  style={{ backgroundColor: mergedBlobbi.eyeColor }}
-                                  title={`Eye: ${mergedBlobbi.eyeColor}`}
-                                />
-                                <span className="text-[10px] font-mono">eye</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
                         <div className="text-center text-xs text-muted-foreground">
                           {mergedBlobbi.name} • {mergedBlobbi.lifeStage}
                           {mergedBlobbi.evolutionForm && mergedBlobbi.evolutionForm !== 'blobbi' && (
@@ -928,55 +1078,26 @@ export default function BlobbiEditor() {
               {/* Editor Tabs */}
               <Card>
                 <CardContent className="pt-6">
-                  <Tabs defaultValue="stats" className="w-full">
-                    <TabsList className="grid w-full grid-cols-5">
-                      <TabsTrigger value="stats">Stats</TabsTrigger>
-                      <TabsTrigger value="core">Core</TabsTrigger>
-                      <TabsTrigger value="appearance">Appearance</TabsTrigger>
-                      <TabsTrigger value="personality">Personality</TabsTrigger>
-                      <TabsTrigger value="evolution">Evolution</TabsTrigger>
-                    </TabsList>
+                  {mode === 'blobbi' && mergedBlobbi ? (
+                    <Tabs defaultValue="stats" className="w-full">
+                      <TabsList className="grid w-full grid-cols-5">
+                        <TabsTrigger value="stats">Stats</TabsTrigger>
+                        <TabsTrigger value="core">Core</TabsTrigger>
+                        <TabsTrigger value="appearance">Appearance</TabsTrigger>
+                        <TabsTrigger value="personality">Personality</TabsTrigger>
+                        <TabsTrigger value="evolution">Evolution</TabsTrigger>
+                      </TabsList>
 
-                    {/* Stats Tab */}
-                    <TabsContent value="stats" className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {Object.entries(mergedBlobbi?.stats || {}).map(([stat, value]) => (
-                          <div key={stat} className="space-y-2">
-                            <Label className="capitalize">{stat}</Label>
-                            <div className="flex items-center gap-4">
-                              <Slider
-                                value={[value]}
-                                onValueChange={([newValue]) => updateStat(stat as keyof BlobbiStats, newValue)}
-                                max={100}
-                                min={0}
-                                step={1}
-                                className="flex-1"
-                              />
-                              <Input
-                                type="number"
-                                value={value}
-                                onChange={(e) => updateStat(stat as keyof BlobbiStats, parseInt(e.target.value) || 0)}
-                                className="w-20"
-                                min={0}
-                                max={100}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Egg-specific stats */}
-                      {mergedBlobbi?.lifeStage === 'egg' && (
-                        <>
-                          <Separator />
-                          <h3 className="font-semibold">Egg-Specific Stats</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Egg Temperature</Label>
+                      {/* Stats Tab */}
+                      <TabsContent value="stats" className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {Object.entries(mergedBlobbi.stats).map(([stat, value]) => (
+                            <div key={stat} className="space-y-2">
+                              <Label className="capitalize">{stat}</Label>
                               <div className="flex items-center gap-4">
                                 <Slider
-                                  value={[mergedBlobbi?.eggTemperature || 0]}
-                                  onValueChange={([value]) => updatePatchField('eggTemperature', value)}
+                                  value={[value]}
+                                  onValueChange={([newValue]) => updateStat(stat as keyof BlobbiStats, newValue)}
                                   max={100}
                                   min={0}
                                   step={1}
@@ -984,493 +1105,694 @@ export default function BlobbiEditor() {
                                 />
                                 <Input
                                   type="number"
-                                  value={mergedBlobbi?.eggTemperature || 0}
-                                  onChange={(e) => updatePatchField('eggTemperature', parseInt(e.target.value) || 0)}
+                                  value={value}
+                                  onChange={(e) => updateStat(stat as keyof BlobbiStats, parseInt(e.target.value) || 0)}
                                   className="w-20"
                                   min={0}
                                   max={100}
                                 />
                               </div>
                             </div>
-                            <div className="space-y-2">
-                              <Label>Shell Integrity</Label>
-                              <div className="flex items-center gap-4">
-                                <Slider
-                                  value={[mergedBlobbi?.shellIntegrity || 100]}
-                                  onValueChange={([value]) => updatePatchField('shellIntegrity', value)}
-                                  max={100}
-                                  min={0}
-                                  step={1}
-                                  className="flex-1"
-                                />
-                                <Input
-                                  type="number"
-                                  value={mergedBlobbi?.shellIntegrity || 100}
-                                  onChange={(e) => updatePatchField('shellIntegrity', parseInt(e.target.value) || 0)}
-                                  className="w-20"
-                                  min={0}
-                                  max={100}
-                                />
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Incubation Progress</Label>
-                              <Input
-                                type="number"
-                                value={mergedBlobbi?.incubationProgress || 0}
-                                onChange={(e) => updatePatchField('incubationProgress', parseInt(e.target.value) || 0)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Egg Status</Label>
-                              <Select
-                                value={mergedBlobbi?.eggStatus || NONE}
-                                onValueChange={(value) => updatePatchField('eggStatus', value === NONE ? undefined : value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select status..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value={NONE}>None</SelectItem>
-                                  {VALID_EGG_STATUSES.map(status => (
-                                    <SelectItem key={status} value={status}>{status}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </TabsContent>
+                          ))}
+                        </div>
 
-                    {/* Core Tab */}
-                    <TabsContent value="core" className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Name</Label>
-                          <Input
-                            value={mergedBlobbi?.name || ''}
-                            onChange={(e) => updatePatchField('name', e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Life Stage</Label>
-                          <Select
-                            value={mergedBlobbi?.lifeStage}
-                            onValueChange={(value) => updatePatchField('lifeStage', value as typeof LIFE_STAGES[number])}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {LIFE_STAGES.map(stage => (
-                                <SelectItem key={stage} value={stage}>{stage}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>State</Label>
-                          <Select
-                            value={mergedBlobbi?.state}
-                            onValueChange={(value) => updatePatchField('state', value as typeof STATES[number])}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {STATES.map(state => (
-                                <SelectItem key={state} value={state}>{state}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Mood</Label>
-                          <Select
-                            value={mergedBlobbi?.mood || NONE}
-                            onValueChange={(value) => updatePatchField('mood', value === NONE ? undefined : value as typeof MOODS[number])}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {MOODS.map(mood => (
-                                <SelectItem key={mood} value={mood}>{mood}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Experience</Label>
-                          <Input
-                            type="number"
-                            value={mergedBlobbi?.experience || 0}
-                            onChange={(e) => updatePatchField('experience', parseInt(e.target.value) || 0)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Coins</Label>
-                          <Input
-                            type="number"
-                            value={mergedBlobbi?.coins || 0}
-                            onChange={(e) => updatePatchField('coins', parseInt(e.target.value) || 0)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Generation</Label>
-                          <Input
-                            type="number"
-                            value={mergedBlobbi?.generation || 1}
-                            onChange={(e) => updatePatchField('generation', parseInt(e.target.value) || 1)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Care Streak</Label>
-                          <Input
-                            type="number"
-                            value={mergedBlobbi?.careStreak || 0}
-                            onChange={(e) => updatePatchField('careStreak', parseInt(e.target.value) || 0)}
-                          />
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    {/* Appearance Tab */}
-                    <TabsContent value="appearance" className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Base Color</Label>
-                          <Select
-                            value={mergedBlobbi?.baseColor || NONE}
-                            onValueChange={(value) => updatePatchField('baseColor', value === NONE ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select color..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {uniqueBaseColors.map((color, idx) => (
-                                <SelectItem key={`base-${color}-${idx}`} value={color}>
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 rounded border" style={{ backgroundColor: color }} />
-                                    {color}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Secondary Color</Label>
-                          <Select
-                            value={mergedBlobbi?.secondaryColor || NONE}
-                            onValueChange={(value) => updatePatchField('secondaryColor', value === NONE ? undefined : value)}
-                            disabled={mergedBlobbi?.themeVariant === 'divine'}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select color..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {uniqueSecondaryColors.map((color, idx) => (
-                                <SelectItem key={`secondary-${color}-${idx}`} value={color}>
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 rounded border" style={{ backgroundColor: color }} />
-                                    {color}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {mergedBlobbi?.themeVariant === 'divine' && (
-                            <p className="text-xs text-muted-foreground">
-                              Divine Blobbis don't use secondary colors
-                            </p>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Eye Color</Label>
-                          <Select
-                            value={mergedBlobbi?.eyeColor || NONE}
-                            onValueChange={(value) => updatePatchField('eyeColor', value === NONE ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select color..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {uniqueEyeColors.map((color, idx) => (
-                                <SelectItem key={`eye-${color}-${idx}`} value={color}>
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 rounded border" style={{ backgroundColor: color }} />
-                                    {color}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Pattern</Label>
-                          <Select
-                            value={mergedBlobbi?.pattern || NONE}
-                            onValueChange={(value) => updatePatchField('pattern', value === NONE ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select pattern..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {VALID_PATTERNS.map(pattern => (
-                                <SelectItem key={pattern} value={pattern}>{pattern}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Special Mark</Label>
-                          <Select
-                            value={mergedBlobbi?.specialMark || NONE}
-                            onValueChange={(value) => updatePatchField('specialMark', value === NONE ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select mark..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {ALL_VALID_SPECIAL_MARKS.map(mark => (
-                                <SelectItem key={mark} value={mark}>{mark}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Size</Label>
-                          <Select
-                            value={mergedBlobbi?.size || NONE}
-                            onValueChange={(value) => updatePatchField('size', value === NONE ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select size..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {ALL_VALID_SIZES.map(size => (
-                                <SelectItem key={size} value={size}>{size}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Manifestation</Label>
-                          <Select
-                            value={mergedBlobbi?.manifestation || NONE}
-                            onValueChange={(value) => updatePatchField('manifestation', value === NONE ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select manifestation..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {MANIFESTATIONS.map(manif => (
-                                <SelectItem key={manif} value={manif}>{manif}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Visual Effect</Label>
-                          <Select
-                            value={mergedBlobbi?.visualEffect || NONE}
-                            onValueChange={(value) => updatePatchField('visualEffect', value === NONE ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select effect..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {VISUAL_EFFECTS.map(effect => (
-                                <SelectItem key={effect} value={effect}>{effect}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Blessing</Label>
-                          <Select
-                            value={mergedBlobbi?.blessing || NONE}
-                            onValueChange={(value) => updatePatchField('blessing', value === NONE ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select blessing..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {BLESSINGS.map(blessing => (
-                                <SelectItem key={blessing} value={blessing}>{blessing}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    {/* Personality Tab */}
-                    <TabsContent value="personality" className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Title</Label>
-                          <Select
-                            value={mergedBlobbi?.title || NONE}
-                            onValueChange={(value) => updatePatchField('title', value === NONE ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select title..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {ALL_VALID_TITLES.map(title => (
-                                <SelectItem key={title} value={title}>{title}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Skill</Label>
-                          <Input
-                            value={mergedBlobbi?.skill || ''}
-                            onChange={(e) => updatePatchField('skill', e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Favorite Food</Label>
-                          <Input
-                            value={mergedBlobbi?.favoriteFood || ''}
-                            onChange={(e) => updatePatchField('favoriteFood', e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Voice Type</Label>
-                          <Input
-                            value={mergedBlobbi?.voiceType || ''}
-                            onChange={(e) => updatePatchField('voiceType', e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Has Buff</Label>
-                          <Input
-                            value={mergedBlobbi?.hasBuff || ''}
-                            onChange={(e) => updatePatchField('hasBuff', e.target.value)}
-                            placeholder="energy_boost"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Has Debuff</Label>
-                          <Input
-                            value={mergedBlobbi?.hasDebuff || ''}
-                            onChange={(e) => updatePatchField('hasDebuff', e.target.value)}
-                            placeholder="slowness"
-                          />
-                        </div>
-                        <div className="col-span-full space-y-2">
-                          <Label>Personality Traits (comma-separated)</Label>
-                          <Textarea
-                            value={(mergedBlobbi?.personality || []).join(', ')}
-                            onChange={(e) => updatePatchField('personality', 
-                              e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-                            )}
-                            placeholder="playful, curious, brave"
-                            rows={2}
-                          />
-                        </div>
-                        <div className="col-span-full space-y-2">
-                          <Label>Traits (comma-separated)</Label>
-                          <Textarea
-                            value={(mergedBlobbi?.traits || []).join(', ')}
-                            onChange={(e) => updatePatchField('traits', 
-                              e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-                            )}
-                            placeholder="fast_learner, friendly"
-                            rows={2}
-                          />
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    {/* Evolution Tab */}
-                    <TabsContent value="evolution" className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {mergedBlobbi?.lifeStage === 'adult' && (
+                        {/* Egg-specific stats */}
+                        {mergedBlobbi.lifeStage === 'egg' && (
                           <>
-                            <div className="space-y-2">
-                              <Label>Evolution Form</Label>
-                              <Select
-                                value={mergedBlobbi?.evolutionForm || 'blobbi'}
-                                onValueChange={(value) => updatePatchField('evolutionForm', value as typeof EVOLUTION_FORMS[number])}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {EVOLUTION_FORMS.map(form => (
-                                    <SelectItem key={form} value={form}>{form}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Evolution Time</Label>
-                              <Input
-                                type="number"
-                                value={mergedBlobbi?.evolutionTime || 0}
-                                onChange={(e) => updatePatchField('evolutionTime', parseInt(e.target.value) || 0)}
-                                placeholder="Unix timestamp"
-                              />
+                            <Separator />
+                            <h3 className="font-semibold">Egg-Specific Stats</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Egg Temperature</Label>
+                                <div className="flex items-center gap-4">
+                                  <Slider
+                                    value={[mergedBlobbi.eggTemperature || 0]}
+                                    onValueChange={([value]) => updateBlobbiPatchField('eggTemperature', value)}
+                                    max={100}
+                                    min={0}
+                                    step={1}
+                                    className="flex-1"
+                                  />
+                                  <Input
+                                    type="number"
+                                    value={mergedBlobbi.eggTemperature || 0}
+                                    onChange={(e) => updateBlobbiPatchField('eggTemperature', parseInt(e.target.value) || 0)}
+                                    className="w-20"
+                                    min={0}
+                                    max={100}
+                                  />
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Shell Integrity</Label>
+                                <div className="flex items-center gap-4">
+                                  <Slider
+                                    value={[mergedBlobbi.shellIntegrity || 100]}
+                                    onValueChange={([value]) => updateBlobbiPatchField('shellIntegrity', value)}
+                                    max={100}
+                                    min={0}
+                                    step={1}
+                                    className="flex-1"
+                                  />
+                                  <Input
+                                    type="number"
+                                    value={mergedBlobbi.shellIntegrity || 100}
+                                    onChange={(e) => updateBlobbiPatchField('shellIntegrity', parseInt(e.target.value) || 0)}
+                                    className="w-20"
+                                    min={0}
+                                    max={100}
+                                  />
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Incubation Progress</Label>
+                                <Input
+                                  type="number"
+                                  value={mergedBlobbi.incubationProgress || 0}
+                                  onChange={(e) => updateBlobbiPatchField('incubationProgress', parseInt(e.target.value) || 0)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Egg Status</Label>
+                                <Select
+                                  value={mergedBlobbi.eggStatus || NONE}
+                                  onValueChange={(value) => updateBlobbiPatchField('eggStatus', value === NONE ? undefined : value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select status..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value={NONE}>None</SelectItem>
+                                    {VALID_EGG_STATUSES.map(status => (
+                                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
                           </>
                         )}
-                        <div className="space-y-2">
-                          <Label>Theme Variant</Label>
-                          <Select
-                            value={mergedBlobbi?.themeVariant || NONE}
-                            onValueChange={(value) => updatePatchField('themeVariant', value === NONE ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select theme..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>None</SelectItem>
-                              {THEME_VARIANTS.map(theme => (
-                                <SelectItem key={theme} value={theme}>{theme}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                      </TabsContent>
+
+                      {/* Core Tab */}
+                      <TabsContent value="core" className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Name</Label>
+                            <Input
+                              value={mergedBlobbi.name || ''}
+                              onChange={(e) => updateBlobbiPatchField('name', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Life Stage</Label>
+                            <Select
+                              value={mergedBlobbi.lifeStage}
+                              onValueChange={(value) => updateBlobbiPatchField('lifeStage', value as typeof LIFE_STAGES[number])}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {LIFE_STAGES.map(stage => (
+                                  <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>State</Label>
+                            <Select
+                              value={mergedBlobbi.state}
+                              onValueChange={(value) => updateBlobbiPatchField('state', value as typeof STATES[number])}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {STATES.map(state => (
+                                  <SelectItem key={state} value={state}>{state}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Mood</Label>
+                            <Select
+                              value={mergedBlobbi.mood || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('mood', value === NONE ? undefined : value as typeof MOODS[number])}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {MOODS.map(mood => (
+                                  <SelectItem key={mood} value={mood}>{mood}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Experience</Label>
+                            <Input
+                              type="number"
+                              value={mergedBlobbi.experience || 0}
+                              onChange={(e) => updateBlobbiPatchField('experience', parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Coins</Label>
+                            <Input
+                              type="number"
+                              value={mergedBlobbi.coins || 0}
+                              onChange={(e) => updateBlobbiPatchField('coins', parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Generation</Label>
+                            <Input
+                              type="number"
+                              value={mergedBlobbi.generation || 1}
+                              onChange={(e) => updateBlobbiPatchField('generation', parseInt(e.target.value) || 1)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Care Streak</Label>
+                            <Input
+                              type="number"
+                              value={mergedBlobbi.careStreak || 0}
+                              onChange={(e) => updateBlobbiPatchField('careStreak', parseInt(e.target.value) || 0)}
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Crossover App</Label>
-                          <Input
-                            value={mergedBlobbi?.crossoverApp || ''}
-                            onChange={(e) => updatePatchField('crossoverApp', e.target.value)}
-                            placeholder="divine"
-                          />
+                      </TabsContent>
+
+                      {/* Appearance Tab */}
+                      <TabsContent value="appearance" className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Base Color</Label>
+                            <Select
+                              value={mergedBlobbi.baseColor || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('baseColor', value === NONE ? undefined : value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select color..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {uniqueBaseColors.map((color, idx) => (
+                                  <SelectItem key={`base-${color}-${idx}`} value={color}>
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-4 h-4 rounded border" style={{ backgroundColor: color }} />
+                                      {color}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Secondary Color</Label>
+                            <Select
+                              value={mergedBlobbi.secondaryColor || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('secondaryColor', value === NONE ? undefined : value)}
+                              disabled={mergedBlobbi.themeVariant === 'divine'}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select color..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {uniqueSecondaryColors.map((color, idx) => (
+                                  <SelectItem key={`secondary-${color}-${idx}`} value={color}>
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-4 h-4 rounded border" style={{ backgroundColor: color }} />
+                                      {color}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {mergedBlobbi.themeVariant === 'divine' && (
+                              <p className="text-xs text-muted-foreground">
+                                Divine Blobbis don't use secondary colors
+                              </p>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Eye Color</Label>
+                            <Select
+                              value={mergedBlobbi.eyeColor || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('eyeColor', value === NONE ? undefined : value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select color..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {uniqueEyeColors.map((color, idx) => (
+                                  <SelectItem key={`eye-${color}-${idx}`} value={color}>
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-4 h-4 rounded border" style={{ backgroundColor: color }} />
+                                      {color}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Pattern</Label>
+                            <Select
+                              value={mergedBlobbi.pattern || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('pattern', value === NONE ? undefined : value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select pattern..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {VALID_PATTERNS.map(pattern => (
+                                  <SelectItem key={pattern} value={pattern}>{pattern}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Special Mark</Label>
+                            <Select
+                              value={mergedBlobbi.specialMark || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('specialMark', value === NONE ? undefined : value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select mark..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {ALL_VALID_SPECIAL_MARKS.map(mark => (
+                                  <SelectItem key={mark} value={mark}>{mark}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Size</Label>
+                            <Select
+                              value={mergedBlobbi.size || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('size', value === NONE ? undefined : value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select size..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {ALL_VALID_SIZES.map(size => (
+                                  <SelectItem key={size} value={size}>{size}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Manifestation</Label>
+                            <Select
+                              value={mergedBlobbi.manifestation || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('manifestation', value === NONE ? undefined : value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select manifestation..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {MANIFESTATIONS.map(manif => (
+                                  <SelectItem key={manif} value={manif}>{manif}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Visual Effect</Label>
+                            <Select
+                              value={mergedBlobbi.visualEffect || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('visualEffect', value === NONE ? undefined : value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select effect..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {VISUAL_EFFECTS.map(effect => (
+                                  <SelectItem key={effect} value={effect}>{effect}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Blessing</Label>
+                            <Select
+                              value={mergedBlobbi.blessing || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('blessing', value === NONE ? undefined : value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select blessing..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {BLESSINGS.map(blessing => (
+                                  <SelectItem key={blessing} value={blessing}>{blessing}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                      </div>
-                      {mergedBlobbi?.lifeStage !== 'adult' && (
-                        <Alert>
-                          <AlertDescription>
-                            Evolution form is only applicable to adult Blobbis
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </TabsContent>
-                  </Tabs>
+                      </TabsContent>
+
+                      {/* Personality Tab */}
+                      <TabsContent value="personality" className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Title</Label>
+                            <Select
+                              value={mergedBlobbi.title || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('title', value === NONE ? undefined : value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select title..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {ALL_VALID_TITLES.map(title => (
+                                  <SelectItem key={title} value={title}>{title}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Skill</Label>
+                            <Input
+                              value={mergedBlobbi.skill || ''}
+                              onChange={(e) => updateBlobbiPatchField('skill', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Favorite Food</Label>
+                            <Input
+                              value={mergedBlobbi.favoriteFood || ''}
+                              onChange={(e) => updateBlobbiPatchField('favoriteFood', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Voice Type</Label>
+                            <Input
+                              value={mergedBlobbi.voiceType || ''}
+                              onChange={(e) => updateBlobbiPatchField('voiceType', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Has Buff</Label>
+                            <Input
+                              value={mergedBlobbi.hasBuff || ''}
+                              onChange={(e) => updateBlobbiPatchField('hasBuff', e.target.value)}
+                              placeholder="energy_boost"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Has Debuff</Label>
+                            <Input
+                              value={mergedBlobbi.hasDebuff || ''}
+                              onChange={(e) => updateBlobbiPatchField('hasDebuff', e.target.value)}
+                              placeholder="slowness"
+                            />
+                          </div>
+                          <div className="col-span-full space-y-2">
+                            <Label>Personality Traits (comma-separated)</Label>
+                            <Textarea
+                              value={(mergedBlobbi.personality || []).join(', ')}
+                              onChange={(e) => updateBlobbiPatchField('personality', 
+                                e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                              )}
+                              placeholder="playful, curious, brave"
+                              rows={2}
+                            />
+                          </div>
+                          <div className="col-span-full space-y-2">
+                            <Label>Traits (comma-separated)</Label>
+                            <Textarea
+                              value={(mergedBlobbi.traits || []).join(', ')}
+                              onChange={(e) => updateBlobbiPatchField('traits', 
+                                e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                              )}
+                              placeholder="fast_learner, friendly"
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      {/* Evolution Tab */}
+                      <TabsContent value="evolution" className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {mergedBlobbi.lifeStage === 'adult' && (
+                            <>
+                              <div className="space-y-2">
+                                <Label>Evolution Form</Label>
+                                <Select
+                                  value={mergedBlobbi.evolutionForm || 'blobbi'}
+                                  onValueChange={(value) => updateBlobbiPatchField('evolutionForm', value as typeof EVOLUTION_FORMS[number])}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {EVOLUTION_FORMS.map(form => (
+                                      <SelectItem key={form} value={form}>{form}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Evolution Time</Label>
+                                <Input
+                                  type="number"
+                                  value={mergedBlobbi.evolutionTime || 0}
+                                  onChange={(e) => updateBlobbiPatchField('evolutionTime', parseInt(e.target.value) || 0)}
+                                  placeholder="Unix timestamp"
+                                />
+                              </div>
+                            </>
+                          )}
+                          <div className="space-y-2">
+                            <Label>Theme Variant</Label>
+                            <Select
+                              value={mergedBlobbi.themeVariant || NONE}
+                              onValueChange={(value) => updateBlobbiPatchField('themeVariant', value === NONE ? undefined : value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select theme..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {THEME_VARIANTS.map(theme => (
+                                  <SelectItem key={theme} value={theme}>{theme}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Crossover App</Label>
+                            <Input
+                              value={mergedBlobbi.crossoverApp || ''}
+                              onChange={(e) => updateBlobbiPatchField('crossoverApp', e.target.value)}
+                              placeholder="divine"
+                            />
+                          </div>
+                        </div>
+                        {mergedBlobbi.lifeStage !== 'adult' && (
+                          <Alert>
+                            <AlertDescription>
+                              Evolution form is only applicable to adult Blobbis
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </TabsContent>
+                    </Tabs>
+                  ) : mode === 'profile' && mergedProfile ? (
+                    <Tabs defaultValue="core" className="w-full">
+                      <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="core">Core</TabsTrigger>
+                        <TabsTrigger value="has">Has</TabsTrigger>
+                        <TabsTrigger value="storage">Storage</TabsTrigger>
+                        <TabsTrigger value="raw">Raw Tags</TabsTrigger>
+                      </TabsList>
+
+                      {/* Core Tab */}
+                      <TabsContent value="core" className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Name</Label>
+                            <Input
+                              value={mergedProfile.name}
+                              onChange={(e) => updateProfilePatchField('name', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2 flex items-center gap-2">
+                            <Switch
+                              checked={mergedProfile.onboarding_done}
+                              onCheckedChange={(checked) => updateProfilePatchField('onboarding_done', checked)}
+                            />
+                            <Label>Onboarding Done</Label>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Coins</Label>
+                            <Input
+                              type="number"
+                              value={mergedProfile.coins}
+                              onChange={(e) => updateProfilePatchField('coins', parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Petting Level</Label>
+                            <Input
+                              type="number"
+                              value={mergedProfile.pettingLevel}
+                              onChange={(e) => updateProfilePatchField('pettingLevel', parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Lifetime Blobbis</Label>
+                            <Input
+                              type="number"
+                              value={mergedProfile.lifetimeBlobbis}
+                              onChange={(e) => updateProfilePatchField('lifetimeBlobbis', parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Mission Daily Checkin Claimed At</Label>
+                            <Input
+                              type="number"
+                              value={mergedProfile.mission_daily_checkin_claimed_at || ''}
+                              onChange={(e) => updateProfilePatchField('mission_daily_checkin_claimed_at', parseInt(e.target.value) || undefined)}
+                              placeholder="Unix timestamp"
+                            />
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      {/* Has Tab */}
+                      <TabsContent value="has" className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Add Blobbi ID</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={newHasItem}
+                              onChange={(e) => setNewHasItem(e.target.value)}
+                              placeholder="blobbi-..."
+                            />
+                            <Button
+                              onClick={() => {
+                                if (newHasItem.trim()) {
+                                  updateProfilePatchField('has', [...mergedProfile.has, newHasItem.trim()]);
+                                  setNewHasItem('');
+                                }
+                              }}
+                            >
+                              Add
+                            </Button>
+                          </div>
+                        </div>
+                        <ScrollArea className="h-[300px]">
+                          <div className="space-y-2">
+                            {mergedProfile.has.map((item, idx) => (
+                              <div key={idx} className="flex items-center justify-between p-2 bg-muted rounded">
+                                <span className="font-mono text-sm">{item}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const newHas = mergedProfile.has.filter((_, i) => i !== idx);
+                                    updateProfilePatchField('has', newHas);
+                                  }}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </TabsContent>
+
+                      {/* Storage Tab */}
+                      <TabsContent value="storage" className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Add Storage Entry (format: item:qty)</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={newStorageEntry}
+                              onChange={(e) => setNewStorageEntry(e.target.value)}
+                              placeholder="item_name:10"
+                            />
+                            <Button
+                              onClick={() => {
+                                const validation = validateStorageEntry(newStorageEntry);
+                                if (!validation.valid) {
+                                  toast({
+                                    title: 'Invalid Entry',
+                                    description: validation.error,
+                                    variant: 'destructive'
+                                  });
+                                  return;
+                                }
+                                const parsed = parseStorageEntry(newStorageEntry);
+                                if (parsed) {
+                                  updateProfilePatchField('storage', [...mergedProfile.storage, parsed]);
+                                  setNewStorageEntry('');
+                                }
+                              }}
+                            >
+                              Add
+                            </Button>
+                          </div>
+                        </div>
+                        <ScrollArea className="h-[300px]">
+                          <div className="space-y-2">
+                            {mergedProfile.storage.map((item, idx) => (
+                              <div key={idx} className="flex items-center justify-between p-2 bg-muted rounded">
+                                <span className="font-mono text-sm">{item.itemId}: {item.quantity}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const newStorage = mergedProfile.storage.filter((_, i) => i !== idx);
+                                    updateProfilePatchField('storage', newStorage);
+                                  }}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </TabsContent>
+
+                      {/* Raw Tags Tab */}
+                      <TabsContent value="raw" className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>All Tags (Read-Only)</Label>
+                          <ScrollArea className="h-[400px]">
+                            <pre className="text-xs bg-muted p-4 rounded">
+                              {JSON.stringify(mergedProfile.rawTags, null, 2)}
+                            </pre>
+                          </ScrollArea>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  ) : null}
                 </CardContent>
               </Card>
 
               {/* Diff Preview */}
-              {diff && diff.length > 0 && (
+              {currentDiff && currentDiff.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Changes Preview</CardTitle>
@@ -1481,7 +1803,7 @@ export default function BlobbiEditor() {
                   <CardContent>
                     <ScrollArea className="h-[200px]">
                       <div className="space-y-2">
-                        {diff.map((change, idx) => (
+                        {currentDiff.map((change, idx) => (
                           <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm font-mono p-2 rounded bg-muted/50">
                             <span className="font-semibold sm:w-40 shrink-0">{change.field}</span>
                             <div className="flex items-center gap-2 flex-wrap">
