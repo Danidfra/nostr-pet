@@ -485,7 +485,7 @@ export function CutoutOverlay({
           <img
             src="/assets/overboard/hand.png"
             alt="Hand pointer"
-            className="w-24 h-24 drop-shadow-lg"
+            className="w-24 drop-shadow-lg"
             style={{
               filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))',
             }}

@@ -86,7 +86,7 @@ export function BlobbiTour({
         radius: 24,
         hand: {
           enabled: true,
-          side: 'right',
+          side: 'left',
           offsetX: 0,
           offsetY: 0,
           scale: 1,
