@@ -96,10 +96,10 @@ export default function BlobbiAdultVariantsPage() {
   const currentForm = EVOLVED_ADULT_FORMS[currentFormIndex];
   const currentBlobbi = createAdultBlobbi(currentForm);
 
-  // Redirect to /blobbi if not in dev/localhost (safe redirect with useEffect)
+  // Redirect to / if not in dev/localhost (safe redirect with useEffect)
   useEffect(() => {
     if (!isDev || !isLocalhost) {
-      navigate('/blobbi');
+      navigate('/');
     }
   }, [isDev, isLocalhost, navigate]);
 
@@ -203,7 +203,7 @@ export default function BlobbiAdultVariantsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate('/blobbi')}
+              onClick={() => navigate('/')}
               className="gap-2"
             >
               <Home className="h-4 w-4" />

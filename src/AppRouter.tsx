@@ -31,27 +31,27 @@ function AppContent() {
   const { shouldRenderBed, hideBed } = useBed();
   const isMobile = useIsMobile()
 
-  // Show header on all pages except homepage
-  const showHeader = location.pathname !== '/';
-  const isBlobbiDashboard = location.pathname === '/blobbi';
+  // Show header on all pages except about page
+  const showHeader = location.pathname !== '/about';
+  const isBlobbiDashboard = location.pathname === '/';
 
   // Set CSS variables for footer height (header height is now managed by GlobalHeader component)
   useEffect(() => {
     const root = document.documentElement;
 
-    // Reset header height when no header is shown (homepage)
+    // Reset header height when no header is shown (about page)
     if (!showHeader) {
       root.style.setProperty('--app-header-h', '0px');
     }
 
-    // Footer height: 96px mobile, 88px desktop on /blobbi dashboard, 0px elsewhere
+    // Footer height: 96px mobile, 88px desktop on dashboard (/), 0px elsewhere
     const footerHeight = isBlobbiDashboard
       ? (isMobile ? '96px' : '88px')
       : '0px';
     root.style.setProperty('--app-footer-h', footerHeight);
   }, [showHeader, isBlobbiDashboard, isMobile]);
 
-  // Disable body scroll on /blobbi dashboard
+  // Disable body scroll on dashboard (/)
   useEffect(() => {
     if (!isBlobbiDashboard) return;
 
@@ -77,8 +77,8 @@ function AppContent() {
 
       <div style={{ paddingTop: 'var(--app-header-h)' }}>
         <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/blobbi" element={<BlobbiDashboard />} />
+        <Route path="/" element={<BlobbiDashboard />} />
+        <Route path="/about" element={<Index />} />
         <Route path="/blobbi/:blobbiId" element={<BlobbiDetail />} />
         <Route path="/blobbi/adopt" element={<BlobbiAdoptionPage />} />
         <Route path="/blobbi/evolution" element={<BlobbiEvolution />} />

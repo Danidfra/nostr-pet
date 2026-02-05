@@ -421,8 +421,8 @@ export function BlobbiCompanionWrapper() {
   const updateInProgress = useRef(false);
   const positionedForSleep = useRef<string | null>(null); // Track which Blobbi was positioned for sleep
 
-  // Check if we're on a /blobbi route
-  const shouldShowCompanion = location.pathname.startsWith('/blobbi');
+  // Check if we're on dashboard or a /blobbi detail route
+  const shouldShowCompanion = location.pathname === '/' || location.pathname.startsWith('/blobbi');
 
   // ✅ NEW: Helper function to position Blobbi on bed when sleeping
   const positionBlobbiOnBed = useCallback((blobbiId: string, retryCount: number = 0) => {

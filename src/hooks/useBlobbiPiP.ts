@@ -12,7 +12,7 @@ interface BlobbiPiPState {
 
 // Game routes where Blobbi is actively being interacted with
 const GAME_ROUTES = [
-  '/blobbi',
+  '/',
   '/blobbi/dashboard',
   '/games/bubble-pop',
   '/games/number-guess',
@@ -22,7 +22,7 @@ const GAME_ROUTES = [
 // Routes where we should NOT show PiP (e.g., already showing Blobbi)
 const EXCLUDED_ROUTES = [
   '/blobbi/adopt',
-  '/',
+  '/about',
 ];
 
 /**

@@ -118,7 +118,7 @@ export function BlobbiDetailsTour({
           sessionStorage.setItem('tour.resume', JSON.stringify({
             next: 'dashboard-complete'
           }));
-          await navigateTo('/blobbi');
+          await navigateTo('/');
         }
       }
     },

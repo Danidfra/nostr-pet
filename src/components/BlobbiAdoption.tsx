@@ -145,7 +145,7 @@ export function BlobbiAdoption() {
 
       // Navigate to the new Blobbi's page after a short delay to show success message
       setTimeout(() => {
-        navigate('/blobbi');
+        navigate('/');
       }, 2000);
     } catch (err) {
       console.error('Failed to adopt Blobbi:', err);
@@ -170,7 +170,7 @@ export function BlobbiAdoption() {
   };
 
   const handleGoToBlobbi = () => {
-    navigate('/blobbi');
+    navigate('/');
   };
 
   if (!user) {

@@ -21,12 +21,12 @@ export default function BlobbiCommunity() {
           <aside className="hidden md:block">
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/60 dark:border-purple-600/60">
               <CardContent className="py-4 space-y-2">
-                <Link to="/blobbi">
+                <Link to="/">
                   <Button
                     variant="ghost"
                     className={cn(
                       "w-full justify-start gap-3 text-sm",
-                      location.pathname === "/blobbi" && "bg-purple-50 dark:bg-purple-900/20 text-foreground"
+                      location.pathname === "/" && "bg-purple-50 dark:bg-purple-900/20 text-foreground"
                     )}
                   >
                     <Home className="h-4 w-4" />

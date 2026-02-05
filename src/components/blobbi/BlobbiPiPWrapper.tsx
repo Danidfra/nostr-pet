@@ -6,7 +6,7 @@ import { BlobbiFloatingCompanion } from './BlobbiFloatingCompanion';
 
 // Game routes where Blobbi is actively being interacted with
 const GAME_ROUTES = [
-  '/blobbi',
+  '/',
   '/games/bubble-pop',
   '/games/number-guess',
   '/games/tic-tac-toe',
@@ -15,7 +15,7 @@ const GAME_ROUTES = [
 // Routes where we should NOT show PiP
 const EXCLUDED_ROUTES = [
   '/blobbi/adopt',
-  '/',
+  '/about',
 ];
 
 /**

@@ -71,7 +71,6 @@ export function BlobbiFloatingActionMenu({ className }: FloatingActionMenuProps)
   }, [theme]);
 
   const shouldShow = location.pathname.startsWith('/blobbi') &&
-                    location.pathname !== '/' &&
                     !isLoading &&
                     companionData?.blobbi;
 

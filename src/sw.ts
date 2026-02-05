@@ -166,7 +166,7 @@ self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
 
   const ndata = event.notification.data as { url?: string } | undefined;
-  const targetUrl = (ndata?.url && typeof ndata.url === "string") ? ndata.url : "/blobbi";
+  const targetUrl = (ndata?.url && typeof ndata.url === "string") ? ndata.url : "/";
 
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });

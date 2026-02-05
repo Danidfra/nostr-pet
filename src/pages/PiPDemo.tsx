@@ -97,7 +97,7 @@ export default function PiPDemo() {
                     Go to your Blobbi dashboard or any game page
                   </div>
                   <div className="mt-2 space-x-2">
-                    <Button size="sm" onClick={() => navigate('/blobbi')}>
+                    <Button size="sm" onClick={() => navigate('/')}>
                       Go to Dashboard
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => navigate('/games/bubble-pop')}>
@@ -285,7 +285,7 @@ export default function PiPDemo() {
               <p className="text-gray-600 dark:text-gray-400 mb-4">
                 You need to set a companion Blobbi to use the PiP feature.
               </p>
-              <Button onClick={() => navigate('/blobbi')}>
+              <Button onClick={() => navigate('/')}>
                 Set Companion
               </Button>
             </CardContent>

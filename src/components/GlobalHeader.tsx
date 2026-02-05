@@ -96,14 +96,14 @@ export function GlobalHeader() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/blobbi')}
+                onClick={() => navigate('/')}
                 className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
             )}
             <Link
-              to="/blobbi"
+              to="/"
               className="flex items-center gap-3 hover:opacity-80 transition-opacity duration-200"
             >
               <img
