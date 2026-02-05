@@ -5,6 +5,25 @@ import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import type { CutoutShape, HandPointerConfig } from '@/types/tour';
 
+/**
+ * Position preset for tour controls.
+ * - 'bottom-center': Centered at bottom with spacing (default)
+ * - 'top-center': Centered at top with spacing
+ * - 'center': Centered in viewport
+ * - 'bottom-left': Bottom left corner with spacing
+ * - 'bottom-right': Bottom right corner with spacing
+ * - 'top-left': Top left corner with spacing
+ * - 'top-right': Top right corner with spacing
+ */
+export type ControlsPosition = 
+  | 'bottom-center'
+  | 'top-center'
+  | 'center'
+  | 'bottom-left'
+  | 'bottom-right'
+  | 'top-left'
+  | 'top-right';
+
 interface CutoutOverlayProps {
   /** CSS selector for the target element (e.g., '#dashboard-blobbi-visual') */
   targetSelector: string;
@@ -26,6 +45,14 @@ interface CutoutOverlayProps {
   overlayOpacity?: number;
   /** Hand pointer configuration */
   hand?: HandPointerConfig;
+  /** Position for tour controls (default: 'bottom-center') */
+  controlsPosition?: ControlsPosition;
+  /** Distance from viewport edges for controls in pixels (default: 24) */
+  controlsInset?: number;
+  /** Fine-tune horizontal position offset in pixels (default: 0) */
+  controlsOffsetX?: number;
+  /** Fine-tune vertical position offset in pixels (default: 0) */
+  controlsOffsetY?: number;
   /** Callback when overlay is closed */
   onClose: () => void;
   /** Children elements (e.g., tour content card) */
@@ -44,6 +71,11 @@ interface Rect {
 /**
  * CutoutOverlay - A dark overlay with a configurable cutout "hole" around a target element.
  * 
+ * **Layering Architecture:**
+ * - Layer 1 (z-index 1-2): Visual overlay (SVG mask) + Click blockers
+ * - Layer 2 (z-index 3): Hand pointer (optional)
+ * - Layer 3 (z-index 4-5): Tour controls + Close button
+ * 
  * **How to use:**
  * 1. Add an ID to your target element: `<div id="my-element">...</div>`
  * 2. Use this component with `targetSelector="#my-element"`
@@ -54,6 +86,14 @@ interface Rect {
  * - `radius`: Border radius for 'rounded' (default: 24px)
  * - `holeWidth/holeHeight`: Force specific hole size
  * - `holeOffsetX/holeOffsetY`: Move hole relative to element
+ * 
+ * **Positioning tour controls:**
+ * - `controlsPosition`: 'bottom-center' (default), 'top-center', 'center', 
+ *   'bottom-left', 'bottom-right', 'top-left', 'top-right'
+ * - `controlsInset`: Distance from viewport edges in pixels (default: 24px)
+ * - `controlsOffsetX/controlsOffsetY`: Fine-tune position in pixels (default: 0)
+ * - Controls are independent from hole position
+ * - Example: Hole at bottom? Use 'top-center' to avoid collision
  * 
  * **Hand pointer:**
  * - `hand.enabled`: Show/hide hand pointer
@@ -68,6 +108,9 @@ interface Rect {
  *   shape="rounded"
  *   padding={16}
  *   radius={24}
+ *   controlsPosition="top-center"
+ *   controlsInset={32}
+ *   controlsOffsetY={10}
  *   hand={{ enabled: true, side: 'right' }}
  *   onClose={handleClose}
  * >
@@ -86,6 +129,10 @@ export function CutoutOverlay({
   holeOffsetY = 0,
   overlayOpacity = 0.80,
   hand,
+  controlsPosition = 'bottom-center',
+  controlsInset = 24,
+  controlsOffsetX = 0,
+  controlsOffsetY = 0,
   onClose,
   children,
   className,
@@ -328,6 +375,71 @@ export function CutoutOverlay({
   const handPosition = holeRect ? getHandPosition(holeRect) : null;
   const handScale = hand?.scale || 1;
 
+  // Calculate control positioning styles and classes
+  // Using inline styles for dynamic values (inset, offsets) to avoid Tailwind JIT issues
+  const getControlPositioning = useCallback((): { 
+    style: React.CSSProperties; 
+    className: string;
+  } => {
+    const baseStyle: React.CSSProperties = {};
+    let transformClass = '';
+    
+    switch (controlsPosition) {
+      case 'top-center':
+        baseStyle.top = `${controlsInset + controlsOffsetY}px`;
+        baseStyle.left = '50%';
+        transformClass = '-translate-x-1/2';
+        if (controlsOffsetX !== 0) {
+          baseStyle.marginLeft = `${controlsOffsetX}px`;
+        }
+        break;
+        
+      case 'center':
+        baseStyle.top = '50%';
+        baseStyle.left = '50%';
+        transformClass = '-translate-x-1/2 -translate-y-1/2';
+        if (controlsOffsetX !== 0) {
+          baseStyle.marginLeft = `${controlsOffsetX}px`;
+        }
+        if (controlsOffsetY !== 0) {
+          baseStyle.marginTop = `${controlsOffsetY}px`;
+        }
+        break;
+        
+      case 'bottom-left':
+        baseStyle.bottom = `${controlsInset + controlsOffsetY}px`;
+        baseStyle.left = `${controlsInset + controlsOffsetX}px`;
+        break;
+        
+      case 'bottom-right':
+        baseStyle.bottom = `${controlsInset + controlsOffsetY}px`;
+        baseStyle.right = `${controlsInset - controlsOffsetX}px`;
+        break;
+        
+      case 'top-left':
+        baseStyle.top = `${controlsInset + controlsOffsetY}px`;
+        baseStyle.left = `${controlsInset + controlsOffsetX}px`;
+        break;
+        
+      case 'top-right':
+        baseStyle.top = `${controlsInset + controlsOffsetY}px`;
+        baseStyle.right = `${controlsInset - controlsOffsetX}px`;
+        break;
+        
+      case 'bottom-center':
+      default:
+        baseStyle.bottom = `${controlsInset + controlsOffsetY}px`;
+        baseStyle.left = '50%';
+        transformClass = '-translate-x-1/2';
+        if (controlsOffsetX !== 0) {
+          baseStyle.marginLeft = `${controlsOffsetX}px`;
+        }
+        break;
+    }
+    
+    return { style: baseStyle, className: transformClass };
+  }, [controlsPosition, controlsInset, controlsOffsetX, controlsOffsetY]);
+
   const overlayContent = (
     <div
       ref={overlayRef}
@@ -336,10 +448,13 @@ export function CutoutOverlay({
         className
       )}
     >
-      {/* 
-        Layer 1: Visual overlay (SVG with mask) - no pointer events
-        This provides the visual dark overlay with cutout
-      */}
+      {/* ========================================================================
+          LAYER 1: Visual overlay (SVG with mask) + Click blockers
+          z-index: 1-2
+          Purpose: Provides dark overlay with cutout and blocks clicks outside hole
+          ======================================================================== */}
+      
+      {/* SVG overlay with cutout mask (visual only, no pointer events) */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
         style={{ zIndex: 1 }}
@@ -380,10 +495,7 @@ export function CutoutOverlay({
         )}
       </svg>
 
-      {/* 
-        Layer 2: Interaction blocking divs - blocks clicks outside hole
-        This creates four divs around the hole that capture pointer events
-      */}
+      {/* Click blocking divs around the hole (blocks interaction outside hole) */}
       {holeRect && (
         <>
           {/* Top blocker */}
@@ -448,9 +560,7 @@ export function CutoutOverlay({
         </>
       )}
 
-      {/* 
-        If no hole is detected, block entire screen
-      */}
+      {/* Fallback: block entire screen if no hole is detected */}
       {!holeRect && (
         <div
           className="absolute inset-0 pointer-events-auto"
@@ -462,24 +572,20 @@ export function CutoutOverlay({
         />
       )}
 
-      {/* Close button (X) in top-right */}
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={onClose}
-        className="absolute top-4 right-4 z-[91] pointer-events-auto border-2 border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm"
-      >
-        <X className="h-4 w-4" />
-      </Button>
-
-      {/* Hand pointer with gentle animation */}
+      {/* ========================================================================
+          LAYER 2: Hand pointer (optional)
+          z-index: 3
+          Purpose: Animated hand indicator positioned near the hole
+          ======================================================================== */}
+      
       {hand?.enabled && handPosition && (
         <div
-          className="absolute pointer-events-none z-[92] animate-[gentle-bob_2s_ease-in-out_infinite]"
+          className="absolute pointer-events-none animate-[gentle-bob_2s_ease-in-out_infinite]"
           style={{
             top: `${handPosition.top}px`,
             left: `${handPosition.left}px`,
             transform: `translate(-50%, -50%) scale(${handScale})`,
+            zIndex: 3,
           }}
         >
           <img
@@ -493,16 +599,37 @@ export function CutoutOverlay({
         </div>
       )}
 
-      {/* Children (tour controls) */}
-      {children && (
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 pointer-events-auto">
+      {/* ========================================================================
+          LAYER 3: Tour controls (children) + Close button
+          z-index: 4-5
+          Purpose: Interactive UI controls that appear above everything else
+          ======================================================================== */}
+      
+      {/* Close button (X) in top-right corner */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={onClose}
+        className="absolute top-4 right-4 pointer-events-auto border-2 border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm"
+        style={{ zIndex: 5 }}
+      >
+        <X className="h-4 w-4" />
+      </Button>
+
+      {/* Tour controls container (positioned based on controlsPosition prop) */}
+      {children && (() => {
+        const { style: positionStyle, className: transformClass } = getControlPositioning();
+        return (
+          <div
+            className={cn("absolute pointer-events-auto", transformClass)}
+            style={{ ...positionStyle, zIndex: 4 }}
+          >
             {children}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
-      {/* Animation keyframes */}
+      {/* Animation keyframes for hand pointer */}
       <style>{`
         @keyframes gentle-bob {
           0%, 100% {

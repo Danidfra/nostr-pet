@@ -26,6 +26,18 @@ export interface HandPointerConfig {
 }
 
 /**
+ * Position preset for tour controls.
+ */
+export type ControlsPosition = 
+  | 'bottom-center'
+  | 'top-center'
+  | 'center'
+  | 'bottom-left'
+  | 'bottom-right'
+  | 'top-left'
+  | 'top-right';
+
+/**
  * Cutout overlay configuration for highlighting specific UI elements.
  * 
  * **How to attach:**
@@ -39,6 +51,13 @@ export interface HandPointerConfig {
  * - `holeWidth/holeHeight`: Override hole dimensions (otherwise uses element size + padding)
  * - `holeOffsetX/holeOffsetY`: Move hole relative to element position
  * 
+ * **Positioning tour controls:**
+ * - `controlsPosition`: Where to place tour controls (default: 'bottom-center')
+ * - `controlsInset`: Distance from viewport edges in pixels (default: 24)
+ * - `controlsOffsetX/controlsOffsetY`: Fine-tune position in pixels (default: 0)
+ * - Controls are independent from hole position
+ * - Example: If hole is at bottom, use 'top-center' to avoid collision
+ * 
  * **Example:**
  * ```typescript
  * {
@@ -47,6 +66,9 @@ export interface HandPointerConfig {
  *     shape: 'rounded',
  *     padding: 16,
  *     radius: 24,
+ *     controlsPosition: 'top-center',
+ *     controlsInset: 32,
+ *     controlsOffsetY: 10,
  *     hand: { enabled: true, side: 'right' }
  *   }
  * }
@@ -71,6 +93,14 @@ export interface CutoutConfig {
   overlayOpacity?: number;
   /** Hand pointer configuration */
   hand?: HandPointerConfig;
+  /** Position for tour controls (default: 'bottom-center') */
+  controlsPosition?: ControlsPosition;
+  /** Distance from viewport edges for controls in pixels (default: 24) */
+  controlsInset?: number;
+  /** Fine-tune horizontal position offset in pixels (default: 0) */
+  controlsOffsetX?: number;
+  /** Fine-tune vertical position offset in pixels (default: 0) */
+  controlsOffsetY?: number;
 }
 
 export interface TourStepMobile {

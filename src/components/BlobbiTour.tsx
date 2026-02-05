@@ -91,6 +91,7 @@ export function BlobbiTour({
           offsetY: 0,
           scale: 1,
         },
+        controlsPosition: 'top-center',
       },
     },
 
@@ -607,6 +608,10 @@ export function BlobbiTour({
         holeOffsetY={effectiveCutout.holeOffsetY}
         overlayOpacity={effectiveCutout.overlayOpacity}
         hand={effectiveCutout.hand}
+        controlsPosition={effectiveCutout.controlsPosition}
+        controlsInset={effectiveCutout.controlsInset}
+        controlsOffsetX={effectiveCutout.controlsOffsetX}
+        controlsOffsetY={effectiveCutout.controlsOffsetY}
         onClose={handleClose}
       >
         {tourCard}
