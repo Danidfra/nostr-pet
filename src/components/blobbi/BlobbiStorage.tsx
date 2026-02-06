@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Package, Sparkles, Apple, Palette, Home, Heart, Droplets } from 'lucide-react';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
@@ -58,10 +57,28 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
     });
   };
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      const originalPaddingRight = window.getComputedStyle(document.body).paddingRight;
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+
+      return () => {
+        document.body.style.overflow = originalStyle;
+        document.body.style.paddingRight = originalPaddingRight;
+      };
+    }
+  }, [isOpen]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-4xl max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
-        <DialogHeader className="pb-4">
+      <DialogContent className="flex flex-col w-[calc(100vw-2rem)] max-w-4xl max-h-[90vh] sm:max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 p-4 sm:p-6 gap-0 overflow-hidden">
+        {/* Fixed Header */}
+        <DialogHeader className="pb-4 flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
             <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center">
               <Package className="w-4 h-4 text-white" />
@@ -76,9 +93,10 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
           </div>
         ) : (
           <>
-            <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-              <div className="mb-6">
-                <TabsList className="grid h-auto grid-cols-3 lg:grid-cols-6 w-full bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50">
+            {/* Fixed Tabs Section */}
+            <div className="flex-shrink-0 mb-4">
+              <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
+                <TabsList className="grid h-auto grid-cols-3 lg:grid-cols-6 w-full bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50 gap-1">
                   {categories.map((category) => {
                     const Icon = category.icon;
                     const itemCount = getItemsByCategory(category.id).length;
@@ -86,12 +104,12 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
                       <TabsTrigger
                         key={category.id}
                         value={category.id}
-                        className="flex items-center gap-1 text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+                        className="flex items-center justify-center gap-1 text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200 min-w-0"
                       >
-                        <Icon className="w-3 h-3" />
-                        <span className="hidden sm:inline">{category.label}</span>
+                        <Icon className="w-3 h-3 flex-shrink-0" />
+                        <span className="hidden sm:inline truncate">{category.label}</span>
                         {itemCount > 0 && (
-                          <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                          <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex-shrink-0">
                             {itemCount}
                           </Badge>
                         )}
@@ -99,9 +117,12 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
                     );
                   })}
                 </TabsList>
-              </div>
+              </Tabs>
+            </div>
 
-              <ScrollArea className="h-[500px] mt-4">
+            {/* Scrollable Content Area */}
+            <div className="flex-1 min-h-0 overflow-y-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+              <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
                 <TabsContent value={selectedCategory} className="mt-0">
                   {items.length === 0 ? (
                     <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl">
@@ -118,25 +139,27 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="space-y-3 md:grid md:grid-cols-3 md:gap-4 md:space-y-0 pb-4">
                       {items.map((item) => (
                         <Card key={item.id} className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl hover:shadow-lg transition-all duration-200">
                           <CardHeader className="pb-3">
                             <div className="flex items-start justify-between">
-                              <div>
-                                <CardTitle className="text-sm flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                                  {item.icon && (
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center">
-                                      <span className="text-lg">{item.icon}</span>
-                                    </div>
-                                  )}
-                                  {item.name}
-                                </CardTitle>
-                                <CardDescription className="text-xs mt-1 text-gray-600 dark:text-gray-400">
-                                  {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-                                </CardDescription>
+                              <div className="flex items-center gap-2 min-w-0">
+                                {item.icon && (
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-lg">{item.icon}</span>
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <CardTitle className="text-sm text-gray-900 dark:text-gray-100 truncate">
+                                    {item.name}
+                                  </CardTitle>
+                                  <CardDescription className="text-xs mt-1 text-gray-600 dark:text-gray-400">
+                                    {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+                                  </CardDescription>
+                                </div>
                               </div>
-                              <Badge variant="secondary" className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700">
+                              <Badge variant="secondary" className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 flex-shrink-0">
                                 x{item.quantity}
                               </Badge>
                             </div>
@@ -179,13 +202,14 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
                     </div>
                   )}
                 </TabsContent>
-              </ScrollArea>
-            </Tabs>
+              </Tabs>
+            </div>
 
-            <div className="flex justify-between items-center mt-6 pt-6 border-t border-purple-200/50 dark:border-purple-600/50">
+            {/* Fixed Footer */}
+            <div className="flex justify-between items-center pt-4 mt-4 border-t border-purple-200/50 dark:border-purple-600/50 flex-shrink-0">
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 Total items: <span className="font-medium text-gray-900 dark:text-gray-100">
-                  {blobbonautProfile.storage?.reduce((sum, item) => sum + item.quantity, 0) || 0}
+                  {blobbonautProfile?.storage?.reduce((sum, item) => sum + item.quantity, 0) || 0}
                 </span>
               </div>
               <Button

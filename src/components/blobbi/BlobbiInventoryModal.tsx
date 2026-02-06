@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { BlobbiItem, BlobbiAction, Blobbi } from '@/types/blobbi';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbiCareInteractionWithFakeStatus } from '@/hooks/useBlobbiInteractionWithFakeStatus';
@@ -74,6 +73,23 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
 
   // Use prop blobbi if provided (for companion), otherwise use context blobbi
   const blobbi = propBlobbi || contextBlobbi;
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      const originalPaddingRight = window.getComputedStyle(document.body).paddingRight;
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+
+      return () => {
+        document.body.style.overflow = originalStyle;
+        document.body.style.paddingRight = originalPaddingRight;
+      };
+    }
+  }, [isOpen]);
 
   if (!blobbi) return null;
 
@@ -426,135 +442,137 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={() => onClose()}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
-        <DialogHeader className="pb-4">
-          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
-            {ActionIcon && (
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
-                <ActionIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-              </div>
-            )}
-            <span className="truncate">{getActionTitle()}</span>
-          </DialogTitle>
-        </DialogHeader>
+        <DialogContent className="flex flex-col w-[calc(100vw-2rem)] max-w-2xl max-h-[90vh] sm:max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 p-4 sm:p-6 gap-0 overflow-hidden">
+          {/* Fixed Header */}
+          <DialogHeader className="pb-4 flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
+              {ActionIcon && (
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                  <ActionIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                </div>
+              )}
+              <span className="truncate">{getActionTitle()}</span>
+            </DialogTitle>
+          </DialogHeader>
 
-        {isProfileLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading your inventory...</p>
-          </div>
-        ) : inventoryItems.length === 0 ? (
-          <div className="text-center py-16 space-y-8">
-            <div className="relative">
-              <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-xl">
-                {ActionIcon && <ActionIcon className="w-10 h-10 text-white" />}
+          {/* Scrollable Content Area */}
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+            {isProfileLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading your inventory...</p>
               </div>
-              <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-red-400 to-pink-400 rounded-full flex items-center justify-center shadow-lg">
-                <span className="text-white text-xs font-bold">!</span>
+            ) : inventoryItems.length === 0 ? (
+              <div className="text-center py-16 space-y-8">
+                <div className="relative">
+                  <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-xl">
+                    {ActionIcon && <ActionIcon className="w-10 h-10 text-white" />}
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-red-400 to-pink-400 rounded-full flex items-center justify-center shadow-lg">
+                    <span className="text-white text-xs font-bold">!</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    No {itemType} items available
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
+                    Visit the shop to purchase {itemType} items and unlock this action for your Blobbi.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <Button
+                    onClick={() => {
+                      onClose();
+                      setTimeout(() => {
+                        if (onOpenShop) {
+                          onOpenShop();
+                        } else {
+                          window.dispatchEvent(new CustomEvent('open-shop', {
+                            detail: { defaultTab: itemType }
+                          }));
+                        }
+                      }, 100);
+                    }}
+                    className="h-12 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-lg">🛒</span>
+                      Visit Shop
+                    </span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => onClose()}
+                    className="h-11 rounded-xl border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium"
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                No {itemType} items available
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
-                Visit the shop to purchase {itemType} items and unlock this action for your Blobbi.
-              </p>
-            </div>
-            <div className="flex flex-col gap-3">
-              <Button
-                onClick={() => {
-                  onClose(); // Close inventory modal first
-                  // Use a small delay to ensure modal closes before opening shop
-                  setTimeout(() => {
-                    if (onOpenShop) {
-                      onOpenShop(); // Then open shop modal
-                    } else {
-                      // Fallback: dispatch a global event to open shop
-                      window.dispatchEvent(new CustomEvent('open-shop', {
-                        detail: { defaultTab: itemType }
-                      }));
-                    }
-                  }, 100);
-                }}
-                className="h-12 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <span className="flex items-center gap-2">
-                  <span className="text-lg">🛒</span>
-                  Visit Shop
-                </span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => onClose()}
-                className="h-11 rounded-xl border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6 flex flex-col h-full">
-            <ScrollArea className="flex-1 max-h-[450px]">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pr-2">
-              {inventoryItems.map((item) => (
-                <Card
-                  key={item.id}
-                  className={`group cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-[1.02] ${
-                    selectedItem?.id === item.id
-                      ? 'ring-2 ring-purple-500 shadow-lg scale-[1.02] bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30'
-                      : 'hover:bg-gradient-to-br hover:from-gray-50 hover:to-blue-50 dark:hover:from-gray-800 dark:hover:to-blue-900/20'
-                  } bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden`}
-                  onClick={() => setSelectedItem(item)}
-                >
-                  <CardContent className="p-0">
-                    {/* Header with icon and quantity */}
-                    <div className="relative p-4 pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-                          <span className="text-2xl filter drop-shadow-sm">{item.icon}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 rounded-full border border-purple-200/50 dark:border-purple-600/50">
-                          <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
-                          <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">×{item.quantity}</span>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
+                {inventoryItems.map((item) => (
+                  <Card
+                    key={item.id}
+                    className={`group cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-[1.02] ${
+                      selectedItem?.id === item.id
+                        ? 'ring-2 ring-purple-500 shadow-lg scale-[1.02] bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30'
+                        : 'hover:bg-gradient-to-br hover:from-gray-50 hover:to-blue-50 dark:hover:from-gray-800 dark:hover:to-blue-900/20'
+                    } bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden`}
+                    onClick={() => setSelectedItem(item)}
+                  >
+                    <CardContent className="p-0">
+                      {/* Header with icon and quantity */}
+                      <div className="relative p-4 pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
+                            <span className="text-2xl filter drop-shadow-sm">{item.icon}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 rounded-full border border-purple-200/50 dark:border-purple-600/50">
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                            <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">×{item.quantity}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Content */}
-                    <div className="px-4 pb-4">
-                      <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 mb-2 truncate">{item.name}</h4>
+                      {/* Content */}
+                      <div className="px-4 pb-4">
+                        <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 mb-2 truncate">{item.name}</h4>
 
-                      {/* Effects */}
-                      {item.effect && Object.entries(item.effect).filter(([stat]) => stat !== 'shell_integrity').length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {Object.entries(item.effect)
-                            .filter(([stat]) => stat !== 'shell_integrity')
-                            .map(([stat, value]: [string, number]) => (
-                            <div key={stat} className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30 rounded-lg border border-emerald-200/50 dark:border-emerald-700/50">
-                              <div className="w-1 h-1 rounded-full bg-emerald-500"></div>
-                              <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                                {formatStatName(stat)} {value >= 0 ? '+' : ''}{value}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                        {/* Effects */}
+                        {item.effect && Object.entries(item.effect).filter(([stat]) => stat !== 'shell_integrity').length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-3">
+                            {Object.entries(item.effect)
+                              .filter(([stat]) => stat !== 'shell_integrity')
+                              .map(([stat, value]: [string, number]) => (
+                              <div key={stat} className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30 rounded-lg border border-emerald-200/50 dark:border-emerald-700/50">
+                                <div className="w-1 h-1 rounded-full bg-emerald-500"></div>
+                                <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                                  {formatStatName(stat)} {value >= 0 ? '+' : ''}{value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
-                      {/* Selection indicator */}
-                      <div className={`h-1 rounded-full transition-all duration-300 ${
-                        selectedItem?.id === item.id
-                          ? 'bg-gradient-to-r from-purple-500 to-pink-500'
-                          : 'bg-gray-200 dark:bg-gray-700 group-hover:bg-gradient-to-r group-hover:from-purple-300 group-hover:to-pink-300'
-                      }`}></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        {/* Selection indicator */}
+                        <div className={`h-1 rounded-full transition-all duration-300 ${
+                          selectedItem?.id === item.id
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+                            : 'bg-gray-200 dark:bg-gray-700 group-hover:bg-gradient-to-r group-hover:from-purple-300 group-hover:to-pink-300'
+                        }`}></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            </ScrollArea>
+            )}
+          </div>
 
-            <div className="flex gap-3 pt-2">
+          {/* Fixed Footer - Only show when there are items */}
+          {!isProfileLoading && inventoryItems.length > 0 && (
+            <div className="flex gap-3 pt-4 flex-shrink-0 border-t border-purple-200/50 dark:border-purple-600/50 mt-4">
               {onOpenShop && (
                 <Button
                   variant="outline"
@@ -583,27 +601,30 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
                 </span>
               </Button>
             </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+        </DialogContent>
+      </Dialog>
 
     {/* Confirmation Dialog for Using Items */}
     <Dialog open={showConfirmDialog} onOpenChange={(open) => {
       setShowConfirmDialog(open);
       if (!open) {
-        setSelectedQuantity(1); // Reset quantity when dialog closes
+        setSelectedQuantity(1);
       }
     }}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden">
-        <DialogHeader className="pb-4">
+      <DialogContent className="flex flex-col w-[calc(100vw-2rem)] max-w-lg max-h-[90vh] sm:max-h-[85vh] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 p-4 sm:p-6 gap-0 overflow-hidden">
+        {/* Fixed Header */}
+        <DialogHeader className="pb-4 flex-shrink-0">
           <DialogTitle className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Confirm Item Use</DialogTitle>
           <DialogDescription className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
             Select quantity and confirm to use this item
           </DialogDescription>
         </DialogHeader>
-        {selectedItem && (
-          <div className="space-y-4">
+
+        {/* Scrollable Content */}
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+          {selectedItem && (
+            <div className="space-y-4 pb-4">
             {/* Item Preview */}
             <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl border border-blue-200/50 dark:border-blue-600/50">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
@@ -719,8 +740,11 @@ export function BlobbiInventoryModal({ isOpen, onClose, actionType, onOpenShop, 
               </div>
             )}
           </div>
-        )}
-        <DialogFooter className="pt-6 flex gap-3">
+          )}
+        </div>
+
+        {/* Fixed Footer */}
+        <DialogFooter className="pt-4 flex gap-3 flex-shrink-0 border-t border-purple-200/50 dark:border-purple-600/50 mt-4">
           <Button
             variant="outline"
             onClick={() => {
