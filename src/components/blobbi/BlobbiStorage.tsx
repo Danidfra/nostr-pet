@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Package, Apple, Palette, Heart, Droplets, Gamepad2 } from 'lucide-react';
-import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { SHOP_ITEMS } from '@/lib/shop-items';
 import { useToast } from '@/hooks/useToast';
@@ -17,7 +16,6 @@ interface BlobbiStorageProps {
 }
 
 export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
-  const { blobbi } = useBlobbiWithFakeStatus();
   const { data: blobbonautProfile } = useBlobbonautProfile();
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState('all');
