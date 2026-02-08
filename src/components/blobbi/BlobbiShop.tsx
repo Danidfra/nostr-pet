@@ -1,18 +1,17 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Coins, Palette, Sparkles, Heart, Utensils, Gamepad2, ShoppingBag } from 'lucide-react';
+import { Coins, Palette, Sparkles, Heart, Utensils, Gamepad2, ShoppingBag, Droplets } from 'lucide-react';
 import { BlobbiItem } from '@/types/blobbi';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbonautProfileWithFakeInventory } from '@/hooks/useBlobbonautProfileWithFakeInventory';
 import { useToast } from '@/hooks/useToast';
 import { useCoinBalance } from '@/hooks/useCoinBalance';
-import { SHOP_ITEMS, getShopItemsByType } from '@/lib/shop-items';
+import { getShopItemsByType } from '@/lib/shop-items';
 import { NotEnoughCoinsModal } from './NotEnoughCoinsModal';
+import { BlobbiItemCard } from './BlobbiItemCard';
 
 interface BlobbiShopProps {
   isOpen: boolean;
@@ -136,39 +135,39 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
           </DialogHeader>
 
           <Tabs defaultValue={defaultTab} className="w-full">
-            <div className="mb-6">
-              <TabsList className="h-auto flex flex-wrap justify-center gap-1 sm:grid sm:w-full sm:grid-cols-5 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50">
+            <div className="mb-6 overflow-x-auto">
+              <TabsList className="h-auto inline-flex sm:grid sm:w-full sm:grid-cols-5 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50 gap-1 min-w-full">
                 <TabsTrigger
                   value="food"
-                  className="flex items-center justify-center gap-1.5 flex-1 min-w-0 text-xs sm:text-sm rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+                  className="flex items-center justify-center gap-1.5 min-w-[60px] sm:min-w-0 text-xs sm:text-sm rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200 whitespace-nowrap"
                 >
                   <Utensils className="w-4 h-4 flex-shrink-0" />
                   <span className="hidden sm:inline">Food</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="toys"
-                  className="flex items-center justify-center gap-1.5 flex-1 min-w-0 text-xs sm:text-sm rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+                  className="flex items-center justify-center gap-1.5 min-w-[60px] sm:min-w-0 text-xs sm:text-sm rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200 whitespace-nowrap"
                 >
                   <Gamepad2 className="w-4 h-4 flex-shrink-0" />
                   <span className="hidden sm:inline">Toys</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="medicine"
-                  className="flex items-center justify-center gap-1.5 flex-1 min-w-0 text-xs sm:text-sm rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+                  className="flex items-center justify-center gap-1.5 min-w-[60px] sm:min-w-0 text-xs sm:text-sm rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200 whitespace-nowrap"
                 >
                   <Heart className="w-4 h-4 flex-shrink-0" />
                   <span className="hidden sm:inline">Medicine</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="hygiene"
-                  className="flex items-center justify-center gap-1.5 flex-1 min-w-0 text-xs sm:text-sm rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+                  className="flex items-center justify-center gap-1.5 min-w-[60px] sm:min-w-0 text-xs sm:text-sm rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200 whitespace-nowrap"
                 >
-                  <Sparkles className="w-4 h-4 flex-shrink-0" />
+                  <Droplets className="w-4 h-4 flex-shrink-0" />
                   <span className="hidden sm:inline">Hygiene</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="accessories"
-                  className="flex items-center justify-center gap-1.5 flex-1 min-w-0 text-xs sm:text-sm rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200"
+                  className="flex items-center justify-center gap-1.5 min-w-[60px] sm:min-w-0 text-xs sm:text-sm rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200 whitespace-nowrap"
                 >
                   <Palette className="w-4 h-4 flex-shrink-0" />
                   <span className="hidden sm:inline">Accessories</span>
@@ -180,11 +179,12 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
               <TabsContent value="food" className="mt-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {getShopItemsByType('food').map(item => (
-                    <ShopItemCard
+                    <BlobbiItemCard
                       key={item.id}
                       item={item}
+                      mode="shop"
                       canAfford={blobbonautProfile.coins >= item.price}
-                      onPurchase={handlePurchase}
+                      onAction={handlePurchase}
                     />
                   ))}
                 </div>
@@ -193,11 +193,12 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
               <TabsContent value="toys" className="mt-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {getShopItemsByType('toy').map(item => (
-                    <ShopItemCard
+                    <BlobbiItemCard
                       key={item.id}
                       item={item}
+                      mode="shop"
                       canAfford={blobbonautProfile.coins >= item.price}
-                      onPurchase={handlePurchase}
+                      onAction={handlePurchase}
                     />
                   ))}
                 </div>
@@ -206,11 +207,12 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
               <TabsContent value="medicine" className="mt-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {getShopItemsByType('medicine').map(item => (
-                    <ShopItemCard
+                    <BlobbiItemCard
                       key={item.id}
                       item={item}
+                      mode="shop"
                       canAfford={blobbonautProfile.coins >= item.price}
-                      onPurchase={handlePurchase}
+                      onAction={handlePurchase}
                     />
                   ))}
                 </div>
@@ -219,11 +221,12 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
               <TabsContent value="hygiene" className="mt-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {getShopItemsByType('hygiene').map(item => (
-                    <ShopItemCard
+                    <BlobbiItemCard
                       key={item.id}
                       item={item}
+                      mode="shop"
                       canAfford={blobbonautProfile.coins >= item.price}
-                      onPurchase={handlePurchase}
+                      onAction={handlePurchase}
                     />
                   ))}
                 </div>
@@ -251,11 +254,12 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {getShopItemsByType('accessory').map(item => (
-                      <ShopItemCard
+                      <BlobbiItemCard
                         key={item.id}
                         item={item}
+                        mode="shop"
                         canAfford={blobbonautProfile.coins >= item.price}
-                        onPurchase={handlePurchase}
+                        onAction={handlePurchase}
                         disabled
                       />
                     ))}
@@ -433,93 +437,5 @@ export function BlobbiShop({ isOpen, onClose, defaultTab = 'food' }: BlobbiShopP
         />
       )}
     </>
-  );
-}
-
-interface ShopItemCardProps {
-  item: BlobbiItem;
-  canAfford: boolean;
-  onPurchase: (item: BlobbiItem) => void;
-  disabled?: boolean;
-}
-
-function ShopItemCard({ item, canAfford, onPurchase, disabled }: ShopItemCardProps) {
-  return (
-    <Card className={`group transition-all duration-300 hover:shadow-xl ${
-      !canAfford || disabled
-        ? 'opacity-60 cursor-not-allowed'
-        : 'hover:scale-[1.02] cursor-pointer'
-    } bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-2xl overflow-hidden`}>
-      <CardContent className="p-0">
-        {/* Header with icon and price */}
-        <div className="relative p-4 pb-3 bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-900/20 dark:to-pink-900/20">
-          <div className="flex items-start justify-between">
-            <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-              <span className="text-2xl filter drop-shadow-sm">{item.icon}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/40 dark:to-amber-900/40 rounded-full border border-yellow-200/50 dark:border-yellow-700/50 shadow-sm">
-              <Coins className="w-3.5 h-3.5 text-yellow-600 dark:text-yellow-400" />
-              <span className="text-sm font-bold text-yellow-700 dark:text-yellow-300">{item.price}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-4">
-          <h4 className="font-semibold text-base mb-3 text-gray-900 dark:text-gray-100 line-clamp-1">{item.name}</h4>
-
-          {/* Effects */}
-          {item.effect && Object.entries(item.effect).length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-4">
-              {Object.entries(item.effect).map(([stat, value]: [string, number]) => (
-                <div key={stat} className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30 rounded-lg border border-emerald-200/50 dark:border-emerald-700/50">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                  <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                    {stat} +{value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Purchase Button */}
-          <Button
-            size="sm"
-            className={`w-full h-10 rounded-xl font-semibold transition-all duration-300 ${
-              disabled
-                ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                : !canAfford
-                  ? 'bg-gradient-to-r from-red-100 to-pink-100 dark:from-red-900/30 dark:to-pink-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-700 hover:from-red-200 hover:to-pink-200 dark:hover:from-red-900/40 dark:hover:to-pink-900/40'
-                  : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 shadow-lg hover:shadow-xl'
-            }`}
-            disabled={!canAfford || disabled}
-            onClick={() => onPurchase(item)}
-          >
-            {disabled ? (
-              <span className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-                  <span className="text-xs">⏳</span>
-                </div>
-                Coming Soon
-              </span>
-            ) : !canAfford ? (
-              <span className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-red-400 flex items-center justify-center">
-                  <span className="text-xs text-white">!</span>
-                </div>
-                Not Enough Coins
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center">
-                  <span className="text-xs">🛒</span>
-                </div>
-                Purchase
-              </span>
-            )}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

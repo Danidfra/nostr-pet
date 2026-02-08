@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Package, Sparkles, Apple, Palette, Home, Heart, Droplets } from 'lucide-react';
+import { Package, Apple, Palette, Heart, Droplets, Gamepad2 } from 'lucide-react';
 import { useBlobbiWithFakeStatus } from '@/hooks/useBlobbiWithFakeStatus';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { SHOP_ITEMS } from '@/lib/shop-items';
 import { useToast } from '@/hooks/useToast';
 import { BlobbiItem } from '@/types/blobbi';
+import { BlobbiItemCard } from './BlobbiItemCard';
 
 interface BlobbiStorageProps {
   isOpen: boolean;
@@ -41,7 +41,7 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
   const categories = [
     { id: 'all', label: 'All Items', icon: Package },
     { id: 'food', label: 'Food', icon: Apple },
-    { id: 'toy', label: 'Toys', icon: Sparkles },
+    { id: 'toy', label: 'Toys', icon: Gamepad2 },
     { id: 'medicine', label: 'Medicine', icon: Heart },
     { id: 'hygiene', label: 'Hygiene', icon: Droplets },
     { id: 'accessory', label: 'Accessories', icon: Palette },
@@ -49,7 +49,7 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
 
   const items = getItemsByCategory(selectedCategory);
 
-  const handleEquipAccessory = (itemId: string) => {
+  const handleEquipAccessory = (item: BlobbiItem) => {
     // TODO: Implement equipping accessories
     toast({
       title: "Coming Soon!",
@@ -94,9 +94,9 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
         ) : (
           <>
             {/* Fixed Tabs Section */}
-            <div className="flex-shrink-0 mb-4">
+            <div className="flex-shrink-0 mb-4 overflow-x-auto">
               <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-                <TabsList className="grid h-auto grid-cols-3 lg:grid-cols-6 w-full bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50 gap-1">
+                <TabsList className="inline-flex lg:grid lg:w-full lg:grid-cols-6 h-auto bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-1 rounded-xl border border-purple-200/50 dark:border-purple-600/50 gap-1 min-w-full">
                   {categories.map((category) => {
                     const Icon = category.icon;
                     const itemCount = getItemsByCategory(category.id).length;
@@ -104,14 +104,14 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
                       <TabsTrigger
                         key={category.id}
                         value={category.id}
-                        className="flex items-center justify-center gap-1 text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200 min-w-0"
+                        className="flex items-center justify-center gap-1 text-xs min-w-[60px] lg:min-w-0 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-purple-200 dark:data-[state=active]:border-purple-600 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-200 whitespace-nowrap px-3 py-2"
                       >
-                        <Icon className="w-3 h-3 flex-shrink-0" />
-                        <span className="hidden sm:inline truncate">{category.label}</span>
+                        <Icon className="w-4 h-4 flex-shrink-0" />
+                        <span className="hidden lg:inline truncate">{category.label}</span>
                         {itemCount > 0 && (
-                          <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex-shrink-0">
+                          <span className="ml-1 h-5 px-1.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex-shrink-0 rounded-md flex items-center justify-center font-medium">
                             {itemCount}
-                          </Badge>
+                          </span>
                         )}
                       </TabsTrigger>
                     );
@@ -139,65 +139,14 @@ export function BlobbiStorage({ isOpen, onClose }: BlobbiStorageProps) {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="space-y-3 md:grid md:grid-cols-3 md:gap-4 md:space-y-0 pb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
                       {items.map((item) => (
-                        <Card key={item.id} className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200/50 dark:border-purple-600/50 rounded-xl hover:shadow-lg transition-all duration-200">
-                          <CardHeader className="pb-3">
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-center gap-2 min-w-0">
-                                {item.icon && (
-                                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-lg">{item.icon}</span>
-                                  </div>
-                                )}
-                                <div className="min-w-0">
-                                  <CardTitle className="text-sm text-gray-900 dark:text-gray-100 truncate">
-                                    {item.name}
-                                  </CardTitle>
-                                  <CardDescription className="text-xs mt-1 text-gray-600 dark:text-gray-400">
-                                    {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-                                  </CardDescription>
-                                </div>
-                              </div>
-                              <Badge variant="secondary" className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 flex-shrink-0">
-                                x{item.quantity}
-                              </Badge>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-3">
-                            {item.effect && (
-                              <div className="text-xs space-y-1">
-                                {Object.entries(item.effect).map(([stat, value]) => (
-                                  <div key={stat} className="flex justify-between text-gray-600 dark:text-gray-400">
-                                    <span className="capitalize">{stat}:</span>
-                                    <span className="text-green-600 dark:text-green-400 font-medium">
-                                      {(value as number) > 0 ? '+' : ''}{String(value)}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {item.type === 'accessory' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="w-full border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                                onClick={() => handleEquipAccessory(item.id)}
-                              >
-                                Equip
-                              </Button>
-                            )}
-
-                            {(item.type === 'food' || item.type === 'medicine' || item.type === 'toy' || item.type === 'hygiene') && (
-                              <div className="text-center p-2 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                                <p className="text-xs text-blue-600 dark:text-blue-400">
-                                  Use from main interface
-                                </p>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
+                        <BlobbiItemCard
+                          key={item.id}
+                          item={item}
+                          mode="inventory"
+                          onAction={handleEquipAccessory}
+                        />
                       ))}
                     </div>
                   )}
