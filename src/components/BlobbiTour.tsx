@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SpotlightOverlay } from './SpotlightOverlay';
@@ -106,6 +106,27 @@ export function BlobbiTour({
     {
       selector: '#footer-button-blobbies',
       title: 'My Blobbies',
+      description: 'View and manage all your Blobbi pets in one place',
+      cutout: {
+        shape: 'rounded',
+        padding: 4,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'right',
+          offsetX: 20,
+          offsetY: 5,
+          scale: 0.8,
+        },
+        controlsPosition: 'bottom-center',
+        controlsOffsetY: 100,
+      },
+    },
+
+    // Step 1.1 — My Blobbies modal
+    {
+      selector: '#footer-button-blobbies-modal',
+      title: 'My Blobbies modal',
       description: 'View and manage all your Blobbi pets in one place',
       cutout: {
         shape: 'rounded',
@@ -413,9 +434,85 @@ export function BlobbiTour({
     };
   }, [currentStep, isOpen, isTransitioning, tourSteps, isMobile]);
 
+  // Unified function to trigger action and advance for interactive steps
+  const runTriggerActionAndAdvance = useCallback(async (source: 'next' | 'manual') => {
+    // Guard against concurrent runs
+    if (isTransitioning || waitingForActionRef.current) {
+      console.log(`[Tour] Skipping ${source} - already transitioning`);
+      return;
+    }
+
+    const currentStepData = tourSteps[currentStep];
+    
+    // Only run for interactive steps
+    if (!currentStepData.triggerAction || !currentStepData.waitForSelector) {
+      console.warn('[Tour] runTriggerActionAndAdvance called on non-interactive step');
+      return;
+    }
+
+    // Mark that we're processing an action
+    waitingForActionRef.current = true;
+    setIsTransitioning(true);
+
+    try {
+      const targetElement = document.querySelector(currentStepData.selector) as HTMLElement;
+      
+      if (!targetElement) {
+        console.error('[Tour] Target element not found:', currentStepData.selector);
+        return;
+      }
+
+      // For 'next' source, we need to programmatically trigger the click
+      // For 'manual' source, the user already clicked, so we just wait for the modal
+      if (source === 'next') {
+        // Ensure element is visible and scrolled into view
+        try {
+          await waitForVisible(currentStepData.selector, { timeout: 2000 });
+        } catch (error) {
+          console.error('[Tour] Target element not visible:', error);
+          return;
+        }
+
+        // Trigger the click action
+        console.log('[Tour] Triggering click on:', currentStepData.selector);
+        targetElement.click();
+      }
+
+      // Wait for the modal/drawer to appear (works for both 'next' and 'manual')
+      console.log('[Tour] Waiting for:', currentStepData.waitForSelector);
+      const timeout = currentStepData.waitTimeout || 3000;
+      await waitForVisible(currentStepData.waitForSelector, { timeout });
+      
+      // Small delay to ensure modal is fully rendered
+      await sleep(100);
+      console.log('[Tour] Modal opened successfully');
+
+      // Execute onLeave hook if it exists
+      if (currentStepData.onLeave) {
+        await currentStepData.onLeave(tourContext);
+      }
+
+      // Advance to next step
+      if (onNext) {
+        onNext();
+      } else if (currentStep < tourSteps.length - 1) {
+        setInternalCurrentStep(prev => prev + 1);
+      } else {
+        // Last step
+        handleClose();
+      }
+    } catch (error) {
+      console.error('[Tour] Error during trigger action:', error);
+      // Stay on current step if modal fails to open
+    } finally {
+      waitingForActionRef.current = false;
+      setIsTransitioning(false);
+    }
+  }, [currentStep, isTransitioning, tourSteps, tourContext, onNext, isMobile]);
+
   // Set up manual click detection on spotlighted element for interactive steps
   useEffect(() => {
-    if (!isOpen || isTransitioning) return;
+    if (!isOpen) return;
 
     const currentStepData = tourSteps[currentStep];
     
@@ -425,48 +522,29 @@ export function BlobbiTour({
     const targetElement = document.querySelector(currentStepData.selector) as HTMLElement;
     if (!targetElement) return;
 
-    const handleManualClick = async () => {
-      // Prevent duplicate handling if we're already transitioning
-      if (isTransitioning || waitingForActionRef.current) return;
-
-      // Mark that we're waiting for the action
-      waitingForActionRef.current = true;
-      setIsTransitioning(true);
-
-      try {
-        // Wait for the modal/drawer to appear
-        const timeout = currentStepData.waitTimeout || 3000;
-        await waitForVisible(currentStepData.waitForSelector!, { timeout });
-        
-        // Small delay to ensure modal is fully rendered
-        await sleep(100);
-
-        // Execute onLeave hook if it exists
-        if (currentStepData.onLeave) {
-          await currentStepData.onLeave(tourContext);
-        }
-
-        // Auto-advance to next step
-        if (onNext) {
-          onNext();
-        } else if (currentStep < tourSteps.length - 1) {
-          setInternalCurrentStep(prev => prev + 1);
-        }
-      } catch (error) {
-        console.error('Error handling manual click:', error);
-        // Stay on current step if modal fails to open
-      } finally {
-        waitingForActionRef.current = false;
-        setIsTransitioning(false);
-      }
+    const handleManualClick = (event: Event) => {
+      console.log('[Tour] Manual click detected on:', currentStepData.selector);
+      
+      // Let the click event propagate normally (don't prevent default)
+      // This allows the button to perform its natural action
+      
+      // Then handle tour advancement after a brief delay
+      // This ensures the click has been processed
+      setTimeout(() => {
+        runTriggerActionAndAdvance('manual');
+      }, 50);
     };
 
     // Add click listener to the target element
-    targetElement.addEventListener('click', handleManualClick);
+    // Use capture phase to ensure we catch it before other handlers
+    targetElement.addEventListener('click', handleManualClick, { capture: true });
+
+    console.log('[Tour] Manual click listener attached to:', currentStepData.selector);
 
     // Store cleanup function
     manualClickCleanupRef.current = () => {
-      targetElement.removeEventListener('click', handleManualClick);
+      targetElement.removeEventListener('click', handleManualClick, { capture: true });
+      console.log('[Tour] Manual click listener removed from:', currentStepData.selector);
     };
 
     return () => {
@@ -475,7 +553,7 @@ export function BlobbiTour({
         manualClickCleanupRef.current = null;
       }
     };
-  }, [currentStep, isOpen, isTransitioning, tourSteps, tourContext, onNext]);
+  }, [currentStep, isOpen, tourSteps, runTriggerActionAndAdvance]);
 
   const handleNext = async () => {
     if (isTransitioning) return;
@@ -486,50 +564,44 @@ export function BlobbiTour({
       return;
     }
 
+    const currentStepData = tourSteps[currentStep];
+
+    // For interactive steps with triggerAction, use the unified handler
+    if (currentStepData.triggerAction && currentStepData.waitForSelector) {
+      console.log('[Tour] Interactive step - using unified handler');
+      
+      setIsTransitioning(true);
+      
+      try {
+        // Execute onBeforeAdvance hook if it exists (for any prep work)
+        if (currentStepData.onBeforeAdvance) {
+          const result = await currentStepData.onBeforeAdvance('next', tourContext);
+          if (result && typeof result === 'object' && result.skipAutoScroll) {
+            skipAutoScrollRef.current = true;
+          }
+        }
+      } catch (error) {
+        console.error('Error in onBeforeAdvance:', error);
+        setIsTransitioning(false);
+        return;
+      } finally {
+        setIsTransitioning(false);
+      }
+
+      // Now run the unified trigger action and advance
+      await runTriggerActionAndAdvance('next');
+      return;
+    }
+
+    // For non-interactive steps, use the original flow
     setIsTransitioning(true);
 
     try {
-      const currentStepData = tourSteps[currentStep];
-
       // Execute onBeforeAdvance hook if it exists
       if (currentStepData.onBeforeAdvance) {
         const result = await currentStepData.onBeforeAdvance('next', tourContext);
         if (result && typeof result === 'object' && result.skipAutoScroll) {
           skipAutoScrollRef.current = true;
-        }
-      }
-
-      // If triggerAction is enabled, simulate click and wait for modal
-      if (currentStepData.triggerAction) {
-        const targetElement = document.querySelector(currentStepData.selector) as HTMLElement;
-        
-        if (targetElement) {
-          // Mark that we're waiting for action
-          waitingForActionRef.current = true;
-          
-          // Simulate click on the target element
-          targetElement.click();
-          
-          // Wait for the waitForSelector (modal/drawer) to appear
-          if (currentStepData.waitForSelector) {
-            try {
-              const timeout = currentStepData.waitTimeout || 3000;
-              await waitForVisible(currentStepData.waitForSelector, { timeout });
-              
-              // Small delay to ensure modal is fully rendered
-              await sleep(100);
-            } catch (error) {
-              console.error('Modal failed to open:', error);
-              // Reset state and stay on current step
-              waitingForActionRef.current = false;
-              setIsTransitioning(false);
-              return;
-            } finally {
-              waitingForActionRef.current = false;
-            }
-          }
-        } else {
-          console.warn('Target element not found:', currentStepData.selector);
         }
       }
 
