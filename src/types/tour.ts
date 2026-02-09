@@ -23,6 +23,8 @@ export interface HandPointerConfig {
   offsetY?: number;
   /** Scale factor for the hand image (default: 1) */
   scale?: number;
+  /** Automatically orient hand to point toward the spotlight/cutout (default: true) */
+  autoOrient?: boolean;
 }
 
 /**

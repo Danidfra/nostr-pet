@@ -372,8 +372,37 @@ export function CutoutOverlay({
     return { top, left };
   }, [hand]);
 
+  // Get hand orientation transform based on side
+  const getHandOrientationTransform = useCallback((): string => {
+    if (!hand?.enabled) return '';
+    
+    // autoOrient defaults to true
+    const autoOrient = hand.autoOrient !== false;
+    if (!autoOrient) return '';
+
+    const side = hand.side || 'right';
+
+    switch (side) {
+      case 'left':
+        // Hand asset points right by default, which is correct for left side
+        return '';
+      case 'right':
+        // Flip horizontally to point left toward cutout
+        return 'scaleX(-1)';
+      case 'top':
+        // Rotate 90° clockwise to point down toward cutout
+        return 'rotate(90deg)';
+      case 'bottom':
+        // Rotate 90° counter-clockwise (270° clockwise) to point up toward cutout
+        return 'rotate(-90deg)';
+      default:
+        return '';
+    }
+  }, [hand]);
+
   const handPosition = holeRect ? getHandPosition(holeRect) : null;
   const handScale = hand?.scale || 1;
+  const handOrientationTransform = getHandOrientationTransform();
 
   // Calculate control positioning styles and classes
   // Using inline styles for dynamic values (inset, offsets) to avoid Tailwind JIT issues
@@ -584,7 +613,7 @@ export function CutoutOverlay({
           style={{
             top: `${handPosition.top}px`,
             left: `${handPosition.left}px`,
-            transform: `translate(-50%, -50%) scale(${handScale})`,
+            transform: `translate(-50%, -50%) scale(${handScale}) ${handOrientationTransform}`,
             zIndex: 3,
           }}
         >
@@ -633,10 +662,10 @@ export function CutoutOverlay({
       <style>{`
         @keyframes gentle-bob {
           0%, 100% {
-            transform: translate(-50%, -50%) scale(${handScale}) translateY(0);
+            transform: translate(-50%, -50%) scale(${handScale}) ${handOrientationTransform} translateY(0);
           }
           50% {
-            transform: translate(-50%, -50%) scale(${handScale}) translateY(-8px);
+            transform: translate(-50%, -50%) scale(${handScale}) ${handOrientationTransform} translateY(-8px);
           }
         }
       `}</style>

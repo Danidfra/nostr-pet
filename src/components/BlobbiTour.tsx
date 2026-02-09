@@ -100,17 +100,19 @@ export function BlobbiTour({
       selector: '#tab-my-blobbies',
       title: 'My Blobbies',
       description: 'View and manage all your Blobbi pets in one place',
-      image: step1Img,
-      imagePosition: 'below',
-      imageOffsetY: -100,
-      imageOffsetX: -180,
-      mobile: {
-        imagePosition: 'right',
-        imageOffsetX: 0,
-        imageOffsetY: 200,
-        imageHeight: 220,
-        imageMobile: mobileStep1Img // Same image for now, but could be different
-      }
+      cutout: {
+        shape: 'rounded',
+        padding: 16,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'right',
+          offsetX: -20,
+          offsetY: 10,
+          scale: 1,
+        },
+        controlsPosition: 'top-center',
+      },
     },
 
     // Step 2 — Missions

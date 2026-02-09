@@ -210,6 +210,7 @@ export function BlobbiActionsFooter({
               {/* Left: Shop */}
               {onSwitchBlobbi && (
                 <Button
+                id='tab-my-blobbies'
                   variant="outline"
                   size="sm"
                   onClick={onSwitchBlobbi}
