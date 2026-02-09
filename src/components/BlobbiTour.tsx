@@ -92,54 +92,92 @@ export function BlobbiTour({
           scale: 1,
         },
         controlsPosition: 'top-center',
+        controlsOffsetY: 40,
       },
     },
 
     // Step 1 — My Blobbies
     {
-      selector: '#tab-my-blobbies',
+      selector: '#footer-button-blobbies',
       title: 'My Blobbies',
       description: 'View and manage all your Blobbi pets in one place',
       cutout: {
         shape: 'rounded',
-        padding: 16,
+        padding: 4,
         radius: 24,
         hand: {
           enabled: true,
           side: 'right',
-          offsetX: -20,
-          offsetY: 10,
-          scale: 1,
+          offsetX: 20,
+          offsetY: 5,
+          scale: 0.8,
         },
-        controlsPosition: 'top-center',
+        controlsPosition: 'bottom-center',
+        controlsOffsetY: 100,
       },
     },
 
     // Step 2 — Missions
     {
-      selector: '#tab-missions',
+      selector: '#footer-button-missions',
       title: 'Missions',
       description: 'Complete missions to earn rewards and help your Blobbis grow',
-      image: step2Img,
-      imagePosition: 'below',
-      imageOffsetX: -60,
-      imageOffsetY: -90,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-        if (dir === 'next') {
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-        } else if (dir === 'prev') {
-          setActiveTab?.('blobbis');
-          await waitForVisible('#tab-my-blobbies', { timeout: 2000 });
-        }
+      cutout: {
+        shape: 'rounded',
+        padding: 4,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'right',
+          offsetX: 20,
+          offsetY: 5,
+          scale: 0.8,
+        },
+        controlsPosition: 'bottom-center',
+        controlsOffsetY: 100,
       },
-      mobile: {
-        imagePosition: 'right',
-        imageOffsetX: 100,
-        imageOffsetY: 100,
-        imageHeight: 220,
-        imageMobile: step2Img // Same image for now, but could be different
-      }
+    },
+    
+    // Step 3 — Shop
+    {
+      selector: '#footer-button-shop',
+      title: 'Shop',
+      description: 'Purchase food, toys, and supplies to keep your Blobbi thriving.',
+      cutout: {
+        shape: 'rounded',
+        padding: 4,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'left',
+          offsetX: -20,
+          offsetY: 5,
+          scale: 0.8,
+        },
+        controlsPosition: 'bottom-center',
+        controlsOffsetY: 100,
+      },
+    },
+
+    // Step 4 — Inventory
+    {
+      selector: '#footer-button-inventory',
+      title: 'Inventory',
+      description: 'Manage your items and use them to care for your Blobbi whenever needed.',
+      cutout: {
+        shape: 'rounded',
+        padding: 4,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'left',
+          offsetX: -20,
+          offsetY: 5,
+          scale: 0.8,
+        },
+        controlsPosition: 'bottom-center',
+        controlsOffsetY: 100,
+      },
     },
 
     // Step 3 — Growth Hub (tab trigger)
@@ -147,29 +185,19 @@ export function BlobbiTour({
       selector: '#tab-growth-hub',
       title: 'Growth Hub',
       description: 'The Growth Hub is where your Blobbi hatches, evolves, and tracks its progress through special tasks',
-      image: step3Img,
-      imagePosition: 'below',
-      imageOffsetX: -260,
-      imageOffsetY: -80,
-      imageHeight: 500,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-        if (dir === 'next') {
-          // Open tab content before going to step 4
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub-incubating-eggs', { timeout: 2000 });
-        } else if (dir === 'prev') {
-          // Going back to Missions
-          setActiveTab?.('missions');
-          await waitForVisible('#tab-missions', { timeout: 2000 });
-        }
+      cutout: {
+        shape: 'rounded',
+        padding: 4,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'right',
+          offsetX: 10,
+          offsetY: 5,
+          scale: 0.5,
+        },
+        controlsPosition: 'center',
       },
-        mobile: {
-        imagePosition: 'left',
-        imageOffsetX: 60,
-        imageOffsetY: 140,
-        imageHeight: 280,
-        imageMobile: step3Img // Same image for now, but could be different
-      }
     },
 
     // Step 4 — Growth Hub (tab trigger)

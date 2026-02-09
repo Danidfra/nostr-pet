@@ -81,6 +81,7 @@ export function BlobbiGrowthHubModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        id='tab-growth-hub-incubating-eggs'
         className={cn(
           // Mobile: almost full screen
           "w-[calc(100vw-1.5rem)]",

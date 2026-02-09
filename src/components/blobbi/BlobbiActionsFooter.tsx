@@ -210,7 +210,7 @@ export function BlobbiActionsFooter({
               {/* Left: Shop */}
               {onSwitchBlobbi && (
                 <Button
-                id='tab-my-blobbies'
+                id='footer-button-blobbies'
                   variant="outline"
                   size="sm"
                   onClick={onSwitchBlobbi}
@@ -226,6 +226,7 @@ export function BlobbiActionsFooter({
               {/* Right: Missions */}
               {onOpenMissions && (
                 <Button
+                id='footer-button-missions'
                   variant="outline"
                   size="sm"
                   onClick={onOpenMissions}
@@ -254,6 +255,7 @@ export function BlobbiActionsFooter({
               {/* Right-center: Blobbies (Switch) */}
               {onOpenShop && (
                 <Button
+                  id='footer-button-shop'
                   variant="outline"
                   size="sm"
                   onClick={onOpenShop}
@@ -269,6 +271,7 @@ export function BlobbiActionsFooter({
               {/* Left-center: Inventory */}
               {onOpenInventory && (
                 <Button
+                id='footer-button-inventory'
                   variant="outline"
                   size="sm"
                   onClick={onOpenInventory}

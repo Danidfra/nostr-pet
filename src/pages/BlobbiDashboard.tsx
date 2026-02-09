@@ -684,6 +684,7 @@ export default function BlobbiDashboard() {
                     {/* Growth Hub Icon Button - Opens Modal */}
                     {selectedBlobbi.lifeStage === 'egg' && (
                       <Button
+                        id='tab-growth-hub'
                         variant="ghost"
                         size="sm"
                         className={cn(
