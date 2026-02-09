@@ -41,6 +41,63 @@ export const waitForVisible = (selector: string, opts: { timeout?: number } = {}
 };
 
 /**
+ * Utility function to wait for an element to become hidden/removed.
+ * 
+ * Useful for waiting for modals to close before advancing tour steps.
+ * Checks if element is removed from DOM or hidden via display/visibility/opacity.
+ * 
+ * @param selector - CSS selector for the element
+ * @param opts - Options including timeout (default: 3000ms)
+ * @returns Promise that resolves when element is hidden or removed
+ */
+export const waitForHidden = (selector: string, opts: { timeout?: number } = {}): Promise<void> => {
+  const { timeout = 3000 } = opts;
+
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now();
+
+    const checkElement = () => {
+      const element = document.querySelector(selector);
+      
+      // If element doesn't exist in DOM, it's hidden
+      if (!element) {
+        resolve();
+        return;
+      }
+
+      // Check if element is hidden via CSS
+      const rect = element.getBoundingClientRect();
+      const computedStyle = window.getComputedStyle(element);
+      
+      const isHidden =
+        rect.width === 0 ||
+        rect.height === 0 ||
+        computedStyle.display === 'none' ||
+        computedStyle.visibility === 'hidden' ||
+        parseFloat(computedStyle.opacity) < 0.01 ||
+        (element as HTMLElement).offsetParent === null; // Not rendered (display:none or hidden ancestor)
+
+      if (isHidden) {
+        resolve();
+        return;
+      }
+
+      // Check timeout
+      if (Date.now() - startTime > timeout) {
+        reject(new Error(`Element ${selector} still visible after ${timeout}ms`));
+        return;
+      }
+
+      // Continue checking
+      requestAnimationFrame(checkElement);
+    };
+
+    // Start checking
+    checkElement();
+  });
+};
+
+/**
  * Wait for layout to stabilize after DOM changes.
  * This helps prevent incorrect positioning when tabs/layouts change.
  * Waits for at least two animation frames to ensure layout has settled.

@@ -7,13 +7,14 @@ import { ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { TourStep, TourContext } from '@/types/tour';
-import { waitForVisible, sleep, applyAutoScroll } from '@/lib/tour-utils';
+import { TourStep, TourContext, BlobbiTourApi } from '@/types/tour';
+import { waitForVisible, waitForHidden, sleep, applyAutoScroll } from '@/lib/tour-utils';
 
-// TypeScript declaration for global tour active flag
+// TypeScript declarations for global tour flags and API
 declare global {
   interface Window {
     __BLOBBI_TOUR_ACTIVE__?: boolean;
+    __BLOBBI_TOUR_API__?: BlobbiTourApi;
   }
 }
 
@@ -155,7 +156,7 @@ export function BlobbiTour({
     {
       selector: '#footer-button-missions',
       title: 'Missions',
-      description: 'Complete missions to earn rewards and help your Blobbis grow',
+      description: 'Complete missions to earn coins and keep your Blobbi happy. Come back every day for missions and rewards!',
       cutout: {
         shape: 'rounded',
         padding: 4,
@@ -245,13 +246,12 @@ export function BlobbiTour({
       cutout: {
         shape: 'rounded',
         padding: 0,
-        radius: 24,
         hand: {
           enabled: true,
-          side: 'right',
-          offsetX: 10,
-          offsetY: 5,
-          scale: 0.5,
+          side: 'top',
+          offsetX: 0,
+          offsetY: -50,
+          scale: 1,
         },
         controlsPosition: 'bottom-center',
       },
@@ -259,12 +259,11 @@ export function BlobbiTour({
     // Step 7 — Growth Hub (tab trigger)
     {
       selector: '#growth-hub-hatching-modal-start-button',
-      title: 'Incubating Eggs',
-      description: 'Incubating eggs lets you track all the steps needed for hatching and monitor their overall progress.',
+      title: 'Start Incubation',
+      description: 'Begin the journey of your Blobbi\'s egg by starting the incubation process.',
       cutout: {
         shape: 'rounded',
-        padding: 4,
-        radius: 24,
+        padding: 0,
         hand: {
           enabled: true,
           side: 'right',
@@ -276,110 +275,106 @@ export function BlobbiTour({
       },
     },
 
-    // Step 7 — Growth Hub (egg selection)
+    // Step 8 — Growth Hub (tab trigger)
     {
-      selector: '#tab-growth-hub-egg-selection',
-      title: 'Select Your Egg',
-      description: 'Pick an egg, and let\'s get it ready to hatch!',
-      image: step5Img,
-      imagePosition: 'right',
-      imageOffsetX: 0,
-      imageOffsetY: 80,
-      imageHeight: 240,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-        if (dir === 'prev') {
-          // Keep the Growth Hub tab active, just move spotlight back to the trigger
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-        }
-      }
-    },
-
-    // Step 8 — Growth Hub (start incubation)
-    {
-      selector: '#tab-growth-hub-start-incubation',
-      title: 'Start Incubation',
-      description: 'Begin the journey of your Blobbi\'s egg by starting the incubation process.',
-      image: step6Img,
-      imagePosition: 'left',
-      imageOffsetX: 0,
-      imageOffsetY: 80,
-      imageHeight: 380,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-        if (dir === 'prev') {
-          // Keep the Growth Hub tab active, just move spotlight back to the trigger
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-        }
-      }
-    },
-
-    // Step 9 — Growth Hub (tasks)
-    {
-      selector: '#tab-growth-hub-tasks-0',
+      selector: '#growth-hub-hatching-modal-tasks',
       title: 'Tasks',
       description: 'Complete these missions to help your Blobbi hatch and grow.',
-      image: step7Img,
-      imagePosition: 'right',
-      imageOffsetX: 0,
-      imageOffsetY: 0,
-      imageHeight: 340,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-         if (dir === 'next') {
-          setActiveTab?.('blobbis');
-          await waitForVisible('#daily-missions-card', { timeout: 2000 });
-        } else if (dir === 'prev') {
-          // Keep the Growth Hub tab active, just move spotlight back to the trigger
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-        }
-      }
+      cutout: {
+        shape: 'rounded',
+        padding: 10,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'top',
+          offsetX: 0,
+          offsetY: -50,
+          scale: 1,
+        },
+        controlsPosition: 'bottom-center',
+      },
     },
 
-    // Step 10 — Growth Hub (tasks)
+    // Step 9 — Close Growth Hub Modal and Return to Dashboard
     {
-      selector: '#daily-missions-card',
-      title: 'Daily Missions',
-      description: 'Complete daily missions to earn coins and keep your Blobbi happy. Come back every day for missions and rewards!',
-      image: step8Img,
-      imagePosition: 'right',
-      imageOffsetX: 0,
-      imageOffsetY: 0,
-      imageHeight: 340,
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-        if (dir === 'prev') {
-          // Keep the Growth Hub tab active, just move spotlight back to the trigger
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
+      selector: '#growth-hub-hatching-modal-tasks',
+      title: 'Back to Dashboard',
+      description: 'Now let\'s return to the main dashboard to continue exploring.',
+      nextLabel: 'Back to dashboard',
+      cutout: {
+        shape: 'rounded',
+        padding: 10,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'top',
+          offsetX: 0,
+          offsetY: -50,
+          scale: 1,
+        },
+        controlsPosition: 'bottom-center',
+      },
+      async onBeforeAdvance(dir, { waitForVisible, sleep }) {
+        if (dir !== 'next') return;
+
+        // Close Growth Hub modal via tour API bridge
+        if (window.__BLOBBI_TOUR_API__?.closeGrowthHubModal) {
+          console.log('[Tour] Closing Growth Hub modal via API');
+          window.__BLOBBI_TOUR_API__.closeGrowthHubModal();
+        } else {
+          console.warn('[Tour] Tour API not available - modal may not close');
         }
-      }
+
+        // Wait for modal to actually close/unmount
+        try {
+          await waitForHidden('#tab-growth-hub-incubating-eggs', { timeout: 3000 });
+          console.log('[Tour] Modal closed successfully');
+        } catch (error) {
+          console.error('[Tour] Modal failed to close:', error);
+          // Continue anyway - modal might have different selector
+        }
+
+        // Small delay for DOM to settle
+        await sleep(50);
+
+        // Wait for dashboard element to be visible (confirms we're back)
+        try {
+          await waitForVisible('#dashboard-blobbi-visual', { timeout: 2000 });
+          console.log('[Tour] Dashboard visible - ready to continue');
+        } catch (error) {
+          console.error('[Tour] Dashboard element not visible:', error);
+        }
+
+        // Skip auto-scroll to avoid weird scroll jumps when returning to dashboard
+        return { skipAutoScroll: true };
+      },
     },
 
-    // Step 11 — My Blobbies
-    {
-      selector: '#tab-my-blobbies-card',
-      title: 'Next up: Blobbi details',
-      description: 'We\'ll open your Blobbi page to continue the tour.',
-      image: step9Img,
-      imagePosition: 'right',
-      imageOffsetX: 0,
-      imageOffsetY: 0,
-      imageHeight: 340,
-      nextLabel: 'Next part',
-      async onBeforeAdvance(dir, { navigateTo }) {
-        if (dir === 'next' && firstBlobbiId) {
-          // Store handoff token
-          sessionStorage.setItem('tour.resume', JSON.stringify({
-            next: 'details',
-            startIndex: 0,
-            blobbiId: firstBlobbiId
-          }));
+    // // Step 11 — My Blobbies
+    // {
+    //   selector: '#tab-my-blobbies-card',
+    //   title: 'Next up: Blobbi details',
+    //   description: 'We\'ll open your Blobbi page to continue the tour.',
+    //   image: step9Img,
+    //   imagePosition: 'right',
+    //   imageOffsetX: 0,
+    //   imageOffsetY: 0,
+    //   imageHeight: 340,
+    //   nextLabel: 'Next part',
+    //   async onBeforeAdvance(dir, { navigateTo }) {
+    //     if (dir === 'next' && firstBlobbiId) {
+    //       // Store handoff token
+    //       sessionStorage.setItem('tour.resume', JSON.stringify({
+    //         next: 'details',
+    //         startIndex: 0,
+    //         blobbiId: firstBlobbiId
+    //       }));
 
-          await navigateTo(`/blobbi/${firstBlobbiId}`);
-          // Do NOT advance step here; details tour will take over
-        }
-      }
-    },
+    //       await navigateTo(`/blobbi/${firstBlobbiId}`);
+    //       // Do NOT advance step here; details tour will take over
+    //     }
+    //   }
+    // },
   ], [customSteps, firstBlobbiId]);
 
   // Reset to first step when tour opens (only for internal state)

@@ -475,7 +475,7 @@ export function BlobbiGrowthHubContent({
           {getStartStopButtons()}
         </div>
 
-        <div className={cn(mode === 'baby' && blobbi.lifeStage === 'baby' && "pointer-events-none opacity-40")}>
+        <div id='growth-hub-hatching-modal-tasks' className={cn(mode === 'baby' && blobbi.lifeStage === 'baby' && "pointer-events-none opacity-40")}>
           {/* Progress Overview */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">

@@ -159,3 +159,26 @@ export interface TourContext {
 export interface OnBeforeAdvanceResult {
   skipAutoScroll?: boolean;
 }
+
+/**
+ * Tour API Bridge
+ * 
+ * Global API exposed by BlobbiDashboard to allow the tour to control
+ * dashboard state (modals, tabs, etc.) without tight coupling.
+ * 
+ * Registered by dashboard on mount:
+ * - window.__BLOBBI_TOUR_API__ = { ... }
+ * 
+ * Used by tour to:
+ * - Close Growth Hub modal between tour steps
+ * - Switch tabs programmatically
+ * - Control other dashboard UI states
+ */
+export interface BlobbiTourApi {
+  /** Close the Growth Hub modal */
+  closeGrowthHubModal: () => void;
+  /** Open the Growth Hub modal */
+  openGrowthHubModal: () => void;
+  /** Switch the active dashboard tab */
+  setActiveTab: (tab: string) => void;
+}

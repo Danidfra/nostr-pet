@@ -152,6 +152,23 @@ export default function BlobbiDashboard() {
   const { toast } = useToast();
   useWelcomeConfetti(showTourCompletionModal);
 
+  // Register Tour API Bridge
+  // Allows BlobbiTour to control dashboard state without tight coupling
+  useEffect(() => {
+    window.__BLOBBI_TOUR_API__ = {
+      closeGrowthHubModal: () => setIsGrowthHubOpen(false),
+      openGrowthHubModal: () => setIsGrowthHubOpen(true),
+      setActiveTab: (_tab: string) => {
+        // Tab switching can be implemented here if needed
+        // For now, this is a placeholder for future tab control
+      },
+    };
+
+    return () => {
+      delete window.__BLOBBI_TOUR_API__;
+    };
+  }, []);
+
   // Initialize selected Blobbi with localStorage persistence
   useEffect(() => {
     // Only initialize when we don't have a selection and blobbis are loaded
