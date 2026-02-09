@@ -181,6 +181,7 @@ export function BlobbiGrowthHubContent({
       if (!isIncubatingForThisBlobbi) {
         return (
           <Button
+            id='growth-hub-hatching-modal-start-button'
             onClick={onStartIncubation}
             size="sm"
             className="bg-purple-600 hover:bg-purple-700 text-white"

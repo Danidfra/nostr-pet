@@ -213,7 +213,7 @@ export function BlobbiTour({
       title: 'Growth Hub',
       description: 'The Growth Hub is where your Blobbi hatches, evolves, and tracks its progress through special tasks',
       triggerAction: true,
-      waitForSelector: '#tab-growth-hub-incubating-eggs',
+      waitForSelector: '#growth-hub-hatching-modal',
       waitTimeout: 5000,
       cutout: {
         shape: 'rounded',
@@ -230,30 +230,43 @@ export function BlobbiTour({
       },
     },
 
-    // Step 6 — Growth Hub (tab trigger)
+    // Step 6 — Growth Hub
     {
-      selector: '#tab-growth-hub-incubating-eggs',
+      selector: '#growth-hub-hatching-modal',
       title: 'Incubating Eggs',
       description: 'Incubating eggs lets you track all the steps needed for hatching and monitor their overall progress.',
-      image: step4Img,
-      imagePosition: 'right',
-      imageOffsetX: 0,
-      imageOffsetY: 80,
-      imageHeight: 240,
-      mobile: {
-        imagePosition: 'left',
-        imageOffsetX: 60,
-        imageOffsetY: 200,
-        imageHeight: 280,
-        imageMobile: step3Img // Same image for now, but could be different
+      cutout: {
+        shape: 'rounded',
+        padding: 0,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'right',
+          offsetX: 10,
+          offsetY: 5,
+          scale: 0.5,
+        },
+        controlsPosition: 'bottom-center',
       },
-      async onBeforeAdvance(dir, { setActiveTab, waitForVisible }) {
-        if (dir === 'prev') {
-          // Keep the Growth Hub tab active, just move spotlight back to the trigger
-          setActiveTab?.('incubation');
-          await waitForVisible('#tab-growth-hub', { timeout: 2000 });
-        }
-      }
+    },
+    // Step 7 — Growth Hub (tab trigger)
+    {
+      selector: '#growth-hub-hatching-modal-start-button',
+      title: 'Incubating Eggs',
+      description: 'Incubating eggs lets you track all the steps needed for hatching and monitor their overall progress.',
+      cutout: {
+        shape: 'rounded',
+        padding: 4,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'right',
+          offsetX: 10,
+          offsetY: 5,
+          scale: 0.5,
+        },
+        controlsPosition: 'bottom-center',
+      },
     },
 
     // Step 7 — Growth Hub (egg selection)
