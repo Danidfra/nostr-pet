@@ -107,9 +107,6 @@ export function BlobbiTour({
       selector: '#footer-button-blobbies',
       title: 'My Blobbies',
       description: 'View and manage all your Blobbi pets in one place',
-      triggerAction: true,
-      waitForSelector: '[data-dialog="blobbi-selector"]',
-      waitTimeout: 5000,
       cutout: {
         shape: 'rounded',
         padding: 4,
@@ -126,26 +123,26 @@ export function BlobbiTour({
       },
     },
 
-    // Step 1.1 — My Blobbies modal
-    {
-      selector: '#footer-button-blobbies-modal',
-      title: 'My Blobbies modal',
-      description: 'View and manage all your Blobbi pets in one place',
-      cutout: {
-        shape: 'rounded',
-        padding: 4,
-        radius: 24,
-        hand: {
-          enabled: true,
-          side: 'right',
-          offsetX: 20,
-          offsetY: 5,
-          scale: 0.8,
-        },
-        controlsPosition: 'bottom-center',
-        controlsOffsetY: 100,
-      },
-    },
+    // // Step 1.1 — My Blobbies modal
+    // {
+    //   selector: '#footer-button-blobbies-modal',
+    //   title: 'My Blobbies modal',
+    //   description: 'View and manage all your Blobbi pets in one place',
+    //   cutout: {
+    //     shape: 'rounded',
+    //     padding: 4,
+    //     radius: 24,
+    //     hand: {
+    //       enabled: true,
+    //       side: 'right',
+    //       offsetX: 20,
+    //       offsetY: 5,
+    //       scale: 0.8,
+    //     },
+    //     controlsPosition: 'bottom-center',
+    //     controlsOffsetY: 100,
+    //   },
+    // },
 
     // Step 2 — Missions
     {
@@ -210,7 +207,7 @@ export function BlobbiTour({
       },
     },
 
-    // Step 3 — Growth Hub (tab trigger)
+    // Step 5 — Growth Hub (tab trigger)
     {
       selector: '#tab-growth-hub',
       title: 'Growth Hub',
@@ -230,7 +227,7 @@ export function BlobbiTour({
       },
     },
 
-    // Step 4 — Growth Hub (tab trigger)
+    // Step 6 — Growth Hub (tab trigger)
     {
       selector: '#tab-growth-hub-incubating-eggs',
       title: 'Incubating Eggs',
@@ -256,7 +253,7 @@ export function BlobbiTour({
       }
     },
 
-    // Step 5 — Growth Hub (egg selection)
+    // Step 7 — Growth Hub (egg selection)
     {
       selector: '#tab-growth-hub-egg-selection',
       title: 'Select Your Egg',
@@ -275,7 +272,7 @@ export function BlobbiTour({
       }
     },
 
-    // Step 6 — Growth Hub (start incubation)
+    // Step 8 — Growth Hub (start incubation)
     {
       selector: '#tab-growth-hub-start-incubation',
       title: 'Start Incubation',
@@ -294,7 +291,7 @@ export function BlobbiTour({
       }
     },
 
-    // Step 7 — Growth Hub (tasks)
+    // Step 9 — Growth Hub (tasks)
     {
       selector: '#tab-growth-hub-tasks-0',
       title: 'Tasks',
@@ -316,7 +313,7 @@ export function BlobbiTour({
       }
     },
 
-    // Step 8 — Growth Hub (tasks)
+    // Step 10 — Growth Hub (tasks)
     {
       selector: '#daily-missions-card',
       title: 'Daily Missions',
@@ -335,7 +332,7 @@ export function BlobbiTour({
       }
     },
 
-    // Step 9 — My Blobbies
+    // Step 11 — My Blobbies
     {
       selector: '#tab-my-blobbies-card',
       title: 'Next up: Blobbi details',
