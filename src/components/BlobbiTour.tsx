@@ -59,6 +59,12 @@ export function BlobbiTour({
 
   // Ref to handle skipAutoScroll from onBeforeAdvance
   const skipAutoScrollRef = useRef(false);
+  
+  // Ref to track if we're waiting for a manual action
+  const waitingForActionRef = useRef(false);
+  
+  // Ref to store manual click listener cleanup
+  const manualClickCleanupRef = useRef<(() => void) | null>(null);
 
   // Memoize TourContext to prevent unnecessary re-renders
   const tourContext: TourContext = useMemo(() => ({
@@ -407,6 +413,70 @@ export function BlobbiTour({
     };
   }, [currentStep, isOpen, isTransitioning, tourSteps, isMobile]);
 
+  // Set up manual click detection on spotlighted element for interactive steps
+  useEffect(() => {
+    if (!isOpen || isTransitioning) return;
+
+    const currentStepData = tourSteps[currentStep];
+    
+    // Only set up click detection if triggerAction is enabled
+    if (!currentStepData.triggerAction || !currentStepData.waitForSelector) return;
+
+    const targetElement = document.querySelector(currentStepData.selector) as HTMLElement;
+    if (!targetElement) return;
+
+    const handleManualClick = async () => {
+      // Prevent duplicate handling if we're already transitioning
+      if (isTransitioning || waitingForActionRef.current) return;
+
+      // Mark that we're waiting for the action
+      waitingForActionRef.current = true;
+      setIsTransitioning(true);
+
+      try {
+        // Wait for the modal/drawer to appear
+        const timeout = currentStepData.waitTimeout || 3000;
+        await waitForVisible(currentStepData.waitForSelector!, { timeout });
+        
+        // Small delay to ensure modal is fully rendered
+        await sleep(100);
+
+        // Execute onLeave hook if it exists
+        if (currentStepData.onLeave) {
+          await currentStepData.onLeave(tourContext);
+        }
+
+        // Auto-advance to next step
+        if (onNext) {
+          onNext();
+        } else if (currentStep < tourSteps.length - 1) {
+          setInternalCurrentStep(prev => prev + 1);
+        }
+      } catch (error) {
+        console.error('Error handling manual click:', error);
+        // Stay on current step if modal fails to open
+      } finally {
+        waitingForActionRef.current = false;
+        setIsTransitioning(false);
+      }
+    };
+
+    // Add click listener to the target element
+    targetElement.addEventListener('click', handleManualClick);
+
+    // Store cleanup function
+    manualClickCleanupRef.current = () => {
+      targetElement.removeEventListener('click', handleManualClick);
+    };
+
+    return () => {
+      if (manualClickCleanupRef.current) {
+        manualClickCleanupRef.current();
+        manualClickCleanupRef.current = null;
+      }
+    };
+  }, [currentStep, isOpen, isTransitioning, tourSteps, tourContext, onNext]);
+
   const handleNext = async () => {
     if (isTransitioning) return;
 
@@ -426,6 +496,40 @@ export function BlobbiTour({
         const result = await currentStepData.onBeforeAdvance('next', tourContext);
         if (result && typeof result === 'object' && result.skipAutoScroll) {
           skipAutoScrollRef.current = true;
+        }
+      }
+
+      // If triggerAction is enabled, simulate click and wait for modal
+      if (currentStepData.triggerAction) {
+        const targetElement = document.querySelector(currentStepData.selector) as HTMLElement;
+        
+        if (targetElement) {
+          // Mark that we're waiting for action
+          waitingForActionRef.current = true;
+          
+          // Simulate click on the target element
+          targetElement.click();
+          
+          // Wait for the waitForSelector (modal/drawer) to appear
+          if (currentStepData.waitForSelector) {
+            try {
+              const timeout = currentStepData.waitTimeout || 3000;
+              await waitForVisible(currentStepData.waitForSelector, { timeout });
+              
+              // Small delay to ensure modal is fully rendered
+              await sleep(100);
+            } catch (error) {
+              console.error('Modal failed to open:', error);
+              // Reset state and stay on current step
+              waitingForActionRef.current = false;
+              setIsTransitioning(false);
+              return;
+            } finally {
+              waitingForActionRef.current = false;
+            }
+          }
+        } else {
+          console.warn('Target element not found:', currentStepData.selector);
         }
       }
 

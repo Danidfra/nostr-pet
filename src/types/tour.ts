@@ -138,6 +138,12 @@ export interface TourStep {
   scrollOffset?: number; // Extra pixel offset to apply (positive pushes it further down, negative moves it up)
   /** Cutout overlay configuration (overrides default spotlight) */
   cutout?: CutoutConfig;
+  /** If true, clicking Next will programmatically trigger the target element's click action */
+  triggerAction?: boolean;
+  /** Selector to wait for after triggering action (e.g., modal selector) */
+  waitForSelector?: string;
+  /** Timeout in ms when waiting for selector to appear (default: 3000) */
+  waitTimeout?: number;
   onEnter?(ctx: TourContext): void | Promise<void>;
   onBeforeAdvance?(dir: Direction, ctx: TourContext): void | Promise<void | OnBeforeAdvanceResult>;
   onLeave?(ctx: TourContext): void | Promise<void>;
