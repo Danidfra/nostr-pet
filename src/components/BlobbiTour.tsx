@@ -10,6 +10,13 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { TourStep, TourContext } from '@/types/tour';
 import { waitForVisible, sleep, applyAutoScroll } from '@/lib/tour-utils';
 
+// TypeScript declaration for global tour active flag
+declare global {
+  interface Window {
+    __BLOBBI_TOUR_ACTIVE__?: boolean;
+  }
+}
+
 // Import step images explicitly for proper Vite asset handling
 const mobileStep1Img = '/assets/overboard/blobbi-overboard-mobile-step-1.png';
 const step1Img = '/assets/overboard/blobbi-overboard-step-1.png';
@@ -381,6 +388,20 @@ export function BlobbiTour({
       setInternalCurrentStep(0);
     }
   }, [isOpen, propCurrentStep]);
+
+  // Set global flag to prevent Radix Dialog dismissal while tour is active
+  // This flag is checked in dialog.tsx to prevent onPointerDownOutside/onInteractOutside
+  useEffect(() => {
+    if (isOpen) {
+      window.__BLOBBI_TOUR_ACTIVE__ = true;
+    } else {
+      window.__BLOBBI_TOUR_ACTIVE__ = false;
+    }
+
+    return () => {
+      window.__BLOBBI_TOUR_ACTIVE__ = false;
+    };
+  }, [isOpen]);
 
   // Execute onEnter hook when step changes and scroll to target
   // Single source of truth for step lifecycle
