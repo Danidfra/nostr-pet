@@ -102,11 +102,14 @@ export function BlobbiTour({
       },
     },
 
-    // Step 1 — My Blobbies
+    // Step 1 — My Blobbies (Interactive)
     {
       selector: '#footer-button-blobbies',
       title: 'My Blobbies',
       description: 'View and manage all your Blobbi pets in one place',
+      triggerAction: true,
+      waitForSelector: '[data-dialog="blobbi-selector"]',
+      waitTimeout: 5000,
       cutout: {
         shape: 'rounded',
         padding: 4,
@@ -473,9 +476,16 @@ export function BlobbiTour({
           return;
         }
 
-        // Trigger the click action
+        // Trigger the click action using dispatchEvent for React-safe click simulation
         console.log('[Tour] Triggering click on:', currentStepData.selector);
-        targetElement.click();
+        
+        // Dispatch a proper click event that bubbles (React-safe)
+        const clickEvent = new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+        });
+        targetElement.dispatchEvent(clickEvent);
       }
 
       // Wait for the modal/drawer to appear (works for both 'next' and 'manual')
@@ -522,29 +532,30 @@ export function BlobbiTour({
     const targetElement = document.querySelector(currentStepData.selector) as HTMLElement;
     if (!targetElement) return;
 
-    const handleManualClick = (event: Event) => {
-      console.log('[Tour] Manual click detected on:', currentStepData.selector);
+    const handleManualInteraction = (event: PointerEvent) => {
+      console.log('[Tour] Manual interaction detected on:', currentStepData.selector);
       
-      // Let the click event propagate normally (don't prevent default)
+      // Let the event propagate normally (don't prevent default)
       // This allows the button to perform its natural action
       
       // Then handle tour advancement after a brief delay
-      // This ensures the click has been processed
+      // This ensures the interaction has been processed and modal is opening
       setTimeout(() => {
         runTriggerActionAndAdvance('manual');
-      }, 50);
+      }, 100);
     };
 
-    // Add click listener to the target element
+    // Add pointerdown listener to the target element
     // Use capture phase to ensure we catch it before other handlers
-    targetElement.addEventListener('click', handleManualClick, { capture: true });
+    // pointerdown is more reliable across devices (touch + mouse)
+    targetElement.addEventListener('pointerdown', handleManualInteraction, { capture: true });
 
-    console.log('[Tour] Manual click listener attached to:', currentStepData.selector);
+    console.log('[Tour] Manual interaction listener attached to:', currentStepData.selector);
 
     // Store cleanup function
     manualClickCleanupRef.current = () => {
-      targetElement.removeEventListener('click', handleManualClick, { capture: true });
-      console.log('[Tour] Manual click listener removed from:', currentStepData.selector);
+      targetElement.removeEventListener('pointerdown', handleManualInteraction, { capture: true });
+      console.log('[Tour] Manual interaction listener removed from:', currentStepData.selector);
     };
 
     return () => {
