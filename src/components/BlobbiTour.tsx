@@ -207,11 +207,14 @@ export function BlobbiTour({
       },
     },
 
-    // Step 5 — Growth Hub (tab trigger)
+    // Step 5 — Growth Hub (Interactive - opens modal)
     {
       selector: '#tab-growth-hub',
       title: 'Growth Hub',
       description: 'The Growth Hub is where your Blobbi hatches, evolves, and tracks its progress through special tasks',
+      triggerAction: true,
+      waitForSelector: '#tab-growth-hub-incubating-eggs',
+      waitTimeout: 5000,
       cutout: {
         shape: 'rounded',
         padding: 4,
@@ -531,6 +534,13 @@ export function BlobbiTour({
 
     const handleManualInteraction = (event: PointerEvent) => {
       console.log('[Tour] Manual interaction detected on:', currentStepData.selector);
+      
+      // BULLETPROOF GUARD: If already transitioning or waiting for action, ignore this click
+      // This prevents double-advance if user clicks element and then quickly clicks Next
+      if (isTransitioning || waitingForActionRef.current) {
+        console.log('[Tour] Ignoring manual interaction - already processing');
+        return;
+      }
       
       // Let the event propagate normally (don't prevent default)
       // This allows the button to perform its natural action
