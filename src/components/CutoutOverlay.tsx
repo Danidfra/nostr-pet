@@ -59,6 +59,14 @@ interface CutoutOverlayProps {
   children?: React.ReactNode;
   /** Additional CSS classes */
   className?: string;
+  /** 
+   * Block outside pointer events to prevent Radix Dialog dismissal.
+   * When true, captures and stops propagation of pointer/click events
+   * on the overlay (but not on the tour card or highlighted element).
+   * Use this when the tour step is inside a modal to prevent accidental closure.
+   * (default: false)
+   */
+  blockOutsidePointerEvents?: boolean;
 }
 
 interface Rect {
@@ -136,6 +144,7 @@ export function CutoutOverlay({
   onClose,
   children,
   className,
+  blockOutsidePointerEvents = false,
 }: CutoutOverlayProps) {
   // Generate unique mask ID to prevent collisions across instances and HMR
   // Sanitize to avoid special characters that could break SVG mask references
@@ -144,6 +153,7 @@ export function CutoutOverlay({
   
   const [holeRect, setHoleRect] = useState<Rect | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const tourCardRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const targetElementRef = useRef<Element | null>(null);
   const observerRef = useRef<MutationObserver | null>(null);
@@ -469,6 +479,49 @@ export function CutoutOverlay({
     return { style: baseStyle, className: transformClass };
   }, [controlsPosition, controlsInset, controlsOffsetX, controlsOffsetY]);
 
+  /**
+   * Prevents outside pointer events from reaching underlying Radix Dialog.
+   * 
+   * WHY THIS IS NEEDED:
+   * Radix Dialog uses PointerDownOutside detection to auto-close modals.
+   * When the tour overlay is active and a modal is open, clicking the tour
+   * card or overlay is detected as an "outside click" and closes the modal.
+   * 
+   * HOW IT WORKS:
+   * - Uses capture phase to intercept events before they bubble to Dialog
+   * - Checks if click is inside tour card (allow those to work normally)
+   * - Blocks all other events to prevent Dialog's outside-click detection
+   * 
+   * CAPTURE PHASE ORDER:
+   * 1. This handler runs (capture)
+   * 2. If not tour card, stop propagation
+   * 3. Dialog never receives the event
+   * 4. Modal stays open
+   */
+  const handleOverlayPointerEvent = useCallback((event: React.PointerEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+    if (!blockOutsidePointerEvents) return;
+
+    // Allow events inside the tour card to work normally
+    if (tourCardRef.current?.contains(event.target as Node)) {
+      return;
+    }
+
+    // Allow events on the highlighted target element to work normally
+    // (for interactive steps where user needs to click the target)
+    if (targetElementRef.current?.contains(event.target as Node)) {
+      return;
+    }
+
+    // Block all other events to prevent Radix Dialog dismissal
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // stopImmediatePropagation prevents other handlers on same element
+    if (typeof event.nativeEvent.stopImmediatePropagation === 'function') {
+      event.nativeEvent.stopImmediatePropagation();
+    }
+  }, [blockOutsidePointerEvents]);
+
   const overlayContent = (
     <div
       ref={overlayRef}
@@ -476,6 +529,9 @@ export function CutoutOverlay({
         "fixed inset-0 z-[90] pointer-events-none",
         className
       )}
+      // Capture-phase handlers to prevent Radix Dialog dismissal
+      onPointerDownCapture={handleOverlayPointerEvent}
+      onClickCapture={handleOverlayPointerEvent}
     >
       {/* ========================================================================
           LAYER 1: Visual overlay (SVG with mask) + Click blockers
@@ -650,6 +706,7 @@ export function CutoutOverlay({
         const { style: positionStyle, className: transformClass } = getControlPositioning();
         return (
           <div
+            ref={tourCardRef}
             className={cn("absolute pointer-events-auto", transformClass)}
             style={{ ...positionStyle, zIndex: 4 }}
           >

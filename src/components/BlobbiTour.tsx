@@ -755,6 +755,15 @@ export function BlobbiTour({
 
   const useCutoutOverlay = !!effectiveCutout;
 
+  // Detect if current step is inside a modal (Growth Hub or similar)
+  // When true, we need to block outside pointer events to prevent Radix Dialog dismissal
+  const isModalStep = Boolean(
+    currentTourStep.waitForSelector?.includes('growth-hub') ||
+    currentTourStep.waitForSelector?.includes('tab-growth-hub') ||
+    currentTourStep.selector.includes('growth-hub') ||
+    currentTourStep.selector.includes('tab-growth-hub')
+  );
+
   // Tour content card (shared between both overlay types)
   const tourCard = (
     <Card className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-2 border-purple-200 dark:border-purple-600 shadow-2xl max-w-sm mx-auto pointer-events-auto">
@@ -849,6 +858,7 @@ export function BlobbiTour({
         controlsInset={effectiveCutout.controlsInset}
         controlsOffsetX={effectiveCutout.controlsOffsetX}
         controlsOffsetY={effectiveCutout.controlsOffsetY}
+        blockOutsidePointerEvents={isModalStep}
         onClose={handleClose}
       >
         {tourCard}
@@ -862,6 +872,7 @@ export function BlobbiTour({
       targetSelector={currentTourStep.selector}
       padding={12}
       radius={12}
+      blockOutsidePointerEvents={isModalStep}
       onClose={handleClose}
       {...imageProps}
     >

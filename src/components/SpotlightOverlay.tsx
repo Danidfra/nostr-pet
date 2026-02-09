@@ -18,6 +18,14 @@ interface SpotlightOverlayProps {
   imagePosition?: "below" | "above" | "left" | "right"; // Position relative to spotlight
   imageWidth?: number | string; // Custom width (e.g., 400, "400px", "80%")
   imageHeight?: number | string; // Custom height (e.g., 300, "300px", "80%")
+  /** 
+   * Block outside pointer events to prevent Radix Dialog dismissal.
+   * When true, captures and stops propagation of pointer/click events
+   * on the overlay (but not on the tour card or highlighted element).
+   * Use this when the tour step is inside a modal to prevent accidental closure.
+   * (default: false)
+   */
+  blockOutsidePointerEvents?: boolean;
 }
 
 interface Rect {
@@ -40,12 +48,14 @@ export function SpotlightOverlay({
   imageOffsetY = 0,
   imagePosition = "below",
   imageWidth,
-  imageHeight
+  imageHeight,
+  blockOutsidePointerEvents = false,
 }: SpotlightOverlayProps) {
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
   const [isMaskSupported, setIsMaskSupported] = useState(true);
   const [imagePositionState, setImagePositionState] = useState<{ top: number; left: number; transform: string } | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const tourCardRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const targetElementRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<MutationObserver | null>(null);
@@ -272,6 +282,49 @@ export function SpotlightOverlay({
     e.stopPropagation();
   };
 
+  /**
+   * Prevents outside pointer events from reaching underlying Radix Dialog.
+   * 
+   * WHY THIS IS NEEDED:
+   * Radix Dialog uses PointerDownOutside detection to auto-close modals.
+   * When the tour overlay is active and a modal is open, clicking the tour
+   * card or overlay is detected as an "outside click" and closes the modal.
+   * 
+   * HOW IT WORKS:
+   * - Uses capture phase to intercept events before they bubble to Dialog
+   * - Checks if click is inside tour card (allow those to work normally)
+   * - Blocks all other events to prevent Dialog's outside-click detection
+   * 
+   * CAPTURE PHASE ORDER:
+   * 1. This handler runs (capture)
+   * 2. If not tour card, stop propagation
+   * 3. Dialog never receives the event
+   * 4. Modal stays open
+   */
+  const handleOverlayPointerEvent = useCallback((event: React.PointerEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+    if (!blockOutsidePointerEvents) return;
+
+    // Allow events inside the tour card to work normally
+    if (tourCardRef.current?.contains(event.target as Node)) {
+      return;
+    }
+
+    // Allow events on the highlighted target element to work normally
+    // (for interactive steps where user needs to click the target)
+    if (targetElementRef.current?.contains(event.target as Node)) {
+      return;
+    }
+
+    // Block all other events to prevent Radix Dialog dismissal
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // stopImmediatePropagation prevents other handlers on same element
+    if (typeof event.nativeEvent.stopImmediatePropagation === 'function') {
+      event.nativeEvent.stopImmediatePropagation();
+    }
+  }, [blockOutsidePointerEvents]);
+
   const overlayContent = (
     <div
       ref={overlayRef}
@@ -279,6 +332,9 @@ export function SpotlightOverlay({
         "fixed inset-0 z-[90] pointer-events-none",
         className
       )}
+      // Capture-phase handlers to prevent Radix Dialog dismissal
+      onPointerDownCapture={handleOverlayPointerEvent}
+      onClickCapture={handleOverlayPointerEvent}
     >
       {/* 
         Layer 1: Visual overlay (CSS mask) - purely visual, no pointer events
@@ -453,7 +509,7 @@ export function SpotlightOverlay({
       {/* Children (tour controls) */}
       {children && (
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 pointer-events-auto">
+          <div ref={tourCardRef} className="absolute bottom-8 left-1/2 transform -translate-x-1/2 pointer-events-auto">
             {children}
           </div>
         </div>
