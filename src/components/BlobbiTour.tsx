@@ -96,12 +96,12 @@ export function BlobbiTour({
       description: 'This is your Blobbi companion. Take care of it by feeding, playing, and completing tasks together!',
       cutout: {
         shape: 'rounded',
-        padding: 16,
+        padding: 0,
         radius: 24,
         hand: {
           enabled: true,
           side: 'left',
-          offsetX: 0,
+          offsetX: 20,
           offsetY: 0,
           scale: 1,
         },
@@ -218,8 +218,8 @@ export function BlobbiTour({
     // Step 5 — Growth Hub (Interactive - opens modal)
     {
       selector: '#tab-growth-hub',
-      title: 'Growth Hub',
-      description: 'The Growth Hub is where your Blobbi hatches, evolves, and tracks its progress through special tasks',
+      title: 'Open the Growth Hub',
+      description: 'Access your Blobbi’s growth tasks and manage hatching or evolution from here.',
       triggerAction: true,
       waitForSelector: '#growth-hub-hatching-modal',
       waitTimeout: 5000,
@@ -238,11 +238,11 @@ export function BlobbiTour({
       },
     },
 
-    // Step 6 — Growth Hub
+    // Step 6 — Growth Hub Hatching Modal
     {
       selector: '#growth-hub-hatching-modal',
-      title: 'Incubating Eggs',
-      description: 'Incubating eggs lets you track all the steps needed for hatching and monitor their overall progress.',
+      title: 'Growth Hub',
+      description: 'The Growth Hub is where your Blobbi hatches, evolves, and tracks its progress through special tasks.',
       cutout: {
         shape: 'rounded',
         padding: 0,
@@ -275,32 +275,31 @@ export function BlobbiTour({
       },
     },
 
-    // Step 8 — Growth Hub (tab trigger)
+    // // Step 8 — Growth Hub (tab trigger)
+    // {
+    //   selector: '#growth-hub-hatching-modal-tasks',
+    //   title: 'Tasks',
+    //   description: 'Complete these missions to help your Blobbi hatch and grow.',
+    //   cutout: {
+    //     shape: 'rounded',
+    //     padding: 10,
+    //     radius: 24,
+    //     hand: {
+    //       enabled: true,
+    //       side: 'top',
+    //       offsetX: 0,
+    //       offsetY: -50,
+    //       scale: 1,
+    //     },
+    //     controlsPosition: 'bottom-center',
+    //   },
+    // },
+
+    // Step 8 — Close Growth Hub Modal and Return to Dashboard
     {
       selector: '#growth-hub-hatching-modal-tasks',
       title: 'Tasks',
       description: 'Complete these missions to help your Blobbi hatch and grow.',
-      cutout: {
-        shape: 'rounded',
-        padding: 10,
-        radius: 24,
-        hand: {
-          enabled: true,
-          side: 'top',
-          offsetX: 0,
-          offsetY: -50,
-          scale: 1,
-        },
-        controlsPosition: 'bottom-center',
-      },
-    },
-
-    // Step 9 — Close Growth Hub Modal and Return to Dashboard
-    {
-      selector: '#growth-hub-hatching-modal-tasks',
-      title: 'Back to Dashboard',
-      description: 'Now let\'s return to the main dashboard to continue exploring.',
-      nextLabel: 'Back to dashboard',
       cutout: {
         shape: 'rounded',
         padding: 10,
@@ -347,6 +346,26 @@ export function BlobbiTour({
 
         // Skip auto-scroll to avoid weird scroll jumps when returning to dashboard
         return { skipAutoScroll: true };
+      },
+    },
+
+    // Step 9 — Growth Hub (tab trigger)
+    {
+      selector: '#dashboard-blobbi-status',
+      title: 'Tasks',
+      description: 'Complete these missions to help your Blobbi hatch and grow.',
+      cutout: {
+        shape: 'rounded',
+        padding: 10,
+        radius: 24,
+        hand: {
+          enabled: true,
+          side: 'top',
+          offsetX: 0,
+          offsetY: -50,
+          scale: 1,
+        },
+        controlsPosition: 'bottom-center',
       },
     },
 

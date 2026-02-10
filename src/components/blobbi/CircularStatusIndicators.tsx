@@ -94,19 +94,24 @@ export function CircularStatusIndicators({ stats, className }: CircularStatusInd
     <div className={cn("space-y-2", className)}>
       {/* Status Rings */}
       {isExpanded && (
-        <div className="flex justify-center gap-3 flex-wrap">
-          {statusItems.map((stat) => (
-            <StatRing
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              color={stat.color}
-              icon={stat.icon}
-            />
-          ))}
+        // ✅ wrapper FULL WIDTH só pra centralizar na tela
+        <div className="flex justify-center">
+          {/* ✅ wrapper TIGHT que o spotlight vai medir */}
+          <div id="dashboard-blobbi-status" className="inline-flex">
+            <div className="flex gap-3 flex-wrap justify-center">
+              {statusItems.map((stat) => (
+                <StatRing
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  color={stat.color}
+                  icon={stat.icon}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
-
       {/* Toggle Button */}
       <div className="flex justify-center">
         <Button
