@@ -25,6 +25,7 @@ import { BlobbiVisual } from '@/components/blobbi/BlobbiVisual';
 import { BlobbiEvolvedVisual } from '@/components/blobbi/BlobbiEvolvedVisual';
 import { EggGraphic } from '@/components/blobbi/EggGraphic';
 import { BlobbiActionsFooter } from '@/components/blobbi/BlobbiActionsFooter';
+import { BlobbiActionsFooterSkeleton } from '@/components/blobbi/BlobbiActionsFooterSkeleton';
 import { BlobbiSelectorDrawer } from '@/components/blobbi/BlobbiSelectorDrawer';
 import { BlobbiGrowthHubModal } from '@/components/blobbi/BlobbiGrowthHubModal';
 import { DashboardPanels } from '@/components/blobbi/DashboardPanels';
@@ -611,10 +612,19 @@ export default function BlobbiDashboard() {
     });
   };
 
+  // Helper to ensure footer is visible during loading
+  const renderLoadingWithFooter = () => (
+    <>
+      <DashboardLoading />
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <BlobbiActionsFooterSkeleton />
+      </div>
+    </>
+  );
+
   // Conditional returns
   if (!user) return <DashboardNotLoggedIn />;
-  if (user && isProfileLoading) return <DashboardLoading />;
-  if (user && !profile) return <DashboardLoading />;
+  if (user && (isProfileLoading || !profile)) return renderLoadingWithFooter();
 
   // Boot gate: Determine if we're still loading initial Blobbi data
   // This prevents showing "No Blobbi selected" during boot
@@ -1412,17 +1422,21 @@ export default function BlobbiDashboard() {
         )}
 
           {/* Sticky Actions Footer - Game Controls */}
-          {selectedBlobbi && (
+          {(selectedBlobbi || isBlobbiBooting) && (
             <div className="fixed bottom-0 left-0 right-0 z-40">
-              <BlobbiActionsFooter
-                blobbi={selectedBlobbi}
-                onAction={performAction}
-                isPerformingAction={isPerformingAction}
-                onOpenShop={() => setIsShopOpen(true)}
-                onSwitchBlobbi={() => setIsSelectorOpen(true)}
-                onOpenInventory={() => setIsInventoryOpen(true)}
-                onOpenMissions={() => setIsMissionsOpen(true)}
-              />
+              {selectedBlobbi ? (
+                <BlobbiActionsFooter
+                  blobbi={selectedBlobbi}
+                  onAction={performAction}
+                  isPerformingAction={isPerformingAction}
+                  onOpenShop={() => setIsShopOpen(true)}
+                  onSwitchBlobbi={() => setIsSelectorOpen(true)}
+                  onOpenInventory={() => setIsInventoryOpen(true)}
+                  onOpenMissions={() => setIsMissionsOpen(true)}
+                />
+              ) : (
+                <BlobbiActionsFooterSkeleton />
+              )}
             </div>
           )}
 
