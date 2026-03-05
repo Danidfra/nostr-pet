@@ -449,18 +449,12 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
             ) : isSpecialMarkSupported(effectiveSpecialMark) ? (
               <SpecialMarkRenderer
                 specialMark={effectiveSpecialMark}
-                eggWidth={100} // Use percentage-based value
-                eggHeight={125}
                 animated={specialMarkHook.isAnimated}
                 opacity={specialMarkHook.opacity}
                 className={specialMarkHook.getAnimationClass()}
               />
             ) : specialMarkHook.useFallback ? (
-              <SpecialMarkFallback
-                specialMark={effectiveSpecialMark}
-                eggWidth={100}
-                eggHeight={125}
-              />
+              <SpecialMarkFallback specialMark={effectiveSpecialMark} />
             ) : (
               renderLegacySpecialMark(effectiveSpecialMark, 100, 125)
             ))}

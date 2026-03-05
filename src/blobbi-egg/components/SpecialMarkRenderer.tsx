@@ -1,11 +1,8 @@
 import React, { memo, useMemo } from 'react';
-import { isSpecialMarkSupported } from '../lib/special-marks-utils';
 import { cn } from '../lib/cn';
 
 interface SpecialMarkRendererProps {
   specialMark: string;
-  eggWidth: number;
-  eggHeight: number;
   className?: string;
   animated?: boolean;
   opacity?: number;
@@ -271,8 +268,6 @@ MemoizedSVG.displayName = 'MemoizedSVG';
 
 export const SpecialMarkRenderer: React.FC<SpecialMarkRendererProps> = ({
   specialMark,
-  eggWidth,
-  eggHeight,
   className,
   animated = false,
   opacity = 1,
@@ -309,16 +304,11 @@ export const SpecialMarkRenderer: React.FC<SpecialMarkRendererProps> = ({
   );
 };
 
-// Re-export for convenience
-export { isSpecialMarkSupported };
-
 // Fallback component for unsupported browsers or low-power devices
 export const SpecialMarkFallback: React.FC<{
   specialMark: string;
-  eggWidth: number;
-  eggHeight: number;
   className?: string;
-}> = ({ specialMark, eggWidth, eggHeight, className }) => {
+}> = ({ specialMark, className }) => {
   const fallbackStyle = useMemo(() => {
     const baseStyle = {
       position: 'absolute' as const,

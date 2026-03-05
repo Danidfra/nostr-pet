@@ -110,8 +110,6 @@ export const SpecialMarkSwitcher: React.FC<SpecialMarkSwitcherProps> = ({
         {/* Special mark overlay */}
         <SpecialMarkRenderer
           specialMark={mark}
-          eggWidth={currentSize.width}
-          eggHeight={currentSize.height}
           animated={collectionMode ? collectionHook.isAnimated : true}
           opacity={collectionMode ? collectionHook.opacity : 1}
         />
