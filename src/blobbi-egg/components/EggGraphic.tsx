@@ -18,7 +18,7 @@ interface EggGraphicProps {
 }
 
 // Legacy fallback function for special marks (kept for compatibility)
-const renderLegacySpecialMark = (specialMark: string, eggWidth: number, eggHeight: number) => {
+const renderLegacySpecialMark = (specialMark: string) => {
   console.warn(
     `Using legacy special mark rendering for: ${specialMark}. Consider updating to use SpecialMarkRenderer.`
   );
@@ -456,7 +456,7 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
             ) : specialMarkHook.useFallback ? (
               <SpecialMarkFallback specialMark={effectiveSpecialMark} />
             ) : (
-              renderLegacySpecialMark(effectiveSpecialMark, 100, 125)
+              renderLegacySpecialMark(effectiveSpecialMark)
             ))}
 
           {/* Crack pattern based on docs/aprovado.svg when cracking is true */}
