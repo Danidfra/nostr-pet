@@ -5,14 +5,7 @@ import { SpecialMarkRenderer, SpecialMarkFallback } from './SpecialMarkRenderer'
 import { isSpecialMarkSupported } from '../lib/special-marks-utils';
 import { useSpecialMark } from '../hooks/useSpecialMark';
 import { isDivineEgg } from '../lib/blobbi-divine-utils';
-
-// Import styles
-import '../styles/egg-animations.css';
-
-// Utility function to merge class names (self-contained, no external dependency)
-function cn(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(' ');
-}
+import { cn } from '../lib/cn';
 
 interface EggGraphicProps {
   blobbi?: EggVisualBlobbi; // Visual blobbi object for visual properties
@@ -354,6 +347,15 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
         'relative flex items-center justify-center',
         className
       )}
+      style={{
+        // Fallback for environments without Tailwind
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
       {/* Inner container with sizeVariant-based fill scaling */}
       <div
@@ -361,6 +363,10 @@ export const EggGraphic: React.FC<EggGraphicProps> = ({
         style={{
           width: '100%',
           height: '100%',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           transform: `scale(${scale})`,
         }}
       >

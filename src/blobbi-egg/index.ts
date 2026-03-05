@@ -8,6 +8,9 @@
  * project with minimal dependencies (only React is required).
  */
 
+// Import styles once at module root
+import './styles/egg-animations.css';
+
 // Components
 export { EggGraphic } from './components/EggGraphic';
 export { SpecialMarkRenderer, SpecialMarkFallback } from './components/SpecialMarkRenderer';

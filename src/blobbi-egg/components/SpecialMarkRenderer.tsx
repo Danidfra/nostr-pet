@@ -1,5 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import { isSpecialMarkSupported } from '../lib/special-marks-utils';
+import { cn } from '../lib/cn';
 
 interface SpecialMarkRendererProps {
   specialMark: string;
@@ -8,11 +9,6 @@ interface SpecialMarkRendererProps {
   className?: string;
   animated?: boolean;
   opacity?: number;
-}
-
-// Utility function to merge class names (self-contained, no external dependency)
-function cn(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(' ');
 }
 
 // SVG content for each special mark with proper scaling and positioning
