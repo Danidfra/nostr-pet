@@ -15,9 +15,9 @@ A self-contained module for rendering Blobbi eggs with special marks, animations
 ### Copy to Another Project
 
 1. Copy the entire `src/blobbi-egg/` folder to your project
-2. Ensure you have the required dependencies:
+2. Ensure you have React installed:
    ```bash
-   npm install react clsx tailwind-merge
+   npm install react
    ```
 3. Import and use:
    ```tsx
@@ -26,14 +26,14 @@ A self-contained module for rendering Blobbi eggs with special marks, animations
 
 ### Required Dependencies
 
-- **React** (18.x or higher)
-- **clsx** (2.x) - for conditional class names
-- **tailwind-merge** (2.x) - for merging Tailwind classes
+- **React** (18.x or higher) - **Only dependency required!**
 
 ### Optional Dependencies
 
-- **Tailwind CSS** - Module includes Tailwind classes but has inline fallbacks
-- Without Tailwind, the module still works but may have slight visual differences
+- **Tailwind CSS** - Module includes Tailwind classes but has inline fallbacks for critical layout
+  - Without Tailwind, the module still works and renders correctly
+  - Some decorative styling may differ slightly without Tailwind
+- **clsx** and **tailwind-merge** - Can be used by your host app for better class name merging, but the module itself doesn't require them
 
 ## Usage
 
@@ -209,7 +209,7 @@ src/blobbi-egg/
 To see the module in action, import and render the demo component:
 
 ```tsx
-import { EggGraphicDemo } from './blobbi-egg/__demo__/EggGraphicDemo';
+import EggGraphicDemo from './blobbi-egg/__demo__/EggGraphicDemo';
 
 // In your app
 <EggGraphicDemo />

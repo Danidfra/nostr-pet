@@ -311,7 +311,6 @@ export const SpecialMarkRenderer: React.FC<SpecialMarkRendererProps> = ({
 
 // Re-export for convenience
 export { isSpecialMarkSupported };
-export const AVAILABLE_SPECIAL_MARKS = Object.keys(SpecialMarkSVGs);
 
 // Fallback component for unsupported browsers or low-power devices
 export const SpecialMarkFallback: React.FC<{

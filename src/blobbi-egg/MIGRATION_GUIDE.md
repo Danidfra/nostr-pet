@@ -7,13 +7,13 @@ This guide explains how to use the `src/blobbi-egg/` module in another project.
 ### Prerequisites
 
 Your target project needs:
-1. **React** 18.x or higher
-2. **clsx** (2.x)
-3. **tailwind-merge** (2.x)
-4. A bundler that supports CSS imports (Vite, Webpack, etc.)
+1. **React** 18.x or higher - **Only required dependency!**
+2. A bundler that supports CSS imports (Vite, Webpack, etc.)
 
-Optional:
-- **Tailwind CSS** (recommended but not required - module has inline fallbacks)
+Optional (recommended but not required):
+- **Tailwind CSS** - Module has inline fallbacks for critical layout
+  - Without Tailwind, the module works and renders correctly
+  - Some decorative styles may differ slightly
 
 ### Installation Steps
 
@@ -29,13 +29,11 @@ cp -r /path/to/source/src/blobbi-egg ./src/
 #### 2. Install Dependencies
 
 ```bash
-npm install clsx tailwind-merge
-```
-
-If you don't have React yet:
-```bash
+# Only React is required
 npm install react react-dom
 ```
+
+That's it! No other dependencies needed.
 
 #### 3. Import and Use
 
@@ -85,13 +83,6 @@ npx tsc --noEmit
 Should compile without errors related to the blobbi-egg module.
 
 ### Troubleshooting
-
-#### Issue: "Cannot find module 'clsx'"
-
-**Solution**: Install dependencies
-```bash
-npm install clsx tailwind-merge
-```
 
 #### Issue: "Cannot resolve './styles/egg-animations.css'"
 
@@ -206,7 +197,7 @@ if (isDivineEgg(myEgg)) {
 
 This module is **completely independent** and has:
 - ✅ No path aliases (`@/...`)
-- ✅ No external imports except React and utility libraries
+- ✅ **Only React as external dependency**
 - ✅ All types self-contained
 - ✅ CSS bundled and imported internally
 - ✅ No framework-specific dependencies
@@ -222,6 +213,6 @@ You can use it in:
 
 For issues specific to this module in your new project:
 1. Check the demo component works
-2. Verify all dependencies are installed
-3. Check bundler configuration for CSS support
-4. Ensure TypeScript paths are configured correctly
+2. Verify React is installed
+3. Check bundler configuration for CSS imports support
+4. Ensure TypeScript paths are configured correctly (if using path aliases)

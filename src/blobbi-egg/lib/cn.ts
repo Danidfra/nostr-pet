@@ -1,11 +1,8 @@
 /**
- * Utility for merging Tailwind CSS classes
- * Uses clsx for conditional class names and tailwind-merge to handle conflicts
+ * Utility for merging CSS class names
+ * Self-contained implementation with no external dependencies
  */
 
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+export function cn(...classes: Array<string | undefined | null | false>): string {
+  return classes.filter(Boolean).join(' ');
 }
