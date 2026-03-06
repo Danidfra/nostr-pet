@@ -1,8 +1,8 @@
 /**
  * Blobbi Egg Validation
  *
- * This file re-exports from the blobbi-egg module for backwards compatibility.
- * The actual implementation is now in src/blobbi-egg/lib/blobbi-egg-validation.ts
+ * This file re-exports from the egg module for backwards compatibility.
+ * The actual implementation is now in src/egg/lib/blobbi-egg-validation.ts
  */
 
 export {
@@ -38,6 +38,6 @@ export {
   ALL_VALID_SPECIAL_MARKS,
   ALL_VALID_TITLES,
   ALL_VALID_EYE_COLORS,
-} from '@/blobbi-egg';
+} from '@/egg';
 
-export type { EggValidationResult } from '@/blobbi-egg';
+export type { EggValidationResult } from '@/egg';

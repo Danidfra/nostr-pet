@@ -1,8 +1,8 @@
 /**
  * SpecialMarkRenderer Component
  *
- * This file re-exports from the blobbi-egg module for backwards compatibility.
- * The actual implementation is now in src/blobbi-egg/components/SpecialMarkRenderer.tsx
+ * This file re-exports from the egg module for backwards compatibility.
+ * The actual implementation is now in src/egg/components/SpecialMarkRenderer.tsx
  */
 
 export {
@@ -10,4 +10,4 @@ export {
   SpecialMarkFallback,
   isSpecialMarkSupported,
   AVAILABLE_SPECIAL_MARKS,
-} from '@/blobbi-egg';
+} from '@/egg';

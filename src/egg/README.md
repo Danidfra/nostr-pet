@@ -14,14 +14,14 @@ A self-contained module for rendering Blobbi eggs with special marks, animations
 
 ### Copy to Another Project
 
-1. Copy the entire `src/blobbi-egg/` folder to your project
+1. Copy the entire `src/egg/` folder to your project
 2. Ensure you have React installed:
    ```bash
    npm install react
    ```
 3. Import and use:
    ```tsx
-   import { EggGraphic } from './blobbi-egg';
+   import { EggGraphic } from './egg';
    ```
 
 ### Required Dependencies
@@ -40,7 +40,7 @@ A self-contained module for rendering Blobbi eggs with special marks, animations
 ### Basic Example
 
 ```tsx
-import { EggGraphic } from './blobbi-egg';
+import { EggGraphic } from './egg';
 
 function MyComponent() {
   const egg = {
@@ -141,7 +141,7 @@ import {
   isValidSpecialMark,
   getColorRarity,
   validateEggProperties,
-} from './blobbi-egg';
+} from './egg';
 
 // Validate individual properties
 const valid = isValidBaseColor('#f2f2f2'); // true
@@ -160,7 +160,7 @@ const result = validateEggProperties({
 ### Divine Utilities
 
 ```tsx
-import { isDivineEgg, DIVINE_BASE_COLOR } from './blobbi-egg';
+import { isDivineEgg, DIVINE_BASE_COLOR } from './egg';
 
 const isDivine = isDivineEgg(myEgg); // boolean
 ```
@@ -168,7 +168,7 @@ const isDivine = isDivineEgg(myEgg); // boolean
 ### Hooks
 
 ```tsx
-import { useSpecialMark } from './blobbi-egg';
+import { useSpecialMark } from './egg';
 
 const specialMarkHook = useSpecialMark('sigil_eye', {
   animated: true,
@@ -183,7 +183,7 @@ const { isAnimated, opacity, isSupported } = specialMarkHook;
 ## Module Structure
 
 ```
-src/blobbi-egg/
+src/egg/
 ├── components/
 │   ├── EggGraphic.tsx           # Main egg rendering component
 │   └── SpecialMarkRenderer.tsx  # Special marks SVG rendering
@@ -209,7 +209,7 @@ src/blobbi-egg/
 To see the module in action, import and render the demo component:
 
 ```tsx
-import EggGraphicDemo from './blobbi-egg/__demo__/EggGraphicDemo';
+import EggGraphicDemo from './egg/__demo__/EggGraphicDemo';
 
 // In your app
 <EggGraphicDemo />
@@ -235,7 +235,7 @@ The module includes inline fallback styles for critical layout properties. It wi
 
 The module imports `./styles/egg-animations.css` automatically. To customize animations:
 
-1. Modify `src/blobbi-egg/styles/egg-animations.css`
+1. Modify `src/egg/styles/egg-animations.css`
 2. Or override animation classes in your own CSS
 
 ## Browser Support

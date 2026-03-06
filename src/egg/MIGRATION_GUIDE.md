@@ -2,7 +2,7 @@
 
 ## How to Copy This Module to Another Project
 
-This guide explains how to use the `src/blobbi-egg/` module in another project.
+This guide explains how to use the `src/egg/` module in another project.
 
 ### Prerequisites
 
@@ -19,11 +19,11 @@ Optional (recommended but not required):
 
 #### 1. Copy the Module
 
-Copy the entire `src/blobbi-egg/` folder to your target project:
+Copy the entire `src/egg/` folder to your target project:
 
 ```bash
 # From your target project root
-cp -r /path/to/source/src/blobbi-egg ./src/
+cp -r /path/to/source/src/egg ./src/
 ```
 
 #### 2. Install Dependencies
@@ -39,8 +39,8 @@ That's it! No other dependencies needed.
 
 ```tsx
 // Import from the module
-import { EggGraphic } from './blobbi-egg';
-import type { EggVisualBlobbi } from './blobbi-egg';
+import { EggGraphic } from './egg';
+import type { EggVisualBlobbi } from './egg';
 
 // Create an egg object
 const myEgg: EggVisualBlobbi = {
@@ -66,7 +66,7 @@ function MyComponent() {
 Use the demo component to verify everything works:
 
 ```tsx
-import EggGraphicDemo from './blobbi-egg/__demo__/EggGraphicDemo';
+import EggGraphicDemo from './egg/__demo__/EggGraphicDemo';
 
 // Render in your app temporarily
 <EggGraphicDemo />
@@ -80,7 +80,7 @@ If you see eggs rendering with animations, the module is working correctly!
 npx tsc --noEmit
 ```
 
-Should compile without errors related to the blobbi-egg module.
+Should compile without errors related to the egg module.
 
 ### Troubleshooting
 
@@ -112,14 +112,14 @@ Should compile without errors related to the blobbi-egg module.
 
 Or use relative imports:
 ```tsx
-import { EggGraphic } from '../../blobbi-egg';
+import { EggGraphic } from '../../egg';
 ```
 
 ### Customization After Migration
 
 #### Change Colors
 
-Modify `src/blobbi-egg/lib/blobbi-egg-validation.ts` to add your own color palettes:
+Modify `src/egg/lib/blobbi-egg-validation.ts` to add your own color palettes:
 
 ```typescript
 export const VALID_BASE_COLORS = {
@@ -130,7 +130,7 @@ export const VALID_BASE_COLORS = {
 
 #### Change Animations
 
-Edit `src/blobbi-egg/styles/egg-animations.css`:
+Edit `src/egg/styles/egg-animations.css`:
 
 ```css
 @keyframes egg-gentle-sway {
@@ -140,9 +140,9 @@ Edit `src/blobbi-egg/styles/egg-animations.css`:
 
 #### Add New Special Marks
 
-1. Add SVG to `src/blobbi-egg/components/SpecialMarkRenderer.tsx`
-2. Add to `AVAILABLE_SPECIAL_MARKS` in `src/blobbi-egg/lib/special-marks-utils.ts`
-3. Add validation in `src/blobbi-egg/lib/blobbi-egg-validation.ts`
+1. Add SVG to `src/egg/components/SpecialMarkRenderer.tsx`
+2. Add to `AVAILABLE_SPECIAL_MARKS` in `src/egg/lib/special-marks-utils.ts`
+3. Add validation in `src/egg/lib/blobbi-egg-validation.ts`
 
 ### Best Practices
 
@@ -150,18 +150,18 @@ Edit `src/blobbi-egg/styles/egg-animations.css`:
 
 ✅ Good:
 ```tsx
-import { EggGraphic } from './blobbi-egg';
+import { EggGraphic } from './egg';
 ```
 
 ❌ Bad:
 ```tsx
-import { EggGraphic } from './blobbi-egg/components/EggGraphic';
+import { EggGraphic } from './egg/components/EggGraphic';
 ```
 
 #### 2. Use TypeScript Types
 
 ```tsx
-import type { EggVisualBlobbi } from './blobbi-egg';
+import type { EggVisualBlobbi } from './egg';
 
 const myEgg: EggVisualBlobbi = {
   // TypeScript will validate this object
@@ -171,7 +171,7 @@ const myEgg: EggVisualBlobbi = {
 #### 3. Validate Egg Properties
 
 ```tsx
-import { validateEggProperties } from './blobbi-egg';
+import { validateEggProperties } from './egg';
 
 const result = validateEggProperties({
   base_color: userInput.color,
@@ -186,7 +186,7 @@ if (!result.isValid) {
 #### 4. Check Divine Eggs
 
 ```tsx
-import { isDivineEgg, DIVINE_BASE_COLOR } from './blobbi-egg';
+import { isDivineEgg, DIVINE_BASE_COLOR } from './egg';
 
 if (isDivineEgg(myEgg)) {
   // Handle divine egg special case

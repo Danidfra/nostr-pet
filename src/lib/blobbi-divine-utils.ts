@@ -1,8 +1,8 @@
 /**
  * Divine Blobbi Utilities
  *
- * This file re-exports from the blobbi-egg module for backwards compatibility.
- * The actual implementation is now in src/blobbi-egg/lib/blobbi-divine-utils.ts
+ * This file re-exports from the egg module for backwards compatibility.
+ * The actual implementation is now in src/egg/lib/blobbi-divine-utils.ts
  *
  * Note: The original functions accepted the full Blobbi type, but the module
  * now uses EggVisualBlobbi. Since EggVisualBlobbi is a subset of Blobbi,
@@ -22,7 +22,7 @@ import {
   DIVINE_CROSSOVER_APP,
   DIVINE_BASE_COLOR,
   DIVINE_SPECIAL_MARK,
-} from '@/blobbi-egg';
+} from '@/egg';
 
 // Re-export constants directly
 export {

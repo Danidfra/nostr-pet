@@ -189,7 +189,7 @@ export const EggGraphicDemo: React.FC = () => {
               fontSize: '0.875rem',
             }}
           >
-            {`import { EggGraphic } from './blobbi-egg';
+            {`import { EggGraphic } from './egg';
 
 const myEgg = {
   baseColor: '#f2f2f2',
