@@ -8,13 +8,13 @@ import { Blobbi } from '@/types/blobbi';
 import { BabyVariant, BabySvgResolverOptions } from '../types/baby.types';
 
 // Baby stage SVG imports (Vite will handle these)
-const BABY_BASE_SVG = import.meta.glob('/src/egg/baby-blobbi/assets/blobbi-baby-base.svg', { 
+const BABY_BASE_SVG = import.meta.glob('/src/blobbi/baby-blobbi/assets/blobbi-baby-base.svg', { 
   query: '?raw', 
   import: 'default', 
   eager: true 
 });
 
-const BABY_SLEEPING_SVG = import.meta.glob('/src/egg/baby-blobbi/assets/blobbi-baby-sleeping.svg', { 
+const BABY_SLEEPING_SVG = import.meta.glob('/src/blobbi/baby-blobbi/assets/blobbi-baby-sleeping.svg', { 
   query: '?raw', 
   import: 'default', 
   eager: true 

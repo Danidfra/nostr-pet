@@ -6,7 +6,7 @@
  */
 
 import { Blobbi } from '@/types/blobbi';
-import { getBabyBaseSvg, getBabySleepingSvg } from '@/egg/baby-blobbi';
+import { getBabyBaseSvg, getBabySleepingSvg } from '@/blobbi/baby-blobbi';
 
 // Adult stage SVG imports - dynamically resolve all forms
 const ADULT_FORMS = [

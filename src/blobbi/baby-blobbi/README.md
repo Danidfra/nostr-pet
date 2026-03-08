@@ -14,7 +14,7 @@ This module provides everything needed to render and customize baby stage Blobbi
 ## Module Structure
 
 ```
-src/egg/baby-blobbi/
+src/blobbi/baby-blobbi/
 ├── assets/
 │   ├── blobbi-baby-base.svg      # Awake baby variant
 │   └── blobbi-baby-sleeping.svg   # Sleeping baby variant
@@ -32,7 +32,7 @@ src/egg/baby-blobbi/
 ### Basic SVG Resolution
 
 ```typescript
-import { resolveBabySvg, getBabyBaseSvg, getBabySleepingSvg } from '@/egg/baby-blobbi';
+import { resolveBabySvg, getBabyBaseSvg, getBabySleepingSvg } from '@/blobbi/baby-blobbi';
 
 // Get specific variant
 const awakeSvg = getBabyBaseSvg();
@@ -45,7 +45,7 @@ const svg = resolveBabySvg(blobbi, { isSleeping: false });
 ### Color Customization
 
 ```typescript
-import { customizeBabySvgFromBlobbi } from '@/egg/baby-blobbi';
+import { customizeBabySvgFromBlobbi } from '@/blobbi/baby-blobbi';
 
 // Get base SVG
 const baseSvg = getBabyBaseSvg();
@@ -57,7 +57,7 @@ const customizedSvg = customizeBabySvgFromBlobbi(baseSvg, blobbi, false);
 ### Preloading
 
 ```typescript
-import { preloadBabySvgs } from '@/egg/baby-blobbi';
+import { preloadBabySvgs } from '@/blobbi/baby-blobbi';
 
 // Preload all baby SVGs for quick switching
 preloadBabySvgs();
@@ -83,7 +83,7 @@ The module supports three color customizations:
 
 This module is designed to be:
 
-- Imported via barrel exports from `@/egg/baby-blobbi`
+- Imported via barrel exports from `@/blobbi/baby-blobbi`
 - Used alongside egg and adult modules
 - Easily moved to other projects with minimal changes
 

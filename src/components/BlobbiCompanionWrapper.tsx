@@ -4,7 +4,7 @@ import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { useBed } from '@/contexts/BedContext';
 import { Blobbi } from '@/types/blobbi';
 import { resolveBlobbiSvg, preloadBlobbiSvgs } from '@/lib/blobbi-svg-resolver';
-import { customizeBabySvgFromBlobbi } from '@/egg/baby-blobbi';
+import { customizeBabySvgFromBlobbi } from '@/blobbi/baby-blobbi';
 
 interface BlobbiCompanionAPI {
   show: () => void;
