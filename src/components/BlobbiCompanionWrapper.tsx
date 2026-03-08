@@ -4,6 +4,7 @@ import { useCurrentCompanion } from '@/hooks/useCurrentCompanion';
 import { useBed } from '@/contexts/BedContext';
 import { Blobbi } from '@/types/blobbi';
 import { resolveBlobbiSvg, preloadBlobbiSvgs } from '@/lib/blobbi-svg-resolver';
+import { customizeBabySvgFromBlobbi } from '@/egg/baby-blobbi';
 
 interface BlobbiCompanionAPI {
   show: () => void;
@@ -23,6 +24,12 @@ async function getBlobbiSvgContent(blobbi: Blobbi, isSleeping: boolean = false):
 
 // Helper to customize SVG with colors
 function customizeSvg(svgText: string, blobbi: Blobbi, isSleeping: boolean = false): string {
+  // Use baby-specific customization for baby Blobbis
+  if (blobbi.lifeStage === 'baby') {
+    return customizeBabySvgFromBlobbi(svgText, blobbi, isSleeping);
+  }
+
+  // Adult customization logic (kept for backward compatibility)
   let modifiedSvg = svgText;
 
   // Only apply customizations if we have colors

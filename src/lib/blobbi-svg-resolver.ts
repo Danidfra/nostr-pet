@@ -6,10 +6,7 @@
  */
 
 import { Blobbi } from '@/types/blobbi';
-
-// Baby stage SVG imports (Vite will handle these)
-const BABY_BASE_SVG = import.meta.glob('/src/assets/baby-stage/baby/blobbi-baby-base.svg', { query: '?raw', import: 'default', eager: true });
-const BABY_SLEEPING_SVG = import.meta.glob('/src/assets/baby-stage/baby/blobbi-baby-sleeping.svg', { query: '?raw', import: 'default', eager: true });
+import { getBabyBaseSvg, getBabySleepingSvg } from '@/egg/baby-blobbi';
 
 // Adult stage SVG imports - dynamically resolve all forms
 const ADULT_FORMS = [
@@ -45,23 +42,7 @@ export async function resolveBlobbiSvg(blobbi: Blobbi, isSleeping: boolean = fal
   }
 }
 
-/**
- * Get baby base SVG content
- */
-function getBabyBaseSvg(): string {
-  const svgKey = Object.keys(BABY_BASE_SVG)[0];
-  const svgContent = BABY_BASE_SVG[svgKey];
-  return typeof svgContent === 'string' ? svgContent : getFallbackSvg();
-}
-
-/**
- * Get baby sleeping SVG content
- */
-function getBabySleepingSvg(): string {
-  const svgKey = Object.keys(BABY_SLEEPING_SVG)[0];
-  const svgContent = BABY_SLEEPING_SVG[svgKey];
-  return typeof svgContent === 'string' ? svgContent : getFallbackSvg();
-}
+// Baby SVG getters are now imported from the baby-blobbi module
 
 /**
  * Get adult SVG content by form
@@ -128,9 +109,8 @@ function getFallbackSvg(): string {
 export async function preloadBlobbiSvgs(blobbi: Blobbi): Promise<void> {
   try {
     if (blobbi.lifeStage === 'baby') {
-      // Preload both awake and sleeping baby SVGs
-      getBabyBaseSvg();
-      getBabySleepingSvg();
+      // Baby SVGs are preloaded eagerly in the baby-blobbi module
+      // No action needed
     } else if (blobbi.lifeStage === 'adult' && blobbi.evolutionForm) {
       // Preload both awake and sleeping adult SVGs
       await Promise.all([
