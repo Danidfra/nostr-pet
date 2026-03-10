@@ -10,6 +10,7 @@ import {
   createBlobbonautProfileEvent,
   parseBlobbonautProfileFromEvent
 } from '@/lib/blobbi-events';
+import { getCanonicalBlobbonautD } from '@/lib/blobbi';
 
 // ========================
 // QUERY HOOKS
@@ -155,10 +156,10 @@ export function useUpdateBlobbonautProfile() {
       // Automatic migration: Convert old ID format to new format
       let profileId = currentProfile.id;
 
-      // Check if this is an old format ID (Blobbanaut-xxx)
-      if (profileId.startsWith('Blobbanaut-') && user) {
-        // Migrate to new format (Blobbonaut-xxx)
-        const newProfileId = `Blobbonaut-${user.pubkey.slice(0, 8)}`;
+      // Check if this is an old format ID (Blobbanaut-xxx or Blobbonaut-{8hex})
+      if ((profileId.startsWith('Blobbanaut-') || profileId.startsWith('Blobbonaut-')) && user) {
+        // Migrate to canonical format (blobbonaut-{12hex})
+        const newProfileId = getCanonicalBlobbonautD(user.pubkey);
         console.log('[Blobbonaut Migration] Migrating profile ID:', profileId, '→', newProfileId);
         profileId = newProfileId;
       }
@@ -419,7 +420,8 @@ export function useCreateInitialProfile() {
         throw new Error('User must be logged in to create profile');
       }
 
-      const defaultProfileId = `Blobbonaut-${user.pubkey.slice(0, 8)}`;
+      // Use canonical profile ID format: blobbonaut-{12hex}
+      const defaultProfileId = getCanonicalBlobbonautD(user.pubkey);
 
       // Get user's Nostr metadata for default name
       let defaultName: string | undefined;

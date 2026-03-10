@@ -98,6 +98,33 @@ export function isLegacyBlobbiD(d: string): boolean {
 }
 
 /**
+ * Build canonical Blobbonaut profile d-tag: blobbonaut-{12hex}
+ */
+export function getCanonicalBlobbonautD(pubkey: string): string {
+  return `blobbonaut-${getPubkeyPrefix12(pubkey)}`;
+}
+
+/**
+ * Check if profile d-tag is canonical format
+ */
+export function isCanonicalBlobbonautD(d: string): boolean {
+  return /^blobbonaut-[0-9a-f]{12}$/.test(d);
+}
+
+/**
+ * Check if profile d-tag is legacy format
+ */
+export function isLegacyBlobbonautD(d: string): boolean {
+  // Capitalized version
+  if (/^Blobbonaut-[0-9a-fA-F]{8,12}$/.test(d)) return true;
+  // Generic profile id
+  if (d === 'blobbonaut-profile') return true;
+  // Short prefix (8-11 chars instead of 12)
+  if (/^blobbonaut-[0-9a-f]{8,11}$/.test(d)) return true;
+  return false;
+}
+
+/**
  * Derive display name from legacy d-tag
  * "blobbi-puck" → "Puck"
  * "blobbi-mr-cool" → "Mr Cool"

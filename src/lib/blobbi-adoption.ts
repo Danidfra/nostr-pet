@@ -1,6 +1,11 @@
 import { NostrEvent } from '@nostrify/nostrify';
 import { Blobbi, BlobbiRecordData } from '@/types/blobbi';
-import { createBlobbiId, isValidBlobbiName } from '@/lib/blobbi-events';
+import { 
+  getCanonicalBlobbiD, 
+  generatePetId10, 
+  deriveBlobbiSeedV1 
+} from '@/lib/blobbi';
+import { isValidBlobbiName } from '@/lib/blobbi-events'; // Legacy validation still used
 import {
   VALID_BASE_COLORS,
   VALID_SECONDARY_COLORS,
@@ -12,8 +17,15 @@ import {
 } from './blobbi-egg-validation';
 
 /**
- * Generates a Nostr event of kind 14921 for Blobbi adoption following the exact rules
- * defined in the blobbi-adoption-record-specification.md
+ * Blobbi Adoption System - Canonical Format
+ * 
+ * Creates Blobbi eggs following canonical format:
+ * - ID: blobbi-{12hex}-{10hex}
+ * - Seed: 64-char hex deterministic seed
+ * - State: canonical 'state' tag
+ * - Name: explicit 'name' tag
+ * 
+ * Adoption records follow blobbi-adoption-record-specification.md
  */
 export interface BlobbiAdoptionParams {
   petName: string;
@@ -276,7 +288,11 @@ function normalizeValue(value: string | null | undefined): string {
 }
 
 /**
- * Creates a complete Blobbi with adoption record following the blobbi-egg.md specification
+ * Creates a complete Blobbi with adoption record in canonical format
+ * - Generates canonical ID: blobbi-{12hex}-{10hex}
+ * - Derives deterministic seed for visual traits
+ * - Includes all canonical tags (state, name, seed)
+ * - Follows blobbi-egg.md specification for stats and appearance
  */
 export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
   blobbi: Blobbi;
@@ -290,13 +306,20 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
 
   // Create the adoption record with specification-compliant randomized values
   const record = createBlobbiAdoptionRecord();
-  const blobbiId = createBlobbiId(petName);
+  
+  // Generate canonical ID (blobbi-{12hex}-{10hex})
+  const petId = generatePetId10();
+  const blobbiId = getCanonicalBlobbiD(userPubkey, petId);
+  
   const now = Date.now();
   const createdAtSeconds = Math.floor(now / 1000); // Unix timestamp in seconds for Nostr compatibility
+  
+  // Generate deterministic seed
+  const seed = deriveBlobbiSeedV1(userPubkey, blobbiId, createdAtSeconds);
 
   // Create the Blobbi object following the exact specification
   const blobbi: Blobbi = {
-    id: blobbiId,
+    id: blobbiId, // Canonical format
     ownerPubkey: userPubkey,
     name: petName,
     birthTime: now,
@@ -329,6 +352,9 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
       nextEvolutionCheck: now + 24 * 60 * 60 * 1000, // 24 hours
     },
     visibleToOthers: true,
+
+    // Canonical fields
+    seed, // Deterministic seed for visual traits
 
     // Appearance fields from the specification
     baseColor: record.base_color,
@@ -393,10 +419,14 @@ export function createBlobbiWithAdoption(params: BlobbiAdoptionParams): {
 /**
  * Generates a unique Blobbi ID following the specification
  */
-function generateBlobbiId(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let result = 'blobbi-';
-  for (let i = 0; i < 6; i++) {
+/**
+ * Generate a random pubkey for demo/testing purposes
+ * Returns a valid 64-character hex pubkey
+ */
+function generateRandomPubkey(): string {
+  const chars = '0123456789abcdef';
+  let result = '';
+  for (let i = 0; i < 64; i++) {
     result += chars.charAt(Math.floor(random() * chars.length));
   }
   return result;
@@ -404,14 +434,24 @@ function generateBlobbiId(): string {
 
 /**
  * Converts a BlobbiAdoptionRecord to Nostr event tags format following blobbi-egg.md
+ * @param record - The adoption record with all egg data
+ * @param blobbiId - Canonical blobbi ID (blobbi-{12hex}-{10hex})
+ * @param seed - Deterministic seed for visual traits (64-char hex)
+ * @param name - Pet name (required for canonical events)
  */
-export function blobbiEggToTags(record: BlobbiAdoptionRecord, blobbiId: string): string[][] {
+export function blobbiEggToTags(
+  record: BlobbiAdoptionRecord, 
+  blobbiId: string,
+  seed?: string,
+  name?: string
+): string[][] {
   const now = getCurrentTimestamp();
   const createdAtSeconds = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
   const tags: string[][] = [
-    // Required tags
+    // Required canonical tags
     ['d', blobbiId],
     ['stage', record.stage],
+    ['state', 'active'], // Canonical state tag
     ['breeding_ready', record.breeding_ready.toString()],
     ['generation', record.generation.toString()],
     ['hunger', record.hunger.toString()],
@@ -433,6 +473,16 @@ export function blobbiEggToTags(record: BlobbiAdoptionRecord, blobbiId: string):
     ['last_interaction_type', randomChoice(INTERACTION_TYPES)],
     ['visible_to_others', 'true']
   ];
+
+  // Add canonical seed tag if provided
+  if (seed) {
+    tags.push(['seed', seed]);
+  }
+
+  // Add canonical name tag if provided
+  if (name) {
+    tags.push(['name', name]);
+  }
 
   // Add optional tags only if they exist
   if (record.secondary_color) {
@@ -457,7 +507,8 @@ export function blobbiEggToTags(record: BlobbiAdoptionRecord, blobbiId: string):
 }
 
 /**
- * Generates a complete Nostr event for a Blobbi egg following blobbi-egg.md specifications
+ * Generates a complete Nostr event for a Blobbi egg following canonical format
+ * NOTE: This is a demo/testing helper. For production adoption, use createBlobbiWithAdoption()
  */
 export function generateBlobbiEggEvent(): {
   kind: number;
@@ -468,8 +519,21 @@ export function generateBlobbiEggEvent(): {
   record: BlobbiAdoptionRecord;
 } {
   const record = createBlobbiAdoptionRecord();
-  const blobbiId = generateBlobbiId();
-  const tags = blobbiEggToTags(record, blobbiId);
+  
+  // Generate canonical ID
+  const dummyPubkey = generateRandomPubkey();
+  const petId = generatePetId10();
+  const blobbiId = getCanonicalBlobbiD(dummyPubkey, petId);
+  
+  // Generate seed
+  const createdAtSeconds = Math.floor(Date.now() / 1000);
+  const seed = deriveBlobbiSeedV1(dummyPubkey, blobbiId, createdAtSeconds);
+  
+  // Generate a random name for the demo egg
+  const demoNames = ['Puck', 'Luna', 'Nova', 'Spark', 'Misty', 'Ember'];
+  const name = demoNames[Math.floor(random() * demoNames.length)];
+  
+  const tags = blobbiEggToTags(record, blobbiId, seed, name);
 
   return {
     kind: 31124,

@@ -4,6 +4,7 @@ import { useCurrentUser } from './useCurrentUser';
 import { useNostrPublish } from './useNostrPublish';
 import { BLOBBI_EVENT_KINDS } from '@/lib/blobbi-events';
 import { useBlobbonautProfile } from './useBlobbonautProfile';
+import { getCanonicalBlobbonautD } from '@/lib/blobbi';
 
 /**
  * Hook to handle tour completion by updating the user's kind 31125 event
@@ -27,7 +28,7 @@ export function useTourCompletion() {
       }
 
       // Get the latest kind 31125 event for this user
-      const profileId = `Blobbonaut-${user.pubkey.slice(0, 8)}`;
+      const profileId = getCanonicalBlobbonautD(user.pubkey);
       const events = await nostr.query(
         [{
           kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],

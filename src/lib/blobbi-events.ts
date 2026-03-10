@@ -1,4 +1,5 @@
 import { NostrEvent } from '@nostrify/nostrify';
+import { extractBlobbiName as canonicalExtractBlobbiName } from '@/lib/blobbi';
 import {
   Blobbi,
   BlobbiStateEvent,
@@ -458,8 +459,10 @@ function filterTagsForStage(tags: NostrTag[], stage: BlobbiLifeStage): NostrTag[
 }
 
 // ============================================================================
-// BLOBBI ID HELPERS
+// BLOBBI ID HELPERS (LEGACY - for backward compatibility only)
 // ============================================================================
+// NOTE: New code should use canonical helpers from @/lib/blobbi.ts
+// These are kept only for adoption.ts which still creates legacy IDs for eggs
 
 export function validateBlobbiId(blobbiId: string): boolean {
   return /^blobbi-[a-z0-9_-]+$/.test(blobbiId) && blobbiId.length > 7 && blobbiId.length <= 57;
@@ -473,11 +476,9 @@ export function createBlobbiId(blobbiName: string): string {
   return `blobbi-${cleanName}`;
 }
 
+// DEPRECATED: Use extractBlobbiName from @/lib/blobbi.ts instead
 export function extractBlobbiName(blobbiId: string): string {
-  if (!validateBlobbiId(blobbiId)) {
-    throw new Error('Invalid blobbiId format');
-  }
-  return blobbiId.replace('blobbi-', '');
+  return canonicalExtractBlobbiName(blobbiId);
 }
 
 export function normalizeBlobbiName(name: string): string {
@@ -1204,7 +1205,9 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
         eggStatus: getTagValue(tags, 'egg_status'),
         shellIntegrity: getTagValue(tags, 'shell_integrity') ? parseInt(getTagValue(tags, 'shell_integrity')!) : undefined,
       }),
-      isSleeping: getTagValue(tags, 'is_sleeping') === 'true',
+      // Derive isSleeping from canonical state (sleeping/hibernating are both "asleep")
+      // Fall back to legacy is_sleeping tag if state tag is missing
+      isSleeping: blobbiState === 'sleeping' || blobbiState === 'hibernating' || getTagValue(tags, 'is_sleeping') === 'true',
       isDirty: getTagValue(tags, 'is_dirty') === 'true',
       hasBuff: getTagValue(tags, 'has_buff'),
       hasDebuff: getTagValue(tags, 'has_debuff'),
