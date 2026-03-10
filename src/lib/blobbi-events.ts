@@ -15,7 +15,8 @@ import {
   BlobbiStats,
   BlobbiLifeStage,
   BlobbiMood,
-  BlobbiEvolutionForm
+  BlobbiEvolutionForm,
+  BlobbiState
 } from '@/types/blobbi';
 import { ensureBlobbiTagsWithDebug } from './blobbi-tags';
 import { normalizeTags, detectDuplicateTags, type NostrTag } from './nostr/tags';
@@ -605,6 +606,7 @@ export function createBlobbiStateEvent(
   const coreUpdates: NostrTag[] = [
     ['d', blobbi.id],
     ['stage', blobbi.lifeStage],
+    ['state', blobbi.state], // Canonical state tag (active/sleeping/hibernating)
     ['breeding_ready', blobbi.breedingReady.toString()],
     ['generation', blobbi.generation.toString()],
     ['hunger', validateStat(blobbi.stats.hunger, 'hunger').toString()],
@@ -632,7 +634,7 @@ export function createBlobbiStateEvent(
     const CORE_STAT_TAGS = new Set([
       'hunger', 'happiness', 'health', 'hygiene', 'energy', 
       'experience', 'care_streak', 'last_interaction',
-      'd', 'stage', 'breeding_ready', 'generation'
+      'd', 'stage', 'state', 'breeding_ready', 'generation'
     ]);
     // Note: last_interaction_time is NOT in coreUpdates, so if preserved tags have it, 
     // it will be included but normalizeTags() will dedupe if both exist (keeping last_interaction)
@@ -650,6 +652,12 @@ export function createBlobbiStateEvent(
   if (adoptionFees !== undefined) {
     stateTagMap.set('fees', adoptionFees.toString());
   }
+
+  // Preserve seed tag (canonical events) - CRITICAL: never recompute
+  if (blobbi.seed) stateTagMap.set('seed', blobbi.seed);
+  
+  // Preserve name tag for canonical events
+  if (blobbi.name) stateTagMap.set('name', blobbi.name);
 
   if (blobbi.baseColor) stateTagMap.set('base_color', blobbi.baseColor);
   if (blobbi.secondaryColor) stateTagMap.set('secondary_color', blobbi.secondaryColor);
@@ -1013,10 +1021,11 @@ export function createBlobbonautProfileEvent(
   ];
 
   if (profile.coins !== undefined) tags.push(['coins', profile.coins.toString()]);
-  if (profile.pettingLevel !== undefined) tags.push(['pettingLevel', profile.pettingLevel.toString()]);
-  if (profile.lifetimeBlobbis !== undefined) tags.push(['lifetimeBlobbis', profile.lifetimeBlobbis.toString()]);
-  if (profile.favoriteBlobbi) tags.push(['favoriteBlobbi', profile.favoriteBlobbi]);
-  if (profile.starterBlobbi) tags.push(['starterBlobbi', profile.starterBlobbi]);
+  // Use canonical snake_case tags (new format)
+  if (profile.pettingLevel !== undefined) tags.push(['petting_level', profile.pettingLevel.toString()]);
+  if (profile.lifetimeBlobbis !== undefined) tags.push(['lifetime_blobbis', profile.lifetimeBlobbis.toString()]);
+  if (profile.favoriteBlobbi) tags.push(['favorite_blobbi', profile.favoriteBlobbi]);
+  if (profile.starterBlobbi) tags.push(['starter_blobbi', profile.starterBlobbi]);
   if (profile.style) tags.push(['style', profile.style]);
   if (profile.background) tags.push(['background', profile.background]);
   if (profile.title) tags.push(['title', profile.title]);
@@ -1131,14 +1140,26 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
 
     const isDivine = getTagValue(tags, 'theme') === 'divine' || getTagValue(tags, 'crossover_app') === 'divine';
 
+    // Extract seed tag (canonical events)
+    const seedTag = getTagValue(tags, 'seed');
+
+    // Extract name tag or derive from d-tag for legacy events
+    const nameTag = getTagValue(tags, 'name');
+    const blobbiName = nameTag || extractBlobbiName(id);
+
+    // Parse canonical state tag first, fall back to legacy is_sleeping
+    const stateTag = getTagValue(tags, 'state') as BlobbiState | undefined;
+    const legacyIsSleeping = getTagValue(tags, 'is_sleeping') === 'true';
+    const blobbiState: BlobbiState = stateTag || (legacyIsSleeping ? 'sleeping' : 'active');
+
     const blobbi: Blobbi = {
       id,
       ownerPubkey: event.pubkey,
-      name: extractBlobbiName(id),
+      name: blobbiName,
       birthTime: event.created_at * 1000, // MILLISECONDS (for UI compatibility - Date, formatDistanceToNow, etc.)
       lastInteraction: getTagValue(tags, 'last_interaction') ? parseInt(getTagValue(tags, 'last_interaction')!) : event.created_at, // SECONDS
       lifeStage: finalStage,
-      state: getTagValue(tags, 'is_sleeping') === 'true' ? 'sleeping' : 'active',
+      state: blobbiState,
       stats,
       customization: {
         color: getTagValue(tags, 'base_color') || '#7C3AED',
@@ -1160,6 +1181,7 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
         nextEvolutionCheck: Date.now(),
       },
       tags: tags.map(t => t.filter(x => typeof x === 'string') as string[]), // preserve extra fields safely
+      seed: seedTag, // Preserve seed if present (canonical events)
       themeVariant: getTagValue(tags, 'theme'),
       crossoverApp: getTagValue(tags, 'crossover_app'),
       baseColor: getTagValue(tags, 'base_color'),
@@ -1476,10 +1498,16 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
 
     console.log('[Blobbonaut Parser] Parsing profile with id:', id);
 
+    // Support both canonical snake_case and legacy camelCase tags
     const knownTagNames = [
-      'd', 'name', 'coins', 'has', 'pettingLevel', 'lifetimeBlobbis',
-      'achievements', 'storage', 'favoriteBlobbi', 'starterBlobbi', 'style',
-      'background', 'title', 'current_companion', 'onboarding_done'
+      'd', 'b', 't', 'client', 'name', 'coins', 'has', 
+      // Canonical snake_case
+      'petting_level', 'lifetime_blobbis', 'starter_blobbi', 'favorite_blobbi',
+      'current_companion', 'onboarding_done',
+      // Legacy camelCase (for backward compatibility)
+      'pettingLevel', 'lifetimeBlobbis', 'starterBlobbi', 'favoriteBlobbi',
+      // Other tags
+      'achievements', 'storage', 'style', 'background', 'title'
     ];
 
     const storageTagValues = getTagValues(tags, 'storage');
@@ -1515,6 +1543,14 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
       }
     });
 
+    // Helper to get value with fallback priority: canonical > legacy
+    const getValueWithFallback = (canonical: string, legacy?: string): string | undefined => {
+      const canonicalValue = getTagValue(tags, canonical);
+      if (canonicalValue !== undefined) return canonicalValue;
+      if (legacy) return getTagValue(tags, legacy);
+      return undefined;
+    };
+
     const profile: BlobbonautProfile = {
       id,
       ownerPubkey: event.pubkey,
@@ -1528,20 +1564,22 @@ export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautPr
         return isNaN(parsed) ? 0 : Math.max(0, parsed);
       })(),
       ownedBlobbis: getTagValues(tags, 'has') || [],
+      // Prefer canonical snake_case over legacy camelCase
       pettingLevel: (() => {
-        const levelValue = getTagValue(tags, 'pettingLevel');
+        const levelValue = getValueWithFallback('petting_level', 'pettingLevel');
         const parsed = parseInt(levelValue || '0');
         return isNaN(parsed) ? 0 : Math.max(0, parsed);
       })(),
       lifetimeBlobbis: (() => {
-        const lifetimeValue = getTagValue(tags, 'lifetimeBlobbis');
+        const lifetimeValue = getValueWithFallback('lifetime_blobbis', 'lifetimeBlobbis');
         const parsed = parseInt(lifetimeValue || '0');
         return isNaN(parsed) ? 0 : Math.max(0, parsed);
       })(),
       achievements: getTagValues(tags, 'achievements') || [],
       storage: storage || [],
-      favoriteBlobbi: getTagValue(tags, 'favoriteBlobbi'),
-      starterBlobbi: getTagValue(tags, 'starterBlobbi'),
+      // Prefer canonical snake_case over legacy camelCase
+      favoriteBlobbi: getValueWithFallback('favorite_blobbi', 'favoriteBlobbi'),
+      starterBlobbi: getValueWithFallback('starter_blobbi', 'starterBlobbi'),
       style: getTagValue(tags, 'style'),
       background: getTagValue(tags, 'background'),
       title: getTagValue(tags, 'title'),
@@ -1713,9 +1751,15 @@ export function validateBlobbiEvent(event: NostrEvent, mode: ValidationMode = 's
 
         if (event.content !== '') return false;
 
-        const numericFields = ['coins', 'pettingLevel', 'lifetimeBlobbis'];
-        for (const field of numericFields) {
-          const value = getTagValue(event.tags, field);
+        // Support both canonical snake_case and legacy camelCase
+        const numericFieldPairs: Array<[string, string?]> = [
+          ['coins'],
+          ['petting_level', 'pettingLevel'],
+          ['lifetime_blobbis', 'lifetimeBlobbis']
+        ];
+        
+        for (const [canonical, legacy] of numericFieldPairs) {
+          const value = getTagValue(event.tags, canonical) || (legacy ? getTagValue(event.tags, legacy) : undefined);
           if (value) {
             const numValue = parseInt(value);
             if (isNaN(numValue) || numValue < 0) return false;

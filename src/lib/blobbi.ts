@@ -6,6 +6,8 @@ import {
   determineEvolutionForm 
 } from './blobbi-evolution';
 import { generateRandomVisualEffects } from './blobbi-visual-tags';
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
 
 // Constants for game mechanics
 const STAT_DECAY_RATES = {
@@ -51,8 +53,122 @@ const ACTION_COOLDOWNS: Record<BlobbiAction, number> = {
   cruzar: 24 * 60 * 60 * 1000, // 1 day (DEPRECATED - see cooldown-storage.ts)
 };
 
+// ============================================================================
+// CANONICAL ID GENERATION
+// ============================================================================
+
+/**
+ * Get first 12 lowercase hex characters from pubkey
+ */
+export function getPubkeyPrefix12(pubkey: string): string {
+  return pubkey.slice(0, 12).toLowerCase();
+}
+
+/**
+ * Generate random 10-character hex pet ID
+ * 5 bytes = 10 hex chars = 40 bits = ~1 trillion possible values
+ */
+export function generatePetId10(): string {
+  const bytes = new Uint8Array(5);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Build canonical Blobbi d-tag: blobbi-{12hex}-{10hex}
+ */
+export function getCanonicalBlobbiD(pubkey: string, petId: string): string {
+  return `blobbi-${getPubkeyPrefix12(pubkey)}-${petId}`;
+}
+
+/**
+ * Check if d-tag is canonical format
+ */
+export function isCanonicalBlobbiD(d: string): boolean {
+  return /^blobbi-[0-9a-f]{12}-[0-9a-f]{10}$/.test(d);
+}
+
+/**
+ * Check if d-tag is legacy format
+ */
+export function isLegacyBlobbiD(d: string): boolean {
+  if (!d.startsWith('blobbi-')) return false;
+  if (isCanonicalBlobbiD(d)) return false;
+  return true;
+}
+
+/**
+ * Derive display name from legacy d-tag
+ * "blobbi-puck" → "Puck"
+ * "blobbi-mr-cool" → "Mr Cool"
+ */
+export function deriveNameFromLegacyD(d: string): string {
+  if (!d.startsWith('blobbi-')) {
+    return 'Unnamed Blobbi';
+  }
+  
+  const rawName = d
+    .replace('blobbi-', '')
+    .replace(/[-_]/g, ' ')
+    .trim();
+  
+  if (!rawName || rawName.length === 0) {
+    return 'Unnamed Blobbi';
+  }
+  
+  // Capitalize words: "mr cool" → "Mr Cool"
+  return rawName
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+// ============================================================================
+// SEED GENERATION
+// ============================================================================
+
+/**
+ * Derive deterministic seed (v1 algorithm)
+ * seed = sha256("blobbi:v1|" + pubkey + ":" + d + ":" + created_at)
+ * 
+ * @param pubkey - Owner's full pubkey
+ * @param d - Canonical Blobbi d-tag
+ * @param createdAt - Unix timestamp in seconds
+ * @returns 64-character hex seed
+ */
+export function deriveBlobbiSeedV1(
+  pubkey: string,
+  d: string,
+  createdAt: number
+): string {
+  const input = `blobbi:v1|${pubkey}:${d}:${createdAt}`;
+  const hashBytes = sha256(new TextEncoder().encode(input));
+  return bytesToHex(hashBytes);
+}
+
+/**
+ * Extract name from Blobbi ID (handles both canonical and legacy formats)
+ */
+export function extractBlobbiName(id: string): string {
+  // If it's a legacy d-tag, derive the name
+  if (isLegacyBlobbiD(id)) {
+    return deriveNameFromLegacyD(id);
+  }
+  
+  // For canonical IDs, return a default (name should come from name tag)
+  return 'Blobbi';
+}
+
 // Create a new Blobbi for a user
 export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blobbi {
+  // Generate canonical ID (blobbi-{12hex}-{10hex})
+  const petId = generatePetId10();
+  const canonicalId = getCanonicalBlobbiD(ownerPubkey, petId);
+  
+  // Generate seed for deterministic visual traits
+  const now = Math.floor(Date.now() / 1000); // Unix seconds
+  const seed = deriveBlobbiSeedV1(ownerPubkey, canonicalId, now);
+  
   // Generate random visual effects for the new Blobbi
   const visualEffects = generateRandomVisualEffects();
   
@@ -74,13 +190,14 @@ export function createBlobbi(ownerPubkey: string, name: string = 'Blobbi'): Blob
   const eyeColor = eyeColors[Math.floor(Math.random() * eyeColors.length)];
   
   return {
-    id: `blobbi_${ownerPubkey}`,
+    id: canonicalId, // Canonical format: blobbi-{12hex}-{10hex}
     ownerPubkey,
     name,
     birthTime: Date.now(),
-    lastInteraction: Math.floor(Date.now() / 1000),
+    lastInteraction: now, // Unix seconds
     lifeStage: 'baby',
     state: 'active',
+    seed, // Deterministic seed for visual traits
     stats: {
       hunger: 80,
       happiness: 80,

@@ -49,7 +49,7 @@ export interface BlobbiEvolutionProgress {
 }
 
 export interface Blobbi {
-  id: string;           // Unique ID (blobbi-{blobbi_name})
+  id: string;           // Unique ID (blobbi-{blobbi_name} or canonical blobbi-{12hex}-{10hex})
   ownerPubkey: string;  // Nostr pubkey of the owner
   name: string;         // Pet's name
   birthTime: number;    // Unix timestamp of creation (MILLISECONDS - UI compatibility, stored as created_at * 1000)
@@ -68,6 +68,8 @@ export interface Blobbi {
   generation: number;   // Generation number
   breedingReady: boolean; // Whether ready to breed
   careStreak: number;   // Consecutive care days
+  // Canonical ID System
+  seed?: string;        // 64-char hex seed for deterministic visual traits (canonical events)
   // Appearance
   baseColor?: string;
   secondaryColor?: string;
