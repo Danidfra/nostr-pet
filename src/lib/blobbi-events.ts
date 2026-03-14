@@ -696,17 +696,24 @@ export function createBlobbiStateEvent(
     if (blobbi.shellIntegrity) stateTagMap.set('shell_integrity', blobbi.shellIntegrity.toString());
   }
 
-  if (blobbi.isSleeping) stateTagMap.set('is_sleeping', blobbi.isSleeping.toString());
+  // SLEEP STATE - align with buildBlobbiStateTags behavior
+  // Always write is_sleeping (even when false) for explicit state tracking
+  stateTagMap.set('is_sleeping', (blobbi.isSleeping ?? false).toString());
+  
+  // Sleep timestamps: only write when actually sleeping
+  if (blobbi.isSleeping) {
+    if (blobbi.sleepStartedAt !== undefined) {
+      stateTagMap.set('sleep_started_at', toSecondsTimestamp(blobbi.sleepStartedAt).toString());
+    }
+    if (blobbi.lastSleepUpdate !== undefined) {
+      stateTagMap.set('last_sleep_update', toSecondsTimestamp(blobbi.lastSleepUpdate).toString());
+    }
+  }
+  
+  // Status effects
   if (blobbi.isDirty) stateTagMap.set('is_dirty', blobbi.isDirty.toString());
   if (blobbi.hasBuff) stateTagMap.set('has_buff', blobbi.hasBuff);
   if (blobbi.hasDebuff) stateTagMap.set('has_debuff', blobbi.hasDebuff);
-  // Note: last_interaction is already set in coreUpdates, don't duplicate it here
-
-  if (blobbi.sleepStartedAt) stateTagMap.set('sleep_started_at', toSecondsTimestamp(blobbi.sleepStartedAt).toString());
-
-  if (blobbi.isSleeping && blobbi.lastSleepUpdate) {
-    stateTagMap.set('last_sleep_update', toSecondsTimestamp(blobbi.lastSleepUpdate).toString());
-  }
 
   if (blobbi.lastMeal) stateTagMap.set('last_meal', toSecondsTimestamp(blobbi.lastMeal).toString());
   if (blobbi.lastClean) stateTagMap.set('last_clean', toSecondsTimestamp(blobbi.lastClean).toString());
@@ -1108,7 +1115,6 @@ export function parseBlobbiFromStateEvent(event: NostrEvent): Blobbi | null {
     if (event.kind !== BLOBBI_EVENT_KINDS.STATE) return null;
 
     const tags = event.tags;
-    const normalizedTags = event.tags.map(tag => [tag[0] ?? '', tag[1] ?? '']) as [string, string][];
 
     const id = getTagValue(tags, 'd');
     const stage = getTagValue(tags, 'stage') as BlobbiLifeStage;

@@ -502,6 +502,11 @@ export function blobbiEggToTags(
   if (record.crossover_app) {
     tags.push(['crossover_app', record.crossover_app]);
   }
+  
+  // Required ecosystem tags (per blobbi-event-spec.md)
+  tags.push(['b', 'blobbi:ecosystem:v1']);
+  tags.push(['t', 'blobbi']);
+  tags.push(['client', 'blobbi']);
 
   return tags;
 }

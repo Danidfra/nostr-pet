@@ -23,12 +23,16 @@ import { ensureBlobbiTagsWithDebug } from './blobbi-tags';
 /**
  * MANAGED_BLOBBI_STATE_TAG_NAMES - per blobbi-event-spec.md
  * 
- * These are tags that this builder explicitly manages/generates.
+ * These are tags that the 31124 event creators explicitly manage/generate.
  * Any tag NOT in this set should be preserved from previous events
  * for forward compatibility with future spec versions.
+ * 
+ * IMPORTANT: This set must be kept in sync between:
+ * - buildBlobbiStateTags() in this file
+ * - createBlobbiStateEvent() in blobbi-events.ts
  */
 export const MANAGED_BLOBBI_STATE_TAG_NAMES = new Set([
-  // Identity
+  // Identity (added by ensureBlobbiTagsWithDebug)
   'd', 'b', 't', 'client',
   
   // Core state
@@ -42,7 +46,10 @@ export const MANAGED_BLOBBI_STATE_TAG_NAMES = new Set([
   'hunger', 'happiness', 'health', 'hygiene', 'energy',
   
   // Timestamps
-  'last_interaction', 'last_decay_at',
+  'last_interaction',
+  // Action timestamps (written by createBlobbiStateEvent)
+  'last_meal', 'last_clean', 'last_warm', 'last_talk', 
+  'last_check', 'last_sing', 'last_medicine',
   
   // Egg-specific
   'incubation_time', 'start_incubation', 'incubation_progress',
@@ -50,6 +57,9 @@ export const MANAGED_BLOBBI_STATE_TAG_NAMES = new Set([
   
   // Sleep state
   'is_sleeping', 'sleep_started_at', 'last_sleep_update',
+  
+  // Status effects
+  'is_dirty', 'has_buff', 'has_debuff',
   
   // Visual traits (legacy compatibility)
   'base_color', 'secondary_color', 'eye_color', 'pattern', 'special_mark', 'size',
@@ -66,7 +76,10 @@ export const MANAGED_BLOBBI_STATE_TAG_NAMES = new Set([
   // Social
   'adopted_by', 'adopted_from', 'current_location', 'in_party',
   
-  // Internal
+  // Adoption
+  'fees',
+  
+  // Internal (used by buildBlobbiStateTags only)
   'source',
 ]);
 
