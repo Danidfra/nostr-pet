@@ -162,6 +162,20 @@ export function buildBlobbiStateTags(
     willAddLastSleepUpdate: blobbi.isSleeping && blobbi.lastSleepUpdate !== undefined,
   });
 
+  // 4b. STATUS EFFECTS
+  if (blobbi.isDirty !== undefined) tags.push(['is_dirty', blobbi.isDirty.toString()]);
+  if (blobbi.hasBuff) tags.push(['has_buff', blobbi.hasBuff]);
+  if (blobbi.hasDebuff) tags.push(['has_debuff', blobbi.hasDebuff]);
+
+  // 4c. ACTION TIMESTAMPS (in seconds)
+  if (blobbi.lastMeal !== undefined) tags.push(['last_meal', Math.floor(blobbi.lastMeal).toString()]);
+  if (blobbi.lastClean !== undefined) tags.push(['last_clean', Math.floor(blobbi.lastClean).toString()]);
+  if (blobbi.lastWarm !== undefined) tags.push(['last_warm', Math.floor(blobbi.lastWarm).toString()]);
+  if (blobbi.lastTalk !== undefined) tags.push(['last_talk', Math.floor(blobbi.lastTalk).toString()]);
+  if (blobbi.lastCheck !== undefined) tags.push(['last_check', Math.floor(blobbi.lastCheck).toString()]);
+  if (blobbi.lastSing !== undefined) tags.push(['last_sing', Math.floor(blobbi.lastSing).toString()]);
+  if (blobbi.lastMedicine !== undefined) tags.push(['last_medicine', Math.floor(blobbi.lastMedicine).toString()]);
+
   // 5. APPEARANCE
   if (blobbi.baseColor) tags.push(['base_color', blobbi.baseColor]);
   if (blobbi.secondaryColor) tags.push(['secondary_color', blobbi.secondaryColor]);
@@ -208,7 +222,8 @@ export function buildBlobbiStateTags(
   if (blobbi.evolutionForm) {
     tags.push(['adult_type', blobbi.evolutionForm]);
   }
-  if (blobbi.evolutionTime) {
+  // Use !== undefined for numeric fields to allow 0 values
+  if (blobbi.evolutionTime !== undefined) {
     tags.push(['evolution_time', Math.floor(blobbi.evolutionTime).toString()]);
   }
 

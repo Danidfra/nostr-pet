@@ -689,11 +689,12 @@ export function createBlobbiStateEvent(
   if (blobbi.skill) stateTagMap.set('skill', blobbi.skill);
 
   if (blobbi.lifeStage === 'egg') {
-    if (blobbi.incubationTime) stateTagMap.set('incubation_time', blobbi.incubationTime.toString());
-    if (blobbi.incubationProgress) stateTagMap.set('incubation_progress', blobbi.incubationProgress.toString());
+    // Use !== undefined for numeric fields to allow 0 values
+    if (blobbi.incubationTime !== undefined) stateTagMap.set('incubation_time', blobbi.incubationTime.toString());
+    if (blobbi.incubationProgress !== undefined) stateTagMap.set('incubation_progress', blobbi.incubationProgress.toString());
     if (blobbi.eggTemperature !== undefined) stateTagMap.set('egg_temperature', blobbi.eggTemperature.toString());
     if (blobbi.eggStatus) stateTagMap.set('egg_status', blobbi.eggStatus);
-    if (blobbi.shellIntegrity) stateTagMap.set('shell_integrity', blobbi.shellIntegrity.toString());
+    if (blobbi.shellIntegrity !== undefined) stateTagMap.set('shell_integrity', blobbi.shellIntegrity.toString());
   }
 
   // SLEEP STATE - align with buildBlobbiStateTags behavior
@@ -726,7 +727,8 @@ export function createBlobbiStateEvent(
   if (blobbi.adoptedBy) stateTagMap.set('adopted_by', blobbi.adoptedBy);
   if (blobbi.adoptedFrom) stateTagMap.set('adopted_from', blobbi.adoptedFrom);
   if (blobbi.currentLocation) stateTagMap.set('current_location', blobbi.currentLocation);
-  if (blobbi.inParty) stateTagMap.set('in_party', blobbi.inParty.toString());
+  // Use !== undefined for boolean to allow false values
+  if (blobbi.inParty !== undefined) stateTagMap.set('in_party', blobbi.inParty.toString());
   if (blobbi.visibleToOthers !== undefined) stateTagMap.set('visible_to_others', blobbi.visibleToOthers.toString());
 
   const updatedSingleValueTags = Array.from(stateTagMap.entries()).filter(([key]) =>
