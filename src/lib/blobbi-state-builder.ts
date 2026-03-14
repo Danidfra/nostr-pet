@@ -80,6 +80,11 @@ export function buildBlobbiStateTags(
   tags.push(['stage', blobbi.lifeStage]);
   tags.push(['generation', blobbi.generation.toString()]);
   tags.push(['breeding_ready', blobbi.breedingReady.toString()]);
+  
+  // STRONGLY RECOMMENDED TAGS (per blobbi-event-spec.md)
+  if (blobbi.name) tags.push(['name', blobbi.name]);
+  // CRITICAL: seed must be preserved, never recomputed
+  if (blobbi.seed) tags.push(['seed', blobbi.seed]);
 
   // 2. STATS (always from current Blobbi object)
   tags.push(['hunger', Math.round(blobbi.stats.hunger).toString()]);
