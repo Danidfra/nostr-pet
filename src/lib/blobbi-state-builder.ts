@@ -21,35 +21,61 @@ import { Blobbi } from '@/types/blobbi';
 import { ensureBlobbiTagsWithDebug } from './blobbi-tags';
 
 /**
- * Tags that should be preserved from previous state events
- * These represent long-running processes or milestones
+ * MANAGED_BLOBBI_STATE_TAG_NAMES - per blobbi-event-spec.md
+ * 
+ * These are tags that this builder explicitly manages/generates.
+ * Any tag NOT in this set should be preserved from previous events
+ * for forward compatibility with future spec versions.
  */
-const PRESERVED_TAG_NAMES = new Set([
-  'start_incubation',
-  'start_evolution',
-  'hatch_time',
+export const MANAGED_BLOBBI_STATE_TAG_NAMES = new Set([
+  // Identity
+  'd', 'b', 't', 'client',
+  
+  // Core state
+  'name', 'stage', 'state', 'seed',
+  
+  // Progression
+  'visible_to_others', 'generation', 'breeding_ready',
+  'experience', 'care_streak',
+  
+  // Stats
+  'hunger', 'happiness', 'health', 'hygiene', 'energy',
+  
+  // Timestamps
+  'last_interaction', 'last_decay_at',
+  
+  // Egg-specific
+  'incubation_time', 'start_incubation', 'incubation_progress',
+  'egg_temperature', 'egg_status', 'shell_integrity',
+  
+  // Sleep state
+  'is_sleeping', 'sleep_started_at', 'last_sleep_update',
+  
+  // Visual traits (legacy compatibility)
+  'base_color', 'secondary_color', 'eye_color', 'pattern', 'special_mark', 'size',
+  
+  // Personality & traits
+  'personality', 'trait', 'mood', 'favorite_food', 'voice_type', 'title', 'skill',
+  
+  // Evolution
+  'adult_type', 'evolution_time', 'start_evolution', 'hatch_time',
+  
+  // Divine/Theme
+  'theme', 'crossover_app', 'manifestation', 'blessing',
+  
+  // Social
+  'adopted_by', 'adopted_from', 'current_location', 'in_party',
+  
+  // Internal
+  'source',
 ]);
 
 /**
- * Check if a tag should be preserved based on patterns
+ * Check if a tag is managed by this builder.
+ * Unmanaged tags should be preserved for forward compatibility.
  */
-function shouldPreserveTag(tagName: string): boolean {
-  // Preserve specific named tags
-  if (PRESERVED_TAG_NAMES.has(tagName)) {
-    return true;
-  }
-
-  // Preserve task progress and confirmation tags
-  if (tagName.endsWith('_progress') || tagName.endsWith('_confirmed')) {
-    return true;
-  }
-
-  // Preserve quest/task/incubation tags
-  if (tagName.startsWith('quest_') || tagName.startsWith('task_') || tagName.startsWith('incubation_')) {
-    return true;
-  }
-
-  return false;
+function isManagedTag(tagName: string): boolean {
+  return MANAGED_BLOBBI_STATE_TAG_NAMES.has(tagName);
 }
 
 /**
@@ -194,13 +220,19 @@ export function buildBlobbiStateTags(
   if (blobbi.inParty !== undefined) tags.push(['in_party', blobbi.inParty.toString()]);
   if (blobbi.visibleToOthers !== undefined) tags.push(['visible_to_others', blobbi.visibleToOthers.toString()]);
 
-  // 11. PRESERVED TAGS (long-running processes)
+  // 11. UNKNOWN TAG PRESERVATION (forward compatibility)
+  // Preserve ALL tags that are NOT managed by this builder.
+  // This ensures forward compatibility with future spec versions.
   if (previousTags) {
-    const preservedTags = previousTags
-      .filter(([name]) => shouldPreserveTag(name))
+    const unknownTags = previousTags
+      .filter(([name]) => name && !isManagedTag(name))
       .map(([name, value]) => [name, value] as [string, string]);
 
-    tags.push(...preservedTags);
+    if (unknownTags.length > 0) {
+      console.log('[STATE BUILDER] Preserving unknown tags for forward compatibility:', 
+        unknownTags.map(([name]) => name));
+    }
+    tags.push(...unknownTags);
   }
 
   console.log('[STATE BUILDER] Final tag count:', tags.length);

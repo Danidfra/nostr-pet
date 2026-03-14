@@ -20,6 +20,7 @@ import {
   BlobbiState
 } from '@/types/blobbi';
 import { ensureBlobbiTagsWithDebug } from './blobbi-tags';
+import { MANAGED_BLOBBI_STATE_TAG_NAMES } from './blobbi-state-builder';
 import { normalizeTags, detectDuplicateTags, type NostrTag } from './nostr/tags';
 import { toSecondsTimestamp, toMillisecondsTimestamp, nowInSeconds, parseTimestampTag } from './nostr/time';
 import { filterEggTagsForBaby } from './blobbi-evolution';
@@ -621,6 +622,10 @@ export function createBlobbiStateEvent(
   ];
 
   const stateTagMap = new Map<string, string>();
+  
+  // Collect unknown tags separately to preserve multi-value tags
+  // Unknown tags are tags NOT in MANAGED_BLOBBI_STATE_TAG_NAMES (forward compatibility)
+  const unknownTags: NostrTag[] = [];
 
   preservedTags.forEach((tag) => {
     const key = tag[0];
@@ -631,19 +636,15 @@ export function createBlobbiStateEvent(
       return;
     }
 
-    // Tags that are always set in coreUpdates - don't preserve from old tags to avoid duplication
-    const CORE_STAT_TAGS = new Set([
-      'hunger', 'happiness', 'health', 'hygiene', 'energy', 
-      'experience', 'care_streak', 'last_interaction',
-      'd', 'stage', 'state', 'breeding_ready', 'generation'
-    ]);
-    // Note: last_interaction_time is NOT in coreUpdates, so if preserved tags have it, 
-    // it will be included but normalizeTags() will dedupe if both exist (keeping last_interaction)
-    if (CORE_STAT_TAGS.has(key)) {
+    // Check if this is a managed tag that we'll be setting explicitly
+    if (MANAGED_BLOBBI_STATE_TAG_NAMES.has(key)) {
+      // Skip managed tags - they'll be set from blobbi fields below
       return;
     }
-
-    stateTagMap.set(key, value);
+    
+    // This is an unknown tag - preserve it for forward compatibility
+    // Unknown tags are collected separately to preserve multi-value tags
+    unknownTags.push(tag);
   });
 
   coreUpdates.forEach(([key, value]) => {
@@ -733,6 +734,16 @@ export function createBlobbiStateEvent(
   }
   if (blobbi.traits) {
     blobbi.traits.forEach(trait => finalStateTagsArray.push(['trait', trait]));
+  }
+  
+  // Add unknown tags for forward compatibility
+  // These are tags NOT in MANAGED_BLOBBI_STATE_TAG_NAMES
+  if (unknownTags.length > 0) {
+    if (import.meta.env.DEV) {
+      console.log('[StateEvent] Preserving unknown tags for forward compatibility:', 
+        unknownTags.map(([name]) => name));
+    }
+    finalStateTagsArray.push(...unknownTags);
   }
 
   const finalStateTags = ensureBlobbiTagsAndNormalize(
