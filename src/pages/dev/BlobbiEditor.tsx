@@ -41,6 +41,9 @@ import {
   validateStorageEntry,
   parseStorageEntry,
 } from '@/lib/blobbonaut-editor';
+import { processEvolution } from '@/lib/blobbi-evolution';
+import { createBlobbiRecordEvent, createBlobbiStateEvent } from '@/lib/blobbi-events';
+import { mergeBlobbiStateTags } from '@/lib/blobbi-state-merge';
 
 // DEV-ONLY: This component should only be available in development on localhost
 const isDevelopment = import.meta.env.DEV;
@@ -692,6 +695,97 @@ export default function BlobbiEditor() {
     
     return tags;
   }, [originalBlobbiEvent, toast]);
+
+  // Force evolve Blobbi to adult (DEV ONLY)
+  const handleForceEvolveToAdult = async () => {
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to evolve a Blobbi',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!selectedBlobbi) {
+      toast({
+        title: 'Error',
+        description: 'No Blobbi selected',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (selectedBlobbi.lifeStage === 'adult') {
+      toast({
+        title: 'Already Adult',
+        description: 'This Blobbi is already an adult',
+        variant: 'default'
+      });
+      return;
+    }
+
+    setIsPublishing(true);
+
+    try {
+      toast({
+        title: 'Evolution in Progress...',
+        description: 'Your Blobbi is evolving to adult!',
+        variant: 'default'
+      });
+
+      // Use the same evolution logic as the normal flow
+      const { processEvolution } = await import('@/lib/blobbi-evolution');
+      const { evolutionRecord, updatedBlobbi } = processEvolution(
+        selectedBlobbi,
+        'adult',
+        'Force evolved by developer for testing'
+      );
+
+      // Publish evolution record event (kind 14921)
+      const recordEventData = createBlobbiRecordEvent(
+        selectedBlobbi.id,
+        evolutionRecord,
+        `${selectedBlobbi.name} has evolved to adult! ✨ (DEV)`
+      );
+      await publishEvent(recordEventData);
+
+      // Wait a moment between events
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Publish state event (kind 31124) with filtered tags
+      const stateEventData = createBlobbiStateEvent(updatedBlobbi);
+      const filteredTags = mergeBlobbiStateTags(stateEventData.tags, {
+        removeStartEvolution: true,
+      });
+
+      await publishEvent({
+        ...stateEventData,
+        tags: filteredTags,
+      });
+
+      toast({
+        title: 'Evolution Complete!',
+        description: `${selectedBlobbi.name} has successfully evolved to adult!`,
+        variant: 'default'
+      });
+
+      // Reload to see changes
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+
+    } catch (err) {
+      console.error('Failed to force evolve Blobbi:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to evolve Blobbi. Check console for details.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   // Publish the update
   const handlePublish = async () => {
@@ -1552,6 +1646,27 @@ export default function BlobbiEditor() {
 
                       {/* Evolution Tab */}
                       <TabsContent value="evolution" className="space-y-4">
+                        {/* DEV-ONLY: Force Evolution Button */}
+                        {mergedBlobbi.lifeStage !== 'adult' && (
+                          <Alert className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
+                            <AlertDescription className="space-y-3">
+                              <div className="font-semibold text-yellow-900 dark:text-yellow-100">
+                                Developer Tools
+                              </div>
+                              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                                Instantly evolve this Blobbi to adult stage for testing purposes.
+                                This will publish the same events as normal evolution.
+                              </p>
+                              <Button
+                                onClick={handleForceEvolveToAdult}
+                                disabled={isPublishing}
+                                className="bg-yellow-600 hover:bg-yellow-700"
+                              >
+                                {isPublishing ? 'Evolving...' : 'Force Evolve to Adult'}
+                              </Button>
+                            </AlertDescription>
+                          </Alert>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {mergedBlobbi.lifeStage === 'adult' && (
                             <>
