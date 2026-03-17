@@ -41,7 +41,7 @@ import {
   validateStorageEntry,
   parseStorageEntry,
 } from '@/lib/blobbonaut-editor';
-import { processEvolution } from '@/lib/blobbi-evolution';
+import { processEvolution, processHatching } from '@/lib/blobbi-evolution';
 import { createBlobbiRecordEvent, createBlobbiStateEvent } from '@/lib/blobbi-events';
 import { mergeBlobbiStateTags } from '@/lib/blobbi-state-merge';
 
@@ -695,6 +695,93 @@ export default function BlobbiEditor() {
     
     return tags;
   }, [originalBlobbiEvent, toast]);
+
+  // Force hatch egg to baby (DEV ONLY)
+  const handleForceHatch = async () => {
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to hatch a Blobbi',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!selectedBlobbi) {
+      toast({
+        title: 'Error',
+        description: 'No Blobbi selected',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (selectedBlobbi.lifeStage !== 'egg') {
+      toast({
+        title: 'Not an Egg',
+        description: 'Only eggs can be hatched',
+        variant: 'default'
+      });
+      return;
+    }
+
+    setIsPublishing(true);
+
+    try {
+      toast({
+        title: 'Hatching in Progress...',
+        description: 'Your Blobbi is breaking out of its shell!',
+        variant: 'default'
+      });
+
+      // Use the same hatching logic as the normal flow
+      const { processHatching } = await import('@/lib/blobbi-evolution');
+      const { hatchingRecord, updatedBlobbi } = processHatching(selectedBlobbi);
+
+      // Publish hatching record event (kind 14921)
+      const recordEventData = createBlobbiRecordEvent(
+        selectedBlobbi.id,
+        hatchingRecord,
+        `${selectedBlobbi.name} has hatched! 🐣✨ (DEV)`
+      );
+      await publishEvent(recordEventData);
+
+      // Wait a moment between events
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Publish state event (kind 31124) with filtered tags
+      const stateEventData = createBlobbiStateEvent(updatedBlobbi);
+      const filteredTags = mergeBlobbiStateTags(stateEventData.tags, {
+        removeStartIncubation: true,
+      });
+
+      await publishEvent({
+        ...stateEventData,
+        tags: filteredTags,
+      });
+
+      toast({
+        title: 'Hatching Complete!',
+        description: `${selectedBlobbi.name} has successfully hatched into a baby Blobbi!`,
+        variant: 'default'
+      });
+
+      // Reload to see changes
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+
+    } catch (err) {
+      console.error('Failed to force hatch Blobbi:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to hatch Blobbi. Check console for details.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   // Force evolve Blobbi to adult (DEV ONLY)
   const handleForceEvolveToAdult = async () => {
@@ -1646,12 +1733,34 @@ export default function BlobbiEditor() {
 
                       {/* Evolution Tab */}
                       <TabsContent value="evolution" className="space-y-4">
-                        {/* DEV-ONLY: Force Evolution Button */}
-                        {mergedBlobbi.lifeStage !== 'adult' && (
+                        {/* DEV-ONLY: Force Hatch Button (for eggs) */}
+                        {mergedBlobbi.lifeStage === 'egg' && (
+                          <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700">
+                            <AlertDescription className="space-y-3">
+                              <div className="font-semibold text-blue-900 dark:text-blue-100">
+                                Developer Tools - Hatching
+                              </div>
+                              <p className="text-sm text-blue-800 dark:text-blue-200">
+                                Instantly hatch this egg into a baby Blobbi for testing purposes.
+                                This will publish the same events as normal hatching.
+                              </p>
+                              <Button
+                                onClick={handleForceHatch}
+                                disabled={isPublishing}
+                                className="bg-blue-600 hover:bg-blue-700"
+                              >
+                                {isPublishing ? 'Hatching...' : 'Force Hatch to Baby'}
+                              </Button>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        
+                        {/* DEV-ONLY: Force Evolution Button (for babies) */}
+                        {mergedBlobbi.lifeStage === 'baby' && (
                           <Alert className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700">
                             <AlertDescription className="space-y-3">
                               <div className="font-semibold text-yellow-900 dark:text-yellow-100">
-                                Developer Tools
+                                Developer Tools - Evolution
                               </div>
                               <p className="text-sm text-yellow-800 dark:text-yellow-200">
                                 Instantly evolve this Blobbi to adult stage for testing purposes.
