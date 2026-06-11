@@ -1,15 +1,7 @@
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { Heart, Sparkles, Gamepad2, Users } from 'lucide-react';
-import { AppHeader } from '@/components/AppHeader';
 import { useEffect, useState, useRef } from 'react';
+import { Heart, Sparkles, Gamepad2, Users } from 'lucide-react';
 
 const Index = () => {
-  const navigate = useNavigate();
-  const { user } = useCurrentUser();
-
   // Mouse tracking state for Blobbi eyes
   const svgRef = useRef<SVGSVGElement>(null);
   const [pupilOffset, setPupilOffset] = useState({
@@ -63,36 +55,26 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-purple-900/20 dark:via-pink-900/10 dark:to-blue-900/20">
       <div className="container mx-auto px-4 py-8">
-        <AppHeader />
-
         <div className="max-w-4xl mx-auto space-y-12">
           {/* Hero Section */}
           <div className="text-center space-y-6">
-          <img src="/blobbilogo.svg" alt="Blobbi Logo" className="h-60 mx-auto " />
+            <img src="/blobbilogo.svg" alt="Blobbi Logo" className="h-60 mx-auto" />
             <p className="text-2xl text-gray-700 dark:text-gray-200">
-              Your Virtual Pet on the Nostr Network
+              Your Virtual Pet
             </p>
             <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Adopt and care for your own unique digital companions that live forever on the decentralized web.
-              Each Nostr account can have special Blobbi pets!
+              Adopt and care for your own unique digital pet. Watch it grow, evolve, and thrive as you nurture it.
             </p>
 
             <div className="flex gap-4 justify-center flex-wrap">
-              <Button
-                size="lg"
-                onClick={() => navigate(user ? '/' : '/blobbi/adopt')}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg"
+              <a
+                href="https://ditto.pub/blobbi"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-11 px-8 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg transition-colors"
               >
-                {user ? 'Visit Your Blobbi' : 'Adopt a Blobbi'}
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => navigate('/blobbi/community')}
-                className="border-purple-200 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-              >
-                Explore Community
-              </Button>
+                Adopt a Blobbi
+              </a>
             </div>
           </div>
 
@@ -195,102 +177,80 @@ const Index = () => {
 
           {/* Features */}
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-              <CardContent className="p-6 text-center space-y-3">
-                <Heart className="w-12 h-12 mx-auto text-red-500" />
-                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Care & Nurture</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Feed, clean, and play with your Blobbi to keep it happy and healthy
-                </p>
-              </CardContent>
-            </Card>
+            <div className="rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-purple-200 dark:border-purple-600 p-6 text-center space-y-3">
+              <Heart className="w-12 h-12 mx-auto text-red-500" />
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Care & Nurture</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Feed, clean, and play with your Blobbi to keep it happy and healthy
+              </p>
+            </div>
 
-            <Card className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-pink-200 dark:border-pink-600">
-              <CardContent className="p-6 text-center space-y-3">
-                <Sparkles className="w-12 h-12 mx-auto text-purple-500" />
-                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Grow & Evolve</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Watch your pet grow through different life stages from baby to adult
-                </p>
-              </CardContent>
-            </Card>
+            <div className="rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-pink-200 dark:border-pink-600 p-6 text-center space-y-3">
+              <Sparkles className="w-12 h-12 mx-auto text-purple-500" />
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Grow & Evolve</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Watch your pet grow through different life stages from baby to adult
+              </p>
+            </div>
 
-            <Card className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-yellow-200 dark:border-yellow-600">
-              <CardContent className="p-6 text-center space-y-3">
-                <Gamepad2 className="w-12 h-12 mx-auto text-yellow-500" />
-                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Earn Rewards</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Gain experience and coins by taking good care of your pet
-                </p>
-              </CardContent>
-            </Card>
+            <div className="rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-yellow-200 dark:border-yellow-600 p-6 text-center space-y-3">
+              <Gamepad2 className="w-12 h-12 mx-auto text-yellow-500" />
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Earn Rewards</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Gain experience and coins by taking good care of your pet
+              </p>
+            </div>
 
-            <Card className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-blue-200 dark:border-blue-600">
-              <CardContent className="p-6 text-center space-y-3">
-                <Users className="w-12 h-12 mx-auto text-blue-500" />
-                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Join Community</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Discover other Blobbis and see how well they're being cared for
-                </p>
-              </CardContent>
-            </Card>
+            <div className="rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-blue-200 dark:border-blue-600 p-6 text-center space-y-3">
+              <Users className="w-12 h-12 mx-auto text-blue-500" />
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Join Community</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Discover other Blobbis and see how well they're being cared for
+              </p>
+            </div>
           </div>
 
           {/* How it Works */}
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600">
-            <CardContent className="p-8 space-y-6">
-              <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100">How It Works</h2>
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center font-bold">
-                    1
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Log in with Nostr</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Use your Nostr key (npub) to access your unique pet
-                    </p>
-                  </div>
+          <div className="rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-purple-200 dark:border-purple-600 p-8 space-y-6">
+            <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100">How It Works</h2>
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center font-bold">
+                  1
                 </div>
-
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center font-bold">
-                    2
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Adopt Your Blobbi</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Name your pet and start your journey together
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center font-bold">
-                    3
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Care Daily</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Feed, play, clean, and keep your Blobbi healthy
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center font-bold">
-                    4
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Watch It Grow</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Your pet evolves and gains experience over time
-                    </p>
-                  </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Adopt Your Blobbi</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Name your pet and start your journey together
+                  </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center font-bold">
+                  2
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Care Daily</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Feed, play, clean, and keep your Blobbi healthy
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center font-bold">
+                  3
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Watch It Grow</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Your pet evolves and gains experience over time
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Footer */}
           <div className="text-center text-sm text-gray-600 dark:text-gray-400 pb-8">
@@ -301,17 +261,7 @@ const Index = () => {
               Your pet data is stored permanently on the network and belongs to you.
             </p>
             <p className="mt-2">
-              Always <a href="https://github.com/Danidfra/nostr-pet" target="_blank" rel="noopener noreferrer" className="text-purple-600 dark:text-purple-400 underline">open source</a>. Steal <a href="https://github.com/Danidfra/nostr-pet" target="_blank" rel="noopener noreferrer" className="text-purple-600 dark:text-purple-400 underline">this code</a> and make it better! 💖
-            </p>
-            <p className="mt-2">
-              <a
-                href="https://soapbox.pub/tools/mkstack/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-purple-600 dark:text-purple-400 hover:underline"
-              >
-                Vibed with MKStack
-              </a>
+              Always <a href="https://github.com/Danidfra/nostr-pet" target="_blank" rel="noopener noreferrer" className="text-purple-600 dark:text-purple-400 underline">open source</a>. Steal <a href="https://github.com/Danidfra/nostr-pet" target="_blank" rel="noopener noreferrer" className="text-purple-600 dark:text-purple-400 underline">this code</a> and make it better!
             </p>
           </div>
         </div>

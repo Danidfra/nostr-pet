@@ -1,7 +1,0 @@
-{
-  "compilerOptions": {
-    "lib": ["ES2021", "DOM", "WebWorker"],
-    "skipLibCheck": true
-  },
-  "include": ["src/sw.ts"]
-}
