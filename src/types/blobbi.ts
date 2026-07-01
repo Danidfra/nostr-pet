@@ -150,9 +150,9 @@ export interface BlobbiRecordEvent {
   tags: string[][]; // Record-specific tags based on record_type (NostrTag format)
 }
 
-// Kind 31125: Blobbonaut Profile (Addressable)
+// Kind 11125: Blobbonaut Profile (Addressable)
 export interface BlobbonautProfileEvent {
-  kind: 31125;
+  kind: 11125;
   content: string; // Must be empty according to spec
   tags: string[][]; // Profile-specific tags (NostrTag format)
 }

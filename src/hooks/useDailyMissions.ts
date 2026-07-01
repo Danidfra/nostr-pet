@@ -54,7 +54,7 @@ function isTodayUtc(timestamp: number): boolean {
   return isSameUtcDay(timestamp, now);
 }
 
-// Helper to get latest timestamp for a specific tag from Kind 31125 tags
+// Helper to get latest timestamp for a specific tag from Kind 11125 tags
 function getLastTagTimestamp(tags: string[][], tagName: string): number | null {
   const tagValues = tags
     .filter(([name]) => name === tagName)
@@ -73,22 +73,27 @@ export function useDailyMissions() {
   const { mutateAsync: publishEvent } = useNostrPublish();
   const { data: blobbonautProfile } = useBlobbonautProfile();
 
-  // Fetch latest Kind 31125 (Blobbonaut Profile) for user
+  // Fetch latest Kind 11125 (Blobbonaut Profile) for user
   const { data: profileEvent, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['blobbonaut-profile-event', user?.pubkey],
     queryFn: async () => {
       if (!user) return null;
 
       const signal = AbortSignal.timeout(5000);
+      // Query both new (11125) and legacy (31125) kinds
       const events = await nostr.query([
         {
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE, 31125],
           authors: [user.pubkey],
-          limit: 1,
+          limit: 10,
         }
       ], { signal });
 
-      return events[0] || null;
+      // Prefer new kind (11125) over legacy kind (31125)
+      const newKindEvents = events.filter(e => e.kind === BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE);
+      const latestEvent = (newKindEvents.length > 0 ? newKindEvents : events).sort((a, b) => b.created_at - a.created_at)[0];
+      
+      return latestEvent || null;
     },
     enabled: !!user,
   });
@@ -221,7 +226,7 @@ export function useDailyMissions() {
         ['coins', newCoins.toString()] // Add updated coins tag
       ];
 
-      // Publish new Kind 31125 event with both mission claim and coins update
+      // Publish new Kind 11125 event with both mission claim and coins update
       await publishEvent({
         kind: BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE,
         content: '',
@@ -269,7 +274,7 @@ export function useDailyMissions() {
         ['coins', newCoins.toString()] // Add updated coins tag
       ];
 
-      // Publish new Kind 31125 event with both mission claim and coins update
+      // Publish new Kind 11125 event with both mission claim and coins update
       await publishEvent({
         kind: BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE,
         content: '',
@@ -322,7 +327,7 @@ export function useDailyMissions() {
         ['coins', newCoins.toString()] // Add updated coins tag
       ];
 
-      // Publish new Kind 31125 event with both mission claim and coins update
+      // Publish new Kind 11125 event with both mission claim and coins update
       await publishEvent({
         kind: BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE,
         content: '',

@@ -277,7 +277,7 @@ export default function BlobbiEditor() {
   const [blobbiPatch, setBlobbiPatch] = useState<BlobbiPatch>({});
   const [originalBlobbiEvent, setOriginalBlobbiEvent] = useState<NostrEvent | null>(null);
 
-  // Profile editor state (kind 31125)
+  // Profile editor state (kind 11125)
   const [profileData, setProfileData] = useState<MergedBlobbonaut | null>(null);
   const [profilePatch, setProfilePatch] = useState<BlobbonautPatch>({});
   const [originalProfileEvent, setOriginalProfileEvent] = useState<NostrEvent | null>(null);
@@ -350,7 +350,7 @@ export default function BlobbiEditor() {
       try {
         const events = await nostr.query(
           [{ 
-            kinds: [31125], 
+            kinds: [11125], 
             authors: [user.pubkey],
             limit: 1
           }],
@@ -372,7 +372,7 @@ export default function BlobbiEditor() {
         } else {
           toast({
             title: 'No Profile Found',
-            description: 'No kind 31125 profile event found for your pubkey.',
+            description: 'No kind 11125 profile event found for your pubkey.',
             variant: 'default'
           });
         }
@@ -968,7 +968,7 @@ export default function BlobbiEditor() {
         const updatedTags = generateUpdatedTags31125(originalProfileEvent, mergedProfile);
 
         await publishEvent({
-          kind: 31125,
+          kind: 11125,
           content: originalProfileEvent.content, // Preserve original content
           tags: updatedTags,
         });
@@ -1054,7 +1054,7 @@ export default function BlobbiEditor() {
           <Tabs value={mode} onValueChange={(v) => setMode(v as EditorMode)}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="blobbi">Edit Blobbi (kind 31124)</TabsTrigger>
-              <TabsTrigger value="profile">Edit User Profile/Progress (kind 31125)</TabsTrigger>
+              <TabsTrigger value="profile">Edit User Profile/Progress (kind 11125)</TabsTrigger>
             </TabsList>
           </Tabs>
         </CardContent>
@@ -1070,7 +1070,7 @@ export default function BlobbiEditor() {
                 {mode === 'blobbi' ? (
                   `${blobbis?.length || 0} ${blobbis?.length === 1 ? 'Blobbi' : 'Blobbis'}`
                 ) : (
-                  'Your kind 31125 profile'
+                  'Your kind 11125 profile'
                 )}
               </CardDescription>
             </CardHeader>

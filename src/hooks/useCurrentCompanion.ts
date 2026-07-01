@@ -23,18 +23,21 @@ export function useCurrentCompanion() {
       if (!user) return null;
 
       // First, get the user's Blobbonaut profile to find the current companion
+      // Query both new (11125) and legacy (31125) kinds
       const profileEvents = await nostr.query(
         [{
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE, 31125],
           authors: [user.pubkey],
-          limit: 1
+          limit: 10
         }],
         { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
       );
 
       if (profileEvents.length === 0) return null;
 
-      const profileEvent = profileEvents[0];
+      // Prefer new kind (11125) over legacy kind (31125)
+      const newKindEvents = profileEvents.filter(e => e.kind === BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE);
+      const profileEvent = (newKindEvents.length > 0 ? newKindEvents : profileEvents).sort((a, b) => b.created_at - a.created_at)[0];
       const currentCompanionTag = profileEvent.tags.find(tag => tag[0] === 'current_companion');
       
       if (!currentCompanionTag || !currentCompanionTag[1]) {

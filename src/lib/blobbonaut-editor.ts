@@ -2,7 +2,7 @@ import { NostrEvent } from '@nostrify/nostrify';
 import { BlobbonautProfile, BlobbonautStorageItem } from '@/types/blobbi';
 
 // ============================================================================
-// TYPES FOR BLOBBONAUT PROFILE EDITOR (kind 31125)
+// TYPES FOR BLOBBONAUT PROFILE EDITOR (kind 11125)
 // ============================================================================
 
 export interface BlobbonautPatch {
@@ -35,10 +35,12 @@ export interface MergedBlobbonaut {
 // ============================================================================
 
 /**
- * Parse a kind 31125 event into a MergedBlobbonaut object
+ * Parse a kind 11125 event into a MergedBlobbonaut object
+ * Also supports legacy kind 31125 events for migration purposes
  */
 export function parseBlobbonautFromEvent(event: NostrEvent): MergedBlobbonaut | null {
-  if (event.kind !== 31125) return null;
+  // Support both new kind (11125) and legacy kind (31125)
+  if (event.kind !== 11125 && event.kind !== 31125) return null;
 
   const tags = event.tags;
   const getTag = (name: string): string | undefined => {
@@ -89,11 +91,11 @@ export function parseBlobbonautFromEvent(event: NostrEvent): MergedBlobbonaut | 
 }
 
 // ============================================================================
-// TAG GENERATION FOR KIND 31125
+// TAG GENERATION FOR KIND 11125
 // ============================================================================
 
 /**
- * Generate updated tags for kind 31125 from merged Blobbonaut data.
+ * Generate updated tags for kind 11125 from merged Blobbonaut data.
  * 
  * CRITICAL SAFETY:
  * - Starts from ALL original tags

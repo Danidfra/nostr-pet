@@ -16,10 +16,8 @@ import { Blobbi } from '@/types/blobbi';
 import { cn } from '@/lib/utils';
 
 export function BlobbiAdoption() {
-  // Profile creation state
-  const [profileName, setProfileName] = useState('');
+  // Profile creation state (auto-created, no manual name entry)
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
-  const [profileValidationError, setProfileValidationError] = useState<string | null>(null);
   const [profileCreated, setProfileCreated] = useState(false);
 
   // Adoption state
@@ -35,47 +33,18 @@ export function BlobbiAdoption() {
   const { data: blobbonautProfile, isLoading: isLoadingProfile, refetch: refetchProfile } = useBlobbonautProfile();
   const { mutateAsync: createInitialProfile } = useCreateInitialProfile();
 
-  // Profile validation function
-  const validateProfileName = (name: string): { isValid: boolean; error?: string } => {
-    if (!name.trim()) {
-      return { isValid: false, error: 'Profile name is required' };
-    }
-
-    if (name.trim().length < 2) {
-      return { isValid: false, error: 'Profile name must be at least 2 characters long' };
-    }
-
-    if (name.trim().length > 30) {
-      return { isValid: false, error: 'Profile name must be 30 characters or less' };
-    }
-
-    // Allow letters, numbers, spaces, and common punctuation
-    if (!/^[a-zA-Z0-9\s\-_'.]+$/.test(name.trim())) {
-      return { isValid: false, error: 'Profile name can only contain letters, numbers, spaces, hyphens, underscores, apostrophes, and periods' };
-    }
-
-    return { isValid: true };
-  };
-
-  // Handle profile creation
+  // Handle automatic profile creation (using kind 0 name)
   const handleCreateProfile = async () => {
     if (!user) {
       return;
     }
 
-    const validation = validateProfileName(profileName);
-    if (!validation.isValid) {
-      setProfileValidationError(validation.error || 'Invalid profile name');
-      return;
-    }
-
-    setProfileValidationError(null);
     setIsCreatingProfile(true);
 
     try {
-      // Create the initial profile - this publishes the event and invalidates queries
+      // Create the initial profile - automatically uses kind 0 metadata name
+      // No customizations passed, so it will fetch and use the user's Nostr name
       const createdProfile = await createInitialProfile({
-        name: profileName.trim(),
         coins: 100,
         ownedBlobbis: [],
         pettingLevel: 0,
@@ -85,19 +54,16 @@ export function BlobbiAdoption() {
       });
 
       // Profile was successfully created and published
-      // The mutation's onSuccess callback already invalidated the queries
-      // So the useBlobbonautProfile hook will automatically refetch
-
       setProfileCreated(true);
+      
+      const displayName = createdProfile.name || 'Blobbonaut';
       toast({
         title: "Profile Created! 🎉",
-        description: `Welcome to Blobbi World, ${profileName.trim()}! You can now adopt your first Blobbi.`,
+        description: `Welcome to Blobbi World, ${displayName}! You can now adopt your first Blobbi.`,
         duration: 3000,
       });
-      setProfileName(''); // Clear the form
 
-      // Optionally trigger a manual refetch to ensure UI updates immediately
-      // This is belt-and-suspenders since the invalidation should handle it
+      // Trigger a manual refetch to ensure UI updates immediately
       refetchProfile();
     } catch (error) {
       console.error('Failed to create Blobbonaut profile:', error);
@@ -109,12 +75,6 @@ export function BlobbiAdoption() {
     } finally {
       setIsCreatingProfile(false);
     }
-  };
-
-  // Handle profile name input change
-  const handleProfileNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProfileName(e.target.value);
-    setProfileValidationError(null);
   };
 
   const handleAdoption = async () => {
@@ -443,38 +403,20 @@ export function BlobbiAdoption() {
                 <Wand2 className="h-10 w-10 mx-auto text-purple-500 dark:text-purple-400 mb-2 animate-pulse" />
                 <p className="text-sm text-purple-700 dark:text-purple-300 font-medium mb-1">Begin Your Magical Journey</p>
                 <p className="text-xs text-gray-600 dark:text-gray-300">
-                  Choose a name that will represent you in the Blobbi world
+                  Create your profile to start adopting Blobbis
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="profileName" className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                  Your Blobbonaut Name
-                </Label>
-                <Input
-                  id="profileName"
-                  type="text"
-                  placeholder="Enter your magical name..."
-                  value={profileName}
-                  onChange={handleProfileNameChange}
-                  disabled={isCreatingProfile}
-                  maxLength={30}
-                  className="text-center bg-white dark:bg-gray-700 border-purple-200 dark:border-purple-600 focus:border-purple-400 dark:focus:border-purple-500"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                  2-30 characters, letters, numbers, and basic punctuation
+              <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-600">
+                <Info className="h-5 w-5 mx-auto text-blue-500 dark:text-blue-400 mb-2" />
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  Your profile will automatically use your Nostr display name
                 </p>
               </div>
-
-              {profileValidationError && (
-                <Alert variant="destructive" className="border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
-                  <AlertDescription className="text-sm text-red-700 dark:text-red-300">{profileValidationError}</AlertDescription>
-                </Alert>
-              )}
 
               <Button
                 onClick={handleCreateProfile}
-                disabled={isCreatingProfile || !profileName.trim() || !!profileValidationError}
+                disabled={isCreatingProfile}
                 className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg"
                 size="lg"
               >
@@ -486,7 +428,7 @@ export function BlobbiAdoption() {
                 ) : (
                   <>
                     <Sparkles className="mr-2 h-5 w-5" />
-                    Begin My Journey
+                    Create Profile & Begin
                   </>
                 )}
               </Button>

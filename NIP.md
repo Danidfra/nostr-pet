@@ -8,7 +8,7 @@ This NIP defines the standardized event kinds, tags, and behaviors for managing 
 - **Kind 14919**: Pet interactions (regular)
 - **Kind 14920**: Pet breeding (regular)
 - **Kind 14921**: Pet records (regular, immutable)
-- **Kind 31125**: Owner profile (replaceable)
+- **Kind 11125**: Owner profile (replaceable)
 
 ## Pet Lifecycle
 
@@ -83,7 +83,7 @@ Represents the current state of a single Blobbi pet. This is a replaceable event
 - `value`: Penalty value
 - `care_points_deducted`: Care points lost
 
-**Profile-Specific Tags (Kind 31125):**
+**Profile-Specific Tags (Kind 11125):**
 - `coins`: Currency amount
 - `pettingLevel`: Interaction level
 - `lifetimeBlobbis`: Total Blobbis owned
@@ -187,10 +187,10 @@ Represents the current state of a single Blobbi pet. This is a replaceable event
 }
 ```
 
-### Kind 31125: Owner Profile
+### Kind 11125: Owner Profile
 ```json
 {
-  "kind": 31125,
+  "kind": 11125,
   "tags": [
     ["d", "blobbonaut-profile"],
     ["name", "BlobbiMaster"],
@@ -255,7 +255,7 @@ All stats are maintained in 0-100 range:
 - **State Events**: Kind 31124 (addressable) for current state
 - **Interaction Events**: Kind 14919 (regular) for all actions
 - **Record Events**: Kind 14921 (regular) for permanent history
-- **Profile Events**: Kind 31125 (addressable) for owner data
+- **Profile Events**: Kind 11125 (addressable) for owner data
 
 ### Interoperability
 This specification ensures that different Blobbi implementations can:
@@ -478,7 +478,7 @@ This specification ensures that different Blobbi implementations can:
 - `achievement`: Achievement
 - `milestone`: Milestone
 
-### Kind 31125 (Owner Profile)
+### Kind 11125 (Owner Profile)
 
 **Required Tags:**
 - `d`: Profile ID (required)

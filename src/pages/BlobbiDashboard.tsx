@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUserBlobbis } from '@/hooks/useUserBlobbis';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
+import { useMigrateLegacyProfile } from '@/hooks/useMigrateLegacyProfile';
 import { useCoinBalance } from '@/hooks/useCoinBalance';
 import { useBlobbiGrowthSystem } from '@/hooks/useBlobbiGrowthSystem';
 import { useDailyMissions } from '@/hooks/useDailyMissions';
@@ -97,6 +98,7 @@ export default function BlobbiDashboard() {
   const { data: userBlobbis = [], isLoading: isBlobbisLoading } = useUserBlobbis();
   const { data: coinBalance } = useCoinBalance();
   const { missions, claimMission1, claimMission2, claimBonus, isClaiming } = useDailyMissions();
+  const { mutate: migrateLegacyProfile } = useMigrateLegacyProfile();
 
   // PiP controller
   const {
@@ -217,6 +219,26 @@ export default function BlobbiDashboard() {
       setSelectedBlobbiId(null);
     }
   }, [selectedBlobbiId, userBlobbis]);
+
+  // Auto-migrate legacy profile (kind 31125) to new kind (11125)
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (profile && (profile as any).__needsMigration && (profile as any).__legacyEvent) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const legacyEvent = (profile as any).__legacyEvent;
+      console.log('[Dashboard] Detected legacy profile, triggering migration');
+      
+      // Migrate once - the flag will be cleared after successful migration
+      migrateLegacyProfile(legacyEvent, {
+        onSuccess: () => {
+          console.log('[Dashboard] Legacy profile migrated successfully');
+        },
+        onError: (error) => {
+          console.error('[Dashboard] Failed to migrate legacy profile:', error);
+        }
+      });
+    }
+  }, [profile, migrateLegacyProfile]);
 
   // Get the selected Blobbi with fake status
   const {

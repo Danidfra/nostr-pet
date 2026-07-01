@@ -20,7 +20,7 @@ export function TourCompletionModal({ isOpen, onClose, onExplore }: TourCompleti
   // Trigger tour completion update when modal opens
   useEffect(() => {
     if (isOpen) {
-      // Immediately update kind 31125 with onboarding_done=true when modal opens
+      // Immediately update kind 11125 with onboarding_done=true when modal opens
       completeTour(undefined, {
         onSuccess: () => {
           toast({

@@ -57,20 +57,23 @@ export function useSetCurrentCompanion() {
       }
 
       // Fetch the latest profile event to ensure we have all tags
+      // Query both new (11125) and legacy (31125) kinds
       const profileEvents = await nostr.query(
         [{
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE, 31125],
           authors: [user.pubkey],
-          limit: 1
+          limit: 10
         }],
         { signal: AbortSignal.timeout(5000) }
       );
-
+      
       if (profileEvents.length === 0) {
         throw new Error('Could not find existing profile');
       }
 
-      const latestEvent = profileEvents[0];
+      // Prefer new kind (11125) over legacy kind (31125)
+      const newKindEvents = profileEvents.filter(e => e.kind === BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE);
+      const latestEvent = (newKindEvents.length > 0 ? newKindEvents : profileEvents).sort((a, b) => b.created_at - a.created_at)[0];
       
       // Create a new profile with updated current_companion
       const updatedProfile: BlobbonautProfile = {

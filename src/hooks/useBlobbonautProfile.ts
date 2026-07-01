@@ -39,23 +39,25 @@ export function useBlobbonautProfile(profileId?: string) {
 
       if (profileId) {
         // If a specific profileId is provided, query by that exact ID
+        // Query both new (11125) and legacy (31125) kinds
         console.log('[Blobbonaut] Querying by specific profileId:', profileId);
         events = await nostr.query(
           [{
-            kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
+            kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE, 31125],
             '#d': [profileId],
-            limit: 1,
+            limit: 10,
           }],
           { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
         );
       } else if (user) {
         // If no profileId, query by author to support both old and new formats
+        // Query both new (11125) and legacy (31125) kinds
         console.log('[Blobbonaut] Querying by author pubkey:', user.pubkey.slice(0, 8));
         events = await nostr.query(
           [{
-            kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
+            kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE, 31125],
             authors: [user.pubkey],
-            limit: 10, // Get multiple to find the latest
+            limit: 20, // Get multiple to find the latest
           }],
           { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
         );
@@ -70,6 +72,19 @@ export function useBlobbonautProfile(profileId?: string) {
           );
           return hasBlobbiTag || hasTopicTag;
         });
+
+        // Prefer new kind (11125) over legacy kind (31125)
+        const newKindEvents = events.filter(e => e.kind === BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE);
+        const legacyKindEvents = events.filter(e => e.kind === 31125);
+        
+        // If we have new kind events, use only those. Otherwise use legacy.
+        if (newKindEvents.length > 0) {
+          events = newKindEvents;
+          console.log('[Blobbonaut] Using new kind (11125) events');
+        } else if (legacyKindEvents.length > 0) {
+          events = legacyKindEvents;
+          console.log('[Blobbonaut] Using legacy kind (31125) events - migration needed');
+        }
 
         // Sort by created_at to get the latest
         events.sort((a, b) => b.created_at - a.created_at);
@@ -87,7 +102,17 @@ export function useBlobbonautProfile(profileId?: string) {
       const latestEvent = events[0];
       console.log('[Blobbonaut] Using profile event:', latestEvent.id.slice(0, 8), latestEvent.created_at, latestEvent.tags.find(t => t[0] === 'd'));
 
+      // Parse the profile (handles both kind 11125 and legacy kind 31125)
       const profile = parseBlobbonautProfileFromEvent(latestEvent);
+      
+      // Store migration flag if this is a legacy event
+      if (latestEvent.kind === 31125 && profile) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (profile as any).__needsMigration = true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (profile as any).__legacyEvent = latestEvent;
+      }
+      
       return profile;
     },
     enabled: (!!profileId || !!user) && !!nostr,
@@ -109,23 +134,31 @@ export function useBlobbonautProfiles(profileIds: string[]) {
     queryFn: async ({ signal }) => {
       if (!sortedProfileIds.length || !nostr) return [];
 
+      // Query both new (11125) and legacy (31125) kinds for migration support
       const events = await nostr.query(
         [{
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE, 31125],
           '#d': sortedProfileIds,
         }],
         { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
       );
 
-      const eventsByProfile = new Map<string, { profile: BlobbonautProfile; created_at: number }>();
+      const eventsByProfile = new Map<string, { profile: BlobbonautProfile; created_at: number; kind: number }>();
 
       events.forEach(event => {
         const profile = parseBlobbonautProfileFromEvent(event);
         if (!profile) return;
 
         const existing = eventsByProfile.get(profile.id);
-        if (!existing || event.created_at > existing.created_at) {
-          eventsByProfile.set(profile.id, { profile, created_at: event.created_at });
+        
+        // Prefer new kind (11125) over legacy kind (31125)
+        // If same kind, prefer newer created_at
+        const shouldUpdate = !existing || 
+          (event.kind === BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE && existing.kind === 31125) ||
+          (event.kind === existing.kind && event.created_at > existing.created_at);
+        
+        if (shouldUpdate) {
+          eventsByProfile.set(profile.id, { profile, created_at: event.created_at, kind: event.kind });
         }
       });
 

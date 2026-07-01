@@ -7,7 +7,7 @@ import { useBlobbonautProfile } from './useBlobbonautProfile';
 import { getCanonicalBlobbonautD } from '@/lib/blobbi';
 
 /**
- * Hook to handle tour completion by updating the user's kind 31125 event
+ * Hook to handle tour completion by updating the user's kind 11125 event
  * with onboarding_done=true while preserving all existing tags
  */
 export function useTourCompletion() {
@@ -27,14 +27,15 @@ export function useTourCompletion() {
         throw new Error('User profile not found');
       }
 
-      // Get the latest kind 31125 event for this user
+      // Get the latest kind 11125 event for this user
       const profileId = getCanonicalBlobbonautD(user.pubkey);
+      // Query both new (11125) and legacy (31125) kinds
       const events = await nostr.query(
         [{
-          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE],
+          kinds: [BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE, 31125],
           '#d': [profileId],
           authors: [user.pubkey],
-          limit: 1,
+          limit: 10,
         }],
         { signal: AbortSignal.timeout(5000) }
       );
@@ -43,7 +44,9 @@ export function useTourCompletion() {
         throw new Error('No existing profile event found');
       }
 
-      const latestEvent = events[0];
+      // Prefer new kind (11125) over legacy kind (31125)
+      const newKindEvents = events.filter(e => e.kind === BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE);
+      const latestEvent = (newKindEvents.length > 0 ? newKindEvents : events).sort((a, b) => b.created_at - a.created_at)[0];
 
       // Create a copy of existing tags
       const updatedTags = [...latestEvent.tags];

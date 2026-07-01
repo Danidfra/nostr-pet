@@ -165,5 +165,5 @@ export function useAddCoins() {
   };
 }
 
-// useSpendCoins has been removed as shop purchases are now handled in a single profile event (kind 31125)
+// useSpendCoins has been removed as shop purchases are now handled in a single profile event (kind 11125)
 // Use useBlobbonautProfileWithFakeInventory.purchaseItem() for shop purchases instead

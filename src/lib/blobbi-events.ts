@@ -161,7 +161,7 @@ export const BLOBBI_EVENT_KINDS = {
   INTERACTION: 14919,        // Regular - individual interactions
   BREEDING: 14920,           // Regular - breeding events
   RECORD: 14921,             // Regular - immutable records
-  BLOBBONAUT_PROFILE: 31125, // Addressable - Blobbonaut (owner) profile
+  BLOBBONAUT_PROFILE: 11125, // Addressable - Blobbonaut (owner) profile
 } as const;
 
 // ============================================================================
@@ -1505,7 +1505,8 @@ export function parseRecordFromEvent(event: NostrEvent): BlobbiRecordData | null
 
 export function parseBlobbonautProfileFromEvent(event: NostrEvent): BlobbonautProfile | null {
   try {
-    if (event.kind !== BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE) {
+    // Support both new kind (11125) and legacy kind (31125)
+    if (event.kind !== BLOBBI_EVENT_KINDS.BLOBBONAUT_PROFILE && event.kind !== 31125) {
       console.warn('[Blobbonaut Parser] Invalid event kind:', event.kind);
       return null;
     }
