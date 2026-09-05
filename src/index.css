@@ -4,18 +4,47 @@
 
 @layer base {
   :root {
+    /* Elegant design system, light. Recovered from the pre-nuke app. */
     --background: 45 67% 97%;
     --foreground: 32 33% 15%;
+    --card: 42 43% 95%;
+    --card-foreground: 32 33% 15%;
+    --primary: 258 80% 50%;
+    --primary-foreground: 45 67% 97%;
+    --secondary: 38 29% 84%;
+    --secondary-foreground: 32 33% 15%;
+    --muted: 35 25% 87%;
+    --muted-foreground: 28 17% 37%;
+    --accent: 35 25% 87%;
+    --accent-foreground: 32 33% 15%;
+    --destructive: 20 42% 39%;
+    --destructive-foreground: 45 67% 97%;
+    --border: 38 29% 84%;
+    --input: 38 29% 84%;
+    --ring: 258 80% 40%;
     --radius: 0.75rem;
   }
 
   .dark {
     --background: 30 13% 10%;
     --foreground: 42 43% 90%;
+    --card: 30 17% 14%;
+    --card-foreground: 42 43% 90%;
+    --primary: 278 86% 65%;
+    --primary-foreground: 30 13% 10%;
+    --secondary: 28 17% 21%;
+    --secondary-foreground: 42 43% 90%;
+    --muted: 28 17% 21%;
+    --muted-foreground: 32 17% 67%;
+    --accent: 28 17% 21%;
+    --accent-foreground: 42 43% 90%;
+    --destructive: 4 71% 57%;
+    --destructive-foreground: 42 43% 90%;
+    --border: 28 17% 21%;
+    --input: 28 17% 21%;
+    --ring: 278 86% 40%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
@@ -29,30 +58,9 @@
   }
 }
 
-@layer utilities {
-  @keyframes blobbi-jump {
-    0%, 100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-15%);
-    }
-  }
-
-  @keyframes blobbi-shadow {
-    0%, 100% {
-      transform: scale(1, 1);
-    }
-    50% {
-      transform: scale(0.85, 0.85);
-    }
-  }
-
-  .animate-blobbi-jump {
-    animation: blobbi-jump 1.2s ease-in-out infinite;
-  }
-
+@media (prefers-reduced-motion: reduce) {
+  .animate-blobbi-idle,
   .animate-blobbi-shadow {
-    animation: blobbi-shadow 1.2s ease-in-out infinite;
+    animation: none;
   }
 }
