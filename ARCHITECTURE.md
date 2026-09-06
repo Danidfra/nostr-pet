@@ -54,7 +54,97 @@ The standalone does not duplicate Ditto's ceremony-heavy onboarding or the
 Island's world runtime. "Your Blobbi lives here. The Island is where you go
 out into the world."
 
-## The first vertical slice (this milestone)
+## Milestone 2: themes, the home, and the care loop
+
+### Themes (standalone presentation, never protocol)
+
+`src/theme/` is a data-driven registry (`themes.ts`): five `BlobbiHomeTheme`
+entries, each with design tokens (the HSL variables Tailwind reads), an
+environment (sky gradient, optional illustrated backdrop under
+`public/environments/`, ground glow) and a swatch for the picker.
+`applyThemeToDocument` writes them as custom properties plus
+`data-blobbi-theme` and the `dark` class; no component branches on a theme id.
+The choice persists under `blobbi:home-theme:v1` (device-local; a theme is
+never published), and an unknown or removed stored id falls back to Cozy Home.
+`ThemePicker` is a keyboard-operable radio group with swatch previews.
+
+A theme changes the environment, surfaces, text treatment and buttons. It never
+changes Blobbi state, traits, `visual_generation`, events or care maths, and
+`care.test.tsx` pins that the renderer's body markup is identical across themes.
+
+Recovered from the pre-nuke app: the warm "elegant" palettes (now Cozy Home and
+Space's dark surfaces) and the Forest / Beach / Garden / Space backdrops the old
+Polaroid feature shipped as unlockable backgrounds (re-encoded from PNG to
+small JPEGs). Reinterpreted: the full-height hero with the Blobbi centred and
+rings above it became an environment scene with the Blobbi on lit ground, its
+mood line, and a care dock; the old sticky actions footer became the dock
+(tapping is the action; no modal in between). Discarded: light/dark/system as
+the whole theme system, the coin-gated background unlocks, the fixed
+`--app-header-h` layout plumbing, the egg-only warm/check/sing/talk actions.
+
+### Home composition
+
+Top to bottom by importance: the scene (`BlobbiOverview` → `BlobbiHero` with
+ground glow, idle sway, sleeping breath, a hop after care, the name and a
+`describeMood` line from the kit's `getStatsNeedingAttention`), the care dock
+(`CareDock`, fixed under the thumb on small screens, inside the scene on
+larger ones), condition (`BlobbiStatusPanel`, rings with icon, value, badge and
+`role="meter"`), progression (`ProgressionStrip`: Blobbi XP, level bar,
+streak, last cared for), then the Island exit. Other Blobbis are round
+portraits drawn by the canonical renderer (`BlobbiSelector`).
+
+### Care write flow
+
+```
+button → useCareActions.perform(d, action)
+  → fetchFreshEvent(kind 31124, author, #d)        kit fresh read; never the screen's copy
+  → isModernBlobbiEvent / parseModernBlobbiEvent   modern only
+  → availableCareActions                           stage/state gate
+  → planCareAction (src/features/care/care-plan.ts) kit primitives only
+  → PublishAdapter.publish                         sign (NIP-07/46) + relay fan-out
+  → updateCompanionEvent                           cache = the published event
+  → emitInteractionEvent (kind 1124, best effort)  as every other host
+  → collection.invalidate                          relay-backed refetch
+```
+
+`care-plan.ts` composes: `applyBlobbiDecay`; the kit's per-action care effect,
+obtained by running `consolidateSocialInteractions` on the interaction this
+action emits (item-specific effects arrive with inventory via the kit's
+`CatalogAdapter`); `calculateInventoryActionXP` + `applyXPGain` into
+`experience`; `getStreakTagUpdates`; `statsToTagUpdates` + `updateBlobbiTags`
+(unknown tags preserved, timestamps stamped). Rest has no dedicated kit
+primitive: as in Ditto, it is the `state` tag flipping `active` ↔ `sleeping`
+on a decayed republish; hibernation is never toggled here. Egg semantics
+follow Ditto's item rules (clean only). No formula lives in this repo.
+
+Nothing publishes on load. One action at a time; the button is disabled while
+in flight. A failed publish is reported and the screen keeps relay state.
+
+### PublishAdapter boundary
+
+`usePublishAdapter` implements the kit's `PublishAdapter`: `finalizeTemplate`
+(client tag, `published_at` preserved from `prev` or set on first publish),
+`user.signer.signEvent`, pubkey check, `nostr.event`. It knows nothing about
+Blobbis; `care-plan.ts` knows nothing about signing.
+
+### Current companion
+
+Selecting a Blobbi writes the device pick at once and, when the player has a
+kind 11125 profile, publishes it through `useSetCurrentCompanion`: fresh
+`fetchFreshBlobbonautProfile`, the kit's `updateBlobbonautTags` over the full
+tag list (so `has`, `xp`, onboarding and unknown tags survive), `prev` set.
+An unowned `d` is refused; with no profile nothing is created (adoption owns
+profile creation) and the pick stays device-local.
+
+### Still deferred
+
+Inventory (`@nostr-games/inventory`, items, food effects, equipment, foreign
+inventories) comes after the care loop. The dock and the condition panel are
+laid out so an inventory surface can be added below the dock without
+redesigning the page. Also deferred: relay settings, account switcher, social
+interaction projection on the home, the companion runtime.
+
+## The first vertical slice (milestone 1)
 
 ```
 open standalone
@@ -71,13 +161,15 @@ Key files:
 
 | Concern | File |
 | --- | --- |
-| Providers | `src/App.tsx` (theme → logins → relay pool → query cache → router) |
+| Providers | `src/App.tsx` (home theme → logins → relay pool → query cache → router) |
 | Relay pool | `src/components/NostrProvider.tsx`, relays in `src/config/relays.ts` |
 | Session | `src/hooks/useCurrentUser.ts`, `src/hooks/useLoginActions.ts`, `src/components/auth/*` |
 | Profile (11125) | `src/hooks/useBlobbonautProfile.ts` (thin cache over the kit's fetch) |
 | Collection + current Blobbi | `src/hooks/useHomeBlobbi.ts`, `src/lib/select-current-blobbi.ts` |
 | Renderer seam | `src/lib/blobbi-visual.ts`, `src/features/home/BlobbiHero.tsx` |
 | Status | `src/features/home/BlobbiOverview.tsx`, `src/features/home/BlobbiStatusPanel.tsx` (presentational) |
+| Themes | `src/theme/*` |
+| Care | `src/features/care/*` (planner, publish adapter, mutations) |
 | Island exit | `src/config/ecosystem.ts`, `src/features/home/EnterIslandButton.tsx` |
 
 ### Current Blobbi selection
@@ -137,10 +229,7 @@ Audited commits: `54d413f` (last full app), `2281fb1` (pre-nuke parent),
 
 ## Deferred (next milestones)
 
-1. **Care actions** (feed / play / clean / rest): kit-backed writes through a
-   `PublishAdapter`, with fresh-read-before-write. Read path is already in place.
-2. **Inventory preview**: `@nostr-games/inventory` (same version as Island,
-   `^0.5.0`) read-only browser of owned inventories; equipment later.
-3. **Set current companion**: publish `current_companion` on 11125 via the kit's
-   merge helpers instead of the device-only pick.
-4. Relay settings (NIP-65) and account switcher, once `@blobbi/ui` exists.
+1. **Inventory preview**: `@nostr-games/inventory` (same version as Island,
+   `^0.5.0`) read-only browser of owned inventories; item-based care effects
+   through the kit's `CatalogAdapter`; equipment later.
+2. Relay settings (NIP-65) and account switcher, once `@blobbi/ui` exists.

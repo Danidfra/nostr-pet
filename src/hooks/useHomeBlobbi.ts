@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useBlobbisCollection } from '@blobbi-kit/react';
-import { getSelectedBlobbiKey, type BlobbiCompanion, type BlobbonautProfile } from '@blobbi-kit/core';
+import { getSelectedBlobbiKey, type BlobbiCompanion, type BlobbonautProfile, type NostrEvent } from '@blobbi-kit/core';
 
 import { useCurrentUser } from './useCurrentUser';
 import { useBlobbonautProfile } from './useBlobbonautProfile';
 import { selectCurrentBlobbi } from '@/lib/select-current-blobbi';
+import { useSetCurrentCompanion, type SetCurrentCompanionResult } from '@/features/care/useSetCurrentCompanion';
 
 /**
  * Where the home stands, as one word the page switches on.
@@ -25,10 +26,17 @@ export interface HomeBlobbi {
   current: BlobbiCompanion | undefined;
   profile: BlobbonautProfile | null | undefined;
   error: unknown;
-  /** Make `d` the current Blobbi on this device. */
+  /**
+   * Make `d` the current Blobbi: on this device at once, and on the profile's
+   * `current_companion` (kind 11125) when the player has a profile.
+   */
   select: (d: string) => void;
+  /** The last profile publish for a selection, for feedback. */
+  selection: { isPending: boolean; result: SetCurrentCompanionResult | undefined; error: Error | null };
   /** Re-read the collection from relays. */
   refresh: () => void;
+  /** Put a just-published kind 31124 into the collection cache. */
+  updateCompanionEvent: (event: NostrEvent) => void;
 }
 
 function readLocalSelection(pubkey: string | undefined): string | undefined {
@@ -55,7 +63,8 @@ function writeLocalSelection(pubkey: string, d: string): void {
  * events only, legacy identified and dropped at the source) and the kit's
  * profile fetch (kind 11125). Selection is `selectCurrentBlobbi` over a local
  * per-device pick (stored under the kit's own `getSelectedBlobbiKey`) and the
- * profile's `current_companion`. No event is ever published from here.
+ * profile's `current_companion`. Opening the home publishes nothing; only a
+ * deliberate selection or care action does.
  */
 export function useHomeBlobbi(): HomeBlobbi {
   const { user } = useCurrentUser();
@@ -63,19 +72,24 @@ export function useHomeBlobbi(): HomeBlobbi {
 
   const collection = useBlobbisCollection(undefined, pubkey);
   const profile = useBlobbonautProfile(pubkey);
+  const setCurrentCompanion = useSetCurrentCompanion(pubkey);
 
   const [localSelection, setLocalSelection] = useState<string | undefined>(() => readLocalSelection(pubkey));
   useEffect(() => {
     setLocalSelection(readLocalSelection(pubkey));
   }, [pubkey]);
 
+  const ownedDs = useMemo(() => collection.companions.map((c) => c.d), [collection.companions]);
+  const { mutate: publishSelection } = setCurrentCompanion;
+
   const select = useCallback(
     (d: string) => {
-      if (!pubkey) return;
+      if (!pubkey || !ownedDs.includes(d)) return;
       writeLocalSelection(pubkey, d);
       setLocalSelection(d);
+      publishSelection({ d, ownedDs });
     },
-    [pubkey],
+    [pubkey, ownedDs, publishSelection],
   );
 
   const current = useMemo(
@@ -107,6 +121,8 @@ export function useHomeBlobbi(): HomeBlobbi {
     profile: profile.data,
     error: collection.error,
     select,
+    selection: { isPending: setCurrentCompanion.isPending, result: setCurrentCompanion.data, error: setCurrentCompanion.error },
     refresh: collection.invalidate,
+    updateCompanionEvent: collection.updateCompanionEvent,
   };
 }
