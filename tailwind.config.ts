@@ -59,14 +59,37 @@ export default {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-4%)" },
         },
+        "blobbi-sleep": {
+          "0%, 100%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.02)" },
+        },
         "blobbi-shadow": {
           "0%, 100%": { transform: "scaleX(1)", opacity: "0.35" },
           "50%": { transform: "scaleX(0.88)", opacity: "0.25" },
         },
+        "blobbi-happy": {
+          "0%": { transform: "translateY(0) scale(1)" },
+          "30%": { transform: "translateY(-10%) scale(1.04)" },
+          "60%": { transform: "translateY(0) scale(0.98)" },
+          "100%": { transform: "translateY(0) scale(1)" },
+        },
+        "float-up": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "20%": { opacity: "1" },
+          "100%": { opacity: "0", transform: "translateY(-48px)" },
+        },
+        sparkle: {
+          "0%, 100%": { opacity: "0.2", transform: "scale(0.7)" },
+          "50%": { opacity: "0.9", transform: "scale(1.1)" },
+        },
       },
       animation: {
         "blobbi-idle": "blobbi-idle 2.4s ease-in-out infinite",
+        "blobbi-sleep": "blobbi-sleep 4s ease-in-out infinite",
         "blobbi-shadow": "blobbi-shadow 2.4s ease-in-out infinite",
+        "blobbi-happy": "blobbi-happy 700ms ease-out 1",
+        "float-up": "float-up 1400ms ease-out forwards",
+        sparkle: "sparkle 2.6s ease-in-out infinite",
       },
     },
   },

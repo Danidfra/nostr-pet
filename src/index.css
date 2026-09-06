@@ -4,7 +4,9 @@
 
 @layer base {
   :root {
-    /* Elegant design system, light. Recovered from the pre-nuke app. */
+    /* Cozy Home tokens (the default theme) so the first paint is right before
+       React applies the stored theme. Every value is overwritten by
+       applyThemeToDocument; keep this in step with themes.ts. */
     --background: 45 67% 97%;
     --foreground: 32 33% 15%;
     --card: 42 43% 95%;
@@ -23,30 +25,19 @@
     --input: 38 29% 84%;
     --ring: 258 80% 40%;
     --radius: 0.75rem;
-  }
 
-  .dark {
-    --background: 30 13% 10%;
-    --foreground: 42 43% 90%;
-    --card: 30 17% 14%;
-    --card-foreground: 42 43% 90%;
-    --primary: 278 86% 65%;
-    --primary-foreground: 30 13% 10%;
-    --secondary: 28 17% 21%;
-    --secondary-foreground: 42 43% 90%;
-    --muted: 28 17% 21%;
-    --muted-foreground: 32 17% 67%;
-    --accent: 28 17% 21%;
-    --accent-foreground: 42 43% 90%;
-    --destructive: 4 71% 57%;
-    --destructive-foreground: 42 43% 90%;
-    --border: 28 17% 21%;
-    --input: 28 17% 21%;
-    --ring: 278 86% 40%;
+    /* Environment, set per theme. */
+    --home-sky: radial-gradient(120% 80% at 50% 0%, hsl(270 70% 92%) 0%, hsl(45 67% 97%) 55%, hsl(38 60% 92%) 100%);
+    --home-ground-glow: hsl(270 60% 70% / 0.35);
+    --home-environment-image: none;
   }
 
   * {
     @apply border-border;
+  }
+
+  html {
+    transition: background-color 400ms ease;
   }
 
   body {
@@ -55,12 +46,78 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 400ms ease, color 400ms ease;
+  }
+}
+
+@layer components {
+  /* The scene: the environment the Blobbi lives in. Sky first, the theme's
+     illustration on top, and a soft vignette so text stays readable on any
+     backdrop. */
+  .home-scene {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-color: hsl(var(--card));
+    background-image: var(--home-environment-image), var(--home-sky);
+    background-size: cover, cover;
+    background-position: center 70%, center;
+    transition: background-image 400ms ease, background-color 400ms ease;
+  }
+  .home-scene::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, hsl(var(--background) / 0) 0%, hsl(var(--background) / 0) 45%, hsl(var(--background) / 0.55) 100%);
+  }
+  .home-scene > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* A frosted surface that sits on the scene without hiding it. */
+  .home-glass {
+    background-color: hsl(var(--card) / 0.72);
+    border: 1px solid hsl(var(--border) / 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px -18px hsl(var(--foreground) / 0.35);
+  }
+
+  /* The warm light under the Blobbi's feet. */
+  .home-ground {
+    background: radial-gradient(closest-side, var(--home-ground-glow) 0%, transparent 100%);
+  }
+
+  /* Text over an illustration. */
+  .scene-text {
+    text-shadow: 0 1px 2px hsl(var(--background) / 0.9), 0 0 18px hsl(var(--background) / 0.7);
+  }
+
+  .dark .scene-text {
+    text-shadow: 0 1px 2px hsl(0 0% 0% / 0.7), 0 0 18px hsl(0 0% 0% / 0.5);
+  }
+
+  /* Bottom care dock on small screens sits above the home indicator. */
+  .dock-safe {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html,
+  body,
+  .home-scene {
+    transition: none;
+  }
   .animate-blobbi-idle,
-  .animate-blobbi-shadow {
+  .animate-blobbi-shadow,
+  .animate-blobbi-happy,
+  .animate-blobbi-sleep,
+  .animate-float-up,
+  .animate-sparkle {
     animation: none;
   }
 }

@@ -4,7 +4,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { BLOBBI_RENDERER_STYLESHEET } from '@blobbi-kit/renderer';
 
 import { NostrProvider } from '@/components/NostrProvider';
-import { ThemeProvider } from '@/components/theme-provider';
+import { ThemeProvider } from '@/theme';
 import AppRouter from './AppRouter';
 
 const queryClient = new QueryClient({
@@ -20,14 +20,14 @@ const queryClient = new QueryClient({
 });
 
 /**
- * Provider order, outermost first: theme (paints before any relay answers),
- * persisted logins, the relay pool (bunker logins need it), the query cache,
- * then the router. Recovered from the pre-nuke App with every Blobbi-specific
- * provider removed: domain state now comes from @blobbi-kit hooks per surface.
+ * Provider order, outermost first: the home theme (paints before any relay
+ * answers, device-local, never published), persisted logins, the relay pool
+ * (bunker logins need it), the query cache, then the router. Domain state
+ * comes from @blobbi-kit hooks per surface; no Blobbi provider lives here.
  */
 export function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="blobbi-theme">
+    <ThemeProvider>
       <NostrLoginProvider storageKey="nostr:login">
         <NostrProvider>
           <QueryClientProvider client={queryClient}>
