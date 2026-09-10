@@ -24,8 +24,9 @@ function ThemeSwatch({ theme }: { theme: BlobbiHomeTheme }) {
 
 /**
  * The theme selector: a button in the header that opens a small panel of
- * theme cards. Selecting applies the theme immediately, remembers it on this
- * device, and publishes nothing. Roving-tabindex radio group: arrows move,
+ * theme cards (anchored to the trigger on wide screens, full-width under the
+ * header on phones so it never leaves the viewport). Selecting applies the
+ * theme immediately, remembers it on this device, and publishes nothing. Roving-tabindex radio group: arrows move,
  * Enter/Space select, Escape closes.
  */
 export function ThemePicker() {
@@ -94,7 +95,7 @@ export function ThemePicker() {
           id={panelId}
           role="dialog"
           aria-label="Choose a home theme"
-          className="absolute right-0 z-50 mt-2 w-[min(92vw,22rem)] rounded-2xl border border-border bg-card p-3 shadow-xl"
+          className="fixed inset-x-3 top-16 z-50 rounded-2xl border border-border bg-card p-3 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[22rem]"
         >
           <div className="mb-2 flex items-center justify-between px-1">
             <p className="text-sm font-semibold">Home theme</p>
