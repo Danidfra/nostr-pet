@@ -84,9 +84,9 @@ the whole theme system, the coin-gated background unlocks, the fixed
 
 ### Home composition
 
-Top to bottom by importance: the scene (`BlobbiOverview` → `BlobbiHero` with
-ground glow, idle sway, sleeping breath, a hop after care, the name and a
-`describeMood` line from the kit's `getStatsNeedingAttention`), the care dock
+Top to bottom by importance: the scene (`BlobbiOverview` → `HomeScene` →
+`BlobbiActor`, see milestone 3; the name and a `describeMood` line from the
+kit's `getStatsNeedingAttention`), the care dock
 (`CareDock`, fixed under the thumb on small screens, inside the scene on
 larger ones), condition (`BlobbiStatusPanel`, rings with icon, value, badge and
 `role="meter"`), progression (`ProgressionStrip`: Blobbi XP, level bar,
@@ -144,6 +144,76 @@ laid out so an inventory surface can be added below the dock without
 redesigning the page. Also deferred: relay settings, account switcher, social
 interaction projection on the home, the companion runtime.
 
+## Milestone 3: the scene and the behaviour layer
+
+The Blobbi no longer sits centred on a backdrop; it stands somewhere on a
+floor, walks where you tap, looks at you, reacts on its face and sleeps in
+its bed. All of that is **application behaviour**; the renderer only ever
+receives the resulting words. Built on `@blobbi-kit/renderer` 0.2.0
+(`facing`, `eyeOffset`, `expression`, `motion`, `isSleeping`) and core/react
+0.6.0.
+
+### Layers (`src/features/home/scene/`)
+
+```
+sky + far environment   .home-scene background (theme) + vignette
+floor                   .scene-floor    the tappable band (a real <button>)
+objects                 Bed.tsx         the one object in this milestone
+actor                   BlobbiActor.tsx the Blobbi, anchored at its feet
+foreground              feedback and UI over the scene (chips, errors)
+```
+
+Objects and the actor share one layer so depth can interleave them: paint
+order is the floor `y`.
+
+### Normalized floor coordinates (`geometry.ts`)
+
+A floor point is `{ x, y }` in 0..1: `x` across the floor, `y` from the
+horizon (0) to the front edge (1). The floor band occupies a fixed fraction
+of the scene box (`FLOOR_BAND`), so placement is `left: x%`, `top: band%`,
+independent of viewport size. Distances weigh `y` by `DEPTH_WEIGHT` so a walk
+looks the same speed in every direction, and things at the back are drawn a
+little smaller (`depthScale`, 12% at most). Pure helpers: clamp, distance,
+direction, facing from direction, placement, scene fraction → floor point.
+
+### Who owns what
+
+| Concern | Owner | Output |
+| --- | --- | --- |
+| Position, destination, walking, arrival | `useBlobbiLocomotion` (pure model in `locomotion.ts`; one rAF loop that runs only while walking) | `position`, `motion: idle \| walking` |
+| Facing | derived from travel direction in the model; the arrival facing is kept, nothing snaps to front | `facing` |
+| Gaze | `useGazePolicy` (`gaze.ts`): hovering pointer followed over the scene, a tap holds attention briefly, idle glances are fixed offsets | `eyeOffset` (clamped −1..1, never negated: the renderer mirrors the left profile) |
+| Reactions | `useReactionPolicy` + `reactions.ts`: feed/clean → happy, play → excited, wake → happy, a poke → happy; baseline from the kit's critical thresholds (energy → sleepy, else sad) | `expression` |
+| Idle | `useIdleBehavior` + `idle.ts`: after `inactivityMs`, one small planned action per jittered beat (glance, turn, short stroll, rest); randomness injected | calls the three above |
+| Sleeping | protocol `companion.state` | `isSleeping` |
+| Composition | `useBlobbiPresentation` → `composePresentation` | one `BlobbiPresentation` |
+
+Precedence (`presentation.ts`): sleeping > temporary reaction > baseline;
+sleeping > any motion; user walk > idle walk (an idle walk never interrupts a
+user walk, a user walk always replaces an idle one); walking > gaze target
+(the eyes follow the road).
+
+### Rest is walk-then-sleep
+
+`rest` on an awake Blobbi is a user walk to `BED_SLEEP_SPOT` whose arrival
+callback runs the existing care action. Nothing is published before arrival;
+a tap elsewhere on the way replaces the walk and drops the sleep. Under
+reduced motion arrival is immediate, so the action runs at once. Wake is the
+existing action; the Blobbi stays in the bed, awake. No new protocol event
+exists for movement.
+
+### Boundaries
+
+- Movement, gaze, facing, expression and position are local presentation
+  state. `src/__tests__/scene.test.tsx` pins that walking, looking, idling,
+  turning and reacting publish nothing and read nothing.
+- The renderer draws; the body's idle breath and walking bob are its
+  `motion` states. The app keeps only one-shot feedback animations (the hop
+  after care, floating chips, the sleeping zzz) and no wrapper sway.
+- Settings for the behaviour layer (`SceneSettingsProvider`: reduced motion
+  override, scripted random, idle timing, walk speed) exist so tests are
+  deterministic; the app uses the defaults and persists nothing.
+
 ## The first vertical slice (milestone 1)
 
 ```
@@ -166,7 +236,7 @@ Key files:
 | Session | `src/hooks/useCurrentUser.ts`, `src/hooks/useLoginActions.ts`, `src/components/auth/*` |
 | Profile (11125) | `src/hooks/useBlobbonautProfile.ts` (thin cache over the kit's fetch) |
 | Collection + current Blobbi | `src/hooks/useHomeBlobbi.ts`, `src/lib/select-current-blobbi.ts` |
-| Renderer seam | `src/lib/blobbi-visual.ts`, `src/features/home/BlobbiHero.tsx` |
+| Renderer seam | `src/lib/blobbi-visual.ts`, `src/features/home/scene/BlobbiActor.tsx` |
 | Status | `src/features/home/BlobbiOverview.tsx`, `src/features/home/BlobbiStatusPanel.tsx` (presentational) |
 | Themes | `src/theme/*` |
 | Care | `src/features/care/*` (planner, publish adapter, mutations) |
