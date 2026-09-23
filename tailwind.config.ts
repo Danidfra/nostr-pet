@@ -54,19 +54,9 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      // Idle breath and walking live in @blobbi-kit/renderer 0.2.0 (`motion`);
+      // only one-shot feedback animations stay here so nothing bobs twice.
       keyframes: {
-        "blobbi-idle": {
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-4%)" },
-        },
-        "blobbi-sleep": {
-          "0%, 100%": { transform: "scale(1)" },
-          "50%": { transform: "scale(1.02)" },
-        },
-        "blobbi-shadow": {
-          "0%, 100%": { transform: "scaleX(1)", opacity: "0.35" },
-          "50%": { transform: "scaleX(0.88)", opacity: "0.25" },
-        },
         "blobbi-happy": {
           "0%": { transform: "translateY(0) scale(1)" },
           "30%": { transform: "translateY(-10%) scale(1.04)" },
@@ -84,9 +74,6 @@ export default {
         },
       },
       animation: {
-        "blobbi-idle": "blobbi-idle 2.4s ease-in-out infinite",
-        "blobbi-sleep": "blobbi-sleep 4s ease-in-out infinite",
-        "blobbi-shadow": "blobbi-shadow 2.4s ease-in-out infinite",
         "blobbi-happy": "blobbi-happy 700ms ease-out 1",
         "float-up": "float-up 1400ms ease-out forwards",
         sparkle: "sparkle 2.6s ease-in-out infinite",

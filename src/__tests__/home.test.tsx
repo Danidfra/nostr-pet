@@ -14,6 +14,7 @@ import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { KIND_BLOBBI_STATE, BLOBBONAUT_PROFILE_KINDS, getSelectedBlobbiKey } from '@blobbi-kit/core';
 
 import Home from '@/pages/Home';
+import { SceneSettingsProvider } from '@/features/home/scene';
 import { DEFAULT_BLOBBI_ISLAND_URL } from '@/config/ecosystem';
 import { PUBKEY, blobbiEvent, legacyMarkerEvent, legacyShapeEvent, profileEvent } from '@/test/fixtures';
 
@@ -39,18 +40,23 @@ const query = vi.fn(async (filters: NostrFilter[]): Promise<NostrEvent[]> => {
 });
 const pool = { query } as unknown as NPool;
 
+// Slice tests: movement resolves at once and nothing idles.
+const SCENE = { reducedMotion: true, idleEnabled: false };
+
 function renderHome() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <NostrLoginProvider storageKey="test:login">
-      <NostrContext.Provider value={{ nostr: pool }}>
-        <QueryClientProvider client={client}>
-          <MemoryRouter>
-            <Home />
-          </MemoryRouter>
-        </QueryClientProvider>
-      </NostrContext.Provider>
-    </NostrLoginProvider>,
+    <SceneSettingsProvider value={SCENE}>
+      <NostrLoginProvider storageKey="test:login">
+        <NostrContext.Provider value={{ nostr: pool }}>
+          <QueryClientProvider client={client}>
+            <MemoryRouter>
+              <Home />
+            </MemoryRouter>
+          </QueryClientProvider>
+        </NostrContext.Provider>
+      </NostrLoginProvider>
+    </SceneSettingsProvider>,
   );
 }
 
@@ -105,7 +111,7 @@ describe('Home: loading, error, empty', () => {
     // reports an error; that policy is the kit's, so the test waits it out.
     expect(await screen.findByRole('alert', {}, { timeout: 12_000 })).toHaveTextContent(/could not reach your blobbi/i);
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
-    expect(screen.queryByTestId('blobbi-hero')).toBeNull();
+    expect(screen.queryByTestId('blobbi-actor')).toBeNull();
   }, 15_000);
 
   it('shows the empty home when the player owns no Blobbi', async () => {
@@ -180,8 +186,8 @@ describe('Home: several Blobbis', () => {
     relay.profile = [profileEvent({ currentCompanion: 'blobbi-aaaaaaaaaaaa-0000000002' })];
     renderHome();
 
-    expect(await screen.findByTestId('blobbi-hero')).toHaveTextContent('Elder');
-    expect(document.querySelector('[data-testid="blobbi-hero"] [data-blobbi-renderer]')).toHaveAttribute('data-blobbi-generation', 'v2');
+    expect(await screen.findByTestId('blobbi-actor')).toHaveTextContent('Elder');
+    expect(document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-renderer]')).toHaveAttribute('data-blobbi-generation', 'v2');
 
     const group = screen.getByRole('radiogroup', { name: /choose your blobbi/i });
     expect(within(group).getAllByRole('radio')).toHaveLength(3);
@@ -191,17 +197,17 @@ describe('Home: several Blobbis', () => {
   it('falls back to the most recently cared-for Blobbi without a profile pick', async () => {
     relay.state = [SHELL, ELDER, BROOK];
     renderHome();
-    expect(await screen.findByTestId('blobbi-hero')).toHaveTextContent('Brook');
+    expect(await screen.findByTestId('blobbi-actor')).toHaveTextContent('Brook');
   });
 
   it('lets the player pick another Blobbi and remembers it on this device', async () => {
     relay.state = [BROOK, ELDER];
     relay.profile = [profileEvent({ currentCompanion: 'blobbi-aaaaaaaaaaaa-0000000001' })];
     renderHome();
-    expect(await screen.findByTestId('blobbi-hero')).toHaveTextContent('Brook');
+    expect(await screen.findByTestId('blobbi-actor')).toHaveTextContent('Brook');
 
     await userEvent.click(screen.getByRole('radio', { name: /elder/i }));
-    await waitFor(() => expect(screen.getByTestId('blobbi-hero')).toHaveTextContent('Elder'));
+    await waitFor(() => expect(screen.getByTestId('blobbi-actor')).toHaveTextContent('Elder'));
     expect(window.localStorage.getItem(getSelectedBlobbiKey(PUBKEY))).toBe('blobbi-aaaaaaaaaaaa-0000000002');
     expect(screen.getByTestId('stage-badge')).toHaveTextContent('Adult');
   });
@@ -211,13 +217,13 @@ describe('Home: several Blobbis', () => {
     relay.state = [BROOK, ELDER];
     relay.profile = [profileEvent({ currentCompanion: 'blobbi-aaaaaaaaaaaa-0000000002' })];
     renderHome();
-    expect(await screen.findByTestId('blobbi-hero')).toHaveTextContent('Elder');
+    expect(await screen.findByTestId('blobbi-actor')).toHaveTextContent('Elder');
   });
 
   it('never publishes anything', async () => {
     relay.state = [BROOK, ELDER];
     renderHome();
-    await screen.findByTestId('blobbi-hero');
+    await screen.findByTestId('blobbi-actor');
     await userEvent.click(screen.getByRole('radio', { name: /elder/i }));
     expect((pool as unknown as { event?: unknown }).event).toBeUndefined();
   });

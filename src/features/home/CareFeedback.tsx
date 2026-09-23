@@ -4,21 +4,21 @@ import { STAT_WORD, describeCareResult } from './care-feedback-text';
 
 interface CareFeedbackProps {
   result: CareResult | undefined;
-  error: Error | null;
   /** Changes with each result so the chips replay. */
   resultKey: number;
 }
 
 /**
- * Feedback for a care action: floating stat chips by the Blobbi and a polite
- * live region; errors get an alert. Presentational: it only reports what the
- * canonical write actually changed.
+ * Feedback for a care action: floating stat chips above the Blobbi and a
+ * polite live region. Presentational: it only reports what the canonical
+ * write actually changed. Rendered inside the actor so it floats wherever
+ * the Blobbi stands.
  */
-export function CareFeedback({ result, error, resultKey }: CareFeedbackProps) {
+export function CareFeedback({ result, resultKey }: CareFeedbackProps) {
   const changes = result ? Object.entries(result.statsChanged) : [];
   return (
     <>
-      <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center gap-2" aria-hidden>
+      <div className="scene-feedback" aria-hidden>
         {result &&
           changes.map(([stat, delta], index) => (
             <span
@@ -39,11 +39,16 @@ export function CareFeedback({ result, error, resultKey }: CareFeedbackProps) {
       <p role="status" aria-live="polite" className="sr-only" data-testid="care-status">
         {result ? describeCareResult(result) : ''}
       </p>
-      {error && (
-        <p role="alert" className="mx-auto max-w-sm rounded-xl border border-destructive/40 bg-card/90 px-3 py-2 text-center text-sm text-destructive" data-testid="care-error">
-          {error.message}
-        </p>
-      )}
     </>
+  );
+}
+
+/** A failed care write, shown over the scene rather than on the Blobbi. */
+export function CareError({ error }: { error: Error | null }) {
+  if (!error) return null;
+  return (
+    <p role="alert" className="mx-auto max-w-sm rounded-xl border border-destructive/40 bg-card/90 px-3 py-2 text-center text-sm text-destructive" data-testid="care-error">
+      {error.message}
+    </p>
   );
 }

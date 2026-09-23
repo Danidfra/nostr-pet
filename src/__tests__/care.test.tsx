@@ -22,6 +22,7 @@ import {
 } from '@blobbi-kit/core';
 
 import Home from '@/pages/Home';
+import { SceneSettingsProvider } from '@/features/home/scene';
 import { ThemeProvider } from '@/theme';
 import { PUBKEY, blobbiEvent, profileEvent } from '@/test/fixtures';
 
@@ -66,19 +67,25 @@ const event = vi.fn(async (ev: NostrEvent) => {
 });
 const pool = { query, event } as unknown as NPool;
 
+const SCENE = { reducedMotion: true, idleEnabled: false };
+
 function renderHome() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // Protocol tests: movement resolves at once and nothing idles, so every
+  // assertion is about events, not about where the Blobbi is standing.
   return render(
     <ThemeProvider>
-      <NostrLoginProvider storageKey="test:login">
-        <NostrContext.Provider value={{ nostr: pool }}>
-          <QueryClientProvider client={client}>
-            <MemoryRouter>
-              <Home />
-            </MemoryRouter>
-          </QueryClientProvider>
-        </NostrContext.Provider>
-      </NostrLoginProvider>
+      <SceneSettingsProvider value={SCENE}>
+        <NostrLoginProvider storageKey="test:login">
+          <NostrContext.Provider value={{ nostr: pool }}>
+            <QueryClientProvider client={client}>
+              <MemoryRouter>
+                <Home />
+              </MemoryRouter>
+            </QueryClientProvider>
+          </NostrContext.Provider>
+        </NostrLoginProvider>
+      </SceneSettingsProvider>
     </ThemeProvider>,
   );
 }
@@ -260,7 +267,7 @@ describe('Current companion (kind 11125)', () => {
     expect(getTagValue(next.tags, 'blobbi_onboarding_done')).toBe('true');
     expect(getTagValue(next.tags, 'inv')).toBe('opaque-host-data');
     expect(getTagValue(next.tags, 'd')).toBe(getTagValue(profile().tags, 'd'));
-    await waitFor(() => expect(screen.getByTestId('blobbi-hero')).toHaveTextContent('Elder'));
+    await waitFor(() => expect(screen.getByTestId('blobbi-actor')).toHaveTextContent('Elder'));
   });
 
   it('publishes nothing when the profile already names that Blobbi, or when there is no profile', async () => {
@@ -278,7 +285,7 @@ describe('Current companion (kind 11125)', () => {
     renderHome();
     await ready();
     await userEvent.click(screen.getByRole('radio', { name: /elder/i }));
-    await waitFor(() => expect(screen.getByTestId('blobbi-hero')).toHaveTextContent('Elder'));
+    await waitFor(() => expect(screen.getByTestId('blobbi-actor')).toHaveTextContent('Elder'));
     await new Promise((r) => setTimeout(r, 50));
     expect(relay.published).toHaveLength(0);
   });
@@ -289,14 +296,14 @@ describe('Rendering under themes', () => {
     relay.state = [brook()];
     const { unmount } = renderHome();
     await ready();
-    const cozy = document.querySelector('[data-testid="blobbi-hero"] [data-blobbi-body-box]')!.innerHTML;
+    const cozy = document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-body-box]')!.innerHTML;
     unmount();
 
     window.localStorage.setItem('blobbi:home-theme:v1', 'space');
     renderHome();
     await ready();
     expect(document.documentElement.dataset.blobbiTheme).toBe('space');
-    const space = document.querySelector('[data-testid="blobbi-hero"] [data-blobbi-body-box]')!.innerHTML;
+    const space = document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-body-box]')!.innerHTML;
     expect(space).toBe(cozy);
   });
 });

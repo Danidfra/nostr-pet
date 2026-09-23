@@ -77,6 +77,163 @@
     z-index: 1;
   }
 
+  /* ─── The scene: layers the Blobbi lives between ─────────────────────── */
+
+  /* The scene box. Everything on the floor is placed by normalized
+     coordinates relative to this box, so the home is the same shape at
+     every viewport. Layers are absolute; the vignette (::after) stays under
+     them. */
+  .scene {
+    display: block;
+    container-type: inline-size;
+  }
+  .scene > .scene-layer,
+  .scene > .scene-floor {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+  .scene > .scene-layer {
+    pointer-events: none;
+  }
+  .scene > .scene-layer > * {
+    pointer-events: auto;
+  }
+  .scene > .scene-topbar {
+    position: relative;
+    z-index: 4;
+  }
+  .scene > .scene-stage {
+    z-index: 2;
+  }
+  .scene > .scene-foreground {
+    z-index: 3;
+  }
+
+  /* The floor: the band a Blobbi can stand on. Tapping it calls the Blobbi
+     over. Invisible, but it is a real button so keyboards can use it. */
+  .scene-floor {
+    left: 0;
+    right: 0;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .scene-floor:disabled {
+    cursor: default;
+  }
+  .scene-floor:focus-visible {
+    outline: 2px dashed hsl(var(--ring) / 0.7);
+    outline-offset: -6px;
+    border-radius: 1rem;
+  }
+
+  /* Things on the floor: anchored at their feet on a floor point, scaled a
+     little by depth. `left`/`top`/`z-index` come from placeOnFloor(). */
+  .scene-object,
+  .scene-actor {
+    position: absolute;
+    transform: translate(-50%, -100%) scale(var(--object-scale, var(--actor-scale, 1)));
+    transform-origin: 50% 100%;
+    pointer-events: none;
+  }
+  .scene-object {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    width: clamp(6.5rem, 26%, 13rem);
+  }
+  .scene-object > img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  .scene-bed:not(:disabled) > img {
+    cursor: pointer;
+  }
+  .scene-bed:focus-visible {
+    outline: 2px dashed hsl(var(--ring) / 0.7);
+    outline-offset: 4px;
+    border-radius: 1rem;
+  }
+
+  /* The Blobbi actor. Position changes are driven by the app's animation
+     loop (walking) or happen at once (reduced motion / arrival), so there is
+     no CSS transition on left/top: the loop is the only source of movement. */
+  .scene-actor {
+    width: clamp(7.5rem, 30%, 15rem);
+  }
+  .scene-actor__body {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+  .scene-actor__box {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+  }
+  .scene-actor__ground {
+    position: absolute;
+    left: 50%;
+    bottom: -8%;
+    width: 150%;
+    height: 42%;
+    transform: translateX(-50%);
+    border-radius: 100%;
+  }
+  .scene-actor__shadow {
+    position: absolute;
+    left: 50%;
+    bottom: -3%;
+    width: 62%;
+    height: 9%;
+    transform: translateX(-50%);
+    border-radius: 100%;
+    background: hsl(0 0% 0% / 0.25);
+    filter: blur(3px);
+  }
+  .dark .scene-actor__shadow {
+    background: hsl(0 0% 0% / 0.5);
+  }
+  .scene-actor__zzz {
+    position: absolute;
+    right: -4%;
+    top: 6%;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: hsl(var(--foreground) / 0.7);
+    user-select: none;
+  }
+  .scene-actor__caption {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    width: max-content;
+    max-width: 14rem;
+    transform: translateX(-50%);
+    margin-top: 0.25rem;
+    text-align: center;
+    pointer-events: none;
+  }
+  .scene-feedback {
+    position: absolute;
+    left: 50%;
+    top: -0.5rem;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.5rem;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
   /* A frosted surface that sits on the scene without hiding it. */
   .home-glass {
     background-color: hsl(var(--card) / 0.72);
@@ -112,10 +269,7 @@
   .home-scene {
     transition: none;
   }
-  .animate-blobbi-idle,
-  .animate-blobbi-shadow,
   .animate-blobbi-happy,
-  .animate-blobbi-sleep,
   .animate-float-up,
   .animate-sparkle {
     animation: none;
