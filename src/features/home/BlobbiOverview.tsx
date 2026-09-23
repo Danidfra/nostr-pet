@@ -86,29 +86,35 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [lastResult, reactToCare]);
 
   // Rest is walk-then-sleep: the protocol action runs on arrival at the bed,
-  // never before. A user tap elsewhere replaces the walk and the sleep is
-  // dropped with it. Under reduced motion arrival is immediate.
+  // never before. The walk is awaited, and the decision to sleep is taken
+  // with LIVE state after it ends: only an `arrived` walk counts (a tap
+  // elsewhere replaces it), and only if the Blobbi is still awake by then
+  // (a relay refresh may have said otherwise while it walked). `perform`
+  // itself checks a live in-flight flag, so nothing captured when Rest was
+  // pressed can be stale. Under reduced motion arrival is immediate.
   const [walkingToBed, setWalkingToBed] = useState(false);
+  const liveBlobbi = useRef(blobbi);
+  useEffect(() => {
+    liveBlobbi.current = blobbi;
+  }, [blobbi]);
   const perform = care.perform;
+  const walkTo = scene.walkTo;
   const onAction = useCallback(
     (action: CareAction) => {
       if (action === 'rest' && blobbi.state === 'active') {
         setWalkingToBed(true);
-        scene.walkTo(BED_SLEEP_SPOT, {
-          onArrive: () => {
-            setWalkingToBed(false);
-            perform(blobbi.d, 'rest');
-          },
+        void walkTo(BED_SLEEP_SPOT).then((outcome) => {
+          setWalkingToBed(false);
+          if (outcome !== 'arrived') return;
+          if (liveBlobbi.current.state !== 'active') return;
+          perform(liveBlobbi.current.d, 'rest');
         });
         return;
       }
       perform(blobbi.d, action);
     },
-    [blobbi.d, blobbi.state, perform, scene],
+    [blobbi.d, blobbi.state, perform, walkTo],
   );
-  useEffect(() => {
-    if (walkingToBed && !scene.isUserWalking) setWalkingToBed(false);
-  }, [walkingToBed, scene.isUserWalking]);
 
   const pendingAction: CareAction | null = care.pendingAction ?? (walkingToBed ? 'rest' : null);
   const sleeping = blobbi.state === 'sleeping';
@@ -147,7 +153,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             <BlobbiSelector companions={companions} currentD={blobbi.d} onSelect={onSelect} />
           </div>
         }
-        objects={<Bed occupied={sleeping} onTap={sleeping ? undefined : () => scene.walkTo(BED_POSITION)} />}
+        objects={<Bed occupied={sleeping} onTap={sleeping ? undefined : () => void scene.walkTo(BED_POSITION)} />}
         actor={
           <BlobbiActor ref={actorRef} blobbi={blobbi} presentation={scene.presentation} mood={mood} happyKey={resultKey} onPoke={scene.poke}>
             <CareFeedback result={care.lastResult} resultKey={resultKey} />

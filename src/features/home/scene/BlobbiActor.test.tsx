@@ -90,4 +90,18 @@ describe('BlobbiActor', () => {
     await userEvent.click(screen.getByRole('img', { name: 'Brook' }));
     expect(onPoke).toHaveBeenCalledTimes(1);
   });
+
+  it('the poke is a real button: focusable, keyboard operable, disabled when there is nothing to poke', async () => {
+    const onPoke = vi.fn();
+    const { rerender } = render(<BlobbiActor blobbi={companion()} presentation={standing} onPoke={onPoke} />);
+    const poke = screen.getByRole('button', { name: 'Poke Brook' });
+    poke.focus();
+    expect(poke).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    expect(onPoke).toHaveBeenCalledTimes(1);
+    // The drawing itself carries no click of its own any more.
+    expect(screen.getByRole('img', { name: 'Brook' })).not.toHaveAttribute('onclick');
+    rerender(<BlobbiActor blobbi={companion()} presentation={standing} />);
+    expect(screen.getByRole('button', { name: 'Poke Brook' })).toBeDisabled();
+  });
 });

@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Facing, FloorPoint } from './geometry';
 import { arriveAt, beginWalk, standingAt, stepLocomotion, stopWalking, turnTo, DEFAULT_WALK_SPEED, type LocomotionState, type WalkSource } from './locomotion';
 
+/**
+ * How a walk ended. `arrived` is the only outcome after which an action
+ * that was waiting for the walk may run. `replaced` means another walk took
+ * over (a tap elsewhere, or a user walk over an idle one); `stopped` means
+ * `stop()` or unmount; `refused` means the request was not accepted at all
+ * (an idle walk during a user walk).
+ */
+export type WalkOutcome = 'arrived' | 'replaced' | 'stopped' | 'refused';
+
 export interface WalkOptions {
   source?: WalkSource;
-  /** Called once when the Blobbi reaches this destination. Dropped when the walk is replaced. */
-  onArrive?: () => void;
 }
 
 export interface UseBlobbiLocomotionOptions {
@@ -19,19 +26,30 @@ export interface UseBlobbiLocomotionOptions {
 }
 
 export interface BlobbiLocomotion extends LocomotionState {
-  /** Walk to a floor point. A user walk replaces anything in progress; an idle walk never interrupts a user walk. */
-  walkTo: (destination: FloorPoint, options?: WalkOptions) => boolean;
+  /**
+   * Walk to a floor point. Resolves when the walk ends, with how it ended.
+   * A user walk replaces anything in progress (the replaced walk resolves
+   * `replaced`); an idle walk never interrupts a user walk (`refused`).
+   * Never rejects: a walk that ends is not an error.
+   */
+  walkTo: (destination: FloorPoint, options?: WalkOptions) => Promise<WalkOutcome>;
   /** Turn in place (ignored while walking). */
   turn: (facing: Facing) => void;
-  /** Stop where it stands. */
+  /** Stop where it stands; a pending walk resolves `stopped`. */
   stop: () => void;
 }
+
+type Settle = (outcome: WalkOutcome) => void;
 
 /**
  * The one animation loop of the home. Position, destination, facing and
  * motion live here and nowhere else; the renderer only ever sees the result.
  * The loop runs while a walk is in progress and stops on arrival, so an idle
  * Blobbi costs nothing per frame.
+ *
+ * A walk is a promise, not a callback: whoever wants to act on arrival
+ * awaits it and then decides with LIVE state, instead of handing over a
+ * closure that would remember the state of the moment the walk began.
  */
 export function useBlobbiLocomotion({
   initialPosition,
@@ -46,7 +64,14 @@ export function useBlobbiLocomotion({
 
   const frameRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
-  const onArriveRef = useRef<(() => void) | undefined>(undefined);
+  /** The settle function of the walk in progress, if any. Exactly one walk can be pending. */
+  const pendingRef = useRef<Settle | null>(null);
+
+  const settle = useCallback((outcome: WalkOutcome) => {
+    const pending = pendingRef.current;
+    pendingRef.current = null;
+    pending?.(outcome);
+  }, []);
 
   const stopLoop = useCallback(() => {
     if (frameRef.current !== null) {
@@ -56,6 +81,12 @@ export function useBlobbiLocomotion({
     lastTimeRef.current = null;
   }, []);
 
+  const commit = useCallback((next: LocomotionState) => {
+    if (next === stateRef.current) return;
+    stateRef.current = next;
+    setState(next);
+  }, []);
+
   const tick = useCallback(
     (time: number) => {
       frameRef.current = null;
@@ -63,77 +94,67 @@ export function useBlobbiLocomotion({
       lastTimeRef.current = time;
       const dt = Math.min(maxFrameSeconds, Math.max(0, (time - last) / 1000));
       const { state: next, arrived } = stepLocomotion(stateRef.current, dt, speed);
-      if (next !== stateRef.current) {
-        stateRef.current = next;
-        setState(next);
-      }
+      commit(next);
       if (arrived) {
         stopLoop();
-        const onArrive = onArriveRef.current;
-        onArriveRef.current = undefined;
-        onArrive?.();
+        settle('arrived');
         return;
       }
       if (next.motion === 'walking') frameRef.current = requestAnimationFrame(tick);
       else stopLoop();
     },
-    [maxFrameSeconds, speed, stopLoop],
+    [maxFrameSeconds, speed, stopLoop, commit, settle],
   );
 
   const walkTo = useCallback(
-    (destination: FloorPoint, { source = 'user', onArrive }: WalkOptions = {}): boolean => {
+    (destination: FloorPoint, { source = 'user' }: WalkOptions = {}): Promise<WalkOutcome> => {
       const current = stateRef.current;
+
       if (reducedMotion) {
-        if (source === 'idle' && current.source === 'user') return false;
-        const next = arriveAt(current, destination);
-        stateRef.current = next;
-        setState(next);
+        if (source === 'idle' && current.source === 'user' && current.motion === 'walking') return Promise.resolve('refused');
+        settle('replaced');
         stopLoop();
-        onArriveRef.current = undefined;
-        onArrive?.();
-        return true;
+        commit(arriveAt(current, destination));
+        return Promise.resolve('arrived');
       }
+
       const next = beginWalk(current, destination, source);
       if (next === current) {
-        // Already there, or an idle walk that may not interrupt the user.
-        if (current.motion !== 'walking' && source === 'user') onArrive?.();
-        return current.motion !== 'walking';
+        // Already there (resolve at once), or an idle walk that may not interrupt the user.
+        return Promise.resolve(current.motion === 'walking' ? 'refused' : 'arrived');
       }
-      stateRef.current = next;
-      setState(next);
-      onArriveRef.current = onArrive;
-      if (next.motion === 'walking') {
+
+      settle('replaced');
+      commit(next);
+      if (next.motion !== 'walking') {
+        // beginWalk stopped a walk that was heading elsewhere because the tap landed under the Blobbi.
+        stopLoop();
+        return Promise.resolve('arrived');
+      }
+      return new Promise<WalkOutcome>((resolve) => {
+        pendingRef.current = resolve;
         lastTimeRef.current = null;
         if (frameRef.current === null) frameRef.current = requestAnimationFrame(tick);
-      } else {
-        stopLoop();
-        onArriveRef.current = undefined;
-        onArrive?.();
-      }
-      return true;
+      });
     },
-    [reducedMotion, stopLoop, tick],
+    [reducedMotion, settle, stopLoop, commit, tick],
   );
 
-  const turn = useCallback((facing: Facing) => {
-    const next = turnTo(stateRef.current, facing);
-    if (next !== stateRef.current) {
-      stateRef.current = next;
-      setState(next);
-    }
-  }, []);
+  const turn = useCallback((facing: Facing) => commit(turnTo(stateRef.current, facing)), [commit]);
 
   const stop = useCallback(() => {
-    const next = stopWalking(stateRef.current);
-    onArriveRef.current = undefined;
     stopLoop();
-    if (next !== stateRef.current) {
-      stateRef.current = next;
-      setState(next);
-    }
-  }, [stopLoop]);
+    settle('stopped');
+    commit(stopWalking(stateRef.current));
+  }, [stopLoop, settle, commit]);
 
-  useEffect(() => stopLoop, [stopLoop]);
+  useEffect(
+    () => () => {
+      stopLoop();
+      settle('stopped');
+    },
+    [stopLoop, settle],
+  );
 
-  return { ...state, walkTo, turn, stop };
+  return useMemo(() => ({ ...state, walkTo, turn, stop }), [state, walkTo, turn, stop]);
 }

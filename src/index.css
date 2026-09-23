@@ -176,9 +176,23 @@
   }
   .scene-actor__box {
     position: relative;
+    display: block;
     width: 100%;
     height: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
     pointer-events: auto;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .scene-actor__box:disabled {
+    cursor: default;
+  }
+  .scene-actor__box:focus-visible {
+    outline: 2px dashed hsl(var(--ring) / 0.7);
+    outline-offset: 6px;
+    border-radius: 45%;
   }
   .scene-actor__ground {
     position: absolute;

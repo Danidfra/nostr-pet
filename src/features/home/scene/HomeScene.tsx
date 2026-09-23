@@ -1,4 +1,4 @@
-import { forwardRef, type MouseEvent, type ReactNode } from 'react';
+import { forwardRef, useCallback, useRef, type ForwardedRef, type MouseEvent, type ReactNode } from 'react';
 import { FLOOR_BAND } from './geometry';
 import type { ScenePointerHandlers } from './useBlobbiPresentation';
 
@@ -34,9 +34,20 @@ export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeSc
   { label, floorLabel, onFloorTap, pointerHandlers, topBar, objects, actor, foreground, className = '' },
   ref,
 ) {
+  // The scene box is measured through our own ref, merged with the forwarded
+  // one, so the floor button need not sit anywhere in particular in the DOM.
+  const sceneRef = useRef<HTMLElement | null>(null);
+  const setRefs = useCallback(
+    (node: HTMLElement | null) => {
+      sceneRef.current = node;
+      assignRef(ref, node);
+    },
+    [ref],
+  );
+
   const onFloorClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (!onFloorTap) return;
-    const scene = event.currentTarget.parentElement;
+    const scene = sceneRef.current;
     if (!scene) return;
     const rect = scene.getBoundingClientRect();
     if (event.detail === 0 || rect.width === 0 || rect.height === 0) {
@@ -49,7 +60,7 @@ export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeSc
 
   return (
     <section
-      ref={ref}
+      ref={setRefs}
       className={`home-scene scene ${className}`}
       aria-label={label}
       data-testid="home-scene"
@@ -76,3 +87,8 @@ export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeSc
     </section>
   );
 });
+
+function assignRef<T>(ref: ForwardedRef<T>, value: T | null): void {
+  if (typeof ref === 'function') ref(value as T);
+  else if (ref) ref.current = value as T;
+}

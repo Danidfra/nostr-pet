@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import {
@@ -49,6 +49,12 @@ export function useCareActions({ pubkey, updateCompanionEvent, invalidate }: Use
   const publisher = usePublishAdapter();
   const queryClient = useQueryClient();
   const [pendingAction, setPendingAction] = useState<CareAction | null>(null);
+  /**
+   * Live "a write is in flight" flag for `perform`. A ref, not the mutation's
+   * `isPending`, so a `perform` captured earlier (by a walk that arrives
+   * later, say) still sees the truth at the moment it is called.
+   */
+  const inFlightRef = useRef(false);
 
   const mutation = useMutation<CareResult, Error, { d: string; action: CareAction }>({
     mutationFn: async ({ d, action }) => {
@@ -77,19 +83,23 @@ export function useCareActions({ pubkey, updateCompanionEvent, invalidate }: Use
       return { action, name: companion.name, statsChanged: plan.statsChanged, xpGained: plan.xpGained, nextState: plan.nextState, event };
     },
     onSettled: () => {
+      inFlightRef.current = false;
       setPendingAction(null);
       invalidate();
     },
   });
 
   const { mutate, isPending } = mutation;
+  /** Start a care write unless one is in flight. Stable: safe to call from a delayed flow. Returns whether it started. */
   const perform = useCallback(
-    (d: string, action: CareAction) => {
-      if (isPending) return;
+    (d: string, action: CareAction): boolean => {
+      if (inFlightRef.current) return false;
+      inFlightRef.current = true;
       setPendingAction(action);
       mutate({ d, action });
+      return true;
     },
-    [isPending, mutate],
+    [mutate],
   );
 
   return {

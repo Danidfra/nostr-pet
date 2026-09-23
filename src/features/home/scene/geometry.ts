@@ -23,7 +23,11 @@ export interface FloorBounds {
   maxY: number;
 }
 
-export const FLOOR_BOUNDS: FloorBounds = { minX: 0.1, maxX: 0.9, minY: 0.05, maxY: 0.95 };
+/**
+ * `maxY` stops short of the front edge so the caption under the feet never
+ * runs out of the scene box (the scene clips its overflow).
+ */
+export const FLOOR_BOUNDS: FloorBounds = { minX: 0.1, maxX: 0.9, minY: 0.05, maxY: 0.82 };
 
 /**
  * Where the floor band sits in the scene box, as fractions of its height:

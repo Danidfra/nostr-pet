@@ -1,6 +1,7 @@
 import { useCallback, useMemo, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import type { BlobbiCompanion, BlobbiStats } from '@blobbi-kit/core';
 import type { CareResult } from '@/features/care';
+import { policyFor, resolveBehaviorMode, type BehaviorMode } from './behavior-mode';
 import { floorDirection, floorPointFromScene, type FloorPoint } from './geometry';
 import { travelGlance } from './gaze';
 import type { IdleAction } from './idle';
@@ -8,7 +9,7 @@ import { BED_SLEEP_SPOT, HOME_SPOT } from './objects';
 import { composePresentation, type BlobbiPresentation } from './presentation';
 import { POKE_DURATION_MS, baselineExpression, reactionForCare } from './reactions';
 import { useHoverCapable, useReducedMotion, useSceneSettings } from './SceneSettings';
-import { useBlobbiLocomotion, type WalkOptions } from './useBlobbiLocomotion';
+import { useBlobbiLocomotion, type WalkOutcome } from './useBlobbiLocomotion';
 import { useGazePolicy } from './useGazePolicy';
 import { useIdleBehavior } from './useIdleBehavior';
 import { useReactionPolicy } from './useReactionPolicy';
@@ -28,8 +29,13 @@ export interface ScenePointerHandlers {
 
 export interface BlobbiSceneController {
   presentation: BlobbiPresentation;
-  /** A user walk: replaces any idle walk and resets the idle clock. */
-  walkTo: (destination: FloorPoint, options?: Omit<WalkOptions, 'source'>) => boolean;
+  /** Who is in charge right now (see behavior-mode.ts). */
+  mode: BehaviorMode;
+  /**
+   * A user walk: replaces any idle walk, resets the idle clock, resolves
+   * with how the walk ended. Only `'arrived'` means the Blobbi is there.
+   */
+  walkTo: (destination: FloorPoint) => Promise<WalkOutcome>;
   /** A tap or click on the floor, as fractions of the scene box. */
   onFloorTap: (fraction: { x: number; y: number }) => void;
   /** A tap on the Blobbi itself. */
@@ -46,6 +52,10 @@ export interface BlobbiSceneController {
  * The behaviour layer composed: locomotion, gaze, reactions and idle, folded
  * into the one presentation the renderer receives. Every input is local
  * presentation state; nothing here reads or writes Nostr.
+ *
+ * The behaviour mode is resolved once per render and every gate below reads
+ * its policy, so the precedence lives in `behavior-mode.ts` and not in the
+ * conditions scattered here.
  */
 export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef }: UseBlobbiPresentationOptions): BlobbiSceneController {
   const settings = useSceneSettings();
@@ -59,11 +69,13 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef }: Use
     speed: settings.walkSpeed,
   });
 
-  const actorKey = `${locomotion.position.x.toFixed(3)}:${locomotion.position.y.toFixed(3)}:${locomotion.facing}`;
-  const gaze = useGazePolicy({ actorRef, sceneRef, hoverCapable, actorKey, enabled: !isSleeping });
-  const reactions = useReactionPolicy();
-
   const isUserWalking = locomotion.motion === 'walking' && locomotion.source === 'user';
+  const mode = resolveBehaviorMode({ isSleeping, isUserWalking });
+  const policy = policyFor(mode);
+
+  const actorKey = `${locomotion.position.x.toFixed(3)}:${locomotion.position.y.toFixed(3)}:${locomotion.facing}`;
+  const gaze = useGazePolicy({ actorRef, sceneRef, hoverCapable, actorKey, enabled: policy.gaze });
+  const reactions = useReactionPolicy();
 
   const performIdle = useCallback(
     (action: IdleAction) => {
@@ -75,7 +87,7 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef }: Use
           locomotion.turn(action.facing);
           break;
         case 'walk':
-          locomotion.walkTo(action.destination, { source: 'idle' });
+          void locomotion.walkTo(action.destination, { source: 'idle' });
           break;
         case 'rest':
           break;
@@ -85,7 +97,7 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef }: Use
   );
 
   const idle = useIdleBehavior({
-    enabled: settings.idleEnabled && !isSleeping && !isUserWalking,
+    enabled: settings.idleEnabled && policy.idle,
     timing: settings.idle,
     random: settings.random,
     position: locomotion.position,
@@ -101,6 +113,7 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef }: Use
   const presentation = useMemo(
     () =>
       composePresentation({
+        mode,
         position: locomotion.position,
         facing: locomotion.facing,
         motion: locomotion.motion,
@@ -108,32 +121,32 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef }: Use
         travelGaze,
         reaction: reactions.reaction,
         baseline: baselineExpression(blobbi, stats),
-        isSleeping,
       }),
-    [locomotion.position, locomotion.facing, locomotion.motion, gaze.eyeOffset, travelGaze, reactions.reaction, blobbi, stats, isSleeping],
+    [mode, locomotion.position, locomotion.facing, locomotion.motion, gaze.eyeOffset, travelGaze, reactions.reaction, blobbi, stats],
   );
 
   const walkTo = useCallback(
-    (destination: FloorPoint, options: Omit<WalkOptions, 'source'> = {}) => {
+    (destination: FloorPoint): Promise<WalkOutcome> => {
       idle.markActivity();
-      return locomotion.walkTo(destination, { ...options, source: 'user' });
+      if (!policy.walks.includes('user')) return Promise.resolve('refused');
+      return locomotion.walkTo(destination, { source: 'user' });
     },
-    [idle, locomotion],
+    [idle, locomotion, policy],
   );
 
   const onFloorTap = useCallback(
     (fraction: { x: number; y: number }) => {
-      if (isSleeping) return;
-      walkTo(floorPointFromScene(fraction));
+      if (!policy.floorTaps) return;
+      void walkTo(floorPointFromScene(fraction));
     },
-    [isSleeping, walkTo],
+    [policy, walkTo],
   );
 
   const poke = useCallback(() => {
     idle.markActivity();
-    if (isSleeping) return;
+    if (!policy.reactions) return;
     reactions.react('happy', POKE_DURATION_MS);
-  }, [idle, isSleeping, reactions]);
+  }, [idle, policy, reactions]);
 
   const reactToCare = useCallback(
     (result: CareResult) => {
@@ -155,5 +168,5 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef }: Use
     [gaze, idle],
   );
 
-  return { presentation, walkTo, onFloorTap, poke, reactToCare, scenePointerHandlers, isUserWalking, reducedMotion };
+  return { presentation, mode, walkTo, onFloorTap, poke, reactToCare, scenePointerHandlers, isUserWalking, reducedMotion };
 }

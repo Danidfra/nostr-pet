@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { TAP_ATTENTION_MS, gazeRangeFor, gazeToward, type EyeOffset, type GazeTarget, type Point } from './gaze';
 
 export interface UseGazePolicyOptions {
@@ -119,5 +119,5 @@ export function useGazePolicy({ actorRef, sceneRef, hoverCapable, actorKey, enab
     setTarget(null);
   }, []);
 
-  return { eyeOffset, onPointerMove, onPointerLeave, onPointerDown, glance, clear };
+  return useMemo(() => ({ eyeOffset, onPointerMove, onPointerLeave, onPointerDown, glance, clear }), [eyeOffset, onPointerMove, onPointerLeave, onPointerDown, glance, clear]);
 }

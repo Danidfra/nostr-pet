@@ -53,7 +53,17 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
             z<span className="text-lg">z</span>
           </span>
         )}
-        <div key={happyKey} className={`scene-actor__box ${happyKey > 0 ? 'animate-blobbi-happy' : ''}`}>
+        {/* The poke is a real button around the drawing, so it is focusable and
+            keyboard operable; the renderer stays a plain image with no click of its own. */}
+        <button
+          key={happyKey}
+          type="button"
+          className={`scene-actor__box ${happyKey > 0 ? 'animate-blobbi-happy' : ''}`}
+          onClick={onPoke}
+          disabled={!onPoke}
+          aria-label={`Poke ${blobbi.name}`}
+          data-testid="blobbi-poke"
+        >
           <BlobbiRenderer
             visual={toBlobbiVisual(blobbi)}
             instanceId={`home-${blobbi.d}`}
@@ -64,12 +74,10 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
             eyeOffset={presentation.eyeOffset}
             isSleeping={isSleeping}
             label={blobbi.name}
-            onClick={onPoke}
-            interactive={!!onPoke}
             transparent
             style={{ width: '100%', height: '100%' }}
           />
-        </div>
+        </button>
       </div>
       <div className="scene-actor__caption">
         <span className="scene-text block text-2xl font-bold tracking-tight sm:text-3xl">{blobbi.name}</span>

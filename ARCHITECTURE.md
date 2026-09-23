@@ -188,19 +188,28 @@ direction, facing from direction, placement, scene fraction → floor point.
 | Sleeping | protocol `companion.state` | `isSleeping` |
 | Composition | `useBlobbiPresentation` → `composePresentation` | one `BlobbiPresentation` |
 
-Precedence (`presentation.ts`): sleeping > temporary reaction > baseline;
-sleeping > any motion; user walk > idle walk (an idle walk never interrupts a
-user walk, a user walk always replaces an idle one); walking > gaze target
-(the eyes follow the road).
+Precedence is a mode (`behavior-mode.ts`), resolved once per render in
+`useBlobbiPresentation`: `sleeping > user-walk > free`. `BEHAVIOR_POLICY`
+says what each mode allows (who may start a walk, idle clock, gaze,
+reactions, floor taps, forced motion); every gate reads that table and
+`composePresentation` applies it (sleeping: still, eyes shut, neutral;
+any walk: eyes on the road; temporary reaction > baseline when reactions
+are allowed). Locomotion keeps one rule of its own, in `beginWalk`: an
+idle walk never replaces a user walk in progress. A future exclusive mode
+(a lifecycle ceremony) is one word and one table row.
 
 ### Rest is walk-then-sleep
 
-`rest` on an awake Blobbi is a user walk to `BED_SLEEP_SPOT` whose arrival
-callback runs the existing care action. Nothing is published before arrival;
-a tap elsewhere on the way replaces the walk and drops the sleep. Under
-reduced motion arrival is immediate, so the action runs at once. Wake is the
-existing action; the Blobbi stays in the bed, awake. No new protocol event
-exists for movement.
+`rest` on an awake Blobbi is a user walk to `BED_SLEEP_SPOT`. `walkTo`
+returns a promise that resolves with how the walk ended (`arrived`,
+`replaced`, `stopped`, `refused`); `BlobbiOverview` awaits it and sleeps
+only on `arrived`, only if the Blobbi is still awake by then (live ref), and
+through a `perform` that checks a live in-flight flag rather than the
+pending state captured when Rest was pressed. Nothing is published before
+arrival; a tap elsewhere replaces the walk and the sleep never happens.
+Under reduced motion arrival is immediate, so the action runs at once. Wake
+is the existing action; the Blobbi stays in the bed, awake. No new protocol
+event exists for movement.
 
 ### Boundaries
 

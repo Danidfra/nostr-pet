@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { composePresentation, type PresentationInputs } from './presentation';
 
 const base: PresentationInputs = {
+  mode: 'free',
   position: { x: 0.5, y: 0.5 },
   facing: 'left',
   motion: 'idle',
@@ -9,7 +10,6 @@ const base: PresentationInputs = {
   travelGaze: { x: -0.45, y: 0 },
   reaction: null,
   baseline: 'neutral',
-  isSleeping: false,
 };
 
 describe('composePresentation precedence', () => {
@@ -30,8 +30,13 @@ describe('composePresentation precedence', () => {
   });
 
   it('sleeping beats everything: still, eyes shut, no gaze, neutral face', () => {
-    const p = composePresentation({ ...base, isSleeping: true, reaction: 'excited', motion: 'walking' });
+    const p = composePresentation({ ...base, mode: 'sleeping', reaction: 'excited', motion: 'walking' });
     expect(p).toMatchObject({ isSleeping: true, motion: 'still', eyeOffset: undefined, expression: 'neutral', facing: 'left' });
+  });
+
+  it('a user walk still shows reactions and the travel gaze', () => {
+    const p = composePresentation({ ...base, mode: 'user-walk', motion: 'walking', reaction: 'happy' });
+    expect(p).toMatchObject({ motion: 'walking', eyeOffset: { x: -0.45, y: 0 }, expression: 'happy', isSleeping: false });
   });
 
   it('walking: the eyes follow the road, not the pointer', () => {

@@ -3,12 +3,18 @@
  * builds it. Every input is application state; the renderer owns nothing
  * behavioural.
  *
- *   sleeping           > temporary reaction > baseline expression
- *   sleeping           > any motion (a sleeper is still)
- *   user-directed walk > idle walk            (decided in locomotion)
- *   walking            > gaze target          (eyes follow the road)
+ * Who is in charge is decided first, as a mode (`behavior-mode.ts`):
+ *
+ *   sleeping > user-walk > free
+ *
+ * and this function only applies that mode's policy:
+ *
+ *   sleeping           : still, eyes shut, no gaze, neutral face
+ *   any walk           : eyes on the road, not on the pointer
+ *   temporary reaction > baseline expression (when reactions are allowed)
  */
 import type { BlobbiEmotion, BlobbiMotion } from '@blobbi-kit/renderer';
+import { policyFor, type BehaviorMode } from './behavior-mode';
 import type { Facing, FloorPoint } from './geometry';
 import type { EyeOffset } from './gaze';
 
@@ -22,6 +28,7 @@ export interface BlobbiPresentation {
 }
 
 export interface PresentationInputs {
+  mode: BehaviorMode;
   position: FloorPoint;
   facing: Facing;
   /** From locomotion: idle or walking. */
@@ -33,27 +40,19 @@ export interface PresentationInputs {
   /** The temporary reaction, if one is running. */
   reaction: BlobbiEmotion | null;
   baseline: BlobbiEmotion;
-  isSleeping: boolean;
 }
 
 export function composePresentation(input: PresentationInputs): BlobbiPresentation {
-  if (input.isSleeping) {
-    return {
-      position: input.position,
-      facing: input.facing,
-      motion: 'still',
-      eyeOffset: undefined,
-      expression: 'neutral',
-      isSleeping: true,
-    };
-  }
+  const policy = policyFor(input.mode);
+  const isSleeping = input.mode === 'sleeping';
   const walking = input.motion === 'walking';
-  return {
-    position: input.position,
-    facing: input.facing,
-    motion: walking ? 'walking' : 'idle',
-    eyeOffset: walking ? input.travelGaze : input.gaze,
-    expression: input.reaction ?? input.baseline,
-    isSleeping: false,
-  };
+  const motion: BlobbiMotion = policy.forcedMotion ?? (walking ? 'walking' : 'idle');
+
+  let eyeOffset: EyeOffset | undefined;
+  if (!policy.gaze) eyeOffset = undefined;
+  else eyeOffset = walking ? input.travelGaze : input.gaze;
+
+  const expression: BlobbiEmotion = isSleeping ? 'neutral' : policy.reactions ? (input.reaction ?? input.baseline) : input.baseline;
+
+  return { position: input.position, facing: input.facing, motion, eyeOffset, expression, isSleeping };
 }

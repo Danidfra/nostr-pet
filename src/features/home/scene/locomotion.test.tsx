@@ -75,11 +75,21 @@ describe('useBlobbiLocomotion', () => {
   beforeEach(() => vi.useFakeTimers({ toFake: [...FAKES] }));
   afterEach(() => vi.useRealTimers());
 
-  it('walks a destination in over frames and calls onArrive once, at arrival', () => {
+  /** Records what a walk promise settled to, synchronously inspectable after flushing microtasks. */
+  function track(promise: Promise<string>) {
+    const seen = { outcome: null as string | null };
+    void promise.then((o) => {
+      seen.outcome = o;
+    });
+    return seen;
+  }
+  const flush = () => act(async () => {});
+
+  it('walks a destination in over frames and resolves `arrived` once, at arrival', async () => {
     const { result } = renderHook(() => useBlobbiLocomotion({ initialPosition: { x: 0.2, y: 0.5 }, reducedMotion: false, speed: 0.4 }));
-    const onArrive = vi.fn();
+    let seen!: ReturnType<typeof track>;
     act(() => {
-      result.current.walkTo({ x: 0.6, y: 0.5 }, { onArrive });
+      seen = track(result.current.walkTo({ x: 0.6, y: 0.5 }));
     });
     expect(result.current.motion).toBe('walking');
     expect(result.current.facing).toBe('right');
@@ -89,66 +99,96 @@ describe('useBlobbiLocomotion', () => {
     const mid = result.current.position.x;
     expect(mid).toBeGreaterThan(0.2);
     expect(mid).toBeLessThan(0.6);
-    expect(onArrive).not.toHaveBeenCalled();
+    await flush();
+    expect(seen.outcome).toBeNull();
     act(() => {
       vi.advanceTimersByTime(2_000);
     });
+    await flush();
     expect(result.current.position).toEqual({ x: 0.6, y: 0.5 });
     expect(result.current.motion).toBe('idle');
     expect(result.current.facing).toBe('right');
-    expect(onArrive).toHaveBeenCalledTimes(1);
+    expect(seen.outcome).toBe('arrived');
   });
 
-  it('under reduced motion it arrives at once and still reports arrival', () => {
+  it('under reduced motion it arrives at once and still resolves `arrived`', async () => {
     const { result } = renderHook(() => useBlobbiLocomotion({ initialPosition: { x: 0.2, y: 0.5 }, reducedMotion: true }));
-    const onArrive = vi.fn();
+    let seen!: ReturnType<typeof track>;
     act(() => {
-      result.current.walkTo({ x: 0.7, y: 0.6 }, { onArrive });
+      seen = track(result.current.walkTo({ x: 0.7, y: 0.6 }));
     });
+    await flush();
     expect(result.current.position).toEqual({ x: 0.7, y: 0.6 });
     expect(result.current.motion).toBe('idle');
-    expect(onArrive).toHaveBeenCalledTimes(1);
+    expect(seen.outcome).toBe('arrived');
   });
 
-  it('a new user destination replaces the walk and drops the old arrival callback', () => {
+  it('a new user destination replaces the walk: the old promise resolves `replaced`, never `arrived`', async () => {
     const { result } = renderHook(() => useBlobbiLocomotion({ initialPosition: { x: 0.5, y: 0.5 }, reducedMotion: false, speed: 0.4 }));
-    const first = vi.fn();
-    const second = vi.fn();
+    let first!: ReturnType<typeof track>;
+    let second!: ReturnType<typeof track>;
     act(() => {
-      result.current.walkTo({ x: 0.9, y: 0.5 }, { onArrive: first });
+      first = track(result.current.walkTo({ x: 0.9, y: 0.5 }));
     });
     act(() => {
       vi.advanceTimersByTime(200);
     });
     act(() => {
-      result.current.walkTo({ x: 0.1, y: 0.5 }, { onArrive: second });
+      second = track(result.current.walkTo({ x: 0.1, y: 0.5 }));
     });
+    await flush();
+    expect(first.outcome).toBe('replaced');
     expect(result.current.facing).toBe('left');
     act(() => {
       vi.advanceTimersByTime(5_000);
     });
-    expect(first).not.toHaveBeenCalled();
-    expect(second).toHaveBeenCalledTimes(1);
+    await flush();
+    expect(second.outcome).toBe('arrived');
     expect(result.current.position.x).toBeCloseTo(0.1);
   });
 
-  it('user input overrides an idle walk; an idle walk cannot override the user', () => {
+  it('user input overrides an idle walk; an idle walk is refused during a user walk', async () => {
     const { result } = renderHook(() => useBlobbiLocomotion({ initialPosition: { x: 0.5, y: 0.5 }, reducedMotion: false, speed: 0.4 }));
+    let idleWalk!: ReturnType<typeof track>;
     act(() => {
-      result.current.walkTo({ x: 0.9, y: 0.5 }, { source: 'idle' });
+      idleWalk = track(result.current.walkTo({ x: 0.9, y: 0.5 }, { source: 'idle' }));
     });
     expect(result.current.source).toBe('idle');
-    let accepted = false;
     act(() => {
-      accepted = result.current.walkTo({ x: 0.1, y: 0.5 }, { source: 'user' });
+      void result.current.walkTo({ x: 0.1, y: 0.5 }, { source: 'user' });
     });
-    expect(accepted).toBe(true);
+    await flush();
+    expect(idleWalk.outcome).toBe('replaced');
     expect(result.current.source).toBe('user');
+    let refused!: ReturnType<typeof track>;
     act(() => {
-      accepted = result.current.walkTo({ x: 0.9, y: 0.5 }, { source: 'idle' });
+      refused = track(result.current.walkTo({ x: 0.9, y: 0.5 }, { source: 'idle' }));
     });
-    expect(accepted).toBe(false);
+    await flush();
+    expect(refused.outcome).toBe('refused');
     expect(result.current.destination).toEqual({ x: 0.1, y: 0.5 });
+  });
+
+  it('a walk to where it already stands resolves `arrived` at once', async () => {
+    const { result } = renderHook(() => useBlobbiLocomotion({ initialPosition: { x: 0.5, y: 0.5 }, reducedMotion: false }));
+    let seen!: ReturnType<typeof track>;
+    act(() => {
+      seen = track(result.current.walkTo({ x: 0.5, y: 0.5 }));
+    });
+    await flush();
+    expect(seen.outcome).toBe('arrived');
+    expect(result.current.motion).toBe('idle');
+  });
+
+  it('unmounting settles a pending walk as `stopped`', async () => {
+    const { result, unmount } = renderHook(() => useBlobbiLocomotion({ initialPosition: { x: 0.1, y: 0.5 }, reducedMotion: false, speed: 0.4 }));
+    let seen!: ReturnType<typeof track>;
+    act(() => {
+      seen = track(result.current.walkTo({ x: 0.9, y: 0.5 }));
+    });
+    unmount();
+    await flush();
+    expect(seen.outcome).toBe('stopped');
   });
 
   it('the loop does not run while standing still', () => {
@@ -161,11 +201,11 @@ describe('useBlobbiLocomotion', () => {
     raf.mockRestore();
   });
 
-  it('stop() halts the walk where it stands and drops the arrival callback', () => {
+  it('stop() halts the walk where it stands and settles it `stopped`', async () => {
     const { result } = renderHook(() => useBlobbiLocomotion({ initialPosition: { x: 0.1, y: 0.5 }, reducedMotion: false, speed: 0.4 }));
-    const onArrive = vi.fn();
+    let seen!: ReturnType<typeof track>;
     act(() => {
-      result.current.walkTo({ x: 0.9, y: 0.5 }, { onArrive });
+      seen = track(result.current.walkTo({ x: 0.9, y: 0.5 }));
     });
     act(() => {
       vi.advanceTimersByTime(200);
@@ -178,8 +218,9 @@ describe('useBlobbiLocomotion', () => {
     act(() => {
       vi.advanceTimersByTime(5_000);
     });
+    await flush();
     expect(result.current.position).toEqual(mid);
     expect(result.current.motion).toBe('idle');
-    expect(onArrive).not.toHaveBeenCalled();
+    expect(seen.outcome).toBe('stopped');
   });
 });

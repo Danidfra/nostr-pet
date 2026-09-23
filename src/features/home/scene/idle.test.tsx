@@ -84,7 +84,7 @@ describe('useIdleBehavior', () => {
     expect(perform).toHaveBeenCalledTimes(1);
   });
 
-  it('disabled means silent, and re-enabling waits for inactivity again', () => {
+  it('disabled means silent; re-enabling after the inactivity period has already passed beats at once', () => {
     const perform = vi.fn();
     const { rerender } = renderHook(({ enabled }: { enabled: boolean }) => useIdleBehavior({ enabled, timing, random: () => 0.95, position: { x: 0.5, y: 0.5 }, facing: 'front', perform }), {
       initialProps: { enabled: false },
