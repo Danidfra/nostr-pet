@@ -196,6 +196,35 @@ this, not its own history.
 - **Links.** Standalone → Island is a plain URL; Island has no link back;
   Island ignores URL parameters; identity travels through the signer.
 
+## Milestone 7: ecosystem cohesion (M5)
+
+**The Island, from the room.** Leaving for the Island is the door (walk to
+it, a real link appears there) and, for keyboards and screen readers, the
+menu entry. Island stays a separate app; nothing of it is embedded.
+
+**What the Island dressed, the home draws.** `useWornEquipment` reads the
+kind 31634 document the player authored that targets this Blobbi
+(`31124:<owner>:<d>`, so any game's naming works) and `resolveWornEquipment`
+applies Island's own gates before anything reaches the renderer: author is
+the owner, mode `equip`, official issuer by FULL address, definition known,
+the issuer's declared `visual.slot` equals the entry's slot, owned (quantity
+≥ 1 in the resolved balances), `visual.forms` includes the stage, 2D-percent
+frame, last entry wins a slot. Wearables become `AccessoryPlacementInput`s
+(artwork per facing from the definition's marked images, allow-listed) and
+visual-effect items (`visual.kind = blobbi-effect`) become renderer effects
+when their id and slot are the renderer's. Read-only: equipping stays on
+the Island; the sheet marks worn cosmetics "Worn". Eggs wear nothing.
+
+**Foreign inventories.** Farm produce is food at home (M4); Farm was not
+touched. Every foreign inventory is spend-only.
+
+**Many Blobbis.** The selector lives in the Blobbi sheet. `BlobbiOverview`
+keys the whole home on the Blobbi's `d`, so a switch unmounts everything
+scene-local (position, walks, gaze, reactions, speech, ceremony, an offered
+item, the open sheets) and the newcomer starts at home, idle, neutral.
+`ecosystem.test.tsx` pins it, including that an abandoned offer wrote
+nothing.
+
 ## Milestone 6: items, inventory and world interactions (M4)
 
 The player's items come from real Nostr state through `@nostr-games/inventory`

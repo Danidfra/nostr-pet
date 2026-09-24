@@ -26,5 +26,9 @@ export { useHomeInventory, definitionFilters, indexDefinitions, INVENTORY_QUERY_
 export type { HomeInventory, HomeInventoryItem, HomeInventorySection } from './useHomeInventory';
 export { useUseItem, isAmbiguousPublishError } from './useUseItem';
 export type { ItemUseResult, UseItemRequest } from './useUseItem';
+export { resolveWornEquipment, artworkSourcesFor, toAccessoryInput, blobbiTargetAddress, EQUIPPABLE_SLOTS, NO_EQUIPMENT } from './equipment';
+export type { WornEquipment, WornItem, Facing } from './equipment';
+export { useWornEquipment, pickNewestPlacement, EQUIPMENT_QUERY_KEY } from './useWornEquipment';
+export type { WornEquipmentView } from './useWornEquipment';
 export { InventorySheet } from './InventorySheet';
 export { ItemGlyph } from './ItemGlyph';

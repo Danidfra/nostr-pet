@@ -1,5 +1,5 @@
 import { forwardRef, type ReactNode } from 'react';
-import { BlobbiRenderer, type BlobbiEggCrack, type BlobbiVisualEffect } from '@blobbi-kit/renderer';
+import { BlobbiRenderer, type BlobbiEggCrack, type BlobbiVisualEffect, type NormalizedAccessoryPlacement } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { placeOnFloor } from './geometry';
@@ -13,8 +13,10 @@ interface BlobbiActorProps {
   onPoke?: () => void;
   /** Egg shell state (eggs only). Lifecycle progress and ceremonies decide it. */
   eggCrack?: BlobbiEggCrack;
-  /** Renderer effects around the Blobbi (a ceremony glow, sparkles). */
+  /** Renderer effects around the Blobbi (a ceremony glow, sparkles, worn effect items). */
   effects?: readonly BlobbiVisualEffect[];
+  /** What it wears (normalized for the current facing by the caller). */
+  accessories?: readonly NormalizedAccessoryPlacement[];
   /** Feedback drawn above the actor (floating stat chips). */
   children?: ReactNode;
 }
@@ -27,7 +29,7 @@ interface BlobbiActorProps {
  * decides nothing about how the Blobbi looks. It never touches Nostr.
  */
 export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function BlobbiActor(
-  { blobbi, presentation, happyKey = 0, onPoke, eggCrack, effects, children },
+  { blobbi, presentation, happyKey = 0, onPoke, eggCrack, effects, accessories, children },
   ref,
 ) {
   const placement = placeOnFloor(presentation.position);
@@ -78,6 +80,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
             isSleeping={isSleeping}
             eggCrack={eggCrack}
             effects={effects}
+            accessories={accessories}
             label={blobbi.name}
             transparent
             style={{ width: '100%', height: '100%' }}

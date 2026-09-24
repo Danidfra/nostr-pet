@@ -6,7 +6,7 @@ import { MapPin } from 'lucide-react';
 import { availableCareActions, useCareActions, type CareAction, type CareResult } from '@/features/care';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { useLifecycle, useLifecycleCeremony, type CeremonyKind } from '@/features/lifecycle';
-import { InventorySheet, ItemGlyph, useHomeInventory, useUseItem, type HomeInventoryItem, type ItemAction, type ItemUseResult } from '@/features/inventory';
+import { InventorySheet, ItemGlyph, useHomeInventory, useUseItem, useWornEquipment, type HomeInventoryItem, type ItemAction, type ItemUseResult } from '@/features/inventory';
 import { useSound, type SoundId } from '@/features/sound';
 import { BLOBBI_ISLAND_URL } from '@/config/ecosystem';
 import type { StatItem } from './BlobbiStatusPanel';
@@ -107,6 +107,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // uses a consumable on this Blobbi.
   const inventory = useHomeInventory({ pubkey, blobbi });
   const useItem = useUseItem({ pubkey, known: inventory.items, updateCompanionEvent, invalidate: refresh });
+  // What the Island dressed it in, drawn here too (read-only).
+  const worn = useWornEquipment({ pubkey, blobbi, items: inventory.items });
 
   const sceneRef = useRef<HTMLElement>(null);
   const actorRef = useRef<HTMLDivElement>(null);
@@ -328,6 +330,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const interactive = !sleeping && canWalk && !inCeremony;
   const usableItemCount = inventory.items.filter((i) => i.usability.ok && !i.unverified).length;
   const offerObject = offer ? offeredItemObject(offer.entry.item.name) : null;
+  const accessories = blobbi.stage === 'egg' ? undefined : worn.accessoriesFor(scene.presentation.facing);
+  const actorEffects = useMemo(() => {
+    const ceremonyEffects = ceremony.presentation.effects ?? [];
+    return ceremonyEffects.length > 0 ? [...ceremonyEffects, ...worn.effects] : worn.effects;
+  }, [ceremony.presentation.effects, worn.effects]);
 
   const lifecycleReady =
     lifecycle.view.next === 'hatch' ? { kind: 'hatch' as const, label: 'Hatch!' } : lifecycle.view.next === 'evolve' ? { kind: 'evolve' as const, label: 'Evolve!' } : null;
@@ -397,7 +404,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               happyKey={resultKey}
               onPoke={inCeremony ? undefined : scene.poke}
               eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined}
-              effects={ceremony.presentation.effects}
+              effects={actorEffects}
+              accessories={accessories}
             >
               <NeedBubbles items={sleeping || inCeremony ? [] : statItems} />
               <SpeechBubble speech={speech} />
@@ -473,6 +481,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             onUse={offerItem}
             openUse={useItem.hasOpenUse(blobbi.d)}
             busy={useItem.isPending || offer !== null}
+            worn={worn.wornAddresses}
           />
         </>
       }

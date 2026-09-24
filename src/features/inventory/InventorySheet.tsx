@@ -17,6 +17,8 @@ interface InventorySheetProps {
   openUse?: boolean;
   /** A use is running right now. */
   busy?: boolean;
+  /** Addresses currently worn (equipped on the Island), shown as such. */
+  worn?: ReadonlySet<string>;
 }
 
 const KIND_WORD: Record<HomeItem['kind'], string> = { care: 'Consumable', cosmetic: 'Cosmetic', currency: 'Currency', unknown: 'Unknown' };
@@ -28,7 +30,7 @@ const KIND_WORD: Record<HomeItem['kind'], string> = { care: 'Consumable', cosmet
  * many, where it came from, and whether THIS Blobbi can use it now. Nothing
  * here is a management dashboard; equipping and trading stay on the Island.
  */
-export function InventorySheet({ open, onClose, inventory, blobbiName, onUse, openUse = false, busy = false }: InventorySheetProps) {
+export function InventorySheet({ open, onClose, inventory, blobbiName, onUse, openUse = false, busy = false, worn }: InventorySheetProps) {
   const [selected, setSelected] = useState<string | null>(null);
   useEffect(() => {
     if (!open) setSelected(null);
@@ -65,7 +67,7 @@ export function InventorySheet({ open, onClose, inventory, blobbiName, onUse, op
         {inventory.sections
           .filter((s) => s.items.length > 0)
           .map((section) => (
-            <SectionView key={section.inventoryAddress} section={section} selected={selected} onSelect={setSelected} />
+            <SectionView key={section.inventoryAddress} section={section} selected={selected} onSelect={setSelected} worn={worn} />
           ))}
 
         {entry && (
@@ -76,7 +78,7 @@ export function InventorySheet({ open, onClose, inventory, blobbiName, onUse, op
                 <p className="truncate text-base font-bold">{entry.item.name}</p>
                 <p className="text-xs text-muted-foreground">
                   ×{entry.quantity} · {entry.source.label} · {KIND_WORD[entry.item.kind]}
-                  {entry.item.equippable ? ' · Equip on the Island' : ''}
+                  {entry.item.equippable ? (worn?.has(entry.item.address) ? ' · Worn' : ' · Equip on the Island') : ''}
                 </p>
                 {entry.item.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{entry.item.description}</p>}
                 <p className="mt-1 text-sm" data-testid="inventory-detail-note">
@@ -108,7 +110,7 @@ export function InventorySheet({ open, onClose, inventory, blobbiName, onUse, op
   );
 }
 
-function SectionView({ section, selected, onSelect }: { section: HomeInventorySection; selected: string | null; onSelect: (key: string) => void }) {
+function SectionView({ section, selected, onSelect, worn }: { section: HomeInventorySection; selected: string | null; onSelect: (key: string) => void; worn?: ReadonlySet<string> }) {
   return (
     <section aria-label={section.source.label} data-testid={`inventory-source-${section.source.id}`} className="flex flex-col gap-2">
       <header className="flex items-center justify-between">
@@ -135,6 +137,11 @@ function SectionView({ section, selected, onSelect }: { section: HomeInventorySe
                 data-usable={usable ? 'true' : 'false'}
               >
                 <ItemGlyph glyph={entry.item.glyph} size="2.25rem" />
+                {worn?.has(entry.item.address) && (
+                  <span className="item-tile__worn" data-testid="item-worn">
+                    Worn
+                  </span>
+                )}
                 <span className="item-tile__name">{entry.item.name}</span>
                 <span className="item-tile__count" aria-hidden>
                   ×{entry.quantity}

@@ -11,7 +11,10 @@ import {
   buildGameItemAddress,
   buildGameItemDefinitionEvent,
   buildGameInventoryAddress,
+  buildGameItemPlacementEvent,
+  buildAddressableEventAddress,
   type BuildGameItemDefinitionInput,
+  type GameItemPlacementEntry,
 } from '@nostr-games/inventory';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { FARM_ITEM_ISSUER, OFFICIAL_ITEM_ISSUER } from '@/features/inventory/issuers';
@@ -153,4 +156,54 @@ export function foldEvent(inventoryAddress: string, spendIds: string[], options:
     spends: spendIds.map((eventId) => ({ eventId })),
   });
   return finish(template, PUBKEY, options.createdAt ?? CREATED_AT + 20, options.id ?? fakeId('7'));
+}
+
+/** An official visual-effect item, as published: `visual.kind = blobbi-effect`, a renderer effect id and slot. */
+export function officialEffectDefinition(d = 'blobbi:effect:golden-sparkles', name = 'Golden Sparkles', effect = 'golden-sparkles', effectSlot = 'ambient-particles'): NostrEvent {
+  return finish(
+    buildGameItemDefinitionEvent({
+      id: d,
+      name,
+      type: 'cosmetic',
+      category: 'effect',
+      image: 'https://blossom.primal.net/sparkles.webp',
+      symbol: '✨',
+      rarity: 'rare',
+      maxStack: '1',
+      contexts: ['game:blobbi', 'game:blobbi-island'],
+      topics: ['equipable', 'visual-effect'],
+      content: { description: `${name}.`, visual: { kind: 'blobbi-effect', effect, effectSlot, forms: ['baby', 'adult'] } },
+    }),
+    OFFICIAL_ITEM_ISSUER,
+    CREATED_AT,
+  );
+}
+
+export const OFFICIAL_SPARKLES = buildGameItemAddress(OFFICIAL_ITEM_ISSUER, 'blobbi:effect:golden-sparkles');
+export const OFFICIAL_CAP = buildGameItemAddress(OFFICIAL_ITEM_ISSUER, 'blobbi:cosmetic:block-builder-cap');
+
+/** The Island's equipment document for a Blobbi (its `d` naming, an address target, 2D percent reference). */
+export function placementEvent(
+  blobbiD: string,
+  placements: GameItemPlacementEntry[],
+  options: { owner?: string; createdAt?: number; id?: string; reference?: 'percent' | '3d' | 'none'; target?: 'address' | 'other' | 'none' } = {},
+): NostrEvent {
+  const owner = options.owner ?? PUBKEY;
+  const reference = options.reference === '3d' ? { space: '3d' as const, unit: 'meter' as const, origin: 'center' as const } : options.reference === 'none' ? undefined : { space: '2d' as const, unit: 'percent' as const, origin: 'top-left' as const, width: 100, height: 100 };
+  const target =
+    options.target === 'none'
+      ? undefined
+      : options.target === 'other'
+        ? { type: 'address' as const, address: buildAddressableEventAddress(31124, owner, 'blobbi-aaaaaaaaaaaa-0000000099') }
+        : { type: 'address' as const, address: buildAddressableEventAddress(31124, owner, blobbiD) };
+  const template = buildGameItemPlacementEvent({
+    id: `blobbi-island:character:${blobbiD}:equipment`,
+    target,
+    reference,
+    placements,
+    revision: 1,
+    contexts: ['game:blobbi-island'],
+    topics: ['equipment'],
+  });
+  return finish(template, owner, options.createdAt ?? CREATED_AT, options.id);
 }
