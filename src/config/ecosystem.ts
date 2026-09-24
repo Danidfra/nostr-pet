@@ -14,8 +14,11 @@
 
 export const DEFAULT_BLOBBI_ISLAND_URL = 'https://island.blobbi.pet';
 
+/** Ditto, where the lifecycle missions that need a theme or a profile are completed. */
+export const DITTO_URL = 'https://ditto.pub';
+
 /** Where a Blobbi is adopted today. */
-export const DITTO_BLOBBI_URL = 'https://ditto.pub/blobbi';
+export const DITTO_BLOBBI_URL = `${DITTO_URL}/blobbi`;
 
 /**
  * Resolve the Island destination: the env override when it is an absolute

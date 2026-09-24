@@ -1,5 +1,5 @@
 import { forwardRef, type ReactNode } from 'react';
-import { BlobbiRenderer } from '@blobbi-kit/renderer';
+import { BlobbiRenderer, type BlobbiEggCrack, type BlobbiVisualEffect } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { placeOnFloor } from './geometry';
@@ -13,6 +13,10 @@ interface BlobbiActorProps {
   /** Bumps the "happy" hop; plays once per change. */
   happyKey?: number;
   onPoke?: () => void;
+  /** Egg shell state (eggs only). Lifecycle progress and ceremonies decide it. */
+  eggCrack?: BlobbiEggCrack;
+  /** Renderer effects around the Blobbi (a ceremony glow, sparkles). */
+  effects?: readonly BlobbiVisualEffect[];
   /** Feedback drawn above the actor (floating stat chips). */
   children?: ReactNode;
 }
@@ -25,7 +29,7 @@ interface BlobbiActorProps {
  * decides nothing about how the Blobbi looks. It never touches Nostr.
  */
 export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function BlobbiActor(
-  { blobbi, presentation, mood, happyKey = 0, onPoke, children },
+  { blobbi, presentation, mood, happyKey = 0, onPoke, eggCrack, effects, children },
   ref,
 ) {
   const placement = placeOnFloor(presentation.position);
@@ -40,6 +44,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-facing={presentation.facing}
       data-expression={presentation.expression}
       data-sleeping={isSleeping ? 'true' : 'false'}
+      data-egg-crack={blobbi.stage === 'egg' ? (eggCrack ?? 'none') : undefined}
       data-x={presentation.position.x.toFixed(3)}
       data-y={presentation.position.y.toFixed(3)}
       style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale) } as React.CSSProperties}
@@ -73,6 +78,8 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
             expression={presentation.expression}
             eyeOffset={presentation.eyeOffset}
             isSleeping={isSleeping}
+            eggCrack={eggCrack}
+            effects={effects}
             label={blobbi.name}
             transparent
             style={{ width: '100%', height: '100%' }}

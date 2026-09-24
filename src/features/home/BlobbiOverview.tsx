@@ -12,7 +12,11 @@ import { CareError, CareFeedback } from './CareFeedback';
 import { EnterIslandButton } from './EnterIslandButton';
 import { ProgressionStrip } from './ProgressionStrip';
 import { describeMood } from './mood';
-import { BED_SLEEP_SPOT, Bed, BED_POSITION, BlobbiActor, HomeScene, useBlobbiPresentation } from './scene';
+import { BED_SLEEP_SPOT, Bed, BED_POSITION, BlobbiActor, HomeScene, useBlobbiPresentation, useReducedMotion } from './scene';
+import { LifecyclePanel, useLifecycle, useLifecycleCeremony, type CeremonyKind } from '@/features/lifecycle';
+
+/** Dev-only lifecycle shortcuts: never in a production build, and off unless the flag is set. */
+const DEV_LIFECYCLE_TOOLS = import.meta.env.DEV && import.meta.env.VITE_BLOBBI_DEV_TOOLS === 'true';
 
 interface BlobbiOverviewProps {
   blobbi: BlobbiCompanion;
@@ -62,7 +66,41 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   const sceneRef = useRef<HTMLElement>(null);
   const actorRef = useRef<HTMLDivElement>(null);
-  const scene = useBlobbiPresentation({ blobbi, stats: projected?.stats, sceneRef, actorRef });
+
+  // Lifecycle: the kit's missions and transitions, and the ceremony that
+  // dresses a transition. The ceremony performs the semantic write at one
+  // point and reveals only when it landed.
+  const lifecycle = useLifecycle({ blobbi, profile, pubkey, updateCompanionEvent, invalidate: refresh });
+  const reducedMotion = useReducedMotion();
+  const { hatch, evolve } = lifecycle;
+  const performCeremony = useCallback((kind: CeremonyKind) => (kind === 'hatch' ? hatch() : evolve()), [hatch, evolve]);
+  const [celebrationKey, setCelebrationKey] = useState(0);
+  const ceremony = useLifecycleCeremony({
+    perform: performCeremony,
+    reducedMotion,
+    onReveal: () => setCelebrationKey((k) => k + 1),
+  });
+
+  const scene = useBlobbiPresentation({ blobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive });
+  const { celebrate } = scene;
+  useEffect(() => {
+    if (celebrationKey > 0) {
+      celebrate();
+      setResultKey((k) => k + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a celebration is a moment, keyed by its counter
+  }, [celebrationKey]);
+
+  const startCeremony = useCallback(
+    (kind: CeremonyKind) => {
+      if (blobbi.state !== 'active') return;
+      if (kind === 'hatch' && lifecycle.view.next !== 'hatch') return;
+      if (kind === 'evolve' && lifecycle.view.next !== 'evolve') return;
+      ceremony.start(kind);
+    },
+    [blobbi.state, lifecycle.view.next, ceremony],
+  );
+  const devForce = DEV_LIFECYCLE_TOOLS ? (kind: CeremonyKind) => ceremony.start(kind) : undefined;
 
   const statItems: StatItem[] = projected
     ? getVisibleStats(blobbi.stage).map((stat) => ({
@@ -75,7 +113,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const actions = useMemo(() => availableCareActions(blobbi), [blobbi]);
   const mood = describeMood(blobbi, projected?.stats);
 
-  // A hop, fresh chips and a face each time a care action lands.
+  // A hop, fresh chips and a face each time a care action lands (or a lifecycle moment does).
   const [resultKey, setResultKey] = useState(0);
   const lastResult = care.lastResult;
   const { reactToCare } = scene;
@@ -99,9 +137,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [blobbi]);
   const perform = care.perform;
   const walkTo = scene.walkTo;
+  const canWalk = scene.canWalk;
   const onAction = useCallback(
     (action: CareAction) => {
-      if (action === 'rest' && blobbi.state === 'active') {
+      if (action === 'rest' && blobbi.state === 'active' && canWalk) {
         setWalkingToBed(true);
         void walkTo(BED_SLEEP_SPOT).then((outcome) => {
           setWalkingToBed(false);
@@ -113,11 +152,13 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       }
       perform(blobbi.d, action);
     },
-    [blobbi.d, blobbi.state, perform, walkTo],
+    [blobbi.d, blobbi.state, perform, walkTo, canWalk],
   );
 
   const pendingAction: CareAction | null = care.pendingAction ?? (walkingToBed ? 'rest' : null);
   const sleeping = blobbi.state === 'sleeping';
+  const inCeremony = ceremony.presentation.exclusive;
+  const eggCrack = ceremony.presentation.eggCrack ?? lifecycle.view.eggCrack;
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6">
@@ -126,7 +167,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         className="-mx-6 min-h-[70svh] px-4 pb-8 pt-4 sm:mx-0 sm:min-h-[560px] sm:rounded-[2rem] sm:px-8"
         label={`${blobbi.name}'s home`}
         floorLabel={sleeping ? `${blobbi.name} is asleep` : `Call ${blobbi.name} here`}
-        onFloorTap={sleeping ? undefined : scene.onFloorTap}
+        onFloorTap={sleeping || !canWalk || inCeremony ? undefined : scene.onFloorTap}
         pointerHandlers={scene.scenePointerHandlers}
         topBar={
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -153,9 +194,18 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             <BlobbiSelector companions={companions} currentD={blobbi.d} onSelect={onSelect} />
           </div>
         }
-        objects={<Bed occupied={sleeping} onTap={sleeping ? undefined : () => void scene.walkTo(BED_POSITION)} />}
+        objects={<Bed occupied={sleeping} onTap={sleeping || !canWalk || inCeremony ? undefined : () => void scene.walkTo(BED_POSITION)} />}
         actor={
-          <BlobbiActor ref={actorRef} blobbi={blobbi} presentation={scene.presentation} mood={mood} happyKey={resultKey} onPoke={scene.poke}>
+          <BlobbiActor
+            ref={actorRef}
+            blobbi={blobbi}
+            presentation={scene.presentation}
+            mood={mood}
+            happyKey={resultKey}
+            onPoke={inCeremony ? undefined : scene.poke}
+            eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined}
+            effects={ceremony.presentation.effects}
+          >
             <CareFeedback result={care.lastResult} resultKey={resultKey} />
           </BlobbiActor>
         }
@@ -168,8 +218,16 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
       {/* One dock: under the thumb on small screens, just under the scene on larger ones (never over the floor). */}
       <div className="dock-safe fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/85 px-2 pt-2 backdrop-blur sm:relative sm:z-10 sm:-mt-2 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-0">
-        <CareDock actions={actions} pendingAction={pendingAction} onAction={onAction} />
+        <CareDock actions={inCeremony ? actions.map((a) => ({ ...a, available: false, reason: 'Something is happening.' })) : actions} pendingAction={pendingAction} onAction={onAction} />
       </div>
+
+      <LifecyclePanel
+        name={blobbi.name}
+        lifecycle={lifecycle}
+        ceremony={{ phase: ceremony.phase, kind: ceremony.kind, error: ceremony.error, dismiss: ceremony.dismiss }}
+        onCeremony={startCeremony}
+        devForce={devForce}
+      />
 
       <section className="home-glass mx-auto w-full max-w-2xl rounded-3xl px-4 py-4 sm:px-6" aria-label="Condition and progress">
         <BlobbiStatusPanel items={statItems} />
@@ -180,7 +238,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
       <div className="flex flex-col items-center gap-2 pb-24 sm:pb-4">
         <EnterIslandButton />
-        <p className="text-xs text-muted-foreground">Your Blobbi lives here. The Island is where you go out into the world.</p>
+        <p className="text-xs text-muted-foreground">
+          {blobbi.stage === 'egg'
+            ? 'Your Blobbi lives here. The Island welcomes hatched Blobbis; an egg stays home.'
+            : 'Your Blobbi lives here. The Island is where you go out into the world.'}
+        </p>
       </div>
     </div>
   );

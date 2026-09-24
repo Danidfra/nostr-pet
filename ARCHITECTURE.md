@@ -144,6 +144,95 @@ laid out so an inventory surface can be added below the dock without
 redesigning the page. Also deferred: relay settings, account switcher, social
 interaction projection on the home, the companion runtime.
 
+## Ecosystem canon (audited 2026-09-23)
+
+What the live ecosystem actually does, checked in the Ditto checkout
+(`feat/blobbi-canonical-renderer`), Blobbi Island (`b1a70c3`),
+`@nostr-games/inventory` 0.5.0 and blobbi-kit `main`. The standalone follows
+this, not its own history.
+
+- **Lifecycle tags (kind 31124).** `stage` egg | baby | adult; `state`
+  active | sleeping | hibernating; `progression_state` none | incubating |
+  evolving with `progression_started_at`; `seed` is stable for life and the
+  six trait tags plus `adult_type` are re-derived from it on every republish
+  by the kit's `updateBlobbiTags`. Mission progress is NOT in `task` tags: it
+  lives in the event `content` JSON as `evolution[]` (kit `missions`).
+  `incubation_time` / `start_incubation` are legacy markers; an event carrying
+  them is dropped from collections. Time plays no part in hatching.
+- **Hatch gate.** The kit's `HATCH_MISSIONS`: a theme (kind 36767, authored
+  in Ditto), a colour moment (kind 3367, espy) and 7 care interactions
+  (tallied by the host into `content.evolution`). Evolve: 3 themes, 3 colour
+  moments, 21 interactions, a profile edit (kind 0 or 16769) and all stats
+  at 80 or more. Two of the three hatch missions are completed outside the
+  standalone; the panel links to them.
+- **Transitions.** Start/stop incubation and evolution, and baby → adult, are
+  kit hooks. Egg → baby was Ditto-local until this milestone; it is now the
+  kit's `useBlobbiHatch` (react 0.6.1), the same tags Ditto publishes: stats
+  to 100, streak, egg tags cleaned, `evolving` with fresh missions, content
+  reset, same `d`, same `seed`.
+- **Adoption.** Ditto creates eggs (`buildEggTags` semantics, born
+  incubating); Island creates babies directly. Neither writes
+  `visual_generation`, so new Blobbis are V1.
+- **Visual identity.** `getBlobbiVisualIdentity` (core 0.6): stage,
+  generation, adult form, colours, pattern, mark, size. The creature `theme`
+  tag exists only for the Divine crossover; Island ignores it.
+- **Environments and themes.** There is NO shared environment registry.
+  Island's places are Island-local art keyed by `LocationId` (its explicit
+  home is `home` "Cozy Home", the only room with a bed); Ditto's rooms are
+  CSS rooms (home, kitchen, care, rest, closet). Kind 36767 is a Ditto UI
+  theme, not a creature or environment theme. Island has two UI palettes
+  (`cozy-day`, `lantern-night`) and a shared 2-hour day/night clock. The
+  standalone's five themes (Cozy, Forest, Beach, Garden, Space) are its own
+  invention from old Polaroid backdrops and are NOT ecosystem canon.
+- **Inventory and equipment.** `@nostr-games/inventory`: 31632 definitions
+  (official issuer `9efb8d30…63a9` on relay.ditto.pub + relay.dreamith.to;
+  Farm `f47aaf2e…9fb4` on relay.primal.net + relay.ditto.pub), 31633
+  inventories (Island `blobbi:island`, Farm `farm:main`), 31634 placements
+  (Island `blobbi-island:character:<d>:equipment`, slots headwear, eyewear,
+  back, neckwear, handheld, face-mark, aura, color-overlay), 1416 spends and
+  1417 folds. Effects for Blobbi items live in `content.effects["game:blobbi"]`.
+  A foreign writer never rewrites a 31633; it spends (1416) and marks the
+  31124 with `blobbi_op`. Ditto has no inventory at all.
+- **Interactions.** Kind 1124 with `action` feed | play | clean | medicate |
+  boost (no `pet`), `source` per app, optional `item`.
+- **Links.** Standalone → Island is a plain URL; Island has no link back;
+  Island ignores URL parameters; identity travels through the signer.
+
+## Milestone 4: the lifecycle (M2)
+
+Egg → baby → adult for an existing Blobbi, on the kit's own primitives, in
+`src/features/lifecycle/`:
+
+```
+useLifecycle          wires useHatchTasks / useEvolveTasks (the gates),
+                      useStartIncubation / useStopIncubation / useStartEvolution / useStopEvolution,
+                      useBlobbiHatch (react 0.6.1) / useBlobbiEvolve, through the app's PublishAdapter
+                      and the kit's fresh-read step; folds them into one LifecycleView
+lifecycle-view.ts     pure: stage + process + kit tasks → next action, progress, egg crack
+mission-tally.ts      the "care N times" tally: hydrate the kit store from the event, +1, and
+                      serialize into the SAME care republish (care-plan `evolution` option)
+useLifecycleCeremony  building (3 beats) → publishing (the one semantic write) → revealing | failed
+LifecyclePanel        the missions as the kit reports them, links to Ditto/espy, Hatch / Evolve
+```
+
+Behaviour modes gained `ceremony` (exclusive: no walks, taps, idle, gaze or
+reactions; body still) and `nested` (an egg: stands where it is, no taps),
+resolved `ceremony > sleeping > nested > user-walk > free`. Rest on an egg
+publishes directly, since an egg cannot walk to the bed.
+
+Eggs draw as eggs: renderer 0.3.0's egg artwork with `eggCrack` from the
+mission progress (`eggCrackForProgress`), and the ceremony overrides it beat
+by beat under a warm glow (`solar-radiance`); evolution gathers a
+`celestial-aura`; every reveal sparkles. A failed publish returns the scene
+to what it was and shows the error; nothing ever pretends a stage changed.
+
+Dev-only: `VITE_BLOBBI_DEV_TOOLS=true` under `npm run dev` adds "Force
+hatch/evolve" buttons that run the same ceremony without the mission gate.
+Production builds never read the flag.
+
+The kit is consumed from `vendor/blobbi-kit/*.tgz` until core/react 0.6.1
+and renderer 0.3.0 are published (see the chore commit).
+
 ## Milestone 3: the scene and the behaviour layer
 
 The Blobbi no longer sits centred on a backdrop; it stands somewhere on a

@@ -15,6 +15,7 @@ import {
 
 import { usePublishAdapter } from './usePublishAdapter';
 import { availableCareActions, planCareAction, type CareAction } from './care-plan';
+import { tallyCareInteraction } from '@/features/lifecycle/mission-tally';
 
 export interface CareResult {
   action: CareAction;
@@ -69,7 +70,10 @@ export function useCareActions({ pubkey, updateCompanionEvent, invalidate }: Use
       if (!availability?.available) throw new Error(availability?.reason ?? 'Not right now.');
 
       const now = Math.floor(Date.now() / 1000);
-      const plan = planCareAction(companion, action, now);
+      // An interaction counts towards the active hatch or evolve missions;
+      // the updated missions ride in the content of this same republish.
+      const evolution = action === 'rest' ? undefined : tallyCareInteraction(companion, pubkey);
+      const plan = planCareAction(companion, action, now, { evolution });
 
       const event = await publisher.publish(plan.event);
       updateCompanionEvent(event);

@@ -4,7 +4,12 @@
  *
  * Precedence is a fixed order, resolved in `resolveBehaviorMode`:
  *
- *   sleeping > user-walk > free
+ *   ceremony > sleeping > nested > user-walk > free
+ *
+ * `ceremony` is the exclusive lifecycle mode (a hatch or an evolution in
+ * progress): nothing else may move, look or react until the semantic write
+ * has landed or failed. `nested` is an egg: it stands where it is, has no
+ * face to turn or eyes to move, and takes no taps.
  *
  * Every gate in the behaviour layer reads the policy for the resolved mode
  * instead of testing `isSleeping` / `isUserWalking` on its own, so a future
@@ -17,9 +22,9 @@
  */
 import type { WalkSource } from './locomotion';
 
-export type BehaviorMode = 'sleeping' | 'user-walk' | 'free';
+export type BehaviorMode = 'ceremony' | 'sleeping' | 'nested' | 'user-walk' | 'free';
 
-export const BEHAVIOR_MODES: readonly BehaviorMode[] = ['sleeping', 'user-walk', 'free'];
+export const BEHAVIOR_MODES: readonly BehaviorMode[] = ['ceremony', 'sleeping', 'nested', 'user-walk', 'free'];
 
 export interface BehaviorPolicy {
   /** Who may start a walk in this mode. */
@@ -37,7 +42,9 @@ export interface BehaviorPolicy {
 }
 
 export const BEHAVIOR_POLICY: Record<BehaviorMode, BehaviorPolicy> = {
+  ceremony: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still' },
   sleeping: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still' },
+  nested: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: null },
   'user-walk': { walks: ['user'], idle: false, gaze: true, reactions: true, floorTaps: true, forcedMotion: null },
   free: { walks: ['user', 'idle'], idle: true, gaze: true, reactions: true, floorTaps: true, forcedMotion: null },
 };
@@ -45,11 +52,17 @@ export const BEHAVIOR_POLICY: Record<BehaviorMode, BehaviorPolicy> = {
 export interface BehaviorModeInput {
   isSleeping: boolean;
   isUserWalking: boolean;
+  /** A lifecycle ceremony is building or publishing. */
+  isInCeremony?: boolean;
+  /** The Blobbi is still an egg. */
+  isEgg?: boolean;
 }
 
 /** The mode for the current facts, in precedence order. */
-export function resolveBehaviorMode({ isSleeping, isUserWalking }: BehaviorModeInput): BehaviorMode {
+export function resolveBehaviorMode({ isSleeping, isUserWalking, isInCeremony = false, isEgg = false }: BehaviorModeInput): BehaviorMode {
+  if (isInCeremony) return 'ceremony';
   if (isSleeping) return 'sleeping';
+  if (isEgg) return 'nested';
   if (isUserWalking) return 'user-walk';
   return 'free';
 }

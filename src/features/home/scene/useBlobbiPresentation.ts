@@ -19,6 +19,8 @@ export interface UseBlobbiPresentationOptions {
   stats: BlobbiStats | undefined;
   sceneRef: RefObject<HTMLElement | null>;
   actorRef: RefObject<HTMLElement | null>;
+  /** A lifecycle ceremony is building or publishing: the exclusive mode. */
+  isInCeremony?: boolean;
 }
 
 export interface ScenePointerHandlers {
@@ -42,6 +44,10 @@ export interface BlobbiSceneController {
   poke: () => void;
   /** A care result landed: react on the face. */
   reactToCare: (result: CareResult) => void;
+  /** A lifecycle moment landed: a bigger, longer face. */
+  celebrate: (durationMs?: number) => void;
+  /** Whether the user may send it walking right now (an egg or a sleeper cannot walk). */
+  canWalk: boolean;
   scenePointerHandlers: ScenePointerHandlers;
   /** True while a user-directed walk is in progress. */
   isUserWalking: boolean;
@@ -57,7 +63,7 @@ export interface BlobbiSceneController {
  * its policy, so the precedence lives in `behavior-mode.ts` and not in the
  * conditions scattered here.
  */
-export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef }: UseBlobbiPresentationOptions): BlobbiSceneController {
+export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInCeremony = false }: UseBlobbiPresentationOptions): BlobbiSceneController {
   const settings = useSceneSettings();
   const reducedMotion = useReducedMotion();
   const hoverCapable = useHoverCapable();
@@ -70,7 +76,7 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef }: Use
   });
 
   const isUserWalking = locomotion.motion === 'walking' && locomotion.source === 'user';
-  const mode = resolveBehaviorMode({ isSleeping, isUserWalking });
+  const mode = resolveBehaviorMode({ isSleeping, isUserWalking, isInCeremony, isEgg: blobbi.stage === 'egg' });
   const policy = policyFor(mode);
 
   const actorKey = `${locomotion.position.x.toFixed(3)}:${locomotion.position.y.toFixed(3)}:${locomotion.facing}`;
@@ -156,6 +162,14 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef }: Use
     [idle, reactions],
   );
 
+  const celebrate = useCallback(
+    (durationMs = 2_400) => {
+      idle.markActivity();
+      reactions.react('excited', durationMs);
+    },
+    [idle, reactions],
+  );
+
   const scenePointerHandlers = useMemo<ScenePointerHandlers>(
     () => ({
       onPointerMove: gaze.onPointerMove,
@@ -168,5 +182,5 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef }: Use
     [gaze, idle],
   );
 
-  return { presentation, mode, walkTo, onFloorTap, poke, reactToCare, scenePointerHandlers, isUserWalking, reducedMotion };
+  return { presentation, mode, walkTo, onFloorTap, poke, reactToCare, celebrate, canWalk: policy.walks.includes('user'), scenePointerHandlers, isUserWalking, reducedMotion };
 }

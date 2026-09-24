@@ -24,6 +24,7 @@ import {
   KIND_BLOBBI_INTERACTION,
   KIND_BLOBBI_STATE,
   INTERNAL_TO_INTERACTION_ACTION,
+  serializeEvolutionContent,
   applyBlobbiDecay,
   buildInteractionEventTemplate,
   consolidateSocialInteractions,
@@ -35,6 +36,7 @@ import {
   type BlobbiState,
   type BlobbiStats,
   type InteractionEventParams,
+  type Mission,
   type NostrEvent,
 } from '@blobbi-kit/core';
 import { applyXPGain, calculateInventoryActionXP, getStreakTagUpdates, type PublishEventTemplate } from '@blobbi-kit/react';
@@ -111,8 +113,17 @@ export interface CarePlan {
   nextState: BlobbiState;
 }
 
+export interface CarePlanOptions {
+  /**
+   * The lifecycle missions to write into the event content (the kit's
+   * `evolution` array), when this Blobbi is incubating or evolving and this
+   * action counted towards them. Absent leaves the content untouched.
+   */
+  evolution?: Mission[];
+}
+
 /** Feed, play or clean: decay, then the kit's care effect for that action. */
-export function planCareInteraction(companion: BlobbiCompanion, action: CareInteraction, now: number): CarePlan {
+export function planCareInteraction(companion: BlobbiCompanion, action: CareInteraction, now: number, options: CarePlanOptions = {}): CarePlan {
   const interactionAction = INTERNAL_TO_INTERACTION_ACTION[action];
   if (!interactionAction) throw new Error(`No interaction for ${action}`);
 
@@ -155,8 +166,10 @@ export function planCareInteraction(companion: BlobbiCompanion, action: CareInte
     ...streak,
   });
 
+  const content = options.evolution ? serializeEvolutionContent(companion.event.content, options.evolution) : companion.event.content;
+
   return {
-    event: { kind: KIND_BLOBBI_STATE, content: companion.event.content, tags, prev: companion.event },
+    event: { kind: KIND_BLOBBI_STATE, content, tags, prev: companion.event },
     interaction,
     statsChanged: diffStats(decayed.stats, stats),
     xpGained,
@@ -192,8 +205,8 @@ export function planRestToggle(companion: BlobbiCompanion, now: number): CarePla
   };
 }
 
-export function planCareAction(companion: BlobbiCompanion, action: CareAction, now: number): CarePlan {
-  return action === 'rest' ? planRestToggle(companion, now) : planCareInteraction(companion, action, now);
+export function planCareAction(companion: BlobbiCompanion, action: CareAction, now: number, options: CarePlanOptions = {}): CarePlan {
+  return action === 'rest' ? planRestToggle(companion, now) : planCareInteraction(companion, action, now, options);
 }
 
 function diffStats(before: BlobbiStats, after: BlobbiStats): Partial<BlobbiStats> {

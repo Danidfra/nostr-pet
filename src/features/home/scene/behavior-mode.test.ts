@@ -2,11 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { BEHAVIOR_MODES, BEHAVIOR_POLICY, policyFor, resolveBehaviorMode } from './behavior-mode';
 
 describe('behaviour mode', () => {
-  it('resolves in a fixed precedence: sleeping > user-walk > free', () => {
-    expect(resolveBehaviorMode({ isSleeping: true, isUserWalking: true })).toBe('sleeping');
+  it('resolves in a fixed precedence: ceremony > sleeping > nested > user-walk > free', () => {
+    expect(resolveBehaviorMode({ isSleeping: true, isUserWalking: true, isInCeremony: true, isEgg: true })).toBe('ceremony');
+    expect(resolveBehaviorMode({ isSleeping: true, isUserWalking: true, isEgg: true })).toBe('sleeping');
     expect(resolveBehaviorMode({ isSleeping: true, isUserWalking: false })).toBe('sleeping');
+    expect(resolveBehaviorMode({ isSleeping: false, isUserWalking: true, isEgg: true })).toBe('nested');
     expect(resolveBehaviorMode({ isSleeping: false, isUserWalking: true })).toBe('user-walk');
     expect(resolveBehaviorMode({ isSleeping: false, isUserWalking: false })).toBe('free');
+  });
+
+  it('a ceremony and an egg allow nothing; only the ceremony pins the body still', () => {
+    expect(policyFor('ceremony')).toEqual({ walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still' });
+    expect(policyFor('nested')).toEqual({ walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: null });
   });
 
   it('has a complete policy row for every mode', () => {
