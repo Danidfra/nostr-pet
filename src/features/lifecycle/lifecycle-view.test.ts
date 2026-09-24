@@ -33,6 +33,13 @@ describe('taskLink', () => {
     expect(taskLink(task('m', 0, 1, { action: 'open_modal', actionTarget: 'x' }), DITTO)).toBeUndefined();
     expect(taskLink(task('i', 0, 7), DITTO)).toBeUndefined();
   });
+
+  it('renders only absolute http(s) external links and only root-relative Ditto routes', () => {
+    expect(taskLink(task('j', 0, 1, { action: 'external_link', actionTarget: 'javascript:alert(1)' }), DITTO)).toBeUndefined();
+    expect(taskLink(task('r', 0, 1, { action: 'external_link', actionTarget: '/relative' }), DITTO)).toBeUndefined();
+    expect(taskLink(task('p', 0, 1, { action: 'navigate', actionTarget: '//evil.example/x' }), DITTO)).toBeUndefined();
+    expect(taskLink(task('q', 0, 1, { action: 'navigate', actionTarget: 'themes' }), DITTO)).toBeUndefined();
+  });
 });
 
 describe('buildLifecycleView', () => {

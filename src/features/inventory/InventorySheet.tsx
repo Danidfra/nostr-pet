@@ -100,7 +100,7 @@ export function InventorySheet({ open, onClose, inventory, blobbiName, onUse, op
         {inventory.status === 'ready' && (
           <p className="flex items-center justify-between text-[11px] text-muted-foreground">
             <span>Balances come from the games that own them; using an item records a spend.</span>
-            <button type="button" className="inline-flex items-center gap-1 font-semibold" onClick={inventory.refresh} aria-label="Refresh items" data-testid="inventory-refresh">
+            <button type="button" className="-m-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full font-semibold hover:bg-foreground/5" onClick={inventory.refresh} aria-label="Refresh items" data-testid="inventory-refresh">
               <RefreshCw className={`h-3.5 w-3.5 ${inventory.isRefreshing ? 'animate-spin' : ''}`} aria-hidden />
             </button>
           </p>

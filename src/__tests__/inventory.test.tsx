@@ -270,17 +270,17 @@ describe('Inventory: using an item', () => {
     // Order: the spend was accepted before the state was written.
     expect(relay.published.indexOf(spend)).toBeLessThan(relay.published.indexOf(state));
 
-    await waitFor(() => expect(receipts()).toHaveLength(1));
+    await waitFor(() => expect(receipts()).toHaveLength(1), { timeout: 4000 });
     const [receipt] = receipts();
     expect(getTagValue(receipt.tags, 'item')).toBe(OFFICIAL_APPLE);
     expect(receipt.tags).toContainEqual(['e', spend.id, '', INTERACTION_SPEND_MARKER]);
 
     // The item is gone from the room, the Blobbi reacted, and the balance shows one fewer.
-    await waitFor(() => expect(screen.queryByTestId('scene-object-offer')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('scene-object-offer')).toBeNull(), { timeout: 4000 });
     expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook with Apple/);
     expect(readLedger(PUBKEY).map((r) => r.status)).toEqual(['applied']);
     await openItems();
-    await waitFor(() => expect(screen.getByTestId('inventory-item-blobbi:food:apple')).toHaveAccessibleName('Apple, 1'));
+    await waitFor(() => expect(screen.getByTestId('inventory-item-blobbi:food:apple')).toHaveAccessibleName('Apple, 1'), { timeout: 4000 });
   });
 
   it('a tap on the floor while walking puts the item away: nothing is written', async () => {

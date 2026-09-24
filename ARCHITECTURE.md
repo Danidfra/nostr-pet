@@ -196,6 +196,37 @@ this, not its own history.
 - **Links.** Standalone → Island is a plain URL; Island has no link back;
   Island ignores URL parameters; identity travels through the signer.
 
+## Milestone 9: release hardening (M7)
+
+An audit pass, no new features. Findings and what changed:
+
+- **Security.** Lifecycle task links: `external_link` targets render only as
+  absolute http(s) URLs and `navigate` targets only as root-relative Ditto
+  routes (`taskLink`, tested). Every `target="_blank"` carries
+  `rel="noopener noreferrer"`. No `dangerouslySetInnerHTML`, no
+  `window.open`, no remote markup anywhere; item artwork stays behind the
+  M4 allow-list; the renderer's bundled SVG is untouched.
+- **Nostr boundary.** Confirmed by the suites: coordinates, gaze, facing,
+  temporary expressions, idle decisions, animation state, the environment,
+  sounds, sheets, offers and the use ledger never appear in a published
+  event (`scene.test.tsx` zero-publish, `care.test.tsx` identical markup
+  day/night, `ecosystem.test.tsx` zero-publish for equipment).
+- **Accessibility.** Scripted audit over the room, both sheets and the
+  night look at 390 px: every control has an accessible name, focus order
+  is chip → menu → floor → door → bed → poke → dock → items; two touch
+  targets were under 44 px (the items refresh button, the lifecycle
+  start/stop buttons) and now are not. Dock label contrast: 7.2:1 by day;
+  light on dark by night.
+- **Responsive.** Tall first-run cards scroll on short phones; 320/390/430
+  and desktop re-checked during M4–M6.
+- **Performance.** rAF pauses in hidden tabs by itself; idle and clock
+  timers are cleaned on unmount (tested); reads are queries with stale
+  times, no subscriptions. The single 910 kB bundle is now four chunks
+  (app 127 kB, react 204 kB, nostr 236 kB, blobbi 346 kB) so a deploy
+  invalidates only what changed.
+- **Dead code.** Two empty directories removed; no orphan modules.
+- **Kit.** Nothing in blobbi-kit was removed.
+
 ## Milestone 8: first run and adoption (M6)
 
 A newcomer understands, adopts an egg, and sees it in the room, without

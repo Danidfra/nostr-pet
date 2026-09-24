@@ -66,9 +66,26 @@ export interface TaskSource {
  */
 export function taskLink(task: HatchTask, dittoUrl: string): LifecycleTaskLink | undefined {
   if (!task.actionTarget) return undefined;
-  if (task.action === 'external_link') return { href: task.actionTarget, label: task.actionLabel ?? 'Open' };
-  if (task.action === 'navigate') return { href: `${dittoUrl.replace(/\/$/, '')}${task.actionTarget}`, label: task.actionLabel ?? 'Open in Ditto' };
+  if (task.action === 'external_link') {
+    // The targets are the kit's own bundled mission data, but a link the home
+    // renders is only ever an absolute http(s) URL; anything else is dropped.
+    if (!isHttpUrl(task.actionTarget)) return undefined;
+    return { href: task.actionTarget, label: task.actionLabel ?? 'Open' };
+  }
+  if (task.action === 'navigate') {
+    if (!task.actionTarget.startsWith('/') || task.actionTarget.startsWith('//')) return undefined;
+    return { href: `${dittoUrl.replace(/\/$/, '')}${task.actionTarget}`, label: task.actionLabel ?? 'Open in Ditto' };
+  }
   return undefined;
+}
+
+function isHttpUrl(candidate: string): boolean {
+  try {
+    const url = new URL(candidate);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
 }
 
 /**

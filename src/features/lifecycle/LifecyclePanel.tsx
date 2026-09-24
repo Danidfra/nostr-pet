@@ -77,7 +77,7 @@ export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, devForce
     }
   })();
 
-  const button = 'inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50';
+  const button = 'inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 min-h-11';
   const primary = `${button} bg-primary text-primary-foreground hover:brightness-110`;
   const secondary = `${button} border border-border bg-background hover:bg-accent`;
 
