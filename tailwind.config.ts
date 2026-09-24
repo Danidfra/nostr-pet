@@ -72,11 +72,16 @@ export default {
           "0%, 100%": { opacity: "0.2", transform: "scale(0.7)" },
           "50%": { opacity: "0.9", transform: "scale(1.1)" },
         },
+        "bubble-in": {
+          "0%": { opacity: "0", transform: "translate(-50%, -100%) scale(0.85)" },
+          "100%": { opacity: "1", transform: "translate(-50%, -100%) scale(1)" },
+        },
       },
       animation: {
         "blobbi-happy": "blobbi-happy 700ms ease-out 1",
         "float-up": "float-up 1400ms ease-out forwards",
         sparkle: "sparkle 2.6s ease-in-out infinite",
+        "bubble-in": "bubble-in 180ms ease-out",
       },
     },
   },

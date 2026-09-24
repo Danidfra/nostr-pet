@@ -4,9 +4,9 @@
 
 @layer base {
   :root {
-    /* Cozy Home tokens (the default theme) so the first paint is right before
-       React applies the stored theme. Every value is overwritten by
-       applyThemeToDocument; keep this in step with themes.ts. */
+    /* Day surfaces, so the first paint is right before React applies the
+       environment. Every value is overwritten by applyPhaseToDocument; keep
+       these in step with environments.ts (a test pins it). */
     --background: 45 67% 97%;
     --foreground: 32 33% 15%;
     --card: 42 43% 95%;
@@ -26,18 +26,36 @@
     --ring: 258 80% 40%;
     --radius: 0.75rem;
 
-    /* Environment, set per theme. */
-    --home-sky: radial-gradient(120% 80% at 50% 0%, hsl(270 70% 92%) 0%, hsl(45 67% 97%) 55%, hsl(38 60% 92%) 100%);
-    --home-ground-glow: hsl(270 60% 70% / 0.35);
-    --home-environment-image: none;
+    /* Scene tokens (day), set per phase by the environment. */
+    --sky-top: hsl(205 85% 72%);
+    --sky-bottom: hsl(200 90% 90%);
+    --stars: 0;
+    --wall: hsl(42 60% 94%);
+    --wall-shade: hsl(36 45% 86%);
+    --floor: hsl(28 45% 70%);
+    --floor-edge: hsl(26 40% 60%);
+    --rug: hsl(262 55% 80%);
+    --window-glow: hsl(45 95% 80% / 0.35);
+    --lamp: transparent;
+    --home-ground-glow: hsl(270 60% 70% / 0.32);
+
+    /* HUD */
+    --hud-top-h: 3.5rem;
+    --hud-bottom-h: 6.25rem;
   }
 
   * {
     @apply border-border;
   }
 
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
   html {
-    transition: background-color 400ms ease;
+    transition: background-color 600ms ease;
   }
 
   body {
@@ -46,45 +64,232 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    transition: background-color 400ms ease, color 400ms ease;
+    transition: background-color 600ms ease, color 600ms ease;
+    overscroll-behavior: none;
   }
 }
 
 @layer components {
-  /* The scene: the environment the Blobbi lives in. Sky first, the theme's
-     illustration on top, and a soft vignette so text stays readable on any
-     backdrop. */
-  .home-scene {
+  /* ─── The game frame ───────────────────────────────────────────────── */
+
+  .game-shell {
     position: relative;
-    isolation: isolate;
+    height: 100dvh;
+    min-height: 100svh;
+    width: 100%;
     overflow: hidden;
-    background-color: hsl(var(--card));
-    background-image: var(--home-environment-image), var(--home-sky);
-    background-size: cover, cover;
-    background-position: center 70%, center;
-    transition: background-image 400ms ease, background-color 400ms ease;
+    display: flex;
+    justify-content: center;
+    background: hsl(var(--background));
   }
-  .home-scene::after {
-    content: "";
+  .game-frame {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 64rem;
+    height: 100%;
+  }
+  @media (min-width: 900px) {
+    .game-shell {
+      padding: 1rem;
+    }
+    .game-frame {
+      height: calc(100% - 2rem);
+      border-radius: 1.75rem;
+      overflow: hidden;
+      box-shadow: 0 30px 80px -40px hsl(var(--foreground) / 0.45);
+    }
+  }
+  .game-scene {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* ─── HUD strips ───────────────────────────────────────────────────── */
+
+  .hud-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: calc(0.5rem + env(safe-area-inset-top)) 0.75rem 0.5rem;
+    pointer-events: none;
+  }
+  .hud-top > * {
+    pointer-events: auto;
+  }
+  .hud-bottom {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+    pointer-events: none;
+  }
+  .hud-bottom > * {
+    pointer-events: auto;
+  }
+  .hud-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    background: hsl(var(--card) / 0.85);
+    border: 1px solid hsl(var(--border) / 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 6px 20px -12px hsl(var(--foreground) / 0.5);
+    color: hsl(var(--foreground));
+    transition: transform 120ms ease, background-color 120ms ease;
+  }
+  .hud-icon-button:hover {
+    background: hsl(var(--card));
+  }
+  .hud-icon-button:active {
+    transform: scale(0.95);
+  }
+  .hud-icon-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
+  .blobbi-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    max-width: 70%;
+    height: 2.75rem;
+    padding: 0 0.85rem 0 0.35rem;
+    border-radius: 9999px;
+    background: hsl(var(--card) / 0.85);
+    border: 1px solid hsl(var(--border) / 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 6px 20px -12px hsl(var(--foreground) / 0.5);
+    color: hsl(var(--foreground));
+    transition: transform 120ms ease;
+  }
+  .blobbi-chip:active {
+    transform: scale(0.97);
+  }
+  .blobbi-chip:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
+  .blobbi-chip__portrait {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 9999px;
+    background: hsl(var(--foreground) / 0.06);
+    flex: none;
+  }
+  .lifecycle-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1.4rem;
+    border-radius: 9999px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: hsl(var(--primary-foreground));
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(320 80% 60%) 100%);
+    box-shadow: 0 12px 30px -12px hsl(var(--primary) / 0.8);
+    animation: lifecycle-pill-pulse 2.4s ease-in-out infinite;
+  }
+  .lifecycle-pill:disabled {
+    opacity: 0.5;
+    animation: none;
+  }
+  .lifecycle-pill:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
+
+  /* ─── Sheets ───────────────────────────────────────────────────────── */
+
+  .sheet-root {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .sheet-backdrop {
     position: absolute;
     inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background: linear-gradient(180deg, hsl(var(--background) / 0) 0%, hsl(var(--background) / 0) 45%, hsl(var(--background) / 0.55) 100%);
+    background: hsl(var(--foreground) / 0.35);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
   }
-  .home-scene > * {
+  .sheet-panel {
     position: relative;
-    z-index: 1;
+    width: 100%;
+    max-height: 88dvh;
+    display: flex;
+    flex-direction: column;
+    border-radius: 1.5rem 1.5rem 0 0;
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    box-shadow: 0 -20px 60px -30px hsl(var(--foreground) / 0.6);
+    animation: sheet-up 220ms ease-out;
+    outline: none;
+  }
+  .sheet-handle {
+    width: 2.5rem;
+    height: 0.3rem;
+    margin: 0.5rem auto 0;
+    border-radius: 9999px;
+    background: hsl(var(--foreground) / 0.18);
+  }
+  .sheet-body {
+    overflow-y: auto;
+    padding: 0.75rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 900px) {
+    .sheet-root {
+      align-items: stretch;
+      justify-content: flex-end;
+    }
+    .sheet-panel {
+      width: min(28rem, 92vw);
+      max-height: none;
+      height: 100%;
+      border-radius: 1.5rem 0 0 1.5rem;
+      animation: sheet-in 220ms ease-out;
+    }
+    .sheet-handle {
+      display: none;
+    }
   }
 
   /* ─── The scene: layers the Blobbi lives between ─────────────────────── */
 
-  /* The scene box. Everything on the floor is placed by normalized
-     coordinates relative to this box, so the home is the same shape at
-     every viewport. Layers are absolute; the vignette (::after) stays under
-     them. */
   .scene {
-    display: block;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    background: var(--wall);
+    transition: background-color 600ms ease;
     container-type: inline-size;
   }
   .scene > .scene-layer,
@@ -99,9 +304,11 @@
   .scene > .scene-layer > * {
     pointer-events: auto;
   }
-  .scene > .scene-topbar {
-    position: relative;
-    z-index: 4;
+  .scene > .scene-backdrop {
+    z-index: 0;
+  }
+  .scene > .scene-backdrop > * {
+    pointer-events: none;
   }
   .scene > .scene-stage {
     z-index: 2;
@@ -110,8 +317,78 @@
     z-index: 3;
   }
 
-  /* The floor: the band a Blobbi can stand on. Tapping it calls the Blobbi
-     over. Invisible, but it is a real button so keyboards can use it. */
+  /* The room */
+  .backdrop-wall {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, var(--wall) 0%, var(--wall) 70%, var(--wall-shade) 100%);
+    transition: background 600ms ease;
+  }
+  .backdrop-window {
+    position: absolute;
+    left: 56%;
+    top: 11%;
+    width: clamp(6rem, 22%, 12rem);
+    aspect-ratio: 1 / 1;
+    border-radius: 0.9rem;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 0.35rem var(--wall-shade), 0 10px 30px -18px hsl(0 0% 0% / 0.5);
+  }
+  .backdrop-window-frame {
+    position: absolute;
+    inset: 0;
+    border-radius: 0.9rem;
+    box-shadow: inset 0 0 0 0.35rem var(--wall-shade);
+    pointer-events: none;
+  }
+  .backdrop-window-light {
+    position: absolute;
+    left: -30%;
+    right: -30%;
+    top: 100%;
+    height: 180%;
+    background: linear-gradient(180deg, var(--window-glow) 0%, transparent 80%);
+    transform: skewX(-8deg);
+    pointer-events: none;
+  }
+  .backdrop-lamp {
+    position: absolute;
+    right: 8%;
+    top: 4%;
+    width: 30%;
+    height: 40%;
+    background: radial-gradient(closest-side, var(--lamp) 0%, transparent 100%);
+    transition: background 600ms ease;
+  }
+  .backdrop-floor {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, var(--floor-edge) 0%, var(--floor) 6%, var(--floor) 100%);
+    transition: background 600ms ease;
+  }
+  .backdrop-floor-edge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    background: hsl(0 0% 0% / 0.12);
+  }
+  .backdrop-rug {
+    position: absolute;
+    left: 50%;
+    top: 26%;
+    width: 46%;
+    height: 34%;
+    transform: translateX(-50%);
+    border-radius: 100%;
+    background: radial-gradient(closest-side, var(--rug) 0%, var(--rug) 78%, transparent 100%);
+    opacity: 0.6;
+  }
+
+  /* The floor: the band a Blobbi can stand on. Invisible, but a real button. */
   .scene-floor {
     left: 0;
     right: 0;
@@ -131,43 +408,46 @@
     border-radius: 1rem;
   }
 
-  /* Things on the floor: anchored at their feet on a floor point, scaled a
-     little by depth. `left`/`top`/`z-index` come from placeOnFloor(). */
-  .scene-object,
+  /* Things on the floor: anchored at their feet on a floor point, scaled by depth. */
+  .scene-object-anchor,
   .scene-actor {
     position: absolute;
     transform: translate(-50%, -100%) scale(var(--object-scale, var(--actor-scale, 1)));
     transform-origin: 50% 100%;
     pointer-events: none;
   }
+  .scene-object-anchor {
+    width: clamp(5.5rem, var(--object-width, 22%), 13rem);
+  }
   .scene-object {
+    display: block;
+    width: 100%;
     background: transparent;
     border: 0;
     padding: 0;
-    width: clamp(6.5rem, 26%, 13rem);
-  }
-  .scene-object > img {
-    display: block;
-    width: 100%;
-    height: auto;
     pointer-events: auto;
-    user-select: none;
-    -webkit-user-drag: none;
-  }
-  .scene-bed:not(:disabled) > img {
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
-  .scene-bed:focus-visible {
+  .scene-object:disabled {
+    cursor: default;
+  }
+  .scene-object:focus-visible {
     outline: 2px dashed hsl(var(--ring) / 0.7);
     outline-offset: 4px;
     border-radius: 1rem;
   }
+  .scene-object-art {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
 
-  /* The Blobbi actor. Position changes are driven by the app's animation
-     loop (walking) or happen at once (reduced motion / arrival), so there is
-     no CSS transition on left/top: the loop is the only source of movement. */
+  /* The Blobbi actor. Position is driven by the app's loop; no CSS transition on left/top. */
   .scene-actor {
-    width: clamp(7.5rem, 30%, 15rem);
+    width: clamp(7.5rem, 34%, 15rem);
   }
   .scene-actor__body {
     position: relative;
@@ -202,6 +482,7 @@
     height: 42%;
     transform: translateX(-50%);
     border-radius: 100%;
+    background: radial-gradient(closest-side, var(--home-ground-glow) 0%, transparent 100%);
   }
   .scene-actor__shadow {
     position: absolute;
@@ -231,9 +512,9 @@
     left: 50%;
     top: 100%;
     width: max-content;
-    max-width: 14rem;
+    max-width: 12rem;
     transform: translateX(-50%);
-    margin-top: 0.25rem;
+    margin-top: 0.15rem;
     text-align: center;
     pointer-events: none;
   }
@@ -247,45 +528,163 @@
     white-space: nowrap;
     pointer-events: none;
   }
+  .scene-hearts {
+    position: absolute;
+    left: 50%;
+    top: 10%;
+    width: 60%;
+    height: 40%;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .scene-heart {
+    position: absolute;
+    bottom: 0;
+    font-size: 1.1rem;
+    animation: heart-float 1300ms ease-out forwards;
+  }
 
-  /* A frosted surface that sits on the scene without hiding it. */
+  /* Needs and speech, above the head */
+  .need-bubbles {
+    position: absolute;
+    left: 50%;
+    top: -0.4rem;
+    transform: translate(-50%, -100%);
+    display: flex;
+    gap: 0.25rem;
+    pointer-events: none;
+  }
+  .need-bubble {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 9999px 9999px 9999px 0.25rem;
+    background: hsl(var(--card) / 0.95);
+    border: 1.5px solid hsl(var(--border));
+    color: hsl(38 92% 40%);
+    box-shadow: 0 4px 12px -6px hsl(var(--foreground) / 0.4);
+    animation: need-bob 2.6s ease-in-out infinite;
+  }
+  .need-bubble--critical {
+    color: hsl(0 72% 50%);
+    border-color: hsl(0 72% 60% / 0.7);
+  }
+  .speech-bubble {
+    position: absolute;
+    left: 50%;
+    top: -2.4rem;
+    transform: translate(-50%, -100%);
+    max-width: 12rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 1rem 1rem 1rem 0.25rem;
+    background: hsl(var(--card) / 0.96);
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--card-foreground));
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 0 6px 16px -8px hsl(var(--foreground) / 0.4);
+    pointer-events: none;
+  }
+  .door-prompt {
+    position: absolute;
+    left: 100%;
+    top: 30%;
+    margin-left: 0.4rem;
+    width: max-content;
+    pointer-events: auto;
+  }
+
+  /* Text over the room */
+  .scene-text {
+    text-shadow: 0 1px 2px hsl(var(--background) / 0.9), 0 0 18px hsl(var(--background) / 0.7);
+  }
+  .dark .scene-text {
+    text-shadow: 0 1px 2px hsl(0 0% 0% / 0.7), 0 0 18px hsl(0 0% 0% / 0.5);
+  }
+
+  /* A frosted surface for the few panels that sit over the room (signed-out, empty, error). */
   .home-glass {
-    background-color: hsl(var(--card) / 0.72);
+    background-color: hsl(var(--card) / 0.85);
     border: 1px solid hsl(var(--border) / 0.7);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     box-shadow: 0 10px 30px -18px hsl(var(--foreground) / 0.35);
   }
+}
 
-  /* The warm light under the Blobbi's feet. */
-  .home-ground {
-    background: radial-gradient(closest-side, var(--home-ground-glow) 0%, transparent 100%);
+@keyframes sheet-up {
+  from {
+    transform: translateY(12%);
+    opacity: 0;
   }
-
-  /* Text over an illustration. */
-  .scene-text {
-    text-shadow: 0 1px 2px hsl(var(--background) / 0.9), 0 0 18px hsl(var(--background) / 0.7);
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
-
-  .dark .scene-text {
-    text-shadow: 0 1px 2px hsl(0 0% 0% / 0.7), 0 0 18px hsl(0 0% 0% / 0.5);
+}
+@keyframes sheet-in {
+  from {
+    transform: translateX(8%);
+    opacity: 0;
   }
-
-  /* Bottom care dock on small screens sits above the home indicator. */
-  .dock-safe {
-    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes lifecycle-pill-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+@keyframes heart-float {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-70px) scale(1.1);
+  }
+}
+@keyframes need-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html,
   body,
-  .home-scene {
+  .scene,
+  .backdrop-wall,
+  .backdrop-floor,
+  .backdrop-lamp {
     transition: none;
   }
+  .sheet-panel,
+  .lifecycle-pill,
+  .need-bubble,
+  .scene-heart,
   .animate-blobbi-happy,
   .animate-float-up,
-  .animate-sparkle {
+  .animate-sparkle,
+  .animate-bubble-in {
     animation: none;
   }
 }

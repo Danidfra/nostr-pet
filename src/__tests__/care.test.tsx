@@ -23,7 +23,8 @@ import {
 
 import Home from '@/pages/Home';
 import { SceneSettingsProvider } from '@/features/home/scene';
-import { ThemeProvider } from '@/theme';
+import { EnvironmentProvider } from '@/environment';
+import type { Appearance } from '@/environment';
 import { PUBKEY, blobbiEvent, profileEvent } from '@/test/fixtures';
 
 // ─── Signed-in user with a fake signer ───────────────────────────────────────
@@ -69,12 +70,12 @@ const pool = { query, event } as unknown as NPool;
 
 const SCENE = { reducedMotion: true, idleEnabled: false };
 
-function renderHome() {
+function renderHome(appearance: Appearance = 'day') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   // Protocol tests: movement resolves at once and nothing idles, so every
   // assertion is about events, not about where the Blobbi is standing.
   return render(
-    <ThemeProvider>
+    <EnvironmentProvider initialAppearance={appearance}>
       <SceneSettingsProvider value={SCENE}>
         <NostrLoginProvider storageKey="test:login">
           <NostrContext.Provider value={{ nostr: pool }}>
@@ -86,7 +87,7 @@ function renderHome() {
           </NostrContext.Provider>
         </NostrLoginProvider>
       </SceneSettingsProvider>
-    </ThemeProvider>,
+    </EnvironmentProvider>,
   );
 }
 
@@ -117,12 +118,23 @@ async function ready() {
   return screen.findByRole('group', { name: /care for your blobbi/i });
 }
 
+/** The Blobbi's details (badges, rings, lifecycle, other Blobbis) live in its sheet. */
+async function openBlobbiSheet() {
+  await userEvent.click(screen.getByTestId('blobbi-chip'));
+  return screen.findByTestId('blobbi-sheet');
+}
+async function closeSheet() {
+  await userEvent.keyboard('{Escape}');
+}
+
 describe('Care: feed', () => {
   it('reads fresh, plans through the kit, signs, publishes the 31124 and the 1124, and shows relay-backed state', async () => {
     relay.state = [brook()];
     renderHome();
     await ready();
+    await openBlobbiSheet();
     const before = Number(within(screen.getByRole('group', { name: /care status/i })).getByTestId('stat-hunger').getAttribute('aria-valuenow'));
+    await closeSheet();
     expect(freshReads()).toHaveLength(0);
 
     await userEvent.click(screen.getByTestId('care-feed'));
@@ -148,11 +160,13 @@ describe('Care: feed', () => {
     expect(getTagValue(log.tags, 'a')).toBe(`${KIND_BLOBBI_STATE}:${PUBKEY}:${BROOK_D}`);
 
     // The screen reflects the published state, not a guess.
+    await openBlobbiSheet();
     await waitFor(() => {
       const after = Number(within(screen.getByRole('group', { name: /care status/i })).getByTestId('stat-hunger').getAttribute('aria-valuenow'));
       expect(after).toBeGreaterThan(before);
     });
     expect(screen.getByTestId('blobbi-xp')).toHaveTextContent(getTagValue(state.tags, 'experience')!);
+    expect(screen.getByTestId('care-hearts')).toBeInTheDocument();
   });
 
   it('never double-submits while a write is in flight', async () => {
@@ -179,9 +193,10 @@ describe('Care: feed', () => {
     await userEvent.click(screen.getByTestId('care-clean'));
     expect(await screen.findByTestId('care-error')).toHaveTextContent(/relay rejected/i);
     expect(published31124()).toHaveLength(0);
+    expect(screen.getByTestId('care-feed')).toBeEnabled();
+    await openBlobbiSheet();
     const hygiene = within(screen.getByRole('group', { name: /care status/i })).getByTestId('stat-hygiene');
     expect(Number(hygiene.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(45);
-    expect(screen.getByTestId('care-feed')).toBeEnabled();
   });
 
   it('opening the home publishes nothing', async () => {
@@ -203,7 +218,9 @@ describe('Care: rest and wake', () => {
     expect(getTagValue(published31124()[0].tags, 'state')).toBe('sleeping');
     expect(published1124()).toHaveLength(0);
 
+    await openBlobbiSheet();
     await waitFor(() => expect(screen.getByTestId('state-badge')).toHaveTextContent(/sleeping/i));
+    await closeSheet();
     expect(screen.getByTestId('care-feed')).toBeDisabled();
     expect(screen.getByTestId('care-feed')).toHaveAttribute('aria-label', expect.stringMatching(/sleeping/i));
     const wake = screen.getByTestId('care-rest');
@@ -212,6 +229,7 @@ describe('Care: rest and wake', () => {
     await userEvent.click(wake);
     await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/woke up/i));
     expect(getTagValue(published31124()[1].tags, 'state')).toBe('active');
+    await openBlobbiSheet();
     await waitFor(() => expect(screen.getByTestId('state-badge')).toHaveTextContent(/awake/i));
   });
 
@@ -221,7 +239,7 @@ describe('Care: rest and wake', () => {
     await ready();
     expect(screen.getByTestId('care-rest')).toHaveAccessibleName('Wake');
     for (const a of ['feed', 'play', 'clean']) expect(screen.getByTestId(`care-${a}`)).toBeDisabled();
-    expect(screen.getByTestId('mood-line')).toHaveTextContent(/sleeping/i);
+    expect(screen.getByTestId('blobbi-chip')).toHaveTextContent(/sleeping/i);
   });
 
   it('a hibernating Blobbi gets no actions', async () => {
@@ -256,6 +274,7 @@ describe('Current companion (kind 11125)', () => {
     relay.profile = [{ ...profile(), tags: [...profile().tags, ['blobbi_onboarding_done', 'true'], ['inv', 'opaque-host-data']] }];
     renderHome();
     await ready();
+    await openBlobbiSheet();
     await userEvent.click(screen.getByRole('radio', { name: /elder/i }));
     await waitFor(() => expect(published11125()).toHaveLength(1));
     const [next] = published11125();
@@ -267,7 +286,7 @@ describe('Current companion (kind 11125)', () => {
     expect(getTagValue(next.tags, 'blobbi_onboarding_done')).toBe('true');
     expect(getTagValue(next.tags, 'inv')).toBe('opaque-host-data');
     expect(getTagValue(next.tags, 'd')).toBe(getTagValue(profile().tags, 'd'));
-    await waitFor(() => expect(screen.getByTestId('blobbi-actor')).toHaveTextContent('Elder'));
+    await waitFor(() => expect(screen.getByTestId('blobbi-chip')).toHaveTextContent('Elder'));
   });
 
   it('publishes nothing when the profile already names that Blobbi, or when there is no profile', async () => {
@@ -275,6 +294,7 @@ describe('Current companion (kind 11125)', () => {
     relay.profile = [profile()];
     renderHome();
     await ready();
+    await openBlobbiSheet();
     await userEvent.click(screen.getByRole('radio', { name: /brook/i }));
     await new Promise((r) => setTimeout(r, 50));
     expect(published11125()).toHaveLength(0);
@@ -284,26 +304,28 @@ describe('Current companion (kind 11125)', () => {
     relay.state = [brook(), blobbiEvent('0000000002', { name: 'Elder', stage: 'adult', createdAt: NOW - 3600 })];
     renderHome();
     await ready();
+    await openBlobbiSheet();
     await userEvent.click(screen.getByRole('radio', { name: /elder/i }));
-    await waitFor(() => expect(screen.getByTestId('blobbi-actor')).toHaveTextContent('Elder'));
+    await waitFor(() => expect(screen.getByTestId('blobbi-chip')).toHaveTextContent('Elder'));
     await new Promise((r) => setTimeout(r, 50));
     expect(relay.published).toHaveLength(0);
   });
 });
 
-describe('Rendering under themes', () => {
-  it('a theme changes the home, never the Blobbi', async () => {
+describe('Rendering under the environment', () => {
+  it('the home lighting changes, never the Blobbi', async () => {
     relay.state = [brook()];
-    const { unmount } = renderHome();
+    const { unmount } = renderHome('day');
     await ready();
-    const cozy = document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-body-box]')!.innerHTML;
+    expect(document.documentElement.dataset.homePhase).toBe('day');
+    const day = document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-body-box]')!.innerHTML;
     unmount();
 
-    window.localStorage.setItem('blobbi:home-theme:v1', 'space');
-    renderHome();
+    renderHome('night');
     await ready();
-    expect(document.documentElement.dataset.blobbiTheme).toBe('space');
-    const space = document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-body-box]')!.innerHTML;
-    expect(space).toBe(cozy);
+    expect(document.documentElement.dataset.homePhase).toBe('night');
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    const night = document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-body-box]')!.innerHTML;
+    expect(night).toBe(day);
   });
 });

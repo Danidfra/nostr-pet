@@ -4,7 +4,8 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { BLOBBI_RENDERER_STYLESHEET } from '@blobbi-kit/renderer';
 
 import { NostrProvider } from '@/components/NostrProvider';
-import { ThemeProvider } from '@/theme';
+import { EnvironmentProvider } from '@/environment';
+import { SoundProvider } from '@/features/sound';
 import AppRouter from './AppRouter';
 
 const queryClient = new QueryClient({
@@ -20,25 +21,28 @@ const queryClient = new QueryClient({
 });
 
 /**
- * Provider order, outermost first: the home theme (paints before any relay
- * answers, device-local, never published), persisted logins, the relay pool
- * (bunker logins need it), the query cache, then the router. Domain state
- * comes from @blobbi-kit hooks per surface; no Blobbi provider lives here.
+ * Provider order, outermost first: the environment (paints the home's
+ * lighting before any relay answers; device-local, never published), sound
+ * (off by default, device-local), persisted logins, the relay pool (bunker
+ * logins need it), the query cache, then the router. Domain state comes from
+ * @blobbi-kit hooks per surface; no Blobbi provider lives here.
  */
 export function App() {
   return (
-    <ThemeProvider>
-      <NostrLoginProvider storageKey="nostr:login">
-        <NostrProvider>
-          <QueryClientProvider client={queryClient}>
-            <style>{BLOBBI_RENDERER_STYLESHEET}</style>
-            <BrowserRouter>
-              <AppRouter />
-            </BrowserRouter>
-          </QueryClientProvider>
-        </NostrProvider>
-      </NostrLoginProvider>
-    </ThemeProvider>
+    <EnvironmentProvider>
+      <SoundProvider>
+        <NostrLoginProvider storageKey="nostr:login">
+          <NostrProvider>
+            <QueryClientProvider client={queryClient}>
+              <style>{BLOBBI_RENDERER_STYLESHEET}</style>
+              <BrowserRouter>
+                <AppRouter />
+              </BrowserRouter>
+            </QueryClientProvider>
+          </NostrProvider>
+        </NostrLoginProvider>
+      </SoundProvider>
+    </EnvironmentProvider>
   );
 }
 
