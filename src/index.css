@@ -404,31 +404,58 @@
     height: 100%;
     background: var(--wall);
     transition: background-color 600ms ease;
-    container-type: inline-size;
+    /* The canonical room canvas (space/room-space.ts): 4:5, the largest that
+       fits, resting on the bottom. `--floor-line` mirrors FLOOR_LINE; a test
+       pins them equal. The horizon is where the canvas's floor line lands in
+       the viewport, so the backdrop's floor meets the canvas's floor exactly. */
+    --room-aspect: 0.8;
+    --floor-line: 0.72;
+    --canvas-h: min(100cqh, calc(100cqw / var(--room-aspect)));
+    --canvas-w: calc(var(--canvas-h) * var(--room-aspect));
+    --horizon: calc(100% - var(--canvas-h) * (1 - var(--floor-line)));
+    container-type: size;
   }
-  .scene > .scene-layer,
-  .scene > .scene-floor {
+  .room-canvas {
     position: absolute;
-    inset: 0;
-    z-index: 1;
-  }
-  .scene > .scene-layer {
+    left: 50%;
+    bottom: 0;
+    width: var(--canvas-w);
+    height: var(--canvas-h);
+    transform: translateX(-50%);
+    z-index: 2;
     pointer-events: none;
   }
-  .scene > .scene-layer > * {
+  .room-canvas > .scene-layer,
+  .room-canvas > .scene-floor {
+    position: absolute;
+    inset: 0;
+  }
+  .room-canvas > .scene-layer {
+    pointer-events: none;
+  }
+  .room-canvas > .scene-layer > * {
     pointer-events: auto;
   }
   .scene > .scene-backdrop {
+    position: absolute;
+    inset: 0;
     z-index: 0;
+    pointer-events: none;
   }
   .scene > .scene-backdrop > * {
     pointer-events: none;
   }
-  .scene > .scene-stage {
+  .room-canvas > .scene-stage {
     z-index: 2;
   }
   .scene > .scene-foreground {
+    position: absolute;
+    inset: 0;
     z-index: 3;
+    pointer-events: none;
+  }
+  .scene > .scene-foreground > * {
+    pointer-events: auto;
   }
 
   /* The room */
@@ -923,6 +950,7 @@
   .scene-floor {
     left: 0;
     right: 0;
+    pointer-events: auto;
     background: transparent;
     border: 0;
     padding: 0;
@@ -948,7 +976,7 @@
     pointer-events: none;
   }
   .scene-object-anchor {
-    width: clamp(5.5rem, var(--object-width, 22%), 13rem);
+    width: var(--object-width, 22%);
   }
   .scene-object {
     display: block;
@@ -978,7 +1006,7 @@
 
   /* The Blobbi actor. Position is driven by the app's loop; no CSS transition on left/top. */
   .scene-actor {
-    width: clamp(9.5rem, 44%, 17rem);
+    width: 44%;
   }
   .scene-actor__body {
     position: relative;

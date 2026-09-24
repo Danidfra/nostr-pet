@@ -1,4 +1,3 @@
-import { FLOOR_BAND } from '../scene/geometry';
 import { SceneBackdrop } from '../scene/SceneBackdrop';
 import type { RoomId } from './rooms';
 
@@ -14,7 +13,6 @@ import type { RoomId } from './rooms';
  */
 export function RoomBackdrop({ room }: { room: RoomId }) {
   if (room === 'home') return <SceneBackdrop />;
-  const floorTop = FLOOR_BAND.top * 100;
   if (room === 'bedroom') {
     return (
       <div className="scene-layer scene-backdrop" aria-hidden data-testid="scene-backdrop" data-room="bedroom">
@@ -40,7 +38,7 @@ export function RoomBackdrop({ room }: { room: RoomId }) {
         </div>
         <div className="backdrop-lamp backdrop-lamp--always" />
         <div className="backdrop-picture" />
-        <div className="backdrop-floor" style={{ top: `${floorTop}%` }}>
+        <div className="backdrop-floor" style={{ top: 'var(--horizon)' }}>
           <div className="backdrop-floor-edge" />
           <div className="backdrop-rug backdrop-rug--wide" />
         </div>
@@ -65,16 +63,16 @@ export function RoomBackdrop({ room }: { room: RoomId }) {
         </svg>
         <div className="backdrop-sun" />
       </div>
-      <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="backdrop-hills" style={{ top: `calc(${floorTop}% - 9rem)` }}>
+      <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="backdrop-hills" style={{ top: 'calc(var(--horizon) - 9rem)' }}>
         <path d="M0 40 C 12 22, 26 20, 40 30 C 52 38, 60 18, 76 24 C 88 28, 94 22, 100 26 L 100 40 Z" fill="var(--hill)" />
         <path d="M0 40 C 18 34, 30 26, 48 34 C 62 40, 74 30, 100 36 L 100 40 Z" fill="var(--hill)" opacity="0.8" />
       </svg>
-      <div className="backdrop-fence" style={{ top: `calc(${floorTop}% - 2.6rem)` }}>
+      <div className="backdrop-fence" style={{ top: 'calc(var(--horizon) - 2.6rem)' }}>
         {Array.from({ length: 14 }, (_, i) => (
           <span key={i} className="backdrop-fence__post" />
         ))}
       </div>
-      <div className="backdrop-floor backdrop-floor--grass" style={{ top: `${floorTop}%` }}>
+      <div className="backdrop-floor backdrop-floor--grass" style={{ top: 'var(--horizon)' }}>
         <div className="backdrop-floor-edge" />
         <div className="backdrop-rug backdrop-rug--patch" />
       </div>

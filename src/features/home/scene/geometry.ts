@@ -10,6 +10,8 @@
  * pure so it can be pinned by tests and reused by locomotion, gaze and idle.
  */
 
+import { FLOOR_FRONT, FLOOR_LINE } from '../space/room-space';
+
 export interface FloorPoint {
   x: number;
   y: number;
@@ -30,18 +32,20 @@ export interface FloorBounds {
 export const FLOOR_BOUNDS: FloorBounds = { minX: 0.1, maxX: 0.9, minY: 0.05, maxY: 0.82 };
 
 /**
- * Where the floor band sits in the scene box, as fractions of its height:
+ * Where the floor band sits in the room canvas, as fractions of its height:
  * `y = 0` is the horizon line, `y = 1` the front edge. The actor's feet go on
- * that line. Kept in one place so CSS (`.scene-floor`) and placement agree.
+ * that line. The numbers are the canonical space's (`space/room-space.ts`);
+ * CSS (`--floor-line`) and placement agree through them.
  */
-export const FLOOR_BAND = { top: 0.5, bottom: 0.92 } as const;
+export const FLOOR_BAND = { top: FLOOR_LINE, bottom: FLOOR_FRONT } as const;
 
 /**
  * The floor is drawn much shorter than it is wide, so a step in `y` covers
  * less screen than the same step in `x`. Distances weigh `y` by this factor
- * so walking speed looks the same in every direction.
+ * so walking speed looks the same in every direction: the band's height in
+ * canvas-width units, (0.97 − 0.72) · 5/4.
  */
-export const DEPTH_WEIGHT = 0.42;
+export const DEPTH_WEIGHT = 0.31;
 
 /** How much closer things grow as they come to the front. Subtle on purpose. */
 export const DEPTH_SCALE = { back: 0.88, front: 1 } as const;

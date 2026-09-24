@@ -133,7 +133,7 @@ const states = () => published(KIND_BLOBBI_STATE);
 const receipts = () => published(KIND_BLOBBI_INTERACTION);
 
 function giveSceneABox() {
-  const scene = screen.getByTestId('home-scene');
+  const scene = screen.getByTestId('room-canvas');
   scene.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 600, right: 1000, bottom: 600, x: 0, y: 0, toJSON: () => ({}) });
 }
 

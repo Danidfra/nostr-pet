@@ -86,7 +86,7 @@ const published31124 = () => relay.published.filter((e) => e.kind === KIND_BLOBB
 
 /** jsdom has no layout: give the scene a box so taps map to floor points. */
 function giveSceneABox() {
-  const scene = screen.getByTestId('home-scene');
+  const scene = screen.getByTestId('room-canvas');
   scene.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 600, right: 1000, bottom: 600, x: 0, y: 0, toJSON: () => ({}) });
   return scene;
 }

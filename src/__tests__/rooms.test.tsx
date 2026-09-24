@@ -84,7 +84,7 @@ const scene = () => screen.getByTestId('home-scene');
 const at = (a: HTMLElement) => ({ x: Number(a.getAttribute('data-x')), y: Number(a.getAttribute('data-y')) });
 
 function giveSceneABox() {
-  scene().getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 600, right: 1000, bottom: 600, x: 0, y: 0, toJSON: () => ({}) });
+  screen.getByTestId('room-canvas').getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 600, right: 1000, bottom: 600, x: 0, y: 0, toJSON: () => ({}) });
 }
 async function ready() {
   await screen.findByRole('group', { name: /care for your blobbi/i });

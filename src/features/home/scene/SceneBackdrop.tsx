@@ -1,5 +1,3 @@
-import { FLOOR_BAND } from './geometry';
-
 /**
  * The room, in layers behind everything that stands on the floor:
  *
@@ -13,7 +11,6 @@ import { FLOOR_BAND } from './geometry';
  * markup is dawn, day, sunset or night. Nothing here is interactive.
  */
 export function SceneBackdrop() {
-  const floorTop = FLOOR_BAND.top * 100;
   return (
     <div className="scene-layer scene-backdrop" aria-hidden data-testid="scene-backdrop">
       <div className="backdrop-wall" />
@@ -41,7 +38,7 @@ export function SceneBackdrop() {
         <div className="backdrop-window-light" />
       </div>
       <div className="backdrop-lamp" />
-      <div className="backdrop-floor" style={{ top: `${floorTop}%` }}>
+      <div className="backdrop-floor" style={{ top: 'var(--horizon)' }}>
         <div className="backdrop-floor-edge" />
         <div className="backdrop-rug" />
       </div>

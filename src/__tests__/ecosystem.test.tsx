@@ -96,7 +96,7 @@ const actor = () => screen.getByTestId('blobbi-actor');
 const accessories = () => [...document.querySelectorAll('[data-testid="blobbi-actor"] [data-accessory-code]')].map((el) => el.getAttribute('data-accessory-code'));
 
 function giveSceneABox() {
-  const scene = screen.getByTestId('home-scene');
+  const scene = screen.getByTestId('room-canvas');
   scene.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 600, right: 1000, bottom: 600, x: 0, y: 0, toJSON: () => ({}) });
 }
 async function ready() {
