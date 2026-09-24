@@ -2,7 +2,9 @@
  * The current Blobbi's equipment, read-only: the kind 31634 document the
  * player authored that targets this Blobbi (`31124:<owner>:<d>`), resolved
  * against the definitions and balances the inventory read already holds.
- * Nothing here publishes; the home draws what the Island dressed.
+ * Nothing here publishes; the home draws what the Island dressed. The read
+ * reaches the Island's relays through the pool's read hints (`relay-hints.ts`)
+ * and is gated exactly as before (`equipment.ts`).
  */
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';

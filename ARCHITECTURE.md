@@ -139,8 +139,49 @@ profile creation) and the pick stays device-local.
 ### Still deferred
 
 Inventory reading and item use arrived in M4 (see "Milestone 6"). Equipment
-rendering (31634) is still read-only. Also deferred: relay settings, account
+rendering (31634) is still read-only. Relay discovery for ecosystem data is
+the read router below (no relay settings UI). Also deferred: account
 switcher, social interaction projection on the home, the companion runtime.
+
+## Relays: transport and trust (audited 2026-09-24)
+
+The home reads three kinds of relay knowledge and configures only one:
+
+| Tier | What | Where | Used for |
+| --- | --- | --- | --- |
+| Application relays | `BASE_RELAYS` (ditto, primal, nostr.band) | `src/config/relays.ts` | every read; the ONLY publish targets |
+| Ecosystem read hints | where Island and the Farm write inventories, spends, folds, equipment | `src/features/inventory/relay-hints.ts` | kinds 31633 / 1416 / 1417 / 31634 |
+| Issuer relays | where each trusted issuer's definitions live | `TrustedIssuer.relays` (`issuers.ts`) | kind 31632 requests naming that issuer |
+
+The pool (`src/lib/home-pool.ts`) has two routers that share nothing.
+Reads go through `routeReadFilters` (`src/lib/relay-routing.ts`, pure): every
+filter to every application relay, and a filter a hint covers (same kind,
+and the hint's author when it names one) to the hint's relays as well, only
+that filter. Writes go to the application relays. A hint can therefore never
+become a publish target, and the kit's own reads (31124, 11125) stay on the
+application relays. URLs are normalized (`wss:` only, no credentials, host
+lower-cased, no trailing slash) and deduplicated before they reach a socket;
+a malformed entry vanishes at policy build time; `MAX_RELAYS_PER_READ` caps a
+read at eight relays with application relays never dropped. There is no
+relay UI, no NIP-65, no crawler, no event-carried relay hints followed.
+
+Failure is nostrify's: `NPool.query` waits for the first relay to finish,
+gives the rest one second, then returns what arrived. An offline, hanging or
+slow hint costs its own answer and nothing else (`relays.test.tsx`).
+
+Trust does not move. A relay being asked says nothing about its answers:
+`NRelay1` verifies every signature; the issuer table, the address ↔ issuer
+check, the owner check on 31633/31634, the fold chain, the spend ledger and
+the artwork allow-list all run after transport, the same for a hinted relay
+as for an application relay. `relays.test.tsx` serves a look-alike
+definition from the issuer relay and pins that it is never believed.
+
+Why it was needed: `TrustedIssuer.relays` existed since M4 but nothing read
+it, so ecosystem discovery rested on relay.ditto.pub happening to be an
+application relay. Live on the audit day: ditto served every ecosystem kind;
+primal served none of them (a caching relay that does not index these
+kinds, although the Farm names it as its hint); dreamith served the official
+definitions and one Island inventory; nostr.band refused every connection.
 
 ## Ecosystem canon (audited 2026-09-23)
 
@@ -497,7 +538,7 @@ Key files:
 | Concern | File |
 | --- | --- |
 | Providers | `src/App.tsx` (home theme → logins → relay pool → query cache → router) |
-| Relay pool | `src/components/NostrProvider.tsx`, relays in `src/config/relays.ts` |
+| Relay pool | `src/components/NostrProvider.tsx` → `src/lib/home-pool.ts`; application relays in `src/config/relays.ts`, read routing in `src/lib/relay-routing.ts`, ecosystem hints in `src/features/inventory/relay-hints.ts` |
 | Session | `src/hooks/useCurrentUser.ts`, `src/hooks/useLoginActions.ts`, `src/components/auth/*` |
 | Profile (11125) | `src/hooks/useBlobbonautProfile.ts` (thin cache over the kit's fetch) |
 | Collection + current Blobbi | `src/hooks/useHomeBlobbi.ts`, `src/lib/select-current-blobbi.ts` |

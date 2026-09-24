@@ -10,6 +10,11 @@
  *
  * Nothing here publishes. The result is grouped by source (the game that
  * owns the inventory) and every item says whether THIS Blobbi could use it.
+ *
+ * Transport is the pool's: both reads reach the application relays and, by
+ * kind and issuer, the ecosystem's read hints (`relay-hints.ts`), so an
+ * inventory the Island or the Farm wrote elsewhere is still found. Being
+ * served by a hinted relay trusts nothing; the checks below are unchanged.
  */
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';

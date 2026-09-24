@@ -32,3 +32,4 @@ export { useWornEquipment, pickNewestPlacement, EQUIPMENT_QUERY_KEY } from './us
 export type { WornEquipmentView } from './useWornEquipment';
 export { InventorySheet } from './InventorySheet';
 export { ItemGlyph } from './ItemGlyph';
+export { ECOSYSTEM_READ_HINTS, ISLAND_RELAYS, FARM_INVENTORY_RELAYS, SOURCE_RELAYS } from './relay-hints';

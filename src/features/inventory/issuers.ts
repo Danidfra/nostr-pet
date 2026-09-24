@@ -20,7 +20,11 @@ export interface TrustedIssuer {
   /** Short label for the UI ("Blobbi Island", "Nostr Farm"). */
   label: string;
   role: IssuerRole;
-  /** Relays this issuer's definitions are known to live on (read hints). */
+  /**
+   * Relays this issuer's definitions are known to live on. Read hints only:
+   * the pool's read router (`relay-hints.ts`) adds them to a kind 31632
+   * request that names this issuer; nothing is ever published there.
+   */
   relays: readonly string[];
 }
 
