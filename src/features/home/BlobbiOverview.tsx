@@ -169,13 +169,17 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   const scene = useBlobbiPresentation({ blobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition, isEditing: editor.editing });
 
-  const statItems: StatItem[] = projected
-    ? getVisibleStats(blobbi.stage).map((stat) => ({
-        stat,
-        value: projected.stats[stat],
-        status: getStatStatus(blobbi.stage, stat, projected.stats[stat]),
-      }))
-    : [];
+  const statItems = useMemo<StatItem[]>(
+    () =>
+      projected
+        ? getVisibleStats(blobbi.stage).map((stat) => ({
+            stat,
+            value: projected.stats[stat],
+            status: getStatStatus(blobbi.stage, stat, projected.stats[stat]),
+          }))
+        : [],
+    [projected, blobbi.stage],
+  );
   const actions = useMemo(() => availableCareActions(blobbi), [blobbi]);
   const mood = describeMood(blobbi, projected?.stats);
 
@@ -274,15 +278,16 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     play('celebrate');
   }, [reveal, celebrate, say, play]);
 
+  const ceremonyStart = ceremony.start;
   const startCeremony = useCallback(
     (kind: CeremonyKind) => {
       if (blobbi.state !== 'active') return;
       if (kind === 'hatch' && lifecycle.view.next !== 'hatch') return;
       if (kind === 'evolve' && lifecycle.view.next !== 'evolve') return;
       setBlobbiSheetOpen(false);
-      ceremony.start(kind);
+      ceremonyStart(kind);
     },
-    [blobbi.state, lifecycle.view.next, ceremony],
+    [blobbi.state, lifecycle.view.next, ceremonyStart],
   );
   const devForce = DEV_LIFECYCLE_TOOLS
     ? (kind: CeremonyKind) => {
@@ -475,6 +480,19 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const eggCrack = ceremony.presentation.eggCrack ?? lifecycle.view.eggCrack;
   const editing = editor.editing;
   const interactive = !sleeping && canWalk && !inCeremony && !editing;
+  const editorSelected = editor.selected;
+  const editorSelect = editor.select;
+  const dragConsumedTap = drag.consumedTap;
+  const dragPointerDown = drag.onPointerDown;
+  const dragging = drag.dragging;
+  const onSelectFurniture = useCallback(
+    (_: Placement, index: number) => {
+      if (!dragConsumedTap()) editorSelect(editorSelected === index ? null : index);
+    },
+    [dragConsumedTap, editorSelect, editorSelected],
+  );
+  const onFurniturePointerDown = useCallback((_: Placement, index: number, event: React.PointerEvent<HTMLElement>) => dragPointerDown(index, event), [dragPointerDown]);
+  const furnitureState = useCallback((_: Placement, index: number) => (index === editorSelected ? 'selected' : dragging === index ? 'dragging' : undefined), [editorSelected, dragging]);
   const usableItemCount = inventory.items.filter((i) => i.usability.ok && !i.unverified).length;
 
   // The hotbar: this room's usable consumables, from the same read as the
@@ -544,6 +562,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     },
     [blobbi.d, blobbi.state, perform, canWalk, restAt, careAt, layout.placements, room.id, pubkey, toys.toys, held, give, playWith],
   );
+  const openItems = useCallback(() => setItemsOpen(true), []);
+  const openBlobbiSheet = useCallback(() => setBlobbiSheetOpen(true), []);
+  const railCanMove = rooms.canMove && !inCeremony && offer === null;
+  const railRooms = useMemo(() => ({ ...rooms, go: enterRoom, canMove: railCanMove }), [rooms, enterRoom, railCanMove]);
   const wornHeld = held ? worn.wornAddresses.has(held.item.address) : false;
   const hotbarHint = held
     ? !held.usability.ok
@@ -566,6 +588,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             : blobbi.stage === 'egg'
               ? 'An egg can only be kept clean.'
               : 'Items you earn on the Island or grow on the Farm show up here.';
+  const wornAddresses = worn.wornAddresses;
+  const hotbarProps = useMemo(
+    () => ({ items: hotbarItems, wornAddresses, selectedKey: heldKey, onSelect: pickItem, onOpenItems: openItems, itemCount: usableItemCount, hint: hotbarHint }),
+    [hotbarItems, wornAddresses, heldKey, pickItem, openItems, usableItemCount, hotbarHint],
+  );
   const offerObject = offer ? (offer.spot ? itemObjectAt('offer', offer.entry.item.name, offer.spot.position, offer.spot.approach) : offeredItemObject(offer.entry.item.name)) : null;
   const accessories = blobbi.stage === 'egg' ? undefined : worn.accessoriesFor(scene.presentation.facing);
   const actorEffects = useMemo(() => {
@@ -573,8 +600,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     return ceremonyEffects.length > 0 ? [...ceremonyEffects, ...worn.effects] : worn.effects;
   }, [ceremony.presentation.effects, worn.effects]);
 
-  const lifecycleReady =
-    lifecycle.view.next === 'hatch' ? { kind: 'hatch' as const, label: 'Hatch!' } : lifecycle.view.next === 'evolve' ? { kind: 'evolve' as const, label: 'Evolve!' } : null;
+  const lifecycleNext = lifecycle.view.next;
+  const lifecycleReady = useMemo(() => (lifecycleNext === 'hatch' ? { kind: 'hatch' as const, label: 'Hatch!' } : lifecycleNext === 'evolve' ? { kind: 'evolve' as const, label: 'Evolve!' } : null), [lifecycleNext]);
 
   const ceremonyView = { phase: ceremony.phase, kind: ceremony.kind, error: ceremony.error, dismiss: ceremony.dismiss };
 
@@ -616,12 +643,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                 interactive={interactive}
                 onUse={useFurniture}
                 editing={editing}
-                onSelect={(_, index) => {
-                  if (!drag.consumedTap()) editor.select(editor.selected === index ? null : index);
-                }}
-                onPointerDown={(_, index, event) => drag.onPointerDown(index, event)}
-                onKeyDown={editor.onKeyDown}
-                stateOf={(_, index) => (editing ? (index === editor.selected ? 'selected' : drag.dragging === index ? 'dragging' : undefined) : undefined)}
+                onSelect={editing ? onSelectFurniture : undefined}
+                onPointerDown={editing ? onFurniturePointerDown : undefined}
+                onKeyDown={editing ? editor.onKeyDown : undefined}
+                stateOf={editing ? furnitureState : undefined}
               />
               {room.fixtures.includes('door') && (
                 <SceneObjectView
@@ -726,7 +751,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           <RoomBackdrop room={room} />
         </HomeScene>
       }
-      aside={wide ? <HomeRail blobbi={blobbi} mood={`${blobbi.name} ${mood}`} statItems={statItems} profile={profile} rooms={{ ...rooms, go: enterRoom, canMove: rooms.canMove && !inCeremony && offer === null }} onOpenBlobbi={() => setBlobbiSheetOpen(true)} /> : undefined}
+      aside={wide ? <HomeRail blobbi={blobbi} mood={`${blobbi.name} ${mood}`} statItems={statItems} profile={profile} rooms={railRooms} onOpenBlobbi={openBlobbiSheet} /> : undefined}
       bottom={
         <ActionBar
           room={room.id}
@@ -738,15 +763,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           lifecycleReady={lifecycleReady}
           onLifecycle={startCeremony}
           disabled={inCeremony || offer !== null}
-          hotbar={{
-            items: hotbarItems,
-            wornAddresses: worn.wornAddresses,
-            selectedKey: heldKey,
-            onSelect: pickItem,
-            onOpenItems: () => setItemsOpen(true),
-            itemCount: usableItemCount,
-            hint: hotbarHint,
-          }}
+          hotbar={hotbarProps}
         />
       }
       overlays={

@@ -63,6 +63,9 @@ describe('useGazePolicy', () => {
     expect(result.current.eyeOffset).toBeUndefined();
     // Eyes at (150, 140); range = max(120, 400*0.3) = 120.
     act(() => result.current.onPointerMove(ev('mouse', 210, 140)));
+    act(() => {
+      vi.advanceTimersByTime(20); // the move is applied on the next frame
+    });
     expect(result.current.eyeOffset).toEqual({ x: 0.5, y: 0 });
     act(() => result.current.onPointerLeave());
     expect(result.current.eyeOffset).toBeUndefined();
@@ -89,6 +92,9 @@ describe('useGazePolicy', () => {
     });
     expect(result.current.eyeOffset).toBeUndefined();
     act(() => result.current.onPointerMove(ev('mouse', 210, 140)));
+    act(() => {
+      vi.advanceTimersByTime(20); // the move is applied on the next frame
+    });
     act(() => result.current.glance({ x: -1, y: 0 }, 500));
     expect(result.current.eyeOffset).toEqual({ x: 0.5, y: 0 });
   });
@@ -96,6 +102,9 @@ describe('useGazePolicy', () => {
   it('disabled (sleeping) renders no gaze at all', () => {
     const { result, rerender } = harness(true);
     act(() => result.current.onPointerMove(ev('mouse', 210, 140)));
+    act(() => {
+      vi.advanceTimersByTime(20); // the move is applied on the next frame
+    });
     expect(result.current.eyeOffset).toBeDefined();
     rerender({ enabled: false });
     expect(result.current.eyeOffset).toBeUndefined();

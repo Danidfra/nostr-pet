@@ -829,8 +829,8 @@
   }
   .decor-tiles-band {
     position: absolute;
-    left: 0;
-    right: 0;
+    left: -200%;
+    right: -200%;
     top: 48%;
     bottom: 28%;
     background:
@@ -926,6 +926,32 @@
     flex-direction: column;
     gap: 0.35rem;
     padding: 0.2rem 0.6rem 0;
+  }
+  .editor-bar__top {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+  }
+  .editor-pad {
+    display: inline-flex;
+    gap: 0.2rem;
+  }
+  .editor-pad__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    border: 1px solid hsl(0 0% 100% / 0.35);
+    background: hsl(var(--card) / 0.9);
+    color: hsl(var(--card-foreground));
+  }
+  .editor-pad__btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
   }
   .editor-bar__hint {
     text-align: center;

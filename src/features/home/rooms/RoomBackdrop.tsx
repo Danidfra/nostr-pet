@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { memo, type CSSProperties } from 'react';
 import type { RoomDefinition } from './rooms';
 import { surfaceBackground } from './surfaces';
 
@@ -9,7 +9,7 @@ import { surfaceBackground } from './surfaces';
  * horizon is `--horizon`, where the canvas's floor line lands; a phase tint
  * on top keeps every room on the Island clock. Nothing here is interactive.
  */
-export function RoomBackdrop({ room }: { room: RoomDefinition }) {
+function RoomBackdropImpl({ room }: { room: RoomDefinition }) {
   return (
     <div className="scene-layer scene-backdrop" aria-hidden data-testid="scene-backdrop" data-room={room.id}>
       <div className="backdrop-wall" style={{ background: surfaceBackground(room.surfaces.wall) }} />
@@ -68,3 +68,6 @@ function Wardrobe() {
     </svg>
   );
 }
+
+/** Memoized: only a room change repaints the backdrop. */
+export const RoomBackdrop = memo(RoomBackdropImpl);

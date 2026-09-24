@@ -71,10 +71,12 @@ export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeSc
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dy) > SWIPE_MAX_DRIFT_PX || performance.now() - start.t > SWIPE_MAX_MS) return;
+    // The browser's trailing click comes straight after pointerup; a
+    // deliberate tap comes much later. The guard lives just long enough.
     swallowClickRef.current = true;
     setTimeout(() => {
       swallowClickRef.current = false;
-    }, 400);
+    }, SWIPE_CLICK_GUARD_MS);
     onSwipe(dx < 0 ? 'left' : 'right');
   };
   const onClickCapture = (event: MouseEvent<HTMLElement>) => {
@@ -141,3 +143,4 @@ export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeSc
 export const SWIPE_MIN_PX = 56;
 export const SWIPE_MAX_DRIFT_PX = 48;
 export const SWIPE_MAX_MS = 700;
+export const SWIPE_CLICK_GUARD_MS = 120;

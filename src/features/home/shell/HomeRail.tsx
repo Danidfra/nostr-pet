@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { MapPin } from 'lucide-react';
 import type { BlobbiCompanion, BlobbonautProfile } from '@blobbi-kit/core';
 import { BLOBBI_ISLAND_URL } from '@/config/ecosystem';
@@ -20,7 +21,7 @@ interface HomeRailProps {
  * the way to the Island. Nothing here is a second source of truth: the
  * same items the sheet shows, the same room state the scene uses.
  */
-export function HomeRail({ blobbi, mood, statItems, profile, rooms, onOpenBlobbi }: HomeRailProps) {
+function HomeRailImpl({ blobbi, mood, statItems, profile, rooms, onOpenBlobbi }: HomeRailProps) {
   return (
     <div className="rail" data-testid="home-rail">
       <section className="rail-card" aria-label="Condition">
@@ -60,3 +61,5 @@ export function HomeRail({ blobbi, mood, statItems, profile, rooms, onOpenBlobbi
     </div>
   );
 }
+
+export const HomeRail = memo(HomeRailImpl);

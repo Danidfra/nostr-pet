@@ -143,6 +143,67 @@ rendering (31634) is still read-only. Relay discovery for ecosystem data is
 the read router below (no relay settings UI). Also deferred: account
 switcher, social interaction projection on the home, the companion runtime.
 
+## Milestone 11: rooms after the Ditto audit (M9)
+
+A room system that can carry an editor, built after a read-only audit of
+Ditto's current implementation (`src/blobbi/rooms/**` at 89aaa5d8).
+Reused conceptually: normalized coordinates over a 4:5 canvas with a
+declared floor line, sizes as fractions of canvas width, layer bands
+back/floor/front, Ditto's placement shape `{ id, x, y, layer, scale?, flip? }`
+with namespaced ids, its surface schema (style, hex palette, variant,
+angle, generated CSS only), its furniture catalog and 39 SVGs (authored
+for this project), its room set and circular order. Corrected: Ditto's
+canvas is width-driven and squashes on desktop, has no floor model, and
+gives the Blobbi no coordinates.
+
+**The space** (`src/features/home/space/room-space.ts`): a `RoomPoint` is
+a fraction of a fixed 4:5 canvas; `FLOOR_LINE` 0.72; a `FloorPoint` (the
+walking space) is depth within the floor band; `fitCanvas` is the one
+transform to a screen (contain, bottom-centred; extra viewport space is
+bleed the backdrop paints with the horizon fixed). `clampPlacement` keeps
+an object legal with its extent in room units. CSS mirrors the constants
+in container units (`--room-aspect`, `--floor-line`; a test pins them).
+
+**The registry** (`src/features/home/rooms/`): five rooms as data (care
+room, kitchen, living room, bedroom, closet; wrapping order), each with
+surfaces, decor, fixtures, default furniture, an entry, activities (the
+hotbar filter) and copy. Furniture definitions carry sizes, layers, rooms,
+shadows and, for a bed or the tub, a `use` with an approach offset; the
+sleep spot is derived from the bed's placement. Layouts go through a
+`LayoutStore` (local storage today, Ditto's v1 shape; Ditto keeps its own
+in the kind 11125 content, which is its private extension schema, so it
+is neither read nor written here). Every placement is re-validated on
+read: unknown id, wrong room → dropped; wrong layer → default; scale
+bounded; anchor clamped with extent.
+
+**Decorating**: a paintbrush by the room pill; the dock becomes a toolbar
+(add from a per-room catalog, layer, scale, flip, remove, reset, cancel
+with confirmation, apply-if-dirty); select by tap; move by one drag engine
+(pointer capture, ref-based, one paint per frame, slop, Escape), by arrow
+keys, or by a nudge pad. The Blobbi stands and watches (`editing` mode).
+
+**Inventory in the world**: rooms filter the hotbar by activity; the
+closet lists what can be worn and marks what is worn (kind 31634), never
+a give. Picking an item is acknowledged before any write; a use stays
+visible `MIN_USE_MS` and settles on the authoritative result; a refused
+spend changes nothing. A held toy tapped onto the floor is set down (a
+local placement, no spend) and drawn only while the verified inventory
+holds one; playing with it is the item use path from where it lies. The
+verbs route to the room: rest to the bed, clean to the tub, play to a toy
+lying here, feed to the food in hand, otherwise the kit's plain care.
+Four quick pokes earn an upset face; a room that answers a need gets one
+line on entry.
+
+**Protocol boundary**: rooms, positions, gaze, decorating, toy placement,
+the item in hand and reactions never write or read Nostr
+(`protocol-boundary.test.tsx`); care writes 31124 + 1124; an item use
+writes 1416 + 31124 + 1124. No new event kind.
+
+**Performance**: the furniture layer, backdrop, dock and rail are
+memoized and the presentation controller's callbacks are stable across
+walk frames, so a walk re-renders the actor only (`render-cost.test.tsx`);
+gaze updates once per frame, not once per pointer move.
+
 ## Milestone 10: the game shell (M8)
 
 A gameplay layer over systems that already work. Nothing about the
@@ -591,7 +652,8 @@ Key files:
 
 | Concern | File |
 | --- | --- |
-| Rooms | `src/features/home/rooms/` (definitions, `useRoom`, backdrops, chevrons and dots) |
+| Room space | `src/features/home/space/room-space.ts` (canvas, floor line, transforms, clamping) |
+| Rooms | `src/features/home/rooms/` (registry, surfaces, furniture catalog, layouts and store, editor, drag, toys) |
 | Dock and hotbar | `src/features/home/shell/ActionBar.tsx`, `ItemHotbar.tsx`, `HomeRail.tsx`, `CareDock.tsx` |
 | Providers | `src/App.tsx` (home theme → logins → relay pool → query cache → router) |
 | Relay pool | `src/components/NostrProvider.tsx` → `src/lib/home-pool.ts`; application relays in `src/config/relays.ts`, read routing in `src/lib/relay-routing.ts`, ecosystem hints in `src/features/inventory/relay-hints.ts` |

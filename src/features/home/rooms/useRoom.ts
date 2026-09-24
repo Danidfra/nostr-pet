@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ROOM_ORDER, neighbourRoom, readStoredRoom, resolveRoom, roomById, roomStorageKey, writeStoredRoom, type RoomDefinition, type RoomId } from './rooms';
 
 export interface RoomState {
@@ -35,12 +35,16 @@ export function useRoom({ pubkey, blobbiD, sleeping, locked = false }: { pubkey:
   );
 
   const current = resolveRoom(chosen, sleeping);
-  return {
-    room: roomById(current),
-    chosen,
-    canMove: !sleeping && !locked,
-    order: ROOM_ORDER,
-    go,
-    neighbour: (direction) => neighbourRoom(current, direction),
-  };
+  const canMove = !sleeping && !locked;
+  return useMemo<RoomState>(
+    () => ({
+      room: roomById(current),
+      chosen,
+      canMove,
+      order: ROOM_ORDER,
+      go,
+      neighbour: (direction) => neighbourRoom(current, direction),
+    }),
+    [current, chosen, canMove, go],
+  );
 }

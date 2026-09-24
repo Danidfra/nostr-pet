@@ -87,6 +87,11 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
   const isUserWalking = locomotion.motion === 'walking' && locomotion.source === 'user';
   const mode = resolveBehaviorMode({ isSleeping, isUserWalking, isInCeremony, isEgg: blobbi.stage === 'egg', isEditing });
   const policy = policyFor(mode);
+  // The callbacks below are handed to memoized parts of the home and to
+  // effects; they read the current policy through a ref so their identity
+  // does not change with every step of a walk.
+  const policyRef = useRef(policy);
+  policyRef.current = policy;
 
   const actorKey = `${locomotion.position.x.toFixed(3)}:${locomotion.position.y.toFixed(3)}:${locomotion.facing}`;
   const gaze = useGazePolicy({ actorRef, sceneRef, hoverCapable, actorKey, enabled: policy.gaze });
@@ -140,66 +145,69 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     [mode, locomotion.position, locomotion.facing, locomotion.motion, gaze.eyeOffset, travelGaze, reactions.reaction, blobbi, stats],
   );
 
+  const markActivity = idle.markActivity;
+  const locomotionWalkTo = locomotion.walkTo;
   const walkTo = useCallback(
     (destination: FloorPoint): Promise<WalkOutcome> => {
-      idle.markActivity();
-      if (!policy.walks.includes('user')) return Promise.resolve('refused');
-      return locomotion.walkTo(destination, { source: 'user' });
+      markActivity();
+      if (!policyRef.current.walks.includes('user')) return Promise.resolve('refused');
+      return locomotionWalkTo(destination, { source: 'user' });
     },
-    [idle, locomotion, policy],
+    [markActivity, locomotionWalkTo],
   );
 
   const onFloorTap = useCallback(
     (fraction: { x: number; y: number }) => {
-      if (!policy.floorTaps) return;
+      if (!policyRef.current.floorTaps) return;
       void walkTo(floorPointFromScene(fraction));
     },
-    [policy, walkTo],
+    [walkTo],
   );
 
+  const react = reactions.react;
+  const glance = gaze.glance;
   const pokesRef = useRef<number[]>([]);
   const poke = useCallback((): 'happy' | 'upset' => {
-    idle.markActivity();
-    if (!policy.reactions) return 'happy';
+    markActivity();
+    if (!policyRef.current.reactions) return 'happy';
     const now = Date.now();
     pokesRef.current = [...pokesRef.current.filter((t) => now - t < POKE_PATIENCE.windowMs), now];
     if (pokesRef.current.length >= POKE_PATIENCE.count) {
       pokesRef.current = [];
-      reactions.react('upset', ANNOYED_DURATION_MS);
+      react('upset', ANNOYED_DURATION_MS);
       return 'upset';
     }
-    reactions.react('happy', POKE_DURATION_MS);
+    react('happy', POKE_DURATION_MS);
     return 'happy';
-  }, [idle, policy, reactions]);
+  }, [markActivity, react]);
 
   const lookAt = useCallback(
     (offset: EyeOffset, durationMs = 1_500) => {
-      if (!policy.gaze) return;
-      gaze.glance(offset, durationMs);
+      if (!policyRef.current.gaze) return;
+      glance(offset, durationMs);
     },
-    [policy, gaze],
+    [glance],
   );
 
   const reactToCare = useCallback(
     (result: CareReaction) => {
-      idle.markActivity();
-      reactions.react(reactionForCare(result.action, result.nextState));
+      markActivity();
+      react(reactionForCare(result.action, result.nextState));
     },
-    [idle, reactions],
+    [markActivity, react],
   );
 
   const celebrate = useCallback(
     (durationMs = 2_400) => {
-      idle.markActivity();
-      reactions.react('excited', durationMs);
+      markActivity();
+      react('excited', durationMs);
     },
-    [idle, reactions],
+    [markActivity, react],
   );
 
   // Stable on purpose: effects that place the Blobbi (a room change, a
   // sleeper following its bed) depend on it, and a callback that changed
   // with every step would re-run them on every step.
-  const markActivity = idle.markActivity;
   const locomotionPlaceAt = locomotion.placeAt;
   const placeAt = useCallback(
     (position: FloorPoint) => {
@@ -209,16 +217,19 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     [markActivity, locomotionPlaceAt],
   );
 
+  const gazeMove = gaze.onPointerMove;
+  const gazeLeave = gaze.onPointerLeave;
+  const gazeDown = gaze.onPointerDown;
   const scenePointerHandlers = useMemo<ScenePointerHandlers>(
     () => ({
-      onPointerMove: gaze.onPointerMove,
-      onPointerLeave: gaze.onPointerLeave,
+      onPointerMove: gazeMove,
+      onPointerLeave: gazeLeave,
       onPointerDown: (event) => {
-        idle.markActivity();
-        gaze.onPointerDown(event);
+        markActivity();
+        gazeDown(event);
       },
     }),
-    [gaze, idle],
+    [gazeMove, gazeLeave, gazeDown, markActivity],
   );
 
   return { presentation, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, canWalk: policy.walks.includes('user'), placeAt, scenePointerHandlers, isUserWalking, reducedMotion };

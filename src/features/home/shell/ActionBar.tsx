@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Sparkles } from 'lucide-react';
 import { CareDock } from '../CareDock';
 import { ItemHotbar, type HotbarProps } from './ItemHotbar';
@@ -29,7 +30,7 @@ interface ActionBarProps {
  * which are the item-free fallback and the way to bed. The dock sits in
  * the flow, at the front edge of the floor, so it never covers the Blobbi.
  */
-export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, onLifecycle, disabled = false, hotbar, room, floorBackground, override }: ActionBarProps) {
+function ActionBarImpl({ actions, pendingAction, onAction, lifecycleReady, onLifecycle, disabled = false, hotbar, room, floorBackground, override }: ActionBarProps) {
   return (
     <nav className="hud-bottom" aria-label="Actions" data-testid="action-bar" data-room={room} style={floorBackground ? ({ '--dock-floor': floorBackground } as React.CSSProperties) : undefined}>
       {lifecycleReady && onLifecycle && (
@@ -47,3 +48,6 @@ export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, on
     </nav>
   );
 }
+
+/** Memoized: the dock must not re-render on every step the Blobbi takes. */
+export const ActionBar = memo(ActionBarImpl);

@@ -1,4 +1,5 @@
-import { ArrowDownUp, Check, FlipHorizontal2, Minus, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowDownUp, ArrowLeft, ArrowRight, ArrowUp, Check, FlipHorizontal2, Minus, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { NUDGE_STEP_LARGE } from './layout-edit';
 import { furnitureById } from './furniture-registry';
 import { MAX_FURNITURE_PER_ROOM } from './layout-schema';
 import type { RoomEditor } from './useRoomEditor';
@@ -32,9 +33,27 @@ export function RoomEditorBar({ editor, onOpenCatalog, roomLabel }: { editor: Ro
 
   return (
     <div className="editor-bar" data-testid="editor-bar" role="group" aria-label={`Decorating the ${roomLabel.toLowerCase()}`}>
-      <p className="editor-bar__hint" aria-live="polite" data-testid="editor-hint">
-        {selected && def ? `${def.label}: drag it, or use the arrow keys.` : `Tap a piece to move it, or add one. ${editor.draft.length}/${MAX_FURNITURE_PER_ROOM}`}
-      </p>
+      <div className="editor-bar__top">
+        <p className="editor-bar__hint" aria-live="polite" data-testid="editor-hint">
+          {selected && def ? `${def.label}: drag it, or use the arrows.` : `Tap a piece to move it, or add one. ${editor.draft.length}/${MAX_FURNITURE_PER_ROOM}`}
+        </p>
+        {selected && def && (
+          <span className="editor-pad" role="group" aria-label={`Move the ${def.label.toLowerCase()}`}>
+            <button type="button" className="editor-pad__btn" onClick={() => editor.nudge(-NUDGE_STEP_LARGE, 0)} aria-label="Move left" data-testid="editor-nudge-left">
+              <ArrowLeft className="h-4 w-4" aria-hidden />
+            </button>
+            <button type="button" className="editor-pad__btn" onClick={() => editor.nudge(0, -NUDGE_STEP_LARGE)} aria-label="Move up" data-testid="editor-nudge-up">
+              <ArrowUp className="h-4 w-4" aria-hidden />
+            </button>
+            <button type="button" className="editor-pad__btn" onClick={() => editor.nudge(0, NUDGE_STEP_LARGE)} aria-label="Move down" data-testid="editor-nudge-down">
+              <ArrowDown className="h-4 w-4" aria-hidden />
+            </button>
+            <button type="button" className="editor-pad__btn" onClick={() => editor.nudge(NUDGE_STEP_LARGE, 0)} aria-label="Move right" data-testid="editor-nudge-right">
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </button>
+          </span>
+        )}
+      </div>
       <div className="editor-bar__row">
         <button type="button" className="editor-btn" onClick={onOpenCatalog} disabled={full} aria-label={full ? 'Room is full' : 'Add furniture'} data-testid="editor-add">
           <Plus className="h-4 w-4" aria-hidden /> Add

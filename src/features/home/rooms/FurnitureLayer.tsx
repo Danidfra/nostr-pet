@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { memo, type CSSProperties, type ReactNode } from 'react';
 import { depthScale } from '../scene/geometry';
 import { floorFromRoom, roomToCss } from '../space/room-space';
 import { furnitureById, type FurnitureDefinition } from './furniture-registry';
@@ -29,7 +29,7 @@ export interface FurnitureLayerProps {
  * Blobbi walks behind a bed and in front of a rug. What tapping a piece
  * does comes from its definition (`use`), never from a room id.
  */
-export function FurnitureLayer({ placements, interactive = false, onUse, stateOf, decorate, onPointerDown, onSelect, onKeyDown, editing = false }: FurnitureLayerProps) {
+function FurnitureLayerImpl({ placements, interactive = false, onUse, stateOf, decorate, onPointerDown, onSelect, onKeyDown, editing = false }: FurnitureLayerProps) {
   return (
     <>
       {placements.map((placement, index) => {
@@ -78,3 +78,6 @@ export function FurnitureLayer({ placements, interactive = false, onUse, stateOf
     </>
   );
 }
+
+/** Memoized: the room re-renders every animation frame while the Blobbi walks; the furniture does not change with it. */
+export const FurnitureLayer = memo(FurnitureLayerImpl);

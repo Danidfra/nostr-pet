@@ -78,15 +78,33 @@ export function useGazePolicy({ actorRef, sceneRef, hoverCapable, actorKey, enab
     setEyeOffset((prev) => (prev && prev.x === next.x && prev.y === next.y ? prev : next));
   }, [enabled, target, actorRef, sceneRef, actorKey]);
 
+  // A mouse moves many times per frame; the eyes only need the latest
+  // position once per frame. The point is kept in a ref and the state
+  // update is scheduled with requestAnimationFrame, so the home re-renders
+  // at most once per frame for gaze, not once per pixel.
+  const pendingPointRef = useRef<{ x: number; y: number } | null>(null);
+  const pointFrameRef = useRef<number | null>(null);
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       if (!enabled) return;
       if (event.pointerType !== 'mouse' && !hoverCapable) return;
-      const point = { x: event.clientX, y: event.clientY };
-      clearExpiry();
-      setTarget((t) => (t?.kind === 'pointer' && t.point.x === point.x && t.point.y === point.y ? t : { kind: 'pointer', point }));
+      pendingPointRef.current = { x: event.clientX, y: event.clientY };
+      if (pointFrameRef.current !== null) return;
+      pointFrameRef.current = requestAnimationFrame(() => {
+        pointFrameRef.current = null;
+        const point = pendingPointRef.current;
+        if (!point) return;
+        clearExpiry();
+        setTarget((t) => (t?.kind === 'pointer' && t.point.x === point.x && t.point.y === point.y ? t : { kind: 'pointer', point }));
+      });
     },
     [enabled, hoverCapable],
+  );
+  useEffect(
+    () => () => {
+      if (pointFrameRef.current !== null) cancelAnimationFrame(pointFrameRef.current);
+    },
+    [],
   );
 
   const onPointerLeave = useCallback(() => {
