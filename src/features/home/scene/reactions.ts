@@ -7,6 +7,13 @@
 import { getStatsNeedingAttention, type BlobbiCompanion, type BlobbiStats } from '@blobbi-kit/core';
 import type { BlobbiEmotion } from '@blobbi-kit/renderer';
 import type { CareAction } from '@/features/care';
+import type { ItemAction } from '@/features/inventory/item-model';
+
+/** A care result or an item use: what happened, and the state after it. */
+export interface CareReaction {
+  action: CareAction | ItemAction;
+  nextState: BlobbiCompanion['state'];
+}
 
 /** How long a care reaction stays on the face before the baseline returns. */
 export const REACTION_DURATION_MS = 2_400;
@@ -19,7 +26,7 @@ export const POKE_DURATION_MS = 1_200;
  * reaction (sleeping wins over every expression anyway); waking gets a
  * small happy moment.
  */
-export function reactionForCare(action: CareAction, nextState: BlobbiCompanion['state']): BlobbiEmotion | null {
+export function reactionForCare(action: CareAction | ItemAction, nextState: BlobbiCompanion['state']): BlobbiEmotion | null {
   switch (action) {
     case 'feed':
       return 'happy';
@@ -27,6 +34,10 @@ export function reactionForCare(action: CareAction, nextState: BlobbiCompanion['
       return 'excited';
     case 'clean':
       return 'happy';
+    case 'medicine':
+      return 'happy';
+    case 'boost':
+      return 'excited';
     case 'rest':
       return nextState === 'sleeping' ? null : 'happy';
     default:

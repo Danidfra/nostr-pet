@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import type { PublishAdapter, PublishEventTemplate } from '@blobbi-kit/react';
+import type { NostrEvent } from '@blobbi-kit/core';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 /** NIP-89 client name stamped on every event this app publishes. */
@@ -30,6 +31,17 @@ export function finalizeTemplate(template: PublishEventTemplate, now: number = M
   return { kind: rest.kind, content: rest.content ?? '', tags, created_at };
 }
 
+/** The publish adapter plus the two halves apart, for a write that must be recorded between signing and sending. */
+export interface HomePublisher extends PublishAdapter {
+  /** Sign only; nothing is sent. */
+  sign(template: PublishEventTemplate): Promise<NostrEvent>;
+  /** Send an already-signed event to the pool; resolves when one relay accepts it. */
+  broadcast(event: NostrEvent): Promise<void>;
+}
+
+/** How long a relay gets to answer a publish before it counts as silent. */
+export const PUBLISH_TIMEOUT_MS = 8_000;
+
 /**
  * The thinnest `PublishAdapter` over the app's Nostr transport: sign with the
  * current signer (NIP-07 or NIP-46; the key never lives here), verify the
@@ -38,23 +50,31 @@ export function finalizeTemplate(template: PublishEventTemplate, now: number = M
  * Nostr transport and signing stay here; what an event MEANS stays in the
  * kit and in `care-plan.ts`.
  */
-export function usePublishAdapter(): PublishAdapter {
+export function usePublishAdapter(): HomePublisher {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
 
-  return useMemo<PublishAdapter>(
-    () => ({
+  return useMemo<HomePublisher>(() => {
+    const sign = async (template: PublishEventTemplate): Promise<NostrEvent> => {
+      if (!user) throw new Error('Sign in to do that.');
+      const unsigned = finalizeTemplate(template);
+      const event = await user.signer.signEvent(unsigned);
+      if (event.pubkey !== user.pubkey) {
+        throw new Error('The signer answered for a different account.');
+      }
+      return event;
+    };
+    const broadcast = async (event: NostrEvent): Promise<void> => {
+      await nostr.event(event, { signal: AbortSignal.timeout(PUBLISH_TIMEOUT_MS) });
+    };
+    return {
+      sign,
+      broadcast,
       async publish(template) {
-        if (!user) throw new Error('Sign in to do that.');
-        const unsigned = finalizeTemplate(template);
-        const event = await user.signer.signEvent(unsigned);
-        if (event.pubkey !== user.pubkey) {
-          throw new Error('The signer answered for a different account.');
-        }
-        await nostr.event(event, { signal: AbortSignal.timeout(8_000) });
+        const event = await sign(template);
+        await broadcast(event);
         return event;
       },
-    }),
-    [nostr, user],
-  );
+    };
+  }, [nostr, user]);
 }

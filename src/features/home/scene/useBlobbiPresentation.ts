@@ -1,13 +1,12 @@
 import { useCallback, useMemo, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import type { BlobbiCompanion, BlobbiStats } from '@blobbi-kit/core';
-import type { CareResult } from '@/features/care';
 import { policyFor, resolveBehaviorMode, type BehaviorMode } from './behavior-mode';
 import { floorDirection, floorPointFromScene, type FloorPoint } from './geometry';
 import { travelGlance } from './gaze';
 import type { IdleAction } from './idle';
 import { BED_SLEEP_SPOT, HOME_SPOT } from './objects';
 import { composePresentation, type BlobbiPresentation } from './presentation';
-import { POKE_DURATION_MS, baselineExpression, reactionForCare } from './reactions';
+import { POKE_DURATION_MS, baselineExpression, reactionForCare, type CareReaction } from './reactions';
 import { useHoverCapable, useReducedMotion, useSceneSettings } from './SceneSettings';
 import { useBlobbiLocomotion, type WalkOutcome } from './useBlobbiLocomotion';
 import { useGazePolicy } from './useGazePolicy';
@@ -42,8 +41,8 @@ export interface BlobbiSceneController {
   onFloorTap: (fraction: { x: number; y: number }) => void;
   /** A tap on the Blobbi itself. */
   poke: () => void;
-  /** A care result landed: react on the face. */
-  reactToCare: (result: CareResult) => void;
+  /** A care result or an item use landed: react on the face. */
+  reactToCare: (result: CareReaction) => void;
   /** A lifecycle moment landed: a bigger, longer face. */
   celebrate: (durationMs?: number) => void;
   /** Whether the user may send it walking right now (an egg or a sleeper cannot walk). */
@@ -155,7 +154,7 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
   }, [idle, policy, reactions]);
 
   const reactToCare = useCallback(
-    (result: CareResult) => {
+    (result: CareReaction) => {
       idle.markActivity();
       reactions.react(reactionForCare(result.action, result.nextState));
     },

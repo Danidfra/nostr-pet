@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { Backpack, Sparkles } from 'lucide-react';
 import { CareDock } from '../CareDock';
 import type { CareAction, CareAvailability } from '@/features/care';
 import type { CeremonyKind } from '@/features/lifecycle';
@@ -11,6 +11,10 @@ interface ActionBarProps {
   lifecycleReady?: { kind: CeremonyKind; label: string } | null;
   onLifecycle?: (kind: CeremonyKind) => void;
   disabled?: boolean;
+  /** Open the items sheet. Absent hides the button (signed out, no Blobbi). */
+  onOpenItems?: () => void;
+  /** How many usable items there are, for the little badge. */
+  itemCount?: number;
 }
 
 /**
@@ -19,7 +23,7 @@ interface ActionBarProps {
  * fallback and shortcut layer; the world itself is the preferred way to act
  * (the bed, the door, later the food and toys).
  */
-export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, onLifecycle, disabled = false }: ActionBarProps) {
+export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, onLifecycle, disabled = false, onOpenItems, itemCount = 0 }: ActionBarProps) {
   return (
     <nav className="hud-bottom" aria-label="Actions" data-testid="action-bar">
       {lifecycleReady && onLifecycle && (
@@ -28,7 +32,22 @@ export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, on
           {lifecycleReady.label}
         </button>
       )}
-      <CareDock actions={disabled ? actions.map((a) => ({ ...a, available: false, reason: 'Something is happening.' })) : actions} pendingAction={pendingAction} onAction={onAction} />
+      <div className="action-row">
+        <CareDock actions={disabled ? actions.map((a) => ({ ...a, available: false, reason: 'Something is happening.' })) : actions} pendingAction={pendingAction} onAction={onAction} />
+        {onOpenItems && (
+          <button type="button" className="items-button" onClick={onOpenItems} disabled={disabled} aria-label={itemCount > 0 ? `Items, ${itemCount} ready` : 'Items'} data-testid="action-items">
+            <span className="items-button__icon">
+              <Backpack className="h-6 w-6" aria-hidden />
+              {itemCount > 0 && (
+                <span className="items-button__badge" aria-hidden>
+                  {itemCount > 99 ? '99+' : itemCount}
+                </span>
+              )}
+            </span>
+            <span className="scene-text text-xs font-semibold">Items</span>
+          </button>
+        )}
+      </div>
     </nav>
   );
 }

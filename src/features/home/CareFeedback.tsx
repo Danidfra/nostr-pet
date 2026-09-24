@@ -1,9 +1,8 @@
 import type { BlobbiStats } from '@blobbi-kit/core';
-import type { CareResult } from '@/features/care';
-import { STAT_WORD, describeCareResult } from './care-feedback-text';
+import { STAT_WORD, describeCareResult, type FeedbackResult } from './care-feedback-text';
 
 interface CareFeedbackProps {
-  result: CareResult | undefined;
+  result: FeedbackResult | undefined;
   /** Changes with each result so the chips replay. */
   resultKey: number;
 }

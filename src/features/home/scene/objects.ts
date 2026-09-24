@@ -10,10 +10,14 @@ import type { FloorPoint } from './geometry';
  * and one more drawing, not a new component tree.
  */
 
-export type SceneObjectId = 'bed' | 'door';
+export type SceneObjectId = 'bed' | 'door' | 'offer';
+
+/** Furniture stays; an item is offered for a moment and goes away. */
+export type SceneObjectKind = 'furniture' | 'item';
 
 export interface SceneObjectDef {
   id: SceneObjectId;
+  kind: SceneObjectKind;
   /** Accessible name. */
   label: string;
   /** Where the object's feet are. */
@@ -39,10 +43,26 @@ export const DOOR_POSITION: FloorPoint = { x: 0.16, y: 0.06 };
 /** Where the Blobbi stands to go out. */
 export const DOOR_APPROACH: FloorPoint = { x: 0.2, y: 0.22 };
 
+/** Where an offered item is set down: front left of the rug, in plain view. */
+export const OFFER_SPOT: FloorPoint = { x: 0.36, y: 0.7 };
+
+/** Where the Blobbi stands to use an offered item: just to its right, facing it. */
+export const OFFER_APPROACH: FloorPoint = { x: 0.47, y: 0.66 };
+
 export const SCENE_OBJECTS: readonly SceneObjectDef[] = [
-  { id: 'door', label: 'Door to Blobbi Island', position: DOOR_POSITION, approach: DOOR_APPROACH, width: 0.16 },
-  { id: 'bed', label: 'Bed', position: BED_POSITION, approach: BED_SLEEP_SPOT, width: 0.26 },
+  { id: 'door', kind: 'furniture', label: 'Door to Blobbi Island', position: DOOR_POSITION, approach: DOOR_APPROACH, width: 0.16 },
+  { id: 'bed', kind: 'furniture', label: 'Bed', position: BED_POSITION, approach: BED_SLEEP_SPOT, width: 0.26 },
 ];
+
+/**
+ * The definition for an item set down in the room. Items are not in the
+ * static table: one exists only while it is offered, and its label is the
+ * item's own name. Same shape as furniture, so the view and the depth
+ * ordering need not know the difference.
+ */
+export function offeredItemObject(name: string): SceneObjectDef {
+  return { id: 'offer', kind: 'item', label: name, position: OFFER_SPOT, approach: OFFER_APPROACH, width: 0.11 };
+}
 
 export function sceneObject(id: SceneObjectId): SceneObjectDef {
   const def = SCENE_OBJECTS.find((o) => o.id === id);

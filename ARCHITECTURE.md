@@ -12,7 +12,7 @@ rendering truth.
         ↓
 Blobbi standalone         home UX (this repo)
 
-@nostr-games/inventory    inventory / equipment protocol  →  standalone inventory surfaces (next milestone)
+@nostr-games/inventory    inventory / equipment protocol  →  standalone inventory surfaces (read; spends only)
 ```
 
 ## Who owns what
@@ -138,11 +138,9 @@ profile creation) and the pick stays device-local.
 
 ### Still deferred
 
-Inventory (`@nostr-games/inventory`, items, food effects, equipment, foreign
-inventories) comes after the care loop. The dock and the condition panel are
-laid out so an inventory surface can be added below the dock without
-redesigning the page. Also deferred: relay settings, account switcher, social
-interaction projection on the home, the companion runtime.
+Inventory reading and item use arrived in M4 (see "Milestone 6"). Equipment
+rendering (31634) is still read-only. Also deferred: relay settings, account
+switcher, social interaction projection on the home, the companion runtime.
 
 ## Ecosystem canon (audited 2026-09-23)
 
@@ -197,6 +195,51 @@ this, not its own history.
   boost (no `pet`), `source` per app, optional `item`.
 - **Links.** Standalone → Island is a plain URL; Island has no link back;
   Island ignores URL parameters; identity travels through the signer.
+
+## Milestone 6: items, inventory and world interactions (M4)
+
+The player's items come from real Nostr state through `@nostr-games/inventory`
+0.5.0 (the ecosystem's inventory protocol; no parallel format), in
+`src/features/inventory/`:
+
+```
+issuers.ts          trust: an issuer-pubkey table (official Blobbi issuer; Nostr Farm as partner)
+sources.ts          a 31633 `d` → a label ("Blobbi Island", "Nostr Farm"); the home writes no inventory
+item-model.ts       policy over a 31632: official items read effects["game:blobbi"] + metadata.action/stages;
+                    partner raw produce is food by home policy (+25 hunger); anything else is unknown;
+                    image URLs only https on an allow-list, else the emoji, else a category glyph
+inventory-state.ts  balances = resolveGameInventoryState(snapshot, folds, spends) (+ this device's spends);
+                    an unresolved fold chain means NO balance: shown, never usable
+spend-ledger.ts     the device-local record of a use in flight (signed → established → applied)
+item-use-plan.ts    the care effect through the kit's consolidation with the item's effects;
+                    `['blobbi_op', spendId]` on the 31124; a 1124 receipt with `['e', spendId, '', 'inventory-spend']`
+useHomeInventory    read-only: 31633/1416/1417 by author, 31632 per trusted issuer; grouped by source
+useUseItem          the one write path (below)
+InventorySheet      tiles per source, one detail row: what, how many, from where, usable now?
+```
+
+**Consistency model (documented; non-atomic by nature).** The home owns no
+inventory, so it is a foreign writer everywhere: never a 31633 rewrite,
+never a 1417 fold, exactly one kind 1416 per use. Order: fresh 31124 and
+fresh balance → sign the spend once → write the ledger row → offer the
+bytes → *established* (a relay accepted, or the id is found) | *unconfirmed*
+(silent relays: stop, retry the SAME event) | refused (row dropped, safe to
+sign anew) → fresh 31124; if it already carries `blobbi_op = spendId` the
+effect landed; else republish with the marker → on failure *effect-pending*
+(stop; the next tap for this Blobbi finishes it first). Residuals: "spent,
+effect pending" is never silent (the sheet says "Finish earlier use"); a
+spend may later be voided by the owner's fold if another device took the
+last unit. Island's `useConsumeExternalItem` follows the same shape.
+
+**The world.** A care item is not a button: it is set down in the room
+(`offeredItemObject`, one more `SceneObjectDef` of kind `item`), the Blobbi
+walks to it, and only on arrival does the semantic use start. A tap
+elsewhere while walking puts it away (nothing written). An egg cannot walk,
+so it uses the item where it lies. Failure leaves the item with "Try again"
+and "Put away". The dock stays as the fallback for plain care (kit fallback
+effects, no item, no spend); the bag button opens the sheet with a count of
+what this Blobbi could use now. Equipment/placement (31634) is read-only for
+now: cosmetics say "Equip on the Island".
 
 ## Milestone 5: the home as a game screen (M3)
 
@@ -433,7 +476,7 @@ Audited commits: `54d413f` (last full app), `2281fb1` (pre-nuke parent),
 
 ## Deferred (next milestones)
 
-1. **Inventory preview**: `@nostr-games/inventory` (same version as Island,
-   `^0.5.0`) read-only browser of owned inventories; item-based care effects
-   through the kit's `CatalogAdapter`; equipment later.
+1. **Equipment at home**: render the Island's kind 31634 placements for the
+   current Blobbi (read-only) through the renderer's accessory inputs; equipping
+   stays on the Island.
 2. Relay settings (NIP-65) and account switcher, once `@blobbi/ui` exists.

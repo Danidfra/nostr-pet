@@ -598,6 +598,170 @@
     pointer-events: auto;
   }
 
+  /* An item set down in the room, and the prompt beside it when a use failed */
+  .offer-art {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    animation: offer-drop 360ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+  .offer-art .item-glyph {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 6px 6px hsl(0 0% 0% / 0.25));
+  }
+  .offer-art .item-glyph--emoji {
+    font-size: clamp(2.4rem, 8cqw, 4.5rem);
+    line-height: 1;
+    background: none;
+  }
+  .offer-art .item-glyph--image {
+    background: none;
+  }
+  .offer-prompt {
+    position: absolute;
+    left: 50%;
+    bottom: 100%;
+    transform: translateX(-50%);
+    margin-bottom: 0.4rem;
+    width: max-content;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    pointer-events: auto;
+  }
+  @keyframes offer-drop {
+    from {
+      transform: translateY(-1.5rem) scale(0.8);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+
+  /* Items: the bag button next to the dock, the tiles in the sheet, the glyphs */
+  .action-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+  .items-button {
+    display: flex;
+    width: 4rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.375rem;
+    background: none;
+    border: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .items-button:disabled {
+    opacity: 0.45;
+  }
+  .items-button__icon {
+    position: relative;
+    display: flex;
+    width: 3.5rem;
+    height: 3.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    border: 2px solid hsl(var(--border));
+    box-shadow: 0 10px 20px -12px hsl(var(--foreground) / 0.5);
+    transition: transform 150ms ease;
+  }
+  .items-button:not(:disabled):hover .items-button__icon {
+    transform: translateY(-2px);
+  }
+  .items-button:focus-visible {
+    outline: none;
+  }
+  .items-button:focus-visible .items-button__icon {
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
+  .items-button__badge {
+    position: absolute;
+    top: -0.25rem;
+    right: -0.25rem;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.3rem;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.25rem;
+    text-align: center;
+  }
+  .item-glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    border-radius: 0.75rem;
+    background: hsl(var(--foreground) / 0.06);
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  .item-glyph--image {
+    background: hsl(0 0% 100% / 0.6);
+  }
+  .item-tile {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0.25rem 0.4rem;
+    border-radius: 1rem;
+    border: 2px solid transparent;
+    background: hsl(var(--foreground) / 0.05);
+    color: inherit;
+    text-align: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 120ms ease, border-color 120ms ease;
+  }
+  .item-tile:active {
+    transform: scale(0.96);
+  }
+  .item-tile--selected {
+    border-color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.1);
+  }
+  .item-tile--muted .item-glyph,
+  .item-tile--muted .item-tile__name {
+    opacity: 0.5;
+  }
+  .item-tile:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
+  .item-tile__name {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .item-tile__count {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: hsl(var(--muted-foreground));
+  }
+
   /* Text over the room */
   .scene-text {
     text-shadow: 0 1px 2px hsl(var(--background) / 0.9), 0 0 18px hsl(var(--background) / 0.7);
@@ -684,6 +848,7 @@
   .animate-blobbi-happy,
   .animate-float-up,
   .animate-sparkle,
+  .offer-art,
   .animate-bubble-in {
     animation: none;
   }
