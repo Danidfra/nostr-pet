@@ -88,9 +88,16 @@
   .game-frame {
     position: relative;
     display: flex;
-    flex-direction: column;
     width: 100%;
     max-width: 64rem;
+    height: 100%;
+  }
+  .game-column {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
     height: 100%;
   }
   @media (min-width: 900px) {
@@ -99,10 +106,111 @@
     }
     .game-frame {
       height: calc(100% - 2rem);
+      gap: 1rem;
+      max-width: 84rem;
+    }
+    .game-column {
       border-radius: 1.75rem;
       overflow: hidden;
       box-shadow: 0 30px 80px -40px hsl(var(--foreground) / 0.45);
     }
+    .game-rail {
+      flex: none;
+      width: 19rem;
+      height: 100%;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+  }
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-bottom: 0.5rem;
+  }
+  .rail-card {
+    border-radius: 1.25rem;
+    padding: 1rem;
+    background: hsl(var(--card) / 0.8);
+    border: 1px solid hsl(var(--border) / 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px -22px hsl(var(--foreground) / 0.45);
+  }
+  .rail-card__head {
+    margin-bottom: 0.75rem;
+  }
+  .rail-card__title {
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+  .rail-card__sub {
+    font-size: 0.78rem;
+    color: hsl(var(--muted-foreground));
+  }
+  .rail-link {
+    margin-top: 0.75rem;
+    width: 100%;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--border));
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    background: hsl(var(--background) / 0.6);
+  }
+  .rail-link:hover {
+    background: hsl(var(--accent));
+  }
+  .rail-rooms {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+  }
+  .rail-room {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    border-radius: 0.9rem;
+    border: 1px solid transparent;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    background: hsl(var(--foreground) / 0.04);
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+  .rail-room:not(:disabled):hover {
+    background: hsl(var(--accent));
+  }
+  .rail-room--current {
+    border-color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.1);
+  }
+  .rail-room:disabled:not(.rail-room--current) {
+    opacity: 0.5;
+  }
+  .rail-room__name {
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .rail-room__tag {
+    font-size: 0.72rem;
+    color: hsl(var(--muted-foreground));
+  }
+  .rail-island {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 9999px;
+    padding: 0.7rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: hsl(var(--primary-foreground));
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(320 80% 60%) 100%);
+    box-shadow: 0 12px 30px -14px hsl(var(--primary) / 0.8);
   }
   .game-scene {
     position: relative;
@@ -140,6 +248,9 @@
     background: linear-gradient(180deg, var(--floor-edge) 0, color-mix(in oklab, var(--floor), black 10%) 0.25rem, color-mix(in oklab, var(--floor), black 16%) 100%);
     box-shadow: 0 -12px 30px -18px hsl(0 0% 0% / 0.45);
     transition: background 600ms ease;
+  }
+  .hud-bottom[data-room='garden'] {
+    background: linear-gradient(180deg, var(--grass-edge) 0, color-mix(in oklab, var(--grass), black 12%) 0.25rem, color-mix(in oklab, var(--grass), black 20%) 100%);
   }
   .hud-bottom > .lifecycle-pill {
     align-self: center;
@@ -324,7 +435,9 @@
   .backdrop-wall {
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, var(--wall) 0%, var(--wall) 70%, var(--wall-shade) 100%);
+    background:
+      radial-gradient(120% 70% at 50% 100%, hsl(0 0% 0% / 0.06) 0%, transparent 60%),
+      linear-gradient(180deg, var(--wall) 0%, var(--wall) 66%, var(--wall-shade) 100%);
     transition: background 600ms ease;
   }
   .backdrop-window {
@@ -368,7 +481,9 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(180deg, var(--floor-edge) 0%, var(--floor) 6%, var(--floor) 100%);
+    background:
+      radial-gradient(90% 55% at 50% 30%, hsl(0 0% 100% / 0.1) 0%, transparent 70%),
+      linear-gradient(180deg, var(--floor-edge) 0%, var(--floor) 5%, var(--floor) 70%, color-mix(in oklab, var(--floor), black 10%) 100%);
     transition: background 600ms ease;
   }
   .backdrop-floor-edge {
@@ -376,8 +491,8 @@
     left: 0;
     right: 0;
     top: 0;
-    height: 2px;
-    background: hsl(0 0% 0% / 0.12);
+    height: 0.45rem;
+    background: linear-gradient(180deg, hsl(0 0% 0% / 0.16), hsl(0 0% 0% / 0.04));
   }
   .backdrop-rug {
     position: absolute;
@@ -753,8 +868,9 @@
   .room-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0.7rem 0.25rem 0.8rem;
+    gap: 0.35rem;
+    height: 1.9rem;
+    padding: 0 0.5rem 0 0.8rem;
     border-radius: 9999px;
     background: hsl(var(--card) / 0.55);
     border: 1px solid hsl(var(--border) / 0.5);
@@ -770,19 +886,32 @@
     gap: 0.3rem;
   }
   .room-dot {
-    width: 0.5rem;
-    height: 0.5rem;
+    position: relative;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin: -0.55rem 0;
     padding: 0;
     border: 0;
     border-radius: 9999px;
+    background: transparent;
+  }
+  .room-dot::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    transform: translate(-50%, -50%);
     background: hsl(var(--foreground) / 0.25);
     transition: transform 120ms ease, background-color 120ms ease;
   }
-  .room-dot--current {
+  .room-dot--current::after {
     background: hsl(var(--primary));
-    transform: scale(1.25);
+    transform: translate(-50%, -50%) scale(1.3);
   }
-  .room-dot:not(:disabled):hover {
+  .room-dot:not(:disabled):hover::after {
     background: hsl(var(--foreground) / 0.5);
   }
   .room-dot:focus-visible {
@@ -849,7 +978,7 @@
 
   /* The Blobbi actor. Position is driven by the app's loop; no CSS transition on left/top. */
   .scene-actor {
-    width: clamp(7.5rem, 34%, 15rem);
+    width: clamp(9.5rem, 44%, 17rem);
   }
   .scene-actor__body {
     position: relative;

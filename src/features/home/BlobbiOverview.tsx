@@ -27,7 +27,7 @@ import {
   useReducedMotion,
   type Speech,
 } from './scene';
-import { ActionBar, BlobbiSheet, GameShell, HudTop, MenuSheet, hotbarKey } from './shell';
+import { ActionBar, BlobbiSheet, GameShell, HomeRail, HudTop, MenuSheet, hotbarKey, useWideScreen } from './shell';
 import { RoomArrows, RoomBackdrop, RoomIndicator, entrySpot, roomById, useRoom, type RoomId } from './rooms';
 
 interface BlobbiOverviewProps {
@@ -132,6 +132,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const rooms = useRoom({ pubkey, blobbiD: blobbi.d, sleeping, locked: ceremony.presentation.exclusive });
   const room = rooms.room;
   const [initialPosition] = useState(() => entrySpot(room, sleeping));
+  const wide = useWideScreen();
 
   const scene = useBlobbiPresentation({ blobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition });
 
@@ -537,8 +538,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           <RoomBackdrop room={room.id} />
         </HomeScene>
       }
+      aside={wide ? <HomeRail blobbi={blobbi} mood={`${blobbi.name} ${mood}`} statItems={statItems} profile={profile} rooms={{ ...rooms, go: enterRoom, canMove: rooms.canMove && !inCeremony && offer === null }} onOpenBlobbi={() => setBlobbiSheetOpen(true)} /> : undefined}
       bottom={
         <ActionBar
+          room={room.id}
           actions={actions}
           pendingAction={pendingAction}
           onAction={onAction}

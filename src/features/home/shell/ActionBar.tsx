@@ -14,6 +14,8 @@ interface ActionBarProps {
   disabled?: boolean;
   /** The item hotbar. Absent hides it (signed out, no Blobbi). */
   hotbar?: HotbarProps;
+  /** The room, so the dock takes its floor's colour. */
+  room?: string;
 }
 
 /**
@@ -23,9 +25,9 @@ interface ActionBarProps {
  * which are the item-free fallback and the way to bed. The dock sits in
  * the flow, at the front edge of the floor, so it never covers the Blobbi.
  */
-export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, onLifecycle, disabled = false, hotbar }: ActionBarProps) {
+export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, onLifecycle, disabled = false, hotbar, room }: ActionBarProps) {
   return (
-    <nav className="hud-bottom" aria-label="Actions" data-testid="action-bar">
+    <nav className="hud-bottom" aria-label="Actions" data-testid="action-bar" data-room={room}>
       {lifecycleReady && onLifecycle && (
         <button type="button" className="lifecycle-pill" onClick={() => onLifecycle(lifecycleReady.kind)} disabled={disabled} data-testid={`action-${lifecycleReady.kind}`}>
           <Sparkles className="h-4 w-4" aria-hidden />

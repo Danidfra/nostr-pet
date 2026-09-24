@@ -7,3 +7,5 @@ export { MenuSheet } from './MenuSheet';
 export { ItemHotbar } from './ItemHotbar';
 export { hotbarKey } from './hotbar-key';
 export type { HotbarProps } from './ItemHotbar';
+export { HomeRail } from './HomeRail';
+export { useWideScreen } from './useWideScreen';
