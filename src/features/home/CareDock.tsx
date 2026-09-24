@@ -9,10 +9,10 @@ const ICONS: Record<CareAction, LucideIcon> = {
 };
 
 const TINT: Record<CareAction, string> = {
-  feed: 'bg-orange-500 text-white',
-  play: 'bg-yellow-400 text-yellow-950',
-  clean: 'bg-cyan-500 text-white',
-  rest: 'bg-indigo-500 text-white',
+  feed: 'verb--feed',
+  play: 'verb--play',
+  clean: 'verb--clean',
+  rest: 'verb--rest',
 };
 
 interface CareDockProps {
@@ -22,14 +22,15 @@ interface CareDockProps {
 }
 
 /**
- * The care dock: four big, round, thumb-friendly buttons. Recovered idea from
- * the pre-nuke sticky actions footer, without the modal in between: tapping
- * IS the action. Unavailable actions stay visible but say why.
+ * The care verbs: four round, thumb-friendly buttons. Tapping IS the action
+ * (no modal in between). They are the item-free fallback (the kit's plain
+ * care effects) and, for rest, the way to bed. Unavailable verbs stay
+ * visible but say why.
  */
 export function CareDock({ actions, pendingAction, onAction }: CareDockProps) {
   const busy = pendingAction !== null;
   return (
-    <div role="group" aria-label="Care for your Blobbi" className="flex items-end justify-center gap-3 sm:gap-5">
+    <div role="group" aria-label="Care for your Blobbi" className="verb-row">
       {actions.map(({ action, label, available, reason }) => {
         const Icon = action === 'rest' && label === 'Wake' ? Sun : ICONS[action];
         const isPending = pendingAction === action;
@@ -45,16 +46,10 @@ export function CareDock({ actions, pendingAction, onAction }: CareDockProps) {
             aria-label={available ? label : `${label}: ${reason}`}
             title={available ? label : reason}
             data-testid={`care-${action}`}
-            className="group flex w-16 flex-col items-center gap-1.5 focus-visible:outline-none sm:w-20"
+            className={`verb ${TINT[action]} ${disabled ? 'verb--off' : ''}`}
           >
-            <span
-              className={`flex h-14 w-14 items-center justify-center rounded-full shadow-lg ring-offset-2 ring-offset-background transition duration-150 group-focus-visible:ring-2 group-focus-visible:ring-ring sm:h-16 sm:w-16 ${TINT[action]} ${
-                disabled ? 'opacity-45 saturate-50' : 'group-hover:-translate-y-0.5 group-hover:brightness-110 group-active:scale-95'
-              }`}
-            >
-              {isPending ? <Loader2 className="h-6 w-6 animate-spin" aria-hidden /> : <Icon className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />}
-            </span>
-            <span className="scene-text text-xs font-semibold">{label}</span>
+            <span className="verb__disc">{isPending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Icon className="h-5 w-5" aria-hidden />}</span>
+            <span className="verb__label scene-text">{label}</span>
           </button>
         );
       })}

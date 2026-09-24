@@ -27,7 +27,7 @@ import {
   useReducedMotion,
   type Speech,
 } from './scene';
-import { ActionBar, BlobbiSheet, GameShell, HudTop, MenuSheet } from './shell';
+import { ActionBar, BlobbiSheet, GameShell, HudTop, MenuSheet, hotbarKey } from './shell';
 import { RoomArrows, RoomBackdrop, RoomIndicator, entrySpot, roomById, useRoom, type RoomId } from './rooms';
 
 interface BlobbiOverviewProps {
@@ -152,6 +152,9 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   // The item set down in the room, if any (see `offerItem` below).
   const [offer, setOffer] = useState<ItemOffer | null>(null);
+  // The item in the player's hand, picked from the hotbar and not yet given.
+  // UI state only: nothing is read or written until it is given.
+  const [held, setHeld] = useState<HomeInventoryItem | null>(null);
 
   // Speech: a short line for the moments that deserve one.
   const [speech, setSpeech] = useState<Speech | null>(null);
@@ -266,6 +269,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       go(id);
       placeAt(roomById(id).entry);
       setDoorPrompt(false);
+      setHeld(null);
       setOffer((o) => (o && o.phase !== 'using' ? null : o));
     },
     [go, placeAt],
@@ -275,6 +279,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     roomRef.current = room.id;
     placeAt(entrySpot(room, liveBlobbi.current.state === 'sleeping'));
     setDoorPrompt(false);
+    setHeld(null);
     setOffer((o) => (o && o.phase !== 'using' ? null : o));
   }, [room, placeAt]);
 
@@ -311,6 +316,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     (entry: HomeInventoryItem) => {
       setItemsOpen(false);
       setDoorPrompt(false);
+      setHeld(null);
       resetUse();
       const next: ItemOffer = { entry, phase: canWalk ? 'walking' : 'using', key: ++offerKeyRef.current };
       setOffer(next);
@@ -354,6 +360,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const onFloorTap = useCallback(
     (fraction: { x: number; y: number }) => {
       setDoorPrompt(false);
+      setHeld(null);
       scene.onFloorTap(fraction);
     },
     [scene],
@@ -364,6 +371,41 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const eggCrack = ceremony.presentation.eggCrack ?? lifecycle.view.eggCrack;
   const interactive = !sleeping && canWalk && !inCeremony;
   const usableItemCount = inventory.items.filter((i) => i.usability.ok && !i.unverified).length;
+
+  // The hotbar: this room's usable consumables, from the same read as the
+  // sheet. Holding one is two deliberate taps away from a spend: pick it,
+  // then tap the Blobbi (or the tile again) to give it.
+  const hotbarItems = useMemo(() => inventory.items.filter((i) => i.usability.ok && !i.unverified && i.item.care !== null && room.shows(i.item)), [inventory.items, room]);
+  const heldKey = held ? hotbarKey(held) : null;
+  useEffect(() => {
+    if (heldKey && !hotbarItems.some((i) => hotbarKey(i) === heldKey)) setHeld(null);
+  }, [heldKey, hotbarItems]);
+  const pickItem = useCallback(
+    (entry: HomeInventoryItem) => {
+      if (held && hotbarKey(held) === hotbarKey(entry)) {
+        offerItem(entry);
+        return;
+      }
+      setHeld(entry);
+    },
+    [held, offerItem],
+  );
+  const give = useCallback(() => {
+    if (held) offerItem(held);
+  }, [held, offerItem]);
+  const hotbarHint = held
+    ? `Tap ${blobbi.name} to give the ${held.item.name}.`
+    : hotbarItems.length > 0
+      ? null
+      : sleeping
+        ? `${blobbi.name} is asleep.`
+        : inventory.status === 'loading'
+          ? 'Looking for your items…'
+          : usableItemCount > 0
+            ? room.emptyHint
+            : blobbi.stage === 'egg'
+              ? 'An egg can only be kept clean.'
+              : 'Items you earn on the Island or grow on the Farm show up here.';
   const offerObject = offer ? offeredItemObject(offer.entry.item.name) : null;
   const accessories = blobbi.stage === 'egg' ? undefined : worn.accessoriesFor(scene.presentation.facing);
   const actorEffects = useMemo(() => {
@@ -451,7 +493,9 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               blobbi={blobbi}
               presentation={scene.presentation}
               happyKey={resultKey}
-              onPoke={inCeremony ? undefined : scene.poke}
+              onPoke={inCeremony ? undefined : held ? give : scene.poke}
+              tapLabel={held ? `Give ${blobbi.name} the ${held.item.name}` : undefined}
+              invite={held !== null}
               eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined}
               effects={actorEffects}
               accessories={accessories}
@@ -501,8 +545,14 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           lifecycleReady={lifecycleReady}
           onLifecycle={startCeremony}
           disabled={inCeremony || offer !== null}
-          onOpenItems={() => setItemsOpen(true)}
-          itemCount={usableItemCount}
+          hotbar={{
+            items: hotbarItems,
+            selectedKey: heldKey,
+            onSelect: pickItem,
+            onOpenItems: () => setItemsOpen(true),
+            itemCount: usableItemCount,
+            hint: hotbarHint,
+          }}
         />
       }
       overlays={

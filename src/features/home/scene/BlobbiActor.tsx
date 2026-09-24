@@ -11,6 +11,10 @@ interface BlobbiActorProps {
   /** Bumps the "happy" hop; plays once per change. */
   happyKey?: number;
   onPoke?: () => void;
+  /** What tapping the Blobbi does right now, when it is not a poke ("Give Brook the Apple"). */
+  tapLabel?: string;
+  /** The player holds something for it: invite the tap. */
+  invite?: boolean;
   /** Egg shell state (eggs only). Lifecycle progress and ceremonies decide it. */
   eggCrack?: BlobbiEggCrack;
   /** Renderer effects around the Blobbi (a ceremony glow, sparkles, worn effect items). */
@@ -29,7 +33,7 @@ interface BlobbiActorProps {
  * decides nothing about how the Blobbi looks. It never touches Nostr.
  */
 export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function BlobbiActor(
-  { blobbi, presentation, happyKey = 0, onPoke, eggCrack, effects, accessories, children },
+  { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, effects, accessories, children },
   ref,
 ) {
   const placement = placeOnFloor(presentation.position);
@@ -44,6 +48,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-facing={presentation.facing}
       data-expression={presentation.expression}
       data-sleeping={isSleeping ? 'true' : 'false'}
+      data-invite={invite ? 'true' : 'false'}
       data-egg-crack={blobbi.stage === 'egg' ? (eggCrack ?? 'none') : undefined}
       data-x={presentation.position.x.toFixed(3)}
       data-y={presentation.position.y.toFixed(3)}
@@ -66,7 +71,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
           className={`scene-actor__box ${happyKey > 0 ? 'animate-blobbi-happy' : ''}`}
           onClick={onPoke}
           disabled={!onPoke}
-          aria-label={`Poke ${blobbi.name}`}
+          aria-label={tapLabel ?? `Poke ${blobbi.name}`}
           data-testid="blobbi-poke"
         >
           <BlobbiRenderer

@@ -129,20 +129,20 @@
     pointer-events: auto;
   }
   .hud-bottom {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    position: relative;
     z-index: 20;
+    flex: none;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
-    pointer-events: none;
+    align-items: stretch;
+    gap: 0.35rem;
+    padding: 0.4rem 0 calc(0.5rem + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, var(--floor-edge) 0, color-mix(in oklab, var(--floor), black 10%) 0.25rem, color-mix(in oklab, var(--floor), black 16%) 100%);
+    box-shadow: 0 -12px 30px -18px hsl(0 0% 0% / 0.45);
+    transition: background 600ms ease;
   }
-  .hud-bottom > * {
-    pointer-events: auto;
+  .hud-bottom > .lifecycle-pill {
+    align-self: center;
   }
   .hud-icon-button {
     display: inline-flex;
@@ -389,6 +389,220 @@
     border-radius: 100%;
     background: radial-gradient(closest-side, var(--rug) 0%, var(--rug) 78%, transparent 100%);
     opacity: 0.6;
+  }
+
+  /* ─── The dock: the item hotbar and the care verbs ────────────────────── */
+  .hotbar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .hotbar {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem 0.15rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scroll-padding: 0.75rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .hotbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hotbar-slot {
+    flex: none;
+    scroll-snap-align: start;
+  }
+  .hotbar-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    width: 4.1rem;
+    height: 4.1rem;
+    padding: 0.2rem 0.2rem 0.15rem;
+    border-radius: 1.1rem;
+    border: 2px solid hsl(0 0% 100% / 0.35);
+    background: hsl(var(--card) / 0.9);
+    color: hsl(var(--card-foreground));
+    box-shadow: 0 8px 18px -12px hsl(0 0% 0% / 0.6);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  }
+  .hotbar-tile:disabled {
+    opacity: 0.5;
+  }
+  .hotbar-tile:not(:disabled):active {
+    transform: scale(0.95);
+  }
+  .hotbar-tile--selected {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.28), 0 12px 24px -12px hsl(var(--primary) / 0.7);
+    transform: translateY(-0.35rem);
+  }
+  .hotbar-tile--selected:not(:disabled):active {
+    transform: translateY(-0.35rem) scale(0.95);
+  }
+  .hotbar-tile--bag {
+    background: hsl(var(--card) / 0.65);
+    border-style: dashed;
+  }
+  .hotbar-tile:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
+  .hotbar-tile__art {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+  }
+  .hotbar-tile__art .item-glyph {
+    background: none;
+  }
+  .hotbar-tile__qty {
+    position: absolute;
+    top: 0.2rem;
+    right: 0.3rem;
+    font-size: 0.62rem;
+    font-weight: 800;
+    line-height: 1;
+    color: hsl(var(--foreground) / 0.75);
+  }
+  .hotbar-tile__qty--badge {
+    top: -0.3rem;
+    right: -0.3rem;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.25rem;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    line-height: 1.15rem;
+    text-align: center;
+  }
+  .hotbar-tile__name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .hotbar-hint {
+    margin: 0 0.75rem;
+    text-align: center;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: hsl(0 0% 100% / 0.92);
+  }
+  .verb-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.9rem;
+    padding: 0.1rem 0.75rem 0;
+  }
+  .verb {
+    display: flex;
+    width: 3.6rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    background: none;
+    border: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .verb__disc {
+    display: flex;
+    width: 3rem;
+    height: 3rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    box-shadow: 0 8px 18px -10px hsl(0 0% 0% / 0.6), inset 0 -3px 0 hsl(0 0% 0% / 0.12);
+    transition: transform 140ms ease, filter 140ms ease;
+  }
+  .verb:not(.verb--off):hover .verb__disc {
+    transform: translateY(-2px);
+    filter: brightness(1.08);
+  }
+  .verb:not(.verb--off):active .verb__disc {
+    transform: scale(0.94);
+  }
+  .verb--off .verb__disc {
+    opacity: 0.45;
+    filter: saturate(0.5);
+  }
+  .verb:focus-visible {
+    outline: none;
+  }
+  .verb:focus-visible .verb__disc {
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
+  .verb__label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: hsl(0 0% 100% / 0.95);
+  }
+  .verb--feed .verb__disc {
+    background: hsl(24 92% 55%);
+    color: white;
+  }
+  .verb--play .verb__disc {
+    background: hsl(48 96% 55%);
+    color: hsl(40 60% 15%);
+  }
+  .verb--clean .verb__disc {
+    background: hsl(190 85% 48%);
+    color: white;
+  }
+  .verb--rest .verb__disc {
+    background: hsl(245 75% 62%);
+    color: white;
+  }
+  .scene-actor[data-invite='true'] .scene-actor__box::after {
+    content: '';
+    position: absolute;
+    inset: -6%;
+    border-radius: 45%;
+    border: 3px solid hsl(var(--primary) / 0.75);
+    animation: invite-pulse 1.4s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes invite-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    50% {
+      transform: scale(1.06);
+      opacity: 1;
+    }
+  }
+  @media (min-width: 900px) {
+    .hud-bottom {
+      padding-bottom: 0.75rem;
+    }
+    .hotbar {
+      justify-content: center;
+    }
+    .hotbar-tile {
+      width: 4.6rem;
+      height: 4.6rem;
+    }
+    .verb__disc {
+      width: 3.4rem;
+      height: 3.4rem;
+    }
   }
 
   /* ─── Rooms: the bedroom and the garden reuse the same phase tokens ─── */
@@ -833,64 +1047,6 @@
   }
 
   /* Items: the bag button next to the dock, the tiles in the sheet, the glyphs */
-  .action-row {
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    gap: 0.75rem;
-  }
-  .items-button {
-    display: flex;
-    width: 4rem;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.375rem;
-    background: none;
-    border: 0;
-    padding: 0;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .items-button:disabled {
-    opacity: 0.45;
-  }
-  .items-button__icon {
-    position: relative;
-    display: flex;
-    width: 3.5rem;
-    height: 3.5rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 9999px;
-    background: hsl(var(--card));
-    color: hsl(var(--card-foreground));
-    border: 2px solid hsl(var(--border));
-    box-shadow: 0 10px 20px -12px hsl(var(--foreground) / 0.5);
-    transition: transform 150ms ease;
-  }
-  .items-button:not(:disabled):hover .items-button__icon {
-    transform: translateY(-2px);
-  }
-  .items-button:focus-visible {
-    outline: none;
-  }
-  .items-button:focus-visible .items-button__icon {
-    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
-  }
-  .items-button__badge {
-    position: absolute;
-    top: -0.25rem;
-    right: -0.25rem;
-    min-width: 1.25rem;
-    height: 1.25rem;
-    padding: 0 0.3rem;
-    border-radius: 9999px;
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-    font-size: 0.7rem;
-    font-weight: 700;
-    line-height: 1.25rem;
-    text-align: center;
-  }
   .item-glyph {
     display: inline-flex;
     align-items: center;
@@ -1074,7 +1230,8 @@
   .animate-float-up,
   .animate-sparkle,
   .offer-art,
-  .animate-bubble-in {
+  .animate-bubble-in,
+  .scene-actor[data-invite='true'] .scene-actor__box::after {
     animation: none;
   }
 }
