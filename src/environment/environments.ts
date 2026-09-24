@@ -61,6 +61,10 @@ export interface SceneTokens {
   lamp: string;
   /** The warm patch under the Blobbi's feet. */
   groundGlow: string;
+  /** The garden: grass underfoot, its front edge, and the far hills. */
+  grass: string;
+  grassEdge: string;
+  hill: string;
 }
 
 export interface PhaseLook {
@@ -128,6 +132,9 @@ export const PHASE_LOOKS: Record<IslandPhase, PhaseLook> = {
       windowGlow: 'hsl(30 90% 75% / 0.35)',
       lamp: 'transparent',
       groundGlow: 'hsl(30 80% 70% / 0.35)',
+      grass: 'hsl(95 40% 58%)',
+      grassEdge: 'hsl(100 35% 46%)',
+      hill: 'hsl(120 30% 44%)',
     },
   },
   day: {
@@ -145,6 +152,9 @@ export const PHASE_LOOKS: Record<IslandPhase, PhaseLook> = {
       windowGlow: 'hsl(45 95% 80% / 0.35)',
       lamp: 'transparent',
       groundGlow: 'hsl(270 60% 70% / 0.32)',
+      grass: 'hsl(100 45% 55%)',
+      grassEdge: 'hsl(105 40% 44%)',
+      hill: 'hsl(125 32% 40%)',
     },
   },
   sunset: {
@@ -162,6 +172,9 @@ export const PHASE_LOOKS: Record<IslandPhase, PhaseLook> = {
       windowGlow: 'hsl(22 95% 65% / 0.4)',
       lamp: 'transparent',
       groundGlow: 'hsl(22 90% 65% / 0.35)',
+      grass: 'hsl(85 38% 50%)',
+      grassEdge: 'hsl(90 36% 40%)',
+      hill: 'hsl(110 28% 34%)',
     },
   },
   night: {
@@ -179,6 +192,9 @@ export const PHASE_LOOKS: Record<IslandPhase, PhaseLook> = {
       windowGlow: 'hsl(240 60% 60% / 0.18)',
       lamp: 'hsl(40 95% 70% / 0.45)',
       groundGlow: 'hsl(40 80% 65% / 0.3)',
+      grass: 'hsl(120 22% 20%)',
+      grassEdge: 'hsl(125 22% 15%)',
+      hill: 'hsl(135 25% 13%)',
     },
   },
 };

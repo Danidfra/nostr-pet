@@ -47,7 +47,7 @@ describe('environment registry', () => {
     for (const phase of ['dawn', 'day', 'sunset', 'night'] as const) {
       const look = PHASE_LOOKS[phase];
       expect(look.phase).toBe(phase);
-      expect(Object.keys(look.scene)).toHaveLength(11);
+      expect(Object.keys(look.scene)).toHaveLength(14);
       expect(Object.keys(SURFACES[look.mood])).toHaveLength(17);
     }
     expect(PHASE_LOOKS.night.mood).toBe('dark');

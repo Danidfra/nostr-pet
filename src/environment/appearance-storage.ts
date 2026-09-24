@@ -46,6 +46,9 @@ export function applyPhaseToDocument(look: PhaseLook, root: HTMLElement = docume
   root.style.setProperty('--window-glow', s.windowGlow);
   root.style.setProperty('--lamp', s.lamp);
   root.style.setProperty('--home-ground-glow', s.groundGlow);
+  root.style.setProperty('--grass', s.grass);
+  root.style.setProperty('--grass-edge', s.grassEdge);
+  root.style.setProperty('--hill', s.hill);
   root.dataset.homePhase = look.phase;
   root.classList.toggle('dark', look.mood === 'dark');
   root.style.colorScheme = look.mood;

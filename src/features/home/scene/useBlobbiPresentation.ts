@@ -20,6 +20,8 @@ export interface UseBlobbiPresentationOptions {
   actorRef: RefObject<HTMLElement | null>;
   /** A lifecycle ceremony is building or publishing: the exclusive mode. */
   isInCeremony?: boolean;
+  /** Where the Blobbi stands at first (the room's entry, or the bed for a sleeper). */
+  initialPosition?: FloorPoint;
 }
 
 export interface ScenePointerHandlers {
@@ -47,6 +49,8 @@ export interface BlobbiSceneController {
   celebrate: (durationMs?: number) => void;
   /** Whether the user may send it walking right now (an egg or a sleeper cannot walk). */
   canWalk: boolean;
+  /** Put it somewhere at once (coming into another room); any walk in progress ends `stopped`. */
+  placeAt: (position: FloorPoint) => void;
   scenePointerHandlers: ScenePointerHandlers;
   /** True while a user-directed walk is in progress. */
   isUserWalking: boolean;
@@ -62,14 +66,14 @@ export interface BlobbiSceneController {
  * its policy, so the precedence lives in `behavior-mode.ts` and not in the
  * conditions scattered here.
  */
-export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInCeremony = false }: UseBlobbiPresentationOptions): BlobbiSceneController {
+export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInCeremony = false, initialPosition }: UseBlobbiPresentationOptions): BlobbiSceneController {
   const settings = useSceneSettings();
   const reducedMotion = useReducedMotion();
   const hoverCapable = useHoverCapable();
   const isSleeping = blobbi.state === 'sleeping';
 
   const locomotion = useBlobbiLocomotion({
-    initialPosition: isSleeping ? BED_SLEEP_SPOT : HOME_SPOT,
+    initialPosition: initialPosition ?? (isSleeping ? BED_SLEEP_SPOT : HOME_SPOT),
     reducedMotion,
     speed: settings.walkSpeed,
   });
@@ -169,6 +173,14 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     [idle, reactions],
   );
 
+  const placeAt = useCallback(
+    (position: FloorPoint) => {
+      idle.markActivity();
+      locomotion.placeAt(position);
+    },
+    [idle, locomotion],
+  );
+
   const scenePointerHandlers = useMemo<ScenePointerHandlers>(
     () => ({
       onPointerMove: gaze.onPointerMove,
@@ -181,5 +193,5 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     [gaze, idle],
   );
 
-  return { presentation, mode, walkTo, onFloorTap, poke, reactToCare, celebrate, canWalk: policy.walks.includes('user'), scenePointerHandlers, isUserWalking, reducedMotion };
+  return { presentation, mode, walkTo, onFloorTap, poke, reactToCare, celebrate, canWalk: policy.walks.includes('user'), placeAt, scenePointerHandlers, isUserWalking, reducedMotion };
 }

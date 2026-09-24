@@ -37,6 +37,12 @@ export interface BlobbiLocomotion extends LocomotionState {
   turn: (facing: Facing) => void;
   /** Stop where it stands; a pending walk resolves `stopped`. */
   stop: () => void;
+  /**
+   * Put the Blobbi somewhere at once, no walk: coming into another room.
+   * A pending walk resolves `stopped`. The new position is committed to the
+   * live ref immediately, so a walk started in the same tick begins there.
+   */
+  placeAt: (position: FloorPoint, facing?: Facing) => void;
 }
 
 type Settle = (outcome: WalkOutcome) => void;
@@ -148,6 +154,15 @@ export function useBlobbiLocomotion({
     commit(stopWalking(stateRef.current));
   }, [stopLoop, settle, commit]);
 
+  const placeAt = useCallback(
+    (position: FloorPoint, facing: Facing = 'front') => {
+      stopLoop();
+      settle('stopped');
+      commit(standingAt(position, facing));
+    },
+    [stopLoop, settle, commit],
+  );
+
   useEffect(
     () => () => {
       stopLoop();
@@ -156,5 +171,5 @@ export function useBlobbiLocomotion({
     [stopLoop, settle],
   );
 
-  return useMemo(() => ({ ...state, walkTo, turn, stop }), [state, walkTo, turn, stop]);
+  return useMemo(() => ({ ...state, walkTo, turn, stop, placeAt }), [state, walkTo, turn, stop, placeAt]);
 }

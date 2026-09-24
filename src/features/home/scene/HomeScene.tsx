@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useRef, type ForwardedRef, type MouseEvent, type ReactNode } from 'react';
+import { forwardRef, useCallback, useRef, type ForwardedRef, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { FLOOR_BAND } from './geometry';
 import type { ScenePointerHandlers } from './useBlobbiPresentation';
 
@@ -10,6 +10,10 @@ interface HomeSceneProps {
   /** A tap or click on the floor, as fractions of the scene box. */
   onFloorTap?: (fraction: { x: number; y: number }) => void;
   pointerHandlers?: ScenePointerHandlers;
+  /** A horizontal swipe across the scene (to the next room). The gesture never counts as a tap. */
+  onSwipe?: (direction: 'left' | 'right') => void;
+  /** Which room this is, for styling (`data-room`). */
+  room?: string;
   /** The room behind everything (the backdrop layer). */
   children?: ReactNode;
   /** Layers, back to front. */
@@ -33,7 +37,7 @@ interface HomeSceneProps {
  * by normalized coordinates, so the layout is the same at every size.
  */
 export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeScene(
-  { label, floorLabel, onFloorTap, pointerHandlers, children, topBar, objects, actor, foreground, className = '' },
+  { label, floorLabel, onFloorTap, pointerHandlers, onSwipe, room, children, topBar, objects, actor, foreground, className = '' },
   ref,
 ) {
   // The scene box is measured through our own ref, merged with the forwarded
@@ -46,6 +50,36 @@ export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeSc
     },
     [ref],
   );
+
+  // A swipe: pointer down, a mostly horizontal move, pointer up, quickly.
+  // The click the browser fires afterwards is swallowed in the capture
+  // phase, so a swipe that ends over the floor, the bed or the Blobbi never
+  // walks, sleeps or pokes.
+  const swipeRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const swallowClickRef = useRef(false);
+  const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    pointerHandlers?.onPointerDown(event);
+    swipeRef.current = onSwipe ? { x: event.clientX, y: event.clientY, t: performance.now() } : null;
+  };
+  const onPointerUp = (event: ReactPointerEvent<HTMLElement>) => {
+    const start = swipeRef.current;
+    swipeRef.current = null;
+    if (!start || !onSwipe) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dy) > SWIPE_MAX_DRIFT_PX || performance.now() - start.t > SWIPE_MAX_MS) return;
+    swallowClickRef.current = true;
+    setTimeout(() => {
+      swallowClickRef.current = false;
+    }, 400);
+    onSwipe(dx < 0 ? 'left' : 'right');
+  };
+  const onClickCapture = (event: MouseEvent<HTMLElement>) => {
+    if (!swallowClickRef.current) return;
+    swallowClickRef.current = false;
+    event.stopPropagation();
+    event.preventDefault();
+  };
 
   const onFloorClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (!onFloorTap) return;
@@ -66,9 +100,15 @@ export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeSc
       className={`scene ${className}`}
       aria-label={label}
       data-testid="home-scene"
+      data-room={room}
       onPointerMove={pointerHandlers?.onPointerMove}
       onPointerLeave={pointerHandlers?.onPointerLeave}
-      onPointerDown={pointerHandlers?.onPointerDown}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => {
+        swipeRef.current = null;
+      }}
+      onClickCapture={onClickCapture}
     >
       {children}
       <button
@@ -90,6 +130,11 @@ export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeSc
     </section>
   );
 });
+
+/** A swipe is at least this far sideways, no further than this up or down, and this quick. */
+export const SWIPE_MIN_PX = 56;
+export const SWIPE_MAX_DRIFT_PX = 48;
+export const SWIPE_MAX_MS = 700;
 
 function assignRef<T>(ref: ForwardedRef<T>, value: T | null): void {
   if (typeof ref === 'function') ref(value as T);

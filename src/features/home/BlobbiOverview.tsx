@@ -19,7 +19,6 @@ import {
   DoorArt,
   HomeScene,
   NeedBubbles,
-  SceneBackdrop,
   SceneObjectView,
   SpeechBubble,
   offeredItemObject,
@@ -29,6 +28,7 @@ import {
   type Speech,
 } from './scene';
 import { ActionBar, BlobbiSheet, GameShell, HudTop, MenuSheet } from './shell';
+import { RoomArrows, RoomBackdrop, RoomIndicator, entrySpot, roomById, useRoom, type RoomId } from './rooms';
 
 interface BlobbiOverviewProps {
   blobbi: BlobbiCompanion;
@@ -127,7 +127,13 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     onReveal: (kind) => setReveal((r) => ({ kind, key: (r?.key ?? 0) + 1 })),
   });
 
-  const scene = useBlobbiPresentation({ blobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive });
+  // The room: device-local UI state per Blobbi. A sleeper is in the bedroom.
+  const sleeping = blobbi.state === 'sleeping';
+  const rooms = useRoom({ pubkey, blobbiD: blobbi.d, sleeping, locked: ceremony.presentation.exclusive });
+  const room = rooms.room;
+  const [initialPosition] = useState(() => entrySpot(room, sleeping));
+
+  const scene = useBlobbiPresentation({ blobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition });
 
   const statItems: StatItem[] = projected
     ? getVisibleStats(blobbi.stage).map((stat) => ({
@@ -241,13 +247,43 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const perform = care.perform;
   const walkTo = scene.walkTo;
   const canWalk = scene.canWalk;
+  const placeAt = scene.placeAt;
   const bed = sceneObject('bed');
   const door = sceneObject('door');
+
+  // Coming into a room: the Blobbi is placed at the room's entry (a sleeper
+  // in the bed), an item that was being walked to is put away (nothing was
+  // written), the door prompt closes. `enterRoom` is the player's move and
+  // repositions at once, so a walk started in the same tick (rest → bed)
+  // begins from the right spot; the effect covers the room changing on its
+  // own (the Blobbi falling asleep or waking up from another device).
+  const roomRef = useRef<RoomId>(room.id);
+  const go = rooms.go;
+  const enterRoom = useCallback(
+    (id: RoomId) => {
+      if (id === roomRef.current) return;
+      roomRef.current = id;
+      go(id);
+      placeAt(roomById(id).entry);
+      setDoorPrompt(false);
+      setOffer((o) => (o && o.phase !== 'using' ? null : o));
+    },
+    [go, placeAt],
+  );
+  useEffect(() => {
+    if (roomRef.current === room.id) return;
+    roomRef.current = room.id;
+    placeAt(entrySpot(room, liveBlobbi.current.state === 'sleeping'));
+    setDoorPrompt(false);
+    setOffer((o) => (o && o.phase !== 'using' ? null : o));
+  }, [room, placeAt]);
+
   const onAction = useCallback(
     (action: CareAction) => {
       if (action === 'rest' && blobbi.state === 'active' && canWalk) {
         setWalkingToBed(true);
         setDoorPrompt(false);
+        enterRoom('bedroom');
         void walkTo(bed.approach ?? bed.position).then((outcome) => {
           setWalkingToBed(false);
           if (outcome !== 'arrived') return;
@@ -258,7 +294,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       }
       perform(blobbi.d, action);
     },
-    [blobbi.d, blobbi.state, perform, walkTo, canWalk, bed],
+    [blobbi.d, blobbi.state, perform, walkTo, canWalk, bed, enterRoom],
   );
 
   // Offering an item: it is set down in the room, the Blobbi walks to it,
@@ -324,7 +360,6 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   );
 
   const pendingAction: CareAction | null = care.pendingAction ?? (walkingToBed ? 'rest' : null);
-  const sleeping = blobbi.state === 'sleeping';
   const inCeremony = ceremony.presentation.exclusive;
   const eggCrack = ceremony.presentation.eggCrack ?? lifecycle.view.eggCrack;
   const interactive = !sleeping && canWalk && !inCeremony;
@@ -347,14 +382,25 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       scene={
         <HomeScene
           ref={sceneRef}
-          label={`${blobbi.name}'s home`}
+          label={`${blobbi.name}'s ${room.label.toLowerCase()}`}
+          room={room.id}
+          onSwipe={
+            rooms.canMove
+              ? (direction) => {
+                  const next = rooms.neighbour(direction === 'left' ? 'right' : 'left');
+                  if (next) enterRoom(next);
+                }
+              : undefined
+          }
+          topBar={<RoomIndicator rooms={{ ...rooms, go: enterRoom }} disabled={inCeremony} />}
           floorLabel={sleeping ? `${blobbi.name} is asleep` : canWalk ? `Call ${blobbi.name} here` : `${blobbi.name} stays put`}
           onFloorTap={interactive ? onFloorTap : undefined}
           pointerHandlers={scene.scenePointerHandlers}
           objects={
             <>
-              <SceneObjectView
-                def={door}
+              {room.objects.includes('door') && (
+                <SceneObjectView
+                  def={door}
                 state={doorPrompt ? 'open' : 'closed'}
                 onTap={interactive ? goToDoor : undefined}
                 aside={
@@ -366,11 +412,14 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                   )
                 }
               >
-                <DoorArt open={doorPrompt} />
-              </SceneObjectView>
-              <SceneObjectView def={bed} state={sleeping ? 'occupied' : 'free'} onTap={interactive ? () => void walkTo(bed.position) : undefined}>
-                <BedArt />
-              </SceneObjectView>
+                  <DoorArt open={doorPrompt} />
+                </SceneObjectView>
+              )}
+              {room.objects.includes('bed') && (
+                <SceneObjectView def={bed} state={sleeping ? 'occupied' : 'free'} onTap={interactive ? () => void walkTo(bed.position) : undefined}>
+                  <BedArt />
+                </SceneObjectView>
+              )}
               {offer && offerObject && (
                 <SceneObjectView
                   def={offerObject}
@@ -413,7 +462,9 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             </BlobbiActor>
           }
           foreground={
-            <div className="absolute inset-x-4 top-16 flex flex-col items-center gap-2">
+            <>
+              <RoomArrows rooms={{ ...rooms, go: enterRoom }} disabled={inCeremony || offer !== null} />
+              <div className="absolute inset-x-4 top-16 flex flex-col items-center gap-2">
               <CareError error={care.error} />
               {itemError && offer?.phase === 'failed' && (
                 <p role="alert" className="home-glass rounded-xl px-3 py-2 text-center text-sm text-destructive" data-testid="item-error">
@@ -435,10 +486,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                   </button>
                 </p>
               )}
-            </div>
+              </div>
+            </>
           }
         >
-          <SceneBackdrop />
+          <RoomBackdrop room={room.id} />
         </HomeScene>
       }
       bottom={

@@ -38,6 +38,9 @@
     --window-glow: hsl(45 95% 80% / 0.35);
     --lamp: transparent;
     --home-ground-glow: hsl(270 60% 70% / 0.32);
+    --grass: hsl(100 45% 55%);
+    --grass-edge: hsl(105 40% 44%);
+    --hill: hsl(125 32% 40%);
 
     /* HUD */
     --hud-top-h: 3.5rem;
@@ -386,6 +389,191 @@
     border-radius: 100%;
     background: radial-gradient(closest-side, var(--rug) 0%, var(--rug) 78%, transparent 100%);
     opacity: 0.6;
+  }
+
+  /* ─── Rooms: the bedroom and the garden reuse the same phase tokens ─── */
+  .backdrop-wall--bedroom {
+    background: linear-gradient(180deg, color-mix(in oklab, var(--wall), hsl(262 45% 45%) 14%) 0%, color-mix(in oklab, var(--wall), hsl(262 45% 45%) 14%) 68%, color-mix(in oklab, var(--wall-shade), hsl(262 45% 35%) 18%) 100%);
+  }
+  .backdrop-window--small {
+    left: 62%;
+    top: 15%;
+    width: clamp(4.5rem, 14%, 8rem);
+    border-radius: 0.6rem 0.6rem 2.2rem 2.2rem;
+  }
+  .backdrop-lamp--always {
+    right: 4%;
+    top: 0;
+    width: 40%;
+    height: 48%;
+    background: radial-gradient(closest-side, hsl(40 95% 72% / 0.34) 0%, transparent 100%);
+  }
+  .backdrop-picture {
+    position: absolute;
+    left: 14%;
+    top: 20%;
+    width: clamp(3rem, 12%, 6rem);
+    aspect-ratio: 4 / 3;
+    border-radius: 0.35rem;
+    background: linear-gradient(160deg, var(--sky-bottom) 0%, var(--rug) 100%);
+    box-shadow: inset 0 0 0 0.3rem var(--wall-shade), 0 6px 18px -10px hsl(0 0% 0% / 0.5);
+  }
+  .backdrop-rug--wide {
+    width: 64%;
+    height: 40%;
+    top: 22%;
+    border-radius: 2rem;
+    opacity: 0.55;
+  }
+  .backdrop-sky {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 100%);
+    transition: background 600ms ease;
+  }
+  .backdrop-stars {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .backdrop-sun {
+    position: absolute;
+    right: 14%;
+    top: 9%;
+    width: clamp(2.5rem, 9%, 5rem);
+    aspect-ratio: 1 / 1;
+    border-radius: 9999px;
+    background: radial-gradient(circle at 40% 35%, hsl(48 100% 92%) 0%, hsl(42 100% 78%) 55%, hsl(40 100% 70% / 0.6) 75%, transparent 100%);
+    box-shadow: 0 0 40px 12px var(--window-glow);
+    opacity: calc(1 - var(--stars));
+    transition: opacity 600ms ease;
+  }
+  .backdrop-hills {
+    position: absolute;
+    left: -4%;
+    width: 108%;
+    height: 9rem;
+  }
+  .backdrop-fence {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2.6rem;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 2%;
+    border-bottom: 0.45rem solid color-mix(in oklab, var(--floor-edge), white 22%);
+    box-sizing: border-box;
+  }
+  .backdrop-fence::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 38%;
+    height: 0.4rem;
+    background: color-mix(in oklab, var(--floor-edge), white 22%);
+  }
+  .backdrop-fence__post {
+    width: 0.55rem;
+    height: 100%;
+    border-radius: 0.3rem 0.3rem 0 0;
+    background: color-mix(in oklab, var(--floor-edge), white 30%);
+  }
+  .backdrop-floor--grass {
+    background: linear-gradient(180deg, var(--grass-edge) 0%, var(--grass) 7%, var(--grass) 100%);
+  }
+  .backdrop-rug--patch {
+    background: radial-gradient(closest-side, color-mix(in oklab, var(--grass), white 18%) 0%, color-mix(in oklab, var(--grass), white 12%) 70%, transparent 100%);
+    opacity: 0.7;
+  }
+
+  /* Room navigation: a chevron at each side, the room pill on top */
+  .room-arrow {
+    position: absolute;
+    top: 46%;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    background: hsl(var(--card) / 0.72);
+    border: 1px solid hsl(var(--border) / 0.6);
+    color: hsl(var(--foreground));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 6px 20px -12px hsl(var(--foreground) / 0.5);
+    pointer-events: auto;
+    transition: transform 120ms ease, opacity 120ms ease;
+  }
+  .room-arrow--left {
+    left: 0.5rem;
+  }
+  .room-arrow--right {
+    right: 0.5rem;
+  }
+  .room-arrow:active {
+    transform: scale(0.94);
+  }
+  .room-arrow:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  .room-arrow:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
+  .scene-topbar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(var(--hud-top-h) + env(safe-area-inset-top));
+    z-index: 3;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .room-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.7rem 0.25rem 0.8rem;
+    border-radius: 9999px;
+    background: hsl(var(--card) / 0.55);
+    border: 1px solid hsl(var(--border) / 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: hsl(var(--foreground) / 0.85);
+    pointer-events: auto;
+  }
+  .room-pill__dots {
+    display: inline-flex;
+    gap: 0.3rem;
+  }
+  .room-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: hsl(var(--foreground) / 0.25);
+    transition: transform 120ms ease, background-color 120ms ease;
+  }
+  .room-dot--current {
+    background: hsl(var(--primary));
+    transform: scale(1.25);
+  }
+  .room-dot:not(:disabled):hover {
+    background: hsl(var(--foreground) / 0.5);
+  }
+  .room-dot:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 3px hsl(var(--ring));
   }
 
   /* The floor: the band a Blobbi can stand on. Invisible, but a real button. */
