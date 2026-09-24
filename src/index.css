@@ -845,6 +845,7 @@
   }
   .furniture-shadow {
     position: absolute;
+    pointer-events: none;
     left: 50%;
     bottom: -1.5%;
     width: 70%;
@@ -862,6 +863,121 @@
     filter: brightness(1.06);
   }
 
+
+  /* ─── Decorating: the edit button, the toolbar, selection ────────────── */
+  .room-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-left: 0.4rem;
+    border-radius: 9999px;
+    background: hsl(var(--card) / 0.55);
+    border: 1px solid hsl(var(--border) / 0.5);
+    color: hsl(var(--foreground) / 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    pointer-events: auto;
+  }
+  .room-edit-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
+  .editor-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.2rem 0.6rem 0;
+  }
+  .editor-bar__hint {
+    text-align: center;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: hsl(0 0% 100% / 0.92);
+  }
+  .editor-bar__row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    flex-wrap: nowrap;
+  }
+  .editor-bar__value {
+    min-width: 2.6rem;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: hsl(0 0% 100% / 0.9);
+  }
+  .editor-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    padding: 0 0.7rem;
+    border-radius: 9999px;
+    border: 1px solid hsl(0 0% 100% / 0.35);
+    background: hsl(var(--card) / 0.9);
+    color: hsl(var(--card-foreground));
+    font-size: 0.78rem;
+    font-weight: 700;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .editor-btn:disabled {
+    opacity: 0.45;
+  }
+  .editor-btn--primary {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    border-color: transparent;
+  }
+  .editor-btn--danger:not(:disabled) {
+    color: hsl(var(--destructive));
+  }
+  .editor-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
+  .scene[data-editing='true'] .furniture:not(:disabled) {
+    cursor: grab;
+    touch-action: none;
+  }
+  .furniture-anchor[data-state='selected'] .furniture {
+    outline: 3px dashed hsl(var(--primary));
+    outline-offset: 4px;
+    border-radius: 0.6rem;
+  }
+  .furniture-anchor[data-state='selected']::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -0.35rem;
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.3);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .furniture-anchor[data-state='dragging'] {
+    opacity: 0.85;
+    filter: drop-shadow(0 10px 12px hsl(0 0% 0% / 0.35));
+  }
+  .catalog-art {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    width: 2.6rem;
+    height: 2.6rem;
+  }
+  .catalog-art img {
+    max-width: 100%;
+    max-height: 100%;
+  }
 
   /* Room navigation: a chevron at each side, the room pill on top */
   .room-arrow {
@@ -1030,6 +1146,11 @@
     position: relative;
     width: 100%;
     aspect-ratio: 1 / 1;
+    /* Only the poke button takes taps; the glow, the shadow and the bubbles let them through. */
+    pointer-events: none;
+  }
+  .scene-actor__body > * {
+    pointer-events: none;
   }
   .scene-actor__box {
     position: relative;
@@ -1045,6 +1166,9 @@
   }
   .scene-actor__box:disabled {
     cursor: default;
+    /* A Blobbi that takes no taps must not swallow them either: the bed
+       behind a sleeper and the rug under it while decorating stay tappable. */
+    pointer-events: none;
   }
   .scene-actor__box:focus-visible {
     outline: 2px dashed hsl(var(--ring) / 0.7);

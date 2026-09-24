@@ -15,3 +15,9 @@ export { createLocalLayoutStore, localLayoutStore, layoutStorageKey, LAYOUT_STOR
 export type { LayoutStore } from './layout-store';
 export { surfaceBackground, parseSurface, isHexColor, WALL_STYLES, FLOOR_STYLES, SURFACE_VARIANTS } from './surfaces';
 export type { SurfaceLayout, RoomSurfaces, WallStyle, FloorStyle, SurfaceVariant } from './surfaces';
+export { useRoomEditor, isLegalPlacement } from './useRoomEditor';
+export type { RoomEditor } from './useRoomEditor';
+export { useFurnitureDrag, DRAG_SLOP_PX } from './useFurnitureDrag';
+export { RoomEditorBar } from './RoomEditorBar';
+export { FurnitureCatalogSheet } from './FurnitureCatalogSheet';
+export { movePlacement, nudgePlacement, cyclePlacementLayer, scalePlacement, flipPlacement, removePlacement, addPlacement, sameLayout, defaultPointFor, NUDGE_STEP, NUDGE_STEP_LARGE, SCALE_STEP } from './layout-edit';

@@ -4,7 +4,7 @@
  *
  * Precedence is a fixed order, resolved in `resolveBehaviorMode`:
  *
- *   ceremony > sleeping > nested > user-walk > free
+ *   ceremony > editing > sleeping > nested > user-walk > free
  *
  * `ceremony` is the exclusive lifecycle mode (a hatch or an evolution in
  * progress): nothing else may move, look or react until the semantic write
@@ -22,9 +22,9 @@
  */
 import type { WalkSource } from './locomotion';
 
-export type BehaviorMode = 'ceremony' | 'sleeping' | 'nested' | 'user-walk' | 'free';
+export type BehaviorMode = 'ceremony' | 'editing' | 'sleeping' | 'nested' | 'user-walk' | 'free';
 
-export const BEHAVIOR_MODES: readonly BehaviorMode[] = ['ceremony', 'sleeping', 'nested', 'user-walk', 'free'];
+export const BEHAVIOR_MODES: readonly BehaviorMode[] = ['ceremony', 'editing', 'sleeping', 'nested', 'user-walk', 'free'];
 
 export interface BehaviorPolicy {
   /** Who may start a walk in this mode. */
@@ -43,6 +43,8 @@ export interface BehaviorPolicy {
 
 export const BEHAVIOR_POLICY: Record<BehaviorMode, BehaviorPolicy> = {
   ceremony: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still' },
+  // Decorating: the Blobbi stands and watches; the room is the player's.
+  editing: { walks: [], idle: false, gaze: true, reactions: false, floorTaps: false, forcedMotion: 'still' },
   sleeping: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still' },
   nested: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: null },
   'user-walk': { walks: ['user'], idle: false, gaze: true, reactions: true, floorTaps: true, forcedMotion: null },
@@ -56,11 +58,14 @@ export interface BehaviorModeInput {
   isInCeremony?: boolean;
   /** The Blobbi is still an egg. */
   isEgg?: boolean;
+  /** The player is decorating the room. */
+  isEditing?: boolean;
 }
 
 /** The mode for the current facts, in precedence order. */
-export function resolveBehaviorMode({ isSleeping, isUserWalking, isInCeremony = false, isEgg = false }: BehaviorModeInput): BehaviorMode {
+export function resolveBehaviorMode({ isSleeping, isUserWalking, isInCeremony = false, isEgg = false, isEditing = false }: BehaviorModeInput): BehaviorMode {
   if (isInCeremony) return 'ceremony';
+  if (isEditing && !isSleeping) return 'editing';
   if (isSleeping) return 'sleeping';
   if (isEgg) return 'nested';
   if (isUserWalking) return 'user-walk';

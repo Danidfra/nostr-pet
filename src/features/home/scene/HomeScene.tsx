@@ -16,6 +16,8 @@ interface HomeSceneProps {
   room?: string;
   /** The room canvas element, for callers that convert pointer positions (the editor). */
   canvasRef?: RefObject<HTMLDivElement | null>;
+  /** The player is decorating (`data-editing`). */
+  editing?: boolean;
   /** The room behind everything (the backdrop layer; spans the whole viewport). */
   children?: ReactNode;
   /** Layers, back to front. */
@@ -40,7 +42,7 @@ interface HomeSceneProps {
  * size; the viewport's extra space is bleed the backdrop fills.
  */
 export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeScene(
-  { label, floorLabel, onFloorTap, pointerHandlers, onSwipe, room, canvasRef, children, topBar, objects, actor, foreground, className = '' },
+  { label, floorLabel, onFloorTap, pointerHandlers, onSwipe, room, canvasRef, editing = false, children, topBar, objects, actor, foreground, className = '' },
   ref,
 ) {
   const ownCanvasRef = useRef<HTMLDivElement | null>(null);
@@ -102,6 +104,7 @@ export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeSc
       aria-label={label}
       data-testid="home-scene"
       data-room={room}
+      data-editing={editing ? 'true' : 'false'}
       onPointerMove={pointerHandlers?.onPointerMove}
       onPointerLeave={pointerHandlers?.onPointerLeave}
       onPointerDown={onPointerDown}

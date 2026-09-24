@@ -18,6 +18,8 @@ interface ActionBarProps {
   room?: string;
   /** The room floor's CSS background; the dock continues it under the controls. */
   floorBackground?: string;
+  /** Something that replaces the hotbar and the verbs for a while (the room editor's toolbar). */
+  override?: React.ReactNode;
 }
 
 /**
@@ -27,7 +29,7 @@ interface ActionBarProps {
  * which are the item-free fallback and the way to bed. The dock sits in
  * the flow, at the front edge of the floor, so it never covers the Blobbi.
  */
-export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, onLifecycle, disabled = false, hotbar, room, floorBackground }: ActionBarProps) {
+export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, onLifecycle, disabled = false, hotbar, room, floorBackground, override }: ActionBarProps) {
   return (
     <nav className="hud-bottom" aria-label="Actions" data-testid="action-bar" data-room={room} style={floorBackground ? ({ '--dock-floor': floorBackground } as React.CSSProperties) : undefined}>
       {lifecycleReady && onLifecycle && (
@@ -36,8 +38,12 @@ export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, on
           {lifecycleReady.label}
         </button>
       )}
-      {hotbar && <ItemHotbar {...hotbar} disabled={disabled || hotbar.disabled} />}
-      <CareDock actions={disabled ? actions.map((a) => ({ ...a, available: false, reason: 'Something is happening.' })) : actions} pendingAction={pendingAction} onAction={onAction} />
+      {override ?? (
+        <>
+          {hotbar && <ItemHotbar {...hotbar} disabled={disabled || hotbar.disabled} />}
+          <CareDock actions={disabled ? actions.map((a) => ({ ...a, available: false, reason: 'Something is happening.' })) : actions} pendingAction={pendingAction} onAction={onAction} />
+        </>
+      )}
     </nav>
   );
 }

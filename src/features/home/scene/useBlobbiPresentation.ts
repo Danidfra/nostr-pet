@@ -22,6 +22,8 @@ export interface UseBlobbiPresentationOptions {
   isInCeremony?: boolean;
   /** Where the Blobbi stands at first (the room's entry, or the bed for a sleeper). */
   initialPosition?: FloorPoint;
+  /** The player is decorating: the Blobbi stands still and watches. */
+  isEditing?: boolean;
 }
 
 export interface ScenePointerHandlers {
@@ -66,7 +68,7 @@ export interface BlobbiSceneController {
  * its policy, so the precedence lives in `behavior-mode.ts` and not in the
  * conditions scattered here.
  */
-export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInCeremony = false, initialPosition }: UseBlobbiPresentationOptions): BlobbiSceneController {
+export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInCeremony = false, initialPosition, isEditing = false }: UseBlobbiPresentationOptions): BlobbiSceneController {
   const settings = useSceneSettings();
   const reducedMotion = useReducedMotion();
   const hoverCapable = useHoverCapable();
@@ -79,7 +81,7 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
   });
 
   const isUserWalking = locomotion.motion === 'walking' && locomotion.source === 'user';
-  const mode = resolveBehaviorMode({ isSleeping, isUserWalking, isInCeremony, isEgg: blobbi.stage === 'egg' });
+  const mode = resolveBehaviorMode({ isSleeping, isUserWalking, isInCeremony, isEgg: blobbi.stage === 'egg', isEditing });
   const policy = policyFor(mode);
 
   const actorKey = `${locomotion.position.x.toFixed(3)}:${locomotion.position.y.toFixed(3)}:${locomotion.facing}`;

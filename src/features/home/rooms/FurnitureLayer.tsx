@@ -16,6 +16,8 @@ export interface FurnitureLayerProps {
   /** Pointer-down hook per placement (the editor's drag). */
   onPointerDown?: (placement: Placement, index: number, event: React.PointerEvent<HTMLElement>) => void;
   onSelect?: (placement: Placement, index: number) => void;
+  /** Keyboard handling for the selected piece (the editor's nudging). */
+  onKeyDown?: (event: React.KeyboardEvent<HTMLElement>) => void;
   /** Label suffix while editing ("Bed, selected"). */
   editing?: boolean;
 }
@@ -27,7 +29,7 @@ export interface FurnitureLayerProps {
  * Blobbi walks behind a bed and in front of a rug. What tapping a piece
  * does comes from its definition (`use`), never from a room id.
  */
-export function FurnitureLayer({ placements, interactive = false, onUse, stateOf, decorate, onPointerDown, onSelect, editing = false }: FurnitureLayerProps) {
+export function FurnitureLayer({ placements, interactive = false, onUse, stateOf, decorate, onPointerDown, onSelect, onKeyDown, editing = false }: FurnitureLayerProps) {
   return (
     <>
       {placements.map((placement, index) => {
@@ -63,6 +65,8 @@ export function FurnitureLayer({ placements, interactive = false, onUse, stateOf
                 else if (usable) onUse(placement, def);
               }}
               onPointerDown={onPointerDown ? (event) => onPointerDown(placement, index, event) : undefined}
+              onKeyDown={editing && state === 'selected' ? onKeyDown : undefined}
+              aria-pressed={editing ? state === 'selected' : undefined}
               data-testid={`furniture-button-${placement.id}`}
             >
               <img src={def.asset} alt="" draggable={false} className="furniture__art" />

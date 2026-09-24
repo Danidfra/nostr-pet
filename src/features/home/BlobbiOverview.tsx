@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useProjectedBlobbiState } from '@blobbi-kit/react';
 import { getStatStatus, getVisibleStats, type BlobbiCompanion, type BlobbonautProfile } from '@blobbi-kit/core';
-import { MapPin } from 'lucide-react';
+import { MapPin, Paintbrush } from 'lucide-react';
 
 import { availableCareActions, useCareActions, type CareAction, type CareResult } from '@/features/care';
 import type { NostrEvent } from '@blobbi-kit/core';
@@ -29,7 +29,7 @@ import {
   type Speech,
 } from './scene';
 import { ActionBar, BlobbiSheet, GameShell, HomeRail, HudTop, MenuSheet, hotbarKey, useWideScreen } from './shell';
-import { FurnitureLayer, RoomArrows, RoomBackdrop, RoomIndicator, approachSpot, entrySpot, localLayoutStore, readRoomPlacements, roomById, roomShowsItem, sleepSpotFor, surfaceBackground, useRoom, useRoomLayout, furnitureById, type FurnitureDefinition, type Placement, type RoomId } from './rooms';
+import { FurnitureCatalogSheet, FurnitureLayer, RoomArrows, RoomBackdrop, RoomEditorBar, RoomIndicator, useFurnitureDrag, useRoomEditor, approachSpot, entrySpot, localLayoutStore, readRoomPlacements, roomById, roomShowsItem, sleepSpotFor, surfaceBackground, useRoom, useRoomLayout, furnitureById, type FurnitureDefinition, type Placement, type RoomId } from './rooms';
 
 interface BlobbiOverviewProps {
   blobbi: BlobbiCompanion;
@@ -140,11 +140,19 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // The furniture standing here (device-local layout or the room's defaults);
   // the bed in it decides where a sleeper lies.
   const layout = useRoomLayout({ pubkey, blobbiD: blobbi.d, room });
-  const sleepSpot = useMemo(() => sleepSpotFor(layout.placements, room), [layout.placements, room]);
+  // Decorating: a draft of the layout the player moves around; Apply saves it.
+  const editor = useRoomEditor({ room, current: layout.placements, save: layout.save });
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const editorDraft = editor.draft;
+  const anchorOf = useCallback((index: number) => editorDraft[index], [editorDraft]);
+  const drag = useFurnitureDrag({ canvasRef, anchorOf, clamp: editor.clampFor, onDrop: editor.move, enabled: editor.editing });
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const shownPlacements = editor.editing ? editor.draft : layout.placements;
+  const sleepSpot = useMemo(() => sleepSpotFor(shownPlacements, room), [shownPlacements, room]);
   const [initialPosition] = useState(() => entrySpot(room, sleeping, layout.placements));
   const wide = useWideScreen();
 
-  const scene = useBlobbiPresentation({ blobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition });
+  const scene = useBlobbiPresentation({ blobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition, isEditing: editor.editing });
 
   const statItems: StatItem[] = projected
     ? getVisibleStats(blobbi.stage).map((stat) => ({
@@ -412,7 +420,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const pendingAction: CareAction | null = care.pendingAction ?? (walkingToBed ? 'rest' : null);
   const inCeremony = ceremony.presentation.exclusive;
   const eggCrack = ceremony.presentation.eggCrack ?? lifecycle.view.eggCrack;
-  const interactive = !sleeping && canWalk && !inCeremony;
+  const editing = editor.editing;
+  const interactive = !sleeping && canWalk && !inCeremony && !editing;
   const usableItemCount = inventory.items.filter((i) => i.usability.ok && !i.unverified).length;
 
   // The hotbar: this room's usable consumables, from the same read as the
@@ -469,21 +478,43 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           ref={sceneRef}
           label={`${blobbi.name}'s ${room.label.toLowerCase()}`}
           room={room.id}
+          canvasRef={canvasRef}
+          editing={editing}
           onSwipe={
-            rooms.canMove
+            rooms.canMove && !editing
               ? (direction) => {
                   const next = rooms.neighbour(direction === 'left' ? 'right' : 'left');
                   if (next) enterRoom(next);
                 }
               : undefined
           }
-          topBar={<RoomIndicator rooms={{ ...rooms, go: enterRoom }} disabled={inCeremony} />}
+          topBar={
+            <>
+              <RoomIndicator rooms={{ ...rooms, go: enterRoom }} disabled={inCeremony || editing} />
+              {!editing && !inCeremony && offer === null && (
+                <button type="button" className="room-edit-btn" onClick={editor.begin} aria-label="Decorate this room" title="Decorate" data-testid="room-edit">
+                  <Paintbrush className="h-4 w-4" aria-hidden />
+                </button>
+              )}
+            </>
+          }
           floorLabel={sleeping ? `${blobbi.name} is asleep` : canWalk ? `Call ${blobbi.name} here` : `${blobbi.name} stays put`}
           onFloorTap={interactive ? onFloorTap : undefined}
           pointerHandlers={scene.scenePointerHandlers}
           objects={
             <>
-              <FurnitureLayer placements={layout.placements} interactive={interactive} onUse={useFurniture} />
+              <FurnitureLayer
+                placements={shownPlacements}
+                interactive={interactive}
+                onUse={useFurniture}
+                editing={editing}
+                onSelect={(_, index) => {
+                  if (!drag.consumedTap()) editor.select(editor.selected === index ? null : index);
+                }}
+                onPointerDown={(_, index, event) => drag.onPointerDown(index, event)}
+                onKeyDown={editor.onKeyDown}
+                stateOf={(_, index) => (editing ? (index === editor.selected ? 'selected' : drag.dragging === index ? 'dragging' : undefined) : undefined)}
+              />
               {room.fixtures.includes('door') && (
                 <SceneObjectView
                   def={door}
@@ -532,7 +563,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               blobbi={blobbi}
               presentation={scene.presentation}
               happyKey={resultKey}
-              onPoke={inCeremony ? undefined : held ? give : scene.poke}
+              onPoke={inCeremony || editing ? undefined : held ? give : scene.poke}
               tapLabel={held ? `Give ${blobbi.name} the ${held.item.name}` : undefined}
               invite={held !== null}
               eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined}
@@ -546,7 +577,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           }
           foreground={
             <>
-              <RoomArrows rooms={{ ...rooms, go: enterRoom }} disabled={inCeremony || offer !== null} />
+              <RoomArrows rooms={{ ...rooms, go: enterRoom }} disabled={inCeremony || offer !== null || editing} />
               <div className="absolute inset-x-4 top-16 flex flex-col items-center gap-2">
               <CareError error={care.error} />
               {itemError && offer?.phase === 'failed' && (
@@ -581,6 +612,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         <ActionBar
           room={room.id}
           floorBackground={surfaceBackground(room.surfaces.floor)}
+          override={editing ? <RoomEditorBar editor={editor} roomLabel={room.label} onOpenCatalog={() => setCatalogOpen(true)} /> : undefined}
           actions={actions}
           pendingAction={pendingAction}
           onAction={onAction}
@@ -617,6 +649,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             devForce={devForce}
           />
           <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} />
+          <FurnitureCatalogSheet open={catalogOpen} onClose={() => setCatalogOpen(false)} room={room} onAdd={editor.add} />
           <InventorySheet
             open={itemsOpen}
             onClose={() => setItemsOpen(false)}
