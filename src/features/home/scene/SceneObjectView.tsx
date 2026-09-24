@@ -25,7 +25,7 @@ export function SceneObjectView({ def, onTap, state, children, aside }: SceneObj
     <div
       className="scene-object-anchor"
       style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--object-scale': String(placement.scale), '--object-width': `${def.width * 100}%` } as React.CSSProperties}
-      data-testid={`scene-object-${def.id}`}
+      data-testid={def.testId ?? `scene-object-${def.id}`}
       data-state={state}
     >
       <button type="button" className="scene-object" aria-label={def.label} onClick={onTap} disabled={!onTap}>

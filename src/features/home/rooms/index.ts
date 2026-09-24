@@ -21,3 +21,7 @@ export { useFurnitureDrag, DRAG_SLOP_PX } from './useFurnitureDrag';
 export { RoomEditorBar } from './RoomEditorBar';
 export { FurnitureCatalogSheet } from './FurnitureCatalogSheet';
 export { movePlacement, nudgePlacement, cyclePlacementLayer, scalePlacement, flipPlacement, removePlacement, addPlacement, sameLayout, defaultPointFor, NUDGE_STEP, NUDGE_STEP_LARGE, SCALE_STEP } from './layout-edit';
+export { usePlacedToys } from './usePlacedToys';
+export type { PlacedToysState, ToyInRoom } from './usePlacedToys';
+export { readPlacedToys, writePlacedToys, parsePlacedToys, toyStorageKey, toyKey, toyApproach, MAX_TOYS_PER_ROOM, TOY_STORAGE_PREFIX } from './toy-store';
+export type { PlacedToy, PlacedToys } from './toy-store';

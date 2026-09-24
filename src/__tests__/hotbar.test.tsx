@@ -168,8 +168,9 @@ describe('Hotbar: what it shows', () => {
     expect(tiles()).toEqual(['hotbar-item-blobbi:hygiene:soap']);
     await userEvent.click(screen.getByTestId('room-arrow-left'));
     expect(scene()).toHaveAttribute('data-room', 'closet');
-    expect(tiles()).toEqual([]);
-    expect(screen.getByTestId('hotbar-hint')).toHaveTextContent('What your Blobbi wears is equipped on the Island.');
+    // The closet shows what can be worn, as information, never as something to give.
+    expect(tiles()).toEqual(['hotbar-item-blobbi:cosmetic:stargazer-glasses']);
+    expect(screen.getByTestId('hotbar-item-blobbi:cosmetic:stargazer-glasses')).toHaveAttribute('data-usable', 'false');
     await userEvent.click(screen.getByTestId('room-arrow-left'));
     expect(scene()).toHaveAttribute('data-room', 'rest');
     expect(tiles()).toEqual([]);

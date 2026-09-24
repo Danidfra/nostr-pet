@@ -15,7 +15,8 @@ export { resolveBehaviorMode, policyFor, BEHAVIOR_POLICY, BEHAVIOR_MODES } from 
 export type { BehaviorMode, BehaviorPolicy } from './behavior-mode';
 export type { WalkOutcome } from './useBlobbiLocomotion';
 export type { BlobbiPresentation, PresentationInputs } from './presentation';
-export { HOME_SPOT, DOOR_POSITION, DOOR_APPROACH, OFFER_SPOT, OFFER_APPROACH, SCENE_OBJECTS, sceneObject, offeredItemObject } from './objects';
+export { HOME_SPOT, DOOR_POSITION, DOOR_APPROACH, OFFER_SPOT, OFFER_APPROACH, SCENE_OBJECTS, sceneObject, offeredItemObject, itemObjectAt } from './objects';
 export type { SceneObjectDef, SceneObjectId, SceneObjectKind } from './objects';
 export * from './geometry';
 export type { CareReaction } from './reactions';
+export { MIN_USE_MS, POKE_DURATION_MS, ANNOYED_DURATION_MS, REACTION_DURATION_MS } from './reactions';

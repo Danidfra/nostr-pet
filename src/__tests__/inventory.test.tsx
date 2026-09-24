@@ -143,6 +143,8 @@ async function ready() {
 }
 
 async function openItems() {
+  // A use stays visible for a moment after its write; the bag waits for it.
+  await waitFor(() => expect(screen.queryByTestId('scene-object-offer')).toBeNull(), { timeout: 4000 });
   await userEvent.click(screen.getByTestId('action-items'));
   return screen.findByTestId('inventory-sheet');
 }

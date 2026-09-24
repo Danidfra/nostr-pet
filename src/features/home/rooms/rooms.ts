@@ -58,8 +58,11 @@ const DEFS: Record<RoomId, RoomDefinition> = {
     surfaces: { wall: { style: 'solid', palette: ['#f0f9ff', '#e0f2fe'] }, floor: { style: 'tile', palette: ['#f0f9ff', '#bae6fd'], angle: 45 } },
     decor: ['tiles-band', 'window-small'],
     fixtures: [],
-    defaultFurniture: [{ id: 'official:plant-small', x: 0.1, y: 0.72, layer: 'front', scale: 0.8 }],
-    entry: { x: 0.5, y: 0.6 },
+    defaultFurniture: [
+      { id: 'home:tub', x: 0.66, y: 0.84, layer: 'floor' },
+      { id: 'official:plant-small', x: 0.1, y: 0.72, layer: 'front', scale: 0.8 },
+    ],
+    entry: { x: 0.34, y: 0.6 },
     activities: ['clean', 'medicine'],
     emptyHint: 'Soap and medicine go here.',
   },

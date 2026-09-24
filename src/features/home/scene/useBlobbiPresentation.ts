@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useCallback, useMemo, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import type { BlobbiCompanion, BlobbiStats } from '@blobbi-kit/core';
 import { policyFor, resolveBehaviorMode, type BehaviorMode } from './behavior-mode';
 import { floorDirection, floorPointFromScene, type FloorPoint } from './geometry';
@@ -6,7 +6,9 @@ import { travelGlance } from './gaze';
 import type { IdleAction } from './idle';
 import { HOME_SPOT } from './objects';
 import { composePresentation, type BlobbiPresentation } from './presentation';
-import { POKE_DURATION_MS, baselineExpression, reactionForCare, type CareReaction } from './reactions';
+import { ANNOYED_DURATION_MS, POKE_DURATION_MS, baselineExpression, reactionForCare, type CareReaction } from './reactions';
+import { POKE_PATIENCE } from '../personality';
+import type { EyeOffset } from './gaze';
 import { useHoverCapable, useReducedMotion, useSceneSettings } from './SceneSettings';
 import { useBlobbiLocomotion, type WalkOutcome } from './useBlobbiLocomotion';
 import { useGazePolicy } from './useGazePolicy';
@@ -43,8 +45,10 @@ export interface BlobbiSceneController {
   walkTo: (destination: FloorPoint) => Promise<WalkOutcome>;
   /** A tap or click on the floor, as fractions of the scene box. */
   onFloorTap: (fraction: { x: number; y: number }) => void;
-  /** A tap on the Blobbi itself. */
-  poke: () => void;
+  /** A tap on the Blobbi itself: cheerful, unless it has been poked too often lately. */
+  poke: () => 'happy' | 'upset';
+  /** Look somewhere for a moment (an item in hand, a toy set down). */
+  lookAt: (offset: EyeOffset, durationMs?: number) => void;
   /** A care result or an item use landed: react on the face. */
   reactToCare: (result: CareReaction) => void;
   /** A lifecycle moment landed: a bigger, longer face. */
@@ -153,11 +157,28 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     [policy, walkTo],
   );
 
-  const poke = useCallback(() => {
+  const pokesRef = useRef<number[]>([]);
+  const poke = useCallback((): 'happy' | 'upset' => {
     idle.markActivity();
-    if (!policy.reactions) return;
+    if (!policy.reactions) return 'happy';
+    const now = Date.now();
+    pokesRef.current = [...pokesRef.current.filter((t) => now - t < POKE_PATIENCE.windowMs), now];
+    if (pokesRef.current.length >= POKE_PATIENCE.count) {
+      pokesRef.current = [];
+      reactions.react('upset', ANNOYED_DURATION_MS);
+      return 'upset';
+    }
     reactions.react('happy', POKE_DURATION_MS);
+    return 'happy';
   }, [idle, policy, reactions]);
+
+  const lookAt = useCallback(
+    (offset: EyeOffset, durationMs = 1_500) => {
+      if (!policy.gaze) return;
+      gaze.glance(offset, durationMs);
+    },
+    [policy, gaze],
+  );
 
   const reactToCare = useCallback(
     (result: CareReaction) => {
@@ -200,5 +221,5 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     [gaze, idle],
   );
 
-  return { presentation, mode, walkTo, onFloorTap, poke, reactToCare, celebrate, canWalk: policy.walks.includes('user'), placeAt, scenePointerHandlers, isUserWalking, reducedMotion };
+  return { presentation, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, canWalk: policy.walks.includes('user'), placeAt, scenePointerHandlers, isUserWalking, reducedMotion };
 }

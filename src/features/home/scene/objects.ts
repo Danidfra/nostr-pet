@@ -10,7 +10,7 @@ import type { FloorPoint } from './geometry';
  * and one more drawing, not a new component tree.
  */
 
-export type SceneObjectId = 'door' | 'offer';
+export type SceneObjectId = 'door' | 'offer' | 'toy';
 
 /** Furniture stays; an item is offered for a moment and goes away. */
 export type SceneObjectKind = 'furniture' | 'item';
@@ -26,6 +26,8 @@ export interface SceneObjectDef {
   approach?: FloorPoint;
   /** Width as a fraction of the scene width (clamped by CSS). */
   width: number;
+  /** A test id when several objects share an id (toys). */
+  testId?: string;
 }
 
 /** Where a Blobbi stands when it arrives home (awake). */
@@ -55,6 +57,11 @@ export const SCENE_OBJECTS: readonly SceneObjectDef[] = [
  */
 export function offeredItemObject(name: string): SceneObjectDef {
   return { id: 'offer', kind: 'item', label: name, position: OFFER_SPOT, approach: OFFER_APPROACH, width: 0.11 };
+}
+
+/** An item lying at a spot of the player's choosing (a toy set down); the Blobbi stands beside it. */
+export function itemObjectAt(id: SceneObjectId, name: string, position: FloorPoint, approach: FloorPoint, testId?: string): SceneObjectDef {
+  return { id, kind: 'item', label: name, position, approach, width: 0.11, testId };
 }
 
 export function sceneObject(id: SceneObjectId): SceneObjectDef {

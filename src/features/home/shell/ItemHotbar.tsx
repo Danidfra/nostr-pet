@@ -15,6 +15,8 @@ export interface HotbarProps {
   itemCount: number;
   /** What to say under the strip: the held item's instruction, or why the strip is empty. */
   hint: string | null;
+  /** Addresses worn on the Island, for the closet's badge. */
+  wornAddresses?: ReadonlySet<string>;
   disabled?: boolean;
 }
 
@@ -29,7 +31,7 @@ export interface HotbarProps {
  * through the overview's offer flow and the M4 spend pipeline. Nothing here
  * knows a kind number.
  */
-export function ItemHotbar({ items, selectedKey, onSelect, onOpenItems, itemCount, hint, disabled = false }: HotbarProps) {
+export function ItemHotbar({ items, selectedKey, onSelect, onOpenItems, itemCount, hint, wornAddresses, disabled = false }: HotbarProps) {
   return (
     <div className="hotbar-wrap" data-testid="hotbar">
       <div className="hotbar" role="list" aria-label="Items to use">
@@ -49,18 +51,26 @@ export function ItemHotbar({ items, selectedKey, onSelect, onOpenItems, itemCoun
         {items.map((entry) => {
           const key = hotbarKey(entry);
           const selected = selectedKey === key;
+          const usable = entry.usability.ok && !entry.unverified;
+          const isWorn = wornAddresses?.has(entry.item.address) ?? false;
           return (
             <div role="listitem" key={key} className="hotbar-slot">
               <button
                 type="button"
-                className={`hotbar-tile ${selected ? 'hotbar-tile--selected' : ''}`}
+                className={`hotbar-tile ${selected ? 'hotbar-tile--selected' : ''} ${usable ? '' : 'hotbar-tile--info'}`}
                 onClick={() => onSelect(entry)}
                 disabled={disabled}
                 aria-pressed={selected}
-                aria-label={`${entry.item.name}, ${entry.quantity}${selected ? ', in hand' : ''}`}
+                aria-label={`${entry.item.name}, ${entry.quantity}${isWorn ? ', worn' : ''}${selected ? ', in hand' : ''}`}
                 data-testid={`hotbar-item-${entry.item.itemId}`}
                 data-selected={selected ? 'true' : 'false'}
+                data-usable={usable ? 'true' : 'false'}
               >
+                {isWorn && (
+                  <span className="hotbar-tile__worn" data-testid="hotbar-worn">
+                    Worn
+                  </span>
+                )}
                 <span className="hotbar-tile__art">
                   <ItemGlyph glyph={entry.item.glyph} size="2rem" />
                 </span>

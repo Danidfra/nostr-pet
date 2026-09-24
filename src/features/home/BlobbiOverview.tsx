@@ -25,11 +25,15 @@ import {
   useBlobbiPresentation,
   useReducedMotion,
   isAtPoint,
+  itemObjectAt,
+  floorPointFromScene,
+  MIN_USE_MS,
   type FloorPoint,
   type Speech,
 } from './scene';
+import { ANNOYED_LINES, glanceToward, roomGreeting } from './personality';
 import { ActionBar, BlobbiSheet, GameShell, HomeRail, HudTop, MenuSheet, hotbarKey, useWideScreen } from './shell';
-import { FurnitureCatalogSheet, FurnitureLayer, RoomArrows, RoomBackdrop, RoomEditorBar, RoomIndicator, useFurnitureDrag, useRoomEditor, approachSpot, entrySpot, localLayoutStore, readRoomPlacements, roomById, roomShowsItem, sleepSpotFor, surfaceBackground, useRoom, useRoomLayout, furnitureById, type FurnitureDefinition, type Placement, type RoomId } from './rooms';
+import { FurnitureCatalogSheet, FurnitureLayer, RoomArrows, RoomBackdrop, RoomEditorBar, RoomIndicator, toyApproach, useFurnitureDrag, usePlacedToys, useRoomEditor, type ToyInRoom, approachSpot, entrySpot, localLayoutStore, readRoomPlacements, roomById, roomShowsItem, sleepSpotFor, surfaceBackground, useRoom, useRoomLayout, furnitureById, type FurnitureDefinition, type Placement, type RoomId } from './rooms';
 
 interface BlobbiOverviewProps {
   blobbi: BlobbiCompanion;
@@ -88,7 +92,16 @@ interface ItemOffer {
   entry: HomeInventoryItem;
   phase: 'walking' | 'using' | 'failed';
   key: number;
+  /** Where it lies and where the Blobbi stands to use it; the usual offer spot when absent. */
+  spot?: { position: FloorPoint; approach: FloorPoint };
+  /** A toy that stays in the room after use (its placement key). */
+  toyKey?: string;
+  /** When the use began, for the minimum visible duration. */
+  usingSince?: number;
 }
+
+/** What the Blobbi says when something is picked out for it. */
+const PICK_LINES = ['Ooh!', 'For me?', 'Yes please!'];
 
 /**
  * The home of one Blobbi. The whole screen is the room; the HUD is two thin
@@ -147,6 +160,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const anchorOf = useCallback((index: number) => editorDraft[index], [editorDraft]);
   const drag = useFurnitureDrag({ canvasRef, anchorOf, clamp: editor.clampFor, onDrop: editor.move, enabled: editor.editing });
   const [catalogOpen, setCatalogOpen] = useState(false);
+  // Toys set down in this room: placement is local, ownership is the inventory read.
+  const toys = usePlacedToys({ pubkey, blobbiD: blobbi.d, room: room.id, items: inventory.items });
   const shownPlacements = editor.editing ? editor.draft : layout.placements;
   const sleepSpot = useMemo(() => sleepSpotFor(shownPlacements, room), [shownPlacements, room]);
   const [initialPosition] = useState(() => entrySpot(room, sleeping, layout.placements));
@@ -171,6 +186,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   // The item set down in the room, if any (see `offerItem` below).
   const [offer, setOffer] = useState<ItemOffer | null>(null);
+  const offerRef = useRef<ItemOffer | null>(null);
+  useEffect(() => {
+    offerRef.current = offer;
+  }, [offer]);
   // The item in the player's hand, picked from the hotbar and not yet given.
   // UI state only: nothing is read or written until it is given.
   const [held, setHeld] = useState<HomeInventoryItem | null>(null);
@@ -205,19 +224,36 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // An item was used: the same celebration, the item goes away.
   const lastItemResult = useItem.lastResult;
   const handledItemRef = useRef<typeof lastItemResult>(undefined);
+  // The celebration waits for the write AND for the use to have been visible
+  // for a moment (`MIN_USE_MS`): a fast relay never makes the moment vanish,
+  // a slow one never makes the animation wait for it. The face reacted at
+  // the pick already; what settles here is the authoritative result.
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!lastItemResult || handledItemRef.current === lastItemResult) return;
     handledItemRef.current = lastItemResult;
     const r = lastItemResult as ItemUseResult;
-    setOffer(null);
-    if (r.alreadyApplied) return;
-    setResultKey((k) => k + 1);
-    setFeedback({ action: r.action, name: r.name, statsChanged: r.statsChanged, xpGained: r.xpGained, nextState: 'active', itemName: r.item.name });
-    reactToCare({ action: r.action, nextState: 'active' });
-    const lines = ITEM_LINES[r.action];
-    say(lines[r.event.created_at % lines.length]);
-    play(soundFor(r.action));
+    const finish = () => {
+      finishTimerRef.current = null;
+      setOffer(null);
+      if (r.alreadyApplied) return;
+      setResultKey((k) => k + 1);
+      setFeedback({ action: r.action, name: r.name, statsChanged: r.statsChanged, xpGained: r.xpGained, nextState: 'active', itemName: r.item.name });
+      reactToCare({ action: r.action, nextState: 'active' });
+      const lines = ITEM_LINES[r.action];
+      say(lines[r.event.created_at % lines.length]);
+      play(soundFor(r.action));
+    };
+    const remaining = MIN_USE_MS - (Date.now() - (offerRef.current?.usingSince ?? 0));
+    if (remaining > 0) finishTimerRef.current = setTimeout(finish, remaining);
+    else finish();
   }, [lastItemResult, reactToCare, say, play]);
+  useEffect(
+    () => () => {
+      if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+    },
+    [],
+  );
 
   // A use failed: the item stays in the room with a way to retry or put it away.
   const itemError = useItem.error;
@@ -261,7 +297,6 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   // Rest is walk-then-sleep (see M1.1): only an arrived walk, only if still
   // awake by then, through a perform that checks a live in-flight flag.
-  const [walkingToBed, setWalkingToBed] = useState(false);
   const liveBlobbi = useRef(blobbi);
   useEffect(() => {
     liveBlobbi.current = blobbi;
@@ -280,6 +315,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // own (the Blobbi falling asleep or waking up from another device).
   const roomRef = useRef<RoomId>(room.id);
   const go = rooms.go;
+  const liveStats = useRef(projected?.stats);
+  liveStats.current = projected?.stats;
   const enterRoom = useCallback(
     (id: RoomId) => {
       if (id === roomRef.current) return;
@@ -289,8 +326,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       setDoorPrompt(false);
       setHeld(null);
       setOffer((o) => (o && o.phase !== 'using' ? null : o));
+      const line = roomGreeting(id, liveBlobbi.current, liveStats.current);
+      if (line) say(line);
     },
-    [go, placeAt],
+    [go, placeAt, say],
   );
   useEffect(() => {
     if (roomRef.current === room.id) return;
@@ -316,67 +355,55 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // bedroom, unless a bed stands right here), and only on arrival, only if
   // still awake, the publish. `target` is read before the room changes so
   // the walk starts from the entry towards the right spot.
-  const restAt = useCallback(
-    (roomId: RoomId, target: FloorPoint) => {
-      setWalkingToBed(true);
+  const [walkingFor, setWalkingFor] = useState<CareAction | null>(null);
+  const careAt = useCallback(
+    (roomId: RoomId, target: FloorPoint, action: CareAction) => {
+      setWalkingFor(action);
       setDoorPrompt(false);
       enterRoom(roomId);
       void walkTo(target).then((outcome) => {
-        setWalkingToBed(false);
+        setWalkingFor(null);
         if (outcome !== 'arrived') return;
         if (liveBlobbi.current.state !== 'active') return;
-        perform(liveBlobbi.current.d, 'rest');
+        perform(liveBlobbi.current.d, action);
       });
     },
     [enterRoom, walkTo, perform],
   );
-  const onAction = useCallback(
-    (action: CareAction) => {
-      if (action === 'rest' && blobbi.state === 'active' && canWalk) {
-        const bedHere = layout.placements.find((p) => furnitureUse(p) === 'rest');
-        if (bedHere) restAt(room.id, approachSpot(bedHere));
-        else restAt('rest', sleepSpotFor(readRoomPlacements(localLayoutStore, pubkey, blobbi.d, 'rest'), roomById('rest')));
-        return;
-      }
-      perform(blobbi.d, action);
-    },
-    [blobbi.d, blobbi.state, perform, canWalk, restAt, layout.placements, room.id, pubkey],
-  );
+  const restAt = useCallback((roomId: RoomId, target: FloorPoint) => careAt(roomId, target, 'rest'), [careAt]);
   // Tapping furniture the Blobbi can use: the bed is rest, done in place.
   const useFurniture = useCallback(
     (placement: Placement, def: FurnitureDefinition) => {
-      if (def.use?.kind === 'rest') {
-        if (blobbi.state === 'active' && canWalk) restAt(room.id, approachSpot(placement));
-        else if (blobbi.state !== 'hibernating') perform(blobbi.d, 'rest');
-      }
+      const kind = def.use?.kind;
+      if (!kind) return;
+      if (blobbi.state === 'active' && canWalk) careAt(room.id, approachSpot(placement), kind);
+      else if (kind === 'rest' && blobbi.state !== 'hibernating') perform(blobbi.d, 'rest');
     },
-    [blobbi.d, blobbi.state, canWalk, restAt, room.id, perform],
+    [blobbi.d, blobbi.state, canWalk, careAt, room.id, perform],
   );
 
   // Offering an item: it is set down in the room, the Blobbi walks to it,
   // and only on arrival does the semantic use (spend + care) start. A tap
   // anywhere else while walking puts the item away: nothing was written.
-  const offerRef = useRef<ItemOffer | null>(null);
-  useEffect(() => {
-    offerRef.current = offer;
-  }, [offer]);
   const offerKeyRef = useRef(0);
   const startUse = useItem.use;
   const resetUse = useItem.reset;
   const offerItem = useCallback(
-    (entry: HomeInventoryItem) => {
+    (entry: HomeInventoryItem, where?: { spot: { position: FloorPoint; approach: FloorPoint }; toyKey?: string }) => {
       setItemsOpen(false);
       setDoorPrompt(false);
       setHeld(null);
       resetUse();
-      const next: ItemOffer = { entry, phase: canWalk ? 'walking' : 'using', key: ++offerKeyRef.current };
+      const next: ItemOffer = { entry, phase: canWalk ? 'walking' : 'using', key: ++offerKeyRef.current, spot: where?.spot, toyKey: where?.toyKey };
       setOffer(next);
       // The ref is kept current by an effect after render; an egg uses the
       // item at once, before any render, so it is set here too.
       offerRef.current = next;
       const begin = () => {
         if (offerRef.current?.key !== next.key) return;
-        setOffer((o) => (o && o.key === next.key ? { ...o, phase: 'using' } : o));
+        const using: ItemOffer = { ...next, phase: 'using', usingSince: Date.now() };
+        offerRef.current = using;
+        setOffer((o) => (o && o.key === next.key ? using : o));
         const started = startUse({ entry, blobbiD: liveBlobbi.current.d });
         if (!started) setOffer((o) => (o && o.key === next.key ? { ...o, phase: 'failed' } : o));
       };
@@ -384,7 +411,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         begin();
         return;
       }
-      const object = offeredItemObject(entry.item.name);
+      const object = where?.spot ?? offeredItemObject(entry.item.name);
       void walkTo(object.approach ?? object.position).then((outcome) => {
         if (offerRef.current?.key !== next.key) return;
         if (outcome !== 'arrived') {
@@ -402,22 +429,48 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     setOffer(null);
   }, [resetUse]);
 
+  // A toy lying in the room: playing with it is the same use path, with the
+  // Blobbi walking to where the toy is; the toy stays while it is still owned.
+  const { celebrate: cheer, lookAt } = scene;
+  const playWith = useCallback(
+    (toy: ToyInRoom) => {
+      cheer(900);
+      say(PICK_LINES[toy.entry.quantity % PICK_LINES.length]);
+      offerItem(toy.entry, { spot: { position: toy.position, approach: toyApproach(toy.position) }, toyKey: toy.key });
+    },
+    [cheer, say, offerItem],
+  );
+
   const goToDoor = useCallback(() => {
     setDoorPrompt(false);
     void walkTo(door.approach ?? door.position).then((outcome) => {
       if (outcome === 'arrived') setDoorPrompt(true);
     });
   }, [walkTo, door]);
+  const placeToy = toys.place;
   const onFloorTap = useCallback(
     (fraction: { x: number; y: number }) => {
       setDoorPrompt(false);
+      if (held && held.item.care?.action === 'play' && held.usability.ok) {
+        // A toy is set down where the player tapped; nothing is spent.
+        const at = floorPointFromScene(fraction);
+        if (placeToy(held, at)) {
+          setHeld(null);
+          lookAt(glanceToward(scene.presentation.position, at), 1_400);
+          return;
+        }
+      }
       setHeld(null);
       scene.onFloorTap(fraction);
     },
-    [scene],
+    [scene, held, placeToy, lookAt],
   );
 
-  const pendingAction: CareAction | null = care.pendingAction ?? (walkingToBed ? 'rest' : null);
+  const pendingAction: CareAction | null = care.pendingAction ?? walkingFor;
+  const pokeBlobbi = scene.poke;
+  const onPoke = useCallback(() => {
+    if (pokeBlobbi() === 'upset') say(ANNOYED_LINES[Date.now() % ANNOYED_LINES.length]);
+  }, [pokeBlobbi, say]);
   const inCeremony = ceremony.presentation.exclusive;
   const eggCrack = ceremony.presentation.eggCrack ?? lifecycle.view.eggCrack;
   const editing = editor.editing;
@@ -427,26 +480,81 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // The hotbar: this room's usable consumables, from the same read as the
   // sheet. Holding one is two deliberate taps away from a spend: pick it,
   // then tap the Blobbi (or the tile again) to give it.
-  const hotbarItems = useMemo(() => inventory.items.filter((i) => i.usability.ok && !i.unverified && i.item.care !== null && roomShowsItem(room, i.item)), [inventory.items, room]);
+  const dressing = room.activities.includes('dress');
+  const hotbarItems = useMemo(
+    () => (dressing ? inventory.items.filter((i) => i.item.equippable) : inventory.items.filter((i) => i.usability.ok && !i.unverified && i.item.care !== null && roomShowsItem(room, i.item))),
+    [inventory.items, room, dressing],
+  );
   const heldKey = held ? hotbarKey(held) : null;
   useEffect(() => {
     if (heldKey && !hotbarItems.some((i) => hotbarKey(i) === heldKey)) setHeld(null);
   }, [heldKey, hotbarItems]);
+  const usableHeld = held !== null && held.usability.ok && !held.unverified;
   const pickItem = useCallback(
     (entry: HomeInventoryItem) => {
       if (held && hotbarKey(held) === hotbarKey(entry)) {
-        offerItem(entry);
+        if (usableHeld) {
+          cheer(900);
+          say(PICK_LINES[entry.quantity % PICK_LINES.length]);
+          offerItem(entry);
+        }
         return;
       }
       setHeld(entry);
+      // It sees what you picked up: a glance down at the dock.
+      if (entry.usability.ok) lookAt({ x: 0, y: 0.7 }, 1_500);
     },
-    [held, offerItem],
+    [held, usableHeld, offerItem, cheer, say, lookAt],
   );
   const give = useCallback(() => {
-    if (held) offerItem(held);
-  }, [held, offerItem]);
+    if (!held || !usableHeld) return;
+    cheer(900);
+    say(PICK_LINES[held.quantity % PICK_LINES.length]);
+    offerItem(held);
+  }, [held, usableHeld, offerItem, cheer, say]);
+  // The verbs route to the room when the room has the thing: rest to the
+  // bed, clean to the tub, play to a toy lying here, feed to the food in
+  // hand. Without one, the verb is the kit's plain care: the home stays
+  // usable with nothing owned and nothing placed.
+  const onAction = useCallback(
+    (action: CareAction) => {
+      const active = blobbi.state === 'active' && canWalk;
+      if (action === 'rest' && active) {
+        const bedHere = layout.placements.find((p) => furnitureUse(p) === 'rest');
+        if (bedHere) restAt(room.id, approachSpot(bedHere));
+        else restAt('rest', sleepSpotFor(readRoomPlacements(localLayoutStore, pubkey, blobbi.d, 'rest'), roomById('rest')));
+        return;
+      }
+      if (action === 'clean' && active) {
+        const tub = layout.placements.find((p) => furnitureUse(p) === 'clean');
+        if (tub) {
+          careAt(room.id, approachSpot(tub), 'clean');
+          return;
+        }
+      }
+      if (action === 'play' && active && toys.toys.length > 0) {
+        playWith(toys.toys[0]);
+        return;
+      }
+      if (action === 'feed' && held?.item.care?.action === 'feed' && held.usability.ok) {
+        give();
+        return;
+      }
+      perform(blobbi.d, action);
+    },
+    [blobbi.d, blobbi.state, perform, canWalk, restAt, careAt, layout.placements, room.id, pubkey, toys.toys, held, give, playWith],
+  );
+  const wornHeld = held ? worn.wornAddresses.has(held.item.address) : false;
   const hotbarHint = held
-    ? `Tap ${blobbi.name} to give the ${held.item.name}.`
+    ? !held.usability.ok
+      ? held.item.equippable
+        ? wornHeld
+          ? `${blobbi.name} is wearing the ${held.item.name}. Equipment is changed on the Island.`
+          : `Equip the ${held.item.name} on the Island.`
+        : held.usability.reason ?? 'Not right now.'
+      : held.item.care?.action === 'play'
+        ? `Tap ${blobbi.name} to play now, or tap the floor to set the ${held.item.name} down.`
+        : `Tap ${blobbi.name} to give the ${held.item.name}.`
     : hotbarItems.length > 0
       ? null
       : sleeping
@@ -458,7 +566,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             : blobbi.stage === 'egg'
               ? 'An egg can only be kept clean.'
               : 'Items you earn on the Island or grow on the Farm show up here.';
-  const offerObject = offer ? offeredItemObject(offer.entry.item.name) : null;
+  const offerObject = offer ? (offer.spot ? itemObjectAt('offer', offer.entry.item.name, offer.spot.position, offer.spot.approach) : offeredItemObject(offer.entry.item.name)) : null;
   const accessories = blobbi.stage === 'egg' ? undefined : worn.accessoriesFor(scene.presentation.facing);
   const actorEffects = useMemo(() => {
     const ceremonyEffects = ceremony.presentation.effects ?? [];
@@ -532,7 +640,18 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                   <DoorArt open={doorPrompt} />
                 </SceneObjectView>
               )}
-              {offer && offerObject && (
+              {toys.toys.map((toy) => {
+                const mine = offer?.toyKey === toy.key ? offer : null;
+                const def = itemObjectAt('toy', toy.entry.item.name, toy.position, toyApproach(toy.position), `scene-object-toy-${toy.entry.item.itemId}`);
+                return (
+                  <SceneObjectView key={toy.key} def={def} state={mine ? mine.phase : 'placed'} onTap={mine ? (mine.phase === 'failed' ? putAway : undefined) : interactive && offer === null ? () => playWith(toy) : undefined}>
+                    <div className="offer-art offer-art--placed">
+                      <ItemGlyph glyph={toy.entry.item.glyph} fill />
+                    </div>
+                  </SceneObjectView>
+                );
+              })}
+              {offer && offerObject && !offer.toyKey && (
                 <SceneObjectView
                   def={offerObject}
                   state={offer.phase}
@@ -563,9 +682,9 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               blobbi={blobbi}
               presentation={scene.presentation}
               happyKey={resultKey}
-              onPoke={inCeremony || editing ? undefined : held ? give : scene.poke}
-              tapLabel={held ? `Give ${blobbi.name} the ${held.item.name}` : undefined}
-              invite={held !== null}
+              onPoke={inCeremony || editing ? undefined : usableHeld ? give : onPoke}
+              tapLabel={usableHeld && held ? `Give ${blobbi.name} the ${held.item.name}` : undefined}
+              invite={usableHeld}
               eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined}
               effects={actorEffects}
               accessories={accessories}
@@ -621,6 +740,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           disabled={inCeremony || offer !== null}
           hotbar={{
             items: hotbarItems,
+            wornAddresses: worn.wornAddresses,
             selectedKey: heldKey,
             onSelect: pickItem,
             onOpenItems: () => setItemsOpen(true),
