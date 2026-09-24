@@ -10,7 +10,7 @@ import type { FloorPoint } from './geometry';
  * and one more drawing, not a new component tree.
  */
 
-export type SceneObjectId = 'bed' | 'door' | 'offer';
+export type SceneObjectId = 'door' | 'offer';
 
 /** Furniture stays; an item is offered for a moment and goes away. */
 export type SceneObjectKind = 'furniture' | 'item';
@@ -31,12 +31,6 @@ export interface SceneObjectDef {
 /** Where a Blobbi stands when it arrives home (awake). */
 export const HOME_SPOT: FloorPoint = { x: 0.5, y: 0.6 };
 
-/** The bed's spot: back right, out of the way of the dock. */
-export const BED_POSITION: FloorPoint = { x: 0.78, y: 0.42 };
-
-/** Where the Blobbi lies when it sleeps: on the bed, a little forward so it reads as "in" it. */
-export const BED_SLEEP_SPOT: FloorPoint = { x: 0.78, y: 0.5 };
-
 /** The door to the Island: on the back wall, left. */
 export const DOOR_POSITION: FloorPoint = { x: 0.16, y: 0.06 };
 
@@ -51,7 +45,6 @@ export const OFFER_APPROACH: FloorPoint = { x: 0.47, y: 0.66 };
 
 export const SCENE_OBJECTS: readonly SceneObjectDef[] = [
   { id: 'door', kind: 'furniture', label: 'Door to Blobbi Island', position: DOOR_POSITION, approach: DOOR_APPROACH, width: 0.16 },
-  { id: 'bed', kind: 'furniture', label: 'Bed', position: BED_POSITION, approach: BED_SLEEP_SPOT, width: 0.26 },
 ];
 
 /**

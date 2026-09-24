@@ -15,8 +15,11 @@ import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { KIND_BLOBBI_STATE, getTagValue } from '@blobbi-kit/core';
 
 import Home from '@/pages/Home';
-import { BED_SLEEP_SPOT, HOME_SPOT, SceneSettingsProvider, type SceneSettings } from '@/features/home/scene';
-import { roomById, roomStorageKey } from '@/features/home/rooms';
+import { HOME_SPOT, SceneSettingsProvider, type SceneSettings } from '@/features/home/scene';
+import { roomById, roomStorageKey, sleepSpotFor } from '@/features/home/rooms';
+
+const BED_SLEEP_SPOT = sleepSpotFor(roomById('rest').defaultFurniture, roomById('rest'));
+const BED = 'furniture-official:bed-single';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 import { OFFICIAL_APPLE, inventoryEvent, officialCareDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 
@@ -110,32 +113,35 @@ beforeEach(() => {
 });
 
 describe('Rooms', () => {
-  it('starts in the living room with the door, no bed, and the garden and bedroom next door', async () => {
+  it('starts in the living room with the door, its default furniture, no bed, and the kitchen and bedroom next door', async () => {
     renderHome();
     const a = await ready();
     expect(scene()).toHaveAttribute('data-room', 'home');
     expect(scene()).toHaveAccessibleName("Brook's living room");
     expect(screen.getByTestId('scene-object-door')).toBeInTheDocument();
-    expect(screen.queryByTestId('scene-object-bed')).toBeNull();
+    expect(screen.queryByTestId(BED)).toBeNull();
+    expect(screen.getByTestId('furniture-official:rug-round')).toBeInTheDocument();
+    expect(screen.getByTestId('furniture-official:shelf-wall')).toHaveAttribute('data-layer', 'back');
     expect(at(a)).toEqual(HOME_SPOT);
-    expect(screen.getByTestId('room-arrow-left')).toHaveAccessibleName('Go to the garden');
+    expect(screen.getByTestId('room-arrow-left')).toHaveAccessibleName('Go to the kitchen');
     expect(screen.getByTestId('room-arrow-right')).toHaveAccessibleName('Go to the bedroom');
     expect(screen.getByTestId('room-dot-home')).toHaveAttribute('aria-current', 'location');
+    expect(screen.getAllByTestId(/^room-dot-/)).toHaveLength(5);
   });
 
   it('a chevron moves to the bedroom: the bed is there, the door is not, the Blobbi stands at the entry, nothing is written, and the choice is remembered on this device', async () => {
     const { unmount } = renderHome();
     let a = await ready();
     await userEvent.click(screen.getByTestId('room-arrow-right'));
-    expect(scene()).toHaveAttribute('data-room', 'bedroom');
-    expect(screen.getByTestId('scene-object-bed')).toBeInTheDocument();
+    expect(scene()).toHaveAttribute('data-room', 'rest');
+    expect(screen.getByTestId(BED)).toBeInTheDocument();
     expect(screen.queryByTestId('scene-object-door')).toBeNull();
-    expect(screen.queryByTestId('room-arrow-right')).toBeNull();
-    expect(at(a)).toEqual(roomById('bedroom').entry);
+    expect(screen.getByTestId('room-arrow-right')).toHaveAccessibleName('Go to the closet');
+    expect(at(a)).toEqual(roomById('rest').entry);
     expect(a).toHaveAttribute('data-motion', 'idle');
     // The Blobbi is the same Blobbi: same renderer instance data, same name, same stage.
     expect(screen.getByTestId('blobbi-chip')).toHaveTextContent('Brook');
-    expect(window.localStorage.getItem(roomStorageKey(PUBKEY, BROOK_D))).toBe('bedroom');
+    expect(window.localStorage.getItem(roomStorageKey(PUBKEY, BROOK_D))).toBe('rest');
     await new Promise((r) => setTimeout(r, 100));
     expect(relay.published).toHaveLength(0);
     expect(query.mock.calls.filter(([filters]) => filters.some((f) => f.kinds?.includes(KIND_BLOBBI_STATE))).length).toBeLessThanOrEqual(2);
@@ -143,36 +149,36 @@ describe('Rooms', () => {
     unmount();
     renderHome();
     a = await ready();
-    expect(scene()).toHaveAttribute('data-room', 'bedroom');
-    expect(at(a)).toEqual(roomById('bedroom').entry);
+    expect(scene()).toHaveAttribute('data-room', 'rest');
+    expect(at(a)).toEqual(roomById('rest').entry);
   });
 
-  it('a swipe changes rooms and is never a floor tap; a short or slanted drag is neither', async () => {
+  it('a swipe changes rooms around the loop and is never a floor tap; a short or slanted drag is neither', async () => {
     renderHome();
     const a = await ready();
     swipe(-120);
-    expect(scene()).toHaveAttribute('data-room', 'bedroom');
+    expect(scene()).toHaveAttribute('data-room', 'rest');
     fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 150, clientY: 500, detail: 1 });
     await new Promise((r) => setTimeout(r, 50));
     expect(a).toHaveAttribute('data-motion', 'idle');
-    expect(at(a)).toEqual(roomById('bedroom').entry);
+    expect(at(a)).toEqual(roomById('rest').entry);
+    swipe(-120);
+    expect(scene()).toHaveAttribute('data-room', 'closet');
+    swipe(-120); // the loop closes
+    expect(scene()).toHaveAttribute('data-room', 'care');
     swipe(120);
-    expect(scene()).toHaveAttribute('data-room', 'home');
-    swipe(120);
-    expect(scene()).toHaveAttribute('data-room', 'garden');
-    swipe(120); // the end of the line
-    expect(scene()).toHaveAttribute('data-room', 'garden');
+    expect(scene()).toHaveAttribute('data-room', 'closet');
     swipe(-30); // too short
-    expect(scene()).toHaveAttribute('data-room', 'garden');
+    expect(scene()).toHaveAttribute('data-room', 'closet');
     swipe(-120, 90); // too slanted
-    expect(scene()).toHaveAttribute('data-room', 'garden');
+    expect(scene()).toHaveAttribute('data-room', 'closet');
   });
 
   it('rest from the living room goes to the bedroom, walks to the bed, and only then sleeps', async () => {
     renderHome({ walkSpeed: 1.2, idleEnabled: false });
     const a = await ready();
     await userEvent.click(screen.getByTestId('care-rest'));
-    expect(scene()).toHaveAttribute('data-room', 'bedroom');
+    expect(scene()).toHaveAttribute('data-room', 'rest');
     expect(a).toHaveAttribute('data-motion', 'walking');
     expect(event).not.toHaveBeenCalled();
     await waitFor(() => expect(relay.published.filter((e) => e.kind === KIND_BLOBBI_STATE)).toHaveLength(1), { timeout: 3000 });
@@ -181,22 +187,33 @@ describe('Rooms', () => {
     // Asleep: the room cannot be changed.
     expect(screen.getByTestId('room-arrow-left')).toBeDisabled();
     swipe(120);
-    expect(scene()).toHaveAttribute('data-room', 'bedroom');
+    expect(scene()).toHaveAttribute('data-room', 'rest');
+  });
+
+  it('tapping the bed is rest too: walk to it, sleep on arrival', async () => {
+    renderHome({ walkSpeed: 1.2, idleEnabled: false });
+    const a = await ready();
+    await userEvent.click(screen.getByTestId('room-arrow-right'));
+    await userEvent.click(screen.getByTestId('furniture-button-official:bed-single'));
+    expect(a).toHaveAttribute('data-motion', 'walking');
+    await waitFor(() => expect(relay.published.filter((e) => e.kind === KIND_BLOBBI_STATE)).toHaveLength(1), { timeout: 3000 });
+    await waitFor(() => expect(a).toHaveAttribute('data-sleeping', 'true'));
+    expect(at(a)).toEqual(BED_SLEEP_SPOT);
   });
 
   it('a sleeper is in bed in the bedroom whatever room was chosen, and wakes up there', async () => {
-    window.localStorage.setItem(roomStorageKey(PUBKEY, BROOK_D), 'garden');
+    window.localStorage.setItem(roomStorageKey(PUBKEY, BROOK_D), 'kitchen');
     relay.all = [brook('sleeping')];
     renderHome();
     const a = await ready();
-    expect(scene()).toHaveAttribute('data-room', 'bedroom');
+    expect(scene()).toHaveAttribute('data-room', 'rest');
     expect(at(a)).toEqual(BED_SLEEP_SPOT);
-    expect(screen.getByTestId('scene-object-bed')).toHaveAttribute('data-state', 'occupied');
+    expect(screen.getByTestId(BED)).toBeInTheDocument();
     await userEvent.click(screen.getByTestId('care-rest'));
     await waitFor(() => expect(a).toHaveAttribute('data-sleeping', 'false'));
     // Awake again: back to the room the player had chosen, at its entry.
-    await waitFor(() => expect(scene()).toHaveAttribute('data-room', 'garden'));
-    expect(at(a)).toEqual(roomById('garden').entry);
+    await waitFor(() => expect(scene()).toHaveAttribute('data-room', 'kitchen'));
+    expect(at(a)).toEqual(roomById('kitchen').entry);
   });
 
   it('changing rooms puts a walked-to item away without writing anything', async () => {
@@ -210,7 +227,7 @@ describe('Rooms', () => {
     // Arrows are off while an item is out; a swipe still moves (and puts the item away).
     expect(screen.getByTestId('room-arrow-left')).toBeDisabled();
     swipe(120);
-    expect(scene()).toHaveAttribute('data-room', 'garden');
+    expect(scene()).toHaveAttribute('data-room', 'kitchen');
     expect(screen.queryByTestId('scene-object-offer')).toBeNull();
     await new Promise((r) => setTimeout(r, 200));
     expect(relay.published).toHaveLength(0);

@@ -22,6 +22,7 @@ import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 import {
   FARM_CARROT,
   OFFICIAL_APPLE,
+  OFFICIAL_BALL,
   OFFICIAL_COIN,
   OFFICIAL_GLASSES,
   OFFICIAL_SOAP,
@@ -94,14 +95,21 @@ const brook = (options: { stage?: 'egg' | 'baby'; state?: 'active' | 'sleeping' 
 
 const definitions = () => [
   officialCareDefinition('blobbi:food:apple', 'Apple', 'food', 'feed', { hunger: 25 }, { emoji: '🍎' }),
+  officialCareDefinition('blobbi:toy:ball', 'Ball', 'toy', 'play', { happiness: 20, energy: -5 }, { emoji: '⚽' }),
   officialCareDefinition('blobbi:hygiene:soap', 'Soap', 'hygiene', 'clean', { hygiene: 25 }, { stages: ['egg', 'baby', 'adult'], emoji: '🧼' }),
   officialCosmeticDefinition('blobbi:cosmetic:stargazer-glasses', 'Stargazer Glasses', 'eyewear'),
   officialCurrencyDefinition(),
   farmProduceDefinition(),
 ];
-const stock = () => [inventoryEvent('blobbi:island', { [OFFICIAL_APPLE]: 2, [OFFICIAL_SOAP]: 1, [OFFICIAL_COIN]: 200, [OFFICIAL_GLASSES]: 1, [STRANGER_ITEM]: 3 }), inventoryEvent('farm:main', { [FARM_CARROT]: 4 })];
+const stock = () => [inventoryEvent('blobbi:island', { [OFFICIAL_APPLE]: 2, [OFFICIAL_BALL]: 1, [OFFICIAL_SOAP]: 1, [OFFICIAL_COIN]: 200, [OFFICIAL_GLASSES]: 1, [STRANGER_ITEM]: 3 }), inventoryEvent('farm:main', { [FARM_CARROT]: 4 })];
+
+/** The kitchen is one room to the left of the living room. */
+async function goToKitchen() {
+  await userEvent.click(screen.getByTestId('room-arrow-left'));
+}
 
 const hotbar = () => within(screen.getByTestId('hotbar'));
+const scene = () => screen.getByTestId('home-scene');
 const tiles = () => hotbar().getAllByRole('listitem').slice(1).map((li) => within(li).getByRole('button').getAttribute('data-testid'));
 const spends = () => relay.published.filter((e) => e.kind === KIND_GAME_INVENTORY_SPEND);
 const states = () => relay.published.filter((e) => e.kind === KIND_BLOBBI_STATE);
@@ -131,10 +139,14 @@ beforeEach(() => {
 });
 
 describe('Hotbar: what it shows', () => {
-  it('shows only what this Blobbi could use now, with quantities and artwork, the bag first', async () => {
+  it('shows only what this Blobbi could use now, in this room, with quantities and artwork, the bag first', async () => {
     renderHome();
     await hotbarReady();
-    expect(tiles()).toEqual(['hotbar-item-blobbi:food:apple', 'hotbar-item-blobbi:hygiene:soap', 'hotbar-item-farm:produce:carrot']);
+    // The living room is for toys.
+    expect(tiles()).toEqual(['hotbar-item-blobbi:toy:ball']);
+    expect(screen.getByTestId('hotbar-item-blobbi:toy:ball')).toHaveAccessibleName('Ball, 1');
+    await goToKitchen();
+    expect(tiles()).toEqual(['hotbar-item-blobbi:food:apple', 'hotbar-item-farm:produce:carrot']);
     expect(screen.getByTestId('hotbar-item-blobbi:food:apple')).toHaveAccessibleName('Apple, 2');
     expect(screen.getByTestId('hotbar-item-farm:produce:carrot').querySelector('img')).toHaveAttribute('src', 'https://blossom.primal.net/carrot.webp');
     expect(screen.getByTestId('hotbar-item-blobbi:food:apple')).toHaveTextContent('🍎');
@@ -142,26 +154,35 @@ describe('Hotbar: what it shows', () => {
     expect(screen.queryByTestId('hotbar-item-blobbi:currency:coin')).toBeNull();
     expect(screen.queryByTestId('hotbar-item-blobbi:cosmetic:stargazer-glasses')).toBeNull();
     expect(screen.queryByTestId('hotbar-item-weird:thing')).toBeNull();
-    expect(screen.getByTestId('action-items')).toHaveAccessibleName('Items, 3 ready');
+    expect(screen.getByTestId('action-items')).toHaveAccessibleName('Items, 4 ready');
     expect(screen.queryByTestId('hotbar-hint')).toBeNull();
     expect(relay.published).toHaveLength(0);
   });
 
-  it('follows the room: snacks and toys in the garden, medicine in the bedroom, everything at home', async () => {
+  it('follows the room: soap in the care room, nothing in the bedroom, nothing to use in the closet', async () => {
     renderHome();
     await hotbarReady();
+    await goToKitchen();
     await userEvent.click(screen.getByTestId('room-arrow-left'));
-    expect(tiles()).toEqual(['hotbar-item-blobbi:food:apple', 'hotbar-item-farm:produce:carrot']);
-    await userEvent.click(screen.getByTestId('room-arrow-right'));
-    await userEvent.click(screen.getByTestId('room-arrow-right'));
+    expect(scene()).toHaveAttribute('data-room', 'care');
+    expect(tiles()).toEqual(['hotbar-item-blobbi:hygiene:soap']);
+    await userEvent.click(screen.getByTestId('room-arrow-left'));
+    expect(scene()).toHaveAttribute('data-room', 'closet');
     expect(tiles()).toEqual([]);
-    expect(screen.getByTestId('hotbar-hint')).toHaveTextContent('Medicine and pick-me-ups go here.');
+    expect(screen.getByTestId('hotbar-hint')).toHaveTextContent('What your Blobbi wears is equipped on the Island.');
+    await userEvent.click(screen.getByTestId('room-arrow-left'));
+    expect(scene()).toHaveAttribute('data-room', 'rest');
+    expect(tiles()).toEqual([]);
+    expect(screen.getByTestId('hotbar-hint')).toHaveTextContent('Tap the bed to rest.');
   });
 
-  it('an egg sees the soap alone', async () => {
+  it('an egg sees the soap alone, in the care room', async () => {
     relay.all = [brook({ stage: 'egg' }), ...definitions(), ...stock()];
     renderHome();
     await hotbarReady();
+    expect(tiles()).toEqual([]);
+    await goToKitchen();
+    await userEvent.click(screen.getByTestId('room-arrow-left'));
     expect(tiles()).toEqual(['hotbar-item-blobbi:hygiene:soap']);
   });
 
@@ -178,6 +199,7 @@ describe('Hotbar: holding and giving', () => {
   it('a tap holds the item and invites the Blobbi tap; tapping the Blobbi gives it through the one spend path', async () => {
     renderHome();
     await hotbarReady();
+    await goToKitchen();
     const apple = screen.getByTestId('hotbar-item-blobbi:food:apple');
     await userEvent.click(apple);
     expect(apple).toHaveAttribute('aria-pressed', 'true');
@@ -192,7 +214,7 @@ describe('Hotbar: holding and giving', () => {
     expect(apple).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByTestId('blobbi-actor')).toHaveAttribute('data-invite', 'false');
     // While the item is out, the hotbar and the verbs wait.
-    expect(screen.getByTestId('hotbar-item-blobbi:hygiene:soap')).toBeDisabled();
+    expect(screen.getByTestId('hotbar-item-farm:produce:carrot')).toBeDisabled();
     expect(screen.getByTestId('care-feed')).toBeDisabled();
 
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
@@ -208,6 +230,8 @@ describe('Hotbar: holding and giving', () => {
     relay.all = [brook({ stage: 'egg' }), ...definitions(), ...stock()];
     renderHome();
     await hotbarReady();
+    await goToKitchen();
+    await userEvent.click(screen.getByTestId('room-arrow-left'));
     const soap = screen.getByTestId('hotbar-item-blobbi:hygiene:soap');
     const a = screen.getByTestId('blobbi-actor');
     const x = a.getAttribute('data-x');
@@ -225,16 +249,19 @@ describe('Hotbar: holding and giving', () => {
   it('a tap on the floor or another room puts the held item back: nothing is written, and only one item is ever in hand', async () => {
     renderHome();
     await hotbarReady();
+    await goToKitchen();
     await userEvent.click(screen.getByTestId('hotbar-item-blobbi:food:apple'));
-    await userEvent.click(screen.getByTestId('hotbar-item-blobbi:hygiene:soap'));
+    await userEvent.click(screen.getByTestId('hotbar-item-farm:produce:carrot'));
     expect(screen.getByTestId('hotbar-item-blobbi:food:apple')).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByTestId('hotbar-item-blobbi:hygiene:soap')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('hotbar-item-farm:produce:carrot')).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 200, clientY: 500, detail: 1 });
-    expect(screen.getByTestId('hotbar-item-blobbi:hygiene:soap')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTestId('hotbar-item-farm:produce:carrot')).toHaveAttribute('aria-pressed', 'false');
     expect(screen.queryByTestId('hotbar-hint')).toBeNull();
     expect(screen.getByTestId('blobbi-poke')).toHaveAccessibleName('Poke Brook');
 
     await userEvent.click(screen.getByTestId('hotbar-item-blobbi:food:apple'));
+    await userEvent.click(screen.getByTestId('room-arrow-right'));
+    expect(screen.queryByTestId('hotbar-item-blobbi:food:apple')).toBeNull();
     await userEvent.click(screen.getByTestId('room-arrow-left'));
     expect(screen.getByTestId('hotbar-item-blobbi:food:apple')).toHaveAttribute('aria-pressed', 'false');
     await new Promise((r) => setTimeout(r, 100));

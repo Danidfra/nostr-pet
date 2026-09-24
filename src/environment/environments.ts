@@ -65,6 +65,8 @@ export interface SceneTokens {
   grass: string;
   grassEdge: string;
   hill: string;
+  /** A colour laid over every room surface (multiply) so the rooms follow the clock. */
+  tint: string;
 }
 
 export interface PhaseLook {
@@ -135,6 +137,7 @@ export const PHASE_LOOKS: Record<IslandPhase, PhaseLook> = {
       grass: 'hsl(95 40% 58%)',
       grassEdge: 'hsl(100 35% 46%)',
       hill: 'hsl(120 30% 44%)',
+      tint: 'hsl(20 80% 75% / 0.16)',
     },
   },
   day: {
@@ -155,6 +158,7 @@ export const PHASE_LOOKS: Record<IslandPhase, PhaseLook> = {
       grass: 'hsl(100 45% 55%)',
       grassEdge: 'hsl(105 40% 44%)',
       hill: 'hsl(125 32% 40%)',
+      tint: 'transparent',
     },
   },
   sunset: {
@@ -175,6 +179,7 @@ export const PHASE_LOOKS: Record<IslandPhase, PhaseLook> = {
       grass: 'hsl(85 38% 50%)',
       grassEdge: 'hsl(90 36% 40%)',
       hill: 'hsl(110 28% 34%)',
+      tint: 'hsl(22 90% 62% / 0.2)',
     },
   },
   night: {
@@ -195,6 +200,7 @@ export const PHASE_LOOKS: Record<IslandPhase, PhaseLook> = {
       grass: 'hsl(120 22% 20%)',
       grassEdge: 'hsl(125 22% 15%)',
       hill: 'hsl(135 25% 13%)',
+      tint: 'hsl(250 55% 28% / 0.62)',
     },
   },
 };

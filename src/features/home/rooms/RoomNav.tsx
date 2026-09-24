@@ -3,9 +3,10 @@ import { roomById, type RoomId } from './rooms';
 import type { RoomState } from './useRoom';
 
 /**
- * Moving between rooms: a chevron on each side of the scene (hidden at the
- * end of the line) and, in the scene's top bar, the room's name with one dot
- * per room. Swiping the scene does the same thing (see `HomeScene`).
+ * Moving between rooms: a chevron on each side of the scene (the line
+ * wraps, so both are always there) and, in the scene's top bar, the room's
+ * name with one dot per room. Swiping the scene does the same thing (see
+ * `HomeScene`).
  */
 export function RoomArrows({ rooms, disabled = false }: { rooms: RoomState; disabled?: boolean }) {
   const left = rooms.neighbour('left');
@@ -13,16 +14,12 @@ export function RoomArrows({ rooms, disabled = false }: { rooms: RoomState; disa
   const canMove = rooms.canMove && !disabled;
   return (
     <>
-      {left && (
-        <button type="button" className="room-arrow room-arrow--left" onClick={() => rooms.go(left)} disabled={!canMove} aria-label={`Go to the ${roomById(left).label.toLowerCase()}`} data-testid="room-arrow-left">
-          <ChevronLeft className="h-6 w-6" aria-hidden />
-        </button>
-      )}
-      {right && (
-        <button type="button" className="room-arrow room-arrow--right" onClick={() => rooms.go(right)} disabled={!canMove} aria-label={`Go to the ${roomById(right).label.toLowerCase()}`} data-testid="room-arrow-right">
-          <ChevronRight className="h-6 w-6" aria-hidden />
-        </button>
-      )}
+      <button type="button" className="room-arrow room-arrow--left" onClick={() => rooms.go(left)} disabled={!canMove} aria-label={`Go to the ${roomById(left).label.toLowerCase()}`} data-testid="room-arrow-left">
+        <ChevronLeft className="h-6 w-6" aria-hidden />
+      </button>
+      <button type="button" className="room-arrow room-arrow--right" onClick={() => rooms.go(right)} disabled={!canMove} aria-label={`Go to the ${roomById(right).label.toLowerCase()}`} data-testid="room-arrow-right">
+        <ChevronRight className="h-6 w-6" aria-hidden />
+      </button>
     </>
   );
 }

@@ -15,7 +15,11 @@ import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { KIND_BLOBBI_STATE, BLOBBONAUT_PROFILE_KINDS, getTagValue } from '@blobbi-kit/core';
 
 import Home from '@/pages/Home';
-import { BED_SLEEP_SPOT, HOME_SPOT, SceneSettingsProvider, placeOnFloor, type SceneSettings } from '@/features/home/scene';
+import { HOME_SPOT, SceneSettingsProvider, placeOnFloor, type SceneSettings } from '@/features/home/scene';
+import { roomById, sleepSpotFor } from '@/features/home/rooms';
+
+/** Where the default bedroom's bed puts a sleeper. */
+const BED_SLEEP_SPOT = sleepSpotFor(roomById('rest').defaultFurniture, roomById('rest'));
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 
 // ─── Signed-in user with a fake signer ───────────────────────────────────────

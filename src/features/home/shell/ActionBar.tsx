@@ -16,6 +16,8 @@ interface ActionBarProps {
   hotbar?: HotbarProps;
   /** The room, so the dock takes its floor's colour. */
   room?: string;
+  /** The room floor's CSS background; the dock continues it under the controls. */
+  floorBackground?: string;
 }
 
 /**
@@ -25,9 +27,9 @@ interface ActionBarProps {
  * which are the item-free fallback and the way to bed. The dock sits in
  * the flow, at the front edge of the floor, so it never covers the Blobbi.
  */
-export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, onLifecycle, disabled = false, hotbar, room }: ActionBarProps) {
+export function ActionBar({ actions, pendingAction, onAction, lifecycleReady, onLifecycle, disabled = false, hotbar, room, floorBackground }: ActionBarProps) {
   return (
-    <nav className="hud-bottom" aria-label="Actions" data-testid="action-bar" data-room={room}>
+    <nav className="hud-bottom" aria-label="Actions" data-testid="action-bar" data-room={room} style={floorBackground ? ({ '--dock-floor': floorBackground } as React.CSSProperties) : undefined}>
       {lifecycleReady && onLifecycle && (
         <button type="button" className="lifecycle-pill" onClick={() => onLifecycle(lifecycleReady.kind)} disabled={disabled} data-testid={`action-${lifecycleReady.kind}`}>
           <Sparkles className="h-4 w-4" aria-hidden />

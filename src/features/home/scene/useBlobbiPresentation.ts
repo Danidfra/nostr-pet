@@ -4,7 +4,7 @@ import { policyFor, resolveBehaviorMode, type BehaviorMode } from './behavior-mo
 import { floorDirection, floorPointFromScene, type FloorPoint } from './geometry';
 import { travelGlance } from './gaze';
 import type { IdleAction } from './idle';
-import { BED_SLEEP_SPOT, HOME_SPOT } from './objects';
+import { HOME_SPOT } from './objects';
 import { composePresentation, type BlobbiPresentation } from './presentation';
 import { POKE_DURATION_MS, baselineExpression, reactionForCare, type CareReaction } from './reactions';
 import { useHoverCapable, useReducedMotion, useSceneSettings } from './SceneSettings';
@@ -73,7 +73,7 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
   const isSleeping = blobbi.state === 'sleeping';
 
   const locomotion = useBlobbiLocomotion({
-    initialPosition: initialPosition ?? (isSleeping ? BED_SLEEP_SPOT : HOME_SPOT),
+    initialPosition: initialPosition ?? HOME_SPOT,
     reducedMotion,
     speed: settings.walkSpeed,
   });
@@ -173,12 +173,17 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     [idle, reactions],
   );
 
+  // Stable on purpose: effects that place the Blobbi (a room change, a
+  // sleeper following its bed) depend on it, and a callback that changed
+  // with every step would re-run them on every step.
+  const markActivity = idle.markActivity;
+  const locomotionPlaceAt = locomotion.placeAt;
   const placeAt = useCallback(
     (position: FloorPoint) => {
-      idle.markActivity();
-      locomotion.placeAt(position);
+      markActivity();
+      locomotionPlaceAt(position);
     },
-    [idle, locomotion],
+    [markActivity, locomotionPlaceAt],
   );
 
   const scenePointerHandlers = useMemo<ScenePointerHandlers>(

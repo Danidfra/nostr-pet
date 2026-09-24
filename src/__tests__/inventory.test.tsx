@@ -373,7 +373,8 @@ describe('Inventory: using an item', () => {
   });
 
   it('an effect that already landed is never applied twice', async () => {
-    renderHome();
+    // A slower walk: the offer must still be in the room when it is looked for, even on a loaded machine.
+    renderHome({ walkSpeed: 1, idleEnabled: false });
     await ready();
     await useItem('blobbi:food:apple');
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });

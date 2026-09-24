@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ROOM_ORDER, neighbourRoom, readStoredRoom, resolveRoom, roomById, roomStorageKey, writeStoredRoom, type RoomDef, type RoomId } from './rooms';
+import { ROOM_ORDER, neighbourRoom, readStoredRoom, resolveRoom, roomById, roomStorageKey, writeStoredRoom, type RoomDefinition, type RoomId } from './rooms';
 
 export interface RoomState {
   /** The room the Blobbi is in right now. */
-  room: RoomDef;
+  room: RoomDefinition;
   /** The player's choice, which a sleeping Blobbi overrides. */
   chosen: RoomId;
-  /** Whether the player may change rooms (not while the Blobbi sleeps). */
+  /** Whether the player may change rooms (not while the Blobbi sleeps or a ceremony runs). */
   canMove: boolean;
   order: readonly RoomId[];
   go: (id: RoomId) => void;
-  /** The room in that direction, or null at the end of the line. */
-  neighbour: (direction: 'left' | 'right') => RoomId | null;
+  /** The room in that direction (the line wraps). */
+  neighbour: (direction: 'left' | 'right') => RoomId;
 }
 
 /**

@@ -36,11 +36,6 @@ export function SceneObjectView({ def, onTap, state, children, aside }: SceneObj
   );
 }
 
-/** The bed: the pre-nuke `bed.png`, re-encoded to a 15 KB WebP. */
-export function BedArt() {
-  return <img src="/objects/bed.webp" alt="" width={560} height={315} draggable={false} className="scene-object-art" />;
-}
-
 /** The door to the Island: a simple painted door on the back wall. */
 export function DoorArt({ open = false }: { open?: boolean }) {
   return (

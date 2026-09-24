@@ -41,6 +41,7 @@
     --grass: hsl(100 45% 55%);
     --grass-edge: hsl(105 40% 44%);
     --hill: hsl(125 32% 40%);
+    --room-tint: transparent;
 
     /* HUD */
     --hud-top-h: 3.5rem;
@@ -245,12 +246,29 @@
     align-items: stretch;
     gap: 0.35rem;
     padding: 0.4rem 0 calc(0.5rem + env(safe-area-inset-bottom));
-    background: linear-gradient(180deg, var(--floor-edge) 0, color-mix(in oklab, var(--floor), black 10%) 0.25rem, color-mix(in oklab, var(--floor), black 16%) 100%);
+    background: var(--dock-floor, var(--floor));
     box-shadow: 0 -12px 30px -18px hsl(0 0% 0% / 0.45);
     transition: background 600ms ease;
   }
-  .hud-bottom[data-room='garden'] {
-    background: linear-gradient(180deg, var(--grass-edge) 0, color-mix(in oklab, var(--grass), black 12%) 0.25rem, color-mix(in oklab, var(--grass), black 20%) 100%);
+  .hud-bottom::before {
+    /* the room's floor continues under the controls, in shade */
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, hsl(0 0% 0% / 0.28) 0, hsl(0 0% 0% / 0.34) 100%);
+    pointer-events: none;
+  }
+  .hud-bottom::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--room-tint);
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+  .hud-bottom > * {
+    position: relative;
+    z-index: 1;
   }
   .hud-bottom > .lifecycle-pill {
     align-self: center;
@@ -459,59 +477,22 @@
   }
 
   /* The room */
-  .backdrop-wall {
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(120% 70% at 50% 100%, hsl(0 0% 0% / 0.06) 0%, transparent 60%),
-      linear-gradient(180deg, var(--wall) 0%, var(--wall) 66%, var(--wall-shade) 100%);
-    transition: background 600ms ease;
-  }
-  .backdrop-window {
-    position: absolute;
-    left: 56%;
-    top: 11%;
-    width: clamp(6rem, 22%, 12rem);
-    aspect-ratio: 1 / 1;
-    border-radius: 0.9rem;
-    overflow: hidden;
-    box-shadow: inset 0 0 0 0.35rem var(--wall-shade), 0 10px 30px -18px hsl(0 0% 0% / 0.5);
-  }
-  .backdrop-window-frame {
-    position: absolute;
-    inset: 0;
-    border-radius: 0.9rem;
-    box-shadow: inset 0 0 0 0.35rem var(--wall-shade);
-    pointer-events: none;
-  }
-  .backdrop-window-light {
-    position: absolute;
-    left: -30%;
-    right: -30%;
-    top: 100%;
-    height: 180%;
-    background: linear-gradient(180deg, var(--window-glow) 0%, transparent 80%);
-    transform: skewX(-8deg);
-    pointer-events: none;
-  }
-  .backdrop-lamp {
-    position: absolute;
-    right: 8%;
-    top: 4%;
-    width: 30%;
-    height: 40%;
-    background: radial-gradient(closest-side, var(--lamp) 0%, transparent 100%);
-    transition: background 600ms ease;
-  }
   .backdrop-floor {
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
-    background:
-      radial-gradient(90% 55% at 50% 30%, hsl(0 0% 100% / 0.1) 0%, transparent 70%),
-      linear-gradient(180deg, var(--floor-edge) 0%, var(--floor) 5%, var(--floor) 70%, color-mix(in oklab, var(--floor), black 10%) 100%);
     transition: background 600ms ease;
+  }
+  .backdrop-floor::before {
+    /* light at the horizon, shade at the front: depth without art */
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(90% 55% at 50% 20%, hsl(0 0% 100% / 0.14) 0%, transparent 70%),
+      linear-gradient(180deg, hsl(0 0% 0% / 0.1) 0%, transparent 12%, transparent 70%, hsl(0 0% 0% / 0.14) 100%);
+    pointer-events: none;
   }
   .backdrop-floor-edge {
     position: absolute;
@@ -520,17 +501,6 @@
     top: 0;
     height: 0.45rem;
     background: linear-gradient(180deg, hsl(0 0% 0% / 0.16), hsl(0 0% 0% / 0.04));
-  }
-  .backdrop-rug {
-    position: absolute;
-    left: 50%;
-    top: 26%;
-    width: 46%;
-    height: 34%;
-    transform: translateX(-50%);
-    border-radius: 100%;
-    background: radial-gradient(closest-side, var(--rug) 0%, var(--rug) 78%, transparent 100%);
-    opacity: 0.6;
   }
 
   /* ─── The dock: the item hotbar and the care verbs ────────────────────── */
@@ -747,103 +717,151 @@
     }
   }
 
-  /* ─── Rooms: the bedroom and the garden reuse the same phase tokens ─── */
-  .backdrop-wall--bedroom {
-    background: linear-gradient(180deg, color-mix(in oklab, var(--wall), hsl(262 45% 45%) 14%) 0%, color-mix(in oklab, var(--wall), hsl(262 45% 45%) 14%) 68%, color-mix(in oklab, var(--wall-shade), hsl(262 45% 35%) 18%) 100%);
-  }
-  .backdrop-window--small {
-    left: 62%;
-    top: 15%;
-    width: clamp(4.5rem, 14%, 8rem);
-    border-radius: 0.6rem 0.6rem 2.2rem 2.2rem;
-  }
-  .backdrop-lamp--always {
-    right: 4%;
-    top: 0;
-    width: 40%;
-    height: 48%;
-    background: radial-gradient(closest-side, hsl(40 95% 72% / 0.34) 0%, transparent 100%);
-  }
-  .backdrop-picture {
-    position: absolute;
-    left: 14%;
-    top: 20%;
-    width: clamp(3rem, 12%, 6rem);
-    aspect-ratio: 4 / 3;
-    border-radius: 0.35rem;
-    background: linear-gradient(160deg, var(--sky-bottom) 0%, var(--rug) 100%);
-    box-shadow: inset 0 0 0 0.3rem var(--wall-shade), 0 6px 18px -10px hsl(0 0% 0% / 0.5);
-  }
-  .backdrop-rug--wide {
-    width: 64%;
-    height: 40%;
-    top: 22%;
-    border-radius: 2rem;
-    opacity: 0.55;
-  }
-  .backdrop-sky {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 100%);
-    transition: background 600ms ease;
-  }
-  .backdrop-stars {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
-  .backdrop-sun {
-    position: absolute;
-    right: 14%;
-    top: 9%;
-    width: clamp(2.5rem, 9%, 5rem);
-    aspect-ratio: 1 / 1;
-    border-radius: 9999px;
-    background: radial-gradient(circle at 40% 35%, hsl(48 100% 92%) 0%, hsl(42 100% 78%) 55%, hsl(40 100% 70% / 0.6) 75%, transparent 100%);
-    box-shadow: 0 0 40px 12px var(--window-glow);
-    opacity: calc(1 - var(--stars));
-    transition: opacity 600ms ease;
-  }
-  .backdrop-hills {
-    position: absolute;
-    left: -4%;
-    width: 108%;
-    height: 9rem;
-  }
-  .backdrop-fence {
+  /* ─── Rooms: surfaces from data, decor in canvas coordinates, furniture ─ */
+  .backdrop-wall {
     position: absolute;
     left: 0;
     right: 0;
-    height: 2.6rem;
-    display: flex;
-    justify-content: space-between;
-    padding: 0 2%;
-    border-bottom: 0.45rem solid color-mix(in oklab, var(--floor-edge), white 22%);
-    box-sizing: border-box;
+    top: 0;
+    bottom: calc(100% - var(--horizon));
+    transition: background 600ms ease;
   }
-  .backdrop-fence::before {
+  .backdrop-wall::after {
+    /* the skirting and the shade the floor throws on the wall */
     content: '';
     position: absolute;
     left: 0;
     right: 0;
-    top: 38%;
-    height: 0.4rem;
-    background: color-mix(in oklab, var(--floor-edge), white 22%);
+    bottom: 0;
+    height: 14%;
+    background: linear-gradient(180deg, transparent 0%, hsl(0 0% 0% / 0.05) 70%, hsl(0 0% 0% / 0.12) 100%);
   }
-  .backdrop-fence__post {
-    width: 0.55rem;
+  .backdrop-canvas {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: var(--canvas-w);
+    height: var(--canvas-h);
+    transform: translateX(-50%);
+  }
+  .backdrop-lighting {
+    position: absolute;
+    inset: 0;
+    background: var(--room-tint);
+    mix-blend-mode: multiply;
+    transition: background 600ms ease;
+  }
+  .decor-window {
+    position: absolute;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.9rem;
+    overflow: visible;
+    box-shadow: inset 0 0 0 0.35rem hsl(0 0% 100% / 0.75), 0 10px 30px -18px hsl(0 0% 0% / 0.5);
+  }
+  .decor-window--small {
+    aspect-ratio: 4 / 5;
+    border-radius: 0.6rem 0.6rem 2rem 2rem;
+  }
+  .decor-window > svg {
+    border-radius: inherit;
+  }
+  .decor-window__frame {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 0.35rem hsl(0 0% 100% / 0.75);
+    pointer-events: none;
+  }
+  .decor-window__light {
+    position: absolute;
+    left: -30%;
+    right: -30%;
+    top: 100%;
+    height: 180%;
+    background: linear-gradient(180deg, var(--window-glow) 0%, transparent 80%);
+    transform: skewX(-8deg);
+    pointer-events: none;
+  }
+  .decor-lamp-glow {
+    position: absolute;
+    right: -6%;
+    top: 20%;
+    width: 48%;
+    height: 52%;
+    background: radial-gradient(closest-side, hsl(40 95% 72% / 0.34) 0%, transparent 100%);
+  }
+  .decor-tiles-band {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 48%;
+    bottom: 28%;
+    background:
+      repeating-linear-gradient(0deg, hsl(200 60% 70% / 0.35) 0 1px, transparent 1px 22px),
+      repeating-linear-gradient(90deg, hsl(200 60% 70% / 0.35) 0 1px, transparent 1px 22px),
+      hsl(200 80% 92% / 0.6);
+  }
+  .decor-wardrobe {
+    position: absolute;
+    height: auto;
+    filter: drop-shadow(0 8px 14px hsl(0 0% 0% / 0.2));
+  }
+  .furniture-anchor {
+    position: absolute;
+    width: var(--object-width);
+    transform: translate(-50%, -100%) scale(var(--object-scale, 1));
+    transform-origin: 50% 100%;
+    pointer-events: none;
+  }
+  .furniture {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: var(--object-aspect);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    pointer-events: auto;
+    cursor: default;
+    -webkit-tap-highlight-color: transparent;
+    transform: scaleX(var(--flip, 1));
+  }
+  .furniture:not(:disabled) {
+    cursor: pointer;
+  }
+  .furniture:focus-visible {
+    outline: 2px dashed hsl(var(--ring) / 0.7);
+    outline-offset: 4px;
+    border-radius: 0.75rem;
+  }
+  .furniture__art {
+    display: block;
+    width: 100%;
     height: 100%;
-    border-radius: 0.3rem 0.3rem 0 0;
-    background: color-mix(in oklab, var(--floor-edge), white 30%);
+    object-fit: contain;
+    object-position: bottom;
+    user-select: none;
+    -webkit-user-drag: none;
   }
-  .backdrop-floor--grass {
-    background: linear-gradient(180deg, var(--grass-edge) 0%, var(--grass) 7%, var(--grass) 100%);
+  .furniture-shadow {
+    position: absolute;
+    left: 50%;
+    bottom: -1.5%;
+    width: 70%;
+    height: 8%;
+    transform: translateX(-50%);
+    border-radius: 100%;
+    background: hsl(0 0% 0% / 0.22);
+    filter: blur(3px);
   }
-  .backdrop-rug--patch {
-    background: radial-gradient(closest-side, color-mix(in oklab, var(--grass), white 18%) 0%, color-mix(in oklab, var(--grass), white 12%) 70%, transparent 100%);
-    opacity: 0.7;
+  .furniture-shadow--wide {
+    width: 100%;
+    height: 10%;
   }
+  .furniture-anchor[data-use] .furniture:not(:disabled):hover .furniture__art {
+    filter: brightness(1.06);
+  }
+
 
   /* Room navigation: a chevron at each side, the room pill on top */
   .room-arrow {
@@ -1376,9 +1394,6 @@
   .scene,
   .backdrop-wall,
   .backdrop-floor,
-  .backdrop-lamp {
-    transition: none;
-  }
   .sheet-panel,
   .lifecycle-pill,
   .need-bubble,

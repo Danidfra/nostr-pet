@@ -46,7 +46,7 @@ export function HomeRail({ blobbi, mood, statItems, profile, rooms, onOpenBlobbi
               <li key={id}>
                 <button type="button" className={`rail-room ${current ? 'rail-room--current' : ''}`} onClick={() => rooms.go(id)} disabled={!rooms.canMove || current} aria-current={current ? 'location' : undefined} data-testid={`rail-room-${id}`}>
                   <span className="rail-room__name">{def.label}</span>
-                  <span className="rail-room__tag">{def.tagline}</span>
+                  <span className="rail-room__tag">{def.description}</span>
                 </button>
               </li>
             );

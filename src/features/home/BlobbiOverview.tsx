@@ -14,7 +14,6 @@ import { CareError, CareFeedback } from './CareFeedback';
 import type { FeedbackResult } from './care-feedback-text';
 import { describeMood } from './mood';
 import {
-  BedArt,
   BlobbiActor,
   DoorArt,
   HomeScene,
@@ -25,10 +24,12 @@ import {
   sceneObject,
   useBlobbiPresentation,
   useReducedMotion,
+  isAtPoint,
+  type FloorPoint,
   type Speech,
 } from './scene';
 import { ActionBar, BlobbiSheet, GameShell, HomeRail, HudTop, MenuSheet, hotbarKey, useWideScreen } from './shell';
-import { RoomArrows, RoomBackdrop, RoomIndicator, entrySpot, roomById, useRoom, type RoomId } from './rooms';
+import { FurnitureLayer, RoomArrows, RoomBackdrop, RoomIndicator, approachSpot, entrySpot, localLayoutStore, readRoomPlacements, roomById, roomShowsItem, sleepSpotFor, surfaceBackground, useRoom, useRoomLayout, furnitureById, type FurnitureDefinition, type Placement, type RoomId } from './rooms';
 
 interface BlobbiOverviewProps {
   blobbi: BlobbiCompanion;
@@ -75,6 +76,11 @@ function soundFor(action: CareAction | ItemAction): SoundId {
     case 'rest':
       return 'rest';
   }
+}
+
+/** What a placed piece of furniture is for, if anything. */
+function furnitureUse(placement: Placement): string | undefined {
+  return furnitureById(placement.id)?.use?.kind;
 }
 
 /** An item set down in the room, and where its use stands. */
@@ -131,7 +137,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const sleeping = blobbi.state === 'sleeping';
   const rooms = useRoom({ pubkey, blobbiD: blobbi.d, sleeping, locked: ceremony.presentation.exclusive });
   const room = rooms.room;
-  const [initialPosition] = useState(() => entrySpot(room, sleeping));
+  // The furniture standing here (device-local layout or the room's defaults);
+  // the bed in it decides where a sleeper lies.
+  const layout = useRoomLayout({ pubkey, blobbiD: blobbi.d, room });
+  const sleepSpot = useMemo(() => sleepSpotFor(layout.placements, room), [layout.placements, room]);
+  const [initialPosition] = useState(() => entrySpot(room, sleeping, layout.placements));
   const wide = useWideScreen();
 
   const scene = useBlobbiPresentation({ blobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition });
@@ -252,7 +262,6 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const walkTo = scene.walkTo;
   const canWalk = scene.canWalk;
   const placeAt = scene.placeAt;
-  const bed = sceneObject('bed');
   const door = sceneObject('door');
 
   // Coming into a room: the Blobbi is placed at the room's entry (a sleeper
@@ -278,29 +287,62 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   useEffect(() => {
     if (roomRef.current === room.id) return;
     roomRef.current = room.id;
-    placeAt(entrySpot(room, liveBlobbi.current.state === 'sleeping'));
+    placeAt(entrySpot(room, liveBlobbi.current.state === 'sleeping', readRoomPlacements(localLayoutStore, pubkey, blobbi.d, room.id)));
     setDoorPrompt(false);
     setHeld(null);
     setOffer((o) => (o && o.phase !== 'using' ? null : o));
-  }, [room, placeAt]);
+  }, [room, placeAt, pubkey, blobbi.d]);
 
+  // A sleeper lies in its bed: if the bed moves (the editor), so does the sleeper.
+  const sleepX = sleepSpot.x;
+  const sleepY = sleepSpot.y;
+  const positionRef = useRef(scene.presentation.position);
+  positionRef.current = scene.presentation.position;
+  useEffect(() => {
+    if (liveBlobbi.current.state !== 'sleeping') return;
+    if (isAtPoint(positionRef.current, { x: sleepX, y: sleepY })) return;
+    placeAt({ x: sleepX, y: sleepY });
+  }, [sleepX, sleepY, placeAt]);
+
+  // Rest is walk-then-sleep: to the bed of the room the bed is in (the
+  // bedroom, unless a bed stands right here), and only on arrival, only if
+  // still awake, the publish. `target` is read before the room changes so
+  // the walk starts from the entry towards the right spot.
+  const restAt = useCallback(
+    (roomId: RoomId, target: FloorPoint) => {
+      setWalkingToBed(true);
+      setDoorPrompt(false);
+      enterRoom(roomId);
+      void walkTo(target).then((outcome) => {
+        setWalkingToBed(false);
+        if (outcome !== 'arrived') return;
+        if (liveBlobbi.current.state !== 'active') return;
+        perform(liveBlobbi.current.d, 'rest');
+      });
+    },
+    [enterRoom, walkTo, perform],
+  );
   const onAction = useCallback(
     (action: CareAction) => {
       if (action === 'rest' && blobbi.state === 'active' && canWalk) {
-        setWalkingToBed(true);
-        setDoorPrompt(false);
-        enterRoom('bedroom');
-        void walkTo(bed.approach ?? bed.position).then((outcome) => {
-          setWalkingToBed(false);
-          if (outcome !== 'arrived') return;
-          if (liveBlobbi.current.state !== 'active') return;
-          perform(liveBlobbi.current.d, 'rest');
-        });
+        const bedHere = layout.placements.find((p) => furnitureUse(p) === 'rest');
+        if (bedHere) restAt(room.id, approachSpot(bedHere));
+        else restAt('rest', sleepSpotFor(readRoomPlacements(localLayoutStore, pubkey, blobbi.d, 'rest'), roomById('rest')));
         return;
       }
       perform(blobbi.d, action);
     },
-    [blobbi.d, blobbi.state, perform, walkTo, canWalk, bed, enterRoom],
+    [blobbi.d, blobbi.state, perform, canWalk, restAt, layout.placements, room.id, pubkey],
+  );
+  // Tapping furniture the Blobbi can use: the bed is rest, done in place.
+  const useFurniture = useCallback(
+    (placement: Placement, def: FurnitureDefinition) => {
+      if (def.use?.kind === 'rest') {
+        if (blobbi.state === 'active' && canWalk) restAt(room.id, approachSpot(placement));
+        else if (blobbi.state !== 'hibernating') perform(blobbi.d, 'rest');
+      }
+    },
+    [blobbi.d, blobbi.state, canWalk, restAt, room.id, perform],
   );
 
   // Offering an item: it is set down in the room, the Blobbi walks to it,
@@ -376,7 +418,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // The hotbar: this room's usable consumables, from the same read as the
   // sheet. Holding one is two deliberate taps away from a spend: pick it,
   // then tap the Blobbi (or the tile again) to give it.
-  const hotbarItems = useMemo(() => inventory.items.filter((i) => i.usability.ok && !i.unverified && i.item.care !== null && room.shows(i.item)), [inventory.items, room]);
+  const hotbarItems = useMemo(() => inventory.items.filter((i) => i.usability.ok && !i.unverified && i.item.care !== null && roomShowsItem(room, i.item)), [inventory.items, room]);
   const heldKey = held ? hotbarKey(held) : null;
   useEffect(() => {
     if (heldKey && !hotbarItems.some((i) => hotbarKey(i) === heldKey)) setHeld(null);
@@ -441,7 +483,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           pointerHandlers={scene.scenePointerHandlers}
           objects={
             <>
-              {room.objects.includes('door') && (
+              <FurnitureLayer placements={layout.placements} interactive={interactive} onUse={useFurniture} />
+              {room.fixtures.includes('door') && (
                 <SceneObjectView
                   def={door}
                 state={doorPrompt ? 'open' : 'closed'}
@@ -456,11 +499,6 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                 }
               >
                   <DoorArt open={doorPrompt} />
-                </SceneObjectView>
-              )}
-              {room.objects.includes('bed') && (
-                <SceneObjectView def={bed} state={sleeping ? 'occupied' : 'free'} onTap={interactive ? () => void walkTo(bed.position) : undefined}>
-                  <BedArt />
                 </SceneObjectView>
               )}
               {offer && offerObject && (
@@ -535,13 +573,14 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             </>
           }
         >
-          <RoomBackdrop room={room.id} />
+          <RoomBackdrop room={room} />
         </HomeScene>
       }
       aside={wide ? <HomeRail blobbi={blobbi} mood={`${blobbi.name} ${mood}`} statItems={statItems} profile={profile} rooms={{ ...rooms, go: enterRoom, canMove: rooms.canMove && !inCeremony && offer === null }} onOpenBlobbi={() => setBlobbiSheetOpen(true)} /> : undefined}
       bottom={
         <ActionBar
           room={room.id}
+          floorBackground={surfaceBackground(room.surfaces.floor)}
           actions={actions}
           pendingAction={pendingAction}
           onAction={onAction}
