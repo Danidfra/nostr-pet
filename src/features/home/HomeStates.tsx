@@ -1,14 +1,25 @@
 import type { ReactNode } from 'react';
-import { Egg, RefreshCw } from 'lucide-react';
-import { DITTO_BLOBBI_URL } from '@/config/ecosystem';
+import { RefreshCw } from 'lucide-react';
+import type { NostrEvent } from '@blobbi-kit/core';
 import { LoginPanel } from '@/components/auth/LoginPanel';
+import { AdoptionFlow, WhatIsBlobbi } from '@/features/adoption';
 import { EnterIslandButton } from './EnterIslandButton';
 import { HomeScene, SceneBackdrop } from './scene';
 
 /** The room, empty, with something held up in front of it. */
 function EmptyRoom({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <HomeScene label={label} floorLabel="Floor" actor={null} foreground={<div className="flex h-full items-center justify-center px-4 pt-16 pb-8">{children}</div>}>
+    <HomeScene
+      label={label}
+      floorLabel="Floor"
+      actor={null}
+      foreground={
+        // Scrolls when the card is taller than a short phone; centred otherwise.
+        <div className="flex h-full flex-col items-center overflow-y-auto px-4 pt-16 pb-8">
+          <div className="my-auto w-full">{children}</div>
+        </div>
+      }
+    >
       <SceneBackdrop />
     </HomeScene>
   );
@@ -19,7 +30,8 @@ export function HomeSignedOut() {
     <EmptyRoom label="An empty home">
       <div className="home-glass w-full max-w-md space-y-4 rounded-3xl p-6 text-center">
         <h1 className="text-2xl font-bold sm:text-3xl">The home of your Blobbi</h1>
-        <p className="text-sm text-muted-foreground">Sign in and your Blobbi will be waiting here.</p>
+        <WhatIsBlobbi />
+        <p className="text-sm text-muted-foreground">Sign in and your Blobbi will be waiting here. No Blobbi yet? You adopt an egg right here.</p>
         <LoginPanel />
         <EnterIslandButton variant="secondary" />
       </div>
@@ -40,25 +52,18 @@ export function HomeLoading() {
   );
 }
 
-export function HomeEmpty() {
+interface HomeEmptyProps {
+  pubkey: string;
+  suggestedName?: string;
+  updateCompanionEvent: (event: NostrEvent) => void;
+  refresh: () => void;
+}
+
+/** The empty home is where a first egg is adopted. */
+export function HomeEmpty({ pubkey, suggestedName, updateCompanionEvent, refresh }: HomeEmptyProps) {
   return (
     <EmptyRoom label="No Blobbi lives here yet">
-      <div className="home-glass mx-auto w-full max-w-md space-y-4 rounded-3xl p-6 text-center">
-        <Egg className="mx-auto h-12 w-12 text-primary" aria-hidden />
-        <h2 className="text-xl font-semibold">No Blobbi lives here yet</h2>
-        <p className="text-sm text-muted-foreground">Your home is ready. Adopt an egg and it will show up here.</p>
-        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <a
-            href={DITTO_BLOBBI_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Adopt a Blobbi
-          </a>
-          <EnterIslandButton variant="secondary" />
-        </div>
-      </div>
+      <AdoptionFlow pubkey={pubkey} suggestedName={suggestedName} updateCompanionEvent={updateCompanionEvent} refresh={refresh} />
     </EmptyRoom>
   );
 }

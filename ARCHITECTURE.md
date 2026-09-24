@@ -47,7 +47,7 @@ Blobbi standalone         home UX (this repo)
 | App | Role |
 | --- | --- |
 | Ditto | egg adoption, incubation, ceremonies, social missions, evolution |
-| **Standalone** | everyday home: current Blobbi, care, status / progress, inventory, companion experience, launch Island |
+| **Standalone** | everyday home: first egg adoption, current Blobbi, care, items, lifecycle, status / progress, launch Island |
 | Blobbi Island | social multiplayer world, economy, interoperability |
 
 The standalone does not duplicate Ditto's ceremony-heavy onboarding or the
@@ -195,6 +195,34 @@ this, not its own history.
   boost (no `pet`), `source` per app, optional `item`.
 - **Links.** Standalone → Island is a plain URL; Island has no link back;
   Island ignores URL parameters; identity travels through the signer.
+
+## Milestone 8: first run and adoption (M6)
+
+A newcomer understands, adopts an egg, and sees it in the room, without
+leaving the home. `src/features/adoption/`:
+
+```
+adoption-plan.ts   pure: newEggPreview (generatePetId10 → getCanonicalBlobbiD → deriveBlobbiSeedV1),
+                   eggTemplate (buildEggTags + progression_state incubating + progression_started_at +
+                   createHatchMissions() in the content; created_at PINNED to the preview),
+                   profileTemplate (buildBlobbonautTags + name for a new profile; otherwise the FRESH
+                   profile's full tags through updateBlobbonautTags with has merged and current_companion),
+                   normalizeBlobbiName, isOwnedBlobbiEvent (lenient: any 31124 with d + stage)
+useAdoptEgg.ts     preflight (fresh 31124 by author, lenient) → fresh 11125 → publish the egg →
+                   exactly one profile write → device pick, caches, refetch
+AdoptionFlow.tsx   intro (three lines: what a Blobbi is) → the egg (renderer preview, name) → Adopt
+```
+
+Canon followed: Ditto's egg (incubating from the first event) and Island's
+order (egg first, one profile write). Ownership is the 31124 collection,
+never the profile, as both apps hold: a profile write that fails leaves a
+real egg that any later selection repairs; a Blobbi found by the preflight
+(another device adopted meanwhile) is brought home and nothing is minted.
+The preview is generated once and is the source of truth for what is
+published; the seed depends on `created_at`, so the template pins it.
+The signed-out home carries the same three lines. `adoption.test.tsx` pins
+the events, their order, the profile preservation, the preflight, both
+failure modes and the keyboard path.
 
 ## Milestone 7: ecosystem cohesion (M5)
 

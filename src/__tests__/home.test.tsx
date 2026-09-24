@@ -127,7 +127,8 @@ describe('Home: loading, error, empty', () => {
   it('shows the empty home when the player owns no Blobbi', async () => {
     renderHome();
     expect(await screen.findByRole('heading', { name: /no blobbi lives here yet/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /adopt a blobbi/i })).toHaveAttribute('href', 'https://ditto.pub/blobbi');
+    // Adoption happens here now (see adoption.test.tsx); the Island stays one tap away.
+    expect(screen.getByTestId('adoption-start')).toBeInTheDocument();
     expect(islandLink()).toHaveAttribute('href', DEFAULT_BLOBBI_ISLAND_URL);
   });
 
