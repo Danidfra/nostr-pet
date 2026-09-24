@@ -143,6 +143,60 @@ rendering (31634) is still read-only. Relay discovery for ecosystem data is
 the read router below (no relay settings UI). Also deferred: account
 switcher, social interaction projection on the home, the companion runtime.
 
+## Milestone 10: the game shell (M8)
+
+A gameplay layer over systems that already work. Nothing about the
+protocol, the inventory pipeline, trust, equipment, adoption, relays or the
+renderer changed; what changed is how the player reaches them.
+
+**The audit.** Ditto's `/blobbi` page keeps a single focused item docked
+under the thumb, treats rooms as verb filters over a fixed-aspect canvas,
+and reacts before the network answers; it has no inventory (items are a
+free catalog) and no walking. The pre-rebuild standalone had no rooms (the
+page was the room), a 4–6 tap item flow, and a few ideas worth keeping
+(sleep by arriving at the bed, toys that stay, a written voice). The
+standalone before this pass needed three taps and a walk to use an item,
+crammed five dock buttons edge to edge at 360px, and drew the Blobbi at a
+third of the width against an empty wall.
+
+**Rooms** (`src/features/home/rooms/`): three on a line, garden ← living
+room → bedroom, defined as data (`rooms.ts`: furniture, entry spot, sleep
+spot, which consumables the hotbar shows). Device-local per player and
+Blobbi (`useRoom`, `blobbi:home:room:v1:<pubkey>:<d>`); never published;
+never part of the Blobbi's identity or 31124 state. Moving is a chevron,
+a dot, or a swipe on the scene (`HomeScene.onSwipe`; the trailing click
+is swallowed so a swipe never walks, sleeps or pokes). Coming into a room
+places the Blobbi at the entry (`locomotion.placeAt`, no walk; a pending
+walk resolves `stopped`). A sleeper is always in the bedroom, in the bed;
+rest from any room enters the bedroom first and walks to the bed. The
+garden is the Island sky, hills, a fence and grass, from the same phase
+tokens (`grass`, `grassEdge`, `hill` per phase).
+
+**The hotbar** (`shell/ItemHotbar.tsx`): the room's usable consumables
+from the same read as the sheet (`useHomeInventory`), one tile each with
+artwork and quantity, the bag first (the sheet keeps every item, details
+and refresh). Cosmetics, currency and unknown items never enter it. Using
+is two deliberate taps: pick a tile (the item is "in hand", the tile
+lifts, the dock says "Tap Brook to give the Apple", the Blobbi gets an
+invite ring and its tap becomes Give), then tap the Blobbi or the tile
+again. Giving is the unchanged M4 offer flow (set down, walk, spend, care
+write through `useUseItem`). A floor tap or a room change puts it back;
+nothing is written until it is given.
+
+**The shell** (`shell/GameShell.tsx`): a column of top HUD, scene and
+dock, plus a rail on wide screens (`useWideScreen`, the 900px CSS
+breakpoint) with condition, progression, rooms and the Island link. The
+dock is in the flow at the front edge of the floor (its background
+continues the floor, grass in the garden), so it never covers the Blobbi:
+lifecycle pill, hotbar, then the four care verbs as a compact row. The
+Blobbi is 44% of the scene width (9.5–17rem). Room dots keep a 28px hit
+area. Verified in the browser at 360, 390, 600 and 1456px, by day and by
+night.
+
+**Deliberately not built:** persisted per-room hotbar focus, drag-to-mouth,
+minigames, furniture placement, toys that stay in the room, a camera, a
+relay manager (proposal kept local), a component library.
+
 ## Relays: transport and trust (audited 2026-09-24)
 
 The home reads three kinds of relay knowledge and configures only one:
@@ -537,6 +591,8 @@ Key files:
 
 | Concern | File |
 | --- | --- |
+| Rooms | `src/features/home/rooms/` (definitions, `useRoom`, backdrops, chevrons and dots) |
+| Dock and hotbar | `src/features/home/shell/ActionBar.tsx`, `ItemHotbar.tsx`, `HomeRail.tsx`, `CareDock.tsx` |
 | Providers | `src/App.tsx` (home theme → logins → relay pool → query cache → router) |
 | Relay pool | `src/components/NostrProvider.tsx` → `src/lib/home-pool.ts`; application relays in `src/config/relays.ts`, read routing in `src/lib/relay-routing.ts`, ecosystem hints in `src/features/inventory/relay-hints.ts` |
 | Session | `src/hooks/useCurrentUser.ts`, `src/hooks/useLoginActions.ts`, `src/components/auth/*` |
