@@ -1,6 +1,10 @@
 export { HomeScene } from './HomeScene';
 export { BlobbiActor } from './BlobbiActor';
-export { Bed } from './Bed';
+export { SceneBackdrop } from './SceneBackdrop';
+export { SceneObjectView, BedArt, DoorArt } from './SceneObjectView';
+export { NeedBubbles } from './NeedBubbles';
+export { SpeechBubble } from './SpeechBubble';
+export type { Speech } from './SpeechBubble';
 export { SceneSettingsProvider, useSceneSettings, useReducedMotion, useHoverCapable } from './SceneSettings';
 export { DEFAULT_SCENE_SETTINGS } from './scene-settings';
 export type { SceneSettings } from './scene-settings';
@@ -11,5 +15,6 @@ export { resolveBehaviorMode, policyFor, BEHAVIOR_POLICY, BEHAVIOR_MODES } from 
 export type { BehaviorMode, BehaviorPolicy } from './behavior-mode';
 export type { WalkOutcome } from './useBlobbiLocomotion';
 export type { BlobbiPresentation, PresentationInputs } from './presentation';
-export { BED_POSITION, BED_SLEEP_SPOT, HOME_SPOT } from './objects';
+export { BED_POSITION, BED_SLEEP_SPOT, HOME_SPOT, DOOR_POSITION, DOOR_APPROACH, SCENE_OBJECTS, sceneObject } from './objects';
+export type { SceneObjectDef, SceneObjectId } from './objects';
 export * from './geometry';

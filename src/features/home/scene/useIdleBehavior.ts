@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { Facing, FloorPoint } from './geometry';
 import { nextIdleDelay, planIdleAction, type IdleAction, type IdleTiming, type Random } from './idle';
 
@@ -67,5 +67,5 @@ export function useIdleBehavior({ enabled, timing, random, position, facing, per
     lastActivityRef.current = latest.current.now();
   }, []);
 
-  return { markActivity };
+  return useMemo(() => ({ markActivity }), [markActivity]);
 }

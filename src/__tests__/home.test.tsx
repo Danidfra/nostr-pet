@@ -81,6 +81,16 @@ afterEach(() => {
 });
 
 const islandLink = () => screen.getByTestId('enter-island');
+const chip = () => screen.getByTestId('blobbi-chip');
+/** The Blobbi's details (badges, rings, other Blobbis) live in its sheet. */
+async function openBlobbiSheet() {
+  await userEvent.click(chip());
+  return screen.findByTestId('blobbi-sheet');
+}
+async function openMenu() {
+  await userEvent.click(screen.getByTestId('menu-button'));
+  return screen.findByTestId('menu-sheet');
+}
 
 describe('Home: signed out', () => {
   it('offers extension and bunker sign-in and the Island exit, and reads nothing', async () => {
@@ -100,7 +110,7 @@ describe('Home: loading, error, empty', () => {
     relay.delay = 50;
     relay.state = [BROOK];
     renderHome();
-    expect(await screen.findByRole('status')).toHaveTextContent(/looking for your blobbi/i);
+    expect(await screen.findByText(/looking for your blobbi/i)).toBeInTheDocument();
     expect(await screen.findByRole('img', { name: 'Brook' })).toBeInTheDocument();
   });
 
@@ -136,9 +146,14 @@ describe('Home: one Blobbi', () => {
     renderHome();
 
     expect(await screen.findByRole('img', { name: 'Brook' })).toBeInTheDocument();
-    expect(document.querySelector('[data-blobbi-renderer]')).toHaveAttribute('data-blobbi-generation', 'v1');
+    expect(document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-renderer]')).toHaveAttribute('data-blobbi-generation', 'v1');
+    expect(chip()).toHaveTextContent('Brook');
+    // The scene itself carries no panels: no rings, no badges, no selector.
+    expect(screen.queryByRole('group', { name: /care status/i })).toBeNull();
     expect(screen.queryByRole('radiogroup')).toBeNull();
 
+    await openBlobbiSheet();
+    expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(screen.getByTestId('stage-badge')).toHaveTextContent('Baby');
     expect(screen.getByTestId('state-badge')).toHaveTextContent('Awake');
 
@@ -154,7 +169,9 @@ describe('Home: one Blobbi', () => {
 
     expect(screen.getByTestId('blobbi-xp')).toHaveTextContent('0');
     expect(screen.getByTestId('last-interaction')).toHaveTextContent(/min ago/);
+    await userEvent.keyboard('{Escape}');
 
+    await openMenu();
     const link = islandLink();
     expect(link).toHaveAttribute('href', DEFAULT_BLOBBI_ISLAND_URL);
     expect(link).toHaveAttribute('target', '_blank');
@@ -165,6 +182,8 @@ describe('Home: one Blobbi', () => {
     relay.state = [blobbiEvent('0000000004', { name: 'Nap', stage: 'egg', state: 'sleeping', createdAt: NOW - 60 })];
     renderHome();
     expect(await screen.findByRole('img', { name: 'Nap' })).toBeInTheDocument();
+    expect(document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-renderer]')).toHaveAttribute('data-blobbi-stage', 'egg');
+    await openBlobbiSheet();
     expect(screen.getByTestId('state-badge')).toHaveTextContent('Sleeping');
     expect(screen.getByTestId('stage-badge')).toHaveTextContent('Egg');
     const status = screen.getByRole('group', { name: /care status/i });
@@ -176,6 +195,8 @@ describe('Home: one Blobbi', () => {
     relay.state = [BROOK];
     relay.profile = [profileEvent({ xp: 250, has: ['blobbi-aaaaaaaaaaaa-0000000001'] })];
     renderHome();
+    await screen.findByTestId('blobbi-chip');
+    await openBlobbiSheet();
     expect(await screen.findByTestId('player-level')).toHaveTextContent(/^3/);
   });
 });
@@ -186,9 +207,10 @@ describe('Home: several Blobbis', () => {
     relay.profile = [profileEvent({ currentCompanion: 'blobbi-aaaaaaaaaaaa-0000000002' })];
     renderHome();
 
-    expect(await screen.findByTestId('blobbi-actor')).toHaveTextContent('Elder');
+    expect(await screen.findByTestId('blobbi-chip')).toHaveTextContent('Elder');
     expect(document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-renderer]')).toHaveAttribute('data-blobbi-generation', 'v2');
 
+    await openBlobbiSheet();
     const group = screen.getByRole('radiogroup', { name: /choose your blobbi/i });
     expect(within(group).getAllByRole('radio')).toHaveLength(3);
     expect(within(group).getByRole('radio', { name: /elder/i })).toHaveAttribute('aria-checked', 'true');
@@ -197,18 +219,22 @@ describe('Home: several Blobbis', () => {
   it('falls back to the most recently cared-for Blobbi without a profile pick', async () => {
     relay.state = [SHELL, ELDER, BROOK];
     renderHome();
-    expect(await screen.findByTestId('blobbi-actor')).toHaveTextContent('Brook');
+    expect(await screen.findByTestId('blobbi-chip')).toHaveTextContent('Brook');
   });
 
   it('lets the player pick another Blobbi and remembers it on this device', async () => {
     relay.state = [BROOK, ELDER];
     relay.profile = [profileEvent({ currentCompanion: 'blobbi-aaaaaaaaaaaa-0000000001' })];
     renderHome();
-    expect(await screen.findByTestId('blobbi-actor')).toHaveTextContent('Brook');
+    expect(await screen.findByTestId('blobbi-chip')).toHaveTextContent('Brook');
 
+    await openBlobbiSheet();
     await userEvent.click(screen.getByRole('radio', { name: /elder/i }));
-    await waitFor(() => expect(screen.getByTestId('blobbi-actor')).toHaveTextContent('Elder'));
+    await waitFor(() => expect(screen.getByTestId('blobbi-chip')).toHaveTextContent('Elder'));
     expect(window.localStorage.getItem(getSelectedBlobbiKey(PUBKEY))).toBe('blobbi-aaaaaaaaaaaa-0000000002');
+    // Picking closes the sheet; the scene is the newcomer's.
+    expect(screen.queryByTestId('blobbi-sheet')).toBeNull();
+    await openBlobbiSheet();
     expect(screen.getByTestId('stage-badge')).toHaveTextContent('Adult');
   });
 
@@ -217,13 +243,14 @@ describe('Home: several Blobbis', () => {
     relay.state = [BROOK, ELDER];
     relay.profile = [profileEvent({ currentCompanion: 'blobbi-aaaaaaaaaaaa-0000000002' })];
     renderHome();
-    expect(await screen.findByTestId('blobbi-actor')).toHaveTextContent('Elder');
+    expect(await screen.findByTestId('blobbi-chip')).toHaveTextContent('Elder');
   });
 
   it('never publishes anything', async () => {
     relay.state = [BROOK, ELDER];
     renderHome();
     await screen.findByTestId('blobbi-actor');
+    await openBlobbiSheet();
     await userEvent.click(screen.getByRole('radio', { name: /elder/i }));
     expect((pool as unknown as { event?: unknown }).event).toBeUndefined();
   });

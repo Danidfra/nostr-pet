@@ -1,41 +1,52 @@
 import type { ReactNode } from 'react';
 import { Egg, RefreshCw } from 'lucide-react';
 import { DITTO_BLOBBI_URL } from '@/config/ecosystem';
+import { LoginPanel } from '@/components/auth/LoginPanel';
 import { EnterIslandButton } from './EnterIslandButton';
+import { HomeScene, SceneBackdrop } from './scene';
 
-/** The environment frame every non-ready state shares, so the home is the home even when empty. */
-export function SceneFrame({ children }: { children: ReactNode }) {
+/** The room, empty, with something held up in front of it. */
+function EmptyRoom({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <section className="home-scene -mx-6 flex min-h-[70svh] flex-col items-center justify-center gap-8 px-6 py-10 sm:mx-0 sm:min-h-[520px] sm:rounded-[2rem]">
-      {children}
-    </section>
+    <HomeScene label={label} floorLabel="Floor" actor={null} foreground={<div className="flex h-full items-center justify-center px-4 pt-16 pb-8">{children}</div>}>
+      <SceneBackdrop />
+    </HomeScene>
+  );
+}
+
+export function HomeSignedOut() {
+  return (
+    <EmptyRoom label="An empty home">
+      <div className="home-glass w-full max-w-md space-y-4 rounded-3xl p-6 text-center">
+        <h1 className="text-2xl font-bold sm:text-3xl">The home of your Blobbi</h1>
+        <p className="text-sm text-muted-foreground">Sign in and your Blobbi will be waiting here.</p>
+        <LoginPanel />
+        <EnterIslandButton variant="secondary" />
+      </div>
+    </EmptyRoom>
   );
 }
 
 export function HomeLoading() {
   return (
-    <SceneFrame>
+    <EmptyRoom label="Looking for your Blobbi">
       <div role="status" aria-live="polite" className="flex flex-col items-center gap-4">
-        <div className="relative h-44 w-44">
-          <div className="home-ground absolute -bottom-4 left-1/2 h-16 w-[140%] -translate-x-1/2 rounded-[100%]" aria-hidden />
+        <div className="relative h-36 w-36">
           <div className="relative h-full w-full animate-pulse rounded-[45%] bg-foreground/10" />
         </div>
-        <div className="h-6 w-32 animate-pulse rounded bg-foreground/10" />
         <p className="scene-text text-sm text-foreground/80">Looking for your Blobbi…</p>
       </div>
-    </SceneFrame>
+    </EmptyRoom>
   );
 }
 
 export function HomeEmpty() {
   return (
-    <SceneFrame>
-      <div className="home-glass mx-auto max-w-md space-y-5 rounded-3xl p-8 text-center">
+    <EmptyRoom label="No Blobbi lives here yet">
+      <div className="home-glass mx-auto w-full max-w-md space-y-4 rounded-3xl p-6 text-center">
         <Egg className="mx-auto h-12 w-12 text-primary" aria-hidden />
         <h2 className="text-xl font-semibold">No Blobbi lives here yet</h2>
-        <p className="text-sm text-muted-foreground">
-          Your home is ready. Adopt an egg and it will show up here, then step out to the Island whenever you like.
-        </p>
+        <p className="text-sm text-muted-foreground">Your home is ready. Adopt an egg and it will show up here.</p>
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <a
             href={DITTO_BLOBBI_URL}
@@ -48,7 +59,7 @@ export function HomeEmpty() {
           <EnterIslandButton variant="secondary" />
         </div>
       </div>
-    </SceneFrame>
+    </EmptyRoom>
   );
 }
 
@@ -60,8 +71,8 @@ interface HomeErrorProps {
 export function HomeError({ error, onRetry }: HomeErrorProps) {
   const message = error instanceof Error ? error.message : 'The relays did not answer.';
   return (
-    <SceneFrame>
-      <section role="alert" className="home-glass mx-auto max-w-md space-y-4 rounded-3xl border-destructive/40 p-8 text-center">
+    <EmptyRoom label="Could not reach your Blobbi">
+      <section role="alert" className="home-glass mx-auto w-full max-w-md space-y-4 rounded-3xl border-destructive/40 p-6 text-center">
         <h2 className="text-xl font-semibold">Could not reach your Blobbi</h2>
         <p className="text-sm text-muted-foreground">{message}</p>
         <button
@@ -73,6 +84,6 @@ export function HomeError({ error, onRetry }: HomeErrorProps) {
           Try again
         </button>
       </section>
-    </SceneFrame>
+    </EmptyRoom>
   );
 }

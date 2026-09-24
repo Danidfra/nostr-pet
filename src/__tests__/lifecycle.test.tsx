@@ -114,7 +114,7 @@ const evolveMissionEvents = () => [
 ];
 
 const published31124 = () => relay.published.filter((e) => e.kind === KIND_BLOBBI_STATE);
-const renderer = () => document.querySelector('[data-blobbi-renderer]') as HTMLElement;
+const renderer = () => document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-renderer]') as HTMLElement;
 const actor = () => screen.getByTestId('blobbi-actor');
 
 beforeEach(() => {
@@ -128,9 +128,15 @@ beforeEach(() => {
   clearEvolutionFromStorage(PUBKEY, D);
 });
 
+/** The lifecycle panel lives in the Blobbi's sheet. Opens it and returns the panel. */
 async function ready() {
+  await screen.findByTestId('blobbi-chip');
+  if (!screen.queryByTestId('blobbi-sheet')) await userEvent.click(screen.getByTestId('blobbi-chip'));
   await screen.findByTestId('lifecycle-panel');
   return screen.getByTestId('lifecycle-panel');
+}
+async function closeSheet() {
+  if (screen.queryByTestId('blobbi-sheet')) await userEvent.keyboard('{Escape}');
 }
 
 describe('Lifecycle: egg', () => {
@@ -164,8 +170,9 @@ describe('Lifecycle: egg', () => {
     const panel = await ready();
     await waitFor(() => expect(screen.getByTestId('lifecycle-hatch')).toBeEnabled());
 
-    await userEvent.click(screen.getByTestId('lifecycle-hatch'));
-    await userEvent.click(screen.getByTestId('lifecycle-hatch')); // a second press is ignored
+    await userEvent.click(screen.getByTestId('lifecycle-hatch')); // closes the sheet and starts the ceremony
+    expect(screen.queryByTestId('blobbi-sheet')).toBeNull();
+    await userEvent.click(screen.getByTestId('action-hatch')); // a second press is ignored (disabled during the ceremony)
     await waitFor(() => expect(published31124()).toHaveLength(1), { timeout: 3_000 });
     const baby = published31124()[0];
     expect(getTagValue(baby.tags, 'd')).toBe(D);
@@ -175,9 +182,11 @@ describe('Lifecycle: egg', () => {
     expect(parseEvolutionContent(baby.content).map((m) => m.id)).toContain('interactions');
 
     await waitFor(() => expect(renderer()).toHaveAttribute('data-blobbi-stage', 'baby'));
-    await waitFor(() => expect(panel).toHaveAttribute('data-next', 'evolve-tasks'));
     expect(published31124()).toHaveLength(1);
+    await ready();
+    await waitFor(() => expect(screen.getByTestId('lifecycle-panel')).toHaveAttribute('data-next', 'evolve-tasks'));
     expect(screen.getByTestId('stage-badge')).toHaveTextContent('Baby');
+    void panel;
   });
 
   it('a hatch whose publish fails leaves the egg an egg and says so', async () => {
@@ -187,10 +196,12 @@ describe('Lifecycle: egg', () => {
     const panel = await ready();
     await waitFor(() => expect(screen.getByTestId('lifecycle-hatch')).toBeEnabled());
     await userEvent.click(screen.getByTestId('lifecycle-hatch'));
-    await waitFor(() => expect(screen.getByTestId('lifecycle-error')).toHaveTextContent(/relay rejected/), { timeout: 3_000 });
+    await waitFor(() => expect(screen.getByTestId('ceremony-error')).toHaveTextContent(/relay rejected/), { timeout: 3_000 });
     expect(renderer()).toHaveAttribute('data-blobbi-stage', 'egg');
-    expect(panel).toHaveAttribute('data-next', 'hatch');
     expect(published31124()).toHaveLength(0);
+    void panel;
+    await ready();
+    expect(screen.getByTestId('lifecycle-panel')).toHaveAttribute('data-next', 'hatch');
     expect(screen.getByTestId('lifecycle-hatch')).toBeEnabled(); // the ceremony is over; try again is allowed
   });
 
@@ -214,7 +225,8 @@ describe('Lifecycle: egg', () => {
     expect(screen.getByTestId('care-rest')).toBeDisabled();
     expect(screen.getByTestId('scene-floor')).toBeDisabled();
     expect(screen.getByTestId('blobbi-poke')).toBeDisabled();
-    expect(screen.getByTestId('lifecycle-hatch')).toBeDisabled();
+    expect(screen.getByTestId('action-hatch')).toBeDisabled();
+    expect(screen.getByTestId('scene-object-door').querySelector('button')).toBeDisabled();
     fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 100, clientY: 400, detail: 1 });
     expect(actor()).toHaveAttribute('data-x', '0.500');
     release!();
@@ -227,12 +239,14 @@ describe('Lifecycle: egg', () => {
     renderHome();
     await ready();
     expect(screen.getByTestId('lifecycle-task-interactions')).toHaveTextContent('6/7');
+    await closeSheet();
     await userEvent.click(screen.getByTestId('care-clean'));
     await waitFor(() => expect(published31124()).toHaveLength(1));
     const missions = parseEvolutionContent(published31124()[0].content);
     const interactions = missions.find((m) => m.id === 'interactions');
     expect(interactions && 'count' in interactions ? interactions.count : undefined).toBe(7);
     expect(getTagValue(published31124()[0].tags, 'stage')).toBe('egg');
+    await ready();
     await waitFor(() => expect(screen.getByTestId('lifecycle-task-interactions')).toHaveAttribute('data-completed', 'true'));
   });
 });
@@ -257,7 +271,7 @@ describe('Lifecycle: baby → adult', () => {
     panel = await ready();
     await waitFor(() => expect(panel).toHaveAttribute('data-next', 'evolve'));
     const seed = getTagValue(evolvingBaby(21).tags, 'seed')!;
-    await userEvent.click(screen.getByTestId('lifecycle-evolve'));
+    await userEvent.click(screen.getByTestId('lifecycle-evolve')); // closes the sheet, starts the ceremony
     await waitFor(() => expect(published31124()).toHaveLength(1), { timeout: 3_000 });
     const adult = published31124()[0];
     expect(getTagValue(adult.tags, 'd')).toBe(D);
@@ -266,6 +280,7 @@ describe('Lifecycle: baby → adult', () => {
     expect(getTagValue(adult.tags, 'adult_type')).toBe(deriveAdultFormFromSeed(seed));
     expect(getTagValue(adult.tags, 'progression_state')).toBe('none');
     await waitFor(() => expect(renderer()).toHaveAttribute('data-blobbi-stage', 'adult'));
+    await ready();
     await waitFor(() => expect(screen.getByTestId('lifecycle-panel')).toHaveAttribute('data-next', 'grown'));
   });
 
@@ -276,7 +291,7 @@ describe('Lifecycle: baby → adult', () => {
     await ready();
     await waitFor(() => expect(screen.getByTestId('lifecycle-evolve')).toBeEnabled());
     await userEvent.click(screen.getByTestId('lifecycle-evolve'));
-    await waitFor(() => expect(screen.getByTestId('lifecycle-error')).toHaveTextContent(/relay rejected/), { timeout: 3_000 });
+    await waitFor(() => expect(screen.getByTestId('ceremony-error')).toHaveTextContent(/relay rejected/), { timeout: 3_000 });
     expect(renderer()).toHaveAttribute('data-blobbi-stage', 'baby');
     expect(published31124()).toHaveLength(0);
   });

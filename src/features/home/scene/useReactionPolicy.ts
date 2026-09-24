@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BlobbiEmotion } from '@blobbi-kit/renderer';
 import { REACTION_DURATION_MS } from './reactions';
 
@@ -51,5 +51,5 @@ export function useReactionPolicy(): ReactionPolicy {
     [],
   );
 
-  return { reaction, react, clear };
+  return useMemo(() => ({ reaction, react, clear }), [reaction, react, clear]);
 }

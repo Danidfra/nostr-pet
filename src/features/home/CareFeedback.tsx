@@ -16,8 +16,18 @@ interface CareFeedbackProps {
  */
 export function CareFeedback({ result, resultKey }: CareFeedbackProps) {
   const changes = result ? Object.entries(result.statsChanged) : [];
+  const hearts = result && result.action !== 'rest' ? [0, 1, 2] : [];
   return (
     <>
+      {hearts.length > 0 && (
+        <div className="scene-hearts" aria-hidden data-testid="care-hearts">
+          {hearts.map((i) => (
+            <span key={`${resultKey}-${i}`} className="scene-heart" style={{ left: `${20 + i * 30}%`, animationDelay: `${i * 140}ms`, color: '#ec4899' }}>
+              ♥
+            </span>
+          ))}
+        </div>
+      )}
       <div className="scene-feedback" aria-hidden>
         {result &&
           changes.map(([stat, delta], index) => (

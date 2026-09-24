@@ -8,8 +8,6 @@ import type { BlobbiPresentation } from './presentation';
 interface BlobbiActorProps {
   blobbi: BlobbiCompanion;
   presentation: BlobbiPresentation;
-  /** One line under the name: how it is doing. */
-  mood?: string;
   /** Bumps the "happy" hop; plays once per change. */
   happyKey?: number;
   onPoke?: () => void;
@@ -29,7 +27,7 @@ interface BlobbiActorProps {
  * decides nothing about how the Blobbi looks. It never touches Nostr.
  */
 export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function BlobbiActor(
-  { blobbi, presentation, mood, happyKey = 0, onPoke, eggCrack, effects, children },
+  { blobbi, presentation, happyKey = 0, onPoke, eggCrack, effects, children },
   ref,
 ) {
   const placement = placeOnFloor(presentation.position);
@@ -85,14 +83,6 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
             style={{ width: '100%', height: '100%' }}
           />
         </button>
-      </div>
-      <div className="scene-actor__caption">
-        <span className="scene-text block text-2xl font-bold tracking-tight sm:text-3xl">{blobbi.name}</span>
-        {mood && (
-          <span className="scene-text mt-0.5 block text-sm font-medium text-foreground/80" data-testid="mood-line">
-            {blobbi.name} {mood}
-          </span>
-        )}
       </div>
     </div>
   );

@@ -198,6 +198,42 @@ this, not its own history.
 - **Links.** Standalone → Island is a plain URL; Island has no link back;
   Island ignores URL parameters; identity travels through the signer.
 
+## Milestone 5: the home as a game screen (M3)
+
+The page became one screen. `GameShell` is a `100dvh` frame with the room
+filling everything between two thin HUD strips (`HudTop`: the Blobbi's chip
+and the menu; `ActionBar`: the care dock and, when the kit says a lifecycle
+moment is ready, one pill). Details live in two sheets (`Sheet`: a bottom
+drawer on phones, a side panel on wide screens; labelled modal, focus
+kept inside, Escape and backdrop close): `BlobbiSheet` (badges, rings,
+progression, lifecycle missions, other Blobbis) and `MenuSheet` (home
+lighting, sound, the Island, the account). Nothing scrolls; nothing covers
+the Blobbi.
+
+Principles (from the virtual-pet research): the pet and its room are the
+screen; needs are said by the pet (`NeedBubbles`, worst two, above its
+head) not by a panel; primary actions sit under the thumb; everything else
+is one tap away in a sheet; settings and account are not gameplay.
+
+The room (`SceneBackdrop`) is layers lit by CSS custom properties: wall,
+window onto the Island sky with stars, a lamp at night, floor and rug.
+Objects are a small registry (`objects.ts`: definition, floor point,
+approach spot) drawn by `SceneObjectView`; the door to the Island is the
+world affordance for leaving (walk to it, then a real link appears at the
+door), the bed is rest. Speech (`SpeechBubble`) and hearts carry care
+moments; four recovered sounds play only if turned on (`SoundProvider`,
+device-local, never blocking).
+
+**Environment, not themes.** The five standalone themes were not ecosystem
+canon and are gone. The home is one place lit by the Island's shared clock
+(`src/environment/island-clock.ts`, a port of Island's: two real hours per
+island day from a fixed UTC epoch, phases dawn 0–10, day 10–75, sunset
+75–90, night 90–120). `PHASE_LOOKS` holds the tokens per phase; an
+appearance preference (`island` | `day` | `night`, device-local) can lock a
+phase. The rule stands: the environment never touches the Blobbi
+(`care.test.tsx` pins identical markup under day and night), and
+`BlobbiVisualIdentity.theme` is never read.
+
 ## Milestone 4: the lifecycle (M2)
 
 Egg → baby → adult for an existing Blobbi, on the kit's own primitives, in

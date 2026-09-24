@@ -79,8 +79,9 @@ const brook = (state: 'active' | 'sleeping' = 'active') =>
   blobbiEvent('0000000001', { name: 'Brook', stage: 'baby', state, createdAt: NOW - 120, set: { hunger: '40', happiness: '50', hygiene: '45', energy: '70' } });
 
 const actor = () => screen.getByTestId('blobbi-actor');
-const bodyBox = () => document.querySelector('[data-blobbi-body-box]') as HTMLElement;
-const renderer = () => document.querySelector('[data-blobbi-renderer]') as HTMLElement;
+// Scoped to the actor: the HUD chip draws a small portrait through the same renderer.
+const bodyBox = () => document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-body-box]') as HTMLElement;
+const renderer = () => document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-renderer]') as HTMLElement;
 const published31124 = () => relay.published.filter((e) => e.kind === KIND_BLOBBI_STATE);
 
 /** jsdom has no layout: give the scene a box so taps map to floor points. */

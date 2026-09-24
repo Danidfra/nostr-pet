@@ -36,7 +36,6 @@ describe('BlobbiActor', () => {
     expect(bodyBox()?.style.getPropertyValue('--blobbi-eye-x')).toBe('0.5');
     expect(bodyBox()?.style.getPropertyValue('--blobbi-eye-y')).toBe('-0.25');
     expect(screen.getByRole('img', { name: 'Brook' })).toBeInTheDocument();
-    expect(screen.getByText('Brook')).toBeInTheDocument();
   });
 
   it('stands where the presentation says, anchored by percentages with a depth scale', () => {

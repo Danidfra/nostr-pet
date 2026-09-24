@@ -10,10 +10,12 @@ interface HomeSceneProps {
   /** A tap or click on the floor, as fractions of the scene box. */
   onFloorTap?: (fraction: { x: number; y: number }) => void;
   pointerHandlers?: ScenePointerHandlers;
+  /** The room behind everything (the backdrop layer). */
+  children?: ReactNode;
   /** Layers, back to front. */
   topBar?: ReactNode;
   objects?: ReactNode;
-  actor: ReactNode;
+  actor?: ReactNode;
   foreground?: ReactNode;
   className?: string;
 }
@@ -31,7 +33,7 @@ interface HomeSceneProps {
  * by normalized coordinates, so the layout is the same at every size.
  */
 export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeScene(
-  { label, floorLabel, onFloorTap, pointerHandlers, topBar, objects, actor, foreground, className = '' },
+  { label, floorLabel, onFloorTap, pointerHandlers, children, topBar, objects, actor, foreground, className = '' },
   ref,
 ) {
   // The scene box is measured through our own ref, merged with the forwarded
@@ -61,13 +63,14 @@ export const HomeScene = forwardRef<HTMLElement, HomeSceneProps>(function HomeSc
   return (
     <section
       ref={setRefs}
-      className={`home-scene scene ${className}`}
+      className={`scene ${className}`}
       aria-label={label}
       data-testid="home-scene"
       onPointerMove={pointerHandlers?.onPointerMove}
       onPointerLeave={pointerHandlers?.onPointerLeave}
       onPointerDown={pointerHandlers?.onPointerDown}
     >
+      {children}
       <button
         type="button"
         className="scene-floor"

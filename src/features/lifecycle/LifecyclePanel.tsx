@@ -11,6 +11,8 @@ interface LifecyclePanelProps {
   onCeremony: (kind: CeremonyKind) => void;
   /** Dev-only: run a ceremony without the mission gate. Absent in production builds. */
   devForce?: (kind: CeremonyKind) => void;
+  /** Inside a sheet: no glass container of its own. */
+  embedded?: boolean;
 }
 
 function TaskRow({ task }: { task: LifecycleTask }) {
@@ -51,7 +53,7 @@ function TaskRow({ task }: { task: LifecycleTask }) {
  * invents a rule. Hatch and evolve start a ceremony in the scene; the
  * semantic write happens inside it, only once, and only after the build-up.
  */
-export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, devForce }: LifecyclePanelProps) {
+export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, devForce, embedded = false }: LifecyclePanelProps) {
   const { view, pending, error, clearError } = lifecycle;
   const busy = pending !== null || (ceremony.phase !== 'idle' && ceremony.phase !== 'failed');
   const ceremonyKind: CeremonyKind = view.stage === 'egg' ? 'hatch' : 'evolve';
@@ -80,7 +82,7 @@ export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, devForce
   const secondary = `${button} border border-border bg-background hover:bg-accent`;
 
   return (
-    <section className="home-glass mx-auto w-full max-w-2xl rounded-3xl px-4 py-4 sm:px-6" aria-label="Lifecycle" data-testid="lifecycle-panel" data-next={view.next}>
+    <section className={embedded ? 'rounded-2xl bg-foreground/5 px-3 py-3' : 'home-glass mx-auto w-full max-w-2xl rounded-3xl px-4 py-4 sm:px-6'} aria-label="Lifecycle" data-testid="lifecycle-panel" data-next={view.next}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold">{heading}</h2>
         {view.process !== 'none' && view.total > 0 && (
