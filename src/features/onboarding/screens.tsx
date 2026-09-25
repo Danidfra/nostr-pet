@@ -1,5 +1,7 @@
-import { useRef, useState, type FormEvent } from 'react';
-import { ArrowLeft, Egg, FileUp, ImagePlus, KeyRound, Loader2, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { toDataURL } from 'qrcode';
+import { ArrowLeft, Copy, Egg, FileUp, ImagePlus, KeyRound, Loader2, ShieldCheck, Smartphone, Sparkles, UserRound } from 'lucide-react';
+import type { NostrConnectParams, NostrConnectStatus } from '@nostrify/react/login';
 import type { NostrMetadata } from '@nostrify/nostrify';
 import { WhatIsBlobbi } from '@/features/adoption';
 import { EnterIslandButton } from '@/features/home/EnterIslandButton';
@@ -215,9 +217,11 @@ export function ExistingAccountScreen({ onBack }: { onBack?: () => void }) {
       </button>
       {!extensionAvailable && <p className="text-center text-xs text-muted-foreground">No NIP-07 extension detected in this browser.</p>}
 
+      <SignerAppConnect disabled={busy !== null} />
+
       <form onSubmit={withBunker} className="space-y-2">
         <label htmlFor="bunker-uri" className="block text-sm font-medium">
-          Or connect a remote signer
+          Or paste a bunker address
         </label>
         <input id="bunker-uri" value={bunkerUri} onChange={(e) => setBunkerUri(e.target.value)} placeholder="bunker://…" autoComplete="off" spellCheck={false} className="onboard-input" />
         {bunkerUri && !bunkerValid && <p className="text-xs text-destructive">URI must start with bunker://</p>}
@@ -256,6 +260,120 @@ export function ExistingAccountScreen({ onBack }: { onBack?: () => void }) {
         </p>
       )}
     </Card>
+  );
+}
+
+/* ─── A signer app, by QR or deep link (NIP-46, nostrconnect://) ───────── */
+
+const STATUS_WORD: Record<NostrConnectStatus, string> = { 'awaiting-connect': 'Waiting for your signer app…', 'getting-public-key': 'Signer found. Confirming…' };
+
+function isTouchDevice(): boolean {
+  return typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+/**
+ * The mobile-friendly signer path: one tap makes a nostrconnect session
+ * (an ephemeral client key and a secret, in memory only), shows it as a
+ * QR to scan from another device and as a link to open a signer app on
+ * this one, and waits for the signer's answer on the application relays.
+ * Leaving the screen, cancelling or a refresh ends the session: nothing
+ * of it is stored. The user's key never comes near this app.
+ */
+function SignerAppConnect({ disabled }: { disabled: boolean }) {
+  const login = useLoginActions();
+  const [session, setSession] = useState<{ params: NostrConnectParams; uri: string } | null>(null);
+  const [qr, setQr] = useState<string | null>(null);
+  const [status, setStatus] = useState<NostrConnectStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const controllerRef = useRef<AbortController | null>(null);
+  const mobile = isTouchDevice();
+
+  const stop = () => {
+    controllerRef.current?.abort();
+    controllerRef.current = null;
+    setSession(null);
+    setQr(null);
+    setStatus(null);
+  };
+  useEffect(() => () => controllerRef.current?.abort(), []);
+
+  const start = () => {
+    setError(null);
+    setCopied(false);
+    const next = login.nostrconnect.start();
+    setSession(next);
+    setStatus('awaiting-connect');
+    void toDataURL(next.uri, { margin: 1, width: 224, errorCorrectionLevel: 'M' })
+      .then((url) => setQr(url))
+      .catch(() => setQr(null));
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    login.nostrconnect
+      .wait(next.params, controller.signal, (s) => {
+        if (!controller.signal.aborted) setStatus(s);
+      })
+      .then(() => {
+        if (!controller.signal.aborted) stop();
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) return;
+        setError(err instanceof Error ? err.message : 'The signer did not answer.');
+        stop();
+      });
+  };
+  const copy = async () => {
+    if (!session) return;
+    try {
+      await navigator.clipboard.writeText(session.uri);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  if (!session) {
+    return (
+      <div className="space-y-2">
+        <button type="button" onClick={start} disabled={disabled} className="onboard-btn onboard-btn--secondary" data-testid="login-signer-app">
+          <Smartphone className="h-4 w-4" aria-hidden />
+          Connect a signer app
+        </button>
+        <p className="text-center text-xs text-muted-foreground">Amber, nsec.app and other NIP-46 signers. Your key stays in the app.</p>
+        {error && (
+          <p role="alert" className="text-center text-sm text-destructive" data-testid="signer-app-error">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="signer-connect" data-testid="signer-app-session" aria-live="polite">
+      {!mobile && (
+        <div className="signer-connect__qr" aria-label="Scan with your signer app">
+          {qr ? <img src={qr} alt="QR code for your signer app" width={224} height={224} data-testid="signer-app-qr" /> : <span className="text-xs text-muted-foreground">Making the code…</span>}
+        </div>
+      )}
+      <p className="text-center text-sm font-semibold" data-testid="signer-app-status">
+        <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" aria-hidden />
+        {status ? STATUS_WORD[status] : ''}
+      </p>
+      <p className="text-center text-xs text-muted-foreground">{mobile ? 'Open your signer app with the button, approve Blobbi there, then come back.' : 'Scan the code with your signer app, or open it on this device.'}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <a href={session.uri} className="onboard-btn onboard-btn--primary" data-testid="signer-app-open">
+          <Smartphone className="h-4 w-4" aria-hidden />
+          Open signer app
+        </a>
+        <button type="button" className="onboard-btn onboard-btn--secondary" onClick={copy} data-testid="signer-app-copy">
+          <Copy className="h-4 w-4" aria-hidden />
+          {copied ? 'Copied' : 'Copy link'}
+        </button>
+      </div>
+      <button type="button" className="inline-flex w-full justify-center text-xs font-semibold text-muted-foreground hover:text-foreground" onClick={stop} data-testid="signer-app-cancel">
+        Cancel
+      </button>
+    </div>
   );
 }
 

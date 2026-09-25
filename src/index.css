@@ -500,6 +500,26 @@
     outline: none;
     box-shadow: 0 0 0 2px hsl(var(--ring));
   }
+  .signer-connect {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    border-radius: 1.25rem;
+    border: 1px solid hsl(var(--border) / 0.8);
+    background: hsl(var(--background) / 0.7);
+    padding: 0.9rem;
+  }
+  .signer-connect__qr {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 8rem;
+  }
+  .signer-connect__qr img {
+    border-radius: 0.75rem;
+    background: white;
+    box-shadow: 0 8px 20px -14px hsl(var(--foreground) / 0.6);
+  }
   .key-box {
     display: block;
     flex: 1 1 auto;

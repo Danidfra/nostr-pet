@@ -1,5 +1,7 @@
 import { useNostr } from '@nostrify/react';
-import { NLogin, useNostrLogin } from '@nostrify/react/login';
+import { NLogin, generateNostrConnectParams, generateNostrConnectURI, useNostrLogin, type NostrConnectParams, type NostrConnectStatus } from '@nostrify/react/login';
+import { BASE_RELAYS } from '@/config/relays';
+import { CLIENT_NAME } from '@/features/care/usePublishAdapter';
 
 /**
  * Login/logout actions over nostrify's login store, the store Ditto and
@@ -23,6 +25,24 @@ export function useLoginActions() {
     async bunker(uri: string): Promise<void> {
       const login = await NLogin.fromBunker(uri, nostr);
       addLogin(login);
+    },
+    /**
+     * NIP-46, client-initiated (`nostrconnect://`): the app makes an
+     * ephemeral client key and a random secret, shows them as a QR or a
+     * deep link, and waits on the application relays for the signer to
+     * answer. The ephemeral key lives in memory for the handshake only;
+     * the URI carries the client's PUBLIC key and the secret, by the
+     * protocol's design, never any user key. `signal` cancels the wait.
+     */
+    nostrconnect: {
+      start(): { params: NostrConnectParams; uri: string } {
+        const params = generateNostrConnectParams([...BASE_RELAYS]);
+        return { params, uri: generateNostrConnectURI(params, { name: CLIENT_NAME }) };
+      },
+      async wait(params: NostrConnectParams, signal: AbortSignal, onStatus?: (status: NostrConnectStatus) => void): Promise<void> {
+        const login = await NLogin.fromNostrConnect(params, nostr, { signal, onStatus });
+        addLogin(login);
+      },
     },
     /** NIP-07 browser extension. */
     async extension(): Promise<void> {

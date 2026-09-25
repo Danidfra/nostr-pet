@@ -10,7 +10,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
-import { NostrLoginProvider } from '@nostrify/react/login';
+import { NLogin, NostrLoginProvider } from '@nostrify/react/login';
 import { MemoryRouter } from 'react-router-dom';
 import { nip19, getPublicKey } from 'nostr-tools';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
@@ -43,7 +43,7 @@ const event = vi.fn(async (ev: NostrEvent) => {
   else if (ev.kind === KIND_BLOBBI_STATE || ev.kind === KIND_BLOBBONAUT_PROFILE) relay.all = [...relay.all.filter((e) => !(e.kind === ev.kind && getTagValue(e.tags, 'd') === getTagValue(ev.tags, 'd'))), ev];
   else relay.all.push(ev);
 });
-const pool = { query, event } as unknown as NPool;
+const pool = { query, event, group: () => pool } as unknown as NPool;
 
 function renderHome() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -250,5 +250,75 @@ describe('An existing account', () => {
     await screen.findByTestId('adoption-intro');
     // The kind 0 is now on the relay: another refresh goes to adoption directly.
     screen.getByTestId('adoption-intro');
+  });
+});
+
+describe('A signer app (NIP-46, nostrconnect://)', () => {
+  it('shows a QR and a deep link for a session made of an ephemeral client key and a secret, waits, and signs in when the signer answers; the client secret never reaches the page', async () => {
+    let captured: { params: { clientPubkey: string; clientSecretKey: Uint8Array; secret: string; relays: string[] }; opts: { signal?: AbortSignal; onStatus?: (s: 'awaiting-connect' | 'getting-public-key') => void } } | null = null;
+    const spy = vi.spyOn(NLogin, 'fromNostrConnect').mockImplementation(async (params, _pool, opts) => {
+      captured = { params, opts: opts ?? {} };
+      opts?.onStatus?.('getting-public-key');
+      await new Promise((r) => setTimeout(r, 400));
+      // A real (throwaway) client key: the login must resolve to a signer for the home to open.
+      return new NLogin('bunker', PUBKEY, { bunkerPubkey: 'b'.repeat(64), clientNsec: createNewAccount().nsec as `nsec1${string}`, relays: ['wss://relay.ditto.pub'] }) as ReturnType<typeof NLogin.fromBunker> extends Promise<infer L> ? L : never;
+    });
+    relay.all = [blobbiEvent('0000000001', { name: 'Brook' })];
+    renderHome();
+    await userEvent.click(await screen.findByTestId('onboarding-existing'));
+    await userEvent.click(screen.getByTestId('login-signer-app'));
+    const session = await screen.findByTestId('signer-app-session');
+    await waitFor(() => expect(within(session).getByTestId('signer-app-qr').getAttribute('src')).toMatch(/^data:image\/png/));
+    expect(within(session).getByTestId('signer-app-status')).toHaveTextContent(/Signer found/);
+    expect(captured).not.toBeNull();
+    const { params } = captured!;
+    const uri = screen.getByTestId('signer-app-open').getAttribute('href')!;
+    expect(uri.startsWith(`nostrconnect://${params.clientPubkey}?`)).toBe(true);
+    expect(uri).toContain('relay=wss%3A%2F%2Frelay.ditto.pub');
+    expect(uri).toContain(`secret=${params.secret}`);
+    expect(uri).toContain('name=Blobbi');
+    const secretHex = Array.from(params.clientSecretKey, (b) => b.toString(16).padStart(2, '0')).join('');
+    expect(document.documentElement.innerHTML).not.toContain(secretHex);
+    await screen.findByRole('group', { name: /care for your blobbi/i }, { timeout: 5000 });
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '[]')[0]).toMatchObject({ type: 'bunker', pubkey: PUBKEY });
+    await userEvent.click(screen.getByTestId('menu-button'));
+    expect(await screen.findByTestId('login-type')).toHaveTextContent(/remote signer/);
+    spy.mockRestore();
+  });
+
+  it('cancelling aborts the wait and clears the session; a signer that fails is reported and the door stays open', async () => {
+    const signals: AbortSignal[] = [];
+    const spy = vi.spyOn(NLogin, 'fromNostrConnect').mockImplementation((_params, _pool, opts) => {
+      signals.push(opts!.signal!);
+      return new Promise((_resolve, reject) => opts!.signal!.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))));
+    });
+    renderHome();
+    await userEvent.click(await screen.findByTestId('onboarding-existing'));
+    await userEvent.click(screen.getByTestId('login-signer-app'));
+    await screen.findByTestId('signer-app-session');
+    await userEvent.click(screen.getByTestId('signer-app-cancel'));
+    expect(signals[0].aborted).toBe(true);
+    expect(screen.queryByTestId('signer-app-session')).toBeNull();
+    expect(screen.queryByTestId('signer-app-error')).toBeNull();
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '[]')).toHaveLength(0);
+    spy.mockImplementation(async () => {
+      throw new Error('signer refused');
+    });
+    await userEvent.click(screen.getByTestId('login-signer-app'));
+    expect(await screen.findByTestId('signer-app-error')).toHaveTextContent(/signer refused/);
+    expect(screen.getByTestId('login-signer-app')).toBeInTheDocument();
+    spy.mockRestore();
+  });
+
+  it('a refresh in the middle drops the session: nothing of it is stored', async () => {
+    const spy = vi.spyOn(NLogin, 'fromNostrConnect').mockImplementation((_params, _pool, opts) => new Promise((_r, reject) => opts!.signal!.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })))));
+    const first = renderHome();
+    await userEvent.click(await screen.findByTestId('onboarding-existing'));
+    await userEvent.click(screen.getByTestId('login-signer-app'));
+    await screen.findByTestId('signer-app-session');
+    first.unmount();
+    expect(Object.keys(window.localStorage).filter((k) => k !== STORAGE_KEY)).toEqual([]);
+    expect(window.localStorage.getItem(STORAGE_KEY) ?? '[]').toBe('[]');
+    spy.mockRestore();
   });
 });
