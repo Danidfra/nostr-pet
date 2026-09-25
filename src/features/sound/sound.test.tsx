@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { SoundProvider, useSound } from './SoundProvider';
-import { SOUND_FILES, SOUND_STORAGE_KEY } from './sounds';
+import { SOUND_STORAGE_KEY } from './sounds';
+import { createVoiceEngine } from './voice-engine';
+import { fakeAudioContext } from '@/test/fake-audio';
 
 function Probe() {
   const sound = useSound();
@@ -21,42 +23,62 @@ function Probe() {
 describe('SoundProvider', () => {
   afterEach(() => window.localStorage.clear());
 
-  it('is off by default, plays nothing while off, and remembers the choice on this device', () => {
-    const plays: string[] = [];
-    const createAudio = vi.fn((src: string) => ({ volume: 1, play: () => void plays.push(src) }));
-    render(
-      <SoundProvider createAudio={createAudio}>
-        <Probe />
-      </SoundProvider>,
-    );
-    expect(screen.getByTestId('enabled')).toHaveTextContent('false');
-    act(() => screen.getByRole('button', { name: 'eat' }).click());
-    expect(plays).toEqual([]);
-
-    act(() => screen.getByRole('button', { name: 'toggle' }).click());
-    expect(window.localStorage.getItem(SOUND_STORAGE_KEY)).toBe('on');
-    act(() => screen.getByRole('button', { name: 'eat' }).click());
-    expect(plays).toEqual([SOUND_FILES.eat]);
-  });
-
-  it('never throws or blocks when a sound cannot play', () => {
-    window.localStorage.setItem(SOUND_STORAGE_KEY, 'on');
-    const createAudio = () => ({
-      volume: 1,
-      play: () => Promise.reject(new Error('NotAllowedError')),
+  it('is off by default, creates no AudioContext and plays nothing while off, and remembers the choice on this device', () => {
+    let created = 0;
+    const ctx = fakeAudioContext();
+    const engine = createVoiceEngine(() => {
+      created += 1;
+      return ctx as unknown as AudioContext;
     });
     render(
-      <SoundProvider createAudio={createAudio}>
+      <SoundProvider engine={engine}>
         <Probe />
       </SoundProvider>,
     );
+    expect(screen.getByTestId('enabled')).toHaveTextContent('false');
+    act(() => screen.getByRole('button', { name: 'eat' }).click());
+    expect(created).toBe(0);
+    expect(ctx.nodes).toHaveLength(0);
+    act(() => screen.getByRole('button', { name: 'toggle' }).click());
     expect(screen.getByTestId('enabled')).toHaveTextContent('true');
-    expect(() => act(() => screen.getByRole('button', { name: 'eat' }).click())).not.toThrow();
+    expect(window.localStorage.getItem(SOUND_STORAGE_KEY)).toBe('on');
+    // Turning it on creates nothing yet; the first play, inside the tap, does.
+    expect(created).toBe(0);
+    act(() => screen.getByRole('button', { name: 'eat' }).click());
+    expect(created).toBe(1);
+    expect(ctx.nodes.filter((n) => n.kind === 'osc')).toHaveLength(12);
+    act(() => screen.getByRole('button', { name: 'toggle' }).click());
+    expect(window.localStorage.getItem(SOUND_STORAGE_KEY)).toBe('off');
+    act(() => screen.getByRole('button', { name: 'eat' }).click());
+    expect(ctx.nodes.filter((n) => n.kind === 'osc')).toHaveLength(12);
   });
 
-  it('is a silent no-op without a provider', () => {
-    render(<Probe />);
-    expect(screen.getByTestId('enabled')).toHaveTextContent('false');
+  it('while on, a pointer or key event resumes a context the browser suspended', () => {
+    const ctx = fakeAudioContext('suspended');
+    const engine = createVoiceEngine(() => ctx as unknown as AudioContext);
+    window.localStorage.setItem(SOUND_STORAGE_KEY, 'on');
+    render(
+      <SoundProvider engine={engine}>
+        <Probe />
+      </SoundProvider>,
+    );
+    fireEvent.pointerDown(window);
+    expect(ctx.resumes).toBe(0); // no context yet: nothing to resume, nothing created
+    act(() => screen.getByRole('button', { name: 'eat' }).click());
+    expect(ctx.resumes).toBe(1);
+    ctx.state = 'suspended';
+    fireEvent.keyDown(window, { key: 'a' });
+    expect(ctx.resumes).toBe(2);
+  });
+
+  it('a page without Web Audio plays nothing and breaks nothing', () => {
+    const engine = createVoiceEngine(() => null);
+    window.localStorage.setItem(SOUND_STORAGE_KEY, 'on');
+    render(
+      <SoundProvider engine={engine}>
+        <Probe />
+      </SoundProvider>,
+    );
     expect(() => act(() => screen.getByRole('button', { name: 'eat' }).click())).not.toThrow();
   });
 });

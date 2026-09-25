@@ -5,8 +5,8 @@ import { MapPin } from 'lucide-react';
 
 import { availableCareActions, useCareActions, type CareAction, type CareResult } from '@/features/care';
 import { useLifecycle, useLifecycleCeremony, type CeremonyKind } from '@/features/lifecycle';
-import { InventorySheet, ItemGlyph, useHomeInventory, useUseItem, useWornEquipment, type HomeInventoryItem, type ItemAction, type ItemUseResult } from '@/features/inventory';
-import { useSound, type SoundId } from '@/features/sound';
+import { InventorySheet, ItemGlyph, useHomeInventory, useUseItem, useWornEquipment, type HomeInventoryItem, type ItemUseResult } from '@/features/inventory';
+import { soundForCare, soundForPoke, soundForReveal, useSound } from '@/features/sound';
 import { BLOBBI_ISLAND_URL } from '@/config/ecosystem';
 import type { StatItem } from './BlobbiStatusPanel';
 import { CareError, CareFeedback } from './CareFeedback';
@@ -57,22 +57,6 @@ const DEV_PREVIEW: StageObjectKind | null = DEV_LIFECYCLE_TOOLS && typeof window
   return v === 'bed' || v === 'tub' ? v : null;
 })() : null;
 
-
-/** The sound for a care or item action; the same table for the dock and the room. */
-function soundFor(action: CareAction | ItemAction): SoundId {
-  switch (action) {
-    case 'feed':
-    case 'medicine':
-    case 'boost':
-      return 'eat';
-    case 'clean':
-      return 'clean';
-    case 'play':
-      return 'celebrate';
-    case 'rest':
-      return 'rest';
-  }
-}
 
 /** An item set down in the room, and where its use stands. */
 interface ItemOffer {
@@ -203,7 +187,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     setResultKey((k) => k + 1);
     setFeedback(r);
     reactToCare(r);
-    play(soundFor(r.action));
+    const sound = soundForCare(r.action, r.nextState);
+    if (sound) play(sound);
     // A stage object leaves once its moment has landed; the bed stays while the Blobbi sleeps in it.
     const current = stageRef.current;
     if (current && !(current.kind === 'bed' && r.nextState === 'sleeping')) {
@@ -245,7 +230,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       setResultKey((k) => k + 1);
       setFeedback({ action: r.action, name: r.name, statsChanged: r.statsChanged, xpGained: r.xpGained, nextState: 'active', itemName: r.item.name });
       reactToCare({ action: r.action, nextState: 'active' });
-      play(soundFor(r.action));
+      const sound = soundForCare(r.action, 'active');
+      if (sound) play(sound);
     };
     const remaining = MIN_USE_MS - (Date.now() - (offerRef.current?.usingSince ?? 0));
     if (remaining > 0) finishTimerRef.current = setTimeout(finish, remaining);
@@ -272,7 +258,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     handledRevealRef.current = reveal.key;
     celebrate();
     setResultKey((k) => k + 1);
-    play('celebrate');
+    play(soundForReveal(reveal.kind));
   }, [reveal, celebrate, play]);
 
   // The streak: the home only notices the authoritative number going up
@@ -463,8 +449,13 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   );
   const pokeBlobbi = scene.poke;
   const onPoke = useCallback(() => {
-    pokeBlobbi();
-  }, [pokeBlobbi]);
+    const reaction = pokeBlobbi();
+    // The mode may have shown nothing (a ceremony): then nothing is heard either.
+    if (reaction.expression !== null || reaction.mood === 'egg' || reaction.mood === 'asleep') {
+      const sound = soundForPoke(reaction.mood);
+      if (sound) play(sound);
+    }
+  }, [pokeBlobbi, play]);
 
   const pendingAction: CareAction | null = care.pendingAction ?? walkingFor;
   const inCeremony = ceremony.presentation.exclusive;

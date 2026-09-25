@@ -1,14 +1,14 @@
 /**
- * The sound registry: four short effects for the moments that deserve one.
- * Files are the old app's own, recovered from Git history.
+ * The Blobbi's sound vocabulary: a few short creature noises, all made of
+ * the same building blocks (see `blobbi-voice.ts`), so they sound like one
+ * small creature and not like notifications. Gameplay asks for one of
+ * these by meaning; what it sounds like is the voice's business.
  */
-export type SoundId = 'eat' | 'clean' | 'rest' | 'celebrate';
+export type BlobbiSoundId = 'eat' | 'clean' | 'poke' | 'happy' | 'excited' | 'upset' | 'sleepy' | 'hatch' | 'evolve';
 
-export const SOUND_FILES: Record<SoundId, string> = {
-  eat: '/sounds/eating.mp3',
-  clean: '/sounds/cleaning.mp3',
-  rest: '/sounds/tired.mp3',
-  celebrate: '/sounds/correct-choice.mp3',
-};
+export const BLOBBI_SOUNDS: readonly BlobbiSoundId[] = ['eat', 'clean', 'poke', 'happy', 'excited', 'upset', 'sleepy', 'hatch', 'evolve'];
+
+/** @deprecated kept as an alias for the vocabulary type; the files are gone. */
+export type SoundId = BlobbiSoundId;
 
 export const SOUND_STORAGE_KEY = 'blobbi:sound:v1';

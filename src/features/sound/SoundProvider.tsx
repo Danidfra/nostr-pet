@@ -1,13 +1,20 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { SOUND_FILES, SOUND_STORAGE_KEY, type SoundId } from './sounds';
+import { VOICE } from './blobbi-voice';
+import { SOUND_STORAGE_KEY, type BlobbiSoundId } from './sounds';
+import { createVoiceEngine, type VoiceEngine } from './voice-engine';
 
 /**
- * A few short sounds for the moments that deserve one. Off by default, one
- * device-local preference, never blocking: a sound that cannot play (autoplay
- * policy, missing file, muted tab) is simply not heard.
+ * The Blobbi's voice, behind one device-local preference. Off by default:
+ * a game that starts making noise is a game people mute. When on, a sound
+ * is asked for by meaning (`play('poke')`) and synthesized on the spot
+ * (`blobbi-voice.ts`, `voice-engine.ts`); no files, no fetch.
  *
- * The files are the old app's own effects, recovered from Git history and
- * trimmed to the four that fit the current interactions.
+ * The AudioContext is created the first time a sound is played, which is
+ * always inside a user's tap (a care, a poke), so autoplay policy lets it
+ * run; turning sound on also resumes a suspended context on the next
+ * pointer or key event. Reduced motion is a separate preference and does
+ * not mute. A sound never reaches Nostr and never touches game state; a
+ * page without Web Audio simply plays nothing.
  */
 function readStored(): boolean {
   try {
@@ -29,62 +36,47 @@ interface SoundContextValue {
   enabled: boolean;
   setEnabled: (value: boolean) => void;
   /** Play a sound if enabled. Never throws, never awaits. */
-  play: (id: SoundId) => void;
+  play: (id: BlobbiSoundId) => void;
 }
 
 const SoundContext = createContext<SoundContextValue>({ enabled: false, setEnabled: () => {}, play: () => {} });
 
 interface SoundProviderProps {
   children: ReactNode;
-  /** Test seam: replaces `new Audio(src)`. */
-  createAudio?: (src: string) => { play: () => Promise<void> | void; volume: number };
+  /** Test seam: the engine to play through (a fake AudioContext behind it). */
+  engine?: VoiceEngine;
 }
 
-export function SoundProvider({ children, createAudio }: SoundProviderProps) {
+export function SoundProvider({ children, engine }: SoundProviderProps) {
   const [enabled, setEnabledState] = useState<boolean>(() => readStored());
-  const cacheRef = useRef<Map<SoundId, { play: () => Promise<void> | void; volume: number }>>(new Map());
+  const engineRef = useRef<VoiceEngine | null>(engine ?? null);
+  const getEngine = useCallback(() => {
+    if (!engineRef.current) engineRef.current = createVoiceEngine();
+    return engineRef.current;
+  }, []);
 
-  const factory = useCallback(
-    (src: string) => {
-      if (createAudio) return createAudio(src);
-      if (typeof Audio === 'undefined') return null;
-      const audio = new Audio(src);
-      audio.preload = 'auto';
-      return audio;
-    },
-    [createAudio],
-  );
-
-  // Warm the cache when sound is turned on, so the first play is not late.
+  // While sound is on, the next gesture resumes a context the browser suspended (a backgrounded tab).
   useEffect(() => {
-    if (!enabled) return;
-    for (const id of Object.keys(SOUND_FILES) as SoundId[]) {
-      if (!cacheRef.current.has(id)) {
-        const audio = factory(SOUND_FILES[id]);
-        if (audio) cacheRef.current.set(id, audio);
-      }
-    }
-  }, [enabled, factory]);
+    if (!enabled || typeof window === 'undefined') return;
+    const resume = () => engineRef.current?.resume();
+    window.addEventListener('pointerdown', resume, { passive: true });
+    window.addEventListener('keydown', resume);
+    return () => {
+      window.removeEventListener('pointerdown', resume);
+      window.removeEventListener('keydown', resume);
+    };
+  }, [enabled]);
 
   const play = useCallback(
-    (id: SoundId) => {
+    (id: BlobbiSoundId) => {
       if (!enabled) return;
-      let audio = cacheRef.current.get(id);
-      if (!audio) {
-        const created = factory(SOUND_FILES[id]);
-        if (!created) return;
-        cacheRef.current.set(id, created);
-        audio = created;
-      }
       try {
-        audio.volume = 0.6;
-        const result = audio.play();
-        if (result && typeof (result as Promise<void>).catch === 'function') (result as Promise<void>).catch(() => {});
+        getEngine().play(VOICE[id]);
       } catch {
-        /* autoplay policy or a missing file: silence is fine */
+        /* silence is fine */
       }
     },
-    [enabled, factory],
+    [enabled, getEngine],
   );
 
   const setEnabled = useCallback((value: boolean) => {
