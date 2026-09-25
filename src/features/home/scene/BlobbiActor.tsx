@@ -26,6 +26,8 @@ interface BlobbiActorProps {
   accessories?: readonly NormalizedAccessoryPlacement[];
   /** Feedback drawn above the actor (floating stat chips). */
   children?: ReactNode;
+  /** On the nest or in the bed: the bed is the ground, so the actor casts no shadow of its own. */
+  inBed?: boolean;
 }
 
 /**
@@ -36,7 +38,7 @@ interface BlobbiActorProps {
  * decides nothing about how the Blobbi looks. It never touches Nostr.
  */
 export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function BlobbiActor(
-  { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, effects, accessories, children },
+  { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, effects, accessories, children, inBed = false },
   ref,
 ) {
   const placement = placeOnFloor(presentation.position);
@@ -77,13 +79,14 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-invite={invite ? 'true' : 'false'}
       data-gesture={gesture?.kind}
       data-gesture-key={gesture?.key}
+      data-in-bed={inBed ? 'true' : 'false'}
       data-egg-crack={blobbi.stage === 'egg' ? (eggCrack ?? 'none') : undefined}
       data-x={presentation.position.x.toFixed(3)}
       data-y={presentation.position.y.toFixed(3)}
       style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale), '--walk-cycle': `${RENDERER_WALK_CYCLE_S}s`, '--blobbi-motion-phase': String(motionPhase) } as React.CSSProperties}
     >
       <div className="scene-actor__body">
-        <div aria-hidden className="scene-actor__shadow" />
+        {!inBed && <div aria-hidden className="scene-actor__shadow" />}
         {children}
         {isSleeping && (
           <span aria-hidden className="scene-actor__zzz scene-text animate-sparkle">

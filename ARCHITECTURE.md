@@ -258,7 +258,12 @@ the renderer's root) under the behaviour mode's `pokes` policy: an egg
 wiggles, a sleeper stirs, a walk shows a face only (the renderer owns the
 body while walking), a well Blobbi bounces, a hungry or hurt one recoils
 upset, a tired one is sleepy, too many pokes annoy. No write, no kit
-change; `poke.test.tsx` covers it.
+change; `poke.test.tsx` covers it. An egg lives on the nest: the same
+bed placed at the room's centre (`STAGE_OBJECTS.nest`), always out while
+the stage is `egg`, the egg on its use spot, never wandering (the
+`nested` mode); Rest for an egg performs where it lies. In bed (an egg on
+the nest, a sleeper in the bed) the actor renders no shadow of its own.
+Nothing about it is written: the nest is derived from the stage.
 
 **Themes: prepared, not started.** The ecosystem's theme representation
 is Ditto's, re-implemented by Island (`ditto/src/lib/themeEvent.ts`,

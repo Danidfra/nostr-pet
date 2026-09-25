@@ -15,6 +15,10 @@ import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import Home from '@/pages/Home';
 import { SceneSettingsProvider, type SceneSettings } from '@/features/home/scene';
 import { pokeReaction, POKE_PATIENCE } from '@/features/home/personality';
+import { STAGE_OBJECTS } from '@/features/home/space/home-space';
+import { approachSpot } from '@/features/home/rooms';
+import { roomToCss } from '@/features/home/space/room-space';
+import { KIND_BLOBBI_STATE, getTagValue } from '@blobbi-kit/core';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 
 const signer = { async signEvent(t: { kind: number; content: string; tags: string[][]; created_at: number }): Promise<NostrEvent> { return { ...t, id: 'e'.repeat(64), pubkey: PUBKEY, sig: '0'.repeat(128) }; } };
@@ -23,7 +27,7 @@ vi.mock('@/hooks/useCurrentUser', () => ({ useCurrentUser: () => ({ user: curren
 
 const relay = { all: [] as NostrEvent[] };
 const query = vi.fn(async (filters: NostrFilter[]) => relay.all.filter((e) => filters.some((f) => (!f.kinds || f.kinds.includes(e.kind)) && (!f.authors || f.authors.includes(e.pubkey)))));
-const event = vi.fn(async () => {});
+const event = vi.fn(async (ev: NostrEvent) => void ev);
 const pool = { query, event } as unknown as NPool;
 
 function renderHome(settings: Partial<SceneSettings> = { walkSpeed: 1.2, idleEnabled: false }) {
@@ -149,5 +153,89 @@ describe('poking in the home', () => {
     await ready();
     expect(actor().querySelectorAll('.scene-actor__shadow')).toHaveLength(1);
     expect(actor().querySelector('.scene-actor__ground, .home-ground')).toBeNull();
+  });
+});
+
+describe('an egg on the nest', () => {
+  const egg = () => blobbiEvent('0000000001', { name: 'Shell', stage: 'egg', createdAt: NOW - 60, set: { hygiene: '60' } });
+
+  it('the bed is out, centred, and the egg sits on it; the room is otherwise empty; nothing is written', async () => {
+    relay.all = [egg()];
+    renderHome();
+    await ready();
+    const bed = screen.getByTestId('furniture-home:bed-pet');
+    expect(bed).toHaveAttribute('data-state', 'nest');
+    const css = roomToCss({ x: STAGE_OBJECTS.nest.x, y: STAGE_OBJECTS.nest.y });
+    expect(parseFloat(bed.style.left)).toBeCloseTo(parseFloat(css.left), 3);
+    expect(parseFloat(bed.style.top)).toBeCloseTo(parseFloat(css.top), 3);
+    expect(parseFloat(bed.style.getPropertyValue('--object-width'))).toBeCloseTo(0.3 * STAGE_OBJECTS.nest.scale! * 100, 2);
+    const spot = approachSpot(STAGE_OBJECTS.nest);
+    expect(actor()).toHaveAttribute('data-x', spot.x.toFixed(3));
+    expect(actor()).toHaveAttribute('data-y', spot.y.toFixed(3));
+    expect(Number(actor().style.zIndex)).toBeGreaterThan(Number(bed.style.zIndex));
+    expect(document.querySelectorAll('.furniture-anchor')).toHaveLength(1);
+    expect(event).not.toHaveBeenCalled();
+  });
+
+  it('casts no shadow of its own on the nest, while an awake baby on the floor does', async () => {
+    relay.all = [egg()];
+    renderHome();
+    await ready();
+    expect(actor()).toHaveAttribute('data-in-bed', 'true');
+    expect(actor().querySelector('.scene-actor__shadow')).toBeNull();
+  });
+
+  it('does not wander: with idling on and quick, it stays on the nest', async () => {
+    relay.all = [egg()];
+    renderHome({ walkSpeed: 4, idleEnabled: true, idle: { inactivityMs: 20, intervalMs: 20 }, random: () => 0.99 });
+    await ready();
+    const x = actor().getAttribute('data-x');
+    const y = actor().getAttribute('data-y');
+    await new Promise((r) => setTimeout(r, 300));
+    expect(actor()).toHaveAttribute('data-x', x!);
+    expect(actor()).toHaveAttribute('data-y', y!);
+    expect(actor()).toHaveAttribute('data-motion', 'idle');
+    expect(screen.getByTestId('scene-floor')).toBeDisabled();
+  });
+
+  it('still wiggles when tapped, on the nest, and rests where it lies: no second bed, no walk', async () => {
+    relay.all = [egg()];
+    renderHome();
+    await ready();
+    await poke();
+    expect(actor()).toHaveAttribute('data-gesture', 'wiggle');
+    expect(actor()).toHaveAttribute('data-in-bed', 'true');
+    expect(event).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByTestId('care-rest'));
+    await waitFor(() => expect(event).toHaveBeenCalled());
+    expect(screen.getAllByTestId('furniture-home:bed-pet')).toHaveLength(1);
+    expect(actor()).toHaveAttribute('data-x', approachSpot(STAGE_OBJECTS.nest).x.toFixed(3));
+  });
+});
+
+describe('the shadow and the bed', () => {
+  it('an awake baby on the floor has its one shadow', async () => {
+    renderHome();
+    await ready();
+    expect(actor()).toHaveAttribute('data-in-bed', 'false');
+    expect(actor().querySelectorAll('.scene-actor__shadow')).toHaveLength(1);
+  });
+
+  it('a baby asleep in the bed casts none; waking brings it back with the bed gone', async () => {
+    relay.all = [brook({ state: 'sleeping' })];
+    renderHome();
+    await ready();
+    expect(screen.getByTestId('furniture-home:bed-pet')).toHaveAttribute('data-state', 'using');
+    expect(actor()).toHaveAttribute('data-in-bed', 'true');
+    expect(actor().querySelector('.scene-actor__shadow')).toBeNull();
+    // Wake it (the one write in this file, the kit's own); the relay keeps the new state.
+    event.mockImplementationOnce(async (ev: NostrEvent) => {
+      if (ev.kind === KIND_BLOBBI_STATE) relay.all = [ev];
+    });
+    await userEvent.click(screen.getByTestId('care-rest'));
+    await waitFor(() => expect(actor()).toHaveAttribute('data-sleeping', 'false'), { timeout: 4000 });
+    expect(getTagValue(event.mock.calls[0][0].tags, 'state')).toBe('active');
+    await waitFor(() => expect(actor()).toHaveAttribute('data-in-bed', 'false'), { timeout: 3000 });
+    expect(actor().querySelector('.scene-actor__shadow')).not.toBeNull();
   });
 });

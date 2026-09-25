@@ -49,6 +49,13 @@ export const HOME_SPACE: HomeSpace = {
  */
 export const STAGE_OBJECTS = {
   bed: { id: 'home:bed-pet', x: 0.66, y: 0.9, layer: 'floor', scale: 1.7 } as Placement,
+  /**
+   * The nest: an egg's home position. The same bed, centred in the room and
+   * a little smaller, always out while the Blobbi is an egg; the egg sits
+   * on it (its feet at the bed's use spot) and never wanders. Presentation
+   * only: no event says an egg is in a bed.
+   */
+  nest: { id: 'home:bed-pet', x: 0.5, y: 0.9, layer: 'floor', scale: 1.5 } as Placement,
   tub: { id: 'home:tub', x: 0.66, y: 0.88, layer: 'floor', scale: 1.25 } as Placement,
   /** A toy lies a little to the left, the Blobbi plays beside it. */
   toySpot: clampToFloor({ x: 0.32, y: 0.72 }),

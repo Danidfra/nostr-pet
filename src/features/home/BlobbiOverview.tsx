@@ -162,7 +162,9 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   });
 
   const sleeping = blobbi.state === 'sleeping';
-  const [initialPosition] = useState<FloorPoint>(() => (sleeping ? approachSpot(STAGE_OBJECTS.bed) : DEV_PREVIEW ? approachSpot(STAGE_OBJECTS[DEV_PREVIEW]) : HOME_SPACE.entry));
+  // An egg lives on the nest (the bed, centred); a sleeper is in the bed; anyone else comes in at the entry.
+  const isEgg = blobbi.stage === 'egg';
+  const [initialPosition] = useState<FloorPoint>(() => (isEgg ? approachSpot(STAGE_OBJECTS.nest) : sleeping ? approachSpot(STAGE_OBJECTS.bed) : DEV_PREVIEW ? approachSpot(STAGE_OBJECTS[DEV_PREVIEW]) : HOME_SPACE.entry));
   // The dev bed preview shows the sleeping pose too (presentation only; care and writes see the real state).
   const shownBlobbi = DEV_PREVIEW === 'bed' && blobbi.state === 'active' ? { ...blobbi, state: 'sleeping' as const } : blobbi;
   const scene = useBlobbiPresentation({ blobbi: shownBlobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition });
@@ -197,7 +199,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     offerRef.current = offer;
   }, [offer]);
   // A sleeper is in its bed from the start; the bed leaves when it wakes.
-  const [stage, setStage] = useState<StageObject | null>(() => (sleeping ? { kind: 'bed', phase: 'using', key: 0 } : DEV_PREVIEW ? { kind: DEV_PREVIEW, phase: 'using', key: 0 } : null));
+  const [stage, setStage] = useState<StageObject | null>(() => (sleeping && !isEgg ? { kind: 'bed', phase: 'using', key: 0 } : DEV_PREVIEW ? { kind: DEV_PREVIEW, phase: 'using', key: 0 } : null));
   const stageRef = useRef<StageObject | null>(stage);
   useEffect(() => {
     stageRef.current = stage;
@@ -456,7 +458,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       }
       switch (option.verb) {
         case 'rest':
-          if (blobbi.state === 'active') careAtObject('bed', 'rest');
+          if (blobbi.state === 'active' && !isEgg) careAtObject('bed', 'rest');
           else perform(blobbi.d, 'rest');
           return;
         case 'clean':
@@ -467,7 +469,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           perform(blobbi.d, option.verb);
       }
     },
-    [offerItem, careAtObject, perform, blobbi.d, blobbi.state, celebrate],
+    [offerItem, careAtObject, perform, blobbi.d, blobbi.state, isEgg, celebrate],
   );
 
   // The verb row: a verb opens its options; Rest and Wake act at once (one
@@ -478,13 +480,14 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       setDoorPrompt(false);
       if (verb === 'rest') {
         setSelectedVerb(null);
-        if (blobbi.state === 'sleeping') perform(blobbi.d, 'rest');
+        // An egg rests where it lies, on the nest; a sleeper wakes; an awake Blobbi goes to bed.
+        if (blobbi.state === 'sleeping' || isEgg) perform(blobbi.d, 'rest');
         else if (blobbi.state === 'active') careAtObject('bed', 'rest');
         return;
       }
       setSelectedVerb((v) => (v === verb ? null : verb));
     },
-    [blobbi.d, blobbi.state, perform, careAtObject],
+    [blobbi.d, blobbi.state, isEgg, perform, careAtObject],
   );
   useEffect(() => {
     if (selectedVerb && options.length === 0) setSelectedVerb(null);
@@ -527,9 +530,18 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const lifecycleReady = useMemo(() => (lifecycleNext === 'hatch' ? { kind: 'hatch' as const, label: 'Hatch!' } : lifecycleNext === 'evolve' ? { kind: 'evolve' as const, label: 'Evolve!' } : null), [lifecycleNext]);
   const ceremonyView = { phase: ceremony.phase, kind: ceremony.kind, error: ceremony.error, dismiss: ceremony.dismiss };
 
-  // What stands in the space: the home's furniture, plus the bed or the tub while they are out.
-  const placements = useMemo<Placement[]>(() => (stage ? [...HOME_SPACE.furniture, STAGE_OBJECTS[stage.kind]] : [...HOME_SPACE.furniture]), [stage]);
-  const stageStateOf = useCallback((placement: Placement) => (stage && placement.id === STAGE_OBJECTS[stage.kind].id ? stage.phase : undefined), [stage]);
+  // What stands in the space: the home's furniture, the nest while the Blobbi
+  // is an egg, plus the bed or the tub while they are out for a moment.
+  const placements = useMemo<Placement[]>(() => [...HOME_SPACE.furniture, ...(isEgg ? [STAGE_OBJECTS.nest] : []), ...(stage ? [STAGE_OBJECTS[stage.kind]] : [])], [isEgg, stage]);
+  const stageStateOf = useCallback(
+    (placement: Placement) => {
+      if (isEgg && placement === STAGE_OBJECTS.nest) return 'nest';
+      return stage && placement === STAGE_OBJECTS[stage.kind] ? stage.phase : undefined;
+    },
+    [isEgg, stage],
+  );
+  // In bed (an egg on the nest, a sleeper in the bed) the bed is the ground: no shadow of its own.
+  const inBed = isEgg || (sleeping && stage?.kind === 'bed');
   const useFurniture = useCallback(
     (placement: Placement) => {
       if (placement.id === STAGE_OBJECTS.bed.id && blobbi.state === 'active') careAtObject('bed', 'rest');
@@ -597,7 +609,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             </>
           }
           actor={
-            <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={scene.presentation} happyKey={resultKey} onPoke={inCeremony ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} effects={actorEffects} accessories={accessories}>
+            <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={scene.presentation} inBed={inBed} happyKey={resultKey} onPoke={inCeremony ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} effects={actorEffects} accessories={accessories}>
               <NeedBubbles items={sleeping || inCeremony ? [] : statItems} />
               <SpeechBubble speech={speech} />
               <CareFeedback result={feedback} resultKey={resultKey} />
