@@ -46,6 +46,13 @@ export interface HomeItem {
   itemId: string;
   issuer: TrustedIssuer | null;
   definition: GameItemDefinition | null;
+  /**
+   * Where what we know about the item came from: a kind 31632 read through
+   * the trusted-issuer pipeline (`nostr`; `definition` may still be null when
+   * none was found), or the built-in starter minimum (`builtin`; never a
+   * fetched event, see starter-catalog.ts).
+   */
+  definitionSource: 'nostr' | 'builtin';
   name: string;
   description: string | null;
   kind: ItemKind;
@@ -155,6 +162,7 @@ export function resolveHomeItem(address: string, definition: GameItemDefinition 
       itemId,
       issuer,
       definition: null,
+      definitionSource: 'nostr',
       name: issuer ? `Unknown ${issuer.label} item` : 'Unknown item',
       description: null,
       kind: 'unknown',
@@ -177,6 +185,7 @@ export function resolveHomeItem(address: string, definition: GameItemDefinition 
     itemId,
     issuer,
     definition: trusted,
+    definitionSource: 'nostr',
     name: trusted.name,
     description,
     kind,

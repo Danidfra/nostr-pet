@@ -1231,9 +1231,18 @@
     outline: none;
     box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
   }
-  .care-option--plain {
+  .care-option--starter {
     border-style: dashed;
-    background: hsl(var(--card) / 0.7);
+  }
+  .care-option__free {
+    position: absolute;
+    top: 0.2rem;
+    right: 0.3rem;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: hsl(var(--primary));
   }
   .care-option__art {
     display: flex;

@@ -171,7 +171,7 @@ describe('One home', () => {
 });
 
 describe('Choosing a verb', () => {
-  it('opens that verb’s options above the row: the owned items that do it, then the plain way; another verb swaps, the same verb closes', async () => {
+  it('opens that verb’s options above the row: the owned items that do it, then the starter kit; another verb swaps, the same verb closes', async () => {
     renderHome();
     await ready();
     await userEvent.click(screen.getByTestId('care-feed'));
@@ -183,17 +183,20 @@ describe('Choosing a verb', () => {
     expect(bar.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_CONTAINED_BY).toBeTruthy();
     expect(strip.compareDocumentPosition(dock()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const options = within(strip).getAllByRole('button');
-    expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:food:apple', 'care-option-farm:produce:carrot', 'care-option-plain-feed']);
+    expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:food:apple', 'care-option-farm:produce:carrot', 'care-option-starter-blobbi:food:apple', 'care-option-starter-blobbi:energy:drink']);
     expect(options[0]).toHaveAccessibleName('Apple, 2');
-    expect(options[2]).toHaveAccessibleName('A snack');
+    expect(options[2]).toHaveAccessibleName('Apple, free');
+    // The starter apple resolved from the fetched official definition; the drink has none here, so its built-in minimum stands in.
+    expect(options[2]).toHaveAttribute('data-definition', 'nostr');
+    expect(options[3]).toHaveAttribute('data-definition', 'builtin');
 
     await userEvent.click(screen.getByTestId('care-play'));
     expect(screen.getByTestId('care-options')).toHaveAttribute('data-verb', 'play');
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:toy:ball', 'care-option-plain-play']);
+    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:toy:ball', 'care-option-starter-blobbi:toy:ball']);
     expect(screen.getByTestId('care-feed')).toHaveAttribute('aria-expanded', 'false');
 
     await userEvent.click(screen.getByTestId('care-clean'));
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:hygiene:soap', 'care-option-plain-clean']);
+    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:hygiene:soap', 'care-option-starter-blobbi:hygiene:soap']);
     // Cosmetics never answer a verb.
     expect(screen.queryByTestId('care-option-blobbi:cosmetic:stargazer-glasses')).toBeNull();
 
@@ -202,23 +205,27 @@ describe('Choosing a verb', () => {
     expect(relay.published).toHaveLength(0);
   });
 
-  it('a new player with nothing owned still has every verb: the plain way writes the care and no spend', async () => {
+  it('a new player with nothing owned still has every verb through the starter kit: the food is set down, the care is written, nothing is spent', async () => {
     relay.all = [brook()];
     renderHome();
     await ready();
     expect(screen.getByTestId('action-items')).toHaveAccessibleName('Items');
     await userEvent.click(screen.getByTestId('care-feed'));
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-plain-feed']);
-    await userEvent.click(screen.getByTestId('care-option-plain-feed'));
+    const options = within(screen.getByTestId('care-options')).getAllByRole('button');
+    expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-starter-blobbi:food:apple', 'care-option-starter-blobbi:energy:drink']);
+    expect(options[0]).toHaveAttribute('data-source', 'starter');
+    expect(options[0]).toHaveAttribute('data-definition', 'builtin'); // no definition relay answered here
+    await userEvent.click(options[0]);
     expect(screen.queryByTestId('care-options')).toBeNull();
+    expect(screen.getByTestId('scene-object-offer')).toBeInTheDocument();
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 3000 });
     await waitFor(() => expect(interactions()).toHaveLength(1));
     expect(spends()).toHaveLength(0);
     expect(Number(getTagValue(states()[0].tags, 'hunger'))).toBeGreaterThan(40);
-    expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook/);
-    expect(screen.queryByTestId('scene-object-offer')).toBeNull();
+    await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook with Apple/), { timeout: 3000 });
+    await waitFor(() => expect(screen.queryByTestId('scene-object-offer')).toBeNull(), { timeout: 3000 });
     await userEvent.click(screen.getByTestId('care-play'));
-    expect(screen.getByTestId('care-option-plain-play')).toBeInTheDocument();
+    expect(screen.getByTestId('care-option-starter-blobbi:toy:ball')).toBeInTheDocument();
   });
 
   it('a floor tap closes the options without choosing', async () => {
@@ -296,7 +303,7 @@ describe('Rest brings the bed out', () => {
 });
 
 describe('Clean brings the tub out', () => {
-  it('the plain bath: the tub appears, the Blobbi walks to it, the write happens on arrival, the tub leaves after', async () => {
+  it('a cleaning item brings the tub out: the Blobbi walks into it, the write happens on arrival, the tub leaves after', async () => {
     renderHome(SLOW_WALK);
     await ready();
     await chooseCare('clean');
@@ -311,13 +318,15 @@ describe('Clean brings the tub out', () => {
     expect(spends()).toHaveLength(0);
   });
 
-  it('a failed write puts the tub away and frees the verbs; nothing is left in the room', async () => {
+  it('a failed write leaves the soap with a retry; putting it away takes the tub too and frees the verbs', async () => {
     relay.careFails = true;
     renderHome();
     await ready();
     await chooseCare('clean');
-    expect(await screen.findByTestId('care-error')).toBeInTheDocument();
+    expect(await screen.findByTestId('item-error', {}, { timeout: 4000 })).toBeInTheDocument();
     expect(states()).toHaveLength(0);
+    expect(spends()).toHaveLength(0);
+    await userEvent.click(screen.getByTestId('offer-put-away'));
     await waitFor(() => expect(tub()).toBeNull(), { timeout: 3000 });
     expect(screen.getByTestId('care-feed')).toBeEnabled();
   });
@@ -329,8 +338,8 @@ describe('Clean brings the tub out', () => {
     await ready();
     expect(screen.getByTestId('care-feed')).toBeDisabled();
     await userEvent.click(screen.getByTestId('care-clean'));
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:hygiene:soap', 'care-option-plain-clean']);
-    await userEvent.click(screen.getByTestId('care-option-plain-clean'));
+    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:hygiene:soap', 'care-option-starter-blobbi:hygiene:soap']);
+    await userEvent.click(screen.getByTestId('care-option-starter-blobbi:hygiene:soap'));
     expect(actor()).not.toHaveAttribute('data-motion', 'walking');
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 3000 });
     expect(getTagValue(states()[0].tags, 'stage')).toBe('egg');
@@ -394,7 +403,7 @@ describe('Items from the strip', () => {
     expect(screen.getByTestId('care-option-blobbi:food:apple')).toHaveAccessibleName('Apple, 2');
   });
 
-  it('a toy is set down at the toy spot, played with, and leaves after; the plain way needs none', async () => {
+  it('an owned toy is set down at the toy spot, played with (one spend) and leaves; the starter ball plays for free', async () => {
     renderHome();
     await ready();
     await chooseItem('play', 'blobbi:toy:ball');

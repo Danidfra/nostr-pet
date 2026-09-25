@@ -33,3 +33,7 @@ export type { WornEquipmentView } from './useWornEquipment';
 export { InventorySheet } from './InventorySheet';
 export { ItemGlyph } from './ItemGlyph';
 export { ECOSYSTEM_READ_HINTS, ISLAND_RELAYS, FARM_INVENTORY_RELAYS, SOURCE_RELAYS } from './relay-hints';
+export { STARTER_ITEMS, STARTER_ADDRESSES, builtinStarterItem, resolveStarterEntries } from './starter-catalog';
+export type { StarterEntry, StarterItemSpec } from './starter-catalog';
+export { useStarterUse } from './useStarterUse';
+export type { StarterUseResult } from './useStarterUse';

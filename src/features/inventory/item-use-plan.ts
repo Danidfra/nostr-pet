@@ -59,7 +59,13 @@ export function appliedSpendId(tags: readonly string[][]): string | undefined {
   return tags.find(([name]) => name === PET_OP_TAG)?.[1];
 }
 
-export function planItemUse(companion: BlobbiCompanion, item: HomeItem, spendId: string, now: number, options: ItemUsePlanOptions = {}): ItemUsePlan {
+/**
+ * `spendId` is the kind 1416 the use consumed, for an OWNED item: the 31124
+ * carries it as the idempotency marker and the 1124 references it. A
+ * STARTER item consumes nothing, so it passes `null`: no marker, no spend
+ * reference, the same care effect (starter-catalog.ts).
+ */
+export function planItemUse(companion: BlobbiCompanion, item: HomeItem, spendId: string | null, now: number, options: ItemUsePlanOptions = {}): ItemUsePlan {
   if (!item.care) throw new Error(`${item.name} cannot be used on a Blobbi.`);
   const interactionAction = INTERNAL_TO_INTERACTION_ACTION[item.care.action];
   if (!interactionAction) throw new Error(`No interaction for ${item.care.action}`);
@@ -84,13 +90,14 @@ export function planItemUse(companion: BlobbiCompanion, item: HomeItem, spendId:
   const streak = getStreakTagUpdates(companion, new Date(now * 1000)) ?? {};
 
   const withoutOldMarker = companion.allTags.filter(([name]) => name !== PET_OP_TAG);
-  const tags = [...updateBlobbiTags(withoutOldMarker, { ...statsToTagUpdates(stats, now), experience: String(experience), ...streak }), [PET_OP_TAG, spendId]];
+  const updated = updateBlobbiTags(withoutOldMarker, { ...statsToTagUpdates(stats, now), experience: String(experience), ...streak });
+  const tags = spendId ? [...updated, [PET_OP_TAG, spendId]] : updated;
 
   const content = options.evolution ? serializeEvolutionContent(companion.event.content, options.evolution) : companion.event.content;
 
   return {
     event: { kind: KIND_BLOBBI_STATE, content, tags, prev: companion.event },
-    interaction: { ...template, tags: [...template.tags, ['e', spendId, '', INTERACTION_SPEND_MARKER]] },
+    interaction: { ...template, tags: spendId ? [...template.tags, ['e', spendId, '', INTERACTION_SPEND_MARKER]] : [...template.tags] },
     statsChanged: diffStats(decayed.stats, stats),
     xpGained,
   };

@@ -36,6 +36,7 @@ import { itemUsability, resolveHomeItem, type HomeItem, type ItemUsability } fro
 import { isTrustedIssuer } from './issuers';
 import { knownSpendEvents } from './spend-ledger';
 import type { InventorySource } from './sources';
+import { STARTER_ADDRESSES, resolveStarterEntries, type StarterEntry } from './starter-catalog';
 import { timeoutSignal } from '@/lib/abort';
 
 export const INVENTORY_QUERY_KEY = 'home-inventory';
@@ -71,6 +72,12 @@ export interface HomeInventory {
   sections: HomeInventorySection[];
   /** Every item with a positive quantity, flattened, for counts and lookups. */
   items: HomeInventoryItem[];
+  /**
+   * The starter kit (starter-catalog.ts): free, unlimited, never owned.
+   * Resolved against the same trusted definition read as the owned items;
+   * present whether or not that read answered.
+   */
+  starters: StarterEntry[];
   error: unknown;
   refresh: () => void;
   /** True while a refetch is running after data was shown. */
@@ -133,10 +140,11 @@ export function useHomeInventory({ pubkey, blobbi }: UseHomeInventoryOptions): H
     },
   });
 
-  const addresses = useMemo(() => (balances.data ? itemAddressesOf(balances.data).sort() : []), [balances.data]);
+  // The owned items' addresses plus the starter kit's: one definition read for both.
+  const addresses = useMemo(() => [...new Set([...(balances.data ? itemAddressesOf(balances.data) : []), ...STARTER_ADDRESSES])].sort(), [balances.data]);
   const definitions = useQuery({
     queryKey: [DEFINITIONS_QUERY_KEY, addresses],
-    enabled: addresses.length > 0,
+    enabled: !!pubkey && addresses.length > 0,
     staleTime: 60 * 60_000,
     queryFn: async ({ signal }) => {
       const filters = definitionFilters(addresses);
@@ -171,13 +179,15 @@ export function useHomeInventory({ pubkey, blobbi }: UseHomeInventoryOptions): H
   }, [balances.data, definitions.data, blobbi]);
 
   const items = useMemo(() => sections.flatMap((s) => s.items), [sections]);
+  const starters = useMemo(() => resolveStarterEntries(definitions.data, blobbi), [definitions.data, blobbi]);
 
-  const status: HomeInventory['status'] = !pubkey ? 'signed-out' : balances.isError ? 'error' : balances.data && (addresses.length === 0 || definitions.data || definitions.isError) ? 'ready' : 'loading';
+  const status: HomeInventory['status'] = !pubkey ? 'signed-out' : balances.isError ? 'error' : balances.data && (definitions.data || definitions.isError) ? 'ready' : 'loading';
 
   return {
     status,
     sections,
     items,
+    starters,
     error: balances.error ?? definitions.error,
     refresh: () => {
       void balances.refetch();

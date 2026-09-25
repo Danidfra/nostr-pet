@@ -5,14 +5,14 @@ import { MapPin } from 'lucide-react';
 
 import { availableCareActions, useCareActions, type CareAction, type CareResult } from '@/features/care';
 import { useLifecycle, useLifecycleCeremony, type CeremonyKind } from '@/features/lifecycle';
-import { InventorySheet, ItemGlyph, useHomeInventory, useUseItem, useWornEquipment, type HomeInventoryItem, type ItemUseResult } from '@/features/inventory';
+import { InventorySheet, ItemGlyph, useHomeInventory, useStarterUse, useUseItem, useWornEquipment, type ItemUseResult, type StarterUseResult } from '@/features/inventory';
 import { soundForCare, soundForPoke, soundForReveal, useSound } from '@/features/sound';
 import { BLOBBI_ISLAND_URL } from '@/config/ecosystem';
 import type { StatItem } from './BlobbiStatusPanel';
 import { CareError, CareFeedback } from './CareFeedback';
 import type { FeedbackResult } from './care-feedback-text';
 import { describeMood } from './mood';
-import { careOptionsFor, itemCountsByVerb, type CareOption, type CareVerb } from './care-model';
+import { careOptionsFor, itemCountsByVerb, type CareChoice, type CareOption, type CareVerb } from './care-model';
 import { detectStreakIncrease, type StreakChange } from './streak';
 import { HOME_SPACE, STAGE_OBJECTS, type StageObjectKind } from './space/home-space';
 import { FurnitureLayer, RoomBackdrop, approachSpot, surfaceBackground, type Placement } from './rooms';
@@ -29,6 +29,7 @@ import {
   MIN_USE_MS,
   OFFER_SPOT,
   OFFER_APPROACH,
+  clampToFloor,
   type FloorPoint,
 } from './scene';
 import { ActionBar, BlobbiSheet, CareOptions, GameShell, HudTop, MenuSheet } from './shell';
@@ -61,9 +62,9 @@ const DEV_PREVIEW: StageObjectKind | null = DEV_LIFECYCLE_TOOLS && typeof window
 })() : null;
 
 
-/** An item set down in the room, and where its use stands. */
+/** An item set down in the room (owned or starter), and where its use stands. */
 interface ItemOffer {
-  entry: HomeInventoryItem;
+  choice: CareChoice;
   phase: 'walking' | 'using' | 'failed';
   key: number;
   /** Where it lies and where the Blobbi stands to use it. */
@@ -106,6 +107,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // uses a consumable on this Blobbi.
   const inventory = useHomeInventory({ pubkey, blobbi });
   const useItem = useUseItem({ pubkey, known: inventory.items, updateCompanionEvent, invalidate: refresh });
+  // The starter kit's spend-free path (starter-catalog.ts): the same care effect, no inventory touched.
+  const useStarter = useStarterUse({ pubkey, updateCompanionEvent, invalidate: refresh });
   // What the Island dressed it in, drawn here too (read-only).
   const worn = useWornEquipment({ pubkey, blobbi, items: inventory.items });
 
@@ -166,6 +169,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // A sleeper is in its bed from the start; the bed leaves when it wakes.
   const [stage, setStage] = useState<StageObject | null>(() => (sleeping && !isEgg ? { kind: 'bed', phase: 'using', key: 0 } : DEV_PREVIEW ? { kind: DEV_PREVIEW, phase: 'using', key: 0 } : null));
   const stageRef = useRef<StageObject | null>(stage);
+  /** The tub came out for a clean item; when that use ends however it ends, the tub goes away. */
+  const retireTub = useCallback(() => setStage((s) => (s && s.kind === 'tub' && s.phase !== 'done' ? { ...s, phase: 'done' } : s)), []);
   useEffect(() => {
     stageRef.current = stage;
   }, [stage]);
@@ -217,29 +222,42 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     if (!sleeping && !DEV_PREVIEW) setStage((s) => (s && s.kind === 'bed' && s.phase === 'using' ? { ...s, phase: 'done' } : s));
   }, [sleeping]);
 
-  // An item was used: the celebration waits for the write AND for the use
-  // to have been visible for a moment (`MIN_USE_MS`).
+  // An item was used (owned or starter): the celebration waits for the write
+  // AND for the use to have been visible for a moment (`MIN_USE_MS`).
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onUseResult = useCallback(
+    (r: ItemUseResult | StarterUseResult) => {
+      const finish = () => {
+        finishTimerRef.current = null;
+        setOffer(null);
+        retireTub();
+        if (r.alreadyApplied) return;
+        setResultKey((k) => k + 1);
+        setFeedback({ action: r.action, name: r.name, statsChanged: r.statsChanged, xpGained: r.xpGained, nextState: 'active', itemName: r.item.name });
+        reactToCare({ action: r.action, nextState: 'active' });
+        const sound = soundForCare(r.action, 'active');
+        if (sound) play(sound);
+      };
+      const remaining = MIN_USE_MS - (Date.now() - (offerRef.current?.usingSince ?? 0));
+      if (remaining > 0) finishTimerRef.current = setTimeout(finish, remaining);
+      else finish();
+    },
+    [reactToCare, play],
+  );
   const lastItemResult = useItem.lastResult;
   const handledItemRef = useRef<typeof lastItemResult>(undefined);
-  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!lastItemResult || handledItemRef.current === lastItemResult) return;
     handledItemRef.current = lastItemResult;
-    const r = lastItemResult as ItemUseResult;
-    const finish = () => {
-      finishTimerRef.current = null;
-      setOffer(null);
-      if (r.alreadyApplied) return;
-      setResultKey((k) => k + 1);
-      setFeedback({ action: r.action, name: r.name, statsChanged: r.statsChanged, xpGained: r.xpGained, nextState: 'active', itemName: r.item.name });
-      reactToCare({ action: r.action, nextState: 'active' });
-      const sound = soundForCare(r.action, 'active');
-      if (sound) play(sound);
-    };
-    const remaining = MIN_USE_MS - (Date.now() - (offerRef.current?.usingSince ?? 0));
-    if (remaining > 0) finishTimerRef.current = setTimeout(finish, remaining);
-    else finish();
-  }, [lastItemResult, reactToCare, play]);
+    onUseResult(lastItemResult);
+  }, [lastItemResult, onUseResult]);
+  const lastStarterResult = useStarter.lastResult;
+  const handledStarterRef = useRef<typeof lastStarterResult>(undefined);
+  useEffect(() => {
+    if (!lastStarterResult || handledStarterRef.current === lastStarterResult) return;
+    handledStarterRef.current = lastStarterResult;
+    onUseResult(lastStarterResult);
+  }, [lastStarterResult, onUseResult]);
   useEffect(
     () => () => {
       if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
@@ -248,7 +266,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   );
 
   // A use failed: the item stays in the room with a way to retry or put it away.
-  const itemError = useItem.error;
+  const itemError = useItem.error ?? useStarter.error;
   useEffect(() => {
     if (!itemError) return;
     setOffer((o) => (o ? { ...o, phase: 'failed' } : o));
@@ -345,19 +363,31 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     [walkTo, canWalk, perform],
   );
 
-  // Offering an item: it is set down in the room, the Blobbi walks to it,
-  // and only on arrival does the semantic use (spend + care) start.
+  // Offering an item (owned or starter): it is set down in the room, the
+  // Blobbi walks to it, and only on arrival does the semantic use start: a
+  // spend + care for an owned item, care alone for a starter. A cleaning
+  // item brings the tub out and the Blobbi gets in it.
   const offerKeyRef = useRef(0);
   const startUse = useItem.use;
   const resetUse = useItem.reset;
+  const startStarter = useStarter.use;
+  const resetStarter = useStarter.reset;
   const offerItem = useCallback(
-    (entry: HomeInventoryItem) => {
+    (choice: CareChoice) => {
       setItemsOpen(false);
       setDoorPrompt(false);
       resetUse();
+      resetStarter();
       celebrate(900);
-      const spot = entry.item.care?.action === 'play' ? { position: STAGE_OBJECTS.toySpot, approach: STAGE_OBJECTS.toyApproach } : { position: OFFER_SPOT, approach: OFFER_APPROACH };
-      const next: ItemOffer = { entry, phase: canWalk ? 'walking' : 'using', key: ++offerKeyRef.current, spot };
+      const action = choice.entry.item.care?.action;
+      let spot: ItemOffer['spot'];
+      if (action === 'play') spot = { position: STAGE_OBJECTS.toySpot, approach: STAGE_OBJECTS.toyApproach };
+      else if (action === 'clean' || action === 'medicine') {
+        const tub = approachSpot(STAGE_OBJECTS.tub);
+        spot = { position: clampToFloor({ x: tub.x - 0.24, y: tub.y + 0.1 }), approach: tub };
+        setStage((s) => (s && s.kind === 'tub' && s.phase !== 'done' ? s : { kind: 'tub', phase: 'walking', key: ++stageKeyRef.current }));
+      } else spot = { position: OFFER_SPOT, approach: OFFER_APPROACH };
+      const next: ItemOffer = { choice, phase: canWalk ? 'walking' : 'using', key: ++offerKeyRef.current, spot };
       setOffer(next);
       offerRef.current = next;
       const begin = () => {
@@ -365,7 +395,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         const using: ItemOffer = { ...next, phase: 'using', usingSince: Date.now() };
         offerRef.current = using;
         setOffer((o) => (o && o.key === next.key ? using : o));
-        const started = startUse({ entry, blobbiD: liveBlobbi.current.d });
+        setStage((s) => (s && s.kind === 'tub' && s.phase === 'walking' ? { ...s, phase: 'using' } : s));
+        const started = choice.source === 'owned' ? startUse({ entry: choice.entry, blobbiD: liveBlobbi.current.d }) : startStarter({ entry: choice.entry, blobbiD: liveBlobbi.current.d });
         if (!started) setOffer((o) => (o && o.key === next.key ? { ...o, phase: 'failed' } : o));
       };
       if (!canWalk) {
@@ -376,47 +407,35 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         if (offerRef.current?.key !== next.key) return;
         if (outcome !== 'arrived') {
           setOffer(null);
+          retireTub();
           return;
         }
         begin();
       });
     },
-    [canWalk, walkTo, startUse, resetUse, celebrate],
+    [canWalk, walkTo, startUse, startStarter, resetUse, resetStarter, celebrate, retireTub],
   );
   const putAway = useCallback(() => {
     resetUse();
+    resetStarter();
     offerRef.current = null;
     setOffer(null);
-  }, [resetUse]);
+    retireTub();
+  }, [resetUse, resetStarter, retireTub]);
 
-  // Choosing on the strip: an item goes the M4 way; the plain way is the
-  // kit's own care, with the bed or the tub coming out where it belongs.
+  // Choosing on the strip: an item, owned or starter, is offered. There is no
+  // other way to feed, play or clean.
   const chooseOption = useCallback(
     (option: CareOption) => {
       setSelectedVerb(null);
-      if (option.kind === 'item') {
-        offerItem(option.entry);
-        return;
-      }
-      switch (option.verb) {
-        case 'rest':
-          if (blobbi.state === 'active' && !isEgg) careAtObject('bed', 'rest');
-          else perform(blobbi.d, 'rest');
-          return;
-        case 'clean':
-          careAtObject('tub', 'clean');
-          return;
-        default:
-          celebrate(900);
-          perform(blobbi.d, option.verb);
-      }
+      offerItem(option);
     },
-    [offerItem, careAtObject, perform, blobbi.d, blobbi.state, isEgg, celebrate],
+    [offerItem],
   );
 
   // The verb row: a verb opens its options; Rest and Wake act at once (one
   // way only); tapping the open verb again closes it.
-  const options = useMemo(() => (selectedVerb ? careOptionsFor(selectedVerb, inventory.items, actions) : []), [selectedVerb, inventory.items, actions]);
+  const options = useMemo(() => (selectedVerb ? careOptionsFor(selectedVerb, inventory.items, inventory.starters, actions) : []), [selectedVerb, inventory.items, inventory.starters, actions]);
   const selectVerb = useCallback(
     (verb: CareVerb) => {
       setDoorPrompt(false);
@@ -466,7 +485,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const interactive = !sleeping && canWalk && !inCeremony;
   const usableItemCount = inventory.items.filter((i) => i.usability.ok && !i.unverified).length;
   const counts = useMemo(() => itemCountsByVerb(inventory.items), [inventory.items]);
-  const offerObject = offer ? itemObjectAt('offer', offer.entry.item.name, offer.spot.position, offer.spot.approach) : null;
+  const offerObject = offer ? itemObjectAt('offer', offer.choice.entry.item.name, offer.spot.position, offer.spot.approach) : null;
   const accessories = blobbi.stage === 'egg' ? undefined : worn.accessoriesFor(scene.presentation.facing);
   const actorEffects = useMemo(() => {
     const ceremonyEffects = ceremony.presentation.effects ?? [];
@@ -488,10 +507,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   );
   // In bed (an egg on the nest, a sleeper in the bed) the bed is the ground: no shadow of its own.
   const inBed = isEgg || (sleeping && stage?.kind === 'bed');
+  // The bed is the one piece a tap uses (rest); the tub only ever comes out with a cleaning item.
   const useFurniture = useCallback(
     (placement: Placement) => {
-      if (placement.id === STAGE_OBJECTS.bed.id && blobbi.state === 'active') careAtObject('bed', 'rest');
-      if (placement.id === STAGE_OBJECTS.tub.id && blobbi.state === 'active') careAtObject('tub', 'clean');
+      if (placement.id === STAGE_OBJECTS.bed.id && placement !== STAGE_OBJECTS.nest && blobbi.state === 'active') careAtObject('bed', 'rest');
     },
     [blobbi.state, careAtObject],
   );
@@ -537,7 +556,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                   aside={
                     offer.phase === 'failed' && (
                       <div className="offer-prompt" data-testid="offer-prompt">
-                        <button type="button" className="lifecycle-pill !animate-none !px-3 !py-1.5 !text-xs" onClick={() => offerItem(offer.entry)} data-testid="offer-retry">
+                        <button type="button" className="lifecycle-pill !animate-none !px-3 !py-1.5 !text-xs" onClick={() => offerItem(offer.choice)} data-testid="offer-retry">
                           Try again
                         </button>
                         <button type="button" className="home-glass rounded-full px-3 py-1.5 text-xs font-semibold" onClick={putAway} data-testid="offer-put-away">
@@ -548,7 +567,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                   }
                 >
                   <div className="offer-art">
-                    <ItemGlyph glyph={offer.entry.item.glyph} fill />
+                    <ItemGlyph glyph={offer.choice.entry.item.glyph} fill />
                   </div>
                 </SceneObjectView>
               )}
@@ -605,7 +624,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           onLifecycle={startCeremony}
           disabled={inCeremony || busyWithObject}
           floorBackground={surfaceBackground(HOME_SPACE.room.surfaces.floor)}
-          options={selectedVerb && options.length > 0 ? <CareOptions verb={selectedVerb} options={options} blobbi={blobbi} onChoose={chooseOption} /> : undefined}
+          options={selectedVerb && options.length > 0 ? <CareOptions verb={selectedVerb} options={options} onChoose={chooseOption} /> : undefined}
         />
       }
       overlays={
@@ -633,9 +652,9 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             onClose={() => setItemsOpen(false)}
             inventory={inventory}
             blobbiName={blobbi.name}
-            onUse={offerItem}
+            onUse={(entry) => offerItem({ source: 'owned', entry })}
             openUse={useItem.hasOpenUse(blobbi.d)}
-            busy={useItem.isPending || busyWithObject}
+            busy={useItem.isPending || useStarter.isPending || busyWithObject}
             worn={worn.wornAddresses}
           />
         </>

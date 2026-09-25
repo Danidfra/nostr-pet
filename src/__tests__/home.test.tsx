@@ -101,7 +101,8 @@ describe('Home: signed out', () => {
     await userEvent.click(screen.getByTestId('onboarding-existing'));
     expect(await screen.findByRole('heading', { name: /sign in to see your blobbi/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in with extension/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/remote signer/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/bunker address/i)).toBeInTheDocument();
+    expect(screen.getByTestId('login-signer-app')).toBeInTheDocument();
     expect(screen.getByTestId('login-key-section')).not.toHaveAttribute('open');
     expect(query).not.toHaveBeenCalled();
   });

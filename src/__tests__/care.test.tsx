@@ -193,9 +193,11 @@ describe('Care: feed', () => {
     renderHome();
     await ready();
     await chooseCare('clean');
-    expect(await screen.findByTestId('care-error')).toHaveTextContent(/relay rejected/i);
+    // A starter use that fails leaves the soap with a retry; nothing was written.
+    expect(await screen.findByTestId('item-error', {}, { timeout: 4000 })).toHaveTextContent(/relay rejected/i);
     expect(published31124()).toHaveLength(0);
-    expect(screen.getByTestId('care-feed')).toBeEnabled();
+    await userEvent.click(screen.getByTestId('offer-put-away'));
+    await waitFor(() => expect(screen.getByTestId('care-feed')).toBeEnabled());
     await openBlobbiSheet();
     const hygiene = within(screen.getByRole('group', { name: /care status/i })).getByTestId('stat-hygiene');
     expect(Number(hygiene.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(45);
