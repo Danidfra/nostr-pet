@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useProjectedBlobbiState } from '@blobbi-kit/react';
-import { getStatStatus, getVisibleStats, type BlobbiCompanion, type BlobbiStats, type BlobbonautProfile, type NostrEvent } from '@blobbi-kit/core';
+import { getStatStatus, getVisibleStats, type BlobbiCompanion, type BlobbonautProfile, type NostrEvent } from '@blobbi-kit/core';
 import { MapPin } from 'lucide-react';
 
 import { availableCareActions, useCareActions, type CareAction, type CareResult } from '@/features/care';
@@ -12,9 +12,8 @@ import type { StatItem } from './BlobbiStatusPanel';
 import { CareError, CareFeedback } from './CareFeedback';
 import type { FeedbackResult } from './care-feedback-text';
 import { describeMood } from './mood';
-import { needLine } from './personality';
 import { careOptionsFor, itemCountsByVerb, type CareOption, type CareVerb } from './care-model';
-import { detectStreakIncrease, streakLine, type StreakChange } from './streak';
+import { detectStreakIncrease, type StreakChange } from './streak';
 import { HOME_SPACE, STAGE_OBJECTS, type StageObjectKind } from './space/home-space';
 import { FurnitureLayer, RoomBackdrop, approachSpot, surfaceBackground, type Placement } from './rooms';
 import {
@@ -23,7 +22,6 @@ import {
   HomeScene,
   NeedBubbles,
   SceneObjectView,
-  SpeechBubble,
   itemObjectAt,
   sceneObject,
   useBlobbiPresentation,
@@ -32,7 +30,6 @@ import {
   OFFER_SPOT,
   OFFER_APPROACH,
   type FloorPoint,
-  type Speech,
 } from './scene';
 import { ActionBar, BlobbiSheet, CareOptions, GameShell, HudTop, MenuSheet } from './shell';
 import { StreakMoment } from './StreakMoment';
@@ -60,25 +57,6 @@ const DEV_PREVIEW: StageObjectKind | null = DEV_LIFECYCLE_TOOLS && typeof window
   return v === 'bed' || v === 'tub' ? v : null;
 })() : null;
 
-/** What the Blobbi says when a care action lands. Microcopy only. */
-const CARE_LINES: Record<CareAction, string[]> = {
-  feed: ['Yum!', 'Nom nom.', 'That hit the spot.'],
-  play: ['Whee!', 'Again, again!', 'Best day.'],
-  clean: ['So fresh.', 'Squeaky!', 'Bubbles!'],
-  rest: ['Zzz…', 'Good night.'],
-};
-const WAKE_LINES = ['Morning!', 'I dreamt of snacks.', 'Stretch…'];
-const REVEAL_LINES: Record<CeremonyKind, string> = { hatch: 'Hello, world!', evolve: 'I feel… bigger.' };
-/** What the Blobbi says after using an item. */
-const ITEM_LINES: Record<ItemAction, string[]> = {
-  feed: ['Yum!', 'Nom nom.', 'Delicious!'],
-  play: ['Whee!', 'Again, again!', 'Best toy.'],
-  clean: ['So fresh.', 'Squeaky!', 'Bubbles!'],
-  medicine: ['All better.', 'Feeling good.'],
-  boost: ['Zoom!', 'So much energy!'],
-};
-/** What the Blobbi says when something is picked out for it. */
-const PICK_LINES = ['Ooh!', 'For me?', 'Yes please!'];
 
 /** The sound for a care or item action; the same table for the dock and the room. */
 function soundFor(action: CareAction | ItemAction): SoundId {
@@ -127,7 +105,7 @@ interface StageObject {
  */
 export function BlobbiOverview(props: BlobbiOverviewProps) {
   // The scene is per Blobbi: switching Blobbis starts the newcomer at home
-  // with no movement, pending walk, gaze, reaction, ceremony or speech left
+  // with no movement, pending walk, gaze, reaction or ceremony left
   // over from the previous one.
   return <BlobbiHome key={props.blobbi.d} {...props} />;
 }
@@ -206,10 +184,6 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [stage]);
   const stageKeyRef = useRef(0);
 
-  // Speech: a short line for the moments that deserve one.
-  const [speech, setSpeech] = useState<Speech | null>(null);
-  const say = useCallback((text: string) => setSpeech((s) => ({ text, key: (s?.key ?? 0) + 1 })), []);
-
   const liveBlobbi = useRef(blobbi);
   useEffect(() => {
     liveBlobbi.current = blobbi;
@@ -229,15 +203,13 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     setResultKey((k) => k + 1);
     setFeedback(r);
     reactToCare(r);
-    if (r.action === 'rest') say(r.nextState === 'sleeping' ? CARE_LINES.rest[0] : WAKE_LINES[r.event.created_at % WAKE_LINES.length]);
-    else say(CARE_LINES[r.action][r.event.created_at % CARE_LINES[r.action].length]);
     play(soundFor(r.action));
     // A stage object leaves once its moment has landed; the bed stays while the Blobbi sleeps in it.
     const current = stageRef.current;
     if (current && !(current.kind === 'bed' && r.nextState === 'sleeping')) {
       setStage({ ...current, phase: 'done' });
     }
-  }, [lastResult, reactToCare, say, play]);
+  }, [lastResult, reactToCare, play]);
 
   // A care write that failed: the piece that came out for it goes away too.
   const careError = care.error;
@@ -273,13 +245,12 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       setResultKey((k) => k + 1);
       setFeedback({ action: r.action, name: r.name, statsChanged: r.statsChanged, xpGained: r.xpGained, nextState: 'active', itemName: r.item.name });
       reactToCare({ action: r.action, nextState: 'active' });
-      say(ITEM_LINES[r.action][r.event.created_at % ITEM_LINES[r.action].length]);
       play(soundFor(r.action));
     };
     const remaining = MIN_USE_MS - (Date.now() - (offerRef.current?.usingSince ?? 0));
     if (remaining > 0) finishTimerRef.current = setTimeout(finish, remaining);
     else finish();
-  }, [lastItemResult, reactToCare, say, play]);
+  }, [lastItemResult, reactToCare, play]);
   useEffect(
     () => () => {
       if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
@@ -301,9 +272,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     handledRevealRef.current = reveal.key;
     celebrate();
     setResultKey((k) => k + 1);
-    say(REVEAL_LINES[reveal.kind]);
     play('celebrate');
-  }, [reveal, celebrate, say, play]);
+  }, [reveal, celebrate, play]);
 
   // The streak: the home only notices the authoritative number going up
   // between two versions of this Blobbi (a care write on a new day), never
@@ -317,24 +287,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     if (!change) return;
     setStreakBump((k) => k + 1);
     setStreakMoment(change);
-    if (!change.milestone) say(streakLine(change));
-  }, [blobbi.careStreak, say]);
+  }, [blobbi.careStreak]);
   const dismissStreakMoment = useCallback(() => setStreakMoment(null), []);
-
-  // Needs, said once when they become critical, not repeated while they stay so.
-  const criticalRef = useRef<Set<keyof BlobbiStats>>(new Set());
-  useEffect(() => {
-    if (blobbi.state !== 'active') return;
-    const nowCritical = new Set(statItems.filter((s) => s.status === 'critical').map((s) => s.stat));
-    for (const stat of nowCritical) {
-      if (!criticalRef.current.has(stat)) {
-        const line = needLine(stat);
-        if (line) say(line);
-        break;
-      }
-    }
-    criticalRef.current = nowCritical;
-  }, [statItems, blobbi.state, say]);
 
   const ceremonyStart = ceremony.start;
   const startCeremony = useCallback(
@@ -413,7 +367,6 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       setDoorPrompt(false);
       resetUse();
       celebrate(900);
-      say(PICK_LINES[entry.quantity % PICK_LINES.length]);
       const spot = entry.item.care?.action === 'play' ? { position: STAGE_OBJECTS.toySpot, approach: STAGE_OBJECTS.toyApproach } : { position: OFFER_SPOT, approach: OFFER_APPROACH };
       const next: ItemOffer = { entry, phase: canWalk ? 'walking' : 'using', key: ++offerKeyRef.current, spot };
       setOffer(next);
@@ -439,7 +392,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         begin();
       });
     },
-    [canWalk, walkTo, startUse, resetUse, celebrate, say],
+    [canWalk, walkTo, startUse, resetUse, celebrate],
   );
   const putAway = useCallback(() => {
     resetUse();
@@ -510,9 +463,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   );
   const pokeBlobbi = scene.poke;
   const onPoke = useCallback(() => {
-    const reaction = pokeBlobbi();
-    if (reaction.line) say(reaction.line);
-  }, [pokeBlobbi, say]);
+    pokeBlobbi();
+  }, [pokeBlobbi]);
 
   const pendingAction: CareAction | null = care.pendingAction ?? walkingFor;
   const inCeremony = ceremony.presentation.exclusive;
@@ -611,7 +563,6 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           actor={
             <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={scene.presentation} inBed={inBed} happyKey={resultKey} onPoke={inCeremony ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} effects={actorEffects} accessories={accessories}>
               <NeedBubbles items={sleeping || inCeremony ? [] : statItems} />
-              <SpeechBubble speech={speech} />
               <CareFeedback result={feedback} resultKey={resultKey} />
             </BlobbiActor>
           }

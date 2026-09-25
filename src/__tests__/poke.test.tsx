@@ -69,14 +69,14 @@ describe('the poke policy (pure)', () => {
     expect(pokeReaction({ stage: 'egg', state: 'active', stats, recentPokes: 1 })).toMatchObject({ mood: 'egg', gesture: 'wiggle', expression: null });
     expect(pokeReaction({ stage: 'baby', state: 'sleeping', stats, recentPokes: 1 })).toMatchObject({ mood: 'asleep', gesture: 'stir', expression: null });
   });
-  it('a well Blobbi is glad; a hungry or hurt one recoils, upset; a tired one is sleepy; too many pokes annoy, with a line', () => {
+  it('a well Blobbi is glad; a hungry or hurt one recoils, upset; a tired one is sleepy; too many pokes annoy', () => {
     expect(pokeReaction({ stage: 'baby', state: 'active', stats, recentPokes: 1 })).toMatchObject({ mood: 'glad', gesture: 'bounce', expression: 'happy' });
     expect(pokeReaction({ stage: 'baby', state: 'active', stats: { ...stats, hunger: 10 }, recentPokes: 1 })).toMatchObject({ mood: 'grumpy', gesture: 'recoil', expression: 'upset' });
     expect(pokeReaction({ stage: 'adult', state: 'active', stats: { ...stats, health: 5 }, recentPokes: 1 })).toMatchObject({ mood: 'grumpy' });
     expect(pokeReaction({ stage: 'baby', state: 'active', stats: { ...stats, energy: 10 }, recentPokes: 1 })).toMatchObject({ mood: 'sleepy', gesture: 'stir', expression: 'sleepy' });
     const annoyed = pokeReaction({ stage: 'baby', state: 'active', stats, recentPokes: POKE_PATIENCE.count });
     expect(annoyed).toMatchObject({ mood: 'annoyed', gesture: 'recoil', expression: 'upset' });
-    expect(annoyed.line).toMatch(/Enough|Stop|Not now/);
+    expect('line' in annoyed).toBe(false);
     expect(pokeReaction({ stage: 'baby', state: 'active', stats: undefined, recentPokes: 1 })).toMatchObject({ mood: 'glad' });
   });
 });
@@ -137,13 +137,13 @@ describe('poking in the home', () => {
     expect(event).not.toHaveBeenCalled();
   });
 
-  it('too many pokes: a recoil, an upset face and a word', async () => {
+  it('too many pokes: a recoil and an upset face, and not a word (the Blobbi does not speak)', async () => {
     renderHome();
     await ready();
     for (let i = 0; i < POKE_PATIENCE.count; i += 1) await poke();
     expect(actor()).toHaveAttribute('data-gesture', 'recoil');
     expect(actor()).toHaveAttribute('data-expression', 'upset');
-    expect(screen.getByTestId('speech-bubble')).toHaveTextContent(/Enough|Stop|Not now/);
+    expect(document.querySelector('.speech-bubble, [data-testid="speech-bubble"]')).toBeNull();
     expect(event).not.toHaveBeenCalled();
     expect(query.mock.calls.length).toBeGreaterThan(0);
   });
@@ -185,6 +185,21 @@ describe('an egg on the nest', () => {
     expect(actor().querySelector('.scene-actor__shadow')).toBeNull();
   });
 
+  it('sits on the mattress: no idle breathing or bob from the renderer, for an egg on the nest and a sleeper in the bed', async () => {
+    relay.all = [egg()];
+    const first = renderHome();
+    await ready();
+    expect(actor()).toHaveAttribute('data-motion', 'still');
+    expect(actor().querySelector('[data-blobbi-renderer]')).not.toHaveAttribute('data-blobbi-motion');
+    first.unmount();
+    relay.all = [brook({ state: 'sleeping' })];
+    renderHome();
+    await ready();
+    expect(actor()).toHaveAttribute('data-motion', 'still');
+    expect(actor().querySelector('[data-blobbi-renderer]')).not.toHaveAttribute('data-blobbi-motion');
+    // A well, awake baby on the floor does breathe.
+  });
+
   it('does not wander: with idling on and quick, it stays on the nest', async () => {
     relay.all = [egg()];
     renderHome({ walkSpeed: 4, idleEnabled: true, idle: { inactivityMs: 20, intervalMs: 20 }, random: () => 0.99 });
@@ -194,7 +209,7 @@ describe('an egg on the nest', () => {
     await new Promise((r) => setTimeout(r, 300));
     expect(actor()).toHaveAttribute('data-x', x!);
     expect(actor()).toHaveAttribute('data-y', y!);
-    expect(actor()).toHaveAttribute('data-motion', 'idle');
+    expect(actor()).toHaveAttribute('data-motion', 'still');
     expect(screen.getByTestId('scene-floor')).toBeDisabled();
   });
 

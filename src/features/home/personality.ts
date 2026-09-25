@@ -1,17 +1,14 @@
 /**
- * Small personality, kept restrained: a few first-person lines the Blobbi
- * says when a room answers a need, and how much poking is too much.
- * Policy over the kit's thresholds and the renderer's faces; never a
- * publish, never a stat change.
+ * Small personality, kept restrained: how a Blobbi takes a poke, and how
+ * much poking is too much. Policy over the kit's thresholds and the
+ * renderer's faces; never a publish, never a stat change. The Blobbi does
+ * not speak: every reaction is a gesture, a face, or a sound.
  */
 import { getStatStatus, type BlobbiCompanion, type BlobbiStats } from '@blobbi-kit/core';
 import type { BlobbiEmotion } from '@blobbi-kit/renderer';
-import type { RoomId } from './rooms';
 
 /** Pokes within this window before the Blobbi has had enough. */
 export const POKE_PATIENCE = { count: 4, windowMs: 5_000 } as const;
-
-export const ANNOYED_LINES = ['Hey! Enough.', 'Stop it…', 'Not now.'];
 
 /**
  * A body gesture the home can play on the actor (its own element around
@@ -31,8 +28,6 @@ export interface PokeReaction {
   expression: BlobbiEmotion | null;
   /** How long the face and the gesture last. */
   durationMs: number;
-  /** Something to say, or nothing. */
-  line: string | null;
 }
 
 export interface PokeInput {
@@ -51,34 +46,13 @@ export interface PokeInput {
  * up). It decides presentation only: nothing here is written anywhere.
  */
 export function pokeReaction({ stage, state, stats, recentPokes }: PokeInput): PokeReaction {
-  if (stage === 'egg') return { mood: 'egg', gesture: 'wiggle', expression: null, durationMs: 700, line: null };
-  if (state !== 'active') return { mood: 'asleep', gesture: 'stir', expression: null, durationMs: 600, line: null };
-  if (recentPokes >= POKE_PATIENCE.count) return { mood: 'annoyed', gesture: 'recoil', expression: 'upset', durationMs: 2_000, line: ANNOYED_LINES[recentPokes % ANNOYED_LINES.length] };
+  if (stage === 'egg') return { mood: 'egg', gesture: 'wiggle', expression: null, durationMs: 700 };
+  if (state !== 'active') return { mood: 'asleep', gesture: 'stir', expression: null, durationMs: 600 };
+  if (recentPokes >= POKE_PATIENCE.count) return { mood: 'annoyed', gesture: 'recoil', expression: 'upset', durationMs: 2_000 };
   const critical = (stat: keyof BlobbiStats) => stats !== undefined && getStatStatus(stage, stat, stats[stat]) === 'critical';
-  if (critical('energy')) return { mood: 'sleepy', gesture: 'stir', expression: 'sleepy', durationMs: 1_400, line: null };
-  if (critical('hunger') || critical('health')) return { mood: 'grumpy', gesture: 'recoil', expression: 'upset', durationMs: 1_400, line: null };
-  return { mood: 'glad', gesture: 'bounce', expression: 'happy', durationMs: 1_200, line: null };
-}
-
-/** What a Blobbi says on coming into a room, when the room is the answer to something it needs. */
-export function roomGreeting(room: RoomId, companion: Pick<BlobbiCompanion, 'stage' | 'state'>, stats: BlobbiStats | undefined): string | null {
-  if (!stats || companion.state !== 'active') return null;
-  const low = (stat: keyof BlobbiStats) => {
-    const status = getStatStatus(companion.stage, stat, stats[stat]);
-    return status === 'warning' || status === 'critical';
-  };
-  switch (room) {
-    case 'kitchen':
-      return low('hunger') ? 'Is it snack time?' : null;
-    case 'care':
-      return low('hygiene') ? 'Bath time?' : low('health') ? 'I feel funny.' : null;
-    case 'rest':
-      return low('energy') ? 'Yawn…' : null;
-    case 'home':
-      return low('happiness') ? 'Play with me?' : null;
-    default:
-      return null;
-  }
+  if (critical('energy')) return { mood: 'sleepy', gesture: 'stir', expression: 'sleepy', durationMs: 1_400 };
+  if (critical('hunger') || critical('health')) return { mood: 'grumpy', gesture: 'recoil', expression: 'upset', durationMs: 1_400 };
+  return { mood: 'glad', gesture: 'bounce', expression: 'happy', durationMs: 1_200 };
 }
 
 /** A glance toward a spot on the floor from where the Blobbi stands: left, right, and a little down. */
@@ -87,20 +61,3 @@ export function glanceToward(from: { x: number; y: number }, to: { x: number; y:
   return { x: Math.max(-0.8, Math.min(0.8, dx * 3)), y: to.y > from.y ? 0.5 : 0.1 };
 }
 
-/** What a Blobbi says the moment a need becomes critical; once, not on repeat. */
-export function needLine(stat: keyof BlobbiStats): string | null {
-  switch (stat) {
-    case 'hunger':
-      return 'So hungry…';
-    case 'energy':
-      return 'I could sleep for days.';
-    case 'hygiene':
-      return 'I feel sticky.';
-    case 'happiness':
-      return 'Play with me?';
-    case 'health':
-      return 'I feel funny.';
-    default:
-      return null;
-  }
-}

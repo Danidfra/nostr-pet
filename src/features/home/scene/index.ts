@@ -3,8 +3,6 @@ export { BlobbiActor } from './BlobbiActor';
 export { SceneBackdrop } from './SceneBackdrop';
 export { SceneObjectView, DoorArt } from './SceneObjectView';
 export { NeedBubbles } from './NeedBubbles';
-export { SpeechBubble } from './SpeechBubble';
-export type { Speech } from './SpeechBubble';
 export { SceneSettingsProvider, useSceneSettings, useReducedMotion, useHoverCapable } from './SceneSettings';
 export { DEFAULT_SCENE_SETTINGS } from './scene-settings';
 export type { SceneSettings } from './scene-settings';

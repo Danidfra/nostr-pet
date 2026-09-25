@@ -1594,24 +1594,6 @@
     color: hsl(0 72% 50%);
     border-color: hsl(0 72% 60% / 0.7);
   }
-  .speech-bubble {
-    position: absolute;
-    left: 50%;
-    top: -2.4rem;
-    transform: translate(-50%, -100%);
-    max-width: 12rem;
-    padding: 0.35rem 0.7rem;
-    border-radius: 1rem 1rem 1rem 0.25rem;
-    background: hsl(var(--card) / 0.96);
-    border: 1px solid hsl(var(--border));
-    color: hsl(var(--card-foreground));
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-align: center;
-    white-space: nowrap;
-    box-shadow: 0 6px 16px -8px hsl(var(--foreground) / 0.4);
-    pointer-events: none;
-  }
   .door-prompt {
     position: absolute;
     left: 100%;
@@ -1851,7 +1833,6 @@
   .animate-float-up,
   .animate-sparkle,
   .offer-art,
-  .animate-bubble-in,
   .scene-actor[data-invite='true'] .scene-actor__box::after,
   .scene-object-anchor[data-state='using'] .offer-art,
   .care-options,

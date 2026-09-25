@@ -344,7 +344,6 @@ describe('Items from the strip', () => {
     await chooseItem('feed', 'blobbi:food:apple');
     expect(screen.queryByTestId('care-options')).toBeNull();
     expect(actor()).toHaveAttribute('data-expression', 'excited');
-    expect(screen.getByTestId('speech-bubble')).toBeInTheDocument();
     expect(relay.published).toHaveLength(0);
     const offer = screen.getByTestId('scene-object-offer');
     expect(offer).toHaveAttribute('data-state', 'walking');
@@ -437,22 +436,23 @@ describe('Items from the strip', () => {
 });
 
 describe('Personality', () => {
-  it('too many pokes make it cross, briefly, and say so; none of it is written', async () => {
+  it('too many pokes make it cross, briefly; it never speaks; none of it is written', async () => {
     renderHome();
     await ready();
     for (let i = 0; i < 3; i += 1) await userEvent.click(screen.getByTestId('blobbi-poke'));
     expect(actor()).toHaveAttribute('data-expression', 'happy');
     await userEvent.click(screen.getByTestId('blobbi-poke'));
     expect(actor()).toHaveAttribute('data-expression', 'upset');
-    expect(screen.getByTestId('speech-bubble')).toHaveTextContent(/Enough|Stop|Not now/);
+    expect(document.querySelector('.speech-bubble, [data-testid="speech-bubble"]')).toBeNull();
     expect(relay.published).toHaveLength(0);
   });
 
-  it('says what it needs the moment a stat is critical, once', async () => {
+  it('a critical need shows in the condition dots and the need bubbles, never as words from the Blobbi', async () => {
     relay.all = [brook({ hunger: '8' }), ...definitions(), ...stock()];
     renderHome();
     await ready();
-    expect(screen.getByTestId('speech-bubble')).toHaveTextContent('So hungry');
     expect(screen.getByTestId('condition-dots').querySelector('[data-stat="hunger"]')).toHaveAttribute('data-status', 'critical');
+    expect(document.querySelector('.speech-bubble, [data-testid="speech-bubble"]')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/So hungry|Play with me|I feel/);
   });
 });

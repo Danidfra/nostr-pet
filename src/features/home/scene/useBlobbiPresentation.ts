@@ -183,7 +183,7 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     const reaction = pokeReaction({ ...pokeInputRef.current, recentPokes: pokesRef.current.length });
     if (reaction.mood === 'annoyed') pokesRef.current = [];
     const allowed = policyRef.current.pokes;
-    if (allowed === 'none') return { ...reaction, gesture: reaction.gesture, expression: null, line: null };
+    if (allowed === 'none') return { ...reaction, expression: null };
     if ((allowed === 'full' || allowed === 'face') && reaction.expression) react(reaction.expression, reaction.durationMs);
     if (allowed === 'full' || allowed === 'gesture') gesticulate(reaction.gesture, reaction.durationMs);
     return reaction;

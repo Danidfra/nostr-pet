@@ -89,7 +89,7 @@ describe('The streak in the HUD', () => {
     expect(screen.queryByTestId('streak-moment')).toBeNull();
   });
 
-  it('bumps and says so when a care write makes the kit count a new day', async () => {
+  it('bumps when a care write makes the kit count a new day', async () => {
     relay.all = [brook(3, YESTERDAY)];
     renderHome();
     await ready();
@@ -98,7 +98,6 @@ describe('The streak in the HUD', () => {
     expect(getTagValue(states()[0].tags, 'care_streak')).toBe('4');
     await waitFor(() => expect(pill()).toHaveAttribute('data-days', '4'));
     expect(pill()).toHaveClass('streak-pill--bump');
-    expect(screen.getByTestId('speech-bubble')).toHaveTextContent('4 days in a row.');
     expect(screen.queryByTestId('streak-moment')).toBeNull();
   });
 

@@ -306,7 +306,7 @@ describe('Inventory: using an item', () => {
     await userEvent.click(screen.getByTestId('inventory-use'));
     // No walk: the use starts at once, so the spend and the state land without the actor moving.
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
-    expect(screen.getByTestId('blobbi-actor')).toHaveAttribute('data-motion', 'idle');
+    expect(screen.getByTestId('blobbi-actor')).toHaveAttribute('data-motion', 'still');
     expect(getTagValue(spends()[0].tags, 'purpose')).toBe('clean:blobbi');
     expect(Number(getTagValue(states()[0].tags, 'hygiene'))).toBeGreaterThan(45);
   });
