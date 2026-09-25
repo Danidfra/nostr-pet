@@ -130,7 +130,8 @@ describe('Home: loading, error, empty', () => {
   it('shows the empty home when the player owns no Blobbi: the profile step first (no kind 0), adoption after it', async () => {
     renderHome();
     await userEvent.click(await screen.findByTestId('profile-skip'));
-    expect(await screen.findByRole('heading', { name: /no blobbi lives here yet/i })).toBeInTheDocument();
+    // The profile step was this session's: the intro is brief, one purpose.
+    expect(await screen.findByRole('heading', { name: /adopt your first egg/i })).toBeInTheDocument();
     // Adoption happens here now (see adoption.test.tsx); the Island stays one tap away.
     expect(screen.getByTestId('adoption-start')).toBeInTheDocument();
     expect(islandLink()).toHaveAttribute('href', DEFAULT_BLOBBI_ISLAND_URL);
@@ -140,7 +141,7 @@ describe('Home: loading, error, empty', () => {
     relay.state = [legacyMarkerEvent('0000000007'), legacyShapeEvent()];
     renderHome();
     await userEvent.click(await screen.findByTestId('profile-skip'));
-    expect(await screen.findByRole('heading', { name: /no blobbi lives here yet/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /adopt your first egg/i })).toBeInTheDocument();
     expect(screen.queryByText('Old')).toBeNull();
     expect(screen.queryByText('Older')).toBeNull();
   });

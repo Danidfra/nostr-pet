@@ -6,7 +6,7 @@
  * middle; and the secret never in a relay payload, a URL or a log.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -134,7 +134,11 @@ describe('Creating an account', () => {
     expect(getTagValue(kind0.tags, 'client')).toBe('Blobbi');
 
     // Then adoption, the existing flow, with the new name suggested for the Blobbonaut profile.
-    await screen.findByTestId('adoption-intro');
+    // The welcome already said what a Blobbi is: the intro is brief, one purpose.
+    const intro = await screen.findByTestId('adoption-intro');
+    expect(intro).toHaveAttribute('data-brief', 'true');
+    expect(within(intro).queryByRole('list', { name: /what a blobbi is/i })).toBeNull();
+    expect(intro).toHaveTextContent(/Adopt your first egg/);
     await userEvent.click(screen.getByTestId('adoption-start'));
     await screen.findByTestId('adoption-preview');
     await userEvent.click(screen.getByTestId('adoption-adopt'));
@@ -248,8 +252,13 @@ describe('An existing account', () => {
     await userEvent.click(screen.getByTestId('profile-save'));
     await waitFor(() => expect(published(0)).toHaveLength(1));
     await screen.findByTestId('adoption-intro');
-    // The kind 0 is now on the relay: another refresh goes to adoption directly.
+    // The kind 0 is now on the relay: another refresh goes to adoption directly, with the full intro (no welcome this session).
     screen.getByTestId('adoption-intro');
+    cleanup();
+    renderHome();
+    const again = await screen.findByTestId('adoption-intro');
+    expect(again).toHaveAttribute('data-brief', 'false');
+    expect(within(again).getByRole('list', { name: /what a blobbi is/i })).toBeInTheDocument();
   });
 });
 

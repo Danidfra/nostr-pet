@@ -62,7 +62,8 @@ export function OnboardingFlow({ pubkey, hasBlobbi, updateCompanionEvent, refres
     case 'profile':
       return <ProfileSetupScreen existing={author.data?.metadata} onSave={saveProfile} onSkip={skipProfile} onUpload={uploadPicture} pending={profileSetup.publish.isPending} error={profileSetup.publish.error} />;
     case 'adopt':
-      return pubkey ? <AdoptionFlow pubkey={pubkey} suggestedName={author.data?.metadata?.name || author.data?.metadata?.display_name || undefined} updateCompanionEvent={updateCompanionEvent} refresh={refresh} /> : null;
+      // Brief when the welcome was seen this session (a door was chosen or a profile step done); full for a returning player landing here.
+      return pubkey ? <AdoptionFlow pubkey={pubkey} suggestedName={author.data?.metadata?.name || author.data?.metadata?.display_name || undefined} updateCompanionEvent={updateCompanionEvent} refresh={refresh} brief={choice !== null || newAccount || profileDone} /> : null;
     case 'home':
       return null;
   }

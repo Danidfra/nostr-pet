@@ -33,6 +33,13 @@ interface AdoptionFlowProps {
   suggestedName?: string;
   updateCompanionEvent: (event: NostrEvent) => void;
   refresh: () => void;
+  /**
+   * The player just came through the welcome (this session): the three
+   * lines about what a Blobbi is were said there, so the intro says only
+   * what this step is for. A returning player who lands here directly
+   * gets the full intro.
+   */
+  brief?: boolean;
 }
 
 const STEP_COPY = { idle: '', checking: 'Checking your relays…', egg: 'Signing your egg…', profile: 'Noting it in your profile…' } as const;
@@ -43,7 +50,7 @@ const STEP_COPY = { idle: '', checking: 'Checking your relays…', egg: 'Signing
  * generated once and is the source of truth for what gets published; nothing
  * is regenerated between the picture the player saw and the event.
  */
-export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refresh }: AdoptionFlowProps) {
+export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refresh, brief = false }: AdoptionFlowProps) {
   const [screen, setScreen] = useState<'intro' | 'egg'>('intro');
   const [preview, setPreview] = useState<EggPreview | null>(null);
   const [nameInput, setNameInput] = useState('');
@@ -76,10 +83,10 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
 
   if (screen === 'intro') {
     return (
-      <div className="home-glass mx-auto w-full max-w-md space-y-4 rounded-3xl p-6 text-center" data-testid="adoption-intro">
+      <div className="home-glass mx-auto w-full max-w-md space-y-4 rounded-3xl p-6 text-center" data-testid="adoption-intro" data-brief={brief ? 'true' : 'false'}>
         <Egg className="mx-auto h-12 w-12 text-primary" aria-hidden />
-        <h2 className="text-xl font-semibold">No Blobbi lives here yet</h2>
-        <WhatIsBlobbi />
+        <h2 className="text-xl font-semibold">{brief ? 'Adopt your first egg' : 'No Blobbi lives here yet'}</h2>
+        {brief ? <p className="text-sm text-muted-foreground">Your home is ready. An egg is one of a kind, hatches as you care for it, and is yours on Nostr from the first moment.</p> : <WhatIsBlobbi />}
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <button type="button" className="lifecycle-pill !animate-none" onClick={() => setScreen('egg')} data-testid="adoption-start">
             <Egg className="h-4 w-4" aria-hidden />
