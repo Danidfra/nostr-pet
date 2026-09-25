@@ -21,7 +21,18 @@ describe('composePresentation precedence', () => {
       eyeOffset: { x: 0.4, y: 0 },
       expression: 'neutral',
       isSleeping: false,
+      gesture: null,
     });
+  });
+
+  it('a poke gesture shows where the mode allows one, and never over a walk', () => {
+    const gesture = { kind: 'bounce' as const, key: 1 };
+    expect(composePresentation({ ...base, gesture }).gesture).toEqual(gesture);
+    expect(composePresentation({ ...base, gesture, motion: 'walking' }).gesture).toBeNull();
+    expect(composePresentation({ ...base, gesture: { kind: 'stir', key: 2 }, mode: 'sleeping' }).gesture).toEqual({ kind: 'stir', key: 2 });
+    expect(composePresentation({ ...base, gesture: { kind: 'wiggle', key: 3 }, mode: 'nested' }).gesture).toEqual({ kind: 'wiggle', key: 3 });
+    expect(composePresentation({ ...base, gesture, mode: 'ceremony' }).gesture).toBeNull();
+    expect(composePresentation({ ...base, gesture, mode: 'editing' }).gesture).toBeNull();
   });
 
   it('a temporary reaction beats the baseline', () => {

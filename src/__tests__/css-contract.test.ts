@@ -32,13 +32,31 @@ describe('the stylesheet contract', () => {
     expect(`${RENDERER_WALK_CYCLE_S}s`).toBe('0.56s');
   });
 
-  it('overlays are game screens: full viewport on a phone, a bounded centred panel above 600px, no side drawer', () => {
+  it('overlays are layers of the game: anchored to the game column, rising from its bottom, sized per screen, never a drawer or a floating modal', () => {
+    const root = block('.overlay-root');
+    expect(root).toMatch(/position:\s*absolute/);
+    expect(root).toMatch(/inset:\s*0/);
+    expect(root).toMatch(/align-items:\s*flex-end/);
     const panel = block('.overlay-panel');
-    expect(panel).toMatch(/height:\s*100dvh/);
-    expect(css).toMatch(/@media \(min-width: 600px\) \{\s*\.overlay-root \{[^}]*align-items:\s*center/);
-    expect(css).toMatch(/\.overlay-panel \{\s*width:\s*min\(40rem, 100%\)/);
+    expect(panel).toMatch(/border-radius:\s*1\.75rem 1\.75rem 0 0/);
+    expect(panel).toMatch(/animation:\s*overlay-up/);
+    expect(block(".overlay-panel[data-size='tall']")).toMatch(/height:\s*92%/);
+    expect(block(".overlay-panel[data-size='medium']")).toMatch(/max-height:\s*82%/);
+    expect(block('.game-column')).toMatch(/position:\s*relative/);
     expect(css).not.toMatch(/\.sheet-panel/);
-    expect(css).not.toMatch(/justify-content:\s*flex-end;\s*\}\s*\.sheet/);
+    expect(css).not.toMatch(/\.overlay-root \{[^}]*position:\s*fixed/);
+  });
+
+  it('the Blobbi has one ground shadow: the old ground glow is gone from the stylesheet', () => {
+    expect(css).not.toContain('.scene-actor__ground');
+    expect(css).not.toContain('--home-ground-glow');
+  });
+
+  it("the window's light is its own width and short", () => {
+    const light = block('.decor-window__light');
+    expect(light).toMatch(/left:\s*6%/);
+    expect(light).toMatch(/right:\s*6%/);
+    expect(light).toMatch(/height:\s*70%/);
   });
 
   it('reduced motion stops the chooser, the overlays and the shadow', () => {

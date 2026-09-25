@@ -16,7 +16,9 @@ npm install
 npm run dev        # http://localhost:8080
 ```
 
-Sign in with a NIP-07 browser extension or a NIP-46 `bunker://` URI.
+Sign in with a NIP-07 browser extension or a NIP-46 `bunker://` URI, or
+create a new Nostr account in the app (the secret key is shown once and
+must be backed up; see ARCHITECTURE.md, "the way in").
 
 Copy `.env.example` to `.env.local` to point "Enter Blobbi Island" at a local
 or staging Island.

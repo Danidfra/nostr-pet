@@ -20,6 +20,7 @@ const standing: BlobbiPresentation = {
   eyeOffset: { x: 0.5, y: -0.25 },
   expression: 'happy',
   isSleeping: false,
+  gesture: null,
 };
 
 const renderer = () => document.querySelector('[data-blobbi-renderer]') as HTMLElement | null;

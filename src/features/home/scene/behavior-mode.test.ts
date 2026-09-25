@@ -12,20 +12,20 @@ describe('behaviour mode', () => {
   });
 
   it('a ceremony and an egg allow nothing; only the ceremony pins the body still', () => {
-    expect(policyFor('ceremony')).toEqual({ walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still' });
-    expect(policyFor('nested')).toEqual({ walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: null });
+    expect(policyFor('ceremony')).toEqual({ walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still', pokes: 'none' });
+    expect(policyFor('nested')).toEqual({ walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: null, pokes: 'gesture' });
   });
 
   it('has a complete policy row for every mode', () => {
     for (const mode of BEHAVIOR_MODES) {
       const policy = policyFor(mode);
       expect(policy).toBe(BEHAVIOR_POLICY[mode]);
-      expect(Object.keys(policy).sort()).toEqual(['floorTaps', 'forcedMotion', 'gaze', 'idle', 'reactions', 'walks']);
+      expect(Object.keys(policy).sort()).toEqual(['floorTaps', 'forcedMotion', 'gaze', 'idle', 'pokes', 'reactions', 'walks']);
     }
   });
 
   it('sleeping allows nothing and pins the body still', () => {
-    expect(policyFor('sleeping')).toEqual({ walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still' });
+    expect(policyFor('sleeping')).toEqual({ walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still', pokes: 'gesture' });
   });
 
   it('a user walk keeps the user in charge: no idle, but taps, gaze and reactions stay on', () => {

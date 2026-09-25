@@ -240,6 +240,26 @@ large controls) and the Blobbi's details are built on it.
 `?preview=bed|tub` (behind `VITE_BLOBBI_DEV_TOOLS`) shows the composition
 without a write.
 
+**M10.2 polish.** Overlays are layers of the game, not modals: `GameShell`
+renders them inside the game column, so `GameOverlay` rises from the
+bottom of the game surface (the viewport on a phone, the rounded column on
+a desktop) with a rounded top, a handle, a dimmed but visible world above,
+and a `size` per screen (`tall` for the inventory, `medium` for the menu
+and the details). The inventory tiles carry the artwork, a count pill and
+a clear selected state. The window hangs by canvas fractions
+(`WINDOW_DECOR`, pinned by a test) with a light no wider than itself. The
+second ground circle under the Blobbi (`.scene-actor__ground`, the M3
+environment's `groundGlow` token from the M1 hero's "patch of light") is
+gone; the walking shadow is the one ground effect. Pokes are a
+standalone-owned policy (`personality.ts`, `pokeReaction`: stage, state,
+condition, patience) applied by the presentation layer as a face and a
+body gesture (`gestures.ts`, Web Animations on the actor's own box, never
+the renderer's root) under the behaviour mode's `pokes` policy: an egg
+wiggles, a sleeper stirs, a walk shows a face only (the renderer owns the
+body while walking), a well Blobbi bounces, a hungry or hurt one recoils
+upset, a tired one is sleepy, too many pokes annoy. No write, no kit
+change; `poke.test.tsx` covers it.
+
 **Themes: prepared, not started.** The ecosystem's theme representation
 is Ditto's, re-implemented by Island (`ditto/src/lib/themeEvent.ts`,
 `blobbi-island/src/lib/nostr-theme.ts`): kind 36767 (addressable, a named

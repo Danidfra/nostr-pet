@@ -19,7 +19,7 @@ import Home from '@/pages/Home';
 import { DOOR_POSITION, SceneSettingsProvider, placeOnFloor, type SceneSettings } from '@/features/home/scene';
 import { FLOOR_LINE, roomToCss } from '@/features/home/space/room-space';
 import { HOME_SPACE, PERMANENT_OBJECTS, STAGE_OBJECTS } from '@/features/home/space/home-space';
-import { approachSpot, layoutStorageKey, roomStorageKey, toyStorageKey } from '@/features/home/rooms';
+import { WINDOW_DECOR, approachSpot, layoutStorageKey, roomStorageKey, toyStorageKey } from '@/features/home/rooms';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 import { chooseCare } from '@/test/care-ui';
 import { OFFICIAL_APPLE, OFFICIAL_BALL, inventoryEvent, officialCareDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
@@ -126,6 +126,18 @@ describe('What is in the room', () => {
     expect(screen.getByTestId('home-scene')).toHaveAttribute('data-room', 'home');
   });
 
+  it('the window hangs by canvas fractions, on the wall, with its light no wider than itself', async () => {
+    renderHome();
+    await ready();
+    const win = screen.getByTestId('scene-backdrop').querySelector<HTMLElement>('.decor-window')!;
+    expect(parseFloat(win.style.left)).toBeCloseTo(WINDOW_DECOR.left * 100, 3);
+    expect(parseFloat(win.style.top)).toBeCloseTo(WINDOW_DECOR.top * 100, 3);
+    expect(parseFloat(win.style.width)).toBeCloseTo(WINDOW_DECOR.width * 100, 3);
+    // Square, so its bottom (top + width · aspect) is above the floor line at every size.
+    expect(WINDOW_DECOR.top + WINDOW_DECOR.width / 0.8).toBeLessThan(FLOOR_LINE);
+    expect(win.querySelector('.decor-window__light')).not.toBeNull();
+  });
+
   it('the door is a wall fixture: its bottom on the floor line, full size, behind whatever stands on the floor', async () => {
     renderHome();
     await ready();
@@ -197,14 +209,19 @@ describe('Opening things moves nothing and writes nothing', () => {
     renderHome();
     await ready();
     const reads = query.mock.calls.length;
-    for (const [button, id] of [
-      ['action-items', 'inventory-sheet'],
-      ['menu-button', 'menu-sheet'],
-      ['blobbi-chip', 'blobbi-sheet'],
+    const column = screen.getByTestId('game-shell').querySelector('.game-column')!;
+    for (const [button, id, size] of [
+      ['action-items', 'inventory-sheet', 'tall'],
+      ['menu-button', 'menu-sheet', 'medium'],
+      ['blobbi-chip', 'blobbi-sheet', 'medium'],
     ] as const) {
       await userEvent.click(screen.getByTestId(button));
       const overlay = await screen.findByTestId(id);
       expect(overlay).toHaveAttribute('data-overlay', 'true');
+      // A layer of the game: inside the game column, sized for what it holds.
+      expect(column.contains(overlay)).toBe(true);
+      expect(overlay.querySelector('.overlay-panel')).toHaveAttribute('data-size', size);
+      expect(overlay.querySelector('.overlay-handle')).not.toBeNull();
       const dialog = within(overlay).getByRole('dialog');
       expect(dialog).toHaveAttribute('aria-modal', 'true');
       expect(dialog.contains(document.activeElement)).toBe(true);
