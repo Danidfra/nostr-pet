@@ -1157,29 +1157,21 @@
   .care-options {
     /* Floats over the bottom of the room, anchored to the dock: opening it
        never changes the dock's height, so the room, the horizon and the
-       Blobbi stay exactly where they are. */
+       Blobbi stay exactly where they are. The band is the dock's own
+       colour and shade, so the strip reads as part of the controls, over
+       any floor and in any light. */
     position: absolute;
     left: 0;
     right: 0;
     bottom: 100%;
     z-index: 3;
-    padding: 1.4rem 0.5rem 0.35rem;
-    background: linear-gradient(180deg, transparent 0%, hsl(0 0% 0% / 0.22) 40%, hsl(0 0% 0% / 0.3) 100%);
+    padding: 0.55rem 0.5rem 0.45rem;
+    background: linear-gradient(180deg, hsl(var(--dock-floor, var(--floor)) / 0) 0%, hsl(0 0% 0% / 0.42) 30%, hsl(0 0% 0% / 0.5) 100%);
     pointer-events: none;
     animation: options-in 160ms ease-out;
   }
   .care-options > * {
     pointer-events: auto;
-  }
-  @keyframes options-in {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
   }
   .care-options__strip {
     display: flex;
@@ -1202,37 +1194,39 @@
   .care-option {
     position: relative;
     display: flex;
-    width: 4.4rem;
-    height: 4.4rem;
+    width: 4.75rem;
+    min-height: 4.75rem;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.15rem;
-    border-radius: 1rem;
-    padding: 0.3rem 0.25rem 0.25rem;
-    background: hsl(var(--card) / 0.92);
-    border: 1px solid hsl(var(--border) / 0.7);
-    color: hsl(var(--foreground));
-    box-shadow: 0 8px 18px -12px hsl(0 0% 0% / 0.6);
-    transition: transform 120ms ease, background-color 120ms ease;
+    gap: 0.2rem;
+    border-radius: 1.1rem;
+    padding: 0.4rem 0.3rem 0.35rem;
+    background: hsl(var(--card));
+    border: 2px solid hsl(0 0% 100% / 0.55);
+    color: hsl(var(--card-foreground));
+    box-shadow: 0 10px 22px -12px hsl(0 0% 0% / 0.75), inset 0 -2px 0 hsl(0 0% 0% / 0.06);
+    transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
     -webkit-tap-highlight-color: transparent;
   }
   .care-option:not(:disabled):hover {
-    background: hsl(var(--card));
     transform: translateY(-2px);
+    border-color: hsl(var(--primary) / 0.7);
   }
   .care-option:not(:disabled):active {
-    transform: scale(0.95);
+    transform: scale(0.94);
+    box-shadow: 0 4px 10px -8px hsl(0 0% 0% / 0.8);
   }
   .care-option:disabled {
     opacity: 0.5;
   }
   .care-option:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+    box-shadow: 0 0 0 2px hsl(var(--card)), 0 0 0 4px hsl(var(--ring));
   }
   .care-option--starter {
     border-style: dashed;
+    border-color: hsl(var(--primary) / 0.55);
   }
   .care-option__free {
     position: absolute;
@@ -1246,9 +1240,10 @@
   }
   .care-option__art {
     display: flex;
-    height: 2.1rem;
+    height: 2.2rem;
     align-items: center;
     justify-content: center;
+    filter: drop-shadow(0 3px 4px hsl(0 0% 0% / 0.2));
   }
   .care-option__qty {
     position: absolute;
@@ -1263,8 +1258,8 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.62rem;
-    font-weight: 700;
+    font-size: 0.66rem;
+    font-weight: 800;
     line-height: 1.1;
   }
   .scene-actor[data-invite='true'] .scene-actor__box::after {
