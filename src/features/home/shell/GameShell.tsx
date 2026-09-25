@@ -4,7 +4,7 @@ interface GameShellProps {
   top: ReactNode;
   scene: ReactNode;
   bottom?: ReactNode;
-  /** Sheets and overlays, rendered last so they stack over everything. */
+  /** Game overlays, rendered last inside the column so they stack over it and stay anchored to it. */
   overlays?: ReactNode;
 }
 
@@ -22,9 +22,12 @@ export function GameShell({ top, scene, bottom, overlays }: GameShellProps) {
           {top}
           <div className="game-scene">{scene}</div>
           {bottom}
+          {/* Overlays are layers of the game, so they live inside the game column:
+              on a phone that is the viewport, on a desktop it is the rounded
+              game surface they rise inside of. */}
+          {overlays}
         </div>
       </div>
-      {overlays}
     </div>
   );
 }

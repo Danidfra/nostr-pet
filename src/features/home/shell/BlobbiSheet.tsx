@@ -76,7 +76,7 @@ export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, c
   );
 
   return (
-    <GameOverlay open={open} onClose={onClose} title={blobbi.name} testId="blobbi-sheet" lead={portrait} subtitle={chips}>
+    <GameOverlay open={open} onClose={onClose} title={blobbi.name} testId="blobbi-sheet" lead={portrait} subtitle={chips} size="medium">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground" data-testid="mood-line">
           {blobbi.name} {mood}

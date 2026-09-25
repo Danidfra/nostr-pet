@@ -36,8 +36,8 @@
     --floor-edge: hsl(26 40% 60%);
     --rug: hsl(262 55% 80%);
     --window-glow: hsl(45 95% 80% / 0.35);
-    --lamp: transparent;
     --home-ground-glow: hsl(270 60% 70% / 0.32);
+    --lamp: transparent;
     --grass: hsl(100 45% 55%);
     --grass-edge: hsl(105 40% 44%);
     --hill: hsl(125 32% 40%);
@@ -454,9 +454,10 @@
     -webkit-user-select: all;
   }
 
-  /* ─── Game overlays: one screen over the game ────────────────────── */
+  /* ─── Game overlays: a layer of the game, rising from its bottom ──── */
   .overlay-root {
-    position: fixed;
+    /* inside .game-column, so "the bottom" is the game's bottom on every screen */
+    position: absolute;
     inset: 0;
     z-index: 50;
     display: flex;
@@ -466,9 +467,9 @@
   .overlay-backdrop {
     position: absolute;
     inset: 0;
-    background: hsl(var(--foreground) / 0.45);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
+    background: hsl(var(--foreground) / 0.32);
+    backdrop-filter: blur(1.5px);
+    -webkit-backdrop-filter: blur(1.5px);
     animation: overlay-fade 180ms ease-out;
   }
   .overlay-panel {
@@ -476,20 +477,35 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 100dvh;
-    max-height: 100dvh;
+    max-height: 100%;
+    border-radius: 1.75rem 1.75rem 0 0;
     background: hsl(var(--card));
     color: hsl(var(--card-foreground));
+    box-shadow: 0 -18px 50px -30px hsl(var(--foreground) / 0.7), 0 0 0 1px hsl(var(--border) / 0.5);
     outline: none;
-    animation: overlay-up 240ms cubic-bezier(0.2, 0.9, 0.3, 1);
-    padding-top: env(safe-area-inset-top);
+    animation: overlay-up 260ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  /* The world stays in view above the panel; the inventory needs the room, the others do not. */
+  .overlay-panel[data-size='tall'] {
+    height: 92%;
+  }
+  .overlay-panel[data-size='medium'] {
+    max-height: 82%;
+  }
+  .overlay-handle {
+    flex: none;
+    width: 2.75rem;
+    height: 0.32rem;
+    margin: 0.55rem auto 0;
+    border-radius: 9999px;
+    background: hsl(var(--foreground) / 0.16);
   }
   .overlay-head {
+    flex: none;
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.9rem 1rem 0.6rem 1.25rem;
-    border-bottom: 1px solid hsl(var(--border) / 0.7);
+    padding: 0.5rem 0.9rem 0.7rem 1.35rem;
   }
   .overlay-head__lead {
     flex: none;
@@ -499,7 +515,7 @@
     flex: 1 1 auto;
   }
   .overlay-title {
-    font-size: 1.35rem;
+    font-size: 1.45rem;
     font-weight: 800;
     line-height: 1.15;
     overflow: hidden;
@@ -507,7 +523,7 @@
     white-space: nowrap;
   }
   .overlay-subtitle {
-    margin-top: 0.2rem;
+    margin-top: 0.15rem;
     font-size: 0.8rem;
     color: hsl(var(--muted-foreground));
   }
@@ -519,12 +535,12 @@
     width: 2.75rem;
     height: 2.75rem;
     border-radius: 9999px;
-    background: hsl(var(--foreground) / 0.07);
+    background: hsl(var(--foreground) / 0.08);
     color: hsl(var(--foreground));
     transition: background-color 120ms ease, transform 120ms ease;
   }
   .overlay-close:hover {
-    background: hsl(var(--foreground) / 0.12);
+    background: hsl(var(--foreground) / 0.14);
   }
   .overlay-close:active {
     transform: scale(0.95);
@@ -535,8 +551,7 @@
   }
   .overlay-toolbar {
     flex: none;
-    padding: 0.5rem 1rem 0.35rem;
-    border-bottom: 1px solid hsl(var(--border) / 0.5);
+    padding: 0 1rem 0.6rem;
   }
   .overlay-body {
     flex: 1 1 auto;
@@ -544,32 +559,37 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding: 1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+    padding: 0.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+    border-top: 1px solid hsl(var(--border) / 0.6);
+    background: hsl(var(--background) / 0.55);
   }
   .overlay-portrait {
     display: block;
-    width: 3.25rem;
-    height: 3.25rem;
+    width: 3.5rem;
+    height: 3.5rem;
     border-radius: 9999px;
     background: hsl(var(--foreground) / 0.06);
+    box-shadow: inset 0 0 0 2px hsl(var(--card));
   }
   .overlay-card {
+    margin-top: 0.75rem;
     border-radius: 1.25rem;
-    background: hsl(var(--foreground) / 0.05);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border) / 0.6);
     padding: 0.85rem 0.9rem;
   }
   .overlay-card__title {
     margin-bottom: 0.5rem;
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     font-weight: 800;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground));
   }
   @keyframes overlay-up {
     from {
-      opacity: 0;
-      transform: translateY(6%);
+      opacity: 0.6;
+      transform: translateY(12%);
     }
     to {
       opacity: 1;
@@ -584,40 +604,13 @@
       opacity: 1;
     }
   }
-  @media (min-width: 600px) {
-    .overlay-root {
-      align-items: center;
-      padding: 1.25rem;
-    }
-    .overlay-panel {
-      width: min(40rem, 100%);
-      height: auto;
-      max-height: min(90dvh, 52rem);
-      border-radius: 1.75rem;
-      padding-top: 0;
-      box-shadow: 0 40px 90px -40px hsl(var(--foreground) / 0.6);
-      animation: overlay-pop 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
-    }
-    .overlay-body {
-      padding-bottom: 1.25rem;
-    }
-  }
-  @keyframes overlay-pop {
-    from {
-      opacity: 0;
-      transform: translateY(2%) scale(0.97);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
 
   /* The menu: a few large controls. */
   .menu {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+    padding-top: 0.75rem;
   }
   .menu-section {
     display: flex;
@@ -642,8 +635,8 @@
     align-items: center;
     gap: 0.9rem;
     border-radius: 1.25rem;
-    border: 1px solid hsl(var(--border) / 0.8);
-    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card));
     padding: 0.9rem 1rem;
     text-align: left;
     color: inherit;
@@ -742,8 +735,8 @@
     align-items: center;
     gap: 0.3rem;
     border-radius: 1.25rem;
-    border: 1px solid hsl(var(--border) / 0.8);
-    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card));
     padding: 0.9rem 0.5rem 0.7rem;
     text-align: center;
     color: inherit;
@@ -781,8 +774,8 @@
     align-items: center;
     gap: 0.75rem;
     border-radius: 1.25rem;
-    border: 1px solid hsl(var(--border) / 0.8);
-    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card));
     padding: 0.8rem 0.9rem;
   }
   .menu-account__avatar {
@@ -794,8 +787,8 @@
   }
   .menu-details {
     border-radius: 1.25rem;
-    border: 1px solid hsl(var(--border) / 0.8);
-    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card));
     padding: 0.7rem 0.9rem;
   }
 
@@ -805,7 +798,7 @@
     gap: 0.4rem;
     overflow-x: auto;
     scrollbar-width: none;
-    padding-bottom: 0.15rem;
+    padding: 0.1rem 0.15rem 0.2rem;
   }
   .inv-tabs::-webkit-scrollbar {
     display: none;
@@ -813,37 +806,56 @@
   .inv-tab {
     flex: none;
     border-radius: 9999px;
-    border: 1px solid hsl(var(--border) / 0.8);
-    background: hsl(var(--background));
-    padding: 0.45rem 0.9rem;
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: hsl(var(--foreground) / 0.8);
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card));
+    padding: 0.5rem 1rem;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: hsl(var(--foreground) / 0.75);
+    transition: transform 120ms ease, background-color 120ms ease;
     -webkit-tap-highlight-color: transparent;
+  }
+  .inv-tab:active {
+    transform: scale(0.96);
   }
   .inv-tab--on {
     border-color: hsl(var(--primary));
     background: hsl(var(--primary));
     color: hsl(var(--primary-foreground));
+    box-shadow: 0 8px 18px -12px hsl(var(--primary) / 0.9);
   }
   .inv-tab:focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px hsl(var(--card)), 0 0 0 4px hsl(var(--ring));
   }
+  .inv-source {
+    margin-top: 0.85rem;
+  }
+  .inv-source__title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
   .inv-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
-    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(5.4rem, 1fr));
+    gap: 0.6rem;
   }
   .inv-detail {
     position: sticky;
     bottom: 0;
-    margin: 0 -0.25rem;
+    margin: 0.75rem -0.25rem 0;
     border-radius: 1.25rem;
-    border: 1px solid hsl(var(--border));
+    border: 1px solid hsl(var(--border) / 0.8);
     background: hsl(var(--card));
-    padding: 0.8rem 0.9rem;
-    box-shadow: 0 -10px 30px -20px hsl(var(--foreground) / 0.5);
+    padding: 0.85rem 0.9rem;
+    box-shadow: 0 -12px 30px -18px hsl(var(--foreground) / 0.5);
   }
 
   /* ─── The scene: layers the Blobbi lives between ─────────────────────── */
@@ -1511,12 +1523,12 @@
     transform: translateY(4%) scale(1.05, 0.93);
     transform-origin: 50% 100%;
   }
+  .scene-actor[data-sleeping='true'] .scene-actor__ground {
+    opacity: 0.6;
+  }
   .scene-actor[data-sleeping='true'] .scene-actor__shadow {
     bottom: 3%;
     opacity: 0.5;
-  }
-  .scene-actor[data-sleeping='true'] .scene-actor__ground {
-    opacity: 0.6;
   }
   .scene-actor__zzz {
     position: absolute;
@@ -1680,48 +1692,65 @@
     background: hsl(0 0% 100% / 0.6);
   }
   .item-tile {
+    position: relative;
     display: flex;
     width: 100%;
+    aspect-ratio: 1 / 1.12;
     flex-direction: column;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.5rem 0.25rem 0.4rem;
-    border-radius: 1rem;
-    border: 2px solid transparent;
-    background: hsl(var(--foreground) / 0.05);
+    justify-content: flex-end;
+    gap: 0.2rem;
+    padding: 0.55rem 0.3rem 0.45rem;
+    border-radius: 1.1rem;
+    border: 2px solid hsl(var(--border) / 0.6);
+    background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--foreground) / 0.04) 100%);
+    box-shadow: 0 6px 14px -10px hsl(var(--foreground) / 0.5);
     color: inherit;
     text-align: center;
     -webkit-tap-highlight-color: transparent;
-    transition: transform 120ms ease, border-color 120ms ease;
+    transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .item-tile .item-glyph {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 60%;
+    width: auto;
+    aspect-ratio: 1 / 1;
+    filter: drop-shadow(0 4px 6px hsl(0 0% 0% / 0.18));
+  }
+  .item-tile:hover {
+    border-color: hsl(var(--border));
   }
   .item-tile:active {
-    transform: scale(0.96);
+    transform: scale(0.95);
   }
   .item-tile--selected {
     border-color: hsl(var(--primary));
-    background: hsl(var(--primary) / 0.1);
+    background: linear-gradient(180deg, hsl(var(--primary) / 0.12) 0%, hsl(var(--primary) / 0.05) 100%);
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.25), 0 10px 20px -12px hsl(var(--primary) / 0.7);
+    transform: translateY(-2px);
   }
   .item-tile--muted .item-glyph,
   .item-tile--muted .item-tile__name {
-    opacity: 0.5;
+    opacity: 0.45;
   }
   .item-tile:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+    box-shadow: 0 0 0 2px hsl(var(--card)), 0 0 0 4px hsl(var(--ring));
   }
   .item-tile__name {
     width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-size: 0.72rem;
+    font-weight: 700;
     line-height: 1.1;
   }
   .item-tile__worn {
     position: absolute;
-    top: 0.3rem;
-    right: 0.3rem;
+    top: 0.35rem;
+    left: 0.35rem;
     padding: 0 0.35rem;
     border-radius: 9999px;
     background: hsl(var(--primary));
@@ -1732,13 +1761,20 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  .item-tile {
-    position: relative;
-  }
   .item-tile__count {
-    font-size: 0.65rem;
-    font-weight: 700;
-    color: hsl(var(--muted-foreground));
+    position: absolute;
+    top: 0.3rem;
+    right: 0.3rem;
+    min-width: 1.35rem;
+    padding: 0 0.35rem;
+    border-radius: 9999px;
+    background: hsl(var(--foreground) / 0.82);
+    color: hsl(var(--background));
+    font-size: 0.66rem;
+    font-weight: 800;
+    line-height: 1.25rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
   }
 
   /* The three lines a newcomer needs */

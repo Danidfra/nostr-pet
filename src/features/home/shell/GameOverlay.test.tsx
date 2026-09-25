@@ -62,7 +62,9 @@ describe('GameOverlay', () => {
     expect(root).toHaveAttribute('data-overlay', 'true');
     expect(root.querySelector('.overlay-backdrop')).not.toBeNull();
     const panel = screen.getByRole('dialog');
-    expect(panel.firstElementChild).toHaveClass('overlay-head');
+    expect(panel.firstElementChild).toHaveClass('overlay-handle');
+    expect(panel.children[1]).toHaveClass('overlay-head');
+    expect(panel).toHaveAttribute('data-size', 'medium');
     expect(panel.querySelector('.overlay-body')).not.toBeNull();
     expect(document.querySelector('.sheet-panel, .sheet-root')).toBeNull();
   });

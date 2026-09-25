@@ -13,6 +13,12 @@ interface GameOverlayProps {
   subtitle?: ReactNode;
   /** Sticky tabs or filters under the header, above the scrolling body. */
   toolbar?: ReactNode;
+  /**
+   * How much of the game the panel rises over: `tall` for screens that
+   * need the room (the inventory), `medium` for the ones that do not (the
+   * menu, the details). The world stays visible above either.
+   */
+  size?: 'tall' | 'medium';
   /** Extra classes for the panel. */
   className?: string;
 }
@@ -20,17 +26,18 @@ interface GameOverlayProps {
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
- * A game screen over the game: the one overlay primitive the inventory, the
- * menu and the Blobbi's details are built on. On a phone it takes the whole
- * viewport (safe areas included) and rises from the bottom; on a wider
- * screen it is a centred panel with a bounded width and height, never a
- * side drawer. Accessible dialog semantics without a dependency: labelled
+ * A layer of the game over the game: the one overlay primitive the
+ * inventory, the menu and the Blobbi's details are built on. It rises from
+ * the bottom of the game surface (the viewport on a phone, the rounded game
+ * column on a desktop; `GameShell` renders it inside that column) with a
+ * rounded top edge, over a dimmed but visible world, to a height its `size`
+ * asks for. Never a side drawer, never a modal floating away from the game. Accessible dialog semantics without a dependency: labelled
  * by its title, modal, focus moved to the close control on open and
  * restored on close, Tab kept inside, Escape and the backdrop close it, the
  * page behind does not scroll. The header is fixed and the body scrolls.
  * Reduced motion removes the entrance.
  */
-export function GameOverlay({ open, onClose, title, children, testId, lead, subtitle, toolbar, className = '' }: GameOverlayProps) {
+export function GameOverlay({ open, onClose, title, children, testId, lead, subtitle, toolbar, size = 'medium', className = '' }: GameOverlayProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -76,7 +83,8 @@ export function GameOverlay({ open, onClose, title, children, testId, lead, subt
   return (
     <div className="overlay-root" data-testid={testId} data-overlay="true" onKeyDown={onKeyDown}>
       <div className="overlay-backdrop" onClick={onClose} aria-hidden data-testid={testId ? `${testId}-backdrop` : undefined} />
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={`overlay-panel ${className}`}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={`overlay-panel ${className}`} data-size={size}>
+        <div className="overlay-handle" aria-hidden />
         <header className="overlay-head">
           {lead && <div className="overlay-head__lead">{lead}</div>}
           <div className="overlay-head__text">

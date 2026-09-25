@@ -66,7 +66,7 @@ export function InventorySheet({ open, onClose, inventory, blobbiName, onUse, op
   );
 
   return (
-    <GameOverlay open={open} onClose={onClose} title="Items" testId="inventory-sheet" subtitle={inventory.status === 'ready' ? <span data-testid="inventory-count">{total === 0 ? 'Nothing yet' : `${total} item${total === 1 ? '' : 's'} for ${blobbiName}`}</span> : undefined} toolbar={tabs || undefined}>
+    <GameOverlay open={open} onClose={onClose} title="Items" testId="inventory-sheet" size="tall" subtitle={inventory.status === 'ready' ? <span data-testid="inventory-count">{total === 0 ? 'Nothing yet' : `${total} item${total === 1 ? '' : 's'} for ${blobbiName}`}</span> : undefined} toolbar={tabs || undefined}>
       <div className="flex flex-col gap-4">
         {inventory.status === 'loading' && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="inventory-loading">
@@ -137,9 +137,9 @@ export function InventorySheet({ open, onClose, inventory, blobbiName, onUse, op
 
 function SectionView({ section, selected, onSelect, worn }: { section: HomeInventorySection; selected: string | null; onSelect: (key: string) => void; worn?: ReadonlySet<string> }) {
   return (
-    <section aria-label={section.source.label} data-testid={`inventory-source-${section.source.id}`} className="flex flex-col gap-2">
-      <header className="flex items-center justify-between">
-        <h3 className="text-sm font-bold">{section.source.label}</h3>
+    <section aria-label={section.source.label} data-testid={`inventory-source-${section.source.id}`} className="inv-source">
+      <header className="inv-source__title">
+        <h3>{section.source.label}</h3>
         {section.resolution !== 'resolved' && (
           <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300" data-testid="inventory-unverified">
             <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> Balance unverified
@@ -162,7 +162,7 @@ function SectionView({ section, selected, onSelect, worn }: { section: HomeInven
                 data-usable={usable ? 'true' : 'false'}
                 data-shelf={shelfFor(entry.item)}
               >
-                <ItemGlyph glyph={entry.item.glyph} size="2.4rem" />
+                <ItemGlyph glyph={entry.item.glyph} size="2.6rem" />
                 {worn?.has(entry.item.address) && (
                   <span className="item-tile__worn" data-testid="item-worn">
                     Worn

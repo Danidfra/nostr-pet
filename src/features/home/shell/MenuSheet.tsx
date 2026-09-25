@@ -28,7 +28,7 @@ export function MenuSheet({ open, onClose }: MenuSheetProps) {
   const { logout, sessionNsec, loginType } = useLoginActions();
 
   return (
-    <GameOverlay open={open} onClose={onClose} title="Menu" testId="menu-sheet">
+    <GameOverlay open={open} onClose={onClose} title="Menu" testId="menu-sheet" size="medium">
       <div className="menu">
         <a href={BLOBBI_ISLAND_URL} target="_blank" rel="noopener noreferrer" data-testid="enter-island" className="menu-tile menu-tile--hero">
           <span className="menu-tile__icon">
