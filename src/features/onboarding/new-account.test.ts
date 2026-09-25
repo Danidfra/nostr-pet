@@ -37,7 +37,7 @@ describe('a new account', () => {
   it('downloads through an object URL that is revoked, and refuses where object URLs do not exist', () => {
     const { nsec } = createNewAccount();
     const clicks: string[] = [];
-    const create = vi.fn((_blob: Blob) => 'blob:fake');
+    const create = vi.fn((blob: Blob) => (blob instanceof Blob ? 'blob:fake' : 'blob:not-a-blob'));
     const revoke = vi.fn();
     const originalCreate = URL.createObjectURL;
     const originalRevoke = URL.revokeObjectURL;

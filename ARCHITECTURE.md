@@ -26,7 +26,7 @@ Blobbi standalone         home UX (this repo)
 - care interaction surfaces (buttons and flows; not the formulas);
 - inventory presentation (not the inventory protocol);
 - the "Enter Blobbi Island" exit and other ecosystem destinations;
-- auth / session wiring (which signers are offered, how logins persist).
+- auth / session wiring (which signers are offered, how logins persist), and the way in (welcome, account creation with the ecosystem's primitives, profile setup, adoption).
 
 **Blobbi Kit owns**
 
@@ -142,6 +142,103 @@ Inventory reading and item use arrived in M4 (see "Milestone 6"). Equipment
 rendering (31634) is still read-only. Relay discovery for ecosystem data is
 the read router below (no relay settings UI). Also deferred: account
 switcher, social interaction projection on the home, the companion runtime.
+
+## Milestone 12: one home, care intents, the way in (M10)
+
+A product simplification over the M9 engineering, plus the way in. The
+active product is ONE Blobbi space; the way in is WELCOME → CREATE or USE
+AN ACCOUNT → PROFILE → ADOPT → home.
+
+**One space** (`src/features/home/space/home-space.ts`): the living room
+from the M9 registry (its surfaces, decor and door, four fixed pieces)
+drawn by `RoomBackdrop` and `FurnitureLayer`. No room navigation, no
+editor, no paintbrush, no hotbar, no desktop rail. The rest of the M9
+room system is dormant, not deleted: `src/features/home/rooms/README.md`
+says what is still imported (backdrop, furniture layer, `approachSpot`,
+surfaces, `roomById`, the `Placement` type) and what is asleep (registry
+order, navigation, layout store and editor, drag engine, placed toys);
+`rooms/dormant.css` holds their styles, not imported; unit tests keep them
+working (`rooms.test.ts`, `layout-edit.test.ts`, `room-space.test.ts`).
+Desktop is the same column, capped at 40rem and centred over a soft
+background, not a wider room.
+
+**Care intents** (`src/features/home/care-model.ts`): the bottom row is
+FEED / PLAY / CLEAN / REST with the bag BESIDE them. A verb is an intent:
+tapping it opens a strip right above the row (`shell/CareOptions.tsx`)
+with the owned items that answer it (from the verified inventory read,
+mapped by care action: feed and boost → Feed, play → Play, clean and
+medicine → Clean; cosmetics never) and one plain way that needs nothing,
+so a player with an empty inventory can always care. Every option ends in
+an existing path: an item option in the M4 optimistic use (spend + care,
+`MIN_USE_MS` floor, refusal changes nothing), a plain option in the kit's
+care effect. Rest is one tap: the bed (`home:bed-pet`) comes out at a
+fixed spot, the Blobbi walks to it and sleep is written only on arrival;
+the bed stays while it sleeps and leaves a moment after waking. Clean's
+plain way brings the tub out the same way. Food is set down at the offer
+spot, a toy at the toy spot; both leave after use. A floor tap on the way
+cancels: nothing written, the piece goes away. A failed write puts the
+piece away too. A sleeper opens the home in its bed.
+
+**Feedback**: the HUD chip carries one condition dot per stat with the
+kit's status (`getStatStatus`: normal, warning, critical), no numbers; the
+exact numbers, XP, level, lifecycle, other Blobbis and the Island link are
+in the sheets. A need becoming critical is said once in the Blobbi's
+words (`needLine`). The streak is never computed here: the home reads
+`care_streak` from the authoritative event and only animates when it went
+UP between two versions of the same Blobbi (`streak.ts`,
+`detectStreakIncrease`); the pill bumps and the Blobbi says a line; the
+milestone days (3, 7, 14, 30, 60, 100, 365) get a card
+(`StreakMoment.tsx`). A page load never celebrates; the kit's rule (a new
+local day, yesterday cared for → +1, else reset to 1, same day → no
+change) is untouched.
+
+**The way in** (`src/features/onboarding/`): `resolveOnboardingStep` is
+pure over what is read (login store, collection, kind 0) and two session
+facts (the door chosen; the profile step done or skipped), so a refresh in
+the middle lands on the same step and an existing player with a Blobbi
+never sees any of it. Creating an account: nostr-tools `generateSecretKey`
++ `nip19` (what Ditto's and Island's signup call), then nostrify
+`NLogin.fromNsec` into the `NostrLoginProvider` store both apps share
+(`nostr:login`; no new storage here). The key is shown once with a plain
+warning (it IS the account; no reset; losing it can mean losing access),
+copied or downloaded as Island's `blobbi-nostr-key-backup-<npub8>.txt`
+through a revoked object URL (never a `data:` URL), and a deliberate "I
+have saved it" gate stands before sign-in. Never logged, never in a relay
+payload, never in a URL; the menu can show it again for a backup, hidden
+until asked. Existing accounts: NIP-07 extension and NIP-46 bunker first,
+a secret key (pasted or the backup file) behind a fold. The profile step
+publishes a standard kind 0 that keeps every existing field (fresh read,
+`mergeProfileMetadata`), signed by the current signer, with an optional
+Blossom upload to Ditto's application servers (`config/blossom.ts`). It is
+offered to a new account and to a nameless kind 0 and can be skipped.
+Adoption is the M6 flow unchanged (preflight, idempotency); the profile
+name is suggested for the Blobbonaut profile. `onboarding.test.tsx` runs
+the whole way in with the real login store and real signing and asserts
+the secret never reaches a relay payload, a query, the URL or the console.
+
+**Themes: prepared, not started.** The ecosystem's theme representation
+is Ditto's, re-implemented by Island (`ditto/src/lib/themeEvent.ts`,
+`blobbi-island/src/lib/nostr-theme.ts`): kind 36767 (addressable, a named
+shareable theme definition, many per user) and kind 16767 (replaceable,
+the active theme, one per user, `a` tag to the definition when there is
+one); colours as `c` tags `[c, <hex>, <role>]` with roles background /
+text / primary; fonts as `f` tags with a body/title role; backgrounds and
+titles in further tags. Nothing of this is implemented here. What the
+theme milestone needs from this app: the home already paints from tokens
+(`--wall`, `--floor`, `--sky` and the room surfaces from data), the menu
+already owns "how the home looks" (the Island clock appearances), and the
+scene never reads theme state from Nostr. A future theme feature would be
+a read of 16767/36767 through the existing pool (read hints, trust as
+data), a mapping from the three colour roles to the home's tokens, and no
+new event kind. No theme format is invented here.
+
+**Tests**: `care-intent.test.tsx` (single home, no navigation or editor,
+verbs and options, no-inventory fallback, rest → bed → sleep, cancel, tub,
+egg, optimistic vs authoritative, toy, bag), `streak-hud.test.tsx`,
+`onboarding.test.tsx`, unit tests for the care model, streak, key helpers,
+step resolver, profile merge and the dormant layout ops; the care,
+lifecycle, scene, protocol-boundary and render-cost suites adapted to the
+two-tap model (`src/test/care-ui.ts`).
 
 ## Milestone 11: rooms after the Ditto audit (M9)
 
