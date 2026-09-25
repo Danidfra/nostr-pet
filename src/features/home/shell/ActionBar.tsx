@@ -1,50 +1,45 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Sparkles } from 'lucide-react';
-import { CareDock } from '../CareDock';
-import { ItemHotbar, type HotbarProps } from './ItemHotbar';
 import type { CareAction, CareAvailability } from '@/features/care';
 import type { CeremonyKind } from '@/features/lifecycle';
+import { CareDock } from '../CareDock';
+import type { CareVerb } from '../care-model';
 
 interface ActionBarProps {
   actions: readonly CareAvailability[];
+  selected: CareVerb | null;
   pendingAction: CareAction | null;
-  onAction: (action: CareAction) => void;
+  counts: Record<CareVerb, number>;
+  onSelect: (verb: CareVerb) => void;
+  onOpenItems: () => void;
+  itemCount: number;
+  /** The options strip for the selected verb, rendered above the row. */
+  options?: ReactNode;
   /** A lifecycle moment is ready: the one big pill. */
   lifecycleReady?: { kind: CeremonyKind; label: string } | null;
   onLifecycle?: (kind: CeremonyKind) => void;
   disabled?: boolean;
-  /** The item hotbar. Absent hides it (signed out, no Blobbi). */
-  hotbar?: HotbarProps;
-  /** The room, so the dock takes its floor's colour. */
-  room?: string;
   /** The room floor's CSS background; the dock continues it under the controls. */
   floorBackground?: string;
-  /** Something that replaces the hotbar and the verbs for a while (the room editor's toolbar). */
-  override?: React.ReactNode;
 }
 
 /**
- * The bottom of the screen, under the thumb, front to back: the lifecycle
- * pill when the kit says a moment is ready; the item hotbar (the room's
- * usable items, the bag first); the care verbs (feed, play, clean, rest),
- * which are the item-free fallback and the way to bed. The dock sits in
- * the flow, at the front edge of the floor, so it never covers the Blobbi.
+ * The bottom of the screen, under the thumb: the lifecycle pill when a
+ * moment is ready, the options for the chosen verb, then the four care
+ * intents with the bag beside them. The dock sits in the flow at the
+ * front edge of the floor, so it never covers the Blobbi.
  */
-function ActionBarImpl({ actions, pendingAction, onAction, lifecycleReady, onLifecycle, disabled = false, hotbar, room, floorBackground, override }: ActionBarProps) {
+function ActionBarImpl({ actions, selected, pendingAction, counts, onSelect, onOpenItems, itemCount, options, lifecycleReady, onLifecycle, disabled = false, floorBackground }: ActionBarProps) {
   return (
-    <nav className="hud-bottom" aria-label="Actions" data-testid="action-bar" data-room={room} style={floorBackground ? ({ '--dock-floor': floorBackground } as React.CSSProperties) : undefined}>
+    <nav className="hud-bottom" aria-label="Actions" data-testid="action-bar" style={floorBackground ? ({ '--dock-floor': floorBackground } as React.CSSProperties) : undefined}>
       {lifecycleReady && onLifecycle && (
         <button type="button" className="lifecycle-pill" onClick={() => onLifecycle(lifecycleReady.kind)} disabled={disabled} data-testid={`action-${lifecycleReady.kind}`}>
           <Sparkles className="h-4 w-4" aria-hidden />
           {lifecycleReady.label}
         </button>
       )}
-      {override ?? (
-        <>
-          {hotbar && <ItemHotbar {...hotbar} disabled={disabled || hotbar.disabled} />}
-          <CareDock actions={disabled ? actions.map((a) => ({ ...a, available: false, reason: 'Something is happening.' })) : actions} pendingAction={pendingAction} onAction={onAction} />
-        </>
-      )}
+      {options}
+      <CareDock actions={actions} selected={selected} pendingAction={pendingAction} counts={counts} onSelect={onSelect} onOpenItems={onOpenItems} itemCount={itemCount} disabled={disabled} />
     </nav>
   );
 }

@@ -16,11 +16,13 @@ import { KIND_BLOBBI_STATE, BLOBBONAUT_PROFILE_KINDS, getTagValue } from '@blobb
 
 import Home from '@/pages/Home';
 import { HOME_SPOT, SceneSettingsProvider, placeOnFloor, type SceneSettings } from '@/features/home/scene';
-import { roomById, sleepSpotFor } from '@/features/home/rooms';
-
-/** Where the default bedroom's bed puts a sleeper. */
-const BED_SLEEP_SPOT = sleepSpotFor(roomById('rest').defaultFurniture, roomById('rest'));
+import { approachSpot } from '@/features/home/rooms';
+import { STAGE_OBJECTS } from '@/features/home/space/home-space';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
+import { chooseCare } from '@/test/care-ui';
+
+/** Where the bed puts a sleeper when it comes out. */
+const BED_SLEEP_SPOT = approachSpot(STAGE_OBJECTS.bed);
 
 // ─── Signed-in user with a fake signer ───────────────────────────────────────
 
@@ -202,7 +204,7 @@ describe('Scene: reactions', () => {
     renderHome();
     const a = await ready();
     expect(a).toHaveAttribute('data-expression', 'neutral');
-    await userEvent.click(screen.getByTestId('care-feed'));
+    await chooseCare('feed');
     await waitFor(() => expect(a).toHaveAttribute('data-expression', 'happy'));
     expect(published31124()).toHaveLength(1);
   });

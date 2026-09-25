@@ -1,13 +1,13 @@
 /**
  * The protocol boundary, as a regression suite: everything that is
- * presentation (rooms, positions, gaze, decorating, toys set down, the
- * item in hand, reactions, pokes) writes nothing to Nostr and reads
+ * presentation (positions, gaze, the options strip, the bed and tub
+ * coming out, items set down, reactions, pokes) writes nothing to Nostr and reads
  * nothing new; the semantic actions write exactly their kinds. Also the
  * renderer contract: a V1 Blobbi draws without expressions, a V2 Blobbi
  * carries them, and the home hands both the same inputs.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -20,6 +20,7 @@ import { KIND_GAME_INVENTORY_SPEND } from '@nostr-games/inventory';
 import Home from '@/pages/Home';
 import { SceneSettingsProvider, type SceneSettings } from '@/features/home/scene';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
+import { chooseCare, chooseItem } from '@/test/care-ui';
 import { OFFICIAL_APPLE, OFFICIAL_BALL, inventoryEvent, officialCareDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 
 let signCount = 0;
@@ -58,6 +59,7 @@ const event = vi.fn(async (ev: NostrEvent) => {
 const pool = { query, event } as unknown as NPool;
 
 const FAST: Partial<SceneSettings> = { walkSpeed: 4, idleEnabled: false };
+const SLOW: Partial<SceneSettings> = { walkSpeed: 1.2, idleEnabled: false };
 function renderHome(settings: Partial<SceneSettings> = FAST) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -105,20 +107,11 @@ beforeEach(() => {
 });
 
 describe('Presentation never touches Nostr', () => {
-  it('rooms, positions, gaze, pokes, holding, setting a toy down and decorating write nothing and read nothing new', async () => {
-    renderHome();
+  it('walking, looking, poking, opening the options, setting an item down and putting it back write nothing and read nothing new', async () => {
+    renderHome(SLOW);
     await ready();
     const reads = query.mock.calls.length;
     const scene = screen.getByTestId('home-scene');
-
-    // Rooms, around the loop and back.
-    for (let i = 0; i < 5; i += 1) await userEvent.click(screen.getByTestId('room-arrow-right'));
-    expect(scene).toHaveAttribute('data-room', 'home');
-    fireEvent.pointerDown(scene, { pointerType: 'touch', clientX: 300, clientY: 300 });
-    fireEvent.pointerUp(scene, { pointerType: 'touch', clientX: 100, clientY: 300 });
-    expect(scene).toHaveAttribute('data-room', 'rest');
-    await new Promise((r) => setTimeout(r, 150)); // past the swipe's trailing-click guard
-    await userEvent.click(screen.getByTestId('room-dot-home'));
 
     // Walking, looking, poking.
     fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 100, clientY: 520, detail: 1 });
@@ -126,19 +119,27 @@ describe('Presentation never touches Nostr', () => {
     fireEvent.pointerMove(scene, { pointerType: 'mouse', clientX: 350, clientY: 50 });
     for (let i = 0; i < 4; i += 1) await userEvent.click(screen.getByTestId('blobbi-poke'));
     expect(actor()).toHaveAttribute('data-expression', 'upset');
-
-    // Holding and putting back; setting a toy down.
-    expect(scene).toHaveAttribute('data-room', 'home');
     await waitFor(() => expect(actor()).toHaveAttribute('data-expression', 'neutral'), { timeout: 4000 });
-    await userEvent.click(screen.getByTestId('hotbar-item-blobbi:toy:ball'));
-    fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 300, clientY: 560, detail: 1 });
-    expect(screen.getByTestId('scene-object-toy-blobbi:toy:ball')).toBeInTheDocument();
 
-    // Decorating: move the rug, apply.
-    await userEvent.click(screen.getByTestId('room-edit'));
-    await userEvent.click(screen.getByTestId('furniture-button-official:rug-round'));
-    await userEvent.click(screen.getByTestId('editor-nudge-left'));
-    await userEvent.click(screen.getByTestId('editor-apply'));
+    // Opening and closing the options of every verb.
+    for (const verb of ['feed', 'play', 'clean'] as const) {
+      await userEvent.click(screen.getByTestId(`care-${verb}`));
+      expect(screen.getByTestId('care-options')).toHaveAttribute('data-verb', verb);
+    }
+    await userEvent.click(screen.getByTestId('care-clean'));
+    expect(screen.queryByTestId('care-options')).toBeNull();
+
+    // The bed comes out and goes back without a sleep: a tap on the way.
+    await chooseCare('rest');
+    expect(screen.getByTestId('furniture-home:bed-pet')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 150, clientY: 500, detail: 1 });
+    await waitFor(() => expect(screen.queryByTestId('furniture-home:bed-pet')).toBeNull(), { timeout: 3000 });
+
+    // An item set down and put back before the Blobbi reaches it.
+    await chooseItem('play', 'blobbi:toy:ball');
+    expect(screen.getByTestId('scene-object-offer')).toHaveAttribute('data-state', 'walking');
+    await userEvent.click(within(screen.getByTestId('scene-object-offer')).getByRole('button'));
+    await waitFor(() => expect(screen.queryByTestId('scene-object-offer')).toBeNull());
 
     await new Promise((r) => setTimeout(r, 200));
     expect(relay.published).toEqual([]);
@@ -149,13 +150,11 @@ describe('Presentation never touches Nostr', () => {
   it('the semantic actions write exactly their kinds: care is 31124 and 1124, an item use is 1416, 31124 and 1124', async () => {
     renderHome();
     await ready();
-    await userEvent.click(screen.getByTestId('care-feed'));
+    await chooseCare('feed');
     await waitFor(() => expect(kinds().filter((k) => k === KIND_BLOBBI_STATE)).toHaveLength(1), { timeout: 3000 });
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });
     relay.published = [];
-    await userEvent.click(screen.getByTestId('hotbar-item-blobbi:toy:ball'));
-    await waitFor(() => expect(screen.getByTestId('blobbi-poke')).toHaveAccessibleName('Give Brook the Ball'));
-    await userEvent.click(screen.getByTestId('blobbi-poke'));
+    await chooseItem('play', 'blobbi:toy:ball');
     await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
   });
 });
@@ -187,8 +186,7 @@ describe('The renderer contract', () => {
     fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 100, clientY: 520, detail: 1 });
     expect(actor()).toHaveAttribute('data-motion', 'idle');
     expect(actor()).toHaveAttribute('data-x', '0.250');
-    await userEvent.click(screen.getByTestId('hotbar-item-blobbi:toy:ball'));
-    await userEvent.click(screen.getByTestId('blobbi-poke'));
+    await chooseItem('play', 'blobbi:toy:ball');
     await waitFor(() => expect(kinds().filter((k) => k === KIND_GAME_INVENTORY_SPEND)).toHaveLength(1), { timeout: 4000 });
     expect(relay.published).toHaveLength(kinds().length);
   });

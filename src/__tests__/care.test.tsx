@@ -23,6 +23,7 @@ import {
 
 import Home from '@/pages/Home';
 import { SceneSettingsProvider } from '@/features/home/scene';
+import { chooseCare } from '@/test/care-ui';
 import { EnvironmentProvider } from '@/environment';
 import type { Appearance } from '@/environment';
 import { PUBKEY, blobbiEvent, profileEvent } from '@/test/fixtures';
@@ -137,7 +138,7 @@ describe('Care: feed', () => {
     await closeSheet();
     expect(freshReads()).toHaveLength(0);
 
-    await userEvent.click(screen.getByTestId('care-feed'));
+    await chooseCare('feed');
     await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/fed brook/i));
 
     // Fresh read before write, scoped to this Blobbi.
@@ -174,10 +175,11 @@ describe('Care: feed', () => {
     relay.publishDelay = 80;
     renderHome();
     await ready();
-    const feed = screen.getByTestId('care-feed');
-    await userEvent.click(feed);
-    await userEvent.click(feed);
+    await chooseCare('feed');
+    // While the write is in flight every verb is off: nothing opens, nothing sends.
+    await userEvent.click(screen.getByTestId('care-feed'));
     await userEvent.click(screen.getByTestId('care-play'));
+    expect(screen.queryByTestId('care-options')).toBeNull();
     await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/fed brook/i));
     await waitFor(() => expect(published31124()).toHaveLength(1));
     expect(published31124()).toHaveLength(1);
@@ -190,7 +192,7 @@ describe('Care: feed', () => {
     relay.publishFails = true;
     renderHome();
     await ready();
-    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseCare('clean');
     expect(await screen.findByTestId('care-error')).toHaveTextContent(/relay rejected/i);
     expect(published31124()).toHaveLength(0);
     expect(screen.getByTestId('care-feed')).toBeEnabled();
@@ -259,7 +261,7 @@ describe('Care: stages', () => {
     expect(screen.getByTestId('care-play')).toBeDisabled();
     expect(screen.getByTestId('care-clean')).toBeEnabled();
     expect(screen.getByTestId('care-rest')).toBeEnabled();
-    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseCare('clean');
     await waitFor(() => expect(published31124()).toHaveLength(1));
     expect(getTagValue(published31124()[0].tags, 'stage')).toBe('egg');
     await waitFor(() => expect(published1124()).toHaveLength(1));

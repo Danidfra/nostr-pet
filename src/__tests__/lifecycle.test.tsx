@@ -25,6 +25,7 @@ import {
 import { KIND_COLOR_MOMENT, KIND_PROFILE_METADATA, KIND_THEME_DEFINITION, clearEvolutionFromStorage, createEvolveMissions, createHatchMissions } from '@blobbi-kit/react';
 
 import Home from '@/pages/Home';
+import { chooseCare } from '@/test/care-ui';
 import { SceneSettingsProvider } from '@/features/home/scene';
 import { PUBKEY, blobbiEvent, profileEvent } from '@/test/fixtures';
 
@@ -240,7 +241,7 @@ describe('Lifecycle: egg', () => {
     await ready();
     expect(screen.getByTestId('lifecycle-task-interactions')).toHaveTextContent('6/7');
     await closeSheet();
-    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseCare('clean');
     await waitFor(() => expect(published31124()).toHaveLength(1));
     const missions = parseEvolutionContent(published31124()[0].content);
     const interactions = missions.find((m) => m.id === 'interactions');

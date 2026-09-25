@@ -38,3 +38,21 @@ export function glanceToward(from: { x: number; y: number }, to: { x: number; y:
   const dx = to.x - from.x;
   return { x: Math.max(-0.8, Math.min(0.8, dx * 3)), y: to.y > from.y ? 0.5 : 0.1 };
 }
+
+/** What a Blobbi says the moment a need becomes critical; once, not on repeat. */
+export function needLine(stat: keyof BlobbiStats): string | null {
+  switch (stat) {
+    case 'hunger':
+      return 'So hungry…';
+    case 'energy':
+      return 'I could sleep for days.';
+    case 'hygiene':
+      return 'I feel sticky.';
+    case 'happiness':
+      return 'Play with me?';
+    case 'health':
+      return 'I feel funny.';
+    default:
+      return null;
+  }
+}
