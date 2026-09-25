@@ -728,8 +728,21 @@
 
   /* The options for the chosen verb: one strip above the row, one thumb high. */
   .care-options {
-    padding: 0 0.5rem;
+    /* Floats over the bottom of the room, anchored to the dock: opening it
+       never changes the dock's height, so the room, the horizon and the
+       Blobbi stay exactly where they are. */
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    z-index: 3;
+    padding: 1.4rem 0.5rem 0.35rem;
+    background: linear-gradient(180deg, transparent 0%, hsl(0 0% 0% / 0.22) 40%, hsl(0 0% 0% / 0.3) 100%);
+    pointer-events: none;
     animation: options-in 160ms ease-out;
+  }
+  .care-options > * {
+    pointer-events: auto;
   }
   @keyframes options-in {
     from {
@@ -743,6 +756,7 @@
   }
   .care-options__strip {
     display: flex;
+    justify-content: safe center;
     gap: 0.5rem;
     padding: 0.35rem 0.25rem 0.25rem;
     overflow-x: auto;
@@ -1138,6 +1152,38 @@
   .dark .scene-actor__shadow {
     background: hsl(0 0% 0% / 0.5);
   }
+  /* Walking: the renderer bobs the body (one cycle of --walk-cycle, offset
+     by --blobbi-motion-phase, both from the actor); the shadow underneath
+     shrinks and fades at the top of each bob, twice per cycle, with the
+     same phase, so the two read as one thing. The body itself gets no
+     transform from the home (motion-contract.ts). */
+  .scene-actor[data-motion='walking'] .scene-actor__shadow {
+    animation: actor-shadow-walk calc(var(--walk-cycle, 0.56s) / 2) ease-in-out infinite;
+    animation-delay: calc(var(--blobbi-motion-phase, 0) * -1 * var(--walk-cycle, 0.56s));
+  }
+  @keyframes actor-shadow-walk {
+    0%,
+    100% {
+      transform: translateX(-50%) scale(1, 1);
+      opacity: 1;
+    }
+    50% {
+      transform: translateX(-50%) scale(0.84, 0.78);
+      opacity: 0.62;
+    }
+  }
+  /* Asleep on the bed: the body settles into the cushion, the shadow goes with it. */
+  .scene-actor[data-sleeping='true'] .scene-actor__box {
+    transform: translateY(4%) scale(1.05, 0.93);
+    transform-origin: 50% 100%;
+  }
+  .scene-actor[data-sleeping='true'] .scene-actor__shadow {
+    bottom: 3%;
+    opacity: 0.5;
+  }
+  .scene-actor[data-sleeping='true'] .scene-actor__ground {
+    opacity: 0.6;
+  }
   .scene-actor__zzz {
     position: absolute;
     right: -4%;
@@ -1399,26 +1445,6 @@
   }
 }
 
-@keyframes sheet-up {
-  from {
-    transform: translateY(12%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-@keyframes sheet-in {
-  from {
-    transform: translateX(8%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
 @keyframes lifecycle-pill-pulse {
   0%,
   100% {
@@ -1451,13 +1477,32 @@
   }
 }
 
+@keyframes sheet-up {
+  from {
+    transform: translateY(12%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateX(8%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   html,
   body,
   .scene,
   .backdrop-wall,
   .backdrop-floor,
-  .sheet-panel,
   .lifecycle-pill,
   .need-bubble,
   .scene-heart,
@@ -1469,6 +1514,8 @@
   .scene-actor[data-invite='true'] .scene-actor__box::after,
   .scene-object-anchor[data-state='using'] .offer-art,
   .care-options,
+  .scene-actor[data-motion='walking'] .scene-actor__shadow,
+  .sheet-panel,
   .furniture-anchor[data-state='walking'] .furniture,
   .furniture-anchor[data-state='using'] .furniture,
   .streak-pill--bump,

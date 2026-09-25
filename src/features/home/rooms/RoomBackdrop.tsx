@@ -28,7 +28,7 @@ function RoomBackdropImpl({ room }: { room: RoomDefinition }) {
 }
 
 function Window({ small }: { small: boolean }) {
-  const style: CSSProperties = small ? { left: '64%', top: '12%', width: '20%' } : { left: '60%', top: '12%', width: '26%' };
+  const style: CSSProperties = small ? { left: '64%', top: '12%', width: '20%' } : { left: '58%', top: '11%', width: '27%' };
   return (
     <div className={`decor-window ${small ? 'decor-window--small' : ''}`} style={style}>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">

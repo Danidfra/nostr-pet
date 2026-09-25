@@ -1,8 +1,9 @@
 import { forwardRef, type ReactNode } from 'react';
-import { BlobbiRenderer, type BlobbiEggCrack, type BlobbiVisualEffect, type NormalizedAccessoryPlacement } from '@blobbi-kit/renderer';
+import { BlobbiRenderer, blobbiMotionPhase, BLOBBI_MOTION_PHASES, type BlobbiEggCrack, type BlobbiVisualEffect, type NormalizedAccessoryPlacement } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { placeOnFloor } from './geometry';
+import { RENDERER_WALK_CYCLE_S } from './motion-contract';
 import type { BlobbiPresentation } from './presentation';
 
 interface BlobbiActorProps {
@@ -38,6 +39,11 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
 ) {
   const placement = placeOnFloor(presentation.position);
   const { isSleeping } = presentation;
+  // The renderer's walk cycle and per-instance phase, so the shadow under the
+  // Blobbi can follow the bob (see motion-contract.ts). Same instance id as
+  // the renderer gets, so the phase is the one it uses.
+  const instanceId = `home-${blobbi.d}`;
+  const motionPhase = blobbiMotionPhase(instanceId) / BLOBBI_MOTION_PHASES;
 
   return (
     <div
@@ -52,7 +58,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-egg-crack={blobbi.stage === 'egg' ? (eggCrack ?? 'none') : undefined}
       data-x={presentation.position.x.toFixed(3)}
       data-y={presentation.position.y.toFixed(3)}
-      style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale) } as React.CSSProperties}
+      style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale), '--walk-cycle': `${RENDERER_WALK_CYCLE_S}s`, '--blobbi-motion-phase': String(motionPhase) } as React.CSSProperties}
     >
       <div className="scene-actor__body">
         <div aria-hidden className="home-ground scene-actor__ground" />
@@ -76,7 +82,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
         >
           <BlobbiRenderer
             visual={toBlobbiVisual(blobbi)}
-            instanceId={`home-${blobbi.d}`}
+            instanceId={instanceId}
             size="100%"
             facing={presentation.facing}
             motion={presentation.motion}

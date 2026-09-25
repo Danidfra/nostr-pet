@@ -19,11 +19,13 @@ interface CareOptionsProps {
  * The options for the chosen verb, right above the verb row: the items the
  * player owns that do it (from the verified inventory read, with artwork
  * and count) and the plain way that needs nothing. One tap chooses. The
- * strip scrolls sideways when there are many, and is one thumb high.
+ * strip scrolls sideways when there are many, and is one thumb high. It
+ * floats over the bottom of the room (CSS: absolute, anchored to the dock),
+ * so opening it never changes the dock's height or moves the scene.
  */
 function CareOptionsImpl({ verb, options, blobbi, onChoose, disabled = false }: CareOptionsProps) {
   return (
-    <div className="care-options" role="group" aria-label={`${VERB_WORD[verb]}: ways to do it`} data-testid="care-options" data-verb={verb}>
+    <div className="care-options" role="group" aria-label={`${VERB_WORD[verb]}: ways to do it`} data-testid="care-options" data-verb={verb} data-float="true">
       <div className="care-options__strip" role="list">
         {options.map((option) => {
           const label = describeOption(option, blobbi);

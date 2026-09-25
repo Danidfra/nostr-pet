@@ -49,6 +49,16 @@ interface BlobbiOverviewProps {
 
 /** Dev-only lifecycle shortcuts: never in a production build, and off unless the flag is set. */
 const DEV_LIFECYCLE_TOOLS = import.meta.env.DEV && import.meta.env.VITE_BLOBBI_DEV_TOOLS === 'true';
+/**
+ * Dev-only composition preview (`?preview=bed|tub`): the piece is out and
+ * the Blobbi stands at its spot on load, with no walk and no write, so the
+ * proportions can be looked at without caring for a real Blobbi. Same
+ * flag and build guard as the lifecycle shortcuts.
+ */
+const DEV_PREVIEW: StageObjectKind | null = DEV_LIFECYCLE_TOOLS && typeof window !== 'undefined' ? ((): StageObjectKind | null => {
+  const v = new URLSearchParams(window.location.search).get('preview');
+  return v === 'bed' || v === 'tub' ? v : null;
+})() : null;
 
 /** What the Blobbi says when a care action lands. Microcopy only. */
 const CARE_LINES: Record<CareAction, string[]> = {
@@ -152,8 +162,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   });
 
   const sleeping = blobbi.state === 'sleeping';
-  const [initialPosition] = useState<FloorPoint>(() => (sleeping ? approachSpot(STAGE_OBJECTS.bed) : HOME_SPACE.entry));
-  const scene = useBlobbiPresentation({ blobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition });
+  const [initialPosition] = useState<FloorPoint>(() => (sleeping ? approachSpot(STAGE_OBJECTS.bed) : DEV_PREVIEW ? approachSpot(STAGE_OBJECTS[DEV_PREVIEW]) : HOME_SPACE.entry));
+  // The dev bed preview shows the sleeping pose too (presentation only; care and writes see the real state).
+  const shownBlobbi = DEV_PREVIEW === 'bed' && blobbi.state === 'active' ? { ...blobbi, state: 'sleeping' as const } : blobbi;
+  const scene = useBlobbiPresentation({ blobbi: shownBlobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition });
 
   const statItems = useMemo<StatItem[]>(
     () =>
@@ -185,7 +197,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     offerRef.current = offer;
   }, [offer]);
   // A sleeper is in its bed from the start; the bed leaves when it wakes.
-  const [stage, setStage] = useState<StageObject | null>(() => (sleeping ? { kind: 'bed', phase: 'using', key: 0 } : null));
+  const [stage, setStage] = useState<StageObject | null>(() => (sleeping ? { kind: 'bed', phase: 'using', key: 0 } : DEV_PREVIEW ? { kind: DEV_PREVIEW, phase: 'using', key: 0 } : null));
   const stageRef = useRef<StageObject | null>(stage);
   useEffect(() => {
     stageRef.current = stage;
@@ -240,7 +252,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     return () => clearTimeout(timer);
   }, [stage]);
   useEffect(() => {
-    if (!sleeping) setStage((s) => (s && s.kind === 'bed' && s.phase === 'using' ? { ...s, phase: 'done' } : s));
+    if (!sleeping && !DEV_PREVIEW) setStage((s) => (s && s.kind === 'bed' && s.phase === 'using' ? { ...s, phase: 'done' } : s));
   }, [sleeping]);
 
   // An item was used: the celebration waits for the write AND for the use
@@ -584,7 +596,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             </>
           }
           actor={
-            <BlobbiActor ref={actorRef} blobbi={blobbi} presentation={scene.presentation} happyKey={resultKey} onPoke={inCeremony ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} effects={actorEffects} accessories={accessories}>
+            <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={scene.presentation} happyKey={resultKey} onPoke={inCeremony ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} effects={actorEffects} accessories={accessories}>
               <NeedBubbles items={sleeping || inCeremony ? [] : statItems} />
               <SpeechBubble speech={speech} />
               <CareFeedback result={feedback} resultKey={resultKey} />

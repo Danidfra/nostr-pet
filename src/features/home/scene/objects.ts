@@ -26,6 +26,8 @@ export interface SceneObjectDef {
   approach?: FloorPoint;
   /** Width as a fraction of the scene width (clamped by CSS). */
   width: number;
+  /** Stands on the wall at the floor line: no depth scaling, drawn behind everything on the floor. */
+  wall?: boolean;
   /** A test id when several objects share an id (toys). */
   testId?: string;
 }
@@ -33,11 +35,15 @@ export interface SceneObjectDef {
 /** Where a Blobbi stands when it arrives home (awake). */
 export const HOME_SPOT: FloorPoint = { x: 0.5, y: 0.6 };
 
-/** The door to the Island: on the back wall, left. */
-export const DOOR_POSITION: FloorPoint = { x: 0.16, y: 0.06 };
+/**
+ * The door to the Island: on the back wall, left. `y: 0` is the floor line
+ * (the top of the floor band), so its bottom edge rests exactly where the
+ * wall meets the floor at every viewport; the canonical space decides.
+ */
+export const DOOR_POSITION: FloorPoint = { x: 0.17, y: 0 };
 
-/** Where the Blobbi stands to go out. */
-export const DOOR_APPROACH: FloorPoint = { x: 0.2, y: 0.22 };
+/** Where the Blobbi stands to go out: just in front of the door. */
+export const DOOR_APPROACH: FloorPoint = { x: 0.22, y: 0.18 };
 
 /** Where an offered item is set down: front left of the rug, in plain view. */
 export const OFFER_SPOT: FloorPoint = { x: 0.36, y: 0.7 };
@@ -46,7 +52,7 @@ export const OFFER_SPOT: FloorPoint = { x: 0.36, y: 0.7 };
 export const OFFER_APPROACH: FloorPoint = { x: 0.47, y: 0.66 };
 
 export const SCENE_OBJECTS: readonly SceneObjectDef[] = [
-  { id: 'door', kind: 'furniture', label: 'Door to Blobbi Island', position: DOOR_POSITION, approach: DOOR_APPROACH, width: 0.16 },
+  { id: 'door', kind: 'furniture', label: 'Door to Blobbi Island', position: DOOR_POSITION, approach: DOOR_APPROACH, width: 0.26, wall: true },
 ];
 
 /**

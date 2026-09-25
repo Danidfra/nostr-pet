@@ -48,9 +48,15 @@ export const FURNITURE: readonly FurnitureDefinition[] = [
   { id: 'official:bed-round', category: 'furniture', label: 'Round Bed', asset: '/furniture/bed-round.svg', aspectRatio: 1.6, baseWidth: 0.27, allowedLayers: ['floor'], defaultLayer: 'floor', allowedRooms: BEDS, flippable: false, shadow: 'none', renderOrder: -10, use: REST_USE },
   { id: 'official:bed-cushion', category: 'furniture', label: 'Cushion Bed', asset: '/furniture/bed-cushion.svg', aspectRatio: 1.5, baseWidth: 0.25, allowedLayers: ['floor'], defaultLayer: 'floor', allowedRooms: BEDS, flippable: true, shadow: 'none', renderOrder: -10, use: REST_USE },
   { id: 'official:bed-basket', category: 'furniture', label: 'Basket Bed', asset: '/furniture/bed-basket.svg', aspectRatio: 1.3, baseWidth: 0.22, allowedLayers: ['floor'], defaultLayer: 'floor', allowedRooms: BEDS, flippable: true, shadow: 'none', renderOrder: -10, use: REST_USE },
-  { id: 'home:bed-pet', category: 'furniture', label: 'Pet Bed', asset: '/objects/bed.webp', aspectRatio: 560 / 315, baseWidth: 0.3, allowedLayers: ['floor'], defaultLayer: 'floor', allowedRooms: BEDS, flippable: false, shadow: 'none', renderOrder: -10, use: REST_USE },
+  // The pet bed is a round cushion: a Blobbi sits IN it, its feet a quarter
+  // of the way up the cushion, drawn in front of the bed (renderOrder puts
+  // the bed well behind anything standing at that depth) with the back rim
+  // showing behind it.
+  { id: 'home:bed-pet', category: 'furniture', label: 'Pet Bed', asset: '/objects/bed.webp', aspectRatio: 560 / 315, baseWidth: 0.3, allowedLayers: ['floor'], defaultLayer: 'floor', allowedRooms: BEDS, flippable: false, shadow: 'none', renderOrder: -40, use: { kind: 'rest', approach: { dx: 0, dy: -0.22 } } },
   // ─── The tub: where a Blobbi gets clean ─────────────────────────────────
-  { id: 'home:tub', category: 'furniture', label: 'Bathtub', asset: '/furniture/tub.svg', aspectRatio: 160 / 110, baseWidth: 0.34, allowedLayers: ['floor'], defaultLayer: 'floor', allowedRooms: ['care'], flippable: true, shadow: 'none', renderOrder: -10, use: { kind: 'clean', approach: { dx: 0, dy: 0.12 } } },
+  // The tub is used from inside: the Blobbi's spot is a little behind the
+  // anchor, so the tub's front wall hides its lower half.
+  { id: 'home:tub', category: 'furniture', label: 'Bathtub', asset: '/furniture/tub.svg', aspectRatio: 160 / 110, baseWidth: 0.34, allowedLayers: ['floor'], defaultLayer: 'floor', allowedRooms: ['care'], flippable: true, shadow: 'none', renderOrder: -10, use: { kind: 'clean', approach: { dx: 0, dy: -0.15 } } },
   // ─── Furniture ──────────────────────────────────────────────────────────
   { id: 'official:table-side', category: 'furniture', label: 'Side Table', asset: '/furniture/table-side.svg', aspectRatio: 0.9, baseWidth: 0.1, allowedLayers: ['floor', 'front'], defaultLayer: 'floor', flippable: true, shadow: 'wide' },
   { id: 'official:cabinet-small', category: 'furniture', label: 'Small Cabinet', asset: '/furniture/cabinet-small.svg', aspectRatio: 70 / 90, baseWidth: 0.12, allowedLayers: ['floor', 'front'], defaultLayer: 'floor', flippable: true, shadow: 'narrow' },
