@@ -36,11 +36,13 @@ import { itemUsability, resolveHomeItem, type HomeItem, type ItemUsability } fro
 import { isTrustedIssuer } from './issuers';
 import { knownSpendEvents } from './spend-ledger';
 import type { InventorySource } from './sources';
-import { STARTER_ADDRESSES, resolveStarterEntries, type StarterEntry } from './starter-catalog';
+import { resolveStarterEntries, type StarterEntry } from './starter-catalog';
+import { OFFICIAL_ITEM_ISSUER } from './issuers';
 import { timeoutSignal } from '@/lib/abort';
 
 export const INVENTORY_QUERY_KEY = 'home-inventory';
 export const DEFINITIONS_QUERY_KEY = 'item-definitions';
+export const OFFICIAL_CATALOG_QUERY_KEY = 'official-catalog';
 
 const READ_TIMEOUT_MS = 6_000;
 
@@ -73,11 +75,14 @@ export interface HomeInventory {
   /** Every item with a positive quantity, flattened, for counts and lookups. */
   items: HomeInventoryItem[];
   /**
-   * The starter kit (starter-catalog.ts): free, unlimited, never owned.
-   * Resolved against the same trusted definition read as the owned items;
-   * present whether or not that read answered.
+   * The starter kit (starter-catalog.ts): every official care item, free,
+   * unlimited, never owned. Discovered from the official issuer's kind 31632
+   * events; the built-in snapshot stands in for what that read did not
+   * bring. Present whether or not the read answered.
    */
   starters: StarterEntry[];
+  /** Whether the official catalog read has answered (starters are then live where fetched). */
+  catalogStatus: 'loading' | 'live' | 'snapshot';
   error: unknown;
   refresh: () => void;
   /** True while a refetch is running after data was shown. */
@@ -140,8 +145,21 @@ export function useHomeInventory({ pubkey, blobbi }: UseHomeInventoryOptions): H
     },
   });
 
-  // The owned items' addresses plus the starter kit's: one definition read for both.
-  const addresses = useMemo(() => [...new Set([...(balances.data ? itemAddressesOf(balances.data) : []), ...STARTER_ADDRESSES])].sort(), [balances.data]);
+  // Every kind 31632 the official issuer signed: the whole official catalog,
+  // for the starter kit. One filter, one author, the read hints routing it to
+  // the issuer's relays; what comes back is trusted only after
+  // resolveHomeItem's issuer check, never for being served.
+  const catalog = useQuery({
+    queryKey: [OFFICIAL_CATALOG_QUERY_KEY],
+    enabled: !!pubkey,
+    staleTime: 60 * 60_000,
+    queryFn: async ({ signal }) => {
+      const events = await nostr.query(asNostrFilters([buildGameItemDefinitionFilter({ authors: [OFFICIAL_ITEM_ISSUER] })]), { signal: timeoutSignal(READ_TIMEOUT_MS, signal) });
+      return indexDefinitions(events.filter((e) => e.pubkey === OFFICIAL_ITEM_ISSUER));
+    },
+  });
+
+  const addresses = useMemo(() => (balances.data ? itemAddressesOf(balances.data).sort() : []), [balances.data]);
   const definitions = useQuery({
     queryKey: [DEFINITIONS_QUERY_KEY, addresses],
     enabled: !!pubkey && addresses.length > 0,
@@ -156,7 +174,7 @@ export function useHomeInventory({ pubkey, blobbi }: UseHomeInventoryOptions): H
 
   const sections = useMemo<HomeInventorySection[]>(() => {
     if (!balances.data) return [];
-    const defs = definitions.data ?? new Map<string, GameItemDefinition>();
+    const defs = new Map<string, GameItemDefinition>([...(catalog.data ?? []), ...(definitions.data ?? [])]);
     return balances.data.map((balance) => ({
       source: balance.source,
       inventoryAddress: balance.inventory.address,
@@ -176,22 +194,26 @@ export function useHomeInventory({ pubkey, blobbi }: UseHomeInventoryOptions): H
         })
         .sort(compareItems),
     }));
-  }, [balances.data, definitions.data, blobbi]);
+  }, [balances.data, definitions.data, catalog.data, blobbi]);
 
   const items = useMemo(() => sections.flatMap((s) => s.items), [sections]);
-  const starters = useMemo(() => resolveStarterEntries(definitions.data, blobbi), [definitions.data, blobbi]);
+  // Owned items' definitions can also be in the catalog read (they are the same events); either source resolves them.
+  const starters = useMemo(() => resolveStarterEntries(catalog.data, blobbi), [catalog.data, blobbi]);
+  const catalogStatus: HomeInventory['catalogStatus'] = catalog.data ? 'live' : catalog.isError ? 'snapshot' : 'loading';
 
-  const status: HomeInventory['status'] = !pubkey ? 'signed-out' : balances.isError ? 'error' : balances.data && (definitions.data || definitions.isError) ? 'ready' : 'loading';
+  const status: HomeInventory['status'] = !pubkey ? 'signed-out' : balances.isError ? 'error' : balances.data && (addresses.length === 0 || definitions.data || definitions.isError) ? 'ready' : 'loading';
 
   return {
     status,
     sections,
     items,
     starters,
+    catalogStatus,
     error: balances.error ?? definitions.error,
     refresh: () => {
       void balances.refetch();
       void definitions.refetch();
+      void catalog.refetch();
     },
     isRefreshing: balances.isFetching && !!balances.data,
   };

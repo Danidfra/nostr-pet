@@ -26,6 +26,10 @@ import { readLedger } from '@/features/inventory';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 import { chooseCare, chooseItem } from '@/test/care-ui';
 import { FARM_CARROT, OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_GLASSES, OFFICIAL_SOAP, farmProduceDefinition, inventoryEvent, officialCareDefinition, officialCosmeticDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
+import { OFFICIAL_CATALOG_SNAPSHOT } from '@/features/inventory';
+
+/** The starter tiles a verb shows for a baby: every official item whose care action answers it, in catalog order. */
+const starterTiles = (actions: readonly string[]) => OFFICIAL_CATALOG_SNAPSHOT.filter((r) => actions.includes(r.action) && r.stages.includes('baby')).map((r) => `care-option-starter-${r.d}`);
 
 let signCount = 0;
 const signer = {
@@ -183,20 +187,22 @@ describe('Choosing a verb', () => {
     expect(bar.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_CONTAINED_BY).toBeTruthy();
     expect(strip.compareDocumentPosition(dock()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const options = within(strip).getAllByRole('button');
-    expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:food:apple', 'care-option-farm:produce:carrot', 'care-option-starter-blobbi:food:apple', 'care-option-starter-blobbi:energy:drink']);
+    // Owned first (the player's, spent on use), then every official food and drink, free.
+    expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:food:apple', 'care-option-farm:produce:carrot', ...starterTiles(['feed', 'boost'])]);
     expect(options[0]).toHaveAccessibleName('Apple, 2');
-    expect(options[2]).toHaveAccessibleName('Apple, free');
-    // The starter apple resolved from the fetched official definition; the drink has none here, so its built-in minimum stands in.
-    expect(options[2]).toHaveAttribute('data-definition', 'nostr');
-    expect(options[3]).toHaveAttribute('data-definition', 'builtin');
+    const starterApple = within(strip).getByTestId('care-option-starter-blobbi:food:apple');
+    expect(starterApple).toHaveAccessibleName('Apple, free');
+    // The starter apple resolved from the fetched official definition; the burger has none in this relay, so its snapshot row stands in.
+    expect(starterApple).toHaveAttribute('data-definition', 'nostr');
+    expect(within(strip).getByTestId('care-option-starter-blobbi:food:burger')).toHaveAttribute('data-definition', 'builtin');
 
     await userEvent.click(screen.getByTestId('care-play'));
     expect(screen.getByTestId('care-options')).toHaveAttribute('data-verb', 'play');
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:toy:ball', 'care-option-starter-blobbi:toy:ball']);
+    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:toy:ball', ...starterTiles(['play'])]);
     expect(screen.getByTestId('care-feed')).toHaveAttribute('aria-expanded', 'false');
 
     await userEvent.click(screen.getByTestId('care-clean'));
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:hygiene:soap', 'care-option-starter-blobbi:hygiene:soap']);
+    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:hygiene:soap', ...starterTiles(['clean', 'medicine'])]);
     // Cosmetics never answer a verb.
     expect(screen.queryByTestId('care-option-blobbi:cosmetic:stargazer-glasses')).toBeNull();
 
@@ -212,7 +218,8 @@ describe('Choosing a verb', () => {
     expect(screen.getByTestId('action-items')).toHaveAccessibleName('Items');
     await userEvent.click(screen.getByTestId('care-feed'));
     const options = within(screen.getByTestId('care-options')).getAllByRole('button');
-    expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-starter-blobbi:food:apple', 'care-option-starter-blobbi:energy:drink']);
+    expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(starterTiles(['feed', 'boost']));
+    expect(options[0]).toHaveAttribute('data-testid', 'care-option-starter-blobbi:food:apple');
     expect(options[0]).toHaveAttribute('data-source', 'starter');
     expect(options[0]).toHaveAttribute('data-definition', 'builtin'); // no definition relay answered here
     await userEvent.click(options[0]);
@@ -338,7 +345,9 @@ describe('Clean brings the tub out', () => {
     await ready();
     expect(screen.getByTestId('care-feed')).toBeDisabled();
     await userEvent.click(screen.getByTestId('care-clean'));
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:hygiene:soap', 'care-option-starter-blobbi:hygiene:soap']);
+    // Owned soap first, then every official cleaning and medicine item an egg may use.
+    const eggTiles = OFFICIAL_CATALOG_SNAPSHOT.filter((r) => ['clean', 'medicine'].includes(r.action) && r.stages.includes('egg')).map((r) => `care-option-starter-${r.d}`);
+    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:hygiene:soap', ...eggTiles]);
     await userEvent.click(screen.getByTestId('care-option-starter-blobbi:hygiene:soap'));
     expect(actor()).not.toHaveAttribute('data-motion', 'walking');
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 3000 });

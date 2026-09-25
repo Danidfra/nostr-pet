@@ -20,7 +20,7 @@ import { KIND_GAME_INVENTORY_SPEND, KIND_GAME_ITEM_DEFINITION, parseGameItemDefi
 
 import Home from '@/pages/Home';
 import { SceneSettingsProvider, type SceneSettings } from '@/features/home/scene';
-import { STARTER_ADDRESSES, STARTER_ITEMS, builtinStarterItem, resolveStarterEntries } from '@/features/inventory';
+import { OFFICIAL_CATALOG_SNAPSHOT, SNAPSHOT_ADDRESSES, builtinStarterItem, resolveStarterEntries } from '@/features/inventory';
 import { OFFICIAL_ITEM_ISSUER } from '@/features/inventory/issuers';
 import { PET_OP_TAG } from '@/features/inventory/item-use-plan';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
@@ -101,34 +101,52 @@ beforeEach(() => {
 });
 
 describe('the catalog itself', () => {
-  it('names official definitions by their published addresses and carries only the immutable minimum, honest about not being fetched', () => {
-    expect(STARTER_ITEMS.map((s) => s.d)).toEqual(['blobbi:food:apple', 'blobbi:energy:drink', 'blobbi:toy:ball', 'blobbi:hygiene:soap']);
-    for (const address of STARTER_ADDRESSES) expect(address).toBe(`31632:${OFFICIAL_ITEM_ISSUER}:${address.split(':').slice(2).join(':')}`);
-    const built = builtinStarterItem(STARTER_ITEMS[0]);
+  it('the snapshot mirrors official definitions by their published addresses and carries only the immutable minimum, honest about not being fetched', () => {
+    expect(OFFICIAL_CATALOG_SNAPSHOT.length).toBeGreaterThanOrEqual(19);
+    const ds = OFFICIAL_CATALOG_SNAPSHOT.map((r) => r.d);
+    expect(new Set(ds).size).toBe(ds.length);
+    for (const d of ['blobbi:food:apple', 'blobbi:food:burger', 'blobbi:toy:ball', 'blobbi:toy:teddy', 'blobbi:hygiene:soap', 'blobbi:hygiene:bubble-bath', 'blobbi:medicine:bandage', 'blobbi:energy:drink']) expect(ds).toContain(d);
+    for (const address of SNAPSHOT_ADDRESSES) expect(address.startsWith(`31632:${OFFICIAL_ITEM_ISSUER}:blobbi:`)).toBe(true);
+    for (const row of OFFICIAL_CATALOG_SNAPSHOT) {
+      expect(row.eventId).toMatch(/^[0-9a-f]{64}$/);
+      expect(['feed', 'play', 'clean', 'medicine', 'boost']).toContain(row.action);
+      expect(row.stages.length).toBeGreaterThan(0);
+    }
+    const built = builtinStarterItem(OFFICIAL_CATALOG_SNAPSHOT[0]);
     expect(built.definitionSource).toBe('builtin');
     expect(built.definition).toBeNull();
     expect(built.care).toEqual({ action: 'feed', effects: { hunger: 25, hygiene: -2, energy: 5 }, stages: ['baby', 'adult'] });
     expect(built.issuer?.pubkey).toBe(OFFICIAL_ITEM_ISSUER);
   });
 
-  it('a fetched official definition wins over the built-in minimum; a missing one falls back; nothing is ever owned', () => {
+  it('a fetched official definition replaces its snapshot row; a snapshot row stands in for the rest; an event from another author never gets in', () => {
     const apple = parseGameItemDefinition(officialCareDefinition('blobbi:food:apple', 'Apple (relay)', 'food', 'feed', { hunger: 30 }, { emoji: '🍎' }))!;
-    const entries = resolveStarterEntries(new Map([[apple.address, apple]]), { stage: 'baby', state: 'active', name: 'Brook' });
-    expect(entries.map((e) => e.source)).toEqual(['starter', 'starter', 'starter', 'starter']);
-    expect(entries[0].item).toMatchObject({ name: 'Apple (relay)', definitionSource: 'nostr' });
-    expect(entries[0].item.care?.effects).toEqual({ hunger: 30 });
-    expect(entries[1].item).toMatchObject({ name: 'Energy Drink', definitionSource: 'builtin' });
-    expect(entries.every((e) => !('quantity' in e) && !('inventoryAddress' in e))).toBe(true);
+    const fresh = parseGameItemDefinition(officialCareDefinition('blobbi:food:mango', 'Mango', 'food', 'feed', { hunger: 20 }, { emoji: '🥭' }))!;
+    const spoof = { ...parseGameItemDefinition({ ...officialCareDefinition('blobbi:toy:ball', 'Evil Ball', 'toy', 'play', { happiness: 99 }, { emoji: '💣' }), pubkey: 'e'.repeat(64) })! };
+    const entries = resolveStarterEntries(new Map([[apple.address, apple], [fresh.address, fresh], [spoof.address, spoof]]), { stage: 'baby', state: 'active', name: 'Brook' });
+    expect(entries.every((e) => e.source === 'starter' && !('quantity' in e) && !('inventoryAddress' in e))).toBe(true);
+    const byId = new Map(entries.map((e) => [e.item.itemId, e.item]));
+    expect(byId.get('blobbi:food:apple')).toMatchObject({ name: 'Apple (relay)', definitionSource: 'nostr' });
+    expect(byId.get('blobbi:food:apple')!.care?.effects).toEqual({ hunger: 30 });
+    expect(byId.get('blobbi:food:mango')).toMatchObject({ name: 'Mango', definitionSource: 'nostr' }); // a new official item is offered without a snapshot row
+    expect(byId.get('blobbi:toy:ball')).toMatchObject({ name: 'Ball', definitionSource: 'builtin' }); // the spoof never replaced the snapshot
+    expect([...byId.values()].some((i) => i.name === 'Evil Ball')).toBe(false);
+    expect(byId.get('blobbi:hygiene:soap')).toMatchObject({ definitionSource: 'builtin' });
+    // Ordered by category then name: foods first.
+    expect(entries[0].item.itemId.startsWith('blobbi:food:')).toBe(true);
   });
 });
 
 describe('in the home', () => {
-  it('no verb is a magic button: every option is an item, owned or starter, and tapping a verb writes nothing', async () => {
+  it('no verb is a magic button: every option is an item, owned or starter; each verb offers every official item whose care action answers it; tapping a verb writes nothing', async () => {
     renderHome();
     await ready();
+    const expected = { feed: ['feed', 'boost'], play: ['play'], clean: ['clean', 'medicine'] } as const;
     for (const verb of ['feed', 'play', 'clean'] as const) {
       await userEvent.click(screen.getByTestId(`care-${verb}`));
       const options = within(screen.getByTestId('care-options')).getAllByRole('button');
+      const rows = OFFICIAL_CATALOG_SNAPSHOT.filter((r) => (expected[verb] as readonly string[]).includes(r.action) && r.stages.includes('baby'));
+      expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(rows.map((r) => `care-option-starter-${r.d}`));
       expect(options.length).toBeGreaterThan(0);
       for (const o of options) {
         expect(['owned', 'starter']).toContain(o.getAttribute('data-source'));
