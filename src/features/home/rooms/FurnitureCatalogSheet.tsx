@@ -1,4 +1,4 @@
-import { Sheet } from '@/features/home/shell/Sheet';
+import { GameOverlay as Sheet } from '@/features/home/shell/GameOverlay';
 import { FURNITURE_CATEGORY_LABEL, furnitureForRoom, type FurnitureCategory } from './furniture-registry';
 import type { RoomDefinition } from './rooms';
 

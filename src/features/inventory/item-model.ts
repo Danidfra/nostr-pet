@@ -216,3 +216,33 @@ export function describeItemUse(item: HomeItem, name: string): string {
   if (!item.care) return '';
   return `${name} will ${ACTION_WORD[item.care.action]} it.`;
 }
+
+/**
+ * The shelf an item sits on in the inventory screen, derived from what the
+ * definition really says: the care action for consumables (the same
+ * mapping the care verbs use), the `category` tag for a drink, the
+ * equippable flag for cosmetics. Nothing is guessed from a name.
+ */
+export type ItemShelf = 'food' | 'drinks' | 'toys' | 'care' | 'cosmetics' | 'other';
+
+export const SHELF_ORDER: readonly ItemShelf[] = ['food', 'drinks', 'toys', 'care', 'cosmetics', 'other'];
+export const SHELF_LABEL: Record<ItemShelf, string> = { food: 'Food', drinks: 'Drinks', toys: 'Toys', care: 'Care', cosmetics: 'Cosmetics', other: 'Other' };
+
+export function shelfFor(item: Pick<HomeItem, 'care' | 'equippable' | 'definition' | 'kind'>): ItemShelf {
+  const category = item.definition?.category?.toLowerCase();
+  if (item.care) {
+    if (category === 'drink' || category === 'drinks') return 'drinks';
+    switch (item.care.action) {
+      case 'feed':
+        return 'food';
+      case 'play':
+        return 'toys';
+      case 'clean':
+      case 'medicine':
+      case 'boost':
+        return 'care';
+    }
+  }
+  if (item.equippable || item.kind === 'cosmetic') return 'cosmetics';
+  return 'other';
+}

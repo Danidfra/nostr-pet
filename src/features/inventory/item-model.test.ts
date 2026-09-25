@@ -153,3 +153,19 @@ describe('itemUsability', () => {
     expect(itemUsability(apple, baby)).toEqual({ ok: true });
   });
 });
+
+describe('shelves', () => {
+  const base = { kind: 'care', equippable: false, definition: null } as const;
+  it('derive from the care action and the definition category, never from a name', async () => {
+    const { shelfFor } = await import('./item-model');
+    expect(shelfFor({ ...base, care: { action: 'feed', effects: {}, stages: ['baby'] } })).toBe('food');
+    expect(shelfFor({ ...base, care: { action: 'feed', effects: {}, stages: ['baby'] }, definition: { category: 'drink' } as never })).toBe('drinks');
+    expect(shelfFor({ ...base, care: { action: 'play', effects: {}, stages: ['baby'] } })).toBe('toys');
+    expect(shelfFor({ ...base, care: { action: 'clean', effects: {}, stages: ['baby'] } })).toBe('care');
+    expect(shelfFor({ ...base, care: { action: 'medicine', effects: {}, stages: ['baby'] } })).toBe('care');
+    expect(shelfFor({ ...base, care: { action: 'boost', effects: {}, stages: ['baby'] } })).toBe('care');
+    expect(shelfFor({ kind: 'cosmetic', equippable: true, definition: null, care: null })).toBe('cosmetics');
+    expect(shelfFor({ kind: 'currency', equippable: false, definition: null, care: null })).toBe('other');
+    expect(shelfFor({ kind: 'unknown', equippable: false, definition: { category: 'Juice Bar' } as never, care: null })).toBe('other');
+  });
+});

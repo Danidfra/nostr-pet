@@ -1,6 +1,8 @@
 import type { BlobbiCompanion, BlobbonautProfile } from '@blobbi-kit/core';
 import { Moon, Snowflake, Sparkles } from 'lucide-react';
-import { Sheet } from './Sheet';
+import { BlobbiRenderer } from '@blobbi-kit/renderer';
+import { toBlobbiVisual } from '@/lib/blobbi-visual';
+import { GameOverlay } from './GameOverlay';
 import { BlobbiStatusPanel, type StatItem } from '../BlobbiStatusPanel';
 import { ProgressionStrip } from '../ProgressionStrip';
 import { BlobbiSelector } from '../BlobbiSelector';
@@ -39,39 +41,49 @@ function Chip({ children, testId, tone = 'neutral' }: { children: React.ReactNod
 }
 
 /**
- * Everything about this Blobbi that is not the Blobbi itself: stage and
- * state, the five rings, progression, the lifecycle missions, and the other
- * Blobbis. Held up in front of the home; the home stays behind it.
+ * Everything about this Blobbi that is not the Blobbi itself, as one game
+ * screen: the portrait and name, stage and state, the five rings and the
+ * exact numbers, progression, the lifecycle missions, and the other
+ * Blobbis. The home shows only what matters at a glance; this is the rest.
  */
 export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, devForce }: BlobbiSheetProps) {
-  return (
-    <Sheet open={open} onClose={onClose} title={blobbi.name} testId="blobbi-sheet">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Chip testId="stage-badge">{STAGE_LABEL[blobbi.stage]}</Chip>
-          {blobbi.state === 'sleeping' && (
-            <Chip tone="sleep" testId="state-badge">
-              <Moon className="h-3.5 w-3.5" aria-hidden /> Sleeping
-            </Chip>
-          )}
-          {blobbi.state === 'hibernating' && (
-            <Chip tone="cold" testId="state-badge">
-              <Snowflake className="h-3.5 w-3.5" aria-hidden /> Hibernating
-            </Chip>
-          )}
-          {blobbi.state === 'active' && <Chip testId="state-badge">Awake</Chip>}
-          {blobbi.progressionState !== 'none' && (
-            <Chip tone="grow" testId="progression-badge">
-              <Sparkles className="h-3.5 w-3.5" aria-hidden />
-              {blobbi.progressionState === 'incubating' ? 'Incubating' : 'Evolving'}
-            </Chip>
-          )}
-          <span className="text-sm text-muted-foreground" data-testid="mood-line">
-            {blobbi.name} {mood}
-          </span>
-        </div>
+  const portrait = (
+    <span className="overlay-portrait" aria-hidden>
+      <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`details-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
+    </span>
+  );
+  const chips = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Chip testId="stage-badge">{STAGE_LABEL[blobbi.stage]}</Chip>
+      {blobbi.state === 'sleeping' && (
+        <Chip tone="sleep" testId="state-badge">
+          <Moon className="h-3.5 w-3.5" aria-hidden /> Sleeping
+        </Chip>
+      )}
+      {blobbi.state === 'hibernating' && (
+        <Chip tone="cold" testId="state-badge">
+          <Snowflake className="h-3.5 w-3.5" aria-hidden /> Hibernating
+        </Chip>
+      )}
+      {blobbi.state === 'active' && <Chip testId="state-badge">Awake</Chip>}
+      {blobbi.progressionState !== 'none' && (
+        <Chip tone="grow" testId="progression-badge">
+          <Sparkles className="h-3.5 w-3.5" aria-hidden />
+          {blobbi.progressionState === 'incubating' ? 'Incubating' : 'Evolving'}
+        </Chip>
+      )}
+    </div>
+  );
 
-        <section aria-label="Condition and progress" className="rounded-2xl bg-foreground/5 px-3 py-3">
+  return (
+    <GameOverlay open={open} onClose={onClose} title={blobbi.name} testId="blobbi-sheet" lead={portrait} subtitle={chips}>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground" data-testid="mood-line">
+          {blobbi.name} {mood}
+        </p>
+
+        <section aria-label="Condition and progress" className="overlay-card">
+          <h3 className="overlay-card__title">Condition</h3>
           <BlobbiStatusPanel items={statItems} />
           <div className="mt-3 border-t border-border/60 pt-3">
             <ProgressionStrip blobbi={blobbi} profile={profile} />
@@ -81,12 +93,12 @@ export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, c
         <LifecyclePanel name={blobbi.name} lifecycle={lifecycle} ceremony={ceremony} onCeremony={onCeremony} devForce={devForce} embedded />
 
         {companions.length > 1 && (
-          <section aria-label="Your Blobbis" className="rounded-2xl bg-foreground/5 px-3 py-3">
-            <h3 className="mb-2 text-sm font-semibold">Your Blobbis</h3>
+          <section aria-label="Your Blobbis" className="overlay-card">
+            <h3 className="overlay-card__title">Your Blobbis</h3>
             <BlobbiSelector companions={companions} currentD={blobbi.d} onSelect={onSelect} />
           </section>
         )}
       </div>
-    </Sheet>
+    </GameOverlay>
   );
 }

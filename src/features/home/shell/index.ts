@@ -2,6 +2,6 @@ export { GameShell } from './GameShell';
 export { HudTop } from './HudTop';
 export { ActionBar } from './ActionBar';
 export { CareOptions } from './CareOptions';
-export { Sheet } from './Sheet';
+export { GameOverlay } from './GameOverlay';
 export { BlobbiSheet } from './BlobbiSheet';
 export { MenuSheet } from './MenuSheet';

@@ -1,21 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Sheet } from './Sheet';
+import { GameOverlay } from './GameOverlay';
 
 function Harness({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <div>
       <button type="button">outside</button>
-      <Sheet open={open} onClose={onClose} title="Details" testId="sheet">
+      <GameOverlay open={open} onClose={onClose} title="Details" testId="sheet">
         <button type="button">first</button>
         <a href="#x">second</a>
-      </Sheet>
+      </GameOverlay>
     </div>
   );
 }
 
-describe('Sheet', () => {
+describe('GameOverlay', () => {
   it('renders nothing while closed', () => {
     render(<Harness open={false} onClose={() => {}} />);
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -54,5 +54,16 @@ describe('Sheet', () => {
     items[items.length - 1].focus();
     await userEvent.keyboard('{Tab}');
     expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
+  });
+
+  it('is a game screen, not a drawer: one root over everything, a fixed header with the close control first, a scrolling body', () => {
+    render(<Harness open onClose={() => {}} />);
+    const root = screen.getByTestId('sheet');
+    expect(root).toHaveAttribute('data-overlay', 'true');
+    expect(root.querySelector('.overlay-backdrop')).not.toBeNull();
+    const panel = screen.getByRole('dialog');
+    expect(panel.firstElementChild).toHaveClass('overlay-head');
+    expect(panel.querySelector('.overlay-body')).not.toBeNull();
+    expect(document.querySelector('.sheet-panel, .sheet-root')).toBeNull();
   });
 });

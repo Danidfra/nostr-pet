@@ -2,8 +2,8 @@ export { TRUSTED_ISSUERS, OFFICIAL_ITEM_ISSUER, FARM_ITEM_ISSUER, trustedIssuer,
 export type { TrustedIssuer, IssuerRole } from './issuers';
 export { describeInventorySource, compareSources } from './sources';
 export type { InventorySource } from './sources';
-export { resolveHomeItem, itemUsability, describeItemUse, isSafeImageUrl, safeEmoji, IMAGE_HOST_ALLOW_LIST, PARTNER_PRODUCE_HUNGER } from './item-model';
-export type { HomeItem, ItemCare, ItemKind, ItemGlyph as ItemGlyphModel, ItemAction, ItemUsability } from './item-model';
+export { resolveHomeItem, itemUsability, describeItemUse, isSafeImageUrl, safeEmoji, shelfFor, SHELF_ORDER, SHELF_LABEL, IMAGE_HOST_ALLOW_LIST, PARTNER_PRODUCE_HUNGER } from './item-model';
+export type { HomeItem, ItemCare, ItemKind, ItemShelf, ItemGlyph as ItemGlyphModel, ItemAction, ItemUsability } from './item-model';
 export { deriveBalances, deriveBalance, latestInventories, uniqueEvents, effectiveQuantity, itemAddressesOf } from './inventory-state';
 export type { InventoryBalance } from './inventory-state';
 export {
