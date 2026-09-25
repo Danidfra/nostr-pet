@@ -1,0 +1,58 @@
+/**
+ * The build-time environment contract, enforced: the app reads exactly the
+ * variables `.env.example` documents, every dev-only switch is also gated on
+ * `import.meta.env.DEV` (so a production build cannot be flipped by an env
+ * file), and the dev fixture module is never imported statically.
+ */
+import { describe, expect, it } from 'vitest';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+
+const ROOT = join(__dirname, '..', '..');
+const SRC = join(ROOT, 'src');
+
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const full = join(dir, name);
+    return statSync(full).isDirectory() ? walk(full) : [full];
+  });
+}
+
+const sources = walk(SRC)
+  .filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith('.test.ts') && !f.endsWith('.test.tsx') && !f.includes('/test/'))
+  .map((f) => ({ path: relative(ROOT, f), text: readFileSync(f, 'utf8') }));
+
+/** Every `import.meta.env.<NAME>` read in the app, with the line it is on. */
+const reads = sources.flatMap(({ path, text }) =>
+  text.split('\n').flatMap((line, i) => [...line.matchAll(/import\.meta\.env\.([A-Z_]+)/g)].map((m) => ({ path: `${path}:${i + 1}`, name: m[1], line }))),
+);
+
+const DOCUMENTED = ['VITE_BLOBBI_ISLAND_URL', 'VITE_BLOBBI_DEV_TOOLS'];
+const DEV_ONLY = ['VITE_BLOBBI_DEV_TOOLS'];
+
+describe('the environment contract', () => {
+  it('reads only the documented variables (plus the built-in DEV flag)', () => {
+    const names = [...new Set(reads.map((r) => r.name))].sort();
+    expect(names).toEqual(['DEV', ...DOCUMENTED].sort());
+  });
+
+  it('.env.example documents every variable the app reads', () => {
+    const example = readFileSync(join(ROOT, '.env.example'), 'utf8');
+    for (const name of DOCUMENTED) expect(example, name).toContain(name);
+  });
+
+  it('every dev-only switch is gated on the DEV build flag on the same line, so no env file can turn it on in production', () => {
+    for (const r of reads.filter((x) => DEV_ONLY.includes(x.name))) {
+      expect(r.line, r.path).toMatch(/import\.meta\.env\.DEV\s*&&/);
+    }
+  });
+
+  it('the dev fixture world is only ever imported lazily behind that gate', () => {
+    for (const { path, text } of sources) {
+      if (path.startsWith('src/dev/')) continue;
+      expect(text, path).not.toMatch(/^import .*['"]@\/dev\/DevFixture['"]/m);
+    }
+    const app = sources.find((s) => s.path === 'src/App.tsx');
+    expect(app?.text).toMatch(/DEV_FIXTURES \? lazy\(\(\) => import\('@\/dev\/DevFixture'\)\) : null/);
+  });
+});

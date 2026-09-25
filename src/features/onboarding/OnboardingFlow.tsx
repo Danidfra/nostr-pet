@@ -43,7 +43,13 @@ export function OnboardingFlow({ pubkey, hasBlobbi, updateCompanionEvent, refres
   const { mutateAsync: uploadPicture } = profileSetup.upload;
   const saveProfile = useCallback(
     async (form: Parameters<typeof publishProfile>[0]) => {
-      await publishProfile(form);
+      try {
+        await publishProfile(form);
+      } catch {
+        // The mutation's error state is what the screen shows; the player
+        // stays on the step. Nothing else may reject unhandled.
+        return;
+      }
       setProfileDone(true);
     },
     [publishProfile],

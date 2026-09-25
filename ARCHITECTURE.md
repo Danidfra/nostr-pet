@@ -143,6 +143,122 @@ rendering (31634) is still read-only. Relay discovery for ecosystem data is
 the read router below (no relay settings UI). Also deferred: account
 switcher, social interaction projection on the home, the companion runtime.
 
+## Milestone 13: MVP release readiness (M11)
+
+The pass that turns the M10 home into something that can be put in front
+of players. No new systems; each stage removes a doubt.
+
+**No floating sleeper, no speech.** A Blobbi asleep in the bed and an egg
+on its nest are `inBed`: the bed is the ground, the actor casts no shadow
+of its own and stands still (`nested` and `sleeping` modes force
+`'still'`). Every line of Blobbi speech is gone (`SpeechBubble`,
+`needLine`, `roomGreeting`, the annoyed lines); the Blobbi communicates
+with its face, its body and its voice.
+
+**A procedural voice** (`src/features/sound/`). The one Blobbi sound the
+ecosystem already had is Ditto's feeding sound
+(`ditto/src/blobbi/ui/lib/munchSound.ts`: sine pops and a triangle hum,
+four chewing cycles with a per-cycle decay, a lowpass at ~1.9 kHz, an
+18 ms delay, a master gain, a lazily created `AudioContext`). The
+standalone's vocabulary is derived from it: `blobbi-voice.ts` holds
+RECIPES as data (layers of `wave / offsetMs / durationMs / hz / gain /
+attack / hold`), `eat` being Ditto's munch cycle for cycle and the others
+(clean, poke, happy, excited, upset, sleepy, hatch, evolve) the same blocks
+in other shapes. `voice-engine.ts` is the only module that touches Web
+Audio: it creates the context lazily, resumes it after a user gesture,
+schedules a recipe, and never throws. `sound-policy.ts` maps gameplay
+events (a care result, a poke reaction, a reveal) to a `BlobbiSoundId`;
+gameplay code asks for a meaning, never a frequency. `SoundProvider`
+owns the engine and the mute (device-local). Sounds never touch Nostr;
+a failed audio initialisation is silent, not fatal. The mp3 assets are
+gone.
+
+**Visual fixtures** (`src/dev/`). `?fixture=egg|baby|adult|adult-v2` with
+`&state=sleeping`, `&low=<stat>` and `&expression=<preset>` mounts the real
+app over an in-memory pool and a fixture signer: every stage and state
+can be looked at without an account, a relay or a write. Only a dev
+build behind `VITE_BLOBBI_DEV_TOOLS` contains it (a lazy import behind a
+`DEV &&` gate; `env-contract.test.ts` pins that).
+
+**Connection resilience without a relay manager.** nostrify already
+reconnects: `NRelay1` uses `websocket-ts` with an exponential backoff from
+1 s and closes idle sockets after 30 s; `NPool` opens a relay on first use.
+What nostrify does not do is tell the interface. `src/lib/relay-health.ts`
+is a small store fed by the pool's `log` option (`relay.ws.state`,
+`relay.ws.retry`, `relay.ws.error` per relay) and by the browser's
+online/offline events; it resolves `healthy | degraded | offline` over the
+application relays. `ConnectionChip` in the top strip shows it, with a
+retry that forgets past failures and refetches. Nothing new is stored,
+routed or trusted: transport reporting only. (`hooks/useRelayHealth.ts`
+holds the context and hook.)
+
+**A signer app by QR or deep link** (NIP-46 `nostrconnect://`).
+`useLoginActions().nostrconnect.start()` generates the ephemeral client key
+and the URI with the application relays; the sign-in screen draws it as a
+QR (`qrcode`, as Ditto does) and offers it as a link and a copy;
+`.wait()` resolves the `NLogin.fromNostrConnect` login or aborts. The
+client secret lives in memory for the handshake and is dropped; nothing
+is logged, no key ever goes into a URL of ours, and a bunker login and a
+local key are different login types in the same nostrify store. The
+bunker path stays as "paste a bunker address".
+
+**Onboarding polish.** One purpose per step: the welcome introduces, the
+account step creates or connects, the profile step names, and adoption
+(`AdoptionFlow brief`) no longer repeats the introduction when the player
+has just come through the steps before it.
+
+**Care is item-driven.** The plain Feed / Play / Clean actions are gone. A
+verb opens the items that answer it: the **starter kit** and **owned
+items**. `CareChoice` is `owned | starter`; an owned use is the M4 path
+(a kind 1416 spend, the `blobbi_op` marker, the use ledger); a starter use
+(`useStarterUse`) is the kit's care effect with `spendId: null`: no spend,
+no marker, no inventory, no balance, and it is never shown as owned. Rest
+stays bed-driven. The seam for a real economy is the `CareChoice` type:
+a later milestone can require ownership by removing the `starter` branch.
+
+**The starter kit is the whole official catalog, discovered.** A read-only
+relay audit (2026-09-25; relay.ditto.pub answered, dreamith timed out)
+found 39 kind 31632 events by the one trusted issuer
+(`9efb8d30…63a9`, the same pubkey Island trusts), 19 of them care
+consumables, all valid, no duplicates. `useHomeInventory` now queries
+`kinds:[31632], authors:[OFFICIAL_ITEM_ISSUER]` and keeps only events whose
+`pubkey` is the issuer; `resolveStarterEntries` merges them over the
+bundled snapshot (`official-catalog-snapshot.ts`, generated by
+`scripts/refresh-official-catalog.mjs`, header says NOT LIVE NOSTR DATA,
+dated). Live definitions replace snapshot rows by address; a snapshot row
+is marked `definitionSource: 'builtin'` and the chooser says so. An event
+from anyone else can never replace a snapshot identity. `catalogStatus`
+is `loading | live | snapshot`.
+
+**One sleep cue; one expression prop.** The sleeping Blobbi showed two
+"Zzz": the home's animated one and one baked into the V1 sleeping drawings
+by the renderer. Ownership: the renderer draws the creature asleep
+(closed eyes); an environmental cue is the host's. `@blobbi-kit/renderer`
+0.4.0 (prepared and committed locally in `blobbi-kit`, **not published**)
+adds `sleepIndicator: 'artwork' | 'none'` (removing exactly the label and
+the Z texts of the artwork's Zzz block, never the block to the next
+comment: in seven adult forms the gradients follow it) and an expressive
+V1 baby face (`artwork/baby/v1/expression.ts`: rules over the one authored
+face; the baby has no brows, so `brows` is not drawn). Until 0.4.0 is
+installed the home must be right against 0.3.0: `lib/renderer-capabilities.ts`
+reads the capability from the renderer's exports; with 0.3.0 the artwork
+keeps its Zzz and the home draws none, with 0.4.0 the home draws the one
+cue. `expression-parity.test.tsx` pins both, and that the same
+`expression` reaches every stage with the renderer saying which faces can
+show it. The purity test refuses stage-specific SVG manipulation here.
+
+**Production configuration.** The app reads exactly two build variables
+(`VITE_BLOBBI_ISLAND_URL`, validated to an absolute `http(s)` URL with
+`https://island.blobbi.pet` as the default, the origin Island's own tests
+name; `VITE_BLOBBI_DEV_TOOLS`, dev builds only). Every dev switch is gated
+on `import.meta.env.DEV` on the same line; the fixture world is a lazy
+import behind that gate; the production bundle carries neither. The build
+copies `index.html` to `404.html` for SPA hosting. `.env.local` is
+git-ignored (`*.local`). `env-contract.test.ts` enforces the contract.
+
+**Not in this milestone.** Themes, the room editor, a relay data manager,
+minigames, shops, currencies, picture frames, dialogue, new event kinds.
+
 ## Milestone 12: one home, care intents, the way in (M10)
 
 A product simplification over the M9 engineering, plus the way in. The
@@ -869,7 +985,11 @@ Audited commits: `54d413f` (last full app), `2281fb1` (pre-nuke parent),
 
 ## Deferred (next milestones)
 
-1. **Equipment at home**: render the Island's kind 31634 placements for the
-   current Blobbi (read-only) through the renderer's accessory inputs; equipping
-   stays on the Island.
-2. Relay settings (NIP-65) and account switcher, once `@blobbi/ui` exists.
+1. **Publish `@blobbi-kit/renderer` 0.4.0** (committed locally in
+   `blobbi-kit`), then bump this app to `^0.4.0`, pass `sleepIndicator="none"`
+   directly and delete `src/lib/renderer-capabilities.ts`.
+2. **A real item economy**: require ownership for care by removing the
+   `starter` branch of `CareChoice`; the starter kit is a free, unowned
+   catalog on purpose until then.
+3. Relay settings (NIP-65) and account switcher, once `@blobbi/ui` exists.
+4. The dormant M9 rooms (see `src/features/home/rooms/README.md`).
