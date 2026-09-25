@@ -24,7 +24,7 @@ import { OFFICIAL_CATALOG_SNAPSHOT, SNAPSHOT_ADDRESSES, builtinStarterItem, reso
 import { OFFICIAL_ITEM_ISSUER } from '@/features/inventory/issuers';
 import { PET_OP_TAG } from '@/features/inventory/item-use-plan';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
-import { chooseCare, chooseItem } from '@/test/care-ui';
+import { chooseCare, useOwnedItem } from '@/test/care-ui';
 import { OFFICIAL_APPLE, inventoryEvent, officialCareDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 
 let signCount = 0;
@@ -138,7 +138,7 @@ describe('the catalog itself', () => {
 });
 
 describe('in the home', () => {
-  it('no verb is a magic button: every option is an item, owned or starter; each verb offers every official item whose care action answers it; tapping a verb writes nothing', async () => {
+  it('no verb is a magic button: every option is a starter item; each verb offers every official item whose care action answers it, never an owned copy; tapping a verb writes nothing', async () => {
     renderHome();
     await ready();
     const expected = { feed: ['feed', 'boost'], play: ['play'], clean: ['clean', 'medicine'] } as const;
@@ -149,8 +149,9 @@ describe('in the home', () => {
       expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(rows.map((r) => `care-option-starter-${r.d}`));
       expect(options.length).toBeGreaterThan(0);
       for (const o of options) {
-        expect(['owned', 'starter']).toContain(o.getAttribute('data-source'));
+        expect(o.getAttribute('data-source')).toBe('starter');
         expect(o.getAttribute('data-testid')).not.toMatch(/plain/);
+        expect(o.textContent).not.toMatch(/free/i);
       }
       await userEvent.click(screen.getByTestId(`care-${verb}`));
       expect(screen.queryByTestId('care-options')).toBeNull();
@@ -177,7 +178,7 @@ describe('in the home', () => {
     relay.all = [brook(), officialCareDefinition('blobbi:food:apple', 'Apple', 'food', 'feed', { hunger: 25 }, { emoji: '🍎' }), inventoryEvent('blobbi:island', { [OFFICIAL_APPLE]: 2 })];
     renderHome();
     await ready();
-    await chooseItem('feed', 'blobbi:food:apple');
+    await useOwnedItem('blobbi:food:apple');
     await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
     expect(getTagValue(relay.published[1].tags, PET_OP_TAG)).toBe(relay.published[0].id);
   });

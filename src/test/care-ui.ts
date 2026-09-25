@@ -15,8 +15,12 @@ export async function chooseCare(verb: 'feed' | 'play' | 'clean' | 'rest'): Prom
   await userEvent.click(await screen.findByTestId(`care-option-starter-${STARTER_FOR[verb]}`));
 }
 
-/** Choose an OWNED item for a verb from the strip above the verb row. */
-export async function chooseItem(verb: 'feed' | 'play' | 'clean', itemId: string): Promise<void> {
-  await userEvent.click(screen.getByTestId(`care-${verb}`));
-  await userEvent.click(await screen.findByTestId(`care-option-${itemId}`));
+/**
+ * Use an OWNED item the way the player does: from the Inventory overlay
+ * (the bag), never from the care strip, which shows the starter kit only.
+ */
+export async function useOwnedItem(itemId: string): Promise<void> {
+  await userEvent.click(screen.getByTestId('action-items'));
+  await userEvent.click(await screen.findByTestId(`inventory-item-${itemId}`));
+  await userEvent.click(screen.getByTestId('inventory-use'));
 }

@@ -24,7 +24,7 @@ import { approachSpot } from '@/features/home/rooms';
 import { HOME_SPACE, STAGE_OBJECTS } from '@/features/home/space/home-space';
 import { readLedger } from '@/features/inventory';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
-import { chooseCare, chooseItem } from '@/test/care-ui';
+import { chooseCare, useOwnedItem } from '@/test/care-ui';
 import { FARM_CARROT, OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_GLASSES, OFFICIAL_SOAP, farmProduceDefinition, inventoryEvent, officialCareDefinition, officialCosmeticDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 import { OFFICIAL_CATALOG_SNAPSHOT } from '@/features/inventory';
 
@@ -166,16 +166,14 @@ describe('One home', () => {
     const buttons = within(dock()).getAllByRole('button');
     expect(buttons.map((b) => b.getAttribute('data-testid'))).toEqual(['care-feed', 'care-play', 'care-clean', 'care-rest', 'action-items']);
     expect(screen.queryByTestId('care-options')).toBeNull();
-    // Badges say how many owned items answer each verb (apple + carrot; ball; soap).
-    expect(within(screen.getByTestId('care-feed')).getByText('2')).toBeInTheDocument();
-    expect(within(screen.getByTestId('care-play')).getByText('1')).toBeInTheDocument();
-    expect(within(screen.getByTestId('care-clean')).getByText('1')).toBeInTheDocument();
+    // The verbs carry no counts (the starter kit is always there); only the bag counts what is owned (apple ×2, carrot, ball, soap).
+    for (const verb of ['care-feed', 'care-play', 'care-clean', 'care-rest']) expect(screen.getByTestId(verb).querySelector('.verb__count')).toBeNull();
     expect(screen.getByTestId('action-items')).toHaveAccessibleName('Items, 4 ready');
   });
 });
 
 describe('Choosing a verb', () => {
-  it('opens that verb’s options above the row: the owned items that do it, then the starter kit; another verb swaps, the same verb closes', async () => {
+  it('opens that verb’s options above the row: the starter kit that does it, never an owned copy; another verb swaps, the same verb closes', async () => {
     renderHome();
     await ready();
     await userEvent.click(screen.getByTestId('care-feed'));
@@ -187,22 +185,26 @@ describe('Choosing a verb', () => {
     expect(bar.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_CONTAINED_BY).toBeTruthy();
     expect(strip.compareDocumentPosition(dock()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const options = within(strip).getAllByRole('button');
-    // Owned first (the player's, spent on use), then every official food and drink, free.
-    expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:food:apple', 'care-option-farm:produce:carrot', ...starterTiles(['feed', 'boost'])]);
-    expect(options[0]).toHaveAccessibleName('Apple, 2');
+    // Every official food and drink, and nothing else: the owned apple and carrot live in the Inventory, not here again.
+    expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(starterTiles(['feed', 'boost']));
+    expect(screen.queryByTestId('care-option-blobbi:food:apple')).toBeNull();
+    expect(screen.queryByTestId('care-option-farm:produce:carrot')).toBeNull();
     const starterApple = within(strip).getByTestId('care-option-starter-blobbi:food:apple');
-    expect(starterApple).toHaveAccessibleName('Apple, free');
+    // The name alone: no "free" label, no count; availability is not a price.
+    expect(starterApple).toHaveAccessibleName('Apple');
+    expect(strip.textContent).not.toMatch(/free/i);
+    expect(strip.querySelector('.care-option__free')).toBeNull();
     // The starter apple resolved from the fetched official definition; the burger has none in this relay, so its snapshot row stands in.
     expect(starterApple).toHaveAttribute('data-definition', 'nostr');
     expect(within(strip).getByTestId('care-option-starter-blobbi:food:burger')).toHaveAttribute('data-definition', 'builtin');
 
     await userEvent.click(screen.getByTestId('care-play'));
     expect(screen.getByTestId('care-options')).toHaveAttribute('data-verb', 'play');
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:toy:ball', ...starterTiles(['play'])]);
+    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(starterTiles(['play']));
     expect(screen.getByTestId('care-feed')).toHaveAttribute('aria-expanded', 'false');
 
     await userEvent.click(screen.getByTestId('care-clean'));
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:hygiene:soap', ...starterTiles(['clean', 'medicine'])]);
+    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(starterTiles(['clean', 'medicine']));
     // Cosmetics never answer a verb.
     expect(screen.queryByTestId('care-option-blobbi:cosmetic:stargazer-glasses')).toBeNull();
 
@@ -347,7 +349,7 @@ describe('Clean brings the tub out', () => {
     await userEvent.click(screen.getByTestId('care-clean'));
     // Owned soap first, then every official cleaning and medicine item an egg may use.
     const eggTiles = OFFICIAL_CATALOG_SNAPSHOT.filter((r) => ['clean', 'medicine'].includes(r.action) && r.stages.includes('egg')).map((r) => `care-option-starter-${r.d}`);
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(['care-option-blobbi:hygiene:soap', ...eggTiles]);
+    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(eggTiles);
     await userEvent.click(screen.getByTestId('care-option-starter-blobbi:hygiene:soap'));
     expect(actor()).not.toHaveAttribute('data-motion', 'walking');
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 3000 });
@@ -355,11 +357,11 @@ describe('Clean brings the tub out', () => {
   });
 });
 
-describe('Items from the strip', () => {
+describe('Owned items from the Inventory', () => {
   it('food is set down at the offer spot; the Blobbi is glad at once, walks there, and the use stays visible for the floor even with an instant relay', async () => {
     renderHome();
     await ready();
-    await chooseItem('feed', 'blobbi:food:apple');
+    await useOwnedItem('blobbi:food:apple');
     expect(screen.queryByTestId('care-options')).toBeNull();
     expect(actor()).toHaveAttribute('data-expression', 'excited');
     expect(relay.published).toHaveLength(0);
@@ -373,9 +375,9 @@ describe('Items from the strip', () => {
     expect(Date.now() - usedAt).toBeGreaterThanOrEqual(MIN_USE_MS * 0.5);
     expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook with Apple/);
     expect(spends()).toHaveLength(1);
-    // The strip shows the authoritative count afterwards.
-    await userEvent.click(screen.getByTestId('care-feed'));
-    await waitFor(() => expect(screen.getByTestId('care-option-blobbi:food:apple')).toHaveAccessibleName('Apple, 1'), { timeout: 4000 });
+    // The Inventory shows the authoritative count afterwards.
+    await userEvent.click(screen.getByTestId('action-items'));
+    await waitFor(() => expect(screen.getByTestId('inventory-item-blobbi:food:apple')).toHaveAccessibleName('Apple, 1'), { timeout: 4000 });
   });
 
   it('a slow relay does not delay the acknowledgment and does not end the use early; the count changes only when the write is real', async () => {
@@ -383,7 +385,7 @@ describe('Items from the strip', () => {
     relay.spendDelayMs = 600;
     renderHome();
     await ready();
-    await chooseItem('feed', 'blobbi:food:apple');
+    await useOwnedItem('blobbi:food:apple');
     expect(actor()).toHaveAttribute('data-expression', 'excited');
     await waitFor(() => expect(screen.getByTestId('scene-object-offer')).toHaveAttribute('data-state', 'using'), { timeout: 2000 });
     await settle(300);
@@ -391,15 +393,15 @@ describe('Items from the strip', () => {
     expect(screen.getByTestId('scene-object-offer')).toHaveAttribute('data-state', 'using');
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
     await waitFor(() => expect(screen.queryByTestId('scene-object-offer')).toBeNull(), { timeout: 3000 });
-    await userEvent.click(screen.getByTestId('care-feed'));
-    await waitFor(() => expect(screen.getByTestId('care-option-blobbi:food:apple')).toHaveAccessibleName('Apple, 1'), { timeout: 4000 });
+    await userEvent.click(screen.getByTestId('action-items'));
+    await waitFor(() => expect(screen.getByTestId('inventory-item-blobbi:food:apple')).toHaveAccessibleName('Apple, 1'), { timeout: 4000 });
   });
 
   it('a refused spend consumes nothing: the item stays with a retry, the count is unchanged, no care write, no false celebration', async () => {
     relay.spendMode = 'reject';
     renderHome();
     await ready();
-    await chooseItem('feed', 'blobbi:food:apple');
+    await useOwnedItem('blobbi:food:apple');
     await waitFor(() => expect(screen.getByTestId('scene-object-offer')).toHaveAttribute('data-state', 'failed'), { timeout: 4000 });
     expect(screen.getByTestId('offer-retry')).toBeInTheDocument();
     expect(states()).toHaveLength(0);
@@ -408,14 +410,14 @@ describe('Items from the strip', () => {
     expect(screen.getByTestId('care-status')).not.toHaveTextContent(/Fed/);
     await userEvent.click(screen.getByTestId('offer-put-away'));
     expect(screen.queryByTestId('scene-object-offer')).toBeNull();
-    await userEvent.click(screen.getByTestId('care-feed'));
-    expect(screen.getByTestId('care-option-blobbi:food:apple')).toHaveAccessibleName('Apple, 2');
+    await userEvent.click(screen.getByTestId('action-items'));
+    expect(await screen.findByTestId('inventory-item-blobbi:food:apple')).toHaveAccessibleName('Apple, 2');
   });
 
   it('an owned toy is set down at the toy spot, played with (one spend) and leaves; the starter ball plays for free', async () => {
     renderHome();
     await ready();
-    await chooseItem('play', 'blobbi:toy:ball');
+    await useOwnedItem('blobbi:toy:ball');
     const toy = screen.getByTestId('scene-object-offer');
     expect(parseFloat(toy.style.left)).toBeCloseTo(parseFloat(placeOnFloor(STAGE_OBJECTS.toySpot).left));
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
@@ -430,7 +432,7 @@ describe('Items from the strip', () => {
   it('a floor tap on the way puts the item back: nothing is written, the verbs are free', async () => {
     renderHome(SLOW_WALK);
     await ready();
-    await chooseItem('feed', 'farm:produce:carrot');
+    await useOwnedItem('farm:produce:carrot');
     expect(actor()).toHaveAttribute('data-motion', 'walking');
     expect(screen.getByTestId('care-feed')).toBeDisabled();
     fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 150, clientY: 500, detail: 1 });

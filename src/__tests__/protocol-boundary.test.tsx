@@ -20,7 +20,7 @@ import { KIND_GAME_INVENTORY_SPEND } from '@nostr-games/inventory';
 import Home from '@/pages/Home';
 import { SceneSettingsProvider, type SceneSettings } from '@/features/home/scene';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
-import { chooseCare, chooseItem } from '@/test/care-ui';
+import { chooseCare, useOwnedItem } from '@/test/care-ui';
 import { OFFICIAL_APPLE, OFFICIAL_BALL, inventoryEvent, officialCareDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 
 let signCount = 0;
@@ -136,7 +136,7 @@ describe('Presentation never touches Nostr', () => {
     await waitFor(() => expect(screen.queryByTestId('furniture-home:bed-pet')).toBeNull(), { timeout: 3000 });
 
     // An item set down and put back before the Blobbi reaches it.
-    await chooseItem('play', 'blobbi:toy:ball');
+    await useOwnedItem('blobbi:toy:ball');
     expect(screen.getByTestId('scene-object-offer')).toHaveAttribute('data-state', 'walking');
     await userEvent.click(within(screen.getByTestId('scene-object-offer')).getByRole('button'));
     await waitFor(() => expect(screen.queryByTestId('scene-object-offer')).toBeNull());
@@ -155,7 +155,7 @@ describe('Presentation never touches Nostr', () => {
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });
     await waitFor(() => expect(screen.queryByTestId('scene-object-offer')).toBeNull(), { timeout: 3000 });
     relay.published = [];
-    await chooseItem('play', 'blobbi:toy:ball');
+    await useOwnedItem('blobbi:toy:ball');
     await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
   });
 });
@@ -189,7 +189,7 @@ describe('The renderer contract', () => {
     fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 100, clientY: 520, detail: 1 });
     expect(actor()).toHaveAttribute('data-motion', 'idle');
     expect(actor()).toHaveAttribute('data-x', '0.250');
-    await chooseItem('play', 'blobbi:toy:ball');
+    await useOwnedItem('blobbi:toy:ball');
     await waitFor(() => expect(kinds().filter((k) => k === KIND_GAME_INVENTORY_SPEND)).toHaveLength(1), { timeout: 4000 });
     expect(relay.published).toHaveLength(kinds().length);
   });

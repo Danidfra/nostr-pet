@@ -13,7 +13,7 @@ import type { StatItem } from './BlobbiStatusPanel';
 import { CareError, CareFeedback } from './CareFeedback';
 import type { FeedbackResult } from './care-feedback-text';
 import { describeMood } from './mood';
-import { careOptionsFor, itemCountsByVerb, type CareChoice, type CareOption, type CareVerb } from './care-model';
+import { careOptionsFor, type CareChoice, type CareOption, type CareVerb } from './care-model';
 import { detectStreakIncrease, type StreakChange } from './streak';
 import { HOME_SPACE, STAGE_OBJECTS, type StageObjectKind } from './space/home-space';
 import { FurnitureLayer, RoomBackdrop, approachSpot, surfaceBackground, type Placement } from './rooms';
@@ -445,7 +445,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   // The verb row: a verb opens its options; Rest and Wake act at once (one
   // way only); tapping the open verb again closes it.
-  const options = useMemo(() => (selectedVerb ? careOptionsFor(selectedVerb, inventory.items, inventory.starters, actions) : []), [selectedVerb, inventory.items, inventory.starters, actions]);
+  const options = useMemo(() => (selectedVerb ? careOptionsFor(selectedVerb, inventory.starters, actions) : []), [selectedVerb, inventory.starters, actions]);
   const selectVerb = useCallback(
     (verb: CareVerb) => {
       setDoorPrompt(false);
@@ -494,7 +494,6 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const eggCrack = ceremony.presentation.eggCrack ?? lifecycle.view.eggCrack;
   const interactive = !sleeping && canWalk && !inCeremony;
   const usableItemCount = inventory.items.filter((i) => i.usability.ok && !i.unverified).length;
-  const counts = useMemo(() => itemCountsByVerb(inventory.items), [inventory.items]);
   const offerObject = offer ? itemObjectAt('offer', offer.choice.entry.item.name, offer.spot.position, offer.spot.approach) : null;
   const accessories = blobbi.stage === 'egg' ? undefined : worn.accessoriesFor(scene.presentation.facing);
   const actorEffects = useMemo(() => {
@@ -626,7 +625,6 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           actions={actions}
           selected={selectedVerb}
           pendingAction={pendingAction}
-          counts={counts}
           onSelect={selectVerb}
           onOpenItems={openItems}
           itemCount={usableItemCount}

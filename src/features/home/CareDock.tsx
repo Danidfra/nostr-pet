@@ -11,8 +11,6 @@ interface CareDockProps {
   selected: CareVerb | null;
   /** The verb a walk or a write is in progress for. */
   pendingAction: CareAction | null;
-  /** Owned items that answer each verb, for the small badge. */
-  counts: Record<CareVerb, number>;
   onSelect: (verb: CareVerb) => void;
   /** The bag: everything owned, in a sheet. */
   onOpenItems: () => void;
@@ -25,7 +23,7 @@ interface CareDockProps {
  * not act by itself; it opens its options above (`CareOptions`). Unavailable
  * verbs stay visible and say why. Tapping IS the choice: no modal between.
  */
-export function CareDock({ actions, selected, pendingAction, counts, onSelect, onOpenItems, itemCount, disabled = false }: CareDockProps) {
+export function CareDock({ actions, selected, pendingAction, onSelect, onOpenItems, itemCount, disabled = false }: CareDockProps) {
   const busy = pendingAction !== null;
   return (
     <div role="group" aria-label="Care for your Blobbi" className="verb-row" data-testid="care-dock">
@@ -34,7 +32,6 @@ export function CareDock({ actions, selected, pendingAction, counts, onSelect, o
         const isPending = pendingAction === action;
         const off = disabled || busy || !available;
         const open = selected === action;
-        const count = counts[action];
         return (
           <button
             key={action}
@@ -52,11 +49,6 @@ export function CareDock({ actions, selected, pendingAction, counts, onSelect, o
           >
             <span className="verb__disc">
               {isPending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Icon className="h-5 w-5" aria-hidden />}
-              {count > 0 && (
-                <span className="verb__count" aria-hidden>
-                  {count > 9 ? '9+' : count}
-                </span>
-              )}
             </span>
             <span className="verb__label scene-text">{label}</span>
           </button>

@@ -9,7 +9,6 @@ interface ActionBarProps {
   actions: readonly CareAvailability[];
   selected: CareVerb | null;
   pendingAction: CareAction | null;
-  counts: Record<CareVerb, number>;
   onSelect: (verb: CareVerb) => void;
   onOpenItems: () => void;
   itemCount: number;
@@ -29,7 +28,7 @@ interface ActionBarProps {
  * intents with the bag beside them. The dock sits in the flow at the
  * front edge of the floor, so it never covers the Blobbi.
  */
-function ActionBarImpl({ actions, selected, pendingAction, counts, onSelect, onOpenItems, itemCount, options, lifecycleReady, onLifecycle, disabled = false, floorBackground }: ActionBarProps) {
+function ActionBarImpl({ actions, selected, pendingAction, onSelect, onOpenItems, itemCount, options, lifecycleReady, onLifecycle, disabled = false, floorBackground }: ActionBarProps) {
   return (
     <nav className="hud-bottom" aria-label="Actions" data-testid="action-bar" style={floorBackground ? ({ '--dock-floor': floorBackground } as React.CSSProperties) : undefined}>
       {lifecycleReady && onLifecycle && (
@@ -39,7 +38,7 @@ function ActionBarImpl({ actions, selected, pendingAction, counts, onSelect, onO
         </button>
       )}
       {options}
-      <CareDock actions={actions} selected={selected} pendingAction={pendingAction} counts={counts} onSelect={onSelect} onOpenItems={onOpenItems} itemCount={itemCount} disabled={disabled} />
+      <CareDock actions={actions} selected={selected} pendingAction={pendingAction} onSelect={onSelect} onOpenItems={onOpenItems} itemCount={itemCount} disabled={disabled} />
     </nav>
   );
 }

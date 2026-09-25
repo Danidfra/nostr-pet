@@ -69,15 +69,21 @@ export const VOICE: Record<import('./sounds').BlobbiSoundId, Recipe> = {
   eat: { durationMs: 4 * CHEW_CYCLE_MS + 40, master: 0.38, lowpassHz: 1900, layers: chew() },
   /** Bath: three quick bubbles, each a little higher, with a watery hum under them. */
   clean: { durationMs: 520, master: 0.34, lowpassHz: 2200, layers: [pop(0, 560, 720, 70, 0.1), hum(20, [620, 760, 640], 160, 0.04), pop(150, 620, 800, 70, 0.09), pop(310, 700, 900, 70, 0.08)] },
-  /** A curious "boop?": one pop bending up, a short hum after it. */
-  poke: { durationMs: 220, master: 0.34, lowpassHz: 2000, layers: [pop(0, 480, 640, 90, 0.12), hum(60, [640, 720, 690], 110, 0.04)] },
+  /**
+   * A poke: a small creature noticing a touch. The voice is the munch's
+   * hum (the triangle "nyum~"), here lifted into a short question, "hm?",
+   * with the munch's soft close-smack under it for body. Hum-led and low,
+   * so it is a creature, not an interface beep; the upset and sleepy pokes
+   * below are the same two layers with the hum pushed down or slowed.
+   */
+  poke: { durationMs: 280, master: 0.34, lowpassHz: 1800, layers: [pop(0, 360, 300, 70, 0.09), hum(20, [430, 560, 500], 200, 0.09)] },
   /** Glad: two pops, the second higher. */
   happy: { durationMs: 320, master: 0.36, lowpassHz: 2000, layers: [pop(0, 520, 620, 80, 0.12), pop(140, 640, 780, 90, 0.11), hum(40, [700, 820, 760], 150, 0.045)] },
   /** Excited: three quick rising pops, brighter. */
   excited: { durationMs: 420, master: 0.36, lowpassHz: 2400, layers: [pop(0, 560, 680, 70, 0.12), pop(110, 660, 800, 70, 0.11), pop(220, 780, 960, 90, 0.11), hum(30, [720, 900, 820], 220, 0.045)] },
-  /** Displeased: a falling triangle, a low pop under it. */
-  upset: { durationMs: 340, master: 0.34, lowpassHz: 1600, layers: [hum(0, [460, 380, 250], 260, 0.07), pop(40, 360, 260, 120, 0.09)] },
-  /** Sleepy: one slow, low hum that sinks. */
+  /** Displeased: the poke's voice pushed down, a short "hmph": the hum falls, the smack sits lower. */
+  upset: { durationMs: 300, master: 0.34, lowpassHz: 1500, layers: [hum(0, [520, 380, 300], 200, 0.075), pop(30, 330, 240, 90, 0.09)] },
+  /** Sleepy: the poke's voice slowed and sunk, "mmm…": one long low hum, the smack stretched under it. */
   sleepy: { durationMs: 520, master: 0.3, lowpassHz: 1400, layers: [hum(0, [340, 300, 230], 460, 0.07), pop(0, 300, 240, 200, 0.05)] },
   /** Hatch: a small rising run, the last pop held. */
   hatch: { durationMs: 700, master: 0.38, lowpassHz: 2400, layers: [pop(0, 440, 520, 90, 0.11), pop(150, 560, 660, 90, 0.11), pop(300, 700, 840, 120, 0.12), hum(340, [840, 980, 900], 320, 0.05)] },

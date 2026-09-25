@@ -12,13 +12,13 @@ interface CareOptionsProps {
 }
 
 /**
- * The items for the chosen verb, right above the verb row: the ones the
- * player owns (artwork, name, count; using one spends it) and the starter
- * kit (artwork, name, "free"; using one spends nothing and is never
+ * The items for the chosen verb, right above the verb row: the starter kit
+ * that answers it (artwork and name; using one spends nothing and is never
  * counted as owned). One tap chooses. The strip scrolls sideways when
  * there are many, and is one thumb high. It floats over the bottom of the
  * room (CSS: absolute, anchored to the dock), so opening it never changes
- * the dock's height or moves the scene.
+ * the dock's height or moves the scene. Owned items are not repeated here;
+ * they live in the Inventory overlay with their quantities.
  */
 function CareOptionsImpl({ verb, options, onChoose, disabled = false }: CareOptionsProps) {
   return (
@@ -27,32 +27,22 @@ function CareOptionsImpl({ verb, options, onChoose, disabled = false }: CareOpti
         {options.map((option) => {
           const label = describeOption(option);
           const item = option.entry.item;
-          const starter = option.source === 'starter';
           return (
             <div role="listitem" key={option.key} className="care-option__slot">
               <button
                 type="button"
-                className={`care-option ${starter ? 'care-option--starter' : ''}`}
+                className="care-option"
                 onClick={() => onChoose(option)}
                 disabled={disabled}
                 aria-label={label}
-                title={starter ? (item.definitionSource === 'builtin' ? 'Starter item (built-in details; the definition relay did not answer)' : 'Starter item: free, always here') : undefined}
-                data-testid={starter ? `care-option-starter-${item.itemId}` : `care-option-${item.itemId}`}
+                title={item.definitionSource === 'builtin' ? 'Details are built-in; the definition relay did not answer' : undefined}
+                data-testid={option.source === 'starter' ? `care-option-starter-${item.itemId}` : `care-option-${item.itemId}`}
                 data-source={option.source}
                 data-definition={item.definitionSource}
               >
                 <span className="care-option__art">
                   <ItemGlyph glyph={item.glyph} size="2rem" />
                 </span>
-                {option.source === 'owned' ? (
-                  <span className="care-option__qty" aria-hidden>
-                    ×{option.entry.quantity}
-                  </span>
-                ) : (
-                  <span className="care-option__free" aria-hidden>
-                    free
-                  </span>
-                )}
                 <span className="care-option__name">{item.name}</span>
               </button>
             </div>
