@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useProjectedBlobbiState } from '@blobbi-kit/react';
 import { getStatStatus, getVisibleStats, type BlobbiCompanion, type BlobbonautProfile, type NostrEvent } from '@blobbi-kit/core';
+import { isBlobbiEmotion, type BlobbiEmotion } from '@blobbi-kit/renderer';
 import { MapPin } from 'lucide-react';
 
 import { availableCareActions, useCareActions, type CareAction, type CareResult } from '@/features/care';
@@ -59,6 +60,15 @@ const DEV_LIFECYCLE_TOOLS = import.meta.env.DEV && import.meta.env.VITE_BLOBBI_D
 const DEV_PREVIEW: StageObjectKind | null = DEV_LIFECYCLE_TOOLS && typeof window !== 'undefined' ? ((): StageObjectKind | null => {
   const v = new URLSearchParams(window.location.search).get('preview');
   return v === 'bed' || v === 'tub' ? v : null;
+})() : null;
+/**
+ * Dev-only expression preview (`?expression=happy|excited|sad|sleepy|
+ * surprised|upset`): the baseline face is pinned so each preset can be looked
+ * at on each stage at game size. Reactions still play over it.
+ */
+const DEV_EXPRESSION: BlobbiEmotion | null = DEV_LIFECYCLE_TOOLS && typeof window !== 'undefined' ? ((): BlobbiEmotion | null => {
+  const v = new URLSearchParams(window.location.search).get('expression');
+  return v && isBlobbiEmotion(v) ? v : null;
 })() : null;
 
 
@@ -135,7 +145,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const [initialPosition] = useState<FloorPoint>(() => (isEgg ? approachSpot(STAGE_OBJECTS.nest) : sleeping ? approachSpot(STAGE_OBJECTS.bed) : DEV_PREVIEW ? approachSpot(STAGE_OBJECTS[DEV_PREVIEW]) : HOME_SPACE.entry));
   // The dev bed preview shows the sleeping pose too (presentation only; care and writes see the real state).
   const shownBlobbi = DEV_PREVIEW === 'bed' && blobbi.state === 'active' ? { ...blobbi, state: 'sleeping' as const } : blobbi;
-  const scene = useBlobbiPresentation({ blobbi: shownBlobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition });
+  const scene = useBlobbiPresentation({ blobbi: shownBlobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition, baselineOverride: DEV_EXPRESSION });
 
   const statItems = useMemo<StatItem[]>(
     () =>
@@ -242,7 +252,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       if (remaining > 0) finishTimerRef.current = setTimeout(finish, remaining);
       else finish();
     },
-    [reactToCare, play],
+    [reactToCare, play, retireTub],
   );
   const lastItemResult = useItem.lastResult;
   const handledItemRef = useRef<typeof lastItemResult>(undefined);

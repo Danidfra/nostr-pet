@@ -1,19 +1,14 @@
 import { NostrContext } from '@nostrify/react';
-import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { BASE_RELAYS } from '@/config/relays';
 import { createHomePool } from '@/lib/home-pool';
-import { createRelayHealthStore, type RelayHealth, type RelayHealthStore } from '@/lib/relay-health';
+import { createRelayHealthStore, type RelayHealthStore } from '@/lib/relay-health';
+import { RelayHealthContext } from '@/hooks/useRelayHealth';
 
 interface NostrProviderProps {
   children: ReactNode;
   relays?: readonly string[];
 }
-
-const HEALTHY: RelayHealth = { level: 'healthy', online: true, relays: {} };
-const noopStore: RelayHealthStore = { snapshot: () => HEALTHY, subscribe: () => () => {}, log: () => {}, setOnline: () => {}, reset: () => {} };
-
-/** The connection health store, for `useRelayHealth`. Defaults to a silent, healthy store (tests, fixtures). */
-export const RelayHealthContext = createContext<RelayHealthStore>(noopStore);
 
 /**
  * One relay pool for the app (`createHomePool`): reads go to the application
@@ -50,14 +45,6 @@ export function NostrProvider({ children, relays = BASE_RELAYS }: NostrProviderP
       <NostrContext.Provider value={{ nostr: pool }}>{children}</NostrContext.Provider>
     </RelayHealthContext.Provider>
   );
-}
-
-/** The current connection health, re-rendering on change; `reset` forgets past failures before a retry. */
-// eslint-disable-next-line react-refresh/only-export-components -- the hook and the provider share the context
-export function useRelayHealth(): { health: RelayHealth; reset: () => void } {
-  const store = useContext(RelayHealthContext);
-  const health = useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot);
-  return { health, reset: store.reset };
 }
 
 export default NostrProvider;

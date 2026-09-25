@@ -161,17 +161,19 @@ describe('Presentation never touches Nostr', () => {
 });
 
 describe('The renderer contract', () => {
-  it('a V1 Blobbi (no visual_generation) draws without expression support; the home still hands it every input', async () => {
+  it('a V1 Blobbi (no visual_generation) draws as V1; whether its face can show an expression is the renderer\'s word, and the home still hands it every input', async () => {
     renderHome();
     await ready();
     expect(renderer()).toHaveAttribute('data-blobbi-generation', 'v1');
-    expect(renderer()).not.toHaveAttribute('data-blobbi-expression-support');
+    // Renderer 0.3.0 says no for every V1 drawing; 0.4.0 says yes for the
+    // baby front. The home reads the answer, it never decides it.
+    expect(renderer()?.getAttribute('data-blobbi-expression-support') ?? null).toBeOneOf([null, '']);
     await userEvent.click(screen.getByTestId('blobbi-poke'));
     expect(actor()).toHaveAttribute('data-expression', 'happy'); // the home's state
     expect(renderer()).toHaveAttribute('data-blobbi-facing', 'front');
   });
 
-  it('an adult V2 Blobbi carries the expression the home composes (baby and egg artwork has no face to compose on)', async () => {
+  it('an adult V2 Blobbi carries the expression the home composes (egg artwork has no face to compose on)', async () => {
     relay.all = [blobbiEvent('0000000001', { name: 'Brook', stage: 'adult', state: 'active', createdAt: NOW - 120, set: { hunger: '40', happiness: '50', hygiene: '45', energy: '70' }, extra: [['visual_generation', 'v2']] }), ...definitions(), ...stock()];
     renderHome();
     await ready();

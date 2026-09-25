@@ -61,11 +61,13 @@ describe('BlobbiActor', () => {
     expect(bodyBox()?.innerHTML).not.toBe(neutral);
   });
 
-  it('a V1 Blobbi degrades gracefully: expression changes nothing in its markup', () => {
-    const { rerender } = render(<BlobbiActor blobbi={companion()} presentation={{ ...standing, expression: 'neutral' }} />);
+  it('a V1 adult degrades gracefully: expression changes nothing in its markup', () => {
+    const adult = companion([['adult_type', 'catti']], 'adult');
+    const { rerender } = render(<BlobbiActor blobbi={adult} presentation={{ ...standing, expression: 'neutral' }} />);
     const neutral = bodyBox()?.innerHTML;
-    rerender(<BlobbiActor blobbi={companion()} presentation={{ ...standing, expression: 'excited' }} />);
+    rerender(<BlobbiActor blobbi={adult} presentation={{ ...standing, expression: 'excited' }} />);
     expect(bodyBox()?.innerHTML).toBe(neutral);
+    expect(renderer()).not.toHaveAttribute('data-blobbi-expression-support');
   });
 
   it('renders an event with an invalid visual_generation as V1', () => {

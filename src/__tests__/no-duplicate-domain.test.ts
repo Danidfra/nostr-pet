@@ -36,6 +36,7 @@ const FORBIDDEN: Array<{ pattern: RegExp; why: string }> = [
   { pattern: /import .* from ['"]@blobbi-kit\/(core|react|renderer)\/(?!nostr-protocol)/, why: 'deep import; use the public barrel' },
   { pattern: /nsec1[0-9a-z]{20,}/, why: 'a secret key in source' },
   { pattern: /import .*\.svg['"]|\/assets\/.*(baby|adult|egg).*\.svg/, why: 'Blobbi artwork must come from @blobbi-kit/renderer' },
+  { pattern: /blobbiBodyGradient|blobbiPupilGradient|blobbiEyeGradient|M 42 62|customizeBabySvg|applyBabyV1Expression|data-part=/, why: 'stage-specific SVG manipulation (a baby face, a V2 part) belongs in @blobbi-kit/renderer' },
 ];
 
 describe('no duplicated Blobbi domain or renderer code in src', () => {

@@ -14,7 +14,7 @@ import { MemoryRouter } from 'react-router-dom';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 import Home from '@/pages/Home';
-import { RelayHealthContext } from '@/components/NostrProvider';
+import { RelayHealthContext } from '@/hooks/useRelayHealth';
 import { SceneSettingsProvider } from '@/features/home/scene';
 import { createRelayHealthStore } from '@/lib/relay-health';
 import { createHomePool } from '@/lib/home-pool';

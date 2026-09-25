@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import type { BlobbiCompanion, BlobbiStats } from '@blobbi-kit/core';
+import type { BlobbiEmotion } from '@blobbi-kit/renderer';
 import { policyFor, resolveBehaviorMode, type BehaviorMode } from './behavior-mode';
 import { floorDirection, floorPointFromScene, type FloorPoint } from './geometry';
 import { travelGlance } from './gaze';
@@ -26,6 +27,8 @@ export interface UseBlobbiPresentationOptions {
   initialPosition?: FloorPoint;
   /** The player is decorating: the Blobbi stands still and watches. */
   isEditing?: boolean;
+  /** Pin the baseline face (a dev preview); null or absent means the condition decides. */
+  baselineOverride?: BlobbiEmotion | null;
 }
 
 export interface ScenePointerHandlers {
@@ -77,7 +80,7 @@ export interface BlobbiSceneController {
  * its policy, so the precedence lives in `behavior-mode.ts` and not in the
  * conditions scattered here.
  */
-export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInCeremony = false, initialPosition, isEditing = false }: UseBlobbiPresentationOptions): BlobbiSceneController {
+export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInCeremony = false, initialPosition, isEditing = false, baselineOverride = null }: UseBlobbiPresentationOptions): BlobbiSceneController {
   const settings = useSceneSettings();
   const reducedMotion = useReducedMotion();
   const hoverCapable = useHoverCapable();
@@ -145,10 +148,10 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
         gaze: gaze.eyeOffset,
         travelGaze,
         reaction: reactions.reaction,
-        baseline: baselineExpression(blobbi, stats),
+        baseline: baselineOverride ?? baselineExpression(blobbi, stats),
         gesture: reactions.gesture,
       }),
-    [mode, locomotion.position, locomotion.facing, locomotion.motion, gaze.eyeOffset, travelGaze, reactions.reaction, reactions.gesture, blobbi, stats],
+    [mode, locomotion.position, locomotion.facing, locomotion.motion, gaze.eyeOffset, travelGaze, reactions.reaction, reactions.gesture, blobbi, stats, baselineOverride],
   );
 
   const markActivity = idle.markActivity;

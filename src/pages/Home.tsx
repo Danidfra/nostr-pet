@@ -4,7 +4,7 @@ import { BlobbiOverview } from '@/features/home/BlobbiOverview';
 import { HomeEmpty, HomeError, HomeLoading, HomeSignedOut } from '@/features/home/HomeStates';
 import { GameShell, HudTop, MenuSheet } from '@/features/home/shell';
 import { OnboardingFlow } from '@/features/onboarding';
-import { useRelayHealth } from '@/components/NostrProvider';
+import { useRelayHealth } from '@/hooks/useRelayHealth';
 
 /**
  * The one screen. The ready state hands everything to `BlobbiOverview`;
