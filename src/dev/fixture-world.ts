@@ -7,7 +7,7 @@
  * producers do. Only a dev bundle behind `VITE_BLOBBI_DEV_TOOLS` loads it.
  */
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
-import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, getTagValue } from '@blobbi-kit/core';
+import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, VISUAL_GENERATION_TAG, getTagValue } from '@blobbi-kit/core';
 import { PUBKEY, blobbiEvent, profileEvent } from '@/test/fixtures';
 import { OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_SOAP, inventoryEvent, officialCareDefinition } from '@/test/inventory-fixtures';
 
@@ -28,7 +28,7 @@ export function buildFixtureWorld({ name, state = 'active', low }: FixtureOption
   const stage = name === 'egg' ? 'egg' : name === 'baby' ? 'baby' : 'adult';
   const set: Record<string, string> = { hunger: '70', happiness: '72', hygiene: '68', energy: '75', health: '90' };
   if (low) set[low] = '8';
-  const extra: string[][] = name === 'adult-v2' ? [['visual_generation', 'v2']] : [];
+  const extra: string[][] = name === 'adult-v2' ? [[VISUAL_GENERATION_TAG, 'v2']] : [];
   const blobbi = blobbiEvent('0000000001', { name: name === 'egg' ? 'Shell' : name === 'baby' ? 'Brook' : 'Elder', stage, state: stage === 'egg' ? 'active' : state, createdAt: now - 3_600, set, extra });
   return [
     blobbi,

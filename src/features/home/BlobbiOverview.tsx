@@ -33,6 +33,7 @@ import {
 } from './scene';
 import { ActionBar, BlobbiSheet, CareOptions, GameShell, HudTop, MenuSheet } from './shell';
 import { StreakMoment } from './StreakMoment';
+import type { HealthLevel } from '@/lib/relay-health';
 
 interface BlobbiOverviewProps {
   blobbi: BlobbiCompanion;
@@ -42,6 +43,8 @@ interface BlobbiOverviewProps {
   onSelect: (d: string) => void;
   updateCompanionEvent: (event: NostrEvent) => void;
   refresh: () => void;
+  /** Connection health for the HUD chip. */
+  connection?: { level: HealthLevel; online: boolean; onRetry: () => void };
 }
 
 /** Dev-only lifecycle shortcuts: never in a production build, and off unless the flag is set. */
@@ -94,7 +97,7 @@ export function BlobbiOverview(props: BlobbiOverviewProps) {
   return <BlobbiHome key={props.blobbi.d} {...props} />;
 }
 
-function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompanionEvent, refresh }: BlobbiOverviewProps) {
+function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompanionEvent, refresh, connection }: BlobbiOverviewProps) {
   const projected = useProjectedBlobbiState(blobbi);
   const care = useCareActions({ pubkey, updateCompanionEvent, invalidate: refresh });
   const sound = useSound();
@@ -499,7 +502,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   return (
     <GameShell
-      top={<HudTop blobbi={blobbi} mood={mood} statItems={statItems} streak={streakForHud} onOpenBlobbi={openBlobbiSheet} onOpenMenu={() => setMenuOpen(true)} />}
+      top={<HudTop blobbi={blobbi} mood={mood} statItems={statItems} streak={streakForHud} onOpenBlobbi={openBlobbiSheet} onOpenMenu={() => setMenuOpen(true)} connection={connection} />}
       scene={
         <HomeScene
           ref={sceneRef}

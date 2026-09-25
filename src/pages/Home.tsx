@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useHomeBlobbi } from '@/hooks/useHomeBlobbi';
 import { BlobbiOverview } from '@/features/home/BlobbiOverview';
 import { HomeEmpty, HomeError, HomeLoading, HomeSignedOut } from '@/features/home/HomeStates';
 import { GameShell, HudTop, MenuSheet } from '@/features/home/shell';
 import { OnboardingFlow } from '@/features/onboarding';
+import { useRelayHealth } from '@/components/NostrProvider';
 
 /**
  * The one screen. The ready state hands everything to `BlobbiOverview`;
@@ -14,6 +15,14 @@ import { OnboardingFlow } from '@/features/onboarding';
 export default function Home() {
   const home = useHomeBlobbi();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Connection health for the HUD: a retry forgets past failures and re-reads.
+  const { health, reset } = useRelayHealth();
+  const refresh = home.refresh;
+  const retry = useCallback(() => {
+    reset();
+    refresh();
+  }, [reset, refresh]);
+  const connection = useMemo(() => ({ level: health.level, online: health.online, onRetry: retry }), [health.level, health.online, retry]);
 
   if (home.status === 'ready' && home.current) {
     return (
@@ -25,6 +34,7 @@ export default function Home() {
         onSelect={home.select}
         updateCompanionEvent={home.updateCompanionEvent}
         refresh={home.refresh}
+        connection={connection}
       />
     );
   }
@@ -41,7 +51,7 @@ export default function Home() {
 
   return (
     <GameShell
-      top={<HudTop onOpenMenu={() => setMenuOpen(true)} />}
+      top={<HudTop onOpenMenu={() => setMenuOpen(true)} connection={connection} />}
       scene={
         <>
           {home.status === 'signed-out' && <HomeSignedOut>{onboarding}</HomeSignedOut>}

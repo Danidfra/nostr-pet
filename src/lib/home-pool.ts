@@ -11,7 +11,7 @@
  * returns what the others served (`NPool.query` returns partial results
  * once the first relay finishes and the grace period elapses).
  */
-import { NPool, NRelay1, type NostrFilter, type NRelay } from '@nostrify/nostrify';
+import { NPool, NRelay1, type NostrFilter, type NRelay, type NRelay1Opts } from '@nostrify/nostrify';
 import { BASE_RELAYS } from '@/config/relays';
 import { ECOSYSTEM_READ_HINTS } from '@/features/inventory/relay-hints';
 import { buildReadRoutingPolicy, routeReadFilters, type ReadHint } from './relay-routing';
@@ -25,13 +25,16 @@ export interface HomePoolOptions {
   open?: (url: string) => NRelay;
   /** How long to wait for the other relays once the first has answered (pool default when omitted). */
   eoseTimeout?: number;
+  /** NRelay1's log, with the relay url on every entry (the health store listens to it). */
+  log?: NonNullable<NRelay1Opts['log']>;
 }
 
-export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HINTS, open = (url) => new NRelay1(url), eoseTimeout }: HomePoolOptions = {}): NPool {
+export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HINTS, open, eoseTimeout, log }: HomePoolOptions = {}): NPool {
+  const openRelay = open ?? ((url: string) => new NRelay1(url, log ? { log } : {}));
   const policy = buildReadRoutingPolicy({ appRelays: relays, hints });
   const writeRelays = [...policy.appRelays];
   return new NPool({
-    open,
+    open: openRelay,
     reqRouter(filters: NostrFilter[]) {
       return routeReadFilters(filters, policy);
     },

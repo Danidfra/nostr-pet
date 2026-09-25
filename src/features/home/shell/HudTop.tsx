@@ -3,6 +3,8 @@ import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import type { StatItem } from '../BlobbiStatusPanel';
+import { ConnectionChip } from './ConnectionChip';
+import type { HealthLevel } from '@/lib/relay-health';
 
 interface HudTopProps {
   /** The current Blobbi, when one is shown. */
@@ -15,6 +17,8 @@ interface HudTopProps {
   streak?: { days: number; bumpKey: number };
   onOpenBlobbi?: () => void;
   onOpenMenu: () => void;
+  /** Connection health; the chip shows only when it is not healthy. */
+  connection?: { level: HealthLevel; online: boolean; onRetry: () => void };
 }
 
 const STAGE_WORD: Record<BlobbiCompanion['stage'], string> = { egg: 'Egg', baby: 'Baby', adult: 'Adult' };
@@ -28,7 +32,7 @@ const STAT_WORD: Record<StatItem['stat'], string> = { hunger: 'food', happiness:
  * keeps the screen. Root is pointer-transparent; only the controls take
  * taps.
  */
-export function HudTop({ blobbi, mood, statItems = [], streak, onOpenBlobbi, onOpenMenu }: HudTopProps) {
+export function HudTop({ blobbi, mood, statItems = [], streak, onOpenBlobbi, onOpenMenu, connection }: HudTopProps) {
   return (
     <header className="hud-top" data-testid="hud-top">
       {blobbi ? (
@@ -57,6 +61,7 @@ export function HudTop({ blobbi, mood, statItems = [], streak, onOpenBlobbi, onO
         </a>
       )}
       <span className="hud-top__right">
+        {connection && <ConnectionChip level={connection.level} online={connection.online} onRetry={connection.onRetry} />}
         {streak && streak.days > 0 && (
           <span key={streak.bumpKey} className={`streak-pill ${streak.bumpKey > 0 ? 'streak-pill--bump' : ''}`} aria-label={`Care streak: ${streak.days} day${streak.days === 1 ? '' : 's'}`} title="Care streak" data-testid="streak-pill" data-days={streak.days}>
             <Flame className="h-4 w-4" aria-hidden />
