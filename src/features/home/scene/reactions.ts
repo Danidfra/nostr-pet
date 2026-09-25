@@ -18,12 +18,6 @@ export interface CareReaction {
 /** How long a care reaction stays on the face before the baseline returns. */
 export const REACTION_DURATION_MS = 2_400;
 
-/** A short, cheerful reaction to being poked. */
-export const POKE_DURATION_MS = 1_200;
-
-/** How long the Blobbi stays cross after too many pokes. */
-export const ANNOYED_DURATION_MS = 2_000;
-
 /** How long a use must visibly take, so a fast relay never makes it vanish. */
 export const MIN_USE_MS = 700;
 

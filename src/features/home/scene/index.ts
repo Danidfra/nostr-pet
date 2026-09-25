@@ -19,4 +19,4 @@ export { HOME_SPOT, DOOR_POSITION, DOOR_APPROACH, OFFER_SPOT, OFFER_APPROACH, SC
 export type { SceneObjectDef, SceneObjectId, SceneObjectKind } from './objects';
 export * from './geometry';
 export type { CareReaction } from './reactions';
-export { MIN_USE_MS, POKE_DURATION_MS, ANNOYED_DURATION_MS, REACTION_DURATION_MS } from './reactions';
+export { MIN_USE_MS, REACTION_DURATION_MS } from './reactions';

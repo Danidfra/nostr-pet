@@ -27,8 +27,18 @@ function RoomBackdropImpl({ room }: { room: RoomDefinition }) {
   );
 }
 
+/**
+ * Where the window hangs, as fractions of the room canvas: its top a third
+ * of the way down the wall (the wall is the top 72% of the canvas), a
+ * quarter of the canvas wide, right of centre so the Blobbi's side of the
+ * room stays open. A test pins the drawn style to these numbers.
+ */
+export const WINDOW_DECOR = { left: 0.6, top: 0.24, width: 0.25 } as const;
+const SMALL_WINDOW_DECOR = { left: 0.64, top: 0.22, width: 0.2 } as const;
+
 function Window({ small }: { small: boolean }) {
-  const style: CSSProperties = small ? { left: '64%', top: '12%', width: '20%' } : { left: '58%', top: '11%', width: '27%' };
+  const decor = small ? SMALL_WINDOW_DECOR : WINDOW_DECOR;
+  const style: CSSProperties = { left: `${decor.left * 100}%`, top: `${decor.top * 100}%`, width: `${decor.width * 100}%` };
   return (
     <div className={`decor-window ${small ? 'decor-window--small' : ''}`} style={style}>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">

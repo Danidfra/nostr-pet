@@ -35,6 +35,13 @@ export interface BehaviorPolicy {
   gaze: boolean;
   /** Care results and pokes may show a temporary face. */
   reactions: boolean;
+  /**
+   * What a poke may do to the body. `none`: nothing (a ceremony, decorating).
+   * `gesture`: a body gesture only, no face (an egg has no face to change,
+   * a sleeper keeps its eyes shut). `face`: a face only, no gesture (the
+   * renderer is animating the walk; two transforms would fight). `full`.
+   */
+  pokes: 'none' | 'gesture' | 'face' | 'full';
   /** Floor taps and bed taps are accepted. */
   floorTaps: boolean;
   /** Body motion is forced to this, or null to let locomotion decide. */
@@ -42,13 +49,13 @@ export interface BehaviorPolicy {
 }
 
 export const BEHAVIOR_POLICY: Record<BehaviorMode, BehaviorPolicy> = {
-  ceremony: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still' },
+  ceremony: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still', pokes: 'none' },
   // Decorating: the Blobbi stands and watches; the room is the player's.
-  editing: { walks: [], idle: false, gaze: true, reactions: false, floorTaps: false, forcedMotion: 'still' },
-  sleeping: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still' },
-  nested: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: null },
-  'user-walk': { walks: ['user'], idle: false, gaze: true, reactions: true, floorTaps: true, forcedMotion: null },
-  free: { walks: ['user', 'idle'], idle: true, gaze: true, reactions: true, floorTaps: true, forcedMotion: null },
+  editing: { walks: [], idle: false, gaze: true, reactions: false, floorTaps: false, forcedMotion: 'still', pokes: 'none' },
+  sleeping: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still', pokes: 'gesture' },
+  nested: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: null, pokes: 'gesture' },
+  'user-walk': { walks: ['user'], idle: false, gaze: true, reactions: true, floorTaps: true, forcedMotion: null, pokes: 'face' },
+  free: { walks: ['user', 'idle'], idle: true, gaze: true, reactions: true, floorTaps: true, forcedMotion: null, pokes: 'full' },
 };
 
 export interface BehaviorModeInput {

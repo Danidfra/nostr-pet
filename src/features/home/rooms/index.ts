@@ -4,7 +4,7 @@ export { useRoom } from './useRoom';
 export type { RoomState } from './useRoom';
 export { useRoomLayout, readRoomPlacements } from './useRoomLayout';
 export type { RoomLayoutState } from './useRoomLayout';
-export { RoomBackdrop } from './RoomBackdrop';
+export { RoomBackdrop, WINDOW_DECOR } from './RoomBackdrop';
 export { RoomArrows, RoomIndicator } from './RoomNav';
 export { FurnitureLayer } from './FurnitureLayer';
 export { FURNITURE, FURNITURE_CATEGORY_LABEL, furnitureById, canPlaceInRoom, furnitureForRoom } from './furniture-registry';

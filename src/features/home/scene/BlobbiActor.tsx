@@ -1,9 +1,11 @@
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
 import { BlobbiRenderer, blobbiMotionPhase, BLOBBI_MOTION_PHASES, type BlobbiEggCrack, type BlobbiVisualEffect, type NormalizedAccessoryPlacement } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { placeOnFloor } from './geometry';
 import { RENDERER_WALK_CYCLE_S } from './motion-contract';
+import { GESTURES } from './gestures';
+import { useReducedMotion } from './SceneSettings';
 import type { BlobbiPresentation } from './presentation';
 
 interface BlobbiActorProps {
@@ -28,8 +30,8 @@ interface BlobbiActorProps {
 
 /**
  * The Blobbi as something standing in its home. The actor is anchored at
- * its feet on a floor point, drawn a little smaller towards the back, over a
- * patch of light and its own shadow. It hands the composed presentation
+ * its feet on a floor point, drawn a little smaller towards the back, over
+ * its one ground shadow (which follows the renderer's walk). It hands the composed presentation
  * (facing, motion, gaze, expression, sleeping) to the canonical renderer and
  * decides nothing about how the Blobbi looks. It never touches Nostr.
  */
@@ -45,9 +47,27 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
   const instanceId = `home-${blobbi.d}`;
   const motionPhase = blobbiMotionPhase(instanceId) / BLOBBI_MOTION_PHASES;
 
+  // A poke gesture: keyframes on the home's own box around the renderer,
+  // played through the Web Animations API so a repeat restarts it without
+  // remounting the drawing, and so nothing is added to the renderer's
+  // element (its walk and idle transforms stay its own). The presentation
+  // already withholds a gesture while walking. Reduced motion: no gesture.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useImperativeHandle(ref, () => rootRef.current as HTMLDivElement);
+  const boxRef = useRef<HTMLButtonElement>(null);
+  const reducedMotion = useReducedMotion();
+  const { gesture } = presentation;
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!gesture || !box || reducedMotion || typeof box.animate !== 'function') return;
+    const spec = GESTURES[gesture.kind];
+    const animation = box.animate(spec.keyframes, { duration: spec.durationMs, easing: spec.easing, composite: 'add' });
+    return () => animation.cancel();
+  }, [gesture, reducedMotion]);
+
   return (
     <div
-      ref={ref}
+      ref={rootRef}
       className="scene-actor"
       data-testid="blobbi-actor"
       data-motion={presentation.motion}
@@ -55,13 +75,14 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-expression={presentation.expression}
       data-sleeping={isSleeping ? 'true' : 'false'}
       data-invite={invite ? 'true' : 'false'}
+      data-gesture={gesture?.kind}
+      data-gesture-key={gesture?.key}
       data-egg-crack={blobbi.stage === 'egg' ? (eggCrack ?? 'none') : undefined}
       data-x={presentation.position.x.toFixed(3)}
       data-y={presentation.position.y.toFixed(3)}
       style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale), '--walk-cycle': `${RENDERER_WALK_CYCLE_S}s`, '--blobbi-motion-phase': String(motionPhase) } as React.CSSProperties}
     >
       <div className="scene-actor__body">
-        <div aria-hidden className="home-ground scene-actor__ground" />
         <div aria-hidden className="scene-actor__shadow" />
         {children}
         {isSleeping && (
@@ -73,6 +94,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
             keyboard operable; the renderer stays a plain image with no click of its own. */}
         <button
           key={happyKey}
+          ref={boxRef}
           type="button"
           className={`scene-actor__box ${happyKey > 0 ? 'animate-blobbi-happy' : ''}`}
           onClick={onPoke}

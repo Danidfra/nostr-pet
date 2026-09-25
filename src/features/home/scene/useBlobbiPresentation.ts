@@ -6,8 +6,8 @@ import { travelGlance } from './gaze';
 import type { IdleAction } from './idle';
 import { HOME_SPOT } from './objects';
 import { composePresentation, type BlobbiPresentation } from './presentation';
-import { ANNOYED_DURATION_MS, POKE_DURATION_MS, baselineExpression, reactionForCare, type CareReaction } from './reactions';
-import { POKE_PATIENCE } from '../personality';
+import { baselineExpression, reactionForCare, type CareReaction } from './reactions';
+import { POKE_PATIENCE, pokeReaction, type PokeReaction } from '../personality';
 import type { EyeOffset } from './gaze';
 import { useHoverCapable, useReducedMotion, useSceneSettings } from './SceneSettings';
 import { useBlobbiLocomotion, type WalkOutcome } from './useBlobbiLocomotion';
@@ -45,8 +45,13 @@ export interface BlobbiSceneController {
   walkTo: (destination: FloorPoint) => Promise<WalkOutcome>;
   /** A tap or click on the floor, as fractions of the scene box. */
   onFloorTap: (fraction: { x: number; y: number }) => void;
-  /** A tap on the Blobbi itself: cheerful, unless it has been poked too often lately. */
-  poke: () => 'happy' | 'upset';
+  /**
+   * A tap on the Blobbi itself. The reaction is the personality's
+   * (`pokeReaction`: stage, state, condition, how often lately); the mode
+   * decides how much of it shows (a face, a gesture, both, nothing). Never a
+   * write.
+   */
+  poke: () => PokeReaction;
   /** Look somewhere for a moment (an item in hand, a toy set down). */
   lookAt: (offset: EyeOffset, durationMs?: number) => void;
   /** A care result or an item use landed: react on the face. */
@@ -141,8 +146,9 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
         travelGaze,
         reaction: reactions.reaction,
         baseline: baselineExpression(blobbi, stats),
+        gesture: reactions.gesture,
       }),
-    [mode, locomotion.position, locomotion.facing, locomotion.motion, gaze.eyeOffset, travelGaze, reactions.reaction, blobbi, stats],
+    [mode, locomotion.position, locomotion.facing, locomotion.motion, gaze.eyeOffset, travelGaze, reactions.reaction, reactions.gesture, blobbi, stats],
   );
 
   const markActivity = idle.markActivity;
@@ -165,21 +171,23 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
   );
 
   const react = reactions.react;
+  const gesticulate = reactions.gesticulate;
   const glance = gaze.glance;
   const pokesRef = useRef<number[]>([]);
-  const poke = useCallback((): 'happy' | 'upset' => {
+  const pokeInputRef = useRef({ stage: blobbi.stage, state: blobbi.state, stats });
+  pokeInputRef.current = { stage: blobbi.stage, state: blobbi.state, stats };
+  const poke = useCallback((): PokeReaction => {
     markActivity();
-    if (!policyRef.current.reactions) return 'happy';
     const now = Date.now();
     pokesRef.current = [...pokesRef.current.filter((t) => now - t < POKE_PATIENCE.windowMs), now];
-    if (pokesRef.current.length >= POKE_PATIENCE.count) {
-      pokesRef.current = [];
-      react('upset', ANNOYED_DURATION_MS);
-      return 'upset';
-    }
-    react('happy', POKE_DURATION_MS);
-    return 'happy';
-  }, [markActivity, react]);
+    const reaction = pokeReaction({ ...pokeInputRef.current, recentPokes: pokesRef.current.length });
+    if (reaction.mood === 'annoyed') pokesRef.current = [];
+    const allowed = policyRef.current.pokes;
+    if (allowed === 'none') return { ...reaction, gesture: reaction.gesture, expression: null, line: null };
+    if ((allowed === 'full' || allowed === 'face') && reaction.expression) react(reaction.expression, reaction.durationMs);
+    if (allowed === 'full' || allowed === 'gesture') gesticulate(reaction.gesture, reaction.durationMs);
+    return reaction;
+  }, [markActivity, react, gesticulate]);
 
   const lookAt = useCallback(
     (offset: EyeOffset, durationMs = 1_500) => {

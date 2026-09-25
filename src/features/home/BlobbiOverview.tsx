@@ -12,7 +12,7 @@ import type { StatItem } from './BlobbiStatusPanel';
 import { CareError, CareFeedback } from './CareFeedback';
 import type { FeedbackResult } from './care-feedback-text';
 import { describeMood } from './mood';
-import { ANNOYED_LINES, needLine } from './personality';
+import { needLine } from './personality';
 import { careOptionsFor, itemCountsByVerb, type CareOption, type CareVerb } from './care-model';
 import { detectStreakIncrease, streakLine, type StreakChange } from './streak';
 import { HOME_SPACE, STAGE_OBJECTS, type StageObjectKind } from './space/home-space';
@@ -507,7 +507,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   );
   const pokeBlobbi = scene.poke;
   const onPoke = useCallback(() => {
-    if (pokeBlobbi() === 'upset') say(ANNOYED_LINES[Date.now() % ANNOYED_LINES.length]);
+    const reaction = pokeBlobbi();
+    if (reaction.line) say(reaction.line);
   }, [pokeBlobbi, say]);
 
   const pendingAction: CareAction | null = care.pendingAction ?? walkingFor;
