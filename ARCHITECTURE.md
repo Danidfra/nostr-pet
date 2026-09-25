@@ -216,6 +216,30 @@ name is suggested for the Blobbonaut profile. `onboarding.test.tsx` runs
 the whole way in with the real login store and real signing and asserts
 the secret never reaches a relay payload, a query, the URL or the console.
 
+**M10.1 polish.** The default room is wall, floor, window, door and the
+Blobbi: `HOME_SPACE.furniture` is empty (it had copied the registry's
+living-room defaults), and the home never reads the M9 layout, room or
+toy stores, which `home-composition.test.tsx` proves by seeding them. The
+door is a wall fixture (`wall: true`, floor point `y: 0`, no depth scale,
+z below the floor range) so its bottom meets the horizon at every
+viewport; the bed is scaled (`scale: 1.7`) with its use spot on the
+cushion (`dy: -0.22`, `renderOrder: -40` so the sleeper is drawn in front
+of the back rim), the tub's use spot is inside it. The care chooser is
+positioned (`absolute; bottom: 100%` of the dock), so opening it never
+resizes the scene. The shadow follows the renderer's walk through a
+verified contract (`scene/motion-contract.ts`: the cycle pinned against
+the kit's exported stylesheet by a test, the phase from
+`blobbiMotionPhase`); the body gets no transform from the home; the kit
+did not change. Sheets are gone: `GameOverlay` is the one primitive (full
+viewport on a phone, a centred bounded panel above 600px, fixed header,
+scrolling body, focus trapped and restored, Escape and backdrop close,
+reduced motion), and the inventory (shelves derived from the care action
+and the definition's `category`, a responsive grid), the menu (a few
+large controls) and the Blobbi's details are built on it.
+`css-contract.test.ts` pins the layout rules jsdom cannot see. A dev-only
+`?preview=bed|tub` (behind `VITE_BLOBBI_DEV_TOOLS`) shows the composition
+without a write.
+
 **Themes: prepared, not started.** The ecosystem's theme representation
 is Ditto's, re-implemented by Island (`ditto/src/lib/themeEvent.ts`,
 `blobbi-island/src/lib/nostr-theme.ts`): kind 36767 (addressable, a named
