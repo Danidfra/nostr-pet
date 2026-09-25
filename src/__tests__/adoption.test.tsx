@@ -107,7 +107,8 @@ describe('First run', () => {
     currentUser.user = undefined;
     renderHome();
     expect(await screen.findByRole('list', { name: /what a blobbi is/i })).toHaveTextContent(/hatches from an egg/);
-    expect(screen.getByText(/You adopt an egg right here/)).toBeInTheDocument();
+    expect(screen.getByTestId('onboarding-create')).toBeInTheDocument();
+    expect(screen.getByTestId('onboarding-existing')).toBeInTheDocument();
   });
 
   it('adopts: intro, a unique egg with a name, the 31124 then one 11125, and the egg in the room', async () => {

@@ -5,6 +5,7 @@ import { useSound } from '@/features/sound';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { shortNpub } from '@/lib/format';
+import { KeyBackup } from '@/features/onboarding/KeyBackup';
 import { BLOBBI_ISLAND_URL, DITTO_BLOBBI_URL } from '@/config/ecosystem';
 
 interface MenuSheetProps {
@@ -20,7 +21,7 @@ export function MenuSheet({ open, onClose }: MenuSheetProps) {
   const env = useEnvironment();
   const sound = useSound();
   const { user, metadata } = useCurrentUser();
-  const { logout } = useLoginActions();
+  const { logout, sessionNsec, loginType } = useLoginActions();
 
   return (
     <Sheet open={open} onClose={onClose} title="Menu" testId="menu-sheet">
@@ -110,6 +111,16 @@ export function MenuSheet({ open, onClose }: MenuSheetProps) {
                 Sign out
               </button>
             </div>
+            <p className="mt-1.5 text-xs text-muted-foreground" data-testid="login-type">
+              {loginType === 'extension' ? 'Signed in with a browser extension. Your key stays with it.' : loginType === 'bunker' ? 'Signed in with a remote signer. Your key stays with it.' : loginType === 'nsec' ? 'Signed in with a secret key kept on this device.' : ''}
+            </p>
+            {sessionNsec && (
+              <details className="mt-2 rounded-xl border border-border bg-background px-3 py-2" data-testid="key-backup-section">
+                <summary className="cursor-pointer text-sm font-semibold">Back up your secret key</summary>
+                <p className="my-2 text-xs text-muted-foreground">This key is the account. Anyone with it controls it; without it there is no way back in. Keep a copy where only you can reach it.</p>
+                <KeyBackup nsec={sessionNsec} />
+              </details>
+            )}
           </section>
         )}
       </div>

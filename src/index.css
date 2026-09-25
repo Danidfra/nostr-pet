@@ -382,6 +382,78 @@
     box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
   }
 
+  /* ─── The way in: onboarding cards ─────────────────────────────────── */
+  .onboard-btn {
+    display: inline-flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding: 0.7rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    transition: transform 120ms ease, filter 120ms ease, background-color 120ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .onboard-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .onboard-btn:not(:disabled):active {
+    transform: scale(0.98);
+  }
+  .onboard-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
+  .onboard-btn--primary {
+    color: hsl(var(--primary-foreground));
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(320 80% 60%) 100%);
+    box-shadow: 0 12px 30px -14px hsl(var(--primary) / 0.8);
+  }
+  .onboard-btn--primary:not(:disabled):hover {
+    filter: brightness(1.06);
+  }
+  .onboard-btn--secondary {
+    color: hsl(var(--foreground));
+    background: hsl(var(--background) / 0.9);
+    border: 1px solid hsl(var(--border));
+  }
+  .onboard-btn--secondary:not(:disabled):hover {
+    background: hsl(var(--accent));
+  }
+  .onboard-input {
+    display: block;
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid hsl(var(--input));
+    background: hsl(var(--background));
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+  .onboard-input::placeholder {
+    color: hsl(var(--muted-foreground));
+  }
+  .onboard-input:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--ring));
+  }
+  .key-box {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    border-radius: 0.75rem;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--background));
+    padding: 0.6rem 0.75rem;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    word-break: break-all;
+    user-select: all;
+    -webkit-user-select: all;
+  }
+
   /* ─── Sheets ───────────────────────────────────────────────────────── */
 
   .sheet-root {

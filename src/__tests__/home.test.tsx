@@ -93,14 +93,16 @@ async function openMenu() {
 }
 
 describe('Home: signed out', () => {
-  it('offers extension and bunker sign-in and the Island exit, and reads nothing', async () => {
+  it('welcomes, then offers extension and bunker sign-in first (the key stays behind a fold) and the Island exit, and reads nothing', async () => {
     currentUser.user = undefined;
     renderHome();
+    expect(await screen.findByTestId('onboarding-welcome')).toBeInTheDocument();
+    expect(islandLink()).toHaveAttribute('href', DEFAULT_BLOBBI_ISLAND_URL);
+    await userEvent.click(screen.getByTestId('onboarding-existing'));
     expect(await screen.findByRole('heading', { name: /sign in to see your blobbi/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in with extension/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/remote signer/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/nsec/i)).toBeNull();
-    expect(islandLink()).toHaveAttribute('href', DEFAULT_BLOBBI_ISLAND_URL);
+    expect(screen.getByTestId('login-key-section')).not.toHaveAttribute('open');
     expect(query).not.toHaveBeenCalled();
   });
 });
@@ -124,8 +126,9 @@ describe('Home: loading, error, empty', () => {
     expect(screen.queryByTestId('blobbi-actor')).toBeNull();
   }, 15_000);
 
-  it('shows the empty home when the player owns no Blobbi', async () => {
+  it('shows the empty home when the player owns no Blobbi: the profile step first (no kind 0), adoption after it', async () => {
     renderHome();
+    await userEvent.click(await screen.findByTestId('profile-skip'));
     expect(await screen.findByRole('heading', { name: /no blobbi lives here yet/i })).toBeInTheDocument();
     // Adoption happens here now (see adoption.test.tsx); the Island stays one tap away.
     expect(screen.getByTestId('adoption-start')).toBeInTheDocument();
@@ -135,6 +138,7 @@ describe('Home: loading, error, empty', () => {
   it('treats a player with only legacy events as owning no Blobbi', async () => {
     relay.state = [legacyMarkerEvent('0000000007'), legacyShapeEvent()];
     renderHome();
+    await userEvent.click(await screen.findByTestId('profile-skip'));
     expect(await screen.findByRole('heading', { name: /no blobbi lives here yet/i })).toBeInTheDocument();
     expect(screen.queryByText('Old')).toBeNull();
     expect(screen.queryByText('Older')).toBeNull();

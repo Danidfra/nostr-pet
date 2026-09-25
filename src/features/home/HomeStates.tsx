@@ -1,16 +1,15 @@
 import type { ReactNode } from 'react';
 import { RefreshCw } from 'lucide-react';
-import type { NostrEvent } from '@blobbi-kit/core';
-import { LoginPanel } from '@/components/auth/LoginPanel';
-import { AdoptionFlow, WhatIsBlobbi } from '@/features/adoption';
-import { EnterIslandButton } from './EnterIslandButton';
-import { HomeScene, SceneBackdrop } from './scene';
+import { HomeScene } from './scene';
+import { RoomBackdrop } from './rooms';
+import { HOME_SPACE } from './space/home-space';
 
 /** The room, empty, with something held up in front of it. */
 function EmptyRoom({ label, children }: { label: string; children: ReactNode }) {
   return (
     <HomeScene
       label={label}
+      room="home"
       floorLabel="Floor"
       actor={null}
       foreground={
@@ -20,23 +19,14 @@ function EmptyRoom({ label, children }: { label: string; children: ReactNode }) 
         </div>
       }
     >
-      <SceneBackdrop />
+      <RoomBackdrop room={HOME_SPACE.room} />
     </HomeScene>
   );
 }
 
-export function HomeSignedOut() {
-  return (
-    <EmptyRoom label="An empty home">
-      <div className="home-glass w-full max-w-md space-y-4 rounded-3xl p-6 text-center">
-        <h1 className="text-2xl font-bold sm:text-3xl">The home of your Blobbi</h1>
-        <WhatIsBlobbi />
-        <p className="text-sm text-muted-foreground">Sign in and your Blobbi will be waiting here. No Blobbi yet? You adopt an egg right here.</p>
-        <LoginPanel />
-        <EnterIslandButton variant="secondary" />
-      </div>
-    </EmptyRoom>
-  );
+/** The signed-out home: the way in, held up in front of the empty room. */
+export function HomeSignedOut({ children }: { children: ReactNode }) {
+  return <EmptyRoom label="An empty home">{children}</EmptyRoom>;
 }
 
 export function HomeLoading() {
@@ -52,20 +42,9 @@ export function HomeLoading() {
   );
 }
 
-interface HomeEmptyProps {
-  pubkey: string;
-  suggestedName?: string;
-  updateCompanionEvent: (event: NostrEvent) => void;
-  refresh: () => void;
-}
-
-/** The empty home is where a first egg is adopted. */
-export function HomeEmpty({ pubkey, suggestedName, updateCompanionEvent, refresh }: HomeEmptyProps) {
-  return (
-    <EmptyRoom label="No Blobbi lives here yet">
-      <AdoptionFlow pubkey={pubkey} suggestedName={suggestedName} updateCompanionEvent={updateCompanionEvent} refresh={refresh} />
-    </EmptyRoom>
-  );
+/** The empty home: profile and adoption steps, in front of the room a first egg will live in. */
+export function HomeEmpty({ children }: { children: ReactNode }) {
+  return <EmptyRoom label="No Blobbi lives here yet">{children}</EmptyRoom>;
 }
 
 interface HomeErrorProps {
