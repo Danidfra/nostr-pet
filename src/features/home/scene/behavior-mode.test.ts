@@ -13,7 +13,7 @@ describe('behaviour mode', () => {
 
   it('a ceremony and an egg allow nothing; only the ceremony pins the body still', () => {
     expect(policyFor('ceremony')).toEqual({ walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still', pokes: 'none' });
-    expect(policyFor('nested')).toEqual({ walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: null, pokes: 'gesture' });
+    expect(policyFor('nested')).toEqual({ walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still', pokes: 'gesture' });
   });
 
   it('has a complete policy row for every mode', () => {

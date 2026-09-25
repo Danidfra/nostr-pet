@@ -8,8 +8,8 @@
  *
  * `ceremony` is the exclusive lifecycle mode (a hatch or an evolution in
  * progress): nothing else may move, look or react until the semantic write
- * has landed or failed. `nested` is an egg: it stands where it is, has no
- * face to turn or eyes to move, and takes no taps.
+ * has landed or failed. `nested` is an egg: it rests on its nest, still, has
+ * no face to turn or eyes to move, and takes only a poke gesture.
  *
  * Every gate in the behaviour layer reads the policy for the resolved mode
  * instead of testing `isSleeping` / `isUserWalking` on its own, so a future
@@ -53,7 +53,10 @@ export const BEHAVIOR_POLICY: Record<BehaviorMode, BehaviorPolicy> = {
   // Decorating: the Blobbi stands and watches; the room is the player's.
   editing: { walks: [], idle: false, gaze: true, reactions: false, floorTaps: false, forcedMotion: 'still', pokes: 'none' },
   sleeping: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still', pokes: 'gesture' },
-  nested: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: null, pokes: 'gesture' },
+  // An egg rests on its nest: no idle breathing or bob from the renderer, so it
+  // sits on the mattress instead of hovering over it (a poke gesture is the
+  // home's own, on the box, and still plays).
+  nested: { walks: [], idle: false, gaze: false, reactions: false, floorTaps: false, forcedMotion: 'still', pokes: 'gesture' },
   'user-walk': { walks: ['user'], idle: false, gaze: true, reactions: true, floorTaps: true, forcedMotion: null, pokes: 'face' },
   free: { walks: ['user', 'idle'], idle: true, gaze: true, reactions: true, floorTaps: true, forcedMotion: null, pokes: 'full' },
 };
