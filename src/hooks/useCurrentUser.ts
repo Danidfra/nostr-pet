@@ -1,6 +1,7 @@
 import { type NLoginType, NUser, useNostrLogin } from '@nostrify/react/login';
 import { useNostr } from '@nostrify/react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
+import { DevFixtureContext } from '@/dev/DevFixtureContext';
 
 import { useAuthor } from './useAuthor';
 
@@ -12,6 +13,8 @@ import { useAuthor } from './useAuthor';
 export function useCurrentUser() {
   const { nostr } = useNostr();
   const { logins } = useNostrLogin();
+  // Dev fixture mode hands in a user; null everywhere else (see src/dev/).
+  const fixture = useContext(DevFixtureContext);
 
   const loginToUser = useCallback(
     (login: NLoginType): NUser => {
@@ -30,6 +33,7 @@ export function useCurrentUser() {
   );
 
   const users = useMemo(() => {
+    if (fixture) return [fixture as unknown as NUser];
     const users: NUser[] = [];
     for (const login of logins) {
       try {
@@ -39,7 +43,7 @@ export function useCurrentUser() {
       }
     }
     return users;
-  }, [logins, loginToUser]);
+  }, [logins, loginToUser, fixture]);
 
   const user = users[0] as NUser | undefined;
   const author = useAuthor(user?.pubkey);
