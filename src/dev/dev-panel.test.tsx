@@ -49,7 +49,7 @@ describe('the dev panel over the home', () => {
   it('shows the fixture, and a stat typed into it changes the Blobbi in place: same actor node, new condition, no reload', async () => {
     renderFixture('?fixture=baby');
     await ready();
-    expect(screen.getByTestId('dev-summary')).toHaveTextContent('Brook · baby · active');
+    expect(screen.getByTestId('dev-summary')).toHaveTextContent('Brook · baby · V1 · active');
     const node = actor();
     expect(screen.queryAllByTestId('condition-dots')).toHaveLength(1);
     const hungerDot = () => screen.getByTestId('condition-dots').querySelector('[data-stat="hunger"]');
@@ -81,7 +81,7 @@ describe('the dev panel over the home', () => {
     await waitFor(() => expect(actor()).toHaveAttribute('data-in-bed', 'false'));
     expect(actor().querySelector('.scene-actor__shadow')).not.toBeNull();
     expect(actor().querySelectorAll('.scene-actor__zzz')).toHaveLength(0);
-    await userEvent.click(screen.getByTestId('dev-stage-egg'));
+    await userEvent.click(screen.getByTestId('dev-stage-egg-v1'));
     await waitFor(() => expect(screen.getByTestId('dev-summary')).toHaveTextContent('egg'));
     expect(screen.getByTestId('dev-state-sleeping')).toBeDisabled();
   });
@@ -95,7 +95,7 @@ describe('the dev panel over the home', () => {
     const seed = () => screen.getByTestId('dev-seed').textContent;
     const born = seed();
     expect(born).toHaveLength(64);
-    await userEvent.click(screen.getByTestId('dev-stage-baby'));
+    await userEvent.click(screen.getByTestId('dev-stage-baby-v1'));
     await waitFor(() => expect(renderer()).toHaveAttribute('data-blobbi-stage', 'baby'));
     expect(actor()).toHaveAttribute('data-in-bed', 'false');
     await userEvent.click(screen.getByTestId('dev-stage-adult-v2'));
@@ -151,12 +151,12 @@ describe('the dev panel over the home', () => {
     renderFixture('?fixture=baby&state=sleeping');
     await ready();
     await waitFor(() => expect(actor()).toHaveAttribute('data-sleeping', 'true'));
-    await userEvent.click(screen.getByTestId('dev-stage-adult'));
+    await userEvent.click(screen.getByTestId('dev-stage-adult-v1'));
     await waitFor(() => expect(screen.getByTestId('dev-summary')).toHaveTextContent('adult'));
     await userEvent.selectOptions(screen.getByTestId('dev-expression'), 'upset');
     await waitFor(() => expect(actor()).toHaveAttribute('data-expression', 'upset'));
     await userEvent.click(screen.getByTestId('dev-reset'));
-    await waitFor(() => expect(screen.getByTestId('dev-summary')).toHaveTextContent('Brook · baby · sleeping'), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByTestId('dev-summary')).toHaveTextContent('Brook · baby · V1 · sleeping'), { timeout: 3000 });
     await waitFor(() => expect(actor()).toHaveAttribute('data-sleeping', 'true'));
     expect(actor()).toHaveAttribute('data-expression', 'neutral');
     expect(screen.queryByText(/overriding/)).toBeNull();

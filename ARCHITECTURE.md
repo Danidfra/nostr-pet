@@ -286,6 +286,51 @@ home (a typed stat changes the same actor node; sleeping goes to bed at
 once; pins override and clear; a kit refusal is shown; reset restores the
 URL's world).
 
+**Visual generation V2 (after M11).** A new Blobbi is born V2. The rule is
+the kit's, not this app's: `buildEggTags` (core 0.7.0) writes
+`visual_generation: v2` by default (`NEW_BLOBBI_VISUAL_GENERATION`), so
+`eggTemplate` in `adoption-plan.ts` changed nothing and now produces a V2
+egg (`adoption-plan.test.ts`, `adoption.test.tsx` pin it). Reading is
+unchanged: an event without the tag is V1, every existing Blobbi stays what
+it is, and no hatch or evolve writes or drops the tag (the kit pins that at
+the hook level). The test fixtures (`src/test/fixtures.ts`) are EXISTING
+Blobbis, so `blobbiEvent` builds V1 unless a test asks for `visualGeneration:
+'v2'`; the dev fixture spec carries the generation explicitly.
+
+**One gait per artwork, one shadow per world (renderer 0.5.0).** The home
+says `motion="walking"` and nothing else; the renderer draws the gait the
+artwork has: V1 and the baby bob as before, the V2 adult walks on its leg
+groups. The home's ground shadow follows the gait by a rule on data it
+already has: `BlobbiActor` carries `data-generation` from the Blobbi's
+event, and `index.css` gives a walking V2 shadow a slight settle
+(`actor-shadow-step`) instead of the V1 pulse, on the same cycle
+(`motion-contract.test.ts`). The V2 drawings' baked ground shadow, which
+made two shadows under a walking V2 adult, is off by the renderer's default
+(`groundShadow: 'none'`), so the actor passes nothing and casts exactly one
+shadow (`BlobbiActor.test.tsx`); the home never names a `data-part`.
+
+**The Dev Lab (`/dev`).** The same fixture infrastructure as the panel (the
+controller, the in-memory pool, Set versus Perform, presets, pins, reset),
+composed as an engineering page: `App.tsx` treats `/dev` as fixture mode
+under the same lazy dev gate and hands `AppRouter` a `devLab` element that
+is `null` (and so Not Found) everywhere else; `DevFixture` shares the
+controller through `FixtureControllerContext` and mounts the floating panel
+only when no page provides its own surface. `DevLab.tsx` lays out the
+shared control sections (`sections.tsx`, hooks in `dev-home.ts`) beside the
+real `<Home />`. Three production-side seams serve it, none a dev branch:
+`SceneSettings` gained `gaze` and `motion` pins next to the existing face
+and facing pins, and an `onController` callback through which
+`useBlobbiPresentation` hands its scene controller (now also exposing
+`turn` and `destination`) to whoever provides the settings; the movement
+lab drives that controller, the debug overlay portals into the real room
+canvas (`data-testid="room-canvas"`) and draws in its percentage
+coordinates, the expression lab is isolated renderer previews with the
+fixture's seed, and the sound lab plays the voice's recipes through the
+same `useSound`. Safety: `env-contract.test.ts` pins the lazy gate and the
+router's ignorance of `src/dev`, `dev-lab.test.tsx` pins that `/dev` is Not
+Found without a lab and that nothing opens a socket, and the built bundle
+carries none of it (grep at release).
+
 **Production configuration.** The app reads exactly two build variables
 (`VITE_BLOBBI_ISLAND_URL`, validated to an absolute `http(s)` URL with
 `https://island.blobbi.pet` as the default, the origin Island's own tests

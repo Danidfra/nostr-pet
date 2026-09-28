@@ -13,7 +13,7 @@ import { NostrContext } from '@nostrify/react';
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { MemoryRouter } from 'react-router-dom';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
-import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, deriveBlobbiSeedV1, getSelectedBlobbiKey, getTagValue, getTagValues, parseModernBlobbiEvent } from '@blobbi-kit/core';
+import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, NEW_BLOBBI_VISUAL_GENERATION, VISUAL_GENERATION_TAG, deriveBlobbiSeedV1, getSelectedBlobbiKey, getTagValue, getTagValues, parseModernBlobbiEvent } from '@blobbi-kit/core';
 import { HATCH_MISSIONS } from '@blobbi-kit/react';
 
 import Home from '@/pages/Home';
@@ -131,6 +131,10 @@ describe('First run', () => {
     expect(getTagValue(egg.tags, 'published_at')).toBe(String(egg.created_at));
     const parsed = parseModernBlobbiEvent(egg)!;
     expect(parsed.evolution.map((m) => m.id).sort()).toEqual(HATCH_MISSIONS.map((m) => m.id).sort());
+    // Born V2: the kit's creation rule, carried on the event from the first publish and drawn as such.
+    expect(getTagValue(egg.tags, VISUAL_GENERATION_TAG)).toBe(NEW_BLOBBI_VISUAL_GENERATION);
+    expect(parsed.visualGeneration).toBe('v2');
+    await waitFor(() => expect(screen.getByTestId('blobbi-actor').querySelector('[data-blobbi-renderer]')).toHaveAttribute('data-blobbi-generation', 'v2'));
 
     // Exactly one profile, created from the kit base tags with the kind 0 name, after the egg.
     await waitFor(() => expect(published(KIND_BLOBBONAUT_PROFILE)).toHaveLength(1));

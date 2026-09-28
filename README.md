@@ -83,7 +83,34 @@ production build:
 | `&state=sleeping`, `&low=<stat>`, `&expression=<preset>` | the fixture's starting variation: asleep, a critical stat, a pinned face |
 | `?preview=bed\|tub` | the bed or the tub out on load, to look at proportions |
 
-**The dev panel** (bottom right of a fixture; collapsed on a phone) rewrites
+**The Dev Lab** is the engineering surface for Blobbi work:
+
+```bash
+VITE_BLOBBI_DEV_TOOLS=true npm run dev   # or put the flag in .env.local
+# then open http://localhost:8080/dev
+```
+
+It puts the real home (renderer, movement, bed and nest, shadows,
+interactions) next to a control column, over an in-memory Nostr pool: the
+banner says **DEV FIXTURE — IN-MEMORY NOSTR** and nothing on the page can
+reach a relay or a real account. Controls: quick fixtures (V1/V2 egg, baby,
+adult) and presets; an explicit **Generation: V1/V2** badge and switch; a
+lifecycle pipeline where **Set** places the fixture at any step and
+**Perform** runs the kit's real hooks and shows their answer (the dock's
+mission-gated Hatch!/Evolve! ceremony still works); stats, streak, xp and
+mission counts (authoritative fixture data); presentation overrides (face,
+facing, gaze, motion in place, reduced motion, lighting) that never touch
+the data and clear in one click; a movement lab (walk left/right/toward/away,
+walk to a point, stop, turn, poke) that drives the game's own scene
+controller, so V1 hopping and the V2 walk can be compared; a debug-bounds
+overlay (floor band, walkable bounds, actor and shadow boxes, feet anchor,
+destination, bed and nest use points); an expression lab comparing the V1
+baby, V1 adult and V2 adult under one face, facing and gaze; a sound lab for
+every recipe of the voice; and a read-only inspector of the parsed Blobbi.
+On a phone the controls become a drawer under the stage. `/dev` does not
+exist in a production build (`env-contract.test.ts`, `dev-lab.test.tsx`).
+
+**The dev panel** (bottom right of a `?fixture=` link; collapsed on a phone) rewrites
 the fixture while the app runs, without a reload: stage and state, every
 stat (sliders, exact values, condition presets), streak and xp, the
 progression and its mission counts, whole-Blobbi presets (fresh egg, hatch

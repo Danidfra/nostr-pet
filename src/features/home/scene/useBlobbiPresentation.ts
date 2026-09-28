@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import type { BlobbiCompanion, BlobbiStats } from '@blobbi-kit/core';
 import { policyFor, resolveBehaviorMode, type BehaviorMode } from './behavior-mode';
-import { floorDirection, floorPointFromScene, type FloorPoint } from './geometry';
+import { floorDirection, floorPointFromScene, type Facing, type FloorPoint } from './geometry';
 import { travelGlance } from './gaze';
 import type { IdleAction } from './idle';
 import { HOME_SPOT } from './objects';
@@ -62,6 +62,10 @@ export interface BlobbiSceneController {
   canWalk: boolean;
   /** Put it somewhere at once (coming into another room); any walk in progress ends `stopped`. */
   placeAt: (position: FloorPoint) => void;
+  /** Turn on the spot, when the mode lets it move at all; a walk in progress keeps its own facing. */
+  turn: (facing: Facing) => void;
+  /** Where a walk in progress is going; null when standing. */
+  destination: FloorPoint | null;
   scenePointerHandlers: ScenePointerHandlers;
   /** True while a user-directed walk is in progress. */
   isUserWalking: boolean;
@@ -140,16 +144,16 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
       composePresentation({
         mode,
         position: locomotion.position,
-        // The settings may pin the facing and the baseline face (a dev fixture looking at one drawing).
+        // The settings may pin the facing, the motion, the gaze and the baseline face (a dev fixture looking at one drawing).
         facing: settings.facing ?? locomotion.facing,
-        motion: locomotion.motion,
-        gaze: gaze.eyeOffset,
-        travelGaze,
+        motion: settings.motion ?? locomotion.motion,
+        gaze: settings.gaze ?? gaze.eyeOffset,
+        travelGaze: settings.gaze ?? travelGaze,
         reaction: reactions.reaction,
         baseline: settings.baselineExpression ?? baselineExpression(blobbi, stats),
         gesture: reactions.gesture,
       }),
-    [mode, locomotion.position, locomotion.facing, locomotion.motion, gaze.eyeOffset, travelGaze, reactions.reaction, reactions.gesture, blobbi, stats, settings.facing, settings.baselineExpression],
+    [mode, locomotion.position, locomotion.facing, locomotion.motion, gaze.eyeOffset, travelGaze, reactions.reaction, reactions.gesture, blobbi, stats, settings.facing, settings.motion, settings.gaze, settings.baselineExpression],
   );
 
   const markActivity = idle.markActivity;
@@ -226,6 +230,16 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     [markActivity, locomotionPlaceAt],
   );
 
+  const locomotionTurn = locomotion.turn;
+  const turn = useCallback(
+    (facing: Facing) => {
+      if (!policyRef.current.walks.includes('user')) return;
+      markActivity();
+      locomotionTurn(facing);
+    },
+    [markActivity, locomotionTurn],
+  );
+
   const gazeMove = gaze.onPointerMove;
   const gazeLeave = gaze.onPointerLeave;
   const gazeDown = gaze.onPointerDown;
@@ -241,5 +255,18 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     [gazeMove, gazeLeave, gazeDown, markActivity],
   );
 
-  return { presentation, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, canWalk: policy.walks.includes('user'), placeAt, scenePointerHandlers, isUserWalking, reducedMotion };
+  const controller = useMemo<BlobbiSceneController>(
+    () => ({ presentation, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, canWalk: policy.walks.includes('user'), placeAt, turn, destination: locomotion.destination, scenePointerHandlers, isUserWalking, reducedMotion }),
+    [presentation, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, policy.walks, placeAt, turn, locomotion.destination, scenePointerHandlers, isUserWalking, reducedMotion],
+  );
+
+  // The settings' harness seam: told about this controller as it changes, and about the unmount.
+  const onController = settings.onController;
+  useEffect(() => {
+    if (!onController) return;
+    onController(controller);
+    return () => onController(null);
+  }, [onController, controller]);
+
+  return controller;
 }

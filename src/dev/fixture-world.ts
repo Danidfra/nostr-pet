@@ -15,7 +15,6 @@ import {
   KIND_BLOBBONAUT_PROFILE,
   STAT_MAX,
   STAT_MIN,
-  VISUAL_GENERATION_TAG,
   getTagValue,
   isMissionComplete,
   missionProgress,
@@ -214,9 +213,8 @@ export function buildFixtureBlobbi(spec: FixtureSpec): NostrEvent {
   };
   for (const stat of STAT_NAMES) set[stat] = String(clampStat(spec.stats[stat]));
   const extra: string[][] = [];
-  if (spec.visualGeneration === 'v2') extra.push([VISUAL_GENERATION_TAG, 'v2']);
   if (spec.progressionState !== 'none') extra.push(['progression_started_at', String(now - 60)]);
-  const event = blobbiEvent(PET_ID, { name: spec.name, stage: spec.stage, state: spec.stage === 'egg' ? 'active' : spec.state, createdAt: FIXTURE_BORN_AT, set, extra });
+  const event = blobbiEvent(PET_ID, { name: spec.name, stage: spec.stage, state: spec.stage === 'egg' ? 'active' : spec.state, createdAt: FIXTURE_BORN_AT, set, extra, visualGeneration: spec.visualGeneration });
   const missions = missionsForSpec(spec);
   return { ...event, id: `f${eventSerial.toString(16)}`.padEnd(64, '0'), created_at: now, content: missions ? serializeEvolutionContent('', missions) : '' };
 }

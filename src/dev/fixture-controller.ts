@@ -21,7 +21,7 @@ import type { NostrEvent } from '@nostrify/nostrify';
 import { CRITICAL_THRESHOLDS, STAT_MAX, STAT_MIN, getSelectedBlobbiKey, type BlobbiStage, type BlobbiStats } from '@blobbi-kit/core';
 import { EVOLVE_STAT_THRESHOLD, clearEvolutionFromStorage } from '@blobbi-kit/react';
 import type { BlobbiEmotion } from '@blobbi-kit/renderer';
-import type { Facing } from '@/features/home/scene';
+import type { BlobbiSceneController, EyeOffset, Facing } from '@/features/home/scene';
 import { PUBKEY } from '@/test/fixtures';
 import {
   FIXTURE_D,
@@ -43,12 +43,14 @@ import {
 export interface PresentationPins {
   expression: BlobbiEmotion | null;
   facing: Facing | null;
+  gaze: EyeOffset | null;
+  motion: 'idle' | 'walking' | null;
   reducedMotion: boolean | undefined;
 }
 
-export const NO_PINS: PresentationPins = { expression: null, facing: null, reducedMotion: undefined };
+export const NO_PINS: PresentationPins = { expression: null, facing: null, gaze: null, motion: null, reducedMotion: undefined };
 
-export type FixtureChange = { kind: 'blobbi'; event: NostrEvent } | { kind: 'pins'; pins: PresentationPins } | { kind: 'reset' };
+export type FixtureChange = { kind: 'blobbi'; event: NostrEvent } | { kind: 'pins'; pins: PresentationPins } | { kind: 'reset' } | { kind: 'scene'; scene: BlobbiSceneController | null };
 
 /** A healthy value: comfortably above every warning threshold and the evolve threshold. */
 export const HEALTHY_VALUE = Math.min(STAT_MAX, Math.max(92, EVOLVE_STAT_THRESHOLD + 10));
@@ -135,6 +137,13 @@ export interface FixtureController {
   clearPins: () => void;
   /** The world as the URL asked for it, no pins, the kit's session stores emptied. */
   reset: () => void;
+  /**
+   * The scene controller of the Blobbi presentation on screen, as the home
+   * hands it over (`SceneSettings.onController`): the same walks, turns and
+   * pokes the game performs, for a movement lab. Null while none is mounted.
+   */
+  scene: () => BlobbiSceneController | null;
+  setScene: (scene: BlobbiSceneController | null) => void;
   subscribe: (listener: (change: FixtureChange) => void) => () => void;
 }
 
@@ -162,6 +171,7 @@ export function createFixtureController(request: FixtureRequest): FixtureControl
   const notify = (change: FixtureChange) => {
     for (const l of listeners) l(change);
   };
+  let scene: BlobbiSceneController | null = null;
   const spec = () => {
     const companion = store.companion();
     return companion ? specFromCompanion(companion) : initialSpec;
@@ -200,6 +210,11 @@ export function createFixtureController(request: FixtureRequest): FixtureControl
       pins = { ...NO_PINS, expression: request.expression };
       notify({ kind: 'pins', pins });
       notify({ kind: 'reset' });
+    },
+    scene: () => scene,
+    setScene: (next) => {
+      scene = next;
+      notify({ kind: 'scene', scene: next });
     },
     subscribe: (listener) => {
       listeners.add(listener);

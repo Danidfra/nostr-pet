@@ -1,0 +1,241 @@
+/* The Blobbi Dev Lab (/dev): an engineering layout around the real game. Dev bundle only. */
+.dev-lab {
+  display: grid;
+  grid-template-columns: 24rem minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'banner banner'
+    'controls stage';
+  height: 100dvh;
+  min-height: 100svh;
+  background: #15161b;
+  color: #e6e8ee;
+  font: 500 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.dev-lab__banner {
+  grid-area: banner;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.75rem;
+  background: #7a1f2b;
+  color: #fff;
+  border-bottom: 1px solid rgb(255 255 255 / 0.15);
+}
+.dev-lab__banner strong {
+  letter-spacing: 0.08em;
+}
+.dev-lab__summary {
+  margin-left: auto;
+  opacity: 0.9;
+}
+.dev-lab__generation {
+  padding: 0.1rem 0.5rem;
+  border-radius: 0.3rem;
+  background: rgb(0 0 0 / 0.35);
+  font-weight: 800;
+}
+.dev-lab__generation--v2 {
+  background: #4f5fd6;
+}
+.dev-lab__generation--v1 {
+  background: #4f8a5f;
+}
+.dev-lab__drawer-toggle {
+  display: none;
+}
+.dev-lab__controls {
+  grid-area: controls;
+  position: static;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  border: 0;
+  border-right: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: none;
+  overflow: auto;
+}
+.dev-lab__stage {
+  grid-area: stage;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+/* The game shell fills the stage cell instead of the viewport. */
+.dev-lab__stage .game-shell {
+  height: 100%;
+  min-height: 0;
+}
+.dev-lab__presets button {
+  font-size: 10px;
+}
+.dev-pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0;
+}
+.dev-pipeline li + li::before {
+  content: '→';
+  margin-right: 0.25rem;
+  color: #8f97ad;
+}
+.dev-floor {
+  position: relative;
+  width: 9rem;
+  height: 5rem;
+  padding: 0 !important;
+  background: linear-gradient(#3a2a1f, #5b4130) !important;
+  border: 1px solid rgb(255 255 255 / 0.2) !important;
+  border-radius: 0.3rem;
+  cursor: crosshair;
+}
+.dev-floor__dot {
+  position: absolute;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #ffd166;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.dev-sheet {
+  display: grid;
+  gap: 0.15rem;
+  align-items: center;
+  margin-top: 0.3rem;
+}
+.dev-sheet__head {
+  font-size: 9px !important;
+  text-align: center;
+  color: #aab1c5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.1rem !important;
+  min-height: 0 !important;
+}
+.dev-sheet__cell {
+  display: inline-block;
+  border-radius: 0.25rem;
+}
+.dev-sheet__cell.is-on {
+  outline: 2px solid #8b9cff;
+}
+.dev-inspector {
+  margin: 0.2rem 0;
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  gap: 0.15rem 0.5rem;
+}
+.dev-inspector div {
+  display: contents;
+}
+.dev-inspector dt {
+  color: #aab1c5;
+}
+.dev-inspector dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.dev-inspector__raw {
+  font-size: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: rgb(0 0 0 / 0.3);
+  padding: 0.4rem;
+  border-radius: 0.3rem;
+  max-height: 16rem;
+  overflow: auto;
+}
+/* Debug overlay, drawn into the real room canvas in its percentage coordinates. */
+.dev-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  font: 600 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.dev-overlay > * {
+  position: absolute;
+}
+.dev-overlay__band {
+  left: 0;
+  right: 0;
+  background: rgb(0 200 255 / 0.06);
+  border-top: 1px dashed rgb(0 200 255 / 0.8);
+  border-bottom: 1px dashed rgb(0 200 255 / 0.8);
+}
+.dev-overlay__bounds {
+  border: 1px dashed rgb(255 220 0 / 0.9);
+}
+.dev-overlay__use {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff;
+}
+.dev-overlay__use--bed {
+  background: #b478ff;
+}
+.dev-overlay__use--nest {
+  background: #ffb478;
+}
+.dev-overlay__actor {
+  border: 1px solid rgb(255 60 60 / 0.9);
+}
+.dev-overlay__shadow {
+  border: 1px solid rgb(60 255 120 / 0.9);
+}
+.dev-overlay__dest {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ffd166;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.dev-overlay__feet {
+  width: 8px;
+  height: 8px;
+  background: #ff3c3c;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.dev-overlay__label {
+  position: absolute;
+  left: 10px;
+  top: -4px;
+  white-space: nowrap;
+  color: #fff;
+  background: rgb(0 0 0 / 0.6);
+  padding: 0 0.25rem;
+  border-radius: 0.2rem;
+}
+@media (max-width: 959px) {
+  .dev-lab {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'banner'
+      'stage'
+      'controls';
+  }
+  .dev-lab__drawer-toggle {
+    display: inline-block;
+  }
+  .dev-lab__controls {
+    max-height: 45dvh;
+    border-right: 0;
+    border-top: 1px solid rgb(255 255 255 / 0.1);
+  }
+  .dev-lab--drawer-closed .dev-lab__controls {
+    display: none;
+  }
+  .dev-lab__summary {
+    margin-left: 0;
+  }
+}

@@ -1,7 +1,9 @@
 import type { BlobbiEmotion } from '@blobbi-kit/renderer';
+import type { EyeOffset } from './gaze';
 import type { Facing } from './geometry';
 import { DEFAULT_IDLE_TIMING, type IdleTiming, type Random } from './idle';
 import { DEFAULT_WALK_SPEED } from './locomotion';
+import type { BlobbiSceneController } from './useBlobbiPresentation';
 
 /**
  * Knobs for the behaviour layer. The app uses the defaults; tests inject a
@@ -16,6 +18,17 @@ export interface SceneSettings {
   baselineExpression?: BlobbiEmotion | null;
   /** Pins the facing; null or absent lets locomotion decide. */
   facing?: Facing | null;
+  /** Pins the gaze; null or absent lets the gaze policy decide. */
+  gaze?: EyeOffset | null;
+  /** Pins the body motion in place (`idle` or `walking`); null or absent lets locomotion decide. */
+  motion?: 'idle' | 'walking' | null;
+  /**
+   * Told about the scene controller of every Blobbi presentation that mounts
+   * under these settings (null when it unmounts). A seam for a dev harness
+   * that drives the same walks, turns and pokes the game does; the app sets
+   * nothing here.
+   */
+  onController?: (controller: BlobbiSceneController | null) => void;
   random: Random;
   idle: IdleTiming;
   /** Idle behaviour on or off (off in tests that are not about it). */

@@ -19,7 +19,13 @@ import AppRouter from './AppRouter';
  */
 const DEV_FIXTURES = import.meta.env.DEV && import.meta.env.VITE_BLOBBI_DEV_TOOLS === 'true';
 const DevFixture = DEV_FIXTURES ? lazy(() => import('@/dev/DevFixture')) : null;
-const fixtureRequest = DEV_FIXTURES && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('fixture') ? window.location.search : null;
+/** The Dev Lab page (`/dev`): the same fixture world with an engineering surface around it. Dev bundle only. */
+const DevLab = DEV_FIXTURES ? lazy(() => import('@/dev/DevLab')) : null;
+const DEV_LAB_PATH = '/dev';
+const devLabRequested = DEV_FIXTURES && typeof window !== 'undefined' && window.location.pathname.replace(/\/+$/, '') === DEV_LAB_PATH;
+/** Fixture mode: the Dev Lab page, or a `?fixture=` link. The query string (possibly empty) is what the dev module parses. */
+const fixtureMode = DEV_FIXTURES && typeof window !== 'undefined' && (devLabRequested || new URLSearchParams(window.location.search).has('fixture'));
+const fixtureSearch = fixtureMode ? window.location.search : '';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,10 +49,12 @@ const queryClient = new QueryClient({
  */
 /** The relays, or the dev fixture world when one is asked for. */
 function Transport({ children }: { children: React.ReactNode }) {
-  if (DevFixture && fixtureRequest) {
+  if (DevFixture && fixtureMode) {
     return (
       <Suspense fallback={null}>
-        <DevFixture search={fixtureRequest}>{children}</DevFixture>
+        <DevFixture search={fixtureSearch} floatingPanel={!devLabRequested}>
+          {children}
+        </DevFixture>
       </Suspense>
     );
   }
@@ -62,7 +70,15 @@ export function App() {
             <Transport>
               <style>{BLOBBI_RENDERER_STYLESHEET}</style>
               <BrowserRouter>
-                <AppRouter />
+                <AppRouter
+                  devLab={
+                    DevLab && devLabRequested ? (
+                      <Suspense fallback={null}>
+                        <DevLab />
+                      </Suspense>
+                    ) : null
+                  }
+                />
               </BrowserRouter>
             </Transport>
           </QueryClientProvider>

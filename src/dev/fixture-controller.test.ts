@@ -133,7 +133,7 @@ describe('the controller', () => {
     expect(c.pins()).toEqual({ ...NO_PINS, expression: 'sad' });
     const before = c.store.companion()!.event.id;
     c.setPins({ facing: 'left', reducedMotion: true });
-    expect(c.pins()).toEqual({ expression: 'sad', facing: 'left', reducedMotion: true });
+    expect(c.pins()).toEqual({ ...NO_PINS, expression: 'sad', facing: 'left', reducedMotion: true });
     expect(c.store.companion()!.event.id).toBe(before);
     c.clearPins();
     expect(c.pins()).toEqual(NO_PINS);

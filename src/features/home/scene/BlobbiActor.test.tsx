@@ -107,3 +107,55 @@ describe('BlobbiActor', () => {
     expect(screen.getByRole('button', { name: 'Poke Brook' })).toBeDisabled();
   });
 });
+
+describe('one ground shadow, whoever walks', () => {
+  const walking: BlobbiPresentation = { ...standing, motion: 'walking', facing: 'right' };
+  const v2 = (stage: 'baby' | 'adult' = 'adult', state: 'active' | 'sleeping' = 'active') => parseModernBlobbiEvent(blobbiEvent('0000000042', { name: 'Brook', stage, state, visualGeneration: 'v2' }))!;
+  const groundShadows = () => document.querySelectorAll('.scene-actor__shadow').length + document.querySelectorAll('[data-blobbi-body-box] [data-part="ground-shadow"]').length;
+
+  it('the actor names the generation of its Blobbi (from the event, not the drawing), so the shadow can follow the right gait', () => {
+    render(<BlobbiActor blobbi={companion()} presentation={walking} />);
+    expect(screen.getByTestId('blobbi-actor')).toHaveAttribute('data-generation', 'v1');
+    document.body.innerHTML = '';
+    render(<BlobbiActor blobbi={v2()} presentation={walking} />);
+    expect(screen.getByTestId('blobbi-actor')).toHaveAttribute('data-generation', 'v2');
+  });
+
+  it('a walking V2 adult casts exactly one ground shadow, the home\'s: the drawing carries none', () => {
+    render(<BlobbiActor blobbi={v2()} presentation={walking} />);
+    expect(groundShadows()).toBe(1);
+    expect(document.querySelector('.scene-actor__shadow')).not.toBeNull();
+    // The creature's own contact shading is the renderer's and stays.
+    expect(document.querySelector('[data-blobbi-body-box] [data-part="body-shadow"]')).not.toBeNull();
+  });
+
+  it('the V2 walk is the renderer\'s: the leg groups are in its markup, the body box carries the motion, and the home adds no animation of its own', () => {
+    render(<BlobbiActor blobbi={v2()} presentation={walking} />);
+    expect(bodyBox()).toHaveAttribute('data-blobbi-motion', 'walking');
+    expect(document.querySelectorAll('[data-blobbi-body-box] [data-part="near-leg"], [data-blobbi-body-box] [data-part="far-leg"]')).toHaveLength(2);
+    expect(renderer()).toHaveAttribute('data-blobbi-generation', 'v2');
+    const actor = screen.getByTestId('blobbi-actor');
+    expect(actor.querySelector('.scene-actor__box')?.getAttribute('style')).toBeNull();
+    expect(actor.querySelectorAll('[style*="animation"]')).toHaveLength(0);
+  });
+
+  it('a walking V1 adult and baby keep their drawing and their one shadow; nothing in the markup names a leg', () => {
+    for (const blobbi of [companion([['adult_type', 'catti']], 'adult'), companion()]) {
+      document.body.innerHTML = '';
+      render(<BlobbiActor blobbi={blobbi} presentation={walking} />);
+      expect(groundShadows()).toBe(1);
+      expect(document.querySelectorAll('[data-blobbi-body-box] [data-part$="-leg"]')).toHaveLength(0);
+      expect(bodyBox()).toHaveAttribute('data-blobbi-motion', 'walking');
+    }
+  });
+
+  it('asleep in the bed, and the egg on its nest: no ground shadow at all, on either generation', () => {
+    const asleep: BlobbiPresentation = { ...standing, motion: 'still', isSleeping: true };
+    render(<BlobbiActor blobbi={v2('adult', 'sleeping')} presentation={asleep} inBed />);
+    expect(groundShadows()).toBe(0);
+    document.body.innerHTML = '';
+    render(<BlobbiActor blobbi={parseModernBlobbiEvent(blobbiEvent('0000000042', { name: 'Shell', stage: 'egg', visualGeneration: 'v2' }))!} presentation={{ ...standing, motion: 'still' }} inBed eggCrack="none" />);
+    expect(groundShadows()).toBe(0);
+    expect(screen.getByTestId('blobbi-actor')).toHaveAttribute('data-generation', 'v2');
+  });
+});

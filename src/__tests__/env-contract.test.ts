@@ -58,6 +58,14 @@ describe('the environment contract', () => {
     expect(app?.text).toMatch(/DEV_FIXTURES \? lazy\(\(\) => import\('@\/dev\/DevFixture'\)\) : null/);
   });
 
+  it('the Dev Lab is reachable only through the same lazy gate, and the router never imports it', () => {
+    const app = sources.find((s) => s.path === 'src/App.tsx');
+    expect(app?.text).toMatch(/DEV_FIXTURES \? lazy\(\(\) => import\('@\/dev\/DevLab'\)\) : null/);
+    const router = sources.find((s) => s.path === 'src/AppRouter.tsx');
+    expect(router?.text).not.toMatch(/dev\//);
+    expect(router?.text).toMatch(/<Route path="\/dev" element=\{devLab \?\? <NotFound \/>\} \/>/);
+  });
+
   it('production code never reads the URL for a dev fixture: the query string is parsed in src/dev only', () => {
     for (const { path, text } of sources) {
       if (path.startsWith('src/dev/') || path === 'src/App.tsx') continue;

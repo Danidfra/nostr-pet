@@ -33,9 +33,14 @@ interface BlobbiActorProps {
 /**
  * The Blobbi as something standing in its home. The actor is anchored at
  * its feet on a floor point, drawn a little smaller towards the back, over
- * its one ground shadow (which follows the renderer's walk). It hands the composed presentation
- * (facing, motion, gaze, expression, sleeping) to the canonical renderer and
- * decides nothing about how the Blobbi looks. It never touches Nostr.
+ * its one ground shadow, which follows the renderer's walk: the generation
+ * is on the actor (`data-generation`) because the two gaits cast different
+ * shadows (V1 and the baby hop, so their shadow breathes with the bob; the
+ * V2 adult walks on its legs and keeps the floor, so its shadow only
+ * settles a little at each step), and the renderer draws no ground shadow
+ * of its own. It hands the composed presentation (facing, motion, gaze,
+ * expression, sleeping) to the canonical renderer and decides nothing
+ * about how the Blobbi looks. It never touches Nostr.
  */
 export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function BlobbiActor(
   { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, effects, accessories, children, inBed = false },
@@ -73,6 +78,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       className="scene-actor"
       data-testid="blobbi-actor"
       data-motion={presentation.motion}
+      data-generation={blobbi.visualGeneration}
       data-facing={presentation.facing}
       data-expression={presentation.expression}
       data-sleeping={isSleeping ? 'true' : 'false'}

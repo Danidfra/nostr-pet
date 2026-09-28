@@ -1,9 +1,12 @@
 /**
  * Kind 31124 fixtures shaped exactly like current producers publish them,
  * built with the kit's own `buildEggTags` so the modern contract is never
- * re-described here.
+ * re-described here. A fixture is an EXISTING Blobbi unless a test says
+ * otherwise, so it is V1 by default (no `visual_generation` tag, the way
+ * every Blobbi born before the marker reads); `visualGeneration: 'v2'` asks
+ * for a Blobbi born the way the kit creates them today.
  */
-import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, BLOBBI_ECOSYSTEM_NAMESPACE, buildEggTags, getCanonicalBlobbonautD, type NostrEvent } from '@blobbi-kit/core';
+import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, BLOBBI_ECOSYSTEM_NAMESPACE, buildEggTags, getCanonicalBlobbonautD, type BlobbiVisualGeneration, type NostrEvent } from '@blobbi-kit/core';
 
 export const PUBKEY = 'a'.repeat(64);
 export const CREATED_AT = 1_757_000_000;
@@ -19,12 +22,14 @@ export interface BlobbiFixtureOptions {
   without?: string[];
   /** Tag values to override. */
   set?: Record<string, string>;
+  /** Which artwork generation the Blobbi was born into. Default `'v1'`: an existing Blobbi. */
+  visualGeneration?: BlobbiVisualGeneration;
 }
 
 export function blobbiEvent(petId: string, options: BlobbiFixtureOptions = {}): NostrEvent {
-  const { stage = 'baby', state = 'active', name = 'Pet', createdAt = CREATED_AT, extra = [], without = [], set = {} } = options;
+  const { stage = 'baby', state = 'active', name = 'Pet', createdAt = CREATED_AT, extra = [], without = [], set = {}, visualGeneration = 'v1' } = options;
   const overrides: Record<string, string> = { stage, state, ...set };
-  const tags = buildEggTags(PUBKEY, petId, createdAt, name)
+  const tags = buildEggTags(PUBKEY, petId, createdAt, name, { visualGeneration })
     .filter(([n]) => !without.includes(n))
     .map((t) => (t[0] in overrides ? [t[0], overrides[t[0]]] : t));
   return {

@@ -1568,6 +1568,24 @@
       opacity: 0.62;
     }
   }
+  /* The V2 adult walks on its legs and never leaves the floor, so its
+     shadow stays put: a slight settle at each step (twice per cycle, the
+     same clock as the legs), no fade. The generation comes from the Blobbi's
+     own event (data-generation), never from the drawing. */
+  .scene-actor[data-motion='walking'][data-generation='v2'] .scene-actor__shadow {
+    animation-name: actor-shadow-step;
+  }
+  @keyframes actor-shadow-step {
+    0%,
+    100% {
+      transform: translateX(-50%) scale(1, 1);
+      opacity: 1;
+    }
+    50% {
+      transform: translateX(-50%) scale(0.96, 0.94);
+      opacity: 0.92;
+    }
+  }
   /* Asleep on the bed: the body settles into the cushion, the shadow goes with it. */
   .scene-actor[data-sleeping='true'] .scene-actor__box {
     transform: translateY(4%) scale(1.05, 0.93);

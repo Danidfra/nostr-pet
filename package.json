@@ -14,9 +14,9 @@
     "check": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
-    "@blobbi-kit/core": "^0.6.1",
-    "@blobbi-kit/react": "^0.6.1",
-    "@blobbi-kit/renderer": "^0.4.0",
+    "@blobbi-kit/core": "^0.7.0",
+    "@blobbi-kit/react": "^0.7.0",
+    "@blobbi-kit/renderer": "^0.5.0",
     "@fontsource-variable/comfortaa": "^5.2.6",
     "@nostr-games/inventory": "^0.5.0",
     "@nostrify/nostrify": "^0.55.1",
