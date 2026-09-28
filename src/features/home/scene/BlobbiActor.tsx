@@ -2,7 +2,6 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } fr
 import { BlobbiRenderer, blobbiMotionPhase, BLOBBI_MOTION_PHASES, type BlobbiEggCrack, type BlobbiVisualEffect, type NormalizedAccessoryPlacement } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
-import { HOME_RENDERER_PROPS, RENDERER_OWNS_SLEEP_INDICATOR } from '@/lib/renderer-capabilities';
 import { placeOnFloor } from './geometry';
 import { RENDERER_WALK_CYCLE_S } from './motion-contract';
 import { GESTURES } from './gestures';
@@ -90,10 +89,9 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
         {!inBed && <div aria-hidden className="scene-actor__shadow" />}
         {children}
         {/* The one sleep cue. The renderer draws the creature asleep (closed
-            eyes); the "Zzz" beside it is the home's, animated in the home's
-            style, unless the installed renderer still bakes its own into the
-            V1 sleeping drawings (see lib/renderer-capabilities.ts). */}
-        {isSleeping && !RENDERER_OWNS_SLEEP_INDICATOR && (
+            eyes, `sleepIndicator="none"` below keeps its artwork's own Zzz
+            off); the "Zzz" beside it is the home's, animated in the home's style. */}
+        {isSleeping && (
           <span aria-hidden className="scene-actor__zzz scene-text animate-sparkle">
             z<span className="text-lg">z</span>
           </span>
@@ -119,7 +117,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
             expression={presentation.expression}
             eyeOffset={presentation.eyeOffset}
             isSleeping={isSleeping}
-            {...HOME_RENDERER_PROPS}
+            sleepIndicator="none"
             eggCrack={eggCrack}
             effects={effects}
             accessories={accessories}

@@ -234,18 +234,20 @@ is `loading | live | snapshot`.
 "Zzz": the home's animated one and one baked into the V1 sleeping drawings
 by the renderer. Ownership: the renderer draws the creature asleep
 (closed eyes); an environmental cue is the host's. `@blobbi-kit/renderer`
-0.4.0 (prepared and committed locally in `blobbi-kit`, **not published**)
-adds `sleepIndicator: 'artwork' | 'none'` (removing exactly the label and
-the Z texts of the artwork's Zzz block, never the block to the next
-comment: in seven adult forms the gradients follow it) and an expressive
-V1 baby face (`artwork/baby/v1/expression.ts`: rules over the one authored
-face; the baby has no brows, so `brows` is not drawn). Until 0.4.0 is
-installed the home must be right against 0.3.0: `lib/renderer-capabilities.ts`
-reads the capability from the renderer's exports; with 0.3.0 the artwork
-keeps its Zzz and the home draws none, with 0.4.0 the home draws the one
-cue. `expression-parity.test.tsx` pins both, and that the same
+0.4.0 (published; this app consumes `^0.4.0` from the registry) adds
+`sleepIndicator: 'artwork' | 'none'` (removing exactly the label and the Z
+texts of the artwork's Zzz block, never the block to the next comment: in
+seven adult forms the gradients follow it) and an expressive V1 baby face
+(`artwork/baby/v1/expression.ts`: rules over the one authored face; the
+baby has no brows, so `brows` is not drawn). `BlobbiActor` passes
+`sleepIndicator="none"` and draws the one animated Zzz itself. Between the
+kit commit and its publication the app carried `lib/renderer-capabilities.ts`,
+a capability shim that read the feature from the renderer's exports so the
+home was correct against 0.3.0 and 0.4.0 alike; it is gone with the bump.
+`expression-parity.test.tsx` pins exactly one sleep cue, and that the same
 `expression` reaches every stage with the renderer saying which faces can
-show it. The purity test refuses stage-specific SVG manipulation here.
+show it (the V1 baby and V2 adults yes, the V1 adults no). The purity test
+refuses stage-specific SVG manipulation here.
 
 **Production configuration.** The app reads exactly two build variables
 (`VITE_BLOBBI_ISLAND_URL`, validated to an absolute `http(s)` URL with
@@ -985,11 +987,8 @@ Audited commits: `54d413f` (last full app), `2281fb1` (pre-nuke parent),
 
 ## Deferred (next milestones)
 
-1. **Publish `@blobbi-kit/renderer` 0.4.0** (committed locally in
-   `blobbi-kit`), then bump this app to `^0.4.0`, pass `sleepIndicator="none"`
-   directly and delete `src/lib/renderer-capabilities.ts`.
-2. **A real item economy**: require ownership for care by removing the
+1. **A real item economy**: require ownership for care by removing the
    `starter` branch of `CareChoice`; the starter kit is a free, unowned
    catalog on purpose until then.
-3. Relay settings (NIP-65) and account switcher, once `@blobbi/ui` exists.
-4. The dormant M9 rooms (see `src/features/home/rooms/README.md`).
+2. Relay settings (NIP-65) and account switcher, once `@blobbi/ui` exists.
+3. The dormant M9 rooms (see `src/features/home/rooms/README.md`).

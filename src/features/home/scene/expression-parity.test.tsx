@@ -3,8 +3,8 @@
  * `expression` to the renderer whatever the stage; which drawings can show
  * it is the renderer's to say (`data-blobbi-expression-support`), never a
  * stage branch in the home. And one sleep cue: the renderer draws the
- * creature asleep, the home draws the "Zzz", and there is never two, with
- * the renderer installed today or with the next one.
+ * creature asleep (its artwork's own Zzz turned off with `sleepIndicator`),
+ * the home draws the "Zzz", and there is never two.
  */
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
@@ -13,7 +13,6 @@ import { parseModernBlobbiEvent, VISUAL_GENERATION_TAG, type BlobbiCompanion } f
 import { blobbiEvent } from '@/test/fixtures';
 import { BlobbiActor } from './BlobbiActor';
 import type { BlobbiPresentation } from './presentation';
-import { RENDERER_OWNS_SLEEP_INDICATOR } from '@/lib/renderer-capabilities';
 
 function companion(stage: 'baby' | 'adult', extra: string[][] = [], state: 'active' | 'sleeping' = 'active'): BlobbiCompanion {
   const parsed = parseModernBlobbiEvent(blobbiEvent('0000000042', { name: 'Brook', stage, state, extra }));
@@ -46,12 +45,15 @@ describe('the same expression prop reaches every stage', () => {
     }
   });
 
-  it('the V2 adult always shows it; the V1 adult never; the baby whenever the installed renderer can', () => {
+  it('the V2 adult and the V1 baby show it; the V1 adult never; and the renderer says so on each', () => {
     const shows = (blobbi: BlobbiCompanion) => svgMarkup(render(<BlobbiActor blobbi={blobbi} presentation={facing('excited')} />).container) !== svgMarkup(render(<BlobbiActor blobbi={blobbi} presentation={facing('neutral')} />).container);
+    const says = (blobbi: BlobbiCompanion) => root(render(<BlobbiActor blobbi={blobbi} presentation={facing('excited')} />).container).hasAttribute('data-blobbi-expression-support');
     expect(shows(ADULT_V2)).toBe(true);
+    expect(says(ADULT_V2)).toBe(true);
+    expect(shows(BABY)).toBe(true);
+    expect(says(BABY)).toBe(true);
     expect(shows(ADULT_V1)).toBe(false);
-    const babyRoot = root(render(<BlobbiActor blobbi={BABY} presentation={facing('excited')} />).container);
-    expect(shows(BABY)).toBe(babyRoot.hasAttribute('data-blobbi-expression-support'));
+    expect(says(ADULT_V1)).toBe(false);
   });
 });
 
@@ -63,14 +65,12 @@ describe('one sleep cue', () => {
     ['baby', BABY],
     ['V1 adult', ADULT_V1],
     ['V2 adult', ADULT_V2],
-  ])('%s asleep never shows two indicators, and exactly one once the renderer can leave the cue to the home', (_label, blobbi) => {
+  ])('%s asleep shows exactly one indicator, and it is the home\'s', (_label, blobbi) => {
     const { container } = render(<BlobbiActor blobbi={{ ...blobbi, state: 'sleeping' }} presentation={asleep} inBed />);
-    const n = indicators(container);
-    expect(n).toBeLessThanOrEqual(1);
-    if (!RENDERER_OWNS_SLEEP_INDICATOR) {
-      expect(n).toBe(1);
-      expect(container.querySelectorAll('.scene-actor__zzz').length).toBe(1);
-    }
+    expect(indicators(container)).toBe(1);
+    expect(container.querySelectorAll('.scene-actor__zzz').length).toBe(1);
+    // The artwork's own baked Zzz is off: no Z text survives in the drawing.
+    expect([...container.querySelectorAll('[data-blobbi-body-box] svg text')].some((t) => /^z+$/i.test(t.textContent?.trim() ?? ''))).toBe(false);
     // Whoever draws the Zzz, the actor is asleep and the drawing is not the awake one.
     expect(container.querySelector('[data-testid="blobbi-actor"]')).toHaveAttribute('data-sleeping', 'true');
     expect(svgMarkup(container)).not.toBe(svgMarkup(render(<BlobbiActor blobbi={blobbi} presentation={facing('neutral')} />).container));

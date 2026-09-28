@@ -165,9 +165,9 @@ describe('The renderer contract', () => {
     renderHome();
     await ready();
     expect(renderer()).toHaveAttribute('data-blobbi-generation', 'v1');
-    // Renderer 0.3.0 says no for every V1 drawing; 0.4.0 says yes for the
-    // baby front. The home reads the answer, it never decides it.
-    expect(renderer()?.getAttribute('data-blobbi-expression-support') ?? null).toBeOneOf([null, '']);
+    // Renderer 0.4.0 says yes for the V1 baby front (0.3.0 said no for every
+    // V1 drawing). The home reads the answer, it never decides it.
+    expect(renderer()).toHaveAttribute('data-blobbi-expression-support', '');
     await userEvent.click(screen.getByTestId('blobbi-poke'));
     expect(actor()).toHaveAttribute('data-expression', 'happy'); // the home's state
     expect(renderer()).toHaveAttribute('data-blobbi-facing', 'front');
