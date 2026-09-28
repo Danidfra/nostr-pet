@@ -73,22 +73,6 @@
 }
 
 @layer components {
-  /* A dev fixture is on: say so, small, out of the way. */
-  .dev-fixture-badge {
-    position: fixed;
-    left: 0.5rem;
-    bottom: 0.5rem;
-    z-index: 60;
-    padding: 0.15rem 0.5rem;
-    border-radius: 9999px;
-    background: hsl(var(--foreground) / 0.75);
-    color: hsl(var(--background));
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    pointer-events: none;
-  }
-
   /* ─── The game frame ───────────────────────────────────────────────── */
 
   .game-shell {

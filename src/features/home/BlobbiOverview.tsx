@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useProjectedBlobbiState } from '@blobbi-kit/react';
 import { getStatStatus, getVisibleStats, type BlobbiCompanion, type BlobbonautProfile, type NostrEvent } from '@blobbi-kit/core';
-import { isBlobbiEmotion, type BlobbiEmotion } from '@blobbi-kit/renderer';
 import { MapPin } from 'lucide-react';
 
 import { availableCareActions, useCareActions, type CareAction, type CareResult } from '@/features/care';
@@ -61,16 +60,6 @@ const DEV_PREVIEW: StageObjectKind | null = DEV_LIFECYCLE_TOOLS && typeof window
   const v = new URLSearchParams(window.location.search).get('preview');
   return v === 'bed' || v === 'tub' ? v : null;
 })() : null;
-/**
- * Dev-only expression preview (`?expression=happy|excited|sad|sleepy|
- * surprised|upset`): the baseline face is pinned so each preset can be looked
- * at on each stage at game size. Reactions still play over it.
- */
-const DEV_EXPRESSION: BlobbiEmotion | null = DEV_LIFECYCLE_TOOLS && typeof window !== 'undefined' ? ((): BlobbiEmotion | null => {
-  const v = new URLSearchParams(window.location.search).get('expression');
-  return v && isBlobbiEmotion(v) ? v : null;
-})() : null;
-
 
 /** An item set down in the room (owned or starter), and where its use stands. */
 interface ItemOffer {
@@ -145,7 +134,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const [initialPosition] = useState<FloorPoint>(() => (isEgg ? approachSpot(STAGE_OBJECTS.nest) : sleeping ? approachSpot(STAGE_OBJECTS.bed) : DEV_PREVIEW ? approachSpot(STAGE_OBJECTS[DEV_PREVIEW]) : HOME_SPACE.entry));
   // The dev bed preview shows the sleeping pose too (presentation only; care and writes see the real state).
   const shownBlobbi = DEV_PREVIEW === 'bed' && blobbi.state === 'active' ? { ...blobbi, state: 'sleeping' as const } : blobbi;
-  const scene = useBlobbiPresentation({ blobbi: shownBlobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition, baselineOverride: DEV_EXPRESSION });
+  const scene = useBlobbiPresentation({ blobbi: shownBlobbi, stats: projected?.stats, sceneRef, actorRef, isInCeremony: ceremony.presentation.exclusive, initialPosition });
 
   const statItems = useMemo<StatItem[]>(
     () =>
@@ -231,6 +220,20 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   useEffect(() => {
     if (!sleeping && !DEV_PREVIEW) setStage((s) => (s && s.kind === 'bed' && s.phase === 'using' ? { ...s, phase: 'done' } : s));
   }, [sleeping]);
+  // The authoritative state says asleep while no bed is out (a state change
+  // that did not come through the Rest walk: a refetch, another client, a
+  // dev fixture): the bed comes out and the sleeper is in it. A sleeper that
+  // walked there is already at the bed, so nothing moves.
+  const placeAt = scene.placeAt;
+  const position = scene.presentation.position;
+  useEffect(() => {
+    if (!sleeping || isEgg) return;
+    setStage((s) => (s && s.kind === 'bed' && s.phase !== 'done' ? s : { kind: 'bed', phase: 'using', key: ++stageKeyRef.current }));
+    const bed = approachSpot(STAGE_OBJECTS.bed);
+    if (Math.abs(position.x - bed.x) > 0.02 || Math.abs(position.y - bed.y) > 0.02) placeAt(bed);
+    // Only the change of `sleeping` matters; the position is read at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sleeping, isEgg, placeAt]);
 
   // An item was used (owned or starter): the celebration waits for the write
   // AND for the use to have been visible for a moment (`MIN_USE_MS`).

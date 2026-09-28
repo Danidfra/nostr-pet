@@ -79,9 +79,23 @@ production build:
 | Switch | What it does |
 | --- | --- |
 | `VITE_BLOBBI_DEV_TOOLS=true` in `.env.local` | enables the switches below and the force-hatch / force-evolve buttons |
-| `?fixture=egg\|baby\|adult\|adult-v2` | a fixture world in memory: no account, no relay, no write |
-| `&state=sleeping`, `&low=<stat>`, `&expression=<preset>` | fixture variations: asleep, a critical stat, a pinned face |
+| `?fixture=egg\|baby\|adult\|adult-v2` | a fixture world in memory, with the dev panel: no account, no relay, no write |
+| `&state=sleeping`, `&low=<stat>`, `&expression=<preset>` | the fixture's starting variation: asleep, a critical stat, a pinned face |
 | `?preview=bed\|tub` | the bed or the tub out on load, to look at proportions |
+
+**The dev panel** (bottom right of a fixture; collapsed on a phone) rewrites
+the fixture while the app runs, without a reload: stage and state, every
+stat (sliders, exact values, condition presets), streak and xp, the
+progression and its mission counts, whole-Blobbi presets (fresh egg, hatch
+ready, critical baby, evolution ready, …), presentation pins (a face, a
+facing, reduced motion, lighting) and a Reset. Two vocabularies are kept
+apart on purpose: **Set** rewrites the in-memory world (the Blobbi simply
+*is* that now); **Perform** runs the kit's real lifecycle hooks (start
+incubation, hatch, start evolution, evolve) against the in-memory pool and
+shows what the kit accepts or refuses. The app's own mission-gated ceremony
+is still the dock's Hatch! / Evolve! button. Nothing in fixture mode ever
+reaches a relay, and none of it is in a production build
+(`src/dev/`, lazy behind the flag; `src/__tests__/env-contract.test.ts`).
 
 ## Configuration
 

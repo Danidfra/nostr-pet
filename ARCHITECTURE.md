@@ -249,6 +249,43 @@ home was correct against 0.3.0 and 0.4.0 alike; it is gone with the bump.
 show it (the V1 baby and V2 adults yes, the V1 adults no). The purity test
 refuses stage-specific SVG manipulation here.
 
+**The dev panel (after M11).** Fixture mode grew from "look at a URL's
+world" into a testing environment. `src/dev/fixture-world.ts` describes the
+fixture Blobbi as a `FixtureSpec` (stage, generation, state, stats, streak,
+xp, progression, mission counts) and builds the kind 31124 from it with the
+test builders and the kit's own mission lists (`createHatchMissions`,
+`createEvolveMissions`), born at a fixed time so the seed, the colours and
+the seed-derived adult form never change between rebuilds; `createFixtureStore`
+is the in-memory relay plus the handle that rewrites it. `fixture-controller.ts`
+is the one writer: `setSpec` patches the spec the world currently says
+(read back through `parseModernBlobbiEvent`), rebuilds the event, clears the
+kit's session copy of the missions and notifies; presets derive every number
+from `CRITICAL_THRESHOLDS`, `EVOLVE_STAT_THRESHOLD` and the mission targets.
+`DevFixture` (still the lazy module behind the flag) provides the fixture
+user, the pool, a `SceneSettingsProvider` carrying the panel's presentation
+pins, and mounts `DevPanel`. The panel reaches the running app through the
+same seams a relay does: `updateCompanionEvent` on the collection cache plus
+invalidation of the task queries, so nothing remounts and nothing reloads;
+its "Perform" buttons run the real `useLifecycle` (the kit's hooks over the
+fixture pool) and show the kit's acceptances and refusals verbatim, while
+the mission-gated ceremony stays the dock's. Two production-side changes
+made this possible without dev branches: `SceneSettings` gained
+`baselineExpression` and `facing` pins (the `?expression=` URL read left
+`BlobbiOverview` for `src/dev`), and the home now puts a Blobbi whose
+authoritative state turns to `sleeping` into its bed even when the change
+did not come through the Rest walk (a refetch, another client, a fixture).
+`App.tsx` mounts the query cache above the transport so the panel can use
+it. Boundaries, enforced: the panel, the controller and their stylesheet
+live in `src/dev/` and are never imported statically outside it
+(`env-contract.test.ts`), production code never reads the fixture query
+string, and the built bundle carries none of it (checked by grep at
+release). `fixture-controller.test.ts` pins the model (a spec round-trips
+through the kit parser; "hatch ready" is ready by `useHatchTasks`; nothing
+opens a socket); `dev-panel.test.tsx` pins the behaviour over the real
+home (a typed stat changes the same actor node; sleeping goes to bed at
+once; pins override and clear; a kit refusal is shown; reset restores the
+URL's world).
+
 **Production configuration.** The app reads exactly two build variables
 (`VITE_BLOBBI_ISLAND_URL`, validated to an absolute `http(s)` URL with
 `https://island.blobbi.pet` as the default, the origin Island's own tests
@@ -260,6 +297,16 @@ git-ignored (`*.local`). `env-contract.test.ts` enforces the contract.
 
 **Not in this milestone.** Themes, the room editor, a relay data manager,
 minigames, shops, currencies, picture frames, dialogue, new event kinds.
+
+**A finding from the dev panel, not changed.** The kit's `useBlobbiEvolve`
+writes neither `visual_generation` nor `adult_type`: `updateBlobbiTags`
+carries the baby's managed tags over and the repair pass only recovers
+required or previously present ones. An egg born here (`eggTemplate` →
+`buildEggTags`) carries no `visual_generation`, which core parses as `v1`,
+so a Blobbi born and evolved in this app is an **Adult V1**; only a state
+event that already says `v2` (another producer's) evolves into a V2 adult.
+The adult *form* is not a tag decision at all: `parseModernBlobbiEvent`
+derives `adultType` from the seed whenever a seed is present.
 
 ## Milestone 12: one home, care intents, the way in (M10)
 

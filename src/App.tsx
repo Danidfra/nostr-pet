@@ -10,23 +10,16 @@ import { SoundProvider } from '@/features/sound';
 import AppRouter from './AppRouter';
 
 /**
- * Dev fixture mode (`?fixture=egg|baby|adult|adult-v2`, with `&state=sleeping`
- * and `&low=<stat>`): the app over an in-memory world, for looking at every
- * stage without an account or a relay. Only a dev build with the dev-tools
- * flag ever loads the module; production has no code path to it.
+ * Dev fixture mode (`?fixture=egg|baby|adult|adult-v2`, with `&state=sleeping`,
+ * `&low=<stat>` and `&expression=<preset>`): the app over an in-memory world
+ * with a panel that rewrites it live, for looking at every stage without an
+ * account or a relay. Only a dev build with the dev-tools flag ever loads the
+ * module; production has no code path to it. The request is parsed in
+ * `src/dev`; here only whether there is one matters.
  */
 const DEV_FIXTURES = import.meta.env.DEV && import.meta.env.VITE_BLOBBI_DEV_TOOLS === 'true';
 const DevFixture = DEV_FIXTURES ? lazy(() => import('@/dev/DevFixture')) : null;
-const fixtureRequest = DEV_FIXTURES && typeof window !== 'undefined' ? readFixtureRequestSafe(window.location.search) : null;
-function readFixtureRequestSafe(search: string) {
-  const params = new URLSearchParams(search);
-  const name = params.get('fixture');
-  if (!name) return null;
-  const state = params.get('state') === 'sleeping' ? ('sleeping' as const) : ('active' as const);
-  const lowRaw = params.get('low');
-  const low = lowRaw && ['hunger', 'energy', 'health', 'happiness', 'hygiene'].includes(lowRaw) ? (lowRaw as 'hunger' | 'energy' | 'health' | 'happiness' | 'hygiene') : undefined;
-  return ['egg', 'baby', 'adult', 'adult-v2'].includes(name) ? { name: name as 'egg' | 'baby' | 'adult' | 'adult-v2', state, low } : null;
-}
+const fixtureRequest = DEV_FIXTURES && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('fixture') ? window.location.search : null;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,8 +36,9 @@ const queryClient = new QueryClient({
 /**
  * Provider order, outermost first: the environment (paints the home's
  * lighting before any relay answers; device-local, never published), sound
- * (off by default, device-local), persisted logins, the relay pool (bunker
- * logins need it), the query cache, then the router. Domain state comes from
+ * (off by default, device-local), persisted logins, the query cache, the
+ * relay pool (bunker logins need it; in dev fixture mode the fixture world
+ * and its panel, which is why the cache sits above it), then the router. Domain state comes from
  * @blobbi-kit hooks per surface; no Blobbi provider lives here.
  */
 /** The relays, or the dev fixture world when one is asked for. */
@@ -52,7 +46,7 @@ function Transport({ children }: { children: React.ReactNode }) {
   if (DevFixture && fixtureRequest) {
     return (
       <Suspense fallback={null}>
-        <DevFixture options={fixtureRequest}>{children}</DevFixture>
+        <DevFixture search={fixtureRequest}>{children}</DevFixture>
       </Suspense>
     );
   }
@@ -64,14 +58,14 @@ export function App() {
     <EnvironmentProvider>
       <SoundProvider>
         <NostrLoginProvider storageKey="nostr:login">
-          <Transport>
-            <QueryClientProvider client={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <Transport>
               <style>{BLOBBI_RENDERER_STYLESHEET}</style>
               <BrowserRouter>
                 <AppRouter />
               </BrowserRouter>
-            </QueryClientProvider>
-          </Transport>
+            </Transport>
+          </QueryClientProvider>
         </NostrLoginProvider>
       </SoundProvider>
     </EnvironmentProvider>

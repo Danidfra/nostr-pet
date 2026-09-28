@@ -47,12 +47,21 @@ describe('the environment contract', () => {
     }
   });
 
-  it('the dev fixture world is only ever imported lazily behind that gate', () => {
+  it('the dev fixture world, its controller and its panel are only ever imported lazily behind that gate', () => {
+    // The one static import allowed outside src/dev is the context (a null default, no behaviour).
     for (const { path, text } of sources) {
       if (path.startsWith('src/dev/')) continue;
-      expect(text, path).not.toMatch(/^import .*['"]@\/dev\/DevFixture['"]/m);
+      const devImports = [...text.matchAll(/^import .*['"](@\/dev\/[^'"]+|\.\.?\/dev\/[^'"]+)['"]/gm)].map((m) => m[1]);
+      expect(devImports, path).toEqual(devImports.filter((i) => i.endsWith('/dev/DevFixtureContext')));
     }
     const app = sources.find((s) => s.path === 'src/App.tsx');
     expect(app?.text).toMatch(/DEV_FIXTURES \? lazy\(\(\) => import\('@\/dev\/DevFixture'\)\) : null/);
+  });
+
+  it('production code never reads the URL for a dev fixture: the query string is parsed in src/dev only', () => {
+    for (const { path, text } of sources) {
+      if (path.startsWith('src/dev/') || path === 'src/App.tsx') continue;
+      expect(text, path).not.toMatch(/get\('(fixture|expression|low)'\)/);
+    }
   });
 });

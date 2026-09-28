@@ -1,0 +1,165 @@
+/* The dev panel: an engineering tool over the game, never part of it. Dev bundle only. */
+.dev-panel {
+  position: fixed;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 70;
+  width: 19rem;
+  max-width: calc(100vw - 1rem);
+  max-height: calc(100dvh - 1rem);
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.6rem;
+  background: rgb(22 24 30 / 0.94);
+  color: #e6e8ee;
+  font: 500 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.4);
+  border: 1px solid rgb(255 255 255 / 0.12);
+}
+.dev-panel--collapsed {
+  width: auto;
+}
+.dev-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.1);
+}
+.dev-panel--collapsed .dev-panel__head {
+  border-bottom: 0;
+}
+.dev-panel__title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.dev-panel__body {
+  overflow: auto;
+  padding: 0.25rem 0.5rem 0.5rem;
+}
+.dev-panel details {
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  padding: 0.25rem 0;
+}
+.dev-panel details:first-child {
+  border-top: 0;
+}
+.dev-panel summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.2rem 0;
+  color: #b9c0d4;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+}
+.dev-panel__row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.2rem 0;
+  flex-wrap: wrap;
+}
+.dev-panel__row label,
+.dev-panel__label {
+  min-width: 4.4rem;
+  color: #aab1c5;
+}
+.dev-panel__grow {
+  flex: 1;
+  min-width: 0;
+}
+.dev-panel button,
+.dev-panel select,
+.dev-panel input[type='number'],
+.dev-panel input[type='text'] {
+  font: inherit;
+  color: inherit;
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 0.3rem;
+  padding: 0.15rem 0.4rem;
+  min-height: 1.5rem;
+}
+.dev-panel select {
+  max-width: 100%;
+}
+.dev-panel input[type='number'] {
+  width: 3.4rem;
+}
+.dev-panel input[type='range'] {
+  flex: 1;
+  min-width: 4rem;
+  accent-color: #8b9cff;
+}
+.dev-panel button {
+  cursor: pointer;
+}
+.dev-panel button:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.16);
+}
+.dev-panel button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.dev-panel button[aria-pressed='true'],
+.dev-panel button.is-on {
+  background: #4f5fd6;
+  border-color: #6f7ff0;
+  color: #fff;
+}
+.dev-panel__danger {
+  background: rgb(220 70 70 / 0.25) !important;
+  border-color: rgb(220 70 70 / 0.6) !important;
+}
+.dev-panel__hint {
+  color: #8f97ad;
+  margin: 0.15rem 0;
+}
+.dev-panel__ok {
+  color: #7fd39a;
+}
+.dev-panel__warn {
+  color: #f5c26b;
+}
+.dev-panel__error {
+  color: #ff8a8a;
+  white-space: pre-wrap;
+  margin: 0.2rem 0;
+}
+.dev-panel__tasks {
+  list-style: none;
+  margin: 0.2rem 0;
+  padding: 0;
+}
+.dev-panel__tasks li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.dev-panel__sheet {
+  display: grid;
+  grid-template-columns: 4.5rem repeat(7, 1fr);
+  gap: 0.15rem;
+  align-items: center;
+  margin-top: 0.3rem;
+}
+.dev-panel__sheet-cell {
+  width: 2.1rem;
+  height: 2.1rem;
+}
+.dev-panel__sheet-head {
+  font-size: 9px;
+  text-align: center;
+  color: #aab1c5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dev-panel__pinned {
+  color: #f5c26b;
+}
