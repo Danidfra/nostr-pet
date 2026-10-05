@@ -2,7 +2,6 @@ import type { BlobbiEmotion } from '@blobbi-kit/renderer';
 import type { EyeOffset } from './gaze';
 import type { Facing } from './geometry';
 import { DEFAULT_IDLE_TIMING, type IdleTiming, type Random } from './idle';
-import { DEFAULT_WALK_SPEED } from './locomotion';
 import type { BlobbiSceneController } from './useBlobbiPresentation';
 
 /**
@@ -33,12 +32,18 @@ export interface SceneSettings {
   idle: IdleTiming;
   /** Idle behaviour on or off (off in tests that are not about it). */
   idleEnabled: boolean;
-  walkSpeed: number;
+  /**
+   * An OVERRIDE of the walking pace, in floor units per second, the same in
+   * every direction: for tests and harnesses that are not about walking.
+   * Absent (the app), a Blobbi walks at its own gait's pace
+   * (`motion-contract.ts`). It is not a default: a default here would
+   * silently replace every gait.
+   */
+  walkSpeed?: number;
 }
 
 export const DEFAULT_SCENE_SETTINGS: SceneSettings = {
   random: Math.random,
   idle: DEFAULT_IDLE_TIMING,
   idleEnabled: true,
-  walkSpeed: DEFAULT_WALK_SPEED,
 };

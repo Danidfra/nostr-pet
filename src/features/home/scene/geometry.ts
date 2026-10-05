@@ -50,12 +50,12 @@ export const DEPTH_WEIGHT = 0.31;
 
 /**
  * How deep the floor IS, in floor widths: the room is as deep as it is wide,
- * seen foreshortened. Distances are measured in the room, not on the screen,
- * so a Blobbi takes as long to walk the floor's depth as its width, and one
- * walk cycle covers the same ground whichever way it goes. (Distances used
- * to be measured on the screen, which made walking toward or away from the
- * viewer more than three times as fast as walking across: the body slid
- * down the floor under legs that were stepping at the same pace.)
+ * seen foreshortened. Distances between two spots are measured in the room,
+ * not on the screen (how near is "the same spot", how far is a stroll).
+ *
+ * How FAST a Blobbi covers them is not decided here: a walk has a pace
+ * across the room and a pace up and down it, both from its gait
+ * (`motion-contract.ts`).
  */
 export const FLOOR_DEPTH = 1;
 

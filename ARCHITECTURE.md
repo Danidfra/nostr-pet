@@ -423,14 +423,32 @@ dialogue step after the reveal (the name is asked at adoption here).
   longer plans a turn (it glances), and the scene controller has no `turn`.
   The Dev Lab's view buttons are the facing PIN, a presentation override.
 - **Pace.** A walk covers a set amount of floor per cycle of the renderer's
-  own walk animation (`TRAVEL_PER_WALK_CYCLE` in `motion-contract.ts`, by
-  stage and generation), and the walking speed is that distance over the
-  cycle, never a number chosen on its own. Distances are measured in the
-  ROOM (`FLOOR_DEPTH`: the floor is as deep as it is wide), not on the
-  screen. They used to be measured on the screen, where the floor is drawn
-  a third as deep as it is wide, so a walk toward or away from the viewer
-  covered the floor more than three times as fast as one across it under
-  the same stepping legs. The pace across the room is unchanged.
+  own walk animation, and the walking speed is that distance over the
+  cycle, never a number chosen on its own. The table is `GAITS` in
+  `motion-contract.ts`, one gait per stage and generation, and the two
+  directions are calibrated separately:
+  - ACROSS the room, `stride` is MEASURED on the drawing (boxes of the
+    drawing per cycle). The V3 adult plants each foot for half a cycle and
+    carries it 54 units back at a constant speed, twice a cycle, in a
+    drawing 900 units square: 0.12 of a box per cycle, read off the kit's
+    own keyframes by `motion-contract.test.ts` (the V2 adult's 28 of 238
+    viewBox units likewise). The floor passes under the body exactly that
+    fast, at every depth (the stride scales with `depthScale`), so a planted
+    foot stays on its spot. The home used to move a Blobbi 0.28 floor widths
+    a second whatever its legs did, 3.3 times its stride. Drawings with no
+    legs (every baby, V1) have nothing to slide and keep the adults' pace.
+    The cost is stated plainly: crossing the room takes about nine seconds
+    now, not three. Going faster without sliding is the renderer's to give
+    (a longer stride or a quicker cadence), not the home's to take.
+  - UP AND DOWN the floor, `depth` is how it looks (floor depths per
+    cycle): the feet step in place there and nothing is planted. 0.21 per
+    cycle for V3 (about a third of the floor's depth a second), a fifth
+    quicker than the first calibration and well under half the on-screen
+    speed of the original, which slid.
+  A diagonal takes as long as its two components together demand
+  (`walkSeconds`). `SceneSettings.walkSpeed` is an OVERRIDE for tests and
+  harnesses; it has no default, because a default silently replaced every
+  gait (it did, once).
 - **Shadow.** The renderer measures its own drawing
   (`describeBlobbiArtwork(...).boxAnchors`: the ground line and the
   footprint), and `BlobbiActor` puts the home's shadow there (`shadowFor`):

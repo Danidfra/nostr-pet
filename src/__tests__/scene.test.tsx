@@ -16,6 +16,8 @@ import { KIND_BLOBBI_STATE, BLOBBONAUT_PROFILE_KINDS, getTagValue } from '@blobb
 
 import Home from '@/pages/Home';
 import { HOME_SPOT, SceneSettingsProvider, placeOnFloor, type BlobbiSceneController, type SceneSettings } from '@/features/home/scene';
+import { DEFAULT_SCENE_SETTINGS } from '@/features/home/scene/scene-settings';
+import { paceFor } from '@/features/home/scene/motion-contract';
 import { approachSpot } from '@/features/home/rooms';
 import { STAGE_OBJECTS } from '@/features/home/space/home-space';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
@@ -163,6 +165,36 @@ describe('Scene: locomotion', () => {
     expect(Number(a.getAttribute('data-y'))).toBeLessThan(down);
     expect(a).toHaveAttribute('data-facing', 'front');
     expect(renderer()).toHaveAttribute('data-blobbi-facing', 'front');
+  });
+
+  it('with no override the app walks at the Blobbi\'s own gait: unhurried across the room, quicker up and down the floor', { timeout: 20_000 }, async () => {
+    // The app's own settings carry no walking speed: it comes from the gait (`motion-contract.ts`).
+    expect(DEFAULT_SCENE_SETTINGS.walkSpeed).toBeUndefined();
+    renderHome({ idleEnabled: false });
+    const a = await ready();
+    const timed = async (clientX: number, clientY: number) => {
+      const from = { x: Number(a.getAttribute('data-x')), y: Number(a.getAttribute('data-y')) };
+      fireEvent.click(screen.getByTestId('scene-floor'), { clientX, clientY, detail: 1 });
+      expect(a).toHaveAttribute('data-motion', 'walking');
+      const started = performance.now();
+      await waitFor(() => expect(a).toHaveAttribute('data-motion', 'idle'), { timeout: 8_000 });
+      const seconds = (performance.now() - started) / 1000;
+      return { seconds, dx: Math.abs(Number(a.getAttribute('data-x')) - from.x), dy: Math.abs(Number(a.getAttribute('data-y')) - from.y), y: from.y };
+    };
+    // A short way across (a tenth of the floor), then up the floor.
+    const startX = Number(a.getAttribute('data-x')) * 1000;
+    const startY = (0.72 + Number(a.getAttribute('data-y')) * 0.25) * 600;
+    const across = await timed(startX - 100, startY);
+    const pace = paceFor('baby', 'v1', across.y);
+    expect(across.dx).toBeCloseTo(0.1, 2);
+    expect(across.seconds).toBeGreaterThan((across.dx / pace.side) * 0.8);
+    expect(across.seconds).toBeLessThan((across.dx / pace.side) * 1.6);
+    const along = await timed(Number(a.getAttribute('data-x')) * 1000, 380);
+    expect(along.dy).toBeGreaterThan(0.2);
+    expect(along.seconds).toBeGreaterThan((along.dy / pace.depth) * 0.8);
+    expect(along.seconds).toBeLessThan((along.dy / pace.depth) * 1.6);
+    // Up the floor covers more of it per second than across: the two are a gait's own paces, not one number.
+    expect(along.dy / along.seconds).toBeGreaterThan((across.dx / across.seconds) * 2);
   });
 
   it('a walk that is interrupted leaves it facing the viewer too', async () => {

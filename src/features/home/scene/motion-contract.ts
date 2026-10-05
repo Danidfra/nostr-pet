@@ -17,7 +17,8 @@
  *
  * The home never re-applies the walk transform to the Blobbi itself.
  */
-import { DEPTH_WEIGHT, FLOOR_DEPTH } from './geometry';
+import { DEPTH_WEIGHT, depthScale } from './geometry';
+import type { WalkPace } from './locomotion';
 
 export const RENDERER_WALK_CYCLE_S = 0.56;
 
@@ -38,51 +39,97 @@ export function walkCycleFor(generation: string): number {
 }
 
 /**
- * HOW FAR ONE CYCLE OF ITS WALK CARRIES A BLOBBI, in floor widths, measured
- * in the room (`geometry.ts`: the floor is as deep as it is wide).
+ * The actor's box, as a fraction of the scene's width (the stylesheet's
+ * `.scene-actor { width: 44% }`, which `motion-contract.test.ts` reads). A
+ * drawing is fitted into that box, so a distance measured IN THE DRAWING (a
+ * stride) becomes a distance on the floor through this number.
+ */
+export const ACTOR_BOX_WIDTH = 0.44;
+
+/**
+ * A GAIT: how far one cycle of a walk animation carries a Blobbi.
  *
  * This is the link between the animation and the ground. The renderer plays
- * a walk at its own pace (two steps, or two hops, per cycle); the home moves
- * the Blobbi across the floor. If the two are not tied, the body slides
- * under legs that are stepping at another speed. So the walking speed is
- * never chosen on its own: it is this distance divided by the cycle the
- * renderer plays, and a renderer that changes its cycle changes the pace
- * with it.
+ * a walk at its own pace; the home moves the Blobbi across the floor. If the
+ * two are not tied, the body slides over feet that are stepping at another
+ * speed. So a walking speed is never chosen on its own: it is a distance
+ * per cycle, divided by the cycle the renderer plays.
  *
- * By stage and generation, because each is a different gait: the V1 and V2
- * drawings bob as one piece, a V3 adult steps on its legs, a V3 baby hops.
- * The numbers are the walk the home has always had, which reads right in
- * profile: 0.28 floor widths a second, as a distance per cycle.
+ * The two directions are calibrated separately, on purpose:
  *
- * WHAT A VIEW CHANGES is not the pace but how it LOOKS (`apparentTravelPerCycle`):
- * the same ground covered up or down the floor is drawn foreshortened, a
- * third as far on screen, which is what makes a walk toward the viewer read
- * as steps taken and not as a slide.
+ *  - `stride`, ACROSS the room, is MEASURED on the drawing, in boxes of the
+ *    drawing per cycle. A walk on legs plants each foot for half a cycle and
+ *    carries it back under the body; while it is planted the floor must pass
+ *    under the body exactly as fast as the foot goes back, or the foot
+ *    slides. One cycle is two such steps. A drawing with no legs has no foot
+ *    to slide: its stride is set to the legged one, so a baby keeps pace
+ *    with the adult it becomes.
+ *  - `depth`, UP AND DOWN the floor, is a matter of how it looks, in floor
+ *    depths per cycle. From the front and from behind the feet step in place
+ *    and nothing is planted that could be seen to slide; what is seen is how
+ *    fast the Blobbi grows and comes down the floor against the rhythm of
+ *    its steps.
  */
-export const TRAVEL_PER_WALK_CYCLE: Readonly<Record<'v1' | 'v2' | 'v3', Readonly<Record<'baby' | 'adult', number>>>> = {
-  v1: { baby: 0.157, adult: 0.157 },
-  v2: { baby: 0.157, adult: 0.157 },
-  v3: { baby: 0.174, adult: 0.174 },
-};
-
-const gaitOf = (stage: string, generation: string) => TRAVEL_PER_WALK_CYCLE[generation === 'v3' || generation === 'v2' ? generation : 'v1'][stage === 'adult' ? 'adult' : 'baby'];
-
-/** How far one walk cycle carries this Blobbi across the room, in floor widths. */
-export function travelPerCycleFor(stage: string, generation: string): number {
-  return gaitOf(stage, generation);
+export interface Gait {
+  stride: number;
+  depth: number;
 }
 
-/** The walking speed of this Blobbi, in floor widths per second: its travel per cycle over its cycle. */
-export function walkSpeedFor(stage: string, generation: string): number {
-  return gaitOf(stage, generation) / walkCycleFor(generation);
+/**
+ * THE V3 ADULT, on its legs. The rig plants a foot for half the cycle and
+ * carries it from 27 units ahead to 27 behind, at a constant speed
+ * (`pb-walking-side-near-leg`): 54 units a step, two steps a cycle, in a
+ * drawing 900 units square. 108 / 900 of a box per cycle, and not a hair
+ * more: the home used to move it 3.3 times as far, and the feet slid.
+ */
+const LEGS_V3: Gait = { stride: 108 / 900, depth: 0.21 };
+/**
+ * THE V2 ADULT, on its legs (the kit's wrapper stylesheet,
+ * `blobbi-motion-stride-near`): planted for half the cycle and carried 14
+ * viewBox units back, twice a cycle, in a drawing 238.125 tall.
+ */
+const LEGS_V2: Gait = { stride: 28 / 238.125, depth: 0.19 };
+/**
+ * THE BOB AND THE HOP: the V1 drawings, every baby, the V3 baby. Nothing
+ * touches the floor, so nothing can slide on it. They keep pace with the
+ * legged adults, in their own boxes.
+ */
+const HOP_V3: Gait = { stride: 0.12, depth: 0.21 };
+const BOB: Gait = { stride: 0.12, depth: 0.19 };
+
+/** The gait of each stage of each generation: the one table the home's walking pace comes from. */
+export const GAITS: Readonly<Record<'v1' | 'v2' | 'v3', Readonly<Record<'baby' | 'adult', Gait>>>> = {
+  v1: { baby: BOB, adult: BOB },
+  v2: { baby: BOB, adult: LEGS_V2 },
+  v3: { baby: HOP_V3, adult: LEGS_V3 },
+};
+
+/** The gait this Blobbi walks with. An unknown stage or generation walks as the oldest artwork does. */
+export function gaitFor(stage: string, generation: string): Gait {
+  return GAITS[generation === 'v3' || generation === 'v2' ? generation : 'v1'][stage === 'adult' ? 'adult' : 'baby'];
+}
+
+/**
+ * How fast this Blobbi walks where it stands, in floor units per second:
+ * `side` along the floor's width, `depth` along its depth.
+ *
+ * The stride is a distance in the DRAWING, and the drawing is smaller at the
+ * back of the room (`depthScale`), so the same stride covers less floor
+ * there: the pace across follows the size the Blobbi is drawn at, which is
+ * what keeps a planted foot on its spot at every depth.
+ */
+export function paceFor(stage: string, generation: string, y = 1): WalkPace {
+  const gait = gaitFor(stage, generation);
+  const cycle = walkCycleFor(generation);
+  return { side: (gait.stride * ACTOR_BOX_WIDTH * depthScale(y)) / cycle, depth: gait.depth / cycle };
 }
 
 /**
  * How far one walk cycle moves this Blobbi ON SCREEN, in scene widths, in
- * the view the walk is drawn in: all of its travel in profile, and the
- * floor's foreshortening of it from the front or from behind.
+ * the view the walk is drawn in: its stride in profile, and the floor's
+ * foreshortening of its depth travel from the front or from behind.
  */
-export function apparentTravelPerCycle(stage: string, generation: string, view: 'side' | 'front' | 'back'): number {
-  const travel = gaitOf(stage, generation);
-  return view === 'side' ? travel : (travel * DEPTH_WEIGHT) / FLOOR_DEPTH;
+export function apparentTravelPerCycle(stage: string, generation: string, view: 'side' | 'front' | 'back', y = 1): number {
+  const gait = gaitFor(stage, generation);
+  return view === 'side' ? gait.stride * ACTOR_BOX_WIDTH * depthScale(y) : gait.depth * DEPTH_WEIGHT;
 }

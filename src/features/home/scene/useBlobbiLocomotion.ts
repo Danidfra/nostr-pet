@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FloorPoint } from './geometry';
-import { arriveAt, beginWalk, standingAt, stepLocomotion, stopWalking, DEFAULT_WALK_SPEED, type LocomotionState, type WalkSource } from './locomotion';
+import { arriveAt, beginWalk, standingAt, stepLocomotion, stopWalking, DEFAULT_WALK_SPEED, type LocomotionState, type WalkPace, type WalkSource } from './locomotion';
 
 /**
  * How a walk ended. `arrived` is the only outcome after which an action
@@ -17,8 +17,13 @@ export interface WalkOptions {
 
 export interface UseBlobbiLocomotionOptions {
   initialPosition: FloorPoint;
-  /** Floor widths per second. Read live, so a Blobbi that changes gait (it hatched, it evolved) walks at its new pace. */
-  speed?: number;
+  /**
+   * The pace of a walk: one number (floor units per second, every way), or
+   * the pace where it stands (a gait: its stride covers less floor at the
+   * back of the room, where it is drawn smaller). Read live, so a Blobbi
+   * that changes gait (it hatched, it evolved) walks at its new pace.
+   */
+  speed?: number | ((position: FloorPoint) => WalkPace);
   /** Reduced motion: destinations are reached at once, with no loop. */
   reducedMotion: boolean;
   /** Largest step the loop will take (guards against a tab that was in the background). */
@@ -97,7 +102,7 @@ export function useBlobbiLocomotion({
       const last = lastTimeRef.current ?? time;
       lastTimeRef.current = time;
       const dt = Math.min(maxFrameSeconds, Math.max(0, (time - last) / 1000));
-      const { state: next, arrived } = stepLocomotion(stateRef.current, dt, speed);
+      const { state: next, arrived } = stepLocomotion(stateRef.current, dt, typeof speed === 'function' ? speed(stateRef.current.position) : speed);
       commit(next);
       if (arrived) {
         stopLoop();

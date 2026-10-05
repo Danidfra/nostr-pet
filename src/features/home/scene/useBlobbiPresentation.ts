@@ -4,7 +4,7 @@ import { policyFor, resolveBehaviorMode, type BehaviorMode } from './behavior-mo
 import { floorDirection, floorPointFromScene, type FloorPoint } from './geometry';
 import { travelGlance } from './gaze';
 import type { IdleAction } from './idle';
-import { walkSpeedFor } from './motion-contract';
+import { paceFor } from './motion-contract';
 import { HOME_SPOT } from './objects';
 import { composePresentation, type BlobbiPresentation } from './presentation';
 import { baselineExpression, reactionForCare, type CareReaction } from './reactions';
@@ -86,11 +86,13 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
   const hoverCapable = useHoverCapable();
   const isSleeping = blobbi.state === 'sleeping';
 
+  const { stage, visualGeneration } = blobbi;
+  const paceHere = useCallback((position: FloorPoint) => paceFor(stage, visualGeneration, position.y), [stage, visualGeneration]);
   const locomotion = useBlobbiLocomotion({
     initialPosition: initialPosition ?? HOME_SPOT,
     reducedMotion,
     // One cycle of this Blobbi's own walk covers a set amount of floor (motion-contract.ts).
-    speed: settings.walkSpeed ?? walkSpeedFor(blobbi.stage, blobbi.visualGeneration),
+    speed: settings.walkSpeed ?? paceHere,
   });
 
   const isUserWalking = locomotion.motion === 'walking' && locomotion.source === 'user';
