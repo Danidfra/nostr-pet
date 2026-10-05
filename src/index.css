@@ -1571,8 +1571,11 @@
   /* The V2 adult walks on its legs and never leaves the floor, so its
      shadow stays put: a slight settle at each step (twice per cycle, the
      same clock as the legs), no fade. The generation comes from the Blobbi's
-     own event (data-generation), never from the drawing. */
-  .scene-actor[data-motion='walking'][data-generation='v2'] .scene-actor__shadow {
+     own event (data-generation), never from the drawing. A V3 adult walks
+     on its legs as well (on its own cycle, which --walk-cycle carries); a
+     V3 baby has none and hops, so it keeps the bob's shadow above. */
+  .scene-actor[data-motion='walking'][data-generation='v2'] .scene-actor__shadow,
+  .scene-actor[data-motion='walking'][data-generation='v3'][data-stage='adult'] .scene-actor__shadow {
     animation-name: actor-shadow-step;
   }
   @keyframes actor-shadow-step {

@@ -10,7 +10,7 @@ import { SoundProvider } from '@/features/sound';
 import AppRouter from './AppRouter';
 
 /**
- * Dev fixture mode (`?fixture=egg|baby|adult|adult-v2`, with `&state=sleeping`,
+ * Dev fixture mode (`?fixture=egg|baby|adult|adult-v2|egg-v3|baby-v3|adult-v3`, with `&state=sleeping`,
  * `&low=<stat>` and `&expression=<preset>`): the app over an in-memory world
  * with a panel that rewrites it live, for looking at every stage without an
  * account or a relay. Only a dev build with the dev-tools flag ever loads the

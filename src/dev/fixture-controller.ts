@@ -121,6 +121,7 @@ export const FIXTURE_PRESETS: readonly FixturePreset[] = [
   { id: 'evolution-ready', label: 'Evolution ready', group: 'baby', apply: (s) => ({ ...healthy(stage(s, 'baby')), progressionState: 'evolving', missions: ALL_MISSIONS }) },
   { id: 'healthy-adult', label: 'Healthy adult (V1)', group: 'adult', apply: (s) => healthy(stage(s, 'adult')) },
   { id: 'healthy-adult-v2', label: 'Healthy adult (V2)', group: 'adult', apply: (s) => healthy(stage(s, 'adult', 'v2')) },
+  { id: 'healthy-adult-v3', label: 'Healthy adult (V3)', group: 'adult', apply: (s) => healthy(stage(s, 'adult', 'v3')) },
   { id: 'critical-adult', label: 'Critical adult', group: 'adult', apply: (s) => ({ ...stage(s, 'adult', s.visualGeneration), stats: statsForPreset('adult', 'critical') }) },
 ];
 

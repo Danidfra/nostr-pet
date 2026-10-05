@@ -131,10 +131,16 @@ describe('First run', () => {
     expect(getTagValue(egg.tags, 'published_at')).toBe(String(egg.created_at));
     const parsed = parseModernBlobbiEvent(egg)!;
     expect(parsed.evolution.map((m) => m.id).sort()).toEqual(HATCH_MISSIONS.map((m) => m.id).sort());
-    // Born V2: the kit's creation rule, carried on the event from the first publish and drawn as such.
-    expect(getTagValue(egg.tags, VISUAL_GENERATION_TAG)).toBe(NEW_BLOBBI_VISUAL_GENERATION);
-    expect(parsed.visualGeneration).toBe('v2');
-    await waitFor(() => expect(screen.getByTestId('blobbi-actor').querySelector('[data-blobbi-renderer]')).toHaveAttribute('data-blobbi-generation', 'v2'));
+    // Born V3: this app's creation rule (the kit's own default is still V2), carried on the event from the
+    // first publish with its whole explicit identity, and drawn as such.
+    expect(NEW_BLOBBI_VISUAL_GENERATION).toBe('v2');
+    expect(getTagValue(egg.tags, VISUAL_GENERATION_TAG)).toBe('v3');
+    expect(parsed.visualGeneration).toBe('v3');
+    expect(parsed.v3Identity?.missing).toEqual([]);
+    expect(parsed.v3Identity?.seed).toBe(getTagValue(egg.tags, 'seed'));
+    await waitFor(() => expect(screen.getByTestId('blobbi-actor').querySelector('[data-blobbi-renderer]')).toHaveAttribute('data-blobbi-generation', 'v3'));
+    // The egg in the room is the procedural egg of this identity.
+    expect(screen.getByTestId('blobbi-actor').querySelector('[data-blobbi-body-box] svg')).toHaveAttribute('data-blobbi-stage', 'egg');
 
     // Exactly one profile, created from the kit base tags with the kind 0 name, after the egg.
     await waitFor(() => expect(published(KIND_BLOBBONAUT_PROFILE)).toHaveLength(1));

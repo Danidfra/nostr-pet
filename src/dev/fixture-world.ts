@@ -32,8 +32,8 @@ import { isBlobbiEmotion, type BlobbiEmotion } from '@blobbi-kit/renderer';
 import { CREATED_AT, PUBKEY, blobbiEvent, profileEvent } from '@/test/fixtures';
 import { OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_SOAP, inventoryEvent, officialCareDefinition } from '@/test/inventory-fixtures';
 
-export type FixtureName = 'egg' | 'baby' | 'adult' | 'adult-v2';
-export const FIXTURE_NAMES: readonly FixtureName[] = ['egg', 'baby', 'adult', 'adult-v2'];
+export type FixtureName = 'egg' | 'baby' | 'adult' | 'adult-v2' | 'egg-v3' | 'baby-v3' | 'adult-v3';
+export const FIXTURE_NAMES: readonly FixtureName[] = ['egg', 'baby', 'adult', 'adult-v2', 'egg-v3', 'baby-v3', 'adult-v3'];
 export const STAT_NAMES: readonly (keyof BlobbiStats)[] = ['hunger', 'happiness', 'hygiene', 'energy', 'health'];
 
 export interface FixtureOptions {
@@ -107,7 +107,12 @@ const LOW_VALUE = 8;
 export const NO_MISSIONS: FixtureMissions = { interactions: 0, themes: 0, colorMoments: 0, editProfile: false };
 
 function stageOf(name: FixtureName): BlobbiStage {
-  return name === 'egg' ? 'egg' : name === 'baby' ? 'baby' : 'adult';
+  return name === 'egg' || name === 'egg-v3' ? 'egg' : name === 'baby' || name === 'baby-v3' ? 'baby' : 'adult';
+}
+
+/** The generation a fixture name asks for: the plain names are EXISTING Blobbis, so V1. */
+function generationOf(name: FixtureName): BlobbiVisualGeneration {
+  return name.endsWith('-v3') ? 'v3' : name === 'adult-v2' ? 'v2' : 'v1';
 }
 
 export function fixtureNameFor(stage: BlobbiStage): string {
@@ -122,7 +127,7 @@ export function specFromOptions({ name, state = 'active', low }: FixtureOptions)
   return {
     name: fixtureNameFor(stage),
     stage,
-    visualGeneration: name === 'adult-v2' ? 'v2' : 'v1',
+    visualGeneration: generationOf(name),
     state: stage === 'egg' ? 'active' : state,
     stats,
     careStreak: 1,

@@ -3,7 +3,7 @@ import { BlobbiRenderer, blobbiMotionPhase, BLOBBI_MOTION_PHASES, type BlobbiEgg
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { placeOnFloor } from './geometry';
-import { RENDERER_WALK_CYCLE_S } from './motion-contract';
+import { walkCycleFor } from './motion-contract';
 import { GESTURES } from './gestures';
 import { useReducedMotion } from './SceneSettings';
 import type { BlobbiPresentation } from './presentation';
@@ -37,8 +37,9 @@ interface BlobbiActorProps {
  * is on the actor (`data-generation`) because the two gaits cast different
  * shadows (V1 and the baby hop, so their shadow breathes with the bob; the
  * V2 adult walks on its legs and keeps the floor, so its shadow only
- * settles a little at each step), and the renderer draws no ground shadow
- * of its own. It hands the composed presentation (facing, motion, gaze,
+ * settles a little at each step; a V3 adult walks on its legs too, on its
+ * own cycle, and a V3 baby hops, which is why the stage is on the actor as
+ * well), and the renderer draws no ground shadow of its own. It hands the composed presentation (facing, motion, gaze,
  * expression, sleeping) to the canonical renderer and decides nothing
  * about how the Blobbi looks. It never touches Nostr.
  */
@@ -79,6 +80,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-testid="blobbi-actor"
       data-motion={presentation.motion}
       data-generation={blobbi.visualGeneration}
+      data-stage={blobbi.stage}
       data-facing={presentation.facing}
       data-expression={presentation.expression}
       data-sleeping={isSleeping ? 'true' : 'false'}
@@ -89,7 +91,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-egg-crack={blobbi.stage === 'egg' ? (eggCrack ?? 'none') : undefined}
       data-x={presentation.position.x.toFixed(3)}
       data-y={presentation.position.y.toFixed(3)}
-      style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale), '--walk-cycle': `${RENDERER_WALK_CYCLE_S}s`, '--blobbi-motion-phase': String(motionPhase) } as React.CSSProperties}
+      style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale), '--walk-cycle': `${walkCycleFor(blobbi.visualGeneration)}s`, '--blobbi-motion-phase': String(motionPhase) } as React.CSSProperties}
     >
       <div className="scene-actor__body">
         {!inBed && <div aria-hidden className="scene-actor__shadow" />}

@@ -309,6 +309,60 @@ made two shadows under a walking V2 adult, is off by the renderer's default
 (`groundShadow: 'none'`), so the actor passes nothing and casts exactly one
 shadow (`BlobbiActor.test.tsx`); the home never names a `data-part`.
 
+**Visual generation V3: procedural Blobbis (kit core/react 0.8.0, renderer
+0.6.0).** A Blobbi adopted here is born V3. V3 has no authored drawing per
+Blobbi: the renderer generates each one from its identity, as an egg, a
+baby and an adult, from every side. Everything about that is the kit's; this
+app adds four small things, each in one place.
+
+- **The creation rule** is one constant, `ADOPTION_VISUAL_GENERATION` in
+  `adoption-plan.ts` (`'v3'`). The kit's own default
+  (`NEW_BLOBBI_VISUAL_GENERATION`) is still V2, so this is this app opting
+  in. `eggTemplate` hands `buildEggTags` the renderer's creation rule
+  (`createBlobbiV3Identity`), and core writes the identity onto the event:
+  `visual_generation = v3`, plus the explicit colours, trait kinds and
+  algorithm version in `v3_*` tags. Nothing here derives a seed, a colour or
+  a trait. The preview the player sees IS that event, parsed.
+- **The seam** is still `toBlobbiVisual`: it passes `identity.v3` through.
+  For V1 and V2 the field is absent and they are handed exactly what they
+  were before (`v3.test.tsx` compares the drawings byte for byte).
+- **Persistence is the event's.** A V3 Blobbi is its seed and its `v3_*`
+  tags; there is no app state behind its appearance. The kit carries those
+  tags through every republish (care, hatch, evolve), so the egg, its baby
+  and its adult are one identity. The seed-mirror tags (`base_color`, ...)
+  stay mirrors, which is what a client that predates V3 draws from.
+- **The gait.** A V3 drawing moves by its own rig, so the renderer does not
+  wrap its body in the bob; the home still says only `motion="walking"`.
+  The shadow follows the same way it follows V2: `motion-contract.ts` pins
+  the V3 cycle (`RENDERER_V3_WALK_CYCLE_S`, verified against the kit's V3
+  stylesheet), `BlobbiActor` carries `data-stage` beside `data-generation`,
+  and `index.css` gives a walking V3 adult the settling shadow (it walks on
+  its legs) and leaves a V3 baby the bob's (it hops).
+
+What is PROVISIONAL: the `v3_*` tag representation is a working convention
+in the kit, not a specification. Before this app is deployed with V3 as its
+creation rule, that representation should be settled, because every egg
+adopted from then on carries it. `ADOPTION_VISUAL_GENERATION = 'v2'` restores
+the previous birth exactly and never affects an existing Blobbi.
+
+Dev tooling: `?fixture=egg-v3|baby-v3|adult-v3`, a V3 column in the quick
+fixtures and the generation switch, V3 rows in the expression sheet, the V3
+identity in the inspector (colours, traits, algorithm, anything missing),
+and a "V3 population" sheet in the Dev Lab that draws consecutive seeds as
+egg, baby and adult through the renderer alone.
+
+**Consuming an unpublished kit.** As with core/react 0.7.0 and renderer
+0.5.0 before it, this app depends on kit versions that are committed in
+blobbi-kit but not yet on the registry. The method is the one already in
+use: `npm pack` the three kit packages from the kit checkout, `npm cache
+add` the tarballs, and record in `package.json` the semver range and in
+`package-lock.json` the registry URL with THE PACKED TARBALL'S integrity.
+`npm install` then resolves from the local cache by integrity, with no
+`file:` path and no sibling checkout in the manifest; once the same build is
+published, nothing here changes. Until then a clean machine cannot `npm ci`
+this branch, and a re-pack of a changed kit means a new integrity in the
+lockfile.
+
 **The Dev Lab (`/dev`).** The same fixture infrastructure as the panel (the
 controller, the in-memory pool, Set versus Perform, presets, pins, reset),
 composed as an engineering page: `App.tsx` treats `/dev` as fixture mode

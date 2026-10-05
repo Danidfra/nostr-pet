@@ -61,6 +61,14 @@ list is standardised beyond the projects that share it.
 | 31634 | Equipment placements from the Island | read |
 | 0 | Nostr profile | written once on account creation |
 
+A Blobbi adopted here is born into the procedural generation
+(`visual_generation = v3`): its kind 31124 states its colours and trait kinds
+explicitly, in the kit's `v3_*` tags, and everything else about its looks
+derives from its `seed`. That representation is the kit's and is still
+**provisional** (see `ARCHITECTURE.md`, "Visual generation V3"). Blobbis born
+earlier (V1, with no marker, and V2) are read and drawn exactly as before and
+are never rewritten.
+
 Relays: reads and writes go to the application relays in
 `src/config/relays.ts`; read-only hints add the relays where the games and
 the item issuer are known to publish. A profile picture, the one upload,
@@ -79,7 +87,7 @@ production build:
 | Switch | What it does |
 | --- | --- |
 | `VITE_BLOBBI_DEV_TOOLS=true` in `.env.local` | enables the switches below and the force-hatch / force-evolve buttons |
-| `?fixture=egg\|baby\|adult\|adult-v2` | a fixture world in memory, with the dev panel: no account, no relay, no write |
+| `?fixture=egg\|baby\|adult\|adult-v2\|egg-v3\|baby-v3\|adult-v3` | a fixture world in memory, with the dev panel: no account, no relay, no write (the plain names are V1 Blobbis; `-v3` are procedural ones, born as this app's adoption makes them) |
 | `&state=sleeping`, `&low=<stat>`, `&expression=<preset>` | the fixture's starting variation: asleep, a critical stat, a pinned face |
 | `?preview=bed\|tub` | the bed or the tub out on load, to look at proportions |
 

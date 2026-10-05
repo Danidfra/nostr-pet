@@ -10,8 +10,11 @@ describe('dev fixture worlds', () => {
       const blobbi = events.find((e) => e.kind === KIND_BLOBBI_STATE)!;
       const parsed = parseModernBlobbiEvent(blobbi)!;
       expect(parsed.d).toBe(FIXTURE_D);
-      expect(parsed.stage).toBe(name === 'egg' ? 'egg' : name === 'baby' ? 'baby' : 'adult');
-      expect(parsed.visualGeneration).toBe(name === 'adult-v2' ? 'v2' : 'v1');
+      expect(parsed.stage).toBe(name.startsWith('egg') ? 'egg' : name.startsWith('baby') ? 'baby' : 'adult');
+      expect(parsed.visualGeneration).toBe(name.endsWith('-v3') ? 'v3' : name === 'adult-v2' ? 'v2' : 'v1');
+      // A V3 fixture is born with its whole identity; the others carry none of it.
+      if (name.endsWith('-v3')) expect(parsed.v3Identity?.missing).toEqual([]);
+      else expect(blobbi.tags.some((t) => t[0].startsWith('v3_'))).toBe(false);
       // The player's events are the fixture pubkey's; item definitions are their issuers'.
       expect(events.filter((e) => e.kind !== 31632).every((e) => e.pubkey === PUBKEY)).toBe(true);
       expect(events.filter((e) => e.kind === 0)).toHaveLength(1);

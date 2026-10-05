@@ -20,6 +20,15 @@
  *                and the content all survive), `has` merged with
  *                `mergeHasForAdoption`, `current_companion` set.
  *
+ * A Blobbi adopted HERE is born V3 (`ADOPTION_VISUAL_GENERATION`): the kit's
+ * own creation default is still V2, and V3 is opt-in per application. Its
+ * identity is stated at birth: `buildEggTags` asks the renderer's creation
+ * rule (`createBlobbiV3Identity`) for the seed's colours and trait kinds and
+ * writes them explicitly, so the egg in the preview, the egg that is
+ * published and every later stage of it are one individual, and none of it
+ * depends on this module, on React state or on how the generator is tuned
+ * afterwards. Existing Blobbis are untouched: nothing here rewrites one.
+ *
  * Nothing here signs or sends; `useAdoptEgg` does, after a fresh ownership
  * check, so a second "first" Blobbi is never minted.
  */
@@ -37,10 +46,31 @@ import {
   updateBlobbiTags,
   updateBlobbonautTags,
   type BlobbiCompanion,
+  type BlobbiVisualGeneration,
   type BlobbonautProfile,
+  type BuildEggTagsOptions,
   type NostrEvent,
 } from '@blobbi-kit/core';
 import { createHatchMissions, type PublishEventTemplate } from '@blobbi-kit/react';
+import { createBlobbiV3Identity } from '@blobbi-kit/renderer';
+
+/**
+ * THE CREATION RULE OF THIS APP: which visual generation a Blobbi adopted
+ * here is born into. One constant, read in one place (`eggTemplate`).
+ *
+ * `'v3'` is the procedural generation. Its event representation is still
+ * PROVISIONAL in the kit (`blobbi-v3-identity.ts`): before this app ships to
+ * real accounts with this value, that representation should be settled, as
+ * every egg adopted from then on carries it. Setting this back to `'v2'`
+ * restores the previous birth exactly; it never affects a Blobbi that
+ * already exists.
+ */
+export const ADOPTION_VISUAL_GENERATION: BlobbiVisualGeneration = 'v3';
+
+/** What `buildEggTags` is asked for: the generation, and for V3 the renderer's creation rule for the new seed. */
+export function adoptionEggOptions(generation: BlobbiVisualGeneration = ADOPTION_VISUAL_GENERATION): BuildEggTagsOptions {
+  return generation === 'v3' ? { visualGeneration: 'v3', v3: createBlobbiV3Identity } : { visualGeneration: generation };
+}
 
 /** The name the egg carries until the player picks one. */
 export const DEFAULT_EGG_NAME = 'Egg';
@@ -76,7 +106,7 @@ export function renamePreview(preview: EggPreview, name: string): EggPreview {
 
 /** The kind 31124 for a preview: the kit's egg, incubating, with the hatch missions. */
 export function eggTemplate(preview: EggPreview): PublishEventTemplate & { tags: string[][]; content: string; created_at: number } {
-  const base = buildEggTags(preview.ownerPubkey, preview.petId, preview.createdAt, preview.name);
+  const base = buildEggTags(preview.ownerPubkey, preview.petId, preview.createdAt, preview.name, adoptionEggOptions());
   const tags = updateBlobbiTags(base, { progression_state: 'incubating', progression_started_at: String(preview.createdAt) });
   const content = serializeEvolutionContent('', createHatchMissions());
   return { kind: KIND_BLOBBI_STATE, tags, content, created_at: preview.createdAt };

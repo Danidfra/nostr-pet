@@ -18,17 +18,17 @@ import { FACINGS, PROGRESSIONS } from './dev-home';
 
 export function StageStateSection({ controller, spec }: { controller: FixtureController; spec: FixtureSpec }) {
   const set = (patch: Partial<FixtureSpec>) => controller.setSpec(patch);
-  const setStage = (stage: BlobbiStage, generation: 'v1' | 'v2') =>
+  const setStage = (stage: BlobbiStage, generation: FixtureSpec['visualGeneration']) =>
     controller.setSpec((s) => {
       const preset = FIXTURE_PRESETS.find((p) => p.id === (stage === 'egg' ? 'fresh-egg' : stage === 'baby' ? 'healthy-baby' : 'healthy-adult'))!;
       return { ...preset.apply(s), visualGeneration: generation };
     });
-  const is = (stage: BlobbiStage, generation: 'v1' | 'v2') => spec.stage === stage && spec.visualGeneration === generation;
+  const is = (stage: BlobbiStage, generation: FixtureSpec['visualGeneration']) => spec.stage === stage && spec.visualGeneration === generation;
   return (
     <>
       <div className="dev-panel__row" data-testid="dev-quick-fixtures">
         {(['egg', 'baby', 'adult'] as const).map((stage) =>
-          (['v1', 'v2'] as const).map((generation) => (
+          (['v1', 'v2', 'v3'] as const).map((generation) => (
             <button type="button" key={`${stage}-${generation}`} aria-pressed={is(stage, generation)} onClick={() => setStage(stage, generation)} data-testid={`dev-stage-${stage}-${generation}`} title={stage !== 'adult' && generation === 'v2' ? `A V2 ${stage} is valid identity; the renderer draws the V1 ${stage} artwork until a V2 one exists` : undefined}>
               {generation.toUpperCase()} {stage}
             </button>
@@ -42,6 +42,9 @@ export function StageStateSection({ controller, spec }: { controller: FixtureCon
         </button>
         <button type="button" aria-pressed={spec.visualGeneration === 'v2'} onClick={() => set({ visualGeneration: 'v2' })} data-testid="dev-generation-v2">
           V2
+        </button>
+        <button type="button" aria-pressed={spec.visualGeneration === 'v3'} onClick={() => set({ visualGeneration: 'v3' })} data-testid="dev-generation-v3" title="Procedural: the fixture's seed as an individual, its identity written at birth by the kit's creation rule">
+          V3
         </button>
         <span className="dev-panel__hint">identity from birth; a transition never changes it</span>
       </div>
@@ -341,6 +344,7 @@ export function WorldSection({ controller, blobbi }: { controller: FixtureContro
 /** The parsed Blobbi, read-only, for understanding what the world says. */
 export function InspectorSection({ blobbi }: { blobbi: BlobbiCompanion }) {
   const [raw, setRaw] = useState(false);
+  const v3 = blobbi.v3Identity;
   const rows: Array<[string, string]> = [
     ['d', blobbi.d],
     ['name', blobbi.name],
@@ -355,6 +359,14 @@ export function InspectorSection({ blobbi }: { blobbi: BlobbiCompanion }) {
     ['progression', `${blobbi.progressionState}${blobbi.progressionStartedAt ? ` since ${blobbi.progressionStartedAt}` : ''}`],
     ['missions', blobbi.evolution.length ? blobbi.evolution.map((m) => `${m.id} ${'count' in m ? m.count : m.events.length}/${m.target}`).join(' · ') : '(none)'],
     ['traits', `${blobbi.visualTraits.baseColor} ${blobbi.visualTraits.secondaryColor} ${blobbi.visualTraits.eyeColor} · ${blobbi.visualTraits.pattern} · ${blobbi.visualTraits.specialMark} · ${blobbi.visualTraits.size}`],
+    // The V3 identity exactly as the event states it (the seed-mirror traits above are what an older client draws from).
+    ...(v3
+      ? ([
+          ['v3 colours', `${v3.colors.base ?? '?'} ${v3.colors.secondary ?? '?'} ${v3.colors.eye ?? '?'} · accent ${v3.colors.accent ?? 'none'}`],
+          ['v3 traits', `antenna ${v3.traits.antenna ?? '?'} · horns ${v3.traits.horns ?? '?'} · ears ${v3.traits.ears ?? '?'} · tail ${v3.traits.tail ?? '?'} · spots ${v3.traits.spots ?? '?'} · belly ${v3.traits.belly ?? '?'} · freckles ${v3.traits.freckles ?? '?'}`],
+          ['v3 algorithm', `${v3.algorithm}${v3.missing.length ? ` · MISSING ${v3.missing.join(', ')}` : ' · identity complete'}`],
+        ] as Array<[string, string]>)
+      : []),
     ['event', `${blobbi.event.id.slice(0, 10)}… at ${blobbi.event.created_at}`],
   ];
   return (
@@ -363,7 +375,7 @@ export function InspectorSection({ blobbi }: { blobbi: BlobbiCompanion }) {
         {rows.map(([k, v]) => (
           <div key={k}>
             <dt>{k}</dt>
-            <dd data-testid={`dev-inspector-${k.replace(' ', '-')}`}>{v}</dd>
+            <dd data-testid={`dev-inspector-${k.replace(/ /g, '-')}`}>{v}</dd>
           </div>
         ))}
       </dl>

@@ -5,6 +5,7 @@ import { BLOBBI_SOUNDS, useSound, type BlobbiSoundId } from '@/features/sound';
 import Home from '@/pages/Home';
 import { DebugOverlay } from './DebugOverlay';
 import { ExpressionSheet } from './ExpressionSheet';
+import { V3Sheet } from './V3Sheet';
 import { useFixtureController } from './FixtureControllerContext';
 import { FIXTURE_PRESETS } from './fixture-controller';
 import { InspectorSection, LifecycleSection, PinsSection, StageStateSection, StatsSection, WorldSection } from './sections';
@@ -129,6 +130,10 @@ function LabControls({ home, overlay, onOverlay }: { home: DevHome; overlay: boo
       </Section>
       <Section title="Expression lab" testId="dev-lab-expressions">
         <ExpressionLab home={home} />
+      </Section>
+      <Section title="V3 population (renderer only)" open={false} testId="dev-lab-v3">
+        <p className="dev-panel__hint">Consecutive seeds as the kit's creation rule makes them: egg, baby and adult of one identity. Not the fixture, not an event.</p>
+        <V3Sheet cell={46} />
       </Section>
       <Section title="Sound lab" testId="dev-lab-sound">
         <SoundLab />
