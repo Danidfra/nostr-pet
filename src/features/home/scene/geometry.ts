@@ -40,12 +40,24 @@ export const FLOOR_BOUNDS: FloorBounds = { minX: 0.1, maxX: 0.9, minY: 0.05, max
 export const FLOOR_BAND = { top: FLOOR_LINE, bottom: FLOOR_FRONT } as const;
 
 /**
- * The floor is drawn much shorter than it is wide, so a step in `y` covers
- * less screen than the same step in `x`. Distances weigh `y` by this factor
- * so walking speed looks the same in every direction: the band's height in
- * canvas-width units, (0.97 − 0.72) · 5/4.
+ * The floor is DRAWN much shorter than it is wide: the band's height in
+ * canvas-width units is (0.97 − 0.72) · 5/4. A step in `y` covers this much
+ * less SCREEN than the same step in `x`. This is what the viewer sees, so it
+ * decides which way a moving Blobbi is drawn facing (`facingFromDirection`).
+ * It is not how far anything has walked.
  */
 export const DEPTH_WEIGHT = 0.31;
+
+/**
+ * How deep the floor IS, in floor widths: the room is as deep as it is wide,
+ * seen foreshortened. Distances are measured in the room, not on the screen,
+ * so a Blobbi takes as long to walk the floor's depth as its width, and one
+ * walk cycle covers the same ground whichever way it goes. (Distances used
+ * to be measured on the screen, which made walking toward or away from the
+ * viewer more than three times as fast as walking across: the body slid
+ * down the floor under legs that were stepping at the same pace.)
+ */
+export const FLOOR_DEPTH = 1;
 
 /** How much closer things grow as they come to the front. Subtle on purpose. */
 export const DEPTH_SCALE = { back: 0.88, front: 1 } as const;
@@ -58,17 +70,17 @@ export function clampToFloor(point: FloorPoint, bounds: FloorBounds = FLOOR_BOUN
   return { x: clampAxis(point.x, bounds.minX, bounds.maxX), y: clampAxis(point.y, bounds.minY, bounds.maxY) };
 }
 
-/** Screen-weighted distance between two floor points. */
+/** Distance between two floor points in the room, in floor widths. */
 export function floorDistance(a: FloorPoint, b: FloorPoint): number {
   const dx = b.x - a.x;
-  const dy = (b.y - a.y) * DEPTH_WEIGHT;
+  const dy = (b.y - a.y) * FLOOR_DEPTH;
   return Math.hypot(dx, dy);
 }
 
 /**
- * Unit direction from `a` to `b` in screen-weighted space, as the per-axis
- * step in floor units for one unit of travel. `{ x: 0, y: 0 }` when the two
- * points coincide.
+ * Unit direction from `a` to `b` in the room, as the per-axis step in floor
+ * units for one unit of travel. `{ x: 0, y: 0 }` when the two points
+ * coincide.
  */
 export function floorDirection(a: FloorPoint, b: FloorPoint): FloorPoint {
   const dist = floorDistance(a, b);
@@ -79,10 +91,15 @@ export function floorDirection(a: FloorPoint, b: FloorPoint): FloorPoint {
 export type Facing = 'front' | 'back' | 'left' | 'right';
 
 /**
- * Which way a Blobbi faces while moving along `direction`. Side views are
- * favoured because they read as "going somewhere"; only a mostly-depthwise
- * move turns the Blobbi towards (front) or away from (back) the viewer.
- * A zero direction keeps the current facing.
+ * Which way a Blobbi is drawn while MOVING along `direction`: in profile
+ * when it goes left or right, from behind when it goes up the floor (away),
+ * from the front when it comes down it (toward the viewer). Judged by what
+ * the move looks like on screen. Side views are favoured because they read
+ * as "going somewhere"; only a mostly-depthwise move shows the front or the
+ * back. A zero direction keeps the current facing.
+ *
+ * A Blobbi that is NOT moving faces the viewer; that is the locomotion
+ * model's rule (`locomotion.ts`), not this function's.
  */
 export function facingFromDirection(direction: FloorPoint, current: Facing = 'front'): Facing {
   const dx = direction.x;

@@ -65,10 +65,11 @@ list is standardised beyond the projects that share it.
 
 On this branch a Blobbi adopted here is born into the procedural generation
 (`visual_generation = v3`): its kind 31124 states its colours (`base_color`,
-`secondary_color`, `eye_color`, `accent_color`) and trait kinds (`antenna`,
-`horns`, `ears`, `tail`, `spots`, `belly`, `freckles`) explicitly, with
-`visual_algorithm`, and everything else about its looks derives from its
-`seed`. The representation is the kit's (see `ARCHITECTURE.md`, "Visual
+`secondary_color`, `eye_color`, `accent_color`), its anatomy (`antenna`,
+`horns`, `ears`, `tail`) and its surface (`pattern`, `special_mark`,
+`belly`, `freckles`) explicitly, with `visual_algorithm`, and everything
+else about its looks derives from its `seed`. A V3 event carries no `size`
+and no `adult_type`. The representation is the kit's (see `ARCHITECTURE.md`, "Visual
 generation V3"); whether production adoption mints V3 is not decided yet.
 Blobbis born earlier (V1, with no marker, and V2) are read, drawn and
 republished exactly as before.
@@ -115,7 +116,7 @@ mission-gated Hatch!/Evolve! ceremony still works); stats, streak, xp and
 mission counts (authoritative fixture data); presentation overrides (face,
 facing, gaze, motion in place, reduced motion, lighting) that never touch
 the data and clear in one click; a movement lab (walk left/right/toward/away,
-walk to a point, stop, turn, poke) that drives the game's own scene
+walk to a point, stop, pin a view, poke) that drives the game's own scene
 controller, so V1 hopping and the V2 walk can be compared; a debug-bounds
 overlay (floor band, walkable bounds, actor and shadow boxes, feet anchor,
 destination, bed and nest use points); an expression lab comparing the V1

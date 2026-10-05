@@ -1,10 +1,11 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
-import { BlobbiRenderer, blobbiMotionPhase, BLOBBI_MOTION_PHASES, type BlobbiEggCrack, type BlobbiVisualEffect, type NormalizedAccessoryPlacement } from '@blobbi-kit/renderer';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, type ReactNode } from 'react';
+import { BlobbiRenderer, blobbiMotionPhase, describeBlobbiArtwork, BLOBBI_MOTION_PHASES, type BlobbiEggCrack, type BlobbiVisualEffect, type NormalizedAccessoryPlacement } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { placeOnFloor } from './geometry';
 import { walkCycleFor } from './motion-contract';
 import { GESTURES, hatchRock } from './gestures';
+import { shadowFor } from './shadow';
 import { useReducedMotion } from './SceneSettings';
 import type { BlobbiPresentation } from './presentation';
 
@@ -98,6 +99,15 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
   }, [rock, reducedMotion]);
   const burst = hatch && hatch.burst !== 'none' && !reducedMotion ? hatch.burst : null;
 
+  // The ground shadow goes where the DRAWING stands, and is as wide as what
+  // stands there: the renderer measures its own artwork (the feet of an
+  // adult, the air under a floating baby, each individual's own width) and
+  // the home puts its shadow on that. Where a generation's artwork has not
+  // been measured, the stylesheet's own placement stays.
+  const visual = useMemo(() => toBlobbiVisual(blobbi), [blobbi]);
+  const { facing } = presentation;
+  const shadowStyle = useMemo(() => shadowFor(describeBlobbiArtwork({ ...visual, facing }).boxAnchors), [visual, facing]);
+
   return (
     <div
       ref={rootRef}
@@ -121,7 +131,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale), '--walk-cycle': `${walkCycleFor(blobbi.visualGeneration)}s`, '--blobbi-motion-phase': String(motionPhase) } as React.CSSProperties}
     >
       <div className="scene-actor__body">
-        {!inBed && <div aria-hidden className="scene-actor__shadow" />}
+        {!inBed && <div aria-hidden className="scene-actor__shadow" data-measured={shadowStyle ? 'true' : undefined} style={shadowStyle ?? undefined} />}
         {children}
         {/* The one sleep cue. The renderer draws the creature asleep (closed
             eyes, `sleepIndicator="none"` below keeps its artwork's own Zzz
@@ -144,7 +154,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
           data-testid="blobbi-poke"
         >
           <BlobbiRenderer
-            visual={toBlobbiVisual(blobbi)}
+            visual={visual}
             instanceId={instanceId}
             size="100%"
             facing={presentation.facing}

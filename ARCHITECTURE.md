@@ -323,9 +323,12 @@ app adds four small things, each in one place.
   (`createBlobbiV3Identity`), and core writes the identity onto the event in
   plain, generation-independent tags: `visual_generation = v3`,
   `visual_algorithm = 1`, the colours in `base_color`, `secondary_color`,
-  `eye_color` and `accent_color`, and the trait kinds in `antenna`, `horns`,
-  `ears`, `tail`, `spots`, `belly`, `freckles`. The seed decides them at that
-  moment and never again. Nothing here derives a seed, a colour or a trait.
+  `eye_color` and `accent_color`, its anatomy in `antenna`, `horns`, `ears`,
+  `tail`, and its surface in `pattern` (the body's one pattern: `solid`,
+  `spotted`, `striped` or `gradient`), `special_mark` (`none`, `star`,
+  `heart`, `sparkle` or `moon`), `belly` and `freckles`. There is no `spots`
+  tag, and a V3 event carries neither `size` nor `adult_type`. The seed
+  decides them at that moment and never again. Nothing here derives a seed, a colour or a trait.
   The preview the player sees IS that event, parsed.
 - **The seam** is still `toBlobbiVisual`: it passes `identity.v3` through.
   For V1 and V2 the field is absent and they are handed exactly what they
@@ -413,6 +416,29 @@ Blobbonaut profile (Ditto sets it at the end of its ceremony, and repairs it
 for any account that owns a hatched Blobbi), and it has no naming or
 dialogue step after the reveal (the name is asked at adoption here).
 
+**The scene and the V3 body** (three things the home used to guess):
+
+- **Facing.** A Blobbi that is not walking faces the viewer. The rule is in
+  the locomotion model, so every way a walk ends goes through it; idle no
+  longer plans a turn (it glances), and the scene controller has no `turn`.
+  The Dev Lab's view buttons are the facing PIN, a presentation override.
+- **Pace.** A walk covers a set amount of floor per cycle of the renderer's
+  own walk animation (`TRAVEL_PER_WALK_CYCLE` in `motion-contract.ts`, by
+  stage and generation), and the walking speed is that distance over the
+  cycle, never a number chosen on its own. Distances are measured in the
+  ROOM (`FLOOR_DEPTH`: the floor is as deep as it is wide), not on the
+  screen. They used to be measured on the screen, where the floor is drawn
+  a third as deep as it is wide, so a walk toward or away from the viewer
+  covered the floor more than three times as fast as one across it under
+  the same stepping legs. The pace across the room is unchanged.
+- **Shadow.** The renderer measures its own drawing
+  (`describeBlobbiArtwork(...).boxAnchors`: the ground line and the
+  footprint), and `BlobbiActor` puts the home's shadow there (`shadowFor`):
+  under an adult's feet, small under a floating baby, each individual's own
+  width. The stylesheet's fixed shadow (set by eye for older artwork) sat a
+  tenth of the box below a V3 adult's feet and was wider than a V3 baby; it
+  still serves V1 and V2, whose artwork carries no measured footprint.
+
 Dev tooling: fixture worlds state the account's history, because that is
 what the rule reads. Every stage fixture is an **established** account by
 default (an older adult is in the world), so eggs can be looked at at rest;
@@ -446,7 +472,7 @@ real `<Home />`. Three production-side seams serve it, none a dev branch:
 `SceneSettings` gained `gaze` and `motion` pins next to the existing face
 and facing pins, and an `onController` callback through which
 `useBlobbiPresentation` hands its scene controller (now also exposing
-`turn` and `destination`) to whoever provides the settings; the movement
+`destination`) to whoever provides the settings; the movement
 lab drives that controller, the debug overlay portals into the real room
 canvas (`data-testid="room-canvas"`) and draws in its percentage
 coordinates, the expression lab is isolated renderer previews with the
@@ -1076,10 +1102,10 @@ direction, facing from direction, placement, scene fraction → floor point.
 | Concern | Owner | Output |
 | --- | --- | --- |
 | Position, destination, walking, arrival | `useBlobbiLocomotion` (pure model in `locomotion.ts`; one rAF loop that runs only while walking) | `position`, `motion: idle \| walking` |
-| Facing | derived from travel direction in the model; the arrival facing is kept, nothing snaps to front | `facing` |
+| Facing | one rule, in the model (`locomotion.ts`): standing still it faces the viewer; walking it is drawn the way it goes (profile sideways, its back going up the floor, its front coming down it); however a walk ends it faces the viewer again | `facing` |
 | Gaze | `useGazePolicy` (`gaze.ts`): hovering pointer followed over the scene, a tap holds attention briefly, idle glances are fixed offsets | `eyeOffset` (clamped −1..1, never negated: the renderer mirrors the left profile) |
 | Reactions | `useReactionPolicy` + `reactions.ts`: feed/clean → happy, play → excited, wake → happy, a poke → happy; baseline from the kit's critical thresholds (energy → sleepy, else sad) | `expression` |
-| Idle | `useIdleBehavior` + `idle.ts`: after `inactivityMs`, one small planned action per jittered beat (glance, turn, short stroll, rest); randomness injected | calls the three above |
+| Idle | `useIdleBehavior` + `idle.ts`: after `inactivityMs`, one small planned action per jittered beat (glance, short stroll, rest; it never turns its body away); randomness injected | calls the three above |
 | Sleeping | protocol `companion.state` | `isSleeping` |
 | Composition | `useBlobbiPresentation` → `composePresentation` | one `BlobbiPresentation` |
 

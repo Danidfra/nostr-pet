@@ -1,16 +1,49 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { FLOOR_BOUNDS, floorDistance } from './geometry';
-import { arriveAt, beginWalk, standingAt, stepLocomotion, stopWalking, turnTo } from './locomotion';
+import { arriveAt, beginWalk, standingAt, stepLocomotion, stopWalking } from './locomotion';
 import { useBlobbiLocomotion } from './useBlobbiLocomotion';
 
 const FAKES = ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] as const;
 
 describe('locomotion model', () => {
-  it('stands still until asked to walk', () => {
+  it('stands still until asked to walk, facing the viewer', () => {
     const s = standingAt({ x: 0.5, y: 0.5 });
     expect(s.motion).toBe('idle');
+    expect(s.facing).toBe('front');
     expect(stepLocomotion(s, 1).state).toBe(s);
+  });
+
+  it('a walk is drawn the way it goes: profile sideways, back up the floor, front down it', () => {
+    const from = standingAt({ x: 0.5, y: 0.5 });
+    expect(beginWalk(from, { x: 0.2, y: 0.5 }, 'user').facing).toBe('left');
+    expect(beginWalk(from, { x: 0.8, y: 0.5 }, 'user').facing).toBe('right');
+    expect(beginWalk(from, { x: 0.5, y: 0.1 }, 'user').facing).toBe('back');
+    expect(beginWalk(from, { x: 0.5, y: 0.8 }, 'user').facing).toBe('front');
+    // A diagonal is a profile: it reads as going somewhere.
+    expect(beginWalk(from, { x: 0.7, y: 0.6 }, 'user').facing).toBe('right');
+    expect(beginWalk(from, { x: 0.3, y: 0.3 }, 'user').facing).toBe('left');
+  });
+
+  it('however a walk ends, the Blobbi faces the viewer again: arrival, a stop, a tap under its feet, reduced motion', () => {
+    const from = standingAt({ x: 0.5, y: 0.5 });
+    for (const destination of [{ x: 0.2, y: 0.5 }, { x: 0.8, y: 0.5 }, { x: 0.5, y: 0.1 }, { x: 0.5, y: 0.8 }, { x: 0.25, y: 0.2 }]) {
+      const walking = beginWalk(from, destination, 'user');
+      // Arrival.
+      const arrived = stepLocomotion(walking, 60);
+      expect(arrived.arrived).toBe(true);
+      expect(arrived.state.facing).toBe('front');
+      expect(arrived.state.motion).toBe('idle');
+      // Stopped on the way, wherever it had got to.
+      const midway = stepLocomotion(walking, 0.3).state;
+      expect(midway.motion).toBe('walking');
+      expect(midway.facing).toBe(walking.facing);
+      expect(stopWalking(midway).facing).toBe('front');
+      // A tap on the spot it is passing over ends the walk there.
+      expect(beginWalk(midway, midway.position, 'user')).toMatchObject({ motion: 'idle', facing: 'front' });
+      // Reduced motion: it is simply there.
+      expect(arriveAt(from, destination)).toMatchObject({ motion: 'idle', facing: 'front', position: destination });
+    }
   });
 
   it('beginWalk sets a clamped destination, faces the way it goes, and starts walking', () => {
@@ -36,7 +69,7 @@ describe('locomotion model', () => {
     expect(replaced.facing).toBe('left');
   });
 
-  it('steps at a constant speed and arrives exactly, keeping the arrival facing', () => {
+  it('steps at a constant speed and arrives exactly, then faces the viewer', () => {
     let s = beginWalk(standingAt({ x: 0.2, y: 0.5 }), { x: 0.6, y: 0.5 }, 'user');
     const r1 = stepLocomotion(s, 0.5, 0.2);
     expect(r1.arrived).toBe(false);
@@ -47,7 +80,22 @@ describe('locomotion model', () => {
     expect(r2.state.position).toEqual({ x: 0.6, y: 0.5 });
     expect(r2.state.motion).toBe('idle');
     expect(r2.state.destination).toBeNull();
-    expect(r2.state.facing).toBe('right');
+    expect(r1.state.facing).toBe('right');
+    expect(r2.state.facing).toBe('front');
+  });
+
+  it('covers the same ground per second up and down the floor as across it: the room is measured, not the screen', () => {
+    const from = standingAt({ x: 0.5, y: 0.45 });
+    const across = stepLocomotion(beginWalk(from, { x: 0.8, y: 0.45 }, 'user'), 0.5, 0.2).state.position;
+    const toward = stepLocomotion(beginWalk(from, { x: 0.5, y: 0.75 }, 'user'), 0.5, 0.2).state.position;
+    const away = stepLocomotion(beginWalk(from, { x: 0.5, y: 0.15 }, 'user'), 0.5, 0.2).state.position;
+    expect(across.x - 0.5).toBeCloseTo(0.1, 6);
+    expect(toward.y - 0.45).toBeCloseTo(0.1, 6);
+    expect(0.45 - away.y).toBeCloseTo(0.1, 6);
+    // A diagonal is not faster than either: its two components add up to the same travel.
+    const diagonal = stepLocomotion(beginWalk(from, { x: 0.8, y: 0.75 }, 'user'), 0.5, 0.2).state.position;
+    expect(Math.hypot(diagonal.x - 0.5, diagonal.y - 0.45)).toBeCloseTo(0.1, 6);
+    expect(floorDistance({ x: 0, y: 0 }, { x: 0, y: 1 })).toBe(floorDistance({ x: 0, y: 0 }, { x: 1, y: 0 }));
   });
 
   it('never steps backwards on a negative or zero dt', () => {
@@ -56,18 +104,18 @@ describe('locomotion model', () => {
     expect(stepLocomotion(s, 0).state.position).toEqual(s.position);
   });
 
-  it('arriveAt jumps to the destination with the right facing (reduced motion)', () => {
+  it('arriveAt jumps to the destination and stands there, facing the viewer (reduced motion)', () => {
     const s = arriveAt(standingAt({ x: 0.5, y: 0.5 }), { x: 0.1, y: 0.5 });
     expect(s.position).toEqual({ x: 0.1, y: 0.5 });
-    expect(s.facing).toBe('left');
+    expect(s.facing).toBe('front');
     expect(s.motion).toBe('idle');
   });
 
-  it('stopWalking and turnTo', () => {
+  it('stopWalking ends a walk where it is and changes nothing else', () => {
     const walking = beginWalk(standingAt({ x: 0.5, y: 0.5 }), { x: 0.8, y: 0.5 }, 'user');
-    expect(stopWalking(walking).motion).toBe('idle');
-    expect(turnTo(walking, 'left')).toBe(walking); // no turning mid-walk
-    expect(turnTo(standingAt({ x: 0.5, y: 0.5 }), 'back').facing).toBe('back');
+    expect(stopWalking(walking)).toMatchObject({ motion: 'idle', facing: 'front', destination: null, position: walking.position });
+    const standing = standingAt({ x: 0.5, y: 0.5 });
+    expect(stopWalking(standing)).toBe(standing);
   });
 });
 
@@ -107,7 +155,8 @@ describe('useBlobbiLocomotion', () => {
     await flush();
     expect(result.current.position).toEqual({ x: 0.6, y: 0.5 });
     expect(result.current.motion).toBe('idle');
-    expect(result.current.facing).toBe('right');
+    // Arrived: it turns to face the viewer.
+    expect(result.current.facing).toBe('front');
     expect(seen.outcome).toBe('arrived');
   });
 

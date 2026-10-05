@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { Facing, FloorPoint } from './geometry';
+import type { FloorPoint } from './geometry';
 import { nextIdleDelay, planIdleAction, type IdleAction, type IdleTiming, type Random } from './idle';
 
 export interface UseIdleBehaviorOptions {
   enabled: boolean;
   timing: IdleTiming;
   random: Random;
-  /** The Blobbi's current spot and facing, for planning. */
+  /** The Blobbi's current spot, for planning. */
   position: FloorPoint;
-  facing: Facing;
   /** What to do with a planned action. */
   perform: (action: IdleAction) => void;
   now?: () => number;
@@ -25,11 +24,11 @@ export interface IdleBehavior {
  * it. Disabled while sleeping, while a user walk runs, or in tests that are
  * not about idling. The randomness comes from settings so tests script it.
  */
-export function useIdleBehavior({ enabled, timing, random, position, facing, perform, now = Date.now }: UseIdleBehaviorOptions): IdleBehavior {
+export function useIdleBehavior({ enabled, timing, random, position, perform, now = Date.now }: UseIdleBehaviorOptions): IdleBehavior {
   const lastActivityRef = useRef(now());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latest = useRef({ position, facing, perform, random, timing, now });
-  latest.current = { position, facing, perform, random, timing, now };
+  const latest = useRef({ position, perform, random, timing, now });
+  latest.current = { position, perform, random, timing, now };
 
   const clearTimer = () => {
     if (timerRef.current) {
@@ -49,13 +48,13 @@ export function useIdleBehavior({ enabled, timing, random, position, facing, per
     };
     const beat = () => {
       timerRef.current = null;
-      const { position, facing, perform, random, timing, now } = latest.current;
+      const { position, perform, random, timing, now } = latest.current;
       const since = now() - lastActivityRef.current;
       if (since < timing.inactivityMs) {
         schedule(timing.inactivityMs - since);
         return;
       }
-      perform(planIdleAction(random, position, facing));
+      perform(planIdleAction(random, position));
       schedule(nextIdleDelay(random, timing));
     };
     const { timing, now } = latest.current;

@@ -155,7 +155,7 @@ function LabControls({ home, overlay, onOverlay }: { home: DevHome; overlay: boo
   );
 }
 
-/** Drives the SAME scene controller the game uses (walks, turns, pokes); the renderer draws whatever gait the artwork has. */
+/** Drives the SAME scene controller the game uses (walks, pokes); the renderer draws whatever gait the artwork has. */
 function MovementLab() {
   const controller = useFixtureController();
   const [scene, setScene] = useState<BlobbiSceneController | null>(() => controller.scene());
@@ -191,9 +191,10 @@ function MovementLab() {
         </button>
       </div>
       <div className="dev-panel__row">
-        <span className="dev-panel__label">turn</span>
+        {/* A standing Blobbi faces the viewer: the game never turns it on the spot. To LOOK at another view, pin it (a presentation override, like the face). */}
+        <span className="dev-panel__label">view</span>
         {FACINGS.map((f) => (
-          <button type="button" key={f} disabled={!canWalk} aria-pressed={p?.facing === f} onClick={() => scene?.turn(f)} data-testid={`dev-turn-${f}`}>
+          <button type="button" key={f} aria-pressed={controller.pins().facing === f} onClick={() => controller.setPins({ facing: controller.pins().facing === f ? null : f })} data-testid={`dev-turn-${f}`} title="Pin this view (press again to let the game decide)">
             {f}
           </button>
         ))}

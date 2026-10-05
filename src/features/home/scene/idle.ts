@@ -4,12 +4,11 @@
  * pauses, and never while the player is doing something. Randomness is
  * injected so tests plan the exact sequence.
  */
-import { clampToFloor, type Facing, type FloorPoint } from './geometry';
+import { clampToFloor, type FloorPoint } from './geometry';
 import type { EyeOffset } from './gaze';
 
 export type IdleAction =
   | { type: 'glance'; offset: EyeOffset; durationMs: number }
-  | { type: 'turn'; facing: Facing }
   | { type: 'walk'; destination: FloorPoint }
   | { type: 'rest' };
 
@@ -28,23 +27,19 @@ export const IDLE_STROLL_RANGE = 0.22;
 /** A source of numbers in [0, 1). `Math.random` in the app; scripted in tests. */
 export type Random = () => number;
 
-const FACINGS: readonly Facing[] = ['front', 'left', 'right'];
-
 /**
- * Pick the next idle action. Weights: glances most often, a turn sometimes,
- * a short stroll now and then, and a plain rest (do nothing) so the Blobbi
- * is not busy every beat.
+ * Pick the next idle action. Weights: glances most often, a short stroll
+ * now and then, and a plain rest (do nothing) so the Blobbi is not busy
+ * every beat. A Blobbi left alone looks around with its EYES: it does not
+ * turn its body away, because a Blobbi that is standing still faces the
+ * viewer (`locomotion.ts`).
  */
-export function planIdleAction(random: Random, position: FloorPoint, facing: Facing): IdleAction {
+export function planIdleAction(random: Random, position: FloorPoint): IdleAction {
   const roll = random();
-  if (roll < 0.45) {
+  if (roll < 0.62) {
     const x = (random() * 2 - 1) * 0.7;
     const y = (random() * 2 - 1) * 0.35;
     return { type: 'glance', offset: { x: round(x), y: round(y) }, durationMs: 1_400 + Math.round(random() * 1_200) };
-  }
-  if (roll < 0.62) {
-    const candidates = FACINGS.filter((f) => f !== facing);
-    return { type: 'turn', facing: candidates[Math.floor(random() * candidates.length)] ?? 'front' };
   }
   if (roll < 0.85) {
     const dx = (random() * 2 - 1) * IDLE_STROLL_RANGE;

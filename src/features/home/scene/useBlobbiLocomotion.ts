@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Facing, FloorPoint } from './geometry';
-import { arriveAt, beginWalk, standingAt, stepLocomotion, stopWalking, turnTo, DEFAULT_WALK_SPEED, type LocomotionState, type WalkSource } from './locomotion';
+import type { FloorPoint } from './geometry';
+import { arriveAt, beginWalk, standingAt, stepLocomotion, stopWalking, DEFAULT_WALK_SPEED, type LocomotionState, type WalkSource } from './locomotion';
 
 /**
  * How a walk ended. `arrived` is the only outcome after which an action
@@ -17,7 +17,7 @@ export interface WalkOptions {
 
 export interface UseBlobbiLocomotionOptions {
   initialPosition: FloorPoint;
-  initialFacing?: Facing;
+  /** Floor widths per second. Read live, so a Blobbi that changes gait (it hatched, it evolved) walks at its new pace. */
   speed?: number;
   /** Reduced motion: destinations are reached at once, with no loop. */
   reducedMotion: boolean;
@@ -33,16 +33,15 @@ export interface BlobbiLocomotion extends LocomotionState {
    * Never rejects: a walk that ends is not an error.
    */
   walkTo: (destination: FloorPoint, options?: WalkOptions) => Promise<WalkOutcome>;
-  /** Turn in place (ignored while walking). */
-  turn: (facing: Facing) => void;
   /** Stop where it stands; a pending walk resolves `stopped`. */
   stop: () => void;
   /**
    * Put the Blobbi somewhere at once, no walk: coming into another room.
    * A pending walk resolves `stopped`. The new position is committed to the
    * live ref immediately, so a walk started in the same tick begins there.
+   * It stands there facing the viewer, as anything that is not walking does.
    */
-  placeAt: (position: FloorPoint, facing?: Facing) => void;
+  placeAt: (position: FloorPoint) => void;
 }
 
 type Settle = (outcome: WalkOutcome) => void;
@@ -59,12 +58,11 @@ type Settle = (outcome: WalkOutcome) => void;
  */
 export function useBlobbiLocomotion({
   initialPosition,
-  initialFacing = 'front',
   speed = DEFAULT_WALK_SPEED,
   reducedMotion,
   maxFrameSeconds = 0.05,
 }: UseBlobbiLocomotionOptions): BlobbiLocomotion {
-  const [state, setState] = useState<LocomotionState>(() => standingAt(initialPosition, initialFacing));
+  const [state, setState] = useState<LocomotionState>(() => standingAt(initialPosition));
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -146,8 +144,6 @@ export function useBlobbiLocomotion({
     [reducedMotion, settle, stopLoop, commit, tick],
   );
 
-  const turn = useCallback((facing: Facing) => commit(turnTo(stateRef.current, facing)), [commit]);
-
   const stop = useCallback(() => {
     stopLoop();
     settle('stopped');
@@ -155,10 +151,10 @@ export function useBlobbiLocomotion({
   }, [stopLoop, settle, commit]);
 
   const placeAt = useCallback(
-    (position: FloorPoint, facing: Facing = 'front') => {
+    (position: FloorPoint) => {
       stopLoop();
       settle('stopped');
-      commit(standingAt(position, facing));
+      commit(standingAt(position));
     },
     [stopLoop, settle, commit],
   );
@@ -171,5 +167,5 @@ export function useBlobbiLocomotion({
     [stopLoop, settle],
   );
 
-  return useMemo(() => ({ ...state, walkTo, turn, stop, placeAt }), [state, walkTo, turn, stop, placeAt]);
+  return useMemo(() => ({ ...state, walkTo, stop, placeAt }), [state, walkTo, stop, placeAt]);
 }

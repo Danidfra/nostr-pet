@@ -1548,6 +1548,17 @@
   .dark .scene-actor__shadow {
     background: hsl(0 0% 0% / 0.5);
   }
+  /* A drawing whose footprint the renderer measured (BlobbiActor `shadowFor`):
+     the shadow is centred under it, on its ground line, as wide as what
+     stands there. The numbers above are for artwork that has not been
+     measured, and were set by eye for it. */
+  .scene-actor__shadow[data-measured] {
+    left: var(--shadow-left);
+    top: var(--shadow-top);
+    bottom: auto;
+    width: var(--shadow-width);
+    height: var(--shadow-height);
+  }
   /* Walking: the renderer bobs the body (one cycle of --walk-cycle, offset
      by --blobbi-motion-phase, both from the actor); the shadow underneath
      shrinks and fades at the top of each bob, twice per cycle, with the
@@ -1597,6 +1608,9 @@
   .scene-actor[data-sleeping='true'] .scene-actor__shadow {
     bottom: 3%;
     opacity: 0.5;
+  }
+  .scene-actor[data-sleeping='true'] .scene-actor__shadow[data-measured] {
+    bottom: auto;
   }
   .scene-actor__zzz {
     position: absolute;

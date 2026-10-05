@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import type { BlobbiCompanion, BlobbiStats } from '@blobbi-kit/core';
 import { policyFor, resolveBehaviorMode, type BehaviorMode } from './behavior-mode';
-import { floorDirection, floorPointFromScene, type Facing, type FloorPoint } from './geometry';
+import { floorDirection, floorPointFromScene, type FloorPoint } from './geometry';
 import { travelGlance } from './gaze';
 import type { IdleAction } from './idle';
+import { walkSpeedFor } from './motion-contract';
 import { HOME_SPOT } from './objects';
 import { composePresentation, type BlobbiPresentation } from './presentation';
 import { baselineExpression, reactionForCare, type CareReaction } from './reactions';
@@ -62,8 +63,6 @@ export interface BlobbiSceneController {
   canWalk: boolean;
   /** Put it somewhere at once (coming into another room); any walk in progress ends `stopped`. */
   placeAt: (position: FloorPoint) => void;
-  /** Turn on the spot, when the mode lets it move at all; a walk in progress keeps its own facing. */
-  turn: (facing: Facing) => void;
   /** Where a walk in progress is going; null when standing. */
   destination: FloorPoint | null;
   scenePointerHandlers: ScenePointerHandlers;
@@ -90,7 +89,8 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
   const locomotion = useBlobbiLocomotion({
     initialPosition: initialPosition ?? HOME_SPOT,
     reducedMotion,
-    speed: settings.walkSpeed,
+    // One cycle of this Blobbi's own walk covers a set amount of floor (motion-contract.ts).
+    speed: settings.walkSpeed ?? walkSpeedFor(blobbi.stage, blobbi.visualGeneration),
   });
 
   const isUserWalking = locomotion.motion === 'walking' && locomotion.source === 'user';
@@ -112,9 +112,6 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
         case 'glance':
           gaze.glance(action.offset, action.durationMs);
           break;
-        case 'turn':
-          locomotion.turn(action.facing);
-          break;
         case 'walk':
           void locomotion.walkTo(action.destination, { source: 'idle' });
           break;
@@ -130,7 +127,6 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     timing: settings.idle,
     random: settings.random,
     position: locomotion.position,
-    facing: locomotion.facing,
     perform: performIdle,
   });
 
@@ -230,16 +226,6 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     [markActivity, locomotionPlaceAt],
   );
 
-  const locomotionTurn = locomotion.turn;
-  const turn = useCallback(
-    (facing: Facing) => {
-      if (!policyRef.current.walks.includes('user')) return;
-      markActivity();
-      locomotionTurn(facing);
-    },
-    [markActivity, locomotionTurn],
-  );
-
   const gazeMove = gaze.onPointerMove;
   const gazeLeave = gaze.onPointerLeave;
   const gazeDown = gaze.onPointerDown;
@@ -256,8 +242,8 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
   );
 
   const controller = useMemo<BlobbiSceneController>(
-    () => ({ presentation, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, canWalk: policy.walks.includes('user'), placeAt, turn, destination: locomotion.destination, scenePointerHandlers, isUserWalking, reducedMotion }),
-    [presentation, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, policy.walks, placeAt, turn, locomotion.destination, scenePointerHandlers, isUserWalking, reducedMotion],
+    () => ({ presentation, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, canWalk: policy.walks.includes('user'), placeAt, destination: locomotion.destination, scenePointerHandlers, isUserWalking, reducedMotion }),
+    [presentation, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, policy.walks, placeAt, locomotion.destination, scenePointerHandlers, isUserWalking, reducedMotion],
   );
 
   // The settings' harness seam: told about this controller as it changes, and about the unmount.

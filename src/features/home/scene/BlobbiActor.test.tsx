@@ -3,7 +3,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { parseModernBlobbiEvent, type BlobbiCompanion } from '@blobbi-kit/core';
 import { blobbiEvent } from '@/test/fixtures';
+import { describeBlobbiArtwork } from '@blobbi-kit/renderer';
+import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { BlobbiActor } from './BlobbiActor';
+import { shadowFor } from './shadow';
 import { placeOnFloor } from './geometry';
 import type { BlobbiPresentation } from './presentation';
 
@@ -157,5 +160,88 @@ describe('one ground shadow, whoever walks', () => {
     render(<BlobbiActor blobbi={parseModernBlobbiEvent(blobbiEvent('0000000042', { name: 'Shell', stage: 'egg', visualGeneration: 'v2' }))!} presentation={{ ...standing, motion: 'still' }} inBed eggCrack="none" />);
     expect(groundShadows()).toBe(0);
     expect(screen.getByTestId('blobbi-actor')).toHaveAttribute('data-generation', 'v2');
+  });
+});
+
+describe('the ground shadow is where the drawing stands', () => {
+  const born = (stage: 'egg' | 'baby' | 'adult', generation: 'v1' | 'v2' | 'v3', petId = '0000000042') => parseModernBlobbiEvent(blobbiEvent(petId, { name: 'Brook', stage, visualGeneration: generation }))!;
+  const shadow = () => document.querySelector('.scene-actor__shadow') as HTMLElement | null;
+  const at = (name: string) => parseFloat(shadow()!.style.getPropertyValue(name));
+  const facing = (f: BlobbiPresentation['facing']): BlobbiPresentation => ({ ...standing, facing: f });
+  const FACINGS = ['front', 'left', 'right', 'back'] as const;
+
+  it('a V3 adult\'s shadow is under its feet, on its ground line, as wide as what stands there, from every side', () => {
+    for (const f of FACINGS) {
+      const blobbi = born('adult', 'v3');
+      const { unmount } = render(<BlobbiActor blobbi={blobbi} presentation={facing(f)} />);
+      const measured = describeBlobbiArtwork({ ...toBlobbiVisual(blobbi), facing: f }).boxAnchors;
+      expect(shadow()).toHaveAttribute('data-measured', 'true');
+      // Centred under the footprint, vertically centred on the ground line.
+      expect(at('--shadow-left')).toBeCloseTo(measured.footprint!.centerX * 100, 1);
+      expect(at('--shadow-top') + at('--shadow-height') / 2).toBeCloseTo(measured.groundY * 100, 1);
+      expect(at('--shadow-width')).toBeCloseTo(measured.footprint!.width * 100, 1);
+      // Under the feet: the ground of this drawing is well above the bottom of its box, where the
+      // stylesheet's own shadow sits (its middle is at 98.5%), which is what left a gap under the Blobbi.
+      expect(measured.groundY).toBeLessThan(0.92);
+      expect(measured.groundY).toBeGreaterThan(0.86);
+      expect(Math.abs(at('--shadow-left') - 50)).toBeLessThan(6);
+      expect(at('--shadow-width')).toBeGreaterThan(38);
+      expect(at('--shadow-width')).toBeLessThan(54);
+      // Flat on the floor.
+      expect(at('--shadow-height')).toBeLessThan(at('--shadow-width') * 0.25);
+      unmount();
+    }
+  });
+
+  it('a V3 baby\'s shadow is a small one, under a small floating body: narrower than the baby and than any adult\'s', () => {
+    const widths = { baby: [] as number[], adult: [] as number[] };
+    for (const petId of ['0000000042', '0000000043', '0000000044', '0000000045', '0000000046', '0000000047']) {
+      for (const stage of ['baby', 'adult'] as const) {
+        for (const f of FACINGS) {
+          const blobbi = born(stage, 'v3', petId);
+          const { unmount } = render(<BlobbiActor blobbi={blobbi} presentation={facing(f)} />);
+          widths[stage].push(at('--shadow-width'));
+          if (stage === 'baby') {
+            // The baby's body is half its box wide; its shadow is narrower than it, and floats a little below it.
+            const body = document.querySelector('[data-blobbi-body-box] svg [data-part="body-base"]');
+            expect(body).not.toBeNull();
+            expect(at('--shadow-width')).toBeLessThan(42);
+            expect(at('--shadow-width')).toBeGreaterThan(24);
+            expect(Math.abs(at('--shadow-left') - 50)).toBeLessThan(6);
+          }
+          unmount();
+        }
+      }
+    }
+    expect(Math.max(...widths.baby)).toBeLessThan(Math.min(...widths.adult));
+  });
+
+  it('an egg on the floor has its own, and anything in bed has none: the bed is the ground', () => {
+    const egg = born('egg', 'v3');
+    const { unmount } = render(<BlobbiActor blobbi={egg} presentation={facing('front')} eggCrack="none" />);
+    expect(shadow()).toHaveAttribute('data-measured', 'true');
+    expect(at('--shadow-width')).toBeGreaterThan(36);
+    expect(at('--shadow-width')).toBeLessThan(64);
+    expect(at('--shadow-left')).toBeCloseTo(50, 1);
+    unmount();
+    render(<BlobbiActor blobbi={egg} presentation={facing('front')} eggCrack="none" inBed />);
+    expect(shadow()).toBeNull();
+  });
+
+  it('V1 and V2 keep the shadow they always had: the stylesheet\'s, with nothing measured put on it', () => {
+    for (const generation of ['v1', 'v2'] as const) {
+      for (const stage of ['baby', 'adult'] as const) {
+        const { unmount } = render(<BlobbiActor blobbi={born(stage, generation)} presentation={facing('front')} />);
+        expect(shadow()).not.toBeNull();
+        expect(shadow()).not.toHaveAttribute('data-measured');
+        expect(shadow()!.getAttribute('style')).toBeNull();
+        unmount();
+      }
+    }
+  });
+
+  it('shadowFor turns a footprint into the shadow\'s box, and has nothing to say without one', () => {
+    expect(shadowFor({ groundY: 0.9 })).toBeNull();
+    expect(shadowFor({ groundY: 0.9, footprint: { centerX: 0.48, width: 0.4 } })).toEqual({ '--shadow-left': '48.00%', '--shadow-top': '86.60%', '--shadow-width': '40.00%', '--shadow-height': '6.80%' });
   });
 });

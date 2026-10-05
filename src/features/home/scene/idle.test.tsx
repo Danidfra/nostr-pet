@@ -13,26 +13,26 @@ function scripted(values: number[]) {
 describe('idle planning', () => {
   const at = { x: 0.5, y: 0.5 };
 
-  it('mostly glances, sometimes turns, occasionally strolls, and sometimes just rests', () => {
-    expect(planIdleAction(scripted([0.1, 0.5, 0.5, 0]), at, 'front')).toEqual({ type: 'glance', offset: { x: 0, y: 0 }, durationMs: 1_400 });
-    expect(planIdleAction(scripted([0.5, 0]), at, 'front')).toEqual({ type: 'turn', facing: 'left' });
-    expect(planIdleAction(scripted([0.5, 0.99]), at, 'left')).toEqual({ type: 'turn', facing: 'right' });
-    const walk = planIdleAction(scripted([0.7, 1, 1]), at, 'front') as Extract<IdleAction, { type: 'walk' }>;
+  it('mostly glances, occasionally strolls, and sometimes just rests', () => {
+    expect(planIdleAction(scripted([0.1, 0.5, 0.5, 0]), at)).toEqual({ type: 'glance', offset: { x: 0, y: 0 }, durationMs: 1_400 });
+    const walk = planIdleAction(scripted([0.7, 1, 1]), at) as Extract<IdleAction, { type: 'walk' }>;
     expect(walk.type).toBe('walk');
     expect(walk.destination.x).toBeCloseTo(0.5 + IDLE_STROLL_RANGE);
-    expect(planIdleAction(scripted([0.95]), at, 'front')).toEqual({ type: 'rest' });
+    expect(planIdleAction(scripted([0.95]), at)).toEqual({ type: 'rest' });
   });
 
   it('never strolls off the floor', () => {
-    const walk = planIdleAction(scripted([0.7, 1, 1]), { x: 0.95, y: 0.95 }, 'front') as Extract<IdleAction, { type: 'walk' }>;
+    const walk = planIdleAction(scripted([0.7, 1, 1]), { x: 0.95, y: 0.95 }) as Extract<IdleAction, { type: 'walk' }>;
     expect(walk.destination.x).toBeLessThanOrEqual(FLOOR_BOUNDS.maxX);
     expect(walk.destination.y).toBeLessThanOrEqual(FLOOR_BOUNDS.maxY);
   });
 
-  it('a turn never picks the facing it already has', () => {
-    for (const r of [0, 0.3, 0.6, 0.99]) {
-      const turn = planIdleAction(scripted([0.5, r]), at, 'right') as Extract<IdleAction, { type: 'turn' }>;
-      expect(turn.facing).not.toBe('right');
+  it('never turns its body away: a Blobbi left alone looks around with its eyes, whatever the dice say', () => {
+    // Where a turn used to be planned, it glances instead; no roll plans anything but a glance, a stroll or a rest.
+    expect(planIdleAction(scripted([0.5, 0.5, 0.5, 0]), at).type).toBe('glance');
+    for (let i = 0; i < 400; i++) {
+      const roll = i / 400;
+      expect(['glance', 'walk', 'rest']).toContain(planIdleAction(scripted([roll, 0.3, 0.6, 0.2]), at).type);
     }
   });
 
@@ -51,7 +51,7 @@ describe('useIdleBehavior', () => {
 
   it('does nothing until the inactivity period has passed, then performs one planned action per beat', () => {
     const perform = vi.fn();
-    renderHook(() => useIdleBehavior({ enabled: true, timing, random: scripted([0.95, 0.5, 0.95, 0.5]), position: { x: 0.5, y: 0.5 }, facing: 'front', perform }));
+    renderHook(() => useIdleBehavior({ enabled: true, timing, random: scripted([0.95, 0.5, 0.95, 0.5]), position: { x: 0.5, y: 0.5 }, perform }));
     act(() => {
       vi.advanceTimersByTime(999);
     });
@@ -69,7 +69,7 @@ describe('useIdleBehavior', () => {
 
   it('user activity resets the clock', () => {
     const perform = vi.fn();
-    const { result } = renderHook(() => useIdleBehavior({ enabled: true, timing, random: () => 0.95, position: { x: 0.5, y: 0.5 }, facing: 'front', perform }));
+    const { result } = renderHook(() => useIdleBehavior({ enabled: true, timing, random: () => 0.95, position: { x: 0.5, y: 0.5 }, perform }));
     act(() => {
       vi.advanceTimersByTime(800);
     });
@@ -86,7 +86,7 @@ describe('useIdleBehavior', () => {
 
   it('disabled means silent; re-enabling after the inactivity period has already passed beats at once', () => {
     const perform = vi.fn();
-    const { rerender } = renderHook(({ enabled }: { enabled: boolean }) => useIdleBehavior({ enabled, timing, random: () => 0.95, position: { x: 0.5, y: 0.5 }, facing: 'front', perform }), {
+    const { rerender } = renderHook(({ enabled }: { enabled: boolean }) => useIdleBehavior({ enabled, timing, random: () => 0.95, position: { x: 0.5, y: 0.5 }, perform }), {
       initialProps: { enabled: false },
     });
     act(() => {

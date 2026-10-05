@@ -5,7 +5,7 @@
  * the behaviour layer ever publishes.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -15,7 +15,7 @@ import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { KIND_BLOBBI_STATE, BLOBBONAUT_PROFILE_KINDS, getTagValue } from '@blobbi-kit/core';
 
 import Home from '@/pages/Home';
-import { HOME_SPOT, SceneSettingsProvider, placeOnFloor, type SceneSettings } from '@/features/home/scene';
+import { HOME_SPOT, SceneSettingsProvider, placeOnFloor, type BlobbiSceneController, type SceneSettings } from '@/features/home/scene';
 import { approachSpot } from '@/features/home/rooms';
 import { STAGE_OBJECTS } from '@/features/home/space/home-space';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
@@ -123,7 +123,7 @@ describe('Scene: locomotion', () => {
     expect(bodyBox()).toHaveAttribute('data-blobbi-motion', 'idle');
   });
 
-  it('a tap on the floor walks the Blobbi there, facing the way it goes, and it stays turned on arrival', async () => {
+  it('a tap on the floor walks the Blobbi there, facing the way it goes, and it faces the viewer again on arrival', async () => {
     renderHome();
     const a = await ready();
     const startLeft = a.style.left;
@@ -135,8 +135,47 @@ describe('Scene: locomotion', () => {
     await waitFor(() => expect(a).toHaveAttribute('data-motion', 'idle'));
     expect(a.style.left).not.toBe(startLeft);
     expect(a).toHaveAttribute('data-x', '0.200');
+    // Standing still, it faces the viewer: never left in profile after a walk.
+    expect(a).toHaveAttribute('data-facing', 'front');
+    expect(renderer()).toHaveAttribute('data-blobbi-facing', 'front');
+    expect(bodyBox()).toHaveAttribute('data-blobbi-motion', 'idle');
+  });
+
+  it('walking up the floor shows its back, walking down it its front, and either way it ends facing the viewer', async () => {
+    renderHome();
+    const a = await ready();
+    // Straight down the floor from where it stands (toward the viewer): the front of the floor band, same x.
+    const x = Number(a.getAttribute('data-x')) * 1000;
+    const startY = Number(a.getAttribute('data-y'));
+    fireEvent.click(screen.getByTestId('scene-floor'), { clientX: x, clientY: 575, detail: 1 });
+    expect(a).toHaveAttribute('data-motion', 'walking');
+    expect(a).toHaveAttribute('data-facing', 'front');
+    await waitFor(() => expect(a).toHaveAttribute('data-motion', 'idle'));
+    const down = Number(a.getAttribute('data-y'));
+    expect(down).toBeGreaterThan(startY);
+    expect(a).toHaveAttribute('data-facing', 'front');
+    // And back up it (away): it shows its back while it goes, and turns round when it is there.
+    fireEvent.click(screen.getByTestId('scene-floor'), { clientX: x, clientY: 380, detail: 1 });
+    expect(a).toHaveAttribute('data-motion', 'walking');
+    expect(a).toHaveAttribute('data-facing', 'back');
+    expect(renderer()).toHaveAttribute('data-blobbi-facing', 'back');
+    await waitFor(() => expect(a).toHaveAttribute('data-motion', 'idle'));
+    expect(Number(a.getAttribute('data-y'))).toBeLessThan(down);
+    expect(a).toHaveAttribute('data-facing', 'front');
+    expect(renderer()).toHaveAttribute('data-blobbi-facing', 'front');
+  });
+
+  it('a walk that is interrupted leaves it facing the viewer too', async () => {
+    let controller!: BlobbiSceneController;
+    renderHome({ ...FAST, walkSpeed: 0.2, onController: (c) => void (c && (controller = c)) });
+    const a = await ready();
+    fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 200, clientY: 420, detail: 1 });
+    expect(a).toHaveAttribute('data-motion', 'walking');
     expect(a).toHaveAttribute('data-facing', 'left');
-    expect(renderer()).toHaveAttribute('data-blobbi-facing', 'left');
+    // The walk is ended on the way (it is put where it stands): no arrival, and still it faces the viewer.
+    act(() => controller.placeAt(controller.presentation.position));
+    expect(a).toHaveAttribute('data-motion', 'idle');
+    expect(a).toHaveAttribute('data-facing', 'front');
   });
 
   it('keyboard activation of the floor calls the Blobbi to the middle', async () => {
@@ -153,7 +192,7 @@ describe('Scene: locomotion', () => {
     fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 800, clientY: 420, detail: 1 });
     expect(a).toHaveAttribute('data-motion', 'idle');
     expect(a).toHaveAttribute('data-x', '0.800');
-    expect(a).toHaveAttribute('data-facing', 'right');
+    expect(a).toHaveAttribute('data-facing', 'front');
   });
 
   it('a sleeping Blobbi cannot be called', async () => {

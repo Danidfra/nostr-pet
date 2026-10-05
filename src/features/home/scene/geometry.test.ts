@@ -1,18 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  DEPTH_SCALE,
-  DEPTH_WEIGHT,
-  FLOOR_BAND,
-  FLOOR_BOUNDS,
-  clampToFloor,
-  depthScale,
-  facingFromDirection,
-  floorDirection,
-  floorDistance,
-  floorPointFromScene,
-  isAtPoint,
-  placeOnFloor,
-} from './geometry';
+import { DEPTH_SCALE, DEPTH_WEIGHT, FLOOR_BAND, FLOOR_BOUNDS, clampToFloor, depthScale, facingFromDirection, floorDirection, floorDistance, floorPointFromScene, isAtPoint, placeOnFloor, FLOOR_DEPTH } from './geometry';
 
 describe('scene geometry', () => {
   describe('clampToFloor', () => {
@@ -27,18 +14,24 @@ describe('scene geometry', () => {
   });
 
   describe('distance and direction', () => {
-    it('weighs depth so a step in y covers less than the same step in x', () => {
+    it('measures the room, not the screen: the floor is as deep as it is wide, however short it is drawn', () => {
+      expect(FLOOR_DEPTH).toBe(1);
       expect(floorDistance({ x: 0, y: 0 }, { x: 0.5, y: 0 })).toBeCloseTo(0.5);
-      expect(floorDistance({ x: 0, y: 0 }, { x: 0, y: 0.5 })).toBeCloseTo(0.5 * DEPTH_WEIGHT);
+      expect(floorDistance({ x: 0, y: 0 }, { x: 0, y: 0.5 })).toBeCloseTo(0.5 * FLOOR_DEPTH);
+      expect(floorDistance({ x: 0.2, y: 0.2 }, { x: 0.5, y: 0.6 })).toBeCloseTo(0.5);
+      // The screen draws that depth much shorter; that is the viewer's business (facing), not the walker's.
+      expect(DEPTH_WEIGHT).toBeLessThan(0.4);
     });
     it('gives a unit-per-travel direction and zero for the same point', () => {
       const dir = floorDirection({ x: 0.2, y: 0.5 }, { x: 0.7, y: 0.5 });
       expect(dir).toEqual({ x: 1, y: 0 });
       expect(floorDirection({ x: 0.3, y: 0.3 }, { x: 0.3, y: 0.3 })).toEqual({ x: 0, y: 0 });
-      // Moving straight along y: the step in floor units is larger than one because y is compressed on screen.
+      // Moving straight along y: one unit of travel is one floor width of depth.
       const down = floorDirection({ x: 0.5, y: 0 }, { x: 0.5, y: 1 });
       expect(down.x).toBe(0);
-      expect(down.y).toBeCloseTo(1 / DEPTH_WEIGHT);
+      expect(down.y).toBeCloseTo(1 / FLOOR_DEPTH);
+      const diagonal = floorDirection({ x: 0, y: 0 }, { x: 0.3, y: 0.4 });
+      expect(Math.hypot(diagonal.x, diagonal.y * FLOOR_DEPTH)).toBeCloseTo(1);
     });
   });
 
