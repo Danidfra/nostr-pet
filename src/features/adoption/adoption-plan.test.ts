@@ -80,7 +80,12 @@ describe('newEggPreview / eggTemplate', () => {
     expect(getTagValue(template.tags, 'accent_color')).toBe(identity.colors.accent);
     expect(getTagValue(template.tags, 'visual_algorithm')).toBe('1');
     for (const trait of ['antenna', 'horns', 'ears', 'tail'] as const) expect(getTagValue(template.tags, trait), trait).toBe(identity.traits[trait]);
-    for (const mark of ['spots', 'belly', 'freckles'] as const) expect(getTagValue(template.tags, mark), mark).toBe(String(identity.traits[mark]));
+    for (const mark of ['belly', 'freckles'] as const) expect(getTagValue(template.tags, mark), mark).toBe(String(identity.traits[mark]));
+    // Its surface: ONE pattern and a special mark, stated; no `spots`, and none of the older generations' `size`.
+    expect(getTagValue(template.tags, 'pattern')).toBe(identity.traits.pattern);
+    expect(getTagValue(template.tags, 'special_mark')).toBe(identity.traits.specialMark);
+    expect(template.tags.filter((t) => t[0] === 'pattern' || t[0] === 'special_mark')).toHaveLength(2);
+    for (const gone of ['spots', 'size', 'adult_type']) expect(getTagValue(template.tags, gone), gone).toBeUndefined();
     expect(template.tags.some((t) => t[0].startsWith('v3_'))).toBe(false);
     // On V3 the colour tags are the Blobbi's own, not the seed's mirrors (which is what a V2 egg of the same seed carries).
     const v2 = buildEggTags(PUBKEY, preview.petId, NOW, 'Pip', { visualGeneration: 'v2' });

@@ -401,7 +401,7 @@ export function InspectorSection({ blobbi }: { blobbi: BlobbiCompanion }) {
     ['stage', blobbi.stage],
     ['state', blobbi.state],
     ['generation', blobbi.visualGeneration.toUpperCase()],
-    ['adult form', blobbi.adultType ?? '(from seed at evolve)'],
+    ['adult form', blobbi.visualGeneration === 'v3' ? '(none: a V3 Blobbi has one adult body, its own)' : (blobbi.adultType ?? '(from seed at evolve)')],
     ['seed', blobbi.seed ?? '(none)'],
     ['stats', STAT_NAMES.map((s) => `${s} ${blobbi.stats[s] ?? '?'}`).join(' · ')],
     ['streak', String(blobbi.careStreak ?? 0)],
@@ -413,7 +413,8 @@ export function InspectorSection({ blobbi }: { blobbi: BlobbiCompanion }) {
     ...(v3
       ? ([
           ['v3 colours', `${v3.colors.base ?? '?'} ${v3.colors.secondary ?? '?'} ${v3.colors.eye ?? '?'} · accent ${v3.colors.accent ?? 'none'}`],
-          ['v3 traits', `antenna ${v3.traits.antenna ?? '?'} · horns ${v3.traits.horns ?? '?'} · ears ${v3.traits.ears ?? '?'} · tail ${v3.traits.tail ?? '?'} · spots ${v3.traits.spots ?? '?'} · belly ${v3.traits.belly ?? '?'} · freckles ${v3.traits.freckles ?? '?'}`],
+          ['v3 traits', `antenna ${v3.traits.antenna ?? '?'} · horns ${v3.traits.horns ?? '?'} · ears ${v3.traits.ears ?? '?'} · tail ${v3.traits.tail ?? '?'}`],
+          ['v3 surface', `pattern ${v3.traits.pattern ?? '?'} · mark ${v3.traits.specialMark ?? '?'} · belly ${v3.traits.belly ?? '?'} · freckles ${v3.traits.freckles ?? '?'}`],
           ['v3 algorithm', `${v3.algorithm ?? 'not stated'}${v3.missing.length ? ` · MISSING ${v3.missing.join(', ')}` : ' · identity complete'}`],
         ] as Array<[string, string]>)
       : []),
