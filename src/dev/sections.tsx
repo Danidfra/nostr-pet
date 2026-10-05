@@ -16,6 +16,55 @@ import { FACINGS, PROGRESSIONS } from './dev-home';
  * real hooks against it. Dev bundle only.
  */
 
+/**
+ * Whether the account raised a Blobbi before the fixture one. World state
+ * (an older adult is in the pool, or is not), because that is what the
+ * first-Blobbi rule reads: on a `first` account a fixture egg hatches by
+ * itself, with no missions, exactly as a newcomer's does.
+ */
+export function AccountSection({ controller }: { controller: FixtureController }) {
+  const account = controller.account();
+  return (
+    <div className="dev-panel__row" data-testid="dev-account" data-account={account}>
+      <span className="dev-panel__label">account</span>
+      <button type="button" aria-pressed={account === 'established'} onClick={() => controller.setAccount('established')} data-testid="dev-account-established" title="An older adult is in the world: the fixture is a later Blobbi, and an egg keeps its missions">
+        raised one before
+      </button>
+      <button type="button" aria-pressed={account === 'first'} onClick={() => controller.setAccount('first')} data-testid="dev-account-first" title="Nothing before it: a fixture egg is the account's first Blobbi and hatches by itself">
+        first Blobbi
+      </button>
+      <span className="dev-panel__hint">a first Blobbi's egg hatches by itself, no missions</span>
+    </div>
+  );
+}
+
+/**
+ * A Blobbi the app adopted (`?fixture=fresh`), not one the fixture built:
+ * the rewrite controls describe the fixture Blobbi and do not apply to it,
+ * so a surface shows what can be read and pinned, and says why.
+ */
+export function AdoptedSections({ controller, blobbi }: { controller: FixtureController; blobbi: BlobbiCompanion }) {
+  return (
+    <>
+      <p className="dev-panel__hint" data-testid="dev-adopted">
+        Adopted in the app, through the real adoption and hatch (the kit's own hooks, over the in-memory pool). The Set controls rewrite the fixture Blobbi, so they are not offered here; Reset fixture empties the account again.
+      </p>
+      <details open>
+        <summary>Inspect</summary>
+        <InspectorSection blobbi={blobbi} />
+      </details>
+      <details open>
+        <summary>Presentation pins</summary>
+        <PinsSection controller={controller} />
+      </details>
+      <details>
+        <summary>World</summary>
+        <WorldSection controller={controller} blobbi={blobbi} />
+      </details>
+    </>
+  );
+}
+
 export function StageStateSection({ controller, spec }: { controller: FixtureController; spec: FixtureSpec }) {
   const set = (patch: Partial<FixtureSpec>) => controller.setSpec(patch);
   const setStage = (stage: BlobbiStage, generation: FixtureSpec['visualGeneration']) =>
@@ -80,6 +129,7 @@ export function StageStateSection({ controller, spec }: { controller: FixtureCon
           ))}
         </select>
       </div>
+      <AccountSection controller={controller} />
     </>
   );
 }

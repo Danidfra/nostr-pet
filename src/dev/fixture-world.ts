@@ -29,18 +29,41 @@ import {
 } from '@blobbi-kit/core';
 import { createEvolveMissions, createHatchMissions, findEvolutionMission } from '@blobbi-kit/react';
 import { isBlobbiEmotion, type BlobbiEmotion } from '@blobbi-kit/renderer';
-import { CREATED_AT, PUBKEY, blobbiEvent, profileEvent } from '@/test/fixtures';
+import { CREATED_AT, EARLIER_D, PUBKEY, blobbiEvent, earlierBlobbiEvent, profileEvent } from '@/test/fixtures';
 import { OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_SOAP, inventoryEvent, officialCareDefinition } from '@/test/inventory-fixtures';
 
 export type FixtureName = 'egg' | 'baby' | 'adult' | 'adult-v2' | 'egg-v3' | 'baby-v3' | 'adult-v3';
 export const FIXTURE_NAMES: readonly FixtureName[] = ['egg', 'baby', 'adult', 'adult-v2', 'egg-v3', 'baby-v3', 'adult-v3'];
 export const STAT_NAMES: readonly (keyof BlobbiStats)[] = ['hunger', 'happiness', 'hygiene', 'energy', 'health'];
+/** `?fixture=fresh`: not a stage fixture but an account with nothing in it yet. */
+export const FRESH_FIXTURE = 'fresh';
+
+/**
+ * What the account owned before the fixture Blobbi. The first-Blobbi rule
+ * (`features/lifecycle/first-blobbi.ts`) reads the account, so the fixture
+ * world says it truthfully instead of the app being told to look away:
+ *
+ *   established   the account raised a Blobbi before (an older adult is in
+ *                 the world): the fixture is a LATER Blobbi, an egg keeps its
+ *                 missions and can be looked at for as long as it takes
+ *   first         nothing before it: a fixture egg is the account's first
+ *                 Blobbi and hatches by itself, as a newcomer's does
+ */
+export type FixtureAccount = 'established' | 'first';
 
 export interface FixtureOptions {
   name: FixtureName;
   state?: 'active' | 'sleeping';
   /** A stat to put at a critical value, to see the poor-condition reactions. */
   low?: keyof BlobbiStats;
+  /** Default `'established'`, so every stage can be inspected at rest. */
+  account?: FixtureAccount;
+  /**
+   * The account owns nothing yet: no Blobbi and no Blobbonaut profile. The
+   * home shows the real adoption flow, and what it adopts is the account's
+   * first Blobbi (`?fixture=fresh`). `name` is not used.
+   */
+  fresh?: boolean;
 }
 
 /** What `?fixture=…` asked for, plus the presentation pin the URL can carry. */
@@ -51,19 +74,23 @@ export interface FixtureRequest extends FixtureOptions {
 /**
  * Parse a query string into a fixture request. An unknown fixture name falls
  * back to the baby (a dev tool should show something and say so); an
- * unknown stat or expression is ignored.
+ * unknown stat or expression is ignored. `fixture=fresh` is the account
+ * with nothing in it; `account=first` makes the fixture Blobbi the
+ * account's first.
  */
 export function readFixtureRequest(search: string): FixtureRequest | null {
   const params = new URLSearchParams(search);
   const raw = params.get('fixture');
   if (raw === null) return null;
-  const name = (FIXTURE_NAMES as readonly string[]).includes(raw) ? (raw as FixtureName) : 'baby';
+  const fresh = raw === FRESH_FIXTURE;
+  const name = fresh ? 'egg-v3' : (FIXTURE_NAMES as readonly string[]).includes(raw) ? (raw as FixtureName) : 'baby';
+  const account: FixtureAccount = fresh || params.get('account') === 'first' ? 'first' : 'established';
   const state = params.get('state') === 'sleeping' ? ('sleeping' as const) : ('active' as const);
   const lowRaw = params.get('low');
   const low = lowRaw && (STAT_NAMES as readonly string[]).includes(lowRaw) ? (lowRaw as keyof BlobbiStats) : undefined;
   const expressionRaw = params.get('expression');
   const expression = expressionRaw && isBlobbiEmotion(expressionRaw) ? expressionRaw : null;
-  return { name, state, low, expression };
+  return fresh ? { name, state, low, expression, account, fresh } : { name, state, low, expression, account };
 }
 
 /**
@@ -225,10 +252,10 @@ export function buildFixtureBlobbi(spec: FixtureSpec): NostrEvent {
 }
 
 /** The rest of the world around the Blobbi: profile, kind 0, item definitions, one inventory. */
-export function buildFixtureSurroundings(): NostrEvent[] {
+export function buildFixtureSurroundings(account: FixtureAccount = 'established'): NostrEvent[] {
   const now = Math.floor(Date.now() / 1000);
   return [
-    profileEvent({ currentCompanion: FIXTURE_D, has: [FIXTURE_D], xp: 640 }),
+    profileEvent({ currentCompanion: FIXTURE_D, has: account === 'established' ? [FIXTURE_D, EARLIER_D] : [FIXTURE_D], xp: 640 }),
     { id: 'k'.repeat(64), pubkey: PUBKEY, created_at: now - 3_600, kind: 0, tags: [], content: JSON.stringify({ name: 'Fixture Keeper' }), sig: '0'.repeat(128) },
     officialCareDefinition('blobbi:food:apple', 'Apple', 'food', 'feed', { hunger: 25 }, { emoji: '🍎', stages: ['baby', 'adult'] }),
     officialCareDefinition('blobbi:toy:ball', 'Ball', 'toy', 'play', { happiness: 20 }, { emoji: '⚽', stages: ['baby', 'adult'] }),
@@ -237,12 +264,30 @@ export function buildFixtureSurroundings(): NostrEvent[] {
   ];
 }
 
-export function buildFixtureWorldFromSpec(spec: FixtureSpec): NostrEvent[] {
-  return [buildFixtureBlobbi(spec), ...buildFixtureSurroundings()];
+/** The fixture Blobbi first, then (on an established account) the Blobbi raised before it, then the surroundings. */
+export function buildFixtureWorldFromSpec(spec: FixtureSpec, account: FixtureAccount = 'established'): NostrEvent[] {
+  return [buildFixtureBlobbi(spec), ...(account === 'established' ? [earlierBlobbiEvent()] : []), ...buildFixtureSurroundings(account)];
+}
+
+/** An account with nothing in it yet: a kind 0 and the issuers' item definitions; no Blobbi, no Blobbonaut profile, no inventory. */
+export function buildFreshWorld(): NostrEvent[] {
+  return buildFixtureSurroundings('first').filter((event) => event.kind === 0 || event.kind === 31632);
 }
 
 export function buildFixtureWorld(options: FixtureOptions): NostrEvent[] {
-  return buildFixtureWorldFromSpec(specFromOptions(options));
+  if (options.fresh) return buildFreshWorld();
+  return buildFixtureWorldFromSpec(specFromOptions(options), options.account ?? 'established');
+}
+
+/** Whether the world holds the Blobbi the account raised before the fixture one. */
+export function worldAccount(events: readonly NostrEvent[]): FixtureAccount {
+  return events.some((e) => e.kind === KIND_BLOBBI_STATE && e.pubkey === PUBKEY && getTagValue(e.tags, 'd') === EARLIER_D) ? 'established' : 'first';
+}
+
+/** The same world with the earlier Blobbi added or taken away; everything else untouched. */
+export function withAccount(events: readonly NostrEvent[], account: FixtureAccount): NostrEvent[] {
+  const rest = events.filter((e) => !(e.kind === KIND_BLOBBI_STATE && e.pubkey === PUBKEY && getTagValue(e.tags, 'd') === EARLIER_D));
+  return account === 'established' ? [...rest, earlierBlobbiEvent()] : rest;
 }
 
 function matches(event: NostrEvent, f: NostrFilter): boolean {
@@ -273,7 +318,7 @@ export interface FixtureStore {
 
 const isReplaceable = (kind: number) => kind === KIND_BLOBBI_STATE || kind === KIND_BLOBBONAUT_PROFILE || kind === 0;
 
-export function createFixtureStore(initial: readonly NostrEvent[]): FixtureStore {
+export function createFixtureStore(initial: readonly NostrEvent[], onPublish?: (events: readonly NostrEvent[]) => void): FixtureStore {
   let all: NostrEvent[] = [...initial];
   const published: NostrEvent[] = [];
   const put = (ev: NostrEvent) => {
@@ -291,6 +336,7 @@ export function createFixtureStore(initial: readonly NostrEvent[]): FixtureStore
       await new Promise((r) => setTimeout(r, 150));
       published.push(ev);
       put(ev);
+      onPublish?.(all);
     },
     async close() {},
   };

@@ -13,6 +13,13 @@ export type CeremonyKind = 'hatch' | 'evolve';
  *
  * `idle` is no ceremony. The exclusive behaviour mode covers `building` and
  * `publishing`; once the new stage is real the home is free again.
+ *
+ * A hatch tells its build as a small story (`HatchBeat`): the intact shell
+ * stirs, cracks appear and grow, the last crack holds for a moment, light
+ * bursts out while the write is on its way, and the baby is there when the
+ * light clears. The shell's four drawings are the renderer's
+ * (`BlobbiEggCrack`); the rocking and the light are the home's, on its own
+ * box around the renderer, so they are the same for every visual generation.
  */
 export type CeremonyPhase = 'idle' | 'building' | 'publishing' | 'revealing' | 'failed';
 
@@ -21,10 +28,36 @@ export interface CeremonyTimings {
   stepMs: number;
   /** How long the reveal celebration stays. */
   revealMs: number;
+  /** Hatch only: how long the intact shell stirs before the first crack. `stepMs` when absent. */
+  leadMs?: number;
+  /** Hatch only: how long the last crack holds before the write. None when absent. */
+  finalMs?: number;
+  /** Hatch only: the least time the burst of light stays over the shell while the write is out. None when absent. */
+  burstMs?: number;
 }
 
-export const CEREMONY_TIMINGS: CeremonyTimings = { stepMs: 700, revealMs: 2_400 };
-export const REDUCED_CEREMONY_TIMINGS: CeremonyTimings = { stepMs: 120, revealMs: 1_200 };
+export const CEREMONY_TIMINGS: CeremonyTimings = { stepMs: 700, revealMs: 2_400, leadMs: 1_100, finalMs: 900, burstMs: 600 };
+/** Reduced motion: no rocking and no burst are drawn, so the build is only as long as the shell needs to be read. */
+export const REDUCED_CEREMONY_TIMINGS: CeremonyTimings = { stepMs: 120, revealMs: 1_200, leadMs: 300, finalMs: 500, burstMs: 0 };
+
+/**
+ * Where a hatch is in its story:
+ *
+ *   stirring   the shell is intact and rocks gently: something moves inside
+ *   cracking   the first cracks appear and grow; the rocking grows with them
+ *   breaking   the last crack: the shell is about to give
+ *   hatching   light bursts out; the egg → baby write is on its way
+ *   hatched    the write landed: the light clears and the baby is there
+ */
+export type HatchBeat = 'stirring' | 'cracking' | 'breaking' | 'hatching' | 'hatched';
+
+export interface HatchPresentation {
+  beat: HatchBeat;
+  /** How hard the shell rocks, 0 (not at all) to 4. Not drawn under reduced motion. */
+  rock: 0 | 1 | 2 | 3 | 4;
+  /** The burst of light over the actor: gathering over the shell, or clearing off the baby. */
+  burst: 'none' | 'in' | 'out';
+}
 
 export interface CeremonyState {
   kind: CeremonyKind | null;
@@ -41,6 +74,8 @@ export interface CeremonyPresentation {
   effects: readonly BlobbiVisualEffect[];
   /** True while movement, gaze, idle and taps must stay out of the way. */
   exclusive: boolean;
+  /** The hatch story's beat; null outside a hatch ceremony. */
+  hatch: HatchPresentation | null;
 }
 
 const CRACKS: readonly BlobbiEggCrack[] = ['none', 'light', 'medium', 'heavy'];
@@ -48,13 +83,36 @@ const CRACKS: readonly BlobbiEggCrack[] = ['none', 'light', 'medium', 'heavy'];
 /** The visual state of a ceremony beat. Pure. */
 export function ceremonyPresentation(state: CeremonyState): CeremonyPresentation {
   const { kind, phase, step } = state;
-  if (kind === null || phase === 'idle' || phase === 'failed') return { eggCrack: null, effects: [], exclusive: false };
+  if (kind === null || phase === 'idle' || phase === 'failed') return { eggCrack: null, effects: [], exclusive: false, hatch: null };
   const exclusive = phase === 'building' || phase === 'publishing';
-  if (phase === 'revealing') return { eggCrack: null, effects: [{ id: 'golden-sparkles', intensity: 1.2 }], exclusive };
-  if (kind === 'hatch') {
-    return { eggCrack: CRACKS[Math.min(3, Math.max(0, step))], effects: [{ id: 'solar-radiance', intensity: 0.4 + step * 0.25 }], exclusive };
+  if (phase === 'revealing') {
+    return { eggCrack: null, effects: [{ id: 'golden-sparkles', intensity: 1.2 }], exclusive, hatch: kind === 'hatch' ? { beat: 'hatched', rock: 0, burst: 'out' } : null };
   }
-  return { eggCrack: null, effects: [{ id: 'celestial-aura', intensity: 0.4 + step * 0.3 }], exclusive };
+  if (kind === 'hatch') {
+    const at = Math.min(3, Math.max(0, step)) as 0 | 1 | 2 | 3;
+    const hatch: HatchPresentation =
+      phase === 'publishing'
+        ? { beat: 'hatching', rock: 4, burst: 'in' }
+        : at === 0
+          ? { beat: 'stirring', rock: 1, burst: 'none' }
+          : at === 3
+            ? { beat: 'breaking', rock: 4, burst: 'none' }
+            : { beat: 'cracking', rock: at === 1 ? 2 : 3, burst: 'none' };
+    return { eggCrack: CRACKS[at], effects: [{ id: 'solar-radiance', intensity: 0.4 + at * 0.25 }], exclusive, hatch };
+  }
+  return { eggCrack: null, effects: [{ id: 'celestial-aura', intensity: 0.4 + step * 0.3 }], exclusive, hatch: null };
+}
+
+/**
+ * The hatch beat for what is actually on screen. The ceremony reveals the
+ * moment the write lands, and the home shows the new stage a render later
+ * (the collection cache notifies after the publish resolves): for that one
+ * render the shell is still there, so the story is still `hatching`. The
+ * baby beat is only ever shown with the baby.
+ */
+export function hatchOnScreen(hatch: HatchPresentation | null, stage: 'egg' | 'baby' | 'adult'): HatchPresentation | null {
+  if (hatch?.beat === 'hatched' && stage === 'egg') return { beat: 'hatching', rock: 4, burst: 'in' };
+  return hatch;
 }
 
 export interface UseLifecycleCeremonyOptions {
@@ -110,14 +168,21 @@ export function useLifecycleCeremony({ perform, reducedMotion, timings, onReveal
 
     void (async () => {
       try {
+        const hatching = kind === 'hatch';
         setState({ kind, phase: 'building', step: 0, error: null });
         for (let step = 1; step <= 3; step += 1) {
-          await wait(t.stepMs);
+          await wait(hatching && step === 1 ? (t.leadMs ?? t.stepMs) : t.stepMs);
           if (!mountedRef.current) return;
           setState((s) => ({ ...s, step }));
         }
+        // The last crack is a beat of its own: without it a fast write would hide it.
+        if (hatching && t.finalMs) {
+          await wait(t.finalMs);
+          if (!mountedRef.current) return;
+        }
         setState((s) => ({ ...s, phase: 'publishing', step: 3 }));
-        const landed = await latest.current.perform(kind);
+        // The write, and for a hatch the least time the light needs to cover the shell.
+        const [landed] = await Promise.all([latest.current.perform(kind), hatching && t.burstMs ? wait(t.burstMs) : undefined]);
         if (!mountedRef.current) return;
         if (!landed) {
           setState((s) => ({ ...s, phase: 'failed', step: 0, error: s.error ?? new Error('The change did not reach the relays.') }));

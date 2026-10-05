@@ -4,7 +4,7 @@ import { getStatStatus, getVisibleStats, type BlobbiCompanion, type BlobbonautPr
 import { MapPin } from 'lucide-react';
 
 import { availableCareActions, useCareActions, type CareAction, type CareResult } from '@/features/care';
-import { useLifecycle, useLifecycleCeremony, type CeremonyKind } from '@/features/lifecycle';
+import { hatchOnScreen, useFirstBlobbiHatch, useLifecycle, useLifecycleCeremony, type CeremonyKind, type HatchBeat } from '@/features/lifecycle';
 import { InventorySheet, ItemGlyph, useHomeInventory, useStarterUse, useUseItem, useWornEquipment, type ItemUseResult, type StarterUseResult } from '@/features/inventory';
 import { soundForCare, soundForPoke, soundForReveal, useSound } from '@/features/sound';
 import { BLOBBI_ISLAND_URL } from '@/config/ecosystem';
@@ -60,6 +60,28 @@ const DEV_PREVIEW: StageObjectKind | null = DEV_LIFECYCLE_TOOLS && typeof window
   const v = new URLSearchParams(window.location.search).get('preview');
   return v === 'bed' || v === 'tub' ? v : null;
 })() : null;
+
+/**
+ * How long a first Blobbi's egg is simply there, in its nest, before its
+ * hatch begins by itself: long enough to be seen as an egg.
+ */
+const FIRST_HATCH_LEAD_MS = 1_400;
+
+/** What a hatch is doing, in words: the ceremony reads without any animation. */
+function hatchCaption(beat: HatchBeat, name: string): string {
+  switch (beat) {
+    case 'stirring':
+      return 'Something is stirring inside the egg…';
+    case 'cracking':
+      return 'The shell is cracking…';
+    case 'breaking':
+      return 'Almost there…';
+    case 'hatching':
+      return `${name} is hatching!`;
+    case 'hatched':
+      return `${name} has hatched!`;
+  }
+}
 
 /** An item set down in the room (owned or starter), and where its use stands. */
 interface ItemOffer {
@@ -310,17 +332,62 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [blobbi.careStreak]);
   const dismissStreakMoment = useCallback(() => setStreakMoment(null), []);
 
+  // The first Blobbi of the account (first-blobbi.ts): its egg hatches without
+  // the missions, and by itself. Decided from the collection, confirmed
+  // against the relays right before the ceremony; the hatch is the same kit
+  // transition every hatch is. Later eggs keep the mission gate below.
+  const firstBlobbi = useFirstBlobbiHatch({ blobbi, companions, pubkey });
+  const confirmFirstBlobbi = firstBlobbi.confirm;
   const ceremonyStart = ceremony.start;
+  const confirmingFirstRef = useRef(false);
+  const startFirstHatch = useCallback(async () => {
+    if (confirmingFirstRef.current) return;
+    confirmingFirstRef.current = true;
+    try {
+      if (!(await confirmFirstBlobbi())) return;
+      // The world may have moved while the relays answered: still this egg, still awake, nothing in its hands.
+      if (liveBlobbi.current.stage !== 'egg' || liveBlobbi.current.state !== 'active') return;
+      if (offerRef.current !== null || stageRef.current?.phase === 'walking') return;
+      setBlobbiSheetOpen(false);
+      ceremonyStart('hatch');
+    } finally {
+      confirmingFirstRef.current = false;
+    }
+  }, [confirmFirstBlobbi, ceremonyStart]);
   const startCeremony = useCallback(
     (kind: CeremonyKind) => {
       if (blobbi.state !== 'active') return;
+      if (kind === 'hatch' && firstBlobbi.qualifies) {
+        void startFirstHatch();
+        return;
+      }
       if (kind === 'hatch' && lifecycle.view.next !== 'hatch') return;
       if (kind === 'evolve' && lifecycle.view.next !== 'evolve') return;
       setBlobbiSheetOpen(false);
       ceremonyStart(kind);
     },
-    [blobbi.state, lifecycle.view.next, ceremonyStart],
+    [blobbi.state, lifecycle.view.next, ceremonyStart, firstBlobbi.qualifies, startFirstHatch],
   );
+  // By itself, once per visit: a moment after the egg is on screen and the
+  // home is quiet (no item on its way, no care write out). A hatch that
+  // failed is not retried behind the player's back; the Hatch button stays,
+  // and the next visit tries again because the egg still qualifies.
+  const homeQuiet = offer === null && stage?.phase !== 'walking' && care.pendingAction == null;
+  const autoHatchDue = firstBlobbi.qualifies && blobbi.state === 'active' && !!profile && homeQuiet;
+  const autoHatchTriedRef = useRef(false);
+  // "Once" is once per egg: a Blobbi that is no longer an egg has nothing left to try
+  // (only a dev fixture ever turns one back into an egg, and then it is a new try).
+  useEffect(() => {
+    if (blobbi.stage !== 'egg') autoHatchTriedRef.current = false;
+  }, [blobbi.stage]);
+  useEffect(() => {
+    if (!autoHatchDue || autoHatchTriedRef.current) return;
+    const timer = setTimeout(() => {
+      autoHatchTriedRef.current = true;
+      void startFirstHatch();
+    }, FIRST_HATCH_LEAD_MS);
+    return () => clearTimeout(timer);
+  }, [autoHatchDue, startFirstHatch]);
   const devForce = DEV_LIFECYCLE_TOOLS
     ? (kind: CeremonyKind) => {
         setBlobbiSheetOpen(false);
@@ -494,7 +561,9 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   const pendingAction: CareAction | null = care.pendingAction ?? walkingFor;
   const inCeremony = ceremony.presentation.exclusive;
-  const eggCrack = ceremony.presentation.eggCrack ?? lifecycle.view.eggCrack;
+  // A hatch in progress: its beat for what is on screen, and a shell that never un-cracks while it runs.
+  const hatchBeat = hatchOnScreen(ceremony.presentation.hatch, blobbi.stage);
+  const eggCrack = ceremony.presentation.eggCrack ?? (hatchBeat ? 'heavy' : lifecycle.view.eggCrack);
   const interactive = !sleeping && canWalk && !inCeremony;
   const usableItemCount = inventory.items.filter((i) => i.usability.ok && !i.unverified).length;
   const offerObject = offer ? itemObjectAt('offer', offer.choice.entry.item.name, offer.spot.position, offer.spot.approach) : null;
@@ -504,7 +573,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     return ceremonyEffects.length > 0 ? [...ceremonyEffects, ...worn.effects] : worn.effects;
   }, [ceremony.presentation.effects, worn.effects]);
   const lifecycleNext = lifecycle.view.next;
-  const lifecycleReady = useMemo(() => (lifecycleNext === 'hatch' ? { kind: 'hatch' as const, label: 'Hatch!' } : lifecycleNext === 'evolve' ? { kind: 'evolve' as const, label: 'Evolve!' } : null), [lifecycleNext]);
+  const firstHatchReady = firstBlobbi.qualifies;
+  const lifecycleReady = useMemo(
+    () => (lifecycleNext === 'hatch' || firstHatchReady ? { kind: 'hatch' as const, label: 'Hatch!' } : lifecycleNext === 'evolve' ? { kind: 'evolve' as const, label: 'Evolve!' } : null),
+    [lifecycleNext, firstHatchReady],
+  );
   const ceremonyView = { phase: ceremony.phase, kind: ceremony.kind, error: ceremony.error, dismiss: ceremony.dismiss };
 
   // What stands in the space: the home's furniture, the nest while the Blobbi
@@ -586,7 +659,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             </>
           }
           actor={
-            <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={scene.presentation} inBed={inBed} happyKey={resultKey} onPoke={inCeremony ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} effects={actorEffects} accessories={accessories}>
+            <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={scene.presentation} inBed={inBed} happyKey={resultKey} onPoke={inCeremony ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} hatch={hatchBeat} effects={actorEffects} accessories={accessories}>
               <NeedBubbles items={sleeping || inCeremony ? [] : statItems} />
               <CareFeedback result={feedback} resultKey={resultKey} />
             </BlobbiActor>
@@ -616,6 +689,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                   </p>
                 )}
               </div>
+              {hatchBeat && (
+                <p role="status" aria-live="polite" className="hatch-caption home-glass" data-testid="hatch-caption" data-beat={hatchBeat.beat}>
+                  {hatchCaption(hatchBeat.beat, blobbi.name)}
+                </p>
+              )}
               {streakMoment?.milestone && <StreakMoment change={streakMoment} onDone={dismissStreakMoment} reducedMotion={reducedMotion} />}
             </>
           }
@@ -655,6 +733,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             lifecycle={lifecycle}
             ceremony={ceremonyView}
             onCeremony={startCeremony}
+            firstBlobbi={firstBlobbi.qualifies}
             devForce={devForce}
           />
           <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} />

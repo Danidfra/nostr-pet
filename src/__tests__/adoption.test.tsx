@@ -152,12 +152,17 @@ describe('First run', () => {
     expect(getTagValue(profile.tags, 'blobbi_onboarding_done')).toBe('false');
     expect(relay.published).toHaveLength(2);
 
-    // Home: the egg is here, selected on this device, with its missions one tap away.
+    // Home: the egg is here, selected on this device. It is this account's first Blobbi, so its
+    // panel offers the hatch itself and no missions (the hatch that follows is first-blobbi.test.tsx).
     await waitFor(() => expect(screen.getByTestId('blobbi-chip')).toHaveAccessibleName(/^Pip: Egg/));
     expect(window.localStorage.getItem(getSelectedBlobbiKey(PUBKEY))).toBe(d);
     expect(document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-renderer]')).toHaveAttribute('data-blobbi-stage', 'egg');
     await userEvent.click(screen.getByTestId('blobbi-chip'));
-    expect(await screen.findByTestId('lifecycle-panel')).toHaveAttribute('data-next', 'incubate');
+    const panel = await screen.findByTestId('lifecycle-panel');
+    expect(panel).toHaveAttribute('data-next', 'hatch');
+    expect(panel).toHaveAttribute('data-first-blobbi', 'true');
+    expect(screen.getByTestId('lifecycle-first-blobbi')).toHaveTextContent(/no missions needed/i);
+    expect(screen.queryByTestId('lifecycle-task-interactions')).toBeNull();
   });
 
   it('keeps an existing profile whole: has merged, current_companion set, unknown tags and content kept', async () => {

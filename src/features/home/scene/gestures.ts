@@ -53,3 +53,38 @@ export const GESTURES: Record<PokeGesture, GestureSpec> = {
     easing: 'ease-in-out',
   },
 };
+
+/**
+ * A hatching shell rocking on the point it rests on. `level` is how far along
+ * the hatch is (1: something stirs; 4: the shell is about to give): each
+ * level tips further and faster. The pivot is the base of the shell, not the
+ * middle of the box, so the keyframes carry the small sideways shift that
+ * turning about a point `PIVOT_BELOW` under the centre adds to a plain
+ * rotation. Looped by the actor for as long as the beat lasts.
+ */
+const PIVOT_BELOW = 38; // % of the box, from its centre down to where the shell touches the ground
+const ROCK_DEGREES = [0, 2.2, 4, 6, 8.5] as const;
+const ROCK_MS = [0, 1_300, 760, 520, 340] as const;
+
+function rockFrame(degrees: number): string {
+  const radians = (degrees * Math.PI) / 180;
+  const x = PIVOT_BELOW * Math.sin(radians);
+  const y = PIVOT_BELOW * (1 - Math.cos(radians));
+  return `translate(${x.toFixed(3)}%, ${y.toFixed(3)}%) rotate(${degrees}deg)`;
+}
+
+export function hatchRock(level: 1 | 2 | 3 | 4): GestureSpec {
+  const tip = ROCK_DEGREES[level];
+  return {
+    // Each swing eases by itself (out to the tip, back in through the middle), so the loop never pauses.
+    keyframes: [
+      { transform: rockFrame(0), easing: 'ease-out' },
+      { transform: rockFrame(-tip), offset: 0.25, easing: 'ease-in' },
+      { transform: rockFrame(0), offset: 0.5, easing: 'ease-out' },
+      { transform: rockFrame(tip), offset: 0.75, easing: 'ease-in' },
+      { transform: rockFrame(0) },
+    ],
+    durationMs: ROCK_MS[level],
+    easing: 'linear',
+  };
+}

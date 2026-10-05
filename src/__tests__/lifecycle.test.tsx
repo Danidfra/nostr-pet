@@ -1,6 +1,7 @@
 /**
  * The lifecycle end to end against a relay double: an incubating egg with
- * the canonical missions, hatching through the ceremony (one publish, same
+ * the canonical missions (a LATER egg: the account already raised a Blobbi,
+ * so the first-Blobbi shortcut of `first-blobbi.test.tsx` does not apply), hatching through the ceremony (one publish, same
  * d and seed, stage baby), a failed hatch that leaves the egg an egg, the
  * exclusive ceremony mode, evolution to the seed's adult form, and a care
  * action that counts towards the missions inside its own republish.
@@ -27,7 +28,7 @@ import { KIND_COLOR_MOMENT, KIND_PROFILE_METADATA, KIND_THEME_DEFINITION, clearE
 import Home from '@/pages/Home';
 import { chooseCare } from '@/test/care-ui';
 import { SceneSettingsProvider } from '@/features/home/scene';
-import { PUBKEY, blobbiEvent, profileEvent } from '@/test/fixtures';
+import { PUBKEY, blobbiEvent, earlierBlobbiEvent, profileEvent } from '@/test/fixtures';
 
 // ─── Signed-in user with a fake signer ───────────────────────────────────────
 
@@ -142,7 +143,7 @@ async function closeSheet() {
 
 describe('Lifecycle: egg', () => {
   it('an incubating egg draws as an egg, lists the canonical missions, and is not ready until they are done', async () => {
-    relay.events = [incubatingEgg(3), profileEvent({ has: [D], currentCompanion: D })];
+    relay.events = [incubatingEgg(3), earlierBlobbiEvent(), profileEvent({ has: [D], currentCompanion: D })];
     renderHome();
     const panel = await ready();
     expect(renderer()).toHaveAttribute('data-blobbi-stage', 'egg');
@@ -156,7 +157,7 @@ describe('Lifecycle: egg', () => {
   });
 
   it('with every mission done the shell is heavily cracked and Hatch is offered', async () => {
-    relay.events = [incubatingEgg(7), profileEvent({ has: [D], currentCompanion: D }), ...hatchMissionEvents()];
+    relay.events = [incubatingEgg(7), earlierBlobbiEvent(), profileEvent({ has: [D], currentCompanion: D }), ...hatchMissionEvents()];
     renderHome();
     const panel = await ready();
     await waitFor(() => expect(panel).toHaveAttribute('data-next', 'hatch'));
@@ -166,7 +167,7 @@ describe('Lifecycle: egg', () => {
 
   it('hatching publishes one kind 31124 with the same d and seed, stage baby, and reveals a baby', async () => {
     const egg = incubatingEgg(7);
-    relay.events = [egg, profileEvent({ has: [D], currentCompanion: D }), ...hatchMissionEvents()];
+    relay.events = [egg, earlierBlobbiEvent(), profileEvent({ has: [D], currentCompanion: D }), ...hatchMissionEvents()];
     renderHome();
     const panel = await ready();
     await waitFor(() => expect(screen.getByTestId('lifecycle-hatch')).toBeEnabled());
@@ -191,7 +192,7 @@ describe('Lifecycle: egg', () => {
   });
 
   it('a hatch whose publish fails leaves the egg an egg and says so', async () => {
-    relay.events = [incubatingEgg(7), profileEvent({ has: [D], currentCompanion: D }), ...hatchMissionEvents()];
+    relay.events = [incubatingEgg(7), earlierBlobbiEvent(), profileEvent({ has: [D], currentCompanion: D }), ...hatchMissionEvents()];
     relay.publishFails = true;
     renderHome();
     const panel = await ready();
@@ -207,14 +208,14 @@ describe('Lifecycle: egg', () => {
   });
 
   it('during the ceremony the home is exclusive: no care, no taps, one write', async () => {
-    relay.events = [incubatingEgg(7), profileEvent({ has: [D], currentCompanion: D }), ...hatchMissionEvents()];
+    relay.events = [incubatingEgg(7), earlierBlobbiEvent(), profileEvent({ has: [D], currentCompanion: D }), ...hatchMissionEvents()];
     let release: (() => void) | null = null;
     event.mockImplementationOnce(async (ev: NostrEvent) => {
       await new Promise<void>((r) => {
         release = r;
       });
       relay.published.push(ev);
-      relay.events = [...relay.events.filter((e) => e.kind !== KIND_BLOBBI_STATE), ev];
+      relay.events = [...relay.events.filter((e) => !(e.kind === KIND_BLOBBI_STATE && getTagValue(e.tags, 'd') === D)), ev];
     });
     renderHome();
     await ready();
@@ -236,7 +237,7 @@ describe('Lifecycle: egg', () => {
   });
 
   it('cleaning an incubating egg counts towards the missions inside the care republish', async () => {
-    relay.events = [incubatingEgg(6), profileEvent({ has: [D], currentCompanion: D })];
+    relay.events = [incubatingEgg(6), earlierBlobbiEvent(), profileEvent({ has: [D], currentCompanion: D })];
     renderHome();
     await ready();
     expect(screen.getByTestId('lifecycle-task-interactions')).toHaveTextContent('6/7');

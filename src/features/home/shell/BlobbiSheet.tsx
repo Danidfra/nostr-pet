@@ -21,6 +21,8 @@ interface BlobbiSheetProps {
   lifecycle: Lifecycle;
   ceremony: { phase: CeremonyPhase; kind: CeremonyKind | null; error: Error | null; dismiss: () => void };
   onCeremony: (kind: CeremonyKind) => void;
+  /** This egg is the account's first Blobbi: it hatches without missions. */
+  firstBlobbi?: boolean;
   devForce?: (kind: CeremonyKind) => void;
 }
 
@@ -46,7 +48,7 @@ function Chip({ children, testId, tone = 'neutral' }: { children: React.ReactNod
  * exact numbers, progression, the lifecycle missions, and the other
  * Blobbis. The home shows only what matters at a glance; this is the rest.
  */
-export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, devForce }: BlobbiSheetProps) {
+export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, devForce }: BlobbiSheetProps) {
   const portrait = (
     <span className="overlay-portrait" aria-hidden>
       <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`details-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
@@ -90,7 +92,7 @@ export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, c
           </div>
         </section>
 
-        <LifecyclePanel name={blobbi.name} lifecycle={lifecycle} ceremony={ceremony} onCeremony={onCeremony} devForce={devForce} embedded />
+        <LifecyclePanel name={blobbi.name} lifecycle={lifecycle} ceremony={ceremony} onCeremony={onCeremony} firstBlobbi={firstBlobbi} devForce={devForce} embedded />
 
         {companions.length > 1 && (
           <section aria-label="Your Blobbis" className="overlay-card">

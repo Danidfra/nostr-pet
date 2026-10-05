@@ -50,8 +50,9 @@ Blobbi standalone         home UX (this repo)
 | **Standalone** | everyday home: first egg adoption, current Blobbi, care, items, lifecycle, status / progress, launch Island |
 | Blobbi Island | social multiplayer world, economy, interoperability |
 
-The standalone does not duplicate Ditto's ceremony-heavy onboarding or the
-Island's world runtime. "Your Blobbi lives here. The Island is where you go
+The standalone does not duplicate Ditto's ceremony-heavy onboarding (it
+keeps one rule of it: an account's first egg hatches right away, see "The
+first Blobbi hatches by itself") or the Island's world runtime. "Your Blobbi lives here. The Island is where you go
 out into the world."
 
 ## Milestone 2: themes, the home, and the care loop
@@ -359,6 +360,67 @@ fixtures and the generation switch, V3 rows in the expression sheet, the V3
 identity in the inspector (colours, traits, algorithm, anything missing),
 and a "V3 population" sheet in the Dev Lab that draws consecutive seeds as
 egg, baby and adult through the renderer alone.
+
+**The first Blobbi hatches by itself** (`src/features/lifecycle/first-blobbi.ts`,
+`useFirstBlobbiHatch.ts`). A newcomer's first egg does not wait for the hatch
+missions: a moment after it is on its nest, the hatch ceremony starts on its
+own and the egg becomes a baby. This is an onboarding rule, not a lifecycle
+or a visual one, and Ditto and the Island hold the same one (Ditto's
+`decideFirstHatch`):
+
+- **The rule reads the account, and nothing else.** An egg qualifies while
+  the account owns no hatched Blobbi (no baby, no adult). No tag marks a
+  "first" Blobbi and nothing is remembered on the device; the answer is
+  recomputed from the kind 31124 collection every time, so it ends itself
+  the moment the first egg hatches. Every later egg keeps the mission gate
+  (`useHatchTasks`) exactly as before. It reads stages only: V1, V2 and V3
+  eggs are treated alike.
+- **Two reads, as in Ditto.** The decision comes from the collection the
+  home already holds; right before the ceremony a fresh, lenient relay read
+  confirms it (any kind 31124 with a `d` and a hatched stage counts, legacy
+  shapes included, since the home's collection is modern-only). The read
+  must have answered about the account (it holds the egg itself) and is
+  retried a little; if it cannot confirm, nothing happens and the egg stays
+  an egg (fail closed). A read that finds a hatched Blobbi ends the
+  qualification for that egg.
+- **The hatch is the kit's.** The ceremony performs `useBlobbiHatch` (the
+  kit's `planHatchTransition`): the same `d`, the same seed, `stage = baby`,
+  full stats, the egg's incubation and missions cleaned up, evolution
+  started. Missions are a host gate in the kit, so skipping them is this
+  app's decision and needs no kit change. `first-blobbi.test.tsx` compares
+  the published event with the kit's own plan tag for tag, and the V3
+  identity tags of the baby with the egg's.
+- **Once per visit, never behind the player's back.** The automatic start
+  waits for a quiet home (no item on its way, no care write out), an awake
+  egg and a profile. A hatch that fails says so and is not retried by
+  itself; the Hatch button stays (the panel shows "no missions needed"
+  instead of the mission list), and the next visit tries again because the
+  egg still qualifies.
+
+The hatch itself (first or later) is a small story, `HatchBeat` in
+`useLifecycleCeremony.ts`: the intact shell stirs, cracks appear and grow
+through the renderer's four shell drawings (`eggCrack` none → light → medium
+→ heavy), the last crack holds, light bursts out while the egg → baby write
+is on its way, and the light clears off the baby when it landed. The rocking
+and the light are the home's, on its own box around the renderer
+(`gestures.ts` `hatchRock`, `.scene-actor__hatch-burst`), so they are the
+same for every generation's egg and nothing was added to any artwork. Under
+reduced motion nothing rocks and no light bursts: the shell still cracks
+step by step, and a caption (`role="status"`) says each beat in words.
+
+What it does NOT do: it does not set `blobbi_onboarding_done` on the
+Blobbonaut profile (Ditto sets it at the end of its ceremony, and repairs it
+for any account that owns a hatched Blobbi), and it has no naming or
+dialogue step after the reveal (the name is asked at adoption here).
+
+Dev tooling: fixture worlds state the account's history, because that is
+what the rule reads. Every stage fixture is an **established** account by
+default (an older adult is in the world), so eggs can be looked at at rest;
+`&account=first` or the panel's account switch removes it, and a fixture egg
+then hatches by itself. `?fixture=fresh` is an account with nothing in it:
+the real adoption flow, then the automatic hatch; what the app publishes
+there is kept for the tab (session storage), so a reload finds the baby the
+way a reload of the real app finds it on the relays.
 
 **Consuming an unpublished kit.** As with core/react 0.7.0 and renderer
 0.5.0 before it, this app depends on kit versions that are committed in
@@ -954,6 +1016,8 @@ lifecycle-view.ts     pure: stage + process + kit tasks → next action, progres
 mission-tally.ts      the "care N times" tally: hydrate the kit store from the event, +1, and
                       serialize into the SAME care republish (care-plan `evolution` option)
 useLifecycleCeremony  building (3 beats) → publishing (the one semantic write) → revealing | failed
+first-blobbi.ts       pure: an egg is the account's first Blobbi while the account owns no hatched one
+useFirstBlobbiHatch   that decision over the home's collection + the relay read that confirms it
 LifecyclePanel        the missions as the kit reports them, links to Ditto/espy, Hatch / Evolve
 ```
 

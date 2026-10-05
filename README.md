@@ -23,7 +23,9 @@ the kit, milestone by milestone.
   that answer them: the official starter kit (free, unlimited, not owned)
   and what you own on the Island (spent when used). Rest is the bed.
 - **The lifecycle at home.** An egg hatches into a baby and a baby evolves
-  into an adult here, through the kit's missions and ceremonies.
+  into an adult here, through the kit's missions and ceremonies. An
+  account's first egg hatches by itself, a moment after adoption, with no
+  missions; every later egg earns its hatch.
 - **Sound, small and procedural.** A short Web Audio voice derived from the
   ecosystem's feeding sound. Nothing is downloaded, nothing is published,
   and audio only starts after you touch the page. There is a mute.
@@ -91,6 +93,8 @@ production build:
 | `VITE_BLOBBI_DEV_TOOLS=true` in `.env.local` | enables the switches below and the force-hatch / force-evolve buttons |
 | `?fixture=egg\|baby\|adult\|adult-v2\|egg-v3\|baby-v3\|adult-v3` | a fixture world in memory, with the dev panel: no account, no relay, no write (the plain names are V1 Blobbis; `-v3` are procedural ones, born as this app's adoption makes them) |
 | `&state=sleeping`, `&low=<stat>`, `&expression=<preset>` | the fixture's starting variation: asleep, a critical stat, a pinned face |
+| `&account=first` | the fixture Blobbi is the account's first (by default an older adult is in the world too, so a fixture egg keeps its missions); a first Blobbi's egg hatches by itself |
+| `?fixture=fresh` | an account with nothing in it: the real adoption flow, then the first Blobbi's automatic hatch. What it publishes is kept for the tab, so a reload finds the baby; Reset fixture empties it |
 | `?preview=bed\|tub` | the bed or the tub out on load, to look at proportions |
 
 **The Dev Lab** is the engineering surface for Blobbi work:

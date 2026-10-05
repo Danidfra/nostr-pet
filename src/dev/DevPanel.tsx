@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { ExpressionSheet } from './ExpressionSheet';
 import type { FixtureController } from './fixture-controller';
-import { InspectorSection, LifecycleSection, PinsSection, StageStateSection, StatsSection, WorldSection } from './sections';
+import { AdoptedSections, InspectorSection, LifecycleSection, PinsSection, StageStateSection, StatsSection, WorldSection } from './sections';
+import { FIXTURE_D } from './fixture-world';
 import { specFromCompanion, summaryOf, useDevHome, useDevLifecycle, type DevHome } from './dev-home';
 
 const COLLAPSED_KEY = 'blobbi:dev-panel:collapsed';
@@ -53,10 +54,16 @@ export function DevPanel({ controller }: { controller: FixtureController }) {
         </button>
       </div>
       {!collapsed &&
-        (blobbi ? (
+        (blobbi && blobbi.d !== FIXTURE_D ? (
+          <div className="dev-panel__body">
+            <AdoptedSections controller={controller} blobbi={blobbi} />
+          </div>
+        ) : blobbi ? (
           <DevPanelBody key={blobbi.d} controller={controller} home={{ blobbi, profile: home.profile, pubkey: home.pubkey, updateCompanionEvent: home.updateCompanionEvent, refresh: home.refresh }} />
         ) : (
-          <div className="dev-panel__body dev-panel__hint">Fixture loading ({home.status})…</div>
+          <div className="dev-panel__body dev-panel__hint" data-testid="dev-no-blobbi">
+            {home.status === 'empty' ? 'This account owns no Blobbi yet: adopt one in the app. It will be its first Blobbi, so its egg hatches by itself.' : `Fixture loading (${home.status})…`}
+          </div>
         ))}
     </aside>
   );

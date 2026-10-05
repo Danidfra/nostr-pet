@@ -8,7 +8,8 @@ import { ExpressionSheet } from './ExpressionSheet';
 import { V3Sheet } from './V3Sheet';
 import { useFixtureController } from './FixtureControllerContext';
 import { FIXTURE_PRESETS } from './fixture-controller';
-import { InspectorSection, LifecycleSection, PinsSection, StageStateSection, StatsSection, WorldSection } from './sections';
+import { AdoptedSections, InspectorSection, LifecycleSection, PinsSection, StageStateSection, StatsSection, WorldSection } from './sections';
+import { FIXTURE_D } from './fixture-world';
 import { FACINGS, specFromCompanion, summaryOf, useDevHome, useDevLifecycle, type DevHome } from './dev-home';
 import './dev-lab.css';
 
@@ -70,10 +71,16 @@ export default function DevLab() {
         </button>
       </header>
       <aside className="dev-lab__controls dev-panel dev-panel--lab" aria-label="Dev Lab controls" data-testid="dev-lab-controls">
-        {blobbi ? (
+        {blobbi && blobbi.d !== FIXTURE_D ? (
+          <div className="dev-panel__body">
+            <AdoptedSections controller={controller} blobbi={blobbi} />
+          </div>
+        ) : blobbi ? (
           <LabControls key={blobbi.d} home={{ blobbi, profile: home.profile, pubkey: home.pubkey, updateCompanionEvent: home.updateCompanionEvent, refresh: home.refresh }} overlay={overlay} onOverlay={(v) => (remember(OVERLAY_KEY, v), setOverlay(v))} />
         ) : (
-          <div className="dev-panel__body dev-panel__hint">Fixture loading ({home.status})…</div>
+          <div className="dev-panel__body dev-panel__hint" data-testid="dev-no-blobbi">
+            {home.status === 'empty' ? 'This account owns no Blobbi yet: adopt one in the app. It will be its first Blobbi, so its egg hatches by itself.' : `Fixture loading (${home.status})…`}
+          </div>
         )}
       </aside>
       <main className="dev-lab__stage" ref={stageRef} data-testid="dev-lab-stage">

@@ -18,7 +18,7 @@
  * signer is fake, the pubkey is the fixture's. Dev bundle only.
  */
 import type { NostrEvent } from '@nostrify/nostrify';
-import { CRITICAL_THRESHOLDS, STAT_MAX, STAT_MIN, getSelectedBlobbiKey, type BlobbiStage, type BlobbiStats } from '@blobbi-kit/core';
+import { CRITICAL_THRESHOLDS, KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, STAT_MAX, STAT_MIN, getSelectedBlobbiKey, type BlobbiStage, type BlobbiStats } from '@blobbi-kit/core';
 import { EVOLVE_STAT_THRESHOLD, clearEvolutionFromStorage } from '@blobbi-kit/react';
 import type { BlobbiEmotion } from '@blobbi-kit/renderer';
 import type { BlobbiSceneController, EyeOffset, Facing } from '@/features/home/scene';
@@ -28,11 +28,14 @@ import {
   NO_MISSIONS,
   STAT_NAMES,
   buildFixtureBlobbi,
-  buildFixtureWorldFromSpec,
+  buildFixtureWorld,
   createFixtureStore,
   fixtureNameFor,
   specFromCompanion,
   specFromOptions,
+  withAccount,
+  worldAccount,
+  type FixtureAccount,
   type FixtureMissions,
   type FixtureRequest,
   type FixtureSpec,
@@ -133,6 +136,14 @@ export interface FixtureController {
   /** Rewrite the Blobbi: a patch over the current spec, or a function of it. Returns the new event. */
   setSpec: (patch: Partial<FixtureSpec> | ((spec: FixtureSpec) => FixtureSpec)) => NostrEvent;
   applyPreset: (id: string) => NostrEvent | undefined;
+  /** Whether the account raised a Blobbi before the fixture one, as the world says right now. */
+  account: () => FixtureAccount;
+  /**
+   * Add or take away the Blobbi the account raised before. State, not a
+   * switch on the app: the first-Blobbi rule reads the world, so a fixture
+   * egg on a `'first'` account hatches by itself.
+   */
+  setAccount: (account: FixtureAccount) => void;
   pins: () => PresentationPins;
   setPins: (patch: Partial<PresentationPins>) => void;
   clearPins: () => void;
@@ -164,9 +175,38 @@ function forgetFixtureLocalState(): void {
   }
 }
 
+/**
+ * What a `fresh` account has become, kept for the tab: the player's own
+ * Blobbi and profile events as the app published them into the pool. A
+ * reload of `?fixture=fresh` then finds the adopted Blobbi the way a reload
+ * of the real app finds it on the relays, so "adopt, hatch, reload" can be
+ * walked through without one. Session storage: gone with the tab, cleared by
+ * Reset fixture, and never read by any other fixture.
+ */
+const FRESH_WORLD_KEY = 'blobbi:dev-fixture:fresh-world';
+const isPlayerState = (event: NostrEvent) => event.pubkey === PUBKEY && (event.kind === KIND_BLOBBI_STATE || event.kind === KIND_BLOBBONAUT_PROFILE);
+
+function readFreshWorld(): NostrEvent[] {
+  try {
+    const stored: unknown = JSON.parse(window.sessionStorage.getItem(FRESH_WORLD_KEY) ?? '[]');
+    return Array.isArray(stored) ? (stored as NostrEvent[]).filter((e) => e && typeof e === 'object' && Array.isArray(e.tags) && isPlayerState(e)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeFreshWorld(events: readonly NostrEvent[] | null): void {
+  try {
+    if (events === null) window.sessionStorage.removeItem(FRESH_WORLD_KEY);
+    else window.sessionStorage.setItem(FRESH_WORLD_KEY, JSON.stringify(events.filter(isPlayerState)));
+  } catch {
+    /* no storage: the fresh world simply starts over on reload */
+  }
+}
+
 export function createFixtureController(request: FixtureRequest): FixtureController {
   const initialSpec = specFromOptions(request);
-  const store = createFixtureStore(buildFixtureWorldFromSpec(initialSpec));
+  const store = request.fresh ? createFixtureStore([...buildFixtureWorld(request), ...readFreshWorld()], writeFreshWorld) : createFixtureStore(buildFixtureWorld(request));
   let pins: PresentationPins = { ...NO_PINS, expression: request.expression };
   const listeners = new Set<(change: FixtureChange) => void>();
   const notify = (change: FixtureChange) => {
@@ -196,6 +236,12 @@ export function createFixtureController(request: FixtureRequest): FixtureControl
       const preset = FIXTURE_PRESETS.find((p) => p.id === id);
       return preset ? setSpec(preset.apply) : undefined;
     },
+    account: () => worldAccount(store.events()),
+    setAccount: (account) => {
+      store.replace(withAccount(store.events(), account));
+      // Every cache re-reads the world: the collection is what the rule looks at.
+      notify({ kind: 'reset' });
+    },
     pins: () => pins,
     setPins: (patch) => {
       pins = { ...pins, ...patch };
@@ -207,7 +253,8 @@ export function createFixtureController(request: FixtureRequest): FixtureControl
     },
     reset: () => {
       forgetFixtureLocalState();
-      store.replace(buildFixtureWorldFromSpec(initialSpec));
+      if (request.fresh) writeFreshWorld(null);
+      store.replace(buildFixtureWorld(request));
       pins = { ...NO_PINS, expression: request.expression };
       notify({ kind: 'pins', pins });
       notify({ kind: 'reset' });

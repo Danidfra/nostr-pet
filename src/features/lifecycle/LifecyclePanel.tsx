@@ -9,6 +9,11 @@ interface LifecyclePanelProps {
   ceremony: { phase: CeremonyPhase; kind: CeremonyKind | null; error: Error | null; dismiss: () => void };
   /** Begin the hatch or evolve ceremony (the panel never publishes by itself). */
   onCeremony: (kind: CeremonyKind) => void;
+  /**
+   * This egg is the account's first Blobbi (`first-blobbi.ts`): it hatches
+   * without missions, so the panel offers the hatch itself and no incubation.
+   */
+  firstBlobbi?: boolean;
   /** Dev-only: run a ceremony without the mission gate. Absent in production builds. */
   devForce?: (kind: CeremonyKind) => void;
   /** Inside a sheet: no glass container of its own. */
@@ -53,8 +58,11 @@ function TaskRow({ task }: { task: LifecycleTask }) {
  * invents a rule. Hatch and evolve start a ceremony in the scene; the
  * semantic write happens inside it, only once, and only after the build-up.
  */
-export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, devForce, embedded = false }: LifecyclePanelProps) {
-  const { view, pending, error, clearError } = lifecycle;
+export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, firstBlobbi = false, devForce, embedded = false }: LifecyclePanelProps) {
+  const { view: kitView, pending, error, clearError } = lifecycle;
+  // A first Blobbi's egg skips the missions: the panel shows the hatch and nothing that leads up to it.
+  const first = firstBlobbi && kitView.stage === 'egg';
+  const view = first ? { ...kitView, next: 'hatch' as const, tasks: [], ready: true, process: 'none' as const } : kitView;
   const busy = pending !== null || (ceremony.phase !== 'idle' && ceremony.phase !== 'failed');
   const ceremonyKind: CeremonyKind = view.stage === 'egg' ? 'hatch' : 'evolve';
 
@@ -82,7 +90,7 @@ export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, devForce
   const secondary = `${button} border border-border bg-background hover:bg-accent`;
 
   return (
-    <section className={embedded ? 'rounded-2xl bg-foreground/5 px-3 py-3' : 'home-glass mx-auto w-full max-w-2xl rounded-3xl px-4 py-4 sm:px-6'} aria-label="Lifecycle" data-testid="lifecycle-panel" data-next={view.next}>
+    <section className={embedded ? 'rounded-2xl bg-foreground/5 px-3 py-3' : 'home-glass mx-auto w-full max-w-2xl rounded-3xl px-4 py-4 sm:px-6'} aria-label="Lifecycle" data-testid="lifecycle-panel" data-next={view.next} data-first-blobbi={first ? 'true' : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold">{heading}</h2>
         {view.process !== 'none' && view.total > 0 && (
@@ -100,6 +108,11 @@ export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, devForce
         </ul>
       )}
 
+      {first && (
+        <p className="mt-1 text-sm text-muted-foreground" data-testid="lifecycle-first-blobbi">
+          Your first Blobbi hatches right away: no missions needed.
+        </p>
+      )}
       {view.next === 'start-incubation' && (
         <p className="mt-1 text-sm text-muted-foreground">Start incubating to begin the missions that lead to hatching.</p>
       )}
@@ -121,10 +134,12 @@ export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, devForce
               <Sparkles className="h-4 w-4" aria-hidden />
               Hatch
             </button>
-            <button type="button" className={secondary} disabled={busy} onClick={() => void lifecycle.stopIncubation()} data-testid="lifecycle-stop-incubation">
-              {pending === 'stop-incubation' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-              Stop incubating
-            </button>
+            {!first && (
+              <button type="button" className={secondary} disabled={busy} onClick={() => void lifecycle.stopIncubation()} data-testid="lifecycle-stop-incubation">
+                {pending === 'stop-incubation' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+                Stop incubating
+              </button>
+            )}
           </>
         )}
         {view.next === 'start-evolution' && (

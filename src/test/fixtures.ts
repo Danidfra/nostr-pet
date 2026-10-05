@@ -46,6 +46,19 @@ export function blobbiEvent(petId: string, options: BlobbiFixtureOptions = {}): 
   };
 }
 
+/** The `d` of {@link earlierBlobbiEvent}. */
+export const EARLIER_D = `blobbi-${PUBKEY.slice(0, 12)}-00000000e1`;
+
+/**
+ * A Blobbi the account raised before: a hatched adult, older than every
+ * other fixture. An account that owns it is not a newcomer, so an egg beside
+ * it is a LATER egg and keeps the normal progression (the first-Blobbi rule,
+ * `features/lifecycle/first-blobbi.ts`, reads exactly this).
+ */
+export function earlierBlobbiEvent(options: BlobbiFixtureOptions = {}): NostrEvent {
+  return blobbiEvent('00000000e1', { name: 'Elder', stage: 'adult', createdAt: CREATED_AT - 86_400 * 30, ...options });
+}
+
 /** Old-app schema markers on a canonical-looking d: legacy, ignored. */
 export function legacyMarkerEvent(petId: string): NostrEvent {
   return blobbiEvent(petId, { name: 'Old', extra: [['incubation_time', '3600']] });

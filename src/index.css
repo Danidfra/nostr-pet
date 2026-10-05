@@ -1607,6 +1607,63 @@
     color: hsl(var(--foreground) / 0.7);
     user-select: none;
   }
+  /* The hatching moment (BlobbiActor): light gathers over the shell while the
+     egg → baby write is out, and clears off the newborn once it landed. Only
+     mounted during a hatch ceremony, and never under reduced motion. */
+  .scene-actor__hatch-burst {
+    position: absolute;
+    inset: -28%;
+    border-radius: 50%;
+    background: radial-gradient(circle, hsl(48 100% 97%) 0%, hsl(46 100% 90% / 0.96) 36%, hsl(42 100% 76% / 0.55) 56%, hsl(40 100% 70% / 0) 72%);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .scene-actor__hatch-burst[data-burst='in'] {
+    animation: hatch-burst-in 0.45s ease-out both;
+  }
+  .scene-actor__hatch-burst[data-burst='out'] {
+    animation: hatch-burst-out 1.1s ease-in both;
+  }
+  @keyframes hatch-burst-in {
+    from {
+      opacity: 0;
+      transform: scale(0.3);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes hatch-burst-out {
+    from {
+      opacity: 1;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.55);
+    }
+  }
+  /* What the hatch is doing, in words (HomeScene foreground): the ceremony is
+     understandable with no animation at all. On the wall above the nest, so
+     it covers neither the shell nor what comes out of it. */
+  .hatch-caption {
+    position: absolute;
+    left: 50%;
+    top: 21%;
+    transform: translateX(-50%);
+    max-width: calc(100% - 2rem);
+    border-radius: 9999px;
+    padding: 0.4rem 0.95rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: center;
+    /* Its own colour: the pill is a card wherever the page around the scene sets its text. */
+    color: hsl(var(--card-foreground));
+  }
+  .scene > .scene-foreground > .hatch-caption {
+    pointer-events: none;
+  }
   .scene-actor__caption {
     position: absolute;
     left: 50%;

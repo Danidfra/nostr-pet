@@ -12,7 +12,8 @@ import { NostrContext } from '@nostrify/react';
 import { createElement, type ReactNode } from 'react';
 import { CRITICAL_THRESHOLDS, KIND_BLOBBI_STATE, getStatStatus, getTagValue, parseModernBlobbiEvent, type BlobbiStage, type BlobbiStats } from '@blobbi-kit/core';
 import { EVOLVE_STAT_THRESHOLD, HATCH_MISSIONS, useEvolveTasks, useHatchTasks } from '@blobbi-kit/react';
-import { PUBKEY } from '@/test/fixtures';
+import { EARLIER_D, PUBKEY } from '@/test/fixtures';
+import { decideFirstBlobbi } from '@/features/lifecycle';
 import { FIXTURE_PRESETS, HEALTHY_VALUE, NO_PINS, createFixtureController, criticalValue, statsForPreset } from './fixture-controller';
 import { FIXTURE_D, STAT_NAMES, buildFixtureBlobbi, missionsComplete, missionsForSpec, readFixtureRequest, specFromCompanion, specFromOptions, type FixtureSpec } from './fixture-world';
 
@@ -22,9 +23,16 @@ const parsed = (spec: FixtureSpec) => parseModernBlobbiEvent(buildFixtureBlobbi(
 describe('the fixture request', () => {
   it('reads the fixture, its state, a low stat and a pinned face from the URL; an unknown name falls back to the baby', () => {
     expect(readFixtureRequest('')).toBeNull();
-    expect(readFixtureRequest('?fixture=egg')).toEqual({ name: 'egg', state: 'active', low: undefined, expression: null });
-    expect(readFixtureRequest('?fixture=adult-v2&state=sleeping&low=energy&expression=sad')).toEqual({ name: 'adult-v2', state: 'sleeping', low: 'energy', expression: 'sad' });
-    expect(readFixtureRequest('?fixture=dragon&low=luck&expression=smug')).toEqual({ name: 'baby', state: 'active', low: undefined, expression: null });
+    expect(readFixtureRequest('?fixture=egg')).toEqual({ name: 'egg', state: 'active', low: undefined, expression: null, account: 'established' });
+    expect(readFixtureRequest('?fixture=adult-v2&state=sleeping&low=energy&expression=sad')).toEqual({ name: 'adult-v2', state: 'sleeping', low: 'energy', expression: 'sad', account: 'established' });
+    expect(readFixtureRequest('?fixture=dragon&low=luck&expression=smug')).toEqual({ name: 'baby', state: 'active', low: undefined, expression: null, account: 'established' });
+  });
+
+  it('reads what the account owned before: established unless the URL says first, and `fresh` is an account with nothing in it', () => {
+    expect(readFixtureRequest('?fixture=egg-v3&account=first')).toMatchObject({ name: 'egg-v3', account: 'first' });
+    expect(readFixtureRequest('?fixture=egg-v3&account=whatever')).toMatchObject({ account: 'established' });
+    expect(readFixtureRequest('?fixture=egg-v3&account=first')).not.toHaveProperty('fresh');
+    expect(readFixtureRequest('?fixture=fresh')).toMatchObject({ fresh: true, account: 'first' });
   });
 });
 
@@ -123,9 +131,76 @@ describe('the controller', () => {
     expect(c.store.companion()!.state).toBe('sleeping');
     expect(c.applyPreset('no-such-preset')).toBeUndefined();
     expect(heard).toEqual(['blobbi', 'blobbi', 'blobbi']);
-    // The world is still one Blobbi, one profile, one kind 0, three definitions, one inventory.
+    // The world is still the fixture Blobbi, the one the account raised before it, one profile, one kind 0,
+    // three definitions, one inventory.
+    expect(c.store.events().filter((e) => e.kind === KIND_BLOBBI_STATE).map((e) => getTagValue(e.tags, 'd')).sort()).toEqual([EARLIER_D, FIXTURE_D].sort());
+    expect(c.store.events()).toHaveLength(8);
+  });
+
+  it('the account is world state: the earlier Blobbi is in the pool or it is not, and the first-Blobbi rule reads exactly that', () => {
+    const c = createFixtureController(request('?fixture=egg-v3'));
+    const heard: string[] = [];
+    c.subscribe((change) => heard.push(change.kind));
+    const owned = () => c.store.events().filter((e) => e.kind === KIND_BLOBBI_STATE).map((e) => parseModernBlobbiEvent(e)!);
+    const egg = () => c.store.companion()!;
+    // Established by default: the fixture egg is a later egg, so every egg preset can be looked at at rest.
+    expect(c.account()).toBe('established');
+    expect(decideFirstBlobbi(egg(), owned())).toEqual({ first: false, reason: 'has-hatched-blobbi' });
+    c.setAccount('first');
+    expect(c.account()).toBe('first');
+    expect(owned().map((b) => b.d)).toEqual([FIXTURE_D]);
+    expect(decideFirstBlobbi(egg(), owned())).toEqual({ first: true });
+    // The fixture Blobbi itself is untouched by it, and going back restores the same earlier Blobbi.
+    c.setAccount('established');
+    c.setAccount('established');
+    expect(owned().map((b) => b.d).sort()).toEqual([EARLIER_D, FIXTURE_D].sort());
+    expect(heard).toEqual(['reset', 'reset', 'reset']);
+    // A URL can ask for it, and a reset returns to what the URL asked for.
+    const first = createFixtureController(request('?fixture=egg-v3&account=first'));
+    expect(first.account()).toBe('first');
+    first.setAccount('established');
+    first.reset();
+    expect(first.account()).toBe('first');
+    expect(decideFirstBlobbi(first.store.companion()!, [first.store.companion()!])).toEqual({ first: true });
+  });
+
+  it('`fresh` is an account with nothing in it: no Blobbi, no profile, and a reset empties it again', async () => {
+    const c = createFixtureController(request('?fixture=fresh'));
+    expect(c.store.companion()).toBeUndefined();
+    expect(c.store.events().map((e) => e.kind).sort()).toEqual([0, 31632, 31632, 31632]);
+    expect(c.account()).toBe('first');
+    expect(await c.store.pool.query([{ kinds: [KIND_BLOBBI_STATE], authors: [PUBKEY] }])).toEqual([]);
+    // What the app adopts lands in the pool like any publish, and a reset takes it away.
+    const adopted = buildFixtureBlobbi(specFromOptions({ name: 'egg-v3' }));
+    await c.store.pool.event(adopted);
     expect(c.store.events().filter((e) => e.kind === KIND_BLOBBI_STATE)).toHaveLength(1);
-    expect(c.store.events()).toHaveLength(7);
+    c.reset();
+    expect(c.store.events().filter((e) => e.kind === KIND_BLOBBI_STATE)).toHaveLength(0);
+  });
+
+  it('a `fresh` account keeps what the app published for the tab, so a reload finds the adopted Blobbi; no other fixture reads it', async () => {
+    window.sessionStorage.clear();
+    const first = createFixtureController(request('?fixture=fresh'));
+    const adopted = buildFixtureBlobbi({ ...specFromOptions({ name: 'egg-v3' }), name: 'Pip' });
+    await first.store.pool.event(adopted);
+    const hatched = buildFixtureBlobbi({ ...specFromOptions({ name: 'baby-v3' }), name: 'Pip' });
+    await first.store.pool.event(hatched);
+    // A reload: a new controller for the same URL.
+    const reloaded = createFixtureController(request('?fixture=fresh'));
+    const blobbis = reloaded.store.events().filter((e) => e.kind === KIND_BLOBBI_STATE);
+    expect(blobbis).toHaveLength(1);
+    expect(blobbis[0]).toEqual(hatched);
+    expect(parseModernBlobbiEvent(blobbis[0])!.stage).toBe('baby');
+    // Item definitions and the kind 0 are the fixture's, never stored; other fixtures never see the adopted Blobbi.
+    expect(JSON.parse(window.sessionStorage.getItem('blobbi:dev-fixture:fresh-world')!)).toHaveLength(1);
+    expect(createFixtureController(request('?fixture=egg-v3')).store.events()).not.toContainEqual(hatched);
+    // Reset empties the account for good.
+    reloaded.reset();
+    expect(createFixtureController(request('?fixture=fresh')).store.events().filter((e) => e.kind === KIND_BLOBBI_STATE)).toHaveLength(0);
+    // Garbage in storage is ignored.
+    window.sessionStorage.setItem('blobbi:dev-fixture:fresh-world', '{not json');
+    expect(createFixtureController(request('?fixture=fresh')).store.companion()).toBeUndefined();
+    window.sessionStorage.clear();
   });
 
   it('pins are scene settings, not world state; reset forgets pins, rewrites and the fixture\'s device storage, and nothing else on the device', () => {

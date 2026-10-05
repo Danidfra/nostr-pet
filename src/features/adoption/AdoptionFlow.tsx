@@ -146,7 +146,7 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
           Back
         </button>
       </div>
-      <p className="text-[11px] text-muted-foreground">Two signatures: the egg, then a note in your Blobbonaut profile.</p>
+      <p className="text-[11px] text-muted-foreground">Two signatures: the egg, then a note in your Blobbonaut profile. Your first egg hatches a moment later: that is a third.</p>
     </form>
   );
 }

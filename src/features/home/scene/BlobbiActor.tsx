@@ -4,9 +4,18 @@ import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { placeOnFloor } from './geometry';
 import { walkCycleFor } from './motion-contract';
-import { GESTURES } from './gestures';
+import { GESTURES, hatchRock } from './gestures';
 import { useReducedMotion } from './SceneSettings';
 import type { BlobbiPresentation } from './presentation';
+
+/** A hatch ceremony's beat, as the actor draws it (the ceremony decides it; see `useLifecycleCeremony`). */
+export interface ActorHatch {
+  beat: 'stirring' | 'cracking' | 'breaking' | 'hatching' | 'hatched';
+  /** How hard the shell rocks, 0 to 4. */
+  rock: 0 | 1 | 2 | 3 | 4;
+  /** The burst of light: gathering over the shell, or clearing off the newborn. */
+  burst: 'none' | 'in' | 'out';
+}
 
 interface BlobbiActorProps {
   blobbi: BlobbiCompanion;
@@ -20,6 +29,8 @@ interface BlobbiActorProps {
   invite?: boolean;
   /** Egg shell state (eggs only). Lifecycle progress and ceremonies decide it. */
   eggCrack?: BlobbiEggCrack;
+  /** A hatch ceremony is running: the shell rocks and, at the end, light bursts out of it. */
+  hatch?: ActorHatch | null;
   /** Renderer effects around the Blobbi (a ceremony glow, sparkles, worn effect items). */
   effects?: readonly BlobbiVisualEffect[];
   /** What it wears (normalized for the current facing by the caller). */
@@ -44,7 +55,7 @@ interface BlobbiActorProps {
  * about how the Blobbi looks. It never touches Nostr.
  */
 export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function BlobbiActor(
-  { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, effects, accessories, children, inBed = false },
+  { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, hatch = null, effects, accessories, children, inBed = false },
   ref,
 ) {
   const placement = placeOnFloor(presentation.position);
@@ -73,6 +84,20 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
     return () => animation.cancel();
   }, [gesture, reducedMotion]);
 
+  // A hatching shell rocks on the point it rests on, harder as the cracks
+  // grow: a loop on the same box as the gestures, so it is the same rocking
+  // for every generation's egg and nothing is added to the renderer. Reduced
+  // motion: the shell only cracks.
+  const rock = blobbi.stage === 'egg' ? (hatch?.rock ?? 0) : 0;
+  useEffect(() => {
+    const box = boxRef.current;
+    if (rock === 0 || !box || reducedMotion || typeof box.animate !== 'function') return;
+    const spec = hatchRock(rock);
+    const animation = box.animate(spec.keyframes, { duration: spec.durationMs, easing: spec.easing, iterations: Infinity, composite: 'add' });
+    return () => animation.cancel();
+  }, [rock, reducedMotion]);
+  const burst = hatch && hatch.burst !== 'none' && !reducedMotion ? hatch.burst : null;
+
   return (
     <div
       ref={rootRef}
@@ -89,6 +114,8 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-gesture-key={gesture?.key}
       data-in-bed={inBed ? 'true' : 'false'}
       data-egg-crack={blobbi.stage === 'egg' ? (eggCrack ?? 'none') : undefined}
+      data-hatch-beat={hatch?.beat}
+      data-hatch-rock={hatch ? (reducedMotion ? 0 : rock) : undefined}
       data-x={presentation.position.x.toFixed(3)}
       data-y={presentation.position.y.toFixed(3)}
       style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale), '--walk-cycle': `${walkCycleFor(blobbi.visualGeneration)}s`, '--blobbi-motion-phase': String(motionPhase) } as React.CSSProperties}
@@ -134,6 +161,9 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
             style={{ width: '100%', height: '100%' }}
           />
         </button>
+        {/* The hatching moment: light gathers over the shell while the write is
+            out and clears off the newborn once it landed. Decoration only. */}
+        {burst && <span aria-hidden className="scene-actor__hatch-burst" data-burst={burst} data-testid="hatch-burst" />}
       </div>
     </div>
   );
