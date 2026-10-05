@@ -22,12 +22,16 @@
  *
  * A Blobbi adopted HERE is born V3 (`ADOPTION_VISUAL_GENERATION`): the kit's
  * own creation default is still V2, and V3 is opt-in per application. Its
- * identity is stated at birth: `buildEggTags` asks the renderer's creation
- * rule (`createBlobbiV3Identity`) for the seed's colours and trait kinds and
- * writes them explicitly, so the egg in the preview, the egg that is
- * published and every later stage of it are one individual, and none of it
- * depends on this module, on React state or on how the generator is tuned
- * afterwards. Existing Blobbis are untouched: nothing here rewrites one.
+ * identity is stated at birth, and only then: `buildEggTags` asks the
+ * renderer's creation rule (`createBlobbiV3Identity`) what the new seed
+ * gives, and writes that as the event's own colours (`base_color`,
+ * `secondary_color`, `eye_color`, `accent_color`) and trait kinds
+ * (`antenna`, `horns`, `ears`, `tail`, `spots`, `belly`, `freckles`), with
+ * `visual_algorithm`. From then on the event is authoritative: the egg in
+ * the preview, the egg that is published and every later stage of it are
+ * one individual, and none of it depends on this module, on React state or
+ * on how the generator is tuned afterwards. Existing Blobbis are untouched:
+ * nothing here rewrites one.
  *
  * Nothing here signs or sends; `useAdoptEgg` does, after a fresh ownership
  * check, so a second "first" Blobbi is never minted.
@@ -58,12 +62,12 @@ import { createBlobbiV3Identity } from '@blobbi-kit/renderer';
  * THE CREATION RULE OF THIS APP: which visual generation a Blobbi adopted
  * here is born into. One constant, read in one place (`eggTemplate`).
  *
- * `'v3'` is the procedural generation. Its event representation is still
- * PROVISIONAL in the kit (`blobbi-v3-identity.ts`): before this app ships to
- * real accounts with this value, that representation should be settled, as
- * every egg adopted from then on carries it. Setting this back to `'v2'`
- * restores the previous birth exactly; it never affects a Blobbi that
- * already exists.
+ * `'v3'` is the procedural generation, and the development default of this
+ * branch. Whether production adoption mints V3 is still to be decided: every
+ * client that republishes a V3 Blobbi must understand it first (one that
+ * does not rewrites its three colour tags from the seed). Setting this back
+ * to `'v2'` restores the previous birth exactly; it never affects a Blobbi
+ * that already exists.
  */
 export const ADOPTION_VISUAL_GENERATION: BlobbiVisualGeneration = 'v3';
 

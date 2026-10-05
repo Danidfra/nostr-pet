@@ -359,12 +359,12 @@ export function InspectorSection({ blobbi }: { blobbi: BlobbiCompanion }) {
     ['progression', `${blobbi.progressionState}${blobbi.progressionStartedAt ? ` since ${blobbi.progressionStartedAt}` : ''}`],
     ['missions', blobbi.evolution.length ? blobbi.evolution.map((m) => `${m.id} ${'count' in m ? m.count : m.events.length}/${m.target}`).join(' · ') : '(none)'],
     ['traits', `${blobbi.visualTraits.baseColor} ${blobbi.visualTraits.secondaryColor} ${blobbi.visualTraits.eyeColor} · ${blobbi.visualTraits.pattern} · ${blobbi.visualTraits.specialMark} · ${blobbi.visualTraits.size}`],
-    // The V3 identity exactly as the event states it (the seed-mirror traits above are what an older client draws from).
+    // The V3 identity exactly as the event states it. (On V3 the colours in the row above are these too: explicit, not mirrors.)
     ...(v3
       ? ([
           ['v3 colours', `${v3.colors.base ?? '?'} ${v3.colors.secondary ?? '?'} ${v3.colors.eye ?? '?'} · accent ${v3.colors.accent ?? 'none'}`],
           ['v3 traits', `antenna ${v3.traits.antenna ?? '?'} · horns ${v3.traits.horns ?? '?'} · ears ${v3.traits.ears ?? '?'} · tail ${v3.traits.tail ?? '?'} · spots ${v3.traits.spots ?? '?'} · belly ${v3.traits.belly ?? '?'} · freckles ${v3.traits.freckles ?? '?'}`],
-          ['v3 algorithm', `${v3.algorithm}${v3.missing.length ? ` · MISSING ${v3.missing.join(', ')}` : ' · identity complete'}`],
+          ['v3 algorithm', `${v3.algorithm ?? 'not stated'}${v3.missing.length ? ` · MISSING ${v3.missing.join(', ')}` : ' · identity complete'}`],
         ] as Array<[string, string]>)
       : []),
     ['event', `${blobbi.event.id.slice(0, 10)}… at ${blobbi.event.created_at}`],

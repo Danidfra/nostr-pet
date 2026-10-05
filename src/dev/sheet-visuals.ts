@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { BLOBBI_V3_TAG_NAMES, VISUAL_GENERATION_TAG, blobbiV3IdentityTags, getTagValue, parseModernBlobbiEvent, type BlobbiCompanion } from '@blobbi-kit/core';
+import { BLOBBI_V3_ONLY_TAG_NAMES, BLOBBI_V3_TAG_NAMES, VISUAL_GENERATION_TAG, blobbiV3IdentityTags, getTagValue, parseModernBlobbiEvent, type BlobbiCompanion } from '@blobbi-kit/core';
 import { createBlobbiV3Identity } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 
@@ -12,23 +12,27 @@ export const SHEET_ROWS: readonly SheetRow[] = ['baby v1', 'adult v1', 'adult v2
  * drawings that have a face. Isolated renderer previews: no world, no
  * shadow, no walk, just the artwork under the same inputs.
  *
- * A V3 row needs a V3 identity. If the fixture already is V3 its own tags
- * are kept; otherwise the identity is what the kit's creation rule gives the
- * fixture's seed, written with the kit's own tag builder, exactly as a birth
- * would have written it.
+ * Swapping the generation means restating the identity the way that
+ * generation states it. A V3 row from a V1 or V2 fixture gets what a V3
+ * birth would have written for the fixture's seed: the kit's creation rule,
+ * through the kit's own tag builder (its colours replace the seed mirrors).
+ * A V1 or V2 row from a V3 fixture drops the tags only V3 has; its colour
+ * tags are mirrors again, which the parser does not read.
  */
 export function useSheetVisuals(blobbi: BlobbiCompanion) {
   return useMemo(() => {
+    const own = blobbi.event.tags;
+    const fixtureIsV3 = blobbi.visualGeneration === 'v3';
+    const seed = getTagValue(own, 'seed');
     const make = (stage: 'baby' | 'adult', generation: 'v1' | 'v2' | 'v3') => {
-      const own = blobbi.event.tags;
-      const tags = own.filter((t) => t[0] !== 'stage' && t[0] !== VISUAL_GENERATION_TAG && t[0] !== 'state' && (generation === 'v3' || !BLOBBI_V3_TAG_NAMES.includes(t[0])));
+      let tags = own.filter((t) => t[0] !== 'stage' && t[0] !== VISUAL_GENERATION_TAG && t[0] !== 'state');
+      if (generation === 'v3' && !fixtureIsV3 && seed) tags = [...tags.filter((t) => !BLOBBI_V3_TAG_NAMES.includes(t[0])), ...blobbiV3IdentityTags(createBlobbiV3Identity(seed))];
+      if (generation !== 'v3' && fixtureIsV3) tags = tags.filter((t) => !BLOBBI_V3_ONLY_TAG_NAMES.includes(t[0]));
       tags.push(['stage', stage], ['state', 'active']);
       if (generation !== 'v1') tags.push([VISUAL_GENERATION_TAG, generation]);
-      const seed = getTagValue(own, 'seed');
-      if (generation === 'v3' && seed && !own.some((t) => BLOBBI_V3_TAG_NAMES.includes(t[0]))) tags.push(...blobbiV3IdentityTags(createBlobbiV3Identity(seed)));
       const parsed = parseModernBlobbiEvent({ ...blobbi.event, tags });
       return parsed ? toBlobbiVisual(parsed) : null;
     };
     return { 'baby v1': make('baby', 'v1'), 'adult v1': make('adult', 'v1'), 'adult v2': make('adult', 'v2'), 'baby v3': make('baby', 'v3'), 'adult v3': make('adult', 'v3') };
-  }, [blobbi.event]);
+  }, [blobbi.event, blobbi.visualGeneration]);
 }

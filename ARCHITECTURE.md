@@ -319,18 +319,26 @@ app adds four small things, each in one place.
   `adoption-plan.ts` (`'v3'`). The kit's own default
   (`NEW_BLOBBI_VISUAL_GENERATION`) is still V2, so this is this app opting
   in. `eggTemplate` hands `buildEggTags` the renderer's creation rule
-  (`createBlobbiV3Identity`), and core writes the identity onto the event:
-  `visual_generation = v3`, plus the explicit colours, trait kinds and
-  algorithm version in `v3_*` tags. Nothing here derives a seed, a colour or
-  a trait. The preview the player sees IS that event, parsed.
+  (`createBlobbiV3Identity`), and core writes the identity onto the event in
+  plain, generation-independent tags: `visual_generation = v3`,
+  `visual_algorithm = 1`, the colours in `base_color`, `secondary_color`,
+  `eye_color` and `accent_color`, and the trait kinds in `antenna`, `horns`,
+  `ears`, `tail`, `spots`, `belly`, `freckles`. The seed decides them at that
+  moment and never again. Nothing here derives a seed, a colour or a trait.
+  The preview the player sees IS that event, parsed.
 - **The seam** is still `toBlobbiVisual`: it passes `identity.v3` through.
   For V1 and V2 the field is absent and they are handed exactly what they
   were before (`v3.test.tsx` compares the drawings byte for byte).
-- **Persistence is the event's.** A V3 Blobbi is its seed and its `v3_*`
-  tags; there is no app state behind its appearance. The kit carries those
-  tags through every republish (care, hatch, evolve), so the egg, its baby
-  and its adult are one identity. The seed-mirror tags (`base_color`, ...)
-  stay mirrors, which is what a client that predates V3 draws from.
+- **Persistence is the event's.** A V3 Blobbi is its seed (micro-geometry)
+  and its stated identity (colours, trait kinds); there is no app state
+  behind its appearance. The kit carries the identity through every
+  republish (care, hatch, evolve), so the egg, its baby and its adult are
+  one individual. On V3 the three colour tags are that identity and are never
+  rewritten; on V1 and V2 the same three tags are still mirrors of the seed,
+  rewritten on every republish, exactly as before (the kit decides which by
+  `visual_generation`; this app never looks). An identity that states an
+  algorithm version the renderer does not implement is drawn as a flagged
+  stand-in, never as another version.
 - **The gait.** A V3 drawing moves by its own rig, so the renderer does not
   wrap its body in the bob; the home still says only `motion="walking"`.
   The shadow follows the same way it follows V2: `motion-contract.ts` pins
@@ -339,11 +347,12 @@ app adds four small things, each in one place.
   and `index.css` gives a walking V3 adult the settling shadow (it walks on
   its legs) and leaves a V3 baby the bob's (it hops).
 
-What is PROVISIONAL: the `v3_*` tag representation is a working convention
-in the kit, not a specification. Before this app is deployed with V3 as its
-creation rule, that representation should be settled, because every egg
-adopted from then on carries it. `ADOPTION_VISUAL_GENERATION = 'v2'` restores
-the previous birth exactly and never affects an existing Blobbi.
+What is still OPEN: V3 is the development default of this branch, not a
+production decision. A client that predates V3 treats the three colour tags
+as mirrors and would rewrite a V3 Blobbi's colours from its seed on any
+republish, so every client that writes to Blobbis must understand V3 before
+this app mints them for real accounts. `ADOPTION_VISUAL_GENERATION = 'v2'`
+restores the previous birth exactly and never affects an existing Blobbi.
 
 Dev tooling: `?fixture=egg-v3|baby-v3|adult-v3`, a V3 column in the quick
 fixtures and the generation switch, V3 rows in the expression sheet, the V3

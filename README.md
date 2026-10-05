@@ -61,13 +61,15 @@ list is standardised beyond the projects that share it.
 | 31634 | Equipment placements from the Island | read |
 | 0 | Nostr profile | written once on account creation |
 
-A Blobbi adopted here is born into the procedural generation
-(`visual_generation = v3`): its kind 31124 states its colours and trait kinds
-explicitly, in the kit's `v3_*` tags, and everything else about its looks
-derives from its `seed`. That representation is the kit's and is still
-**provisional** (see `ARCHITECTURE.md`, "Visual generation V3"). Blobbis born
-earlier (V1, with no marker, and V2) are read and drawn exactly as before and
-are never rewritten.
+On this branch a Blobbi adopted here is born into the procedural generation
+(`visual_generation = v3`): its kind 31124 states its colours (`base_color`,
+`secondary_color`, `eye_color`, `accent_color`) and trait kinds (`antenna`,
+`horns`, `ears`, `tail`, `spots`, `belly`, `freckles`) explicitly, with
+`visual_algorithm`, and everything else about its looks derives from its
+`seed`. The representation is the kit's (see `ARCHITECTURE.md`, "Visual
+generation V3"); whether production adoption mints V3 is not decided yet.
+Blobbis born earlier (V1, with no marker, and V2) are read, drawn and
+republished exactly as before.
 
 Relays: reads and writes go to the application relays in
 `src/config/relays.ts`; read-only hints add the relays where the games and

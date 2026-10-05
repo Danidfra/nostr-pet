@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KIND_BLOBBI_STATE, getTagValue, parseModernBlobbiEvent } from '@blobbi-kit/core';
+import { BLOBBI_V3_ONLY_TAG_NAMES, KIND_BLOBBI_STATE, getTagValue, parseModernBlobbiEvent } from '@blobbi-kit/core';
 import { buildFixtureWorld, createFixturePool, FIXTURE_D, FIXTURE_NAMES } from './fixture-world';
 import { PUBKEY } from '@/test/fixtures';
 
@@ -14,7 +14,9 @@ describe('dev fixture worlds', () => {
       expect(parsed.visualGeneration).toBe(name.endsWith('-v3') ? 'v3' : name === 'adult-v2' ? 'v2' : 'v1');
       // A V3 fixture is born with its whole identity; the others carry none of it.
       if (name.endsWith('-v3')) expect(parsed.v3Identity?.missing).toEqual([]);
-      else expect(blobbi.tags.some((t) => t[0].startsWith('v3_'))).toBe(false);
+      else expect(blobbi.tags.some((t) => BLOBBI_V3_ONLY_TAG_NAMES.includes(t[0]))).toBe(false);
+      // No generation-prefixed tag exists any more.
+      expect(blobbi.tags.some((t) => t[0].startsWith('v3_'))).toBe(false);
       // The player's events are the fixture pubkey's; item definitions are their issuers'.
       expect(events.filter((e) => e.kind !== 31632).every((e) => e.pubkey === PUBKEY)).toBe(true);
       expect(events.filter((e) => e.kind === 0)).toHaveLength(1);

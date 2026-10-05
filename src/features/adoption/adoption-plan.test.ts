@@ -73,12 +73,21 @@ describe('newEggPreview / eggTemplate', () => {
     expect(identity).toEqual(createBlobbiV3Identity(preview.seed));
     expect(identity.algorithm).toBe(1);
     for (const colour of [identity.colors.base, identity.colors.secondary, identity.colors.eye]) expect(colour).toMatch(/^#[0-9a-f]{6}$/);
-    // The explicit identity is on the event itself, in tags of its own.
-    expect(getTagValue(template.tags, 'v3_base_color')).toBe(identity.colors.base);
-    expect(getTagValue(template.tags, 'v3_horns')).toBe(identity.traits.horns);
-    // The mirror tags are still the seed's mirrors, as on every Blobbi: an older client draws from them.
+    // The explicit identity is on the event itself, in plain, generation-independent tags.
+    expect(getTagValue(template.tags, 'base_color')).toBe(identity.colors.base);
+    expect(getTagValue(template.tags, 'secondary_color')).toBe(identity.colors.secondary);
+    expect(getTagValue(template.tags, 'eye_color')).toBe(identity.colors.eye);
+    expect(getTagValue(template.tags, 'accent_color')).toBe(identity.colors.accent);
+    expect(getTagValue(template.tags, 'visual_algorithm')).toBe('1');
+    for (const trait of ['antenna', 'horns', 'ears', 'tail'] as const) expect(getTagValue(template.tags, trait), trait).toBe(identity.traits[trait]);
+    for (const mark of ['spots', 'belly', 'freckles'] as const) expect(getTagValue(template.tags, mark), mark).toBe(String(identity.traits[mark]));
+    expect(template.tags.some((t) => t[0].startsWith('v3_'))).toBe(false);
+    // On V3 the colour tags are the Blobbi's own, not the seed's mirrors (which is what a V2 egg of the same seed carries).
     const v2 = buildEggTags(PUBKEY, preview.petId, NOW, 'Pip', { visualGeneration: 'v2' });
-    expect(getTagValue(template.tags, 'base_color')).toBe(getTagValue(v2, 'base_color'));
+    expect(getTagValue(v2, 'seed')).toBe(preview.seed);
+    expect(getTagValue(template.tags, 'base_color')).not.toBe(getTagValue(v2, 'base_color'));
+    // The incubation update eggTemplate applies on top did not put the mirrors back.
+    expect(companion.visualTraits.baseColor).toBe(identity.colors.base);
   });
 
   it('the preview IS the egg: what the player sees before adopting is drawn from the event that is published', () => {
@@ -97,7 +106,7 @@ describe('newEggPreview / eggTemplate', () => {
     expect(adoptionEggOptions('v2')).toEqual({ visualGeneration: 'v2' });
     expect(adoptionEggOptions('v1')).toEqual({ visualGeneration: 'v1' });
     const v2 = buildEggTags(PUBKEY, '0000000007', NOW, 'Pip', adoptionEggOptions('v2'));
-    expect(v2.some((t) => t[0].startsWith('v3_'))).toBe(false);
+    for (const name of ['visual_algorithm', 'accent_color', 'antenna', 'horns', 'ears', 'tail', 'spots', 'belly', 'freckles']) expect(getTagValue(v2, name), name).toBeUndefined();
     expect(getTagValue(v2, VISUAL_GENERATION_TAG)).toBe('v2');
   });
 
