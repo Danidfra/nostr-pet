@@ -6,6 +6,9 @@ import { ACTOR_BOX_WIDTH, GAITS, RENDERER_V3_WALK_CYCLE_S, RENDERER_WALK_CYCLE_S
 import { DEPTH_WEIGHT, depthScale } from './geometry';
 import { DEFAULT_WALK_SPEED, beginWalk, standingAt, stepLocomotion, walkSeconds } from './locomotion';
 
+/** A real (canonical) V3 seed: the renderer takes no other kind. */
+const GAIT_SEED = '8f2d6c1e9b7a40f3a5d2c8e1b6f4937d0a1c5e7f2b9d4a6c8e0f1a3b5c7d9e2f';
+
 describe('the renderer motion contract', () => {
   it('pins the walk cycle the shadow follows to the cycle the renderer animates', () => {
     const match = BLOBBI_MOTION_STYLESHEET.match(/blobbi-motion-walk\s+([\d.]+)s/);
@@ -74,9 +77,9 @@ describe('the gaits: one walk cycle covers a set amount of ground', () => {
     // The far leg is the same step half a cycle later, so there is always exactly one foot planted.
     expect(BLOBBI_V3_MOTION_STYLESHEET).toMatch(/@keyframes pb-walking-side-far-leg\{0%\{transform:translate\(calc\(var\(--pb-scale,1\)\*-27px\)/);
     // The drawing is as many root units square as its viewBox is tall, under the document's own scale.
-    const svg = renderBlobbiSvg({ visualGeneration: 'v3', v3: createBlobbiV3Identity('gait'), stage: 'adult', facing: 'right' }).svg;
+    const svg = renderBlobbiSvg({ visualGeneration: 'v3', v3: createBlobbiV3Identity(GAIT_SEED), stage: 'adult', facing: 'right' }).svg;
     const scale = Number(/matrix\(([\d.]+),0,0,/.exec(svg)![1]);
-    const { viewBox } = describeBlobbiArtwork({ visualGeneration: 'v3', v3: createBlobbiV3Identity('gait'), stage: 'adult' });
+    const { viewBox } = describeBlobbiArtwork({ visualGeneration: 'v3', v3: createBlobbiV3Identity(GAIT_SEED), stage: 'adult' });
     const box = Math.max(viewBox.width, viewBox.height) / scale;
     const stridePerStep = first.x - last.x;
     expect(stridePerStep).toBe(54);

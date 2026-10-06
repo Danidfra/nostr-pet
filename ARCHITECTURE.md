@@ -311,7 +311,8 @@ made two shadows under a walking V2 adult, is off by the renderer's default
 shadow (`BlobbiActor.test.tsx`); the home never names a `data-part`.
 
 **Visual generation V3: procedural Blobbis (kit core/react 0.8.0, renderer
-0.6.0).** A Blobbi adopted here is born V3. V3 has no authored drawing per
+0.6.0, consumed at kit commit `f3acbf4`, the pass that pinned what
+`visual_algorithm = 1` means).** A Blobbi adopted here is born V3. V3 has no authored drawing per
 Blobbi: the renderer generates each one from its identity, as an egg, a
 baby and an adult, from every side. Everything about that is the kit's; this
 app adds four small things, each in one place.
@@ -361,8 +362,23 @@ restores the previous birth exactly and never affects an existing Blobbi.
 Dev tooling: `?fixture=egg-v3|baby-v3|adult-v3`, a V3 column in the quick
 fixtures and the generation switch, V3 rows in the expression sheet, the V3
 identity in the inspector (colours, traits, algorithm, anything missing),
-and a "V3 population" sheet in the Dev Lab that draws consecutive seeds as
-egg, baby and adult through the renderer alone.
+and a "V3 population" sheet in the Dev Lab (`V3Sheet.tsx`) that draws,
+through the renderer alone, either the kit's twelve reference Blobbis (the
+identities algorithm 1 is pinned with, copied literally into
+`src/dev/v3-reference.ts`: dev fixture data, nothing derived) or real seeds
+for a label, as the kit's creation rule makes them, or one seed pasted from
+an event. A V3 seed is canonical (64 lower-case hexadecimal digits,
+`canonicalBlobbiV3Seed`): the renderer refuses anything else, so every dev
+seed is a real one (`deriveBlobbiSeedV1`), never a label hashed into shape.
+
+What keeps a V3 identity stable is the kit: creation states it once
+(`buildEggTags` + `createBlobbiV3Identity`), every republish goes through
+`updateBlobbiTags` and the transitions through the kit's hatch and evolve
+pipelines, none of which rewrites a V3 tag from the seed, and this app
+builds no kind 31124 tag list of its own. `src/__tests__/v3-identity.test.tsx`
+pushes a deliberately unusual identity through every writing path here
+(adoption, each care action, rest, an item, hatch, evolution, the tag repair,
+a reload between each) and fails if one tag of it moves.
 
 **The first Blobbi hatches by itself** (`src/features/lifecycle/first-blobbi.ts`,
 `useFirstBlobbiHatch.ts`). A newcomer's first egg does not wait for the hatch

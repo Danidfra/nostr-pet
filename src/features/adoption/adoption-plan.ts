@@ -26,7 +26,7 @@
  * renderer's creation rule (`createBlobbiV3Identity`) what the new seed
  * gives, and writes that as the event's own colours (`base_color`,
  * `secondary_color`, `eye_color`, `accent_color`) and trait kinds
- * (`antenna`, `horns`, `ears`, `tail`, `spots`, `belly`, `freckles`), with
+ * (`antenna`, `horns`, `ears`, `tail`, `pattern`, `special_mark`, `belly`, `freckles`), with
  * `visual_algorithm`. From then on the event is authoritative: the egg in
  * the preview, the egg that is published and every later stage of it are
  * one individual, and none of it depends on this module, on React state or

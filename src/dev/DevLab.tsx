@@ -139,7 +139,7 @@ function LabControls({ home, overlay, onOverlay }: { home: DevHome; overlay: boo
         <ExpressionLab home={home} />
       </Section>
       <Section title="V3 population (renderer only)" open={false} testId="dev-lab-v3">
-        <p className="dev-panel__hint">Consecutive seeds as the kit's creation rule makes them: egg, baby and adult of one identity. Not the fixture, not an event.</p>
+        <p className="dev-panel__hint">The kit's twelve reference Blobbis (the ones algorithm 1 is pinned with), or real seeds as the kit's creation rule makes them: egg, baby and adult of one identity. Not the fixture, not an event.</p>
         <V3Sheet cell={46} />
       </Section>
       <Section title="Sound lab" testId="dev-lab-sound">
