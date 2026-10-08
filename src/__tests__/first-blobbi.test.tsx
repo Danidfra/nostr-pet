@@ -16,7 +16,8 @@ import { MemoryRouter } from 'react-router-dom';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import {
   BLOBBI_MIRRORED_COLOR_TAG_NAMES,
-  BLOBBI_V3_ONLY_TAG_NAMES,
+  BLOBBI_V3_ABSENT_TAG_NAMES,
+  BLOBBI_V3_RETIRED_TAG_NAMES,
   BLOBBI_V3_TAG_NAMES,
   KIND_BLOBBI_STATE,
   KIND_BLOBBONAUT_PROFILE,
@@ -191,10 +192,11 @@ describe('A fresh account: the first Blobbi hatches by itself', () => {
     expect(baby.tags).toEqual(finalizeTemplate(plan.event, baby.created_at).tags);
     expect(baby.content).toBe(plan.event.content);
 
-    // The V3 identity is the egg's, tag for tag, value for value, in the same order.
+    // The V3 identity is the egg's: its address (the same d) and the same algorithm; no colour, trait or seed on either.
     expect(tagsNamed(baby, BLOBBI_V3_TAG_NAMES)).toEqual(tagsNamed(egg, BLOBBI_V3_TAG_NAMES));
-    // (Whole: nothing the identity needs is missing. `accent_color` is optional, and there only if the egg had it.)
-    expect(tagsNamed(baby, BLOBBI_V3_TAG_NAMES).length).toBeGreaterThanOrEqual(BLOBBI_V3_TAG_NAMES.length - 1);
+    expect(tagsNamed(baby, BLOBBI_V3_TAG_NAMES)).toHaveLength(BLOBBI_V3_TAG_NAMES.length);
+    expect(tagsNamed(baby, ['d'])).toEqual(tagsNamed(egg, ['d']));
+    expect(tagsNamed(baby, BLOBBI_V3_ABSENT_TAG_NAMES)).toEqual([]);
     for (const name of ['seed', 'name', VISUAL_GENERATION_TAG, 'visual_algorithm']) expect(tagsNamed(baby, [name])).toEqual(tagsNamed(egg, [name]));
     expect(getTagValue(baby.tags, VISUAL_GENERATION_TAG)).toBe('v3');
     expect(getTagValue(baby.tags, 'visual_algorithm')).toBe('1');
@@ -257,7 +259,7 @@ describe('The rule is about the account, not about the generation', () => {
       expect(getTagValue(baby.tags, 'seed')).toBe(getTagValue(egg.tags, 'seed'));
       // Its generation is said the way it always was (V1: not at all), and nothing of V3 is added.
       expect(tagsNamed(baby, [VISUAL_GENERATION_TAG])).toEqual(tagsNamed(egg, [VISUAL_GENERATION_TAG]));
-      expect(tagsNamed(baby, BLOBBI_V3_ONLY_TAG_NAMES)).toEqual([]);
+      expect(tagsNamed(baby, [...BLOBBI_V3_TAG_NAMES, ...BLOBBI_V3_RETIRED_TAG_NAMES])).toEqual([]);
       // Its colour tags are still the seed's mirrors, as on the egg.
       expect(tagsNamed(baby, BLOBBI_MIRRORED_COLOR_TAG_NAMES)).toEqual(tagsNamed(egg, BLOBBI_MIRRORED_COLOR_TAG_NAMES));
       await waitFor(() => expect(drawing()).toHaveAttribute('data-blobbi-stage', 'baby'), HATCH);

@@ -21,17 +21,14 @@
  *                `mergeHasForAdoption`, `current_companion` set.
  *
  * A Blobbi adopted HERE is born V3 (`ADOPTION_VISUAL_GENERATION`): the kit's
- * own creation default is still V2, and V3 is opt-in per application. Its
- * identity is stated at birth, and only then: `buildEggTags` asks the
- * renderer's creation rule (`createBlobbiV3Identity`) what the new seed
- * gives, and writes that as the event's own colours (`base_color`,
- * `secondary_color`, `eye_color`, `accent_color`) and trait kinds
- * (`antenna`, `horns`, `ears`, `tail`, `pattern`, `special_mark`, `belly`, `freckles`), with
- * `visual_algorithm`. From then on the event is authoritative: the egg in
- * the preview, the egg that is published and every later stage of it are
- * one individual, and none of it depends on this module, on React state or
- * on how the generator is tuned afterwards. Existing Blobbis are untouched:
- * nothing here rewrites one.
+ * own creation default is still V2, and V3 is opt-in per application. A V3
+ * Blobbi IS its address: its seed is derived from (owner, d) by the kit,
+ * and its colours, anatomy, pattern, mark, belly and freckles are
+ * Algorithm 1's function of that seed. The egg states none of it, only
+ * `visual_generation` and `visual_algorithm`, so the preview (same owner,
+ * same d) is the published egg and every later stage of it, and no later
+ * event can repaint or reshape it. Existing Blobbis are untouched: nothing
+ * here rewrites one.
  *
  * Nothing here signs or sends; `useAdoptEgg` does, after a fresh ownership
  * check, so a second "first" Blobbi is never minted.
@@ -57,7 +54,6 @@ import {
   type NostrEvent,
 } from '@blobbi-kit/core';
 import { createHatchMissions, type PublishEventTemplate } from '@blobbi-kit/react';
-import { createBlobbiV3Identity } from '@blobbi-kit/renderer';
 
 /**
  * THE CREATION RULE OF THIS APP: which visual generation a Blobbi adopted
@@ -72,9 +68,9 @@ import { createBlobbiV3Identity } from '@blobbi-kit/renderer';
  */
 export const ADOPTION_VISUAL_GENERATION: BlobbiVisualGeneration = 'v3';
 
-/** What `buildEggTags` is asked for: the generation, and for V3 the renderer's creation rule for the new seed. */
+/** What `buildEggTags` is asked for: the generation. A V3 egg needs nothing else; its address is its identity. */
 export function adoptionEggOptions(generation: BlobbiVisualGeneration = ADOPTION_VISUAL_GENERATION): BuildEggTagsOptions {
-  return generation === 'v3' ? { visualGeneration: 'v3', v3: createBlobbiV3Identity } : { visualGeneration: generation };
+  return { visualGeneration: generation };
 }
 
 /** The name the egg carries until the player picks one. */

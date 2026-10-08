@@ -27,7 +27,7 @@ import {
   type NostrEvent,
 } from '@blobbi-kit/core';
 import { planHatchTransition } from '@blobbi-kit/react';
-import { BLOBBI_V3_MOTION_STYLESHEET, createBlobbiV3Identity, renderBlobbiSvg, type BlobbiVisual } from '@blobbi-kit/renderer';
+import { BLOBBI_V3_MOTION_STYLESHEET, createBlobbiV3Identity, normalizeBlobbiV3Visual, renderBlobbiSvg, type BlobbiVisual } from '@blobbi-kit/renderer';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { blobbiEvent } from '@/test/fixtures';
@@ -55,20 +55,18 @@ const bodyBox = () => document.querySelector('[data-blobbi-body-box]') as HTMLEl
 const svgEl = () => document.querySelector('[data-blobbi-body-box] svg') as SVGSVGElement;
 
 describe('a V3 identity reaches the renderer through the one seam', () => {
-  it('toBlobbiVisual carries exactly what the event states: the seed, the algorithm, the colours, the trait kinds', () => {
+  it('toBlobbiVisual carries the seed and the algorithm, and the renderer resolves them to the Blobbi of this address', () => {
     const event = born('v3');
-    // The seed is the address (no tag states it), resolved by the kit before the renderer sees it.
-    expect(getTagValue(event.tags, 'seed')).toBeUndefined();
+    // The seed is the address (no tag states it), resolved by the kit before the renderer sees it; no colour or trait is stated.
+    for (const name of ['seed', 'base_color', 'secondary_color', 'eye_color', 'pattern', 'special_mark', 'antenna', 'horns']) expect(getTagValue(event.tags, name), name).toBeUndefined();
     const seed = parse(event).seed!;
     const visual = toBlobbiVisual(parse(event));
     expect(visual.visualGeneration).toBe('v3');
-    // Exactly the kit's creation rule for this seed: nothing added on the way, nothing lost.
-    expect(visual.v3).toEqual(createBlobbiV3Identity(seed));
-    expect(visual.v3?.algorithm).toBe(1);
-    // The plain colours are the creature's own: the event's colour tags, which on V3 are not the seed's mirrors.
-    expect(visual.baseColor).toBe(visual.v3?.colors?.base);
-    expect(getTagValue(event.tags, 'base_color')).toBe(visual.v3?.colors?.base);
-    expect(getTagValue(event.tags, 'base_color')).not.toBe(deriveSeedIdentity(seed).baseColor);
+    expect(visual.v3).toEqual({ seed, algorithm: 1 });
+    // Exactly Algorithm 1's identity for this seed, as the renderer resolves it.
+    expect(normalizeBlobbiV3Visual(visual.v3)).toEqual(createBlobbiV3Identity(seed));
+    // The plain colour is the seed's in the older generations' mapping, which the V3 drawing does not use.
+    expect(visual.baseColor).toBe(deriveSeedIdentity(seed).baseColor);
   });
 
   it('for V1 and V2 there is no such identity, and what they are handed is what it always was', () => {
@@ -161,31 +159,24 @@ describe('a V3 Blobbi is the same individual after every round trip', () => {
     expect(drawings[0]).toContain('data-blobbi-stage="egg"');
     expect(drawings[1]).toContain('data-blobbi-stage="baby"');
     expect(drawings[2]).toContain('data-blobbi-stage="adult"');
-    // One palette from egg hint to adult: the colours were stated once, at birth, and are still those.
-    expect(identity?.colors).toEqual(createBlobbiV3Identity(parse(egg).seed!).colors);
+    // One palette from egg hint to adult: Algorithm 1's for its address, at every stage.
+    expect(normalizeBlobbiV3Visual(identity)?.colors).toEqual(createBlobbiV3Identity(parse(egg).seed!).colors);
   });
 
-  it('explicit colours and traits are the event\'s to state: changing a tag changes the Blobbi, and a republish keeps the change', () => {
+  it('colours and traits are not the event\'s to state: editing a tag changes nothing, and a republish drops it', () => {
     const event = born('v3', 'adult');
     const original = toBlobbiVisual(parse(event));
-    const edited = withTags(
-      event,
-      event.tags.map((t) => (t[0] === 'base_color' ? ['base_color', '#d9534f'] : t[0] === 'tail' ? ['tail', original.v3?.traits?.tail === 'curl' ? 'leaf' : 'curl'] : t)),
-    );
+    const own = normalizeBlobbiV3Visual(original.v3)!;
+    const edited = withTags(event, [...event.tags, ['base_color', '#d9534f'], ['tail', own.traits.tail === 'curl' ? 'leaf' : 'curl'], ['horns', own.traits.horns === 'side' ? 'none' : 'side']]);
     const visual = toBlobbiVisual(parse(edited));
-    expect(visual.v3?.colors?.base).toBe('#d9534f');
-    expect(visual.v3?.seed).toBe(original.v3?.seed);
-    expect(draw(visual)).not.toBe(draw(original));
-    expect(draw(visual, { facing: 'right' })).toContain('data-part="tail"');
-    // The seed did not change, so the body is the same body in other paint.
-    const shapes = (svg: string) => svg.replace(/#[0-9a-f]{6}/g, '#');
-    const sameTail = withTags(event, event.tags.map((t) => (t[0] === 'base_color' ? ['base_color', '#d9534f'] : t)));
-    expect(shapes(draw(toBlobbiVisual(parse(sameTail))))).toBe(shapes(draw(original)));
-    // A republish through the kit does not put the seed's colours back: on V3 `base_color` is not a mirror.
+    expect(visual).toEqual(original);
+    expect(draw(visual)).toBe(draw(original));
+    expect(draw(visual, { facing: 'right' })).toBe(draw(original, { facing: 'right' }));
+    // A republish through the kit drops what was forged.
     const republished = withTags(edited, updateBlobbiTags(edited.tags, { hunger: '40' }));
-    expect(getTagValue(republished.tags, 'base_color')).toBe('#d9534f');
-    expect(toBlobbiVisual(parse(reload(republished))).v3).toEqual(visual.v3);
-    // The same edit on a V2 Blobbi does not survive: there the tag IS a mirror, as it always was.
+    for (const name of ['base_color', 'tail', 'horns']) expect(getTagValue(republished.tags, name), name).toBeUndefined();
+    expect(toBlobbiVisual(parse(reload(republished))).v3).toEqual(original.v3);
+    // On a V2 Blobbi the colour tag is still a mirror of its stated seed, as it always was.
     const v2 = born('v2', 'adult');
     const v2Edited = updateBlobbiTags(v2.tags.map((t) => (t[0] === 'base_color' ? ['base_color', '#d9534f'] : t)), { hunger: '40' });
     expect(getTagValue(v2Edited, 'base_color')).toBe(getTagValue(v2.tags, 'base_color'));
@@ -207,19 +198,15 @@ describe('a V3 Blobbi is the same individual after every round trip', () => {
     expect(rendererEl()).toHaveAttribute('data-blobbi-unsupported-algorithm', '2');
   });
 
-  it('an incomplete identity still draws, deterministically, and says what was missing', () => {
+  it('a V3 event has no gaps to fill: only a missing algorithm version is reported, and the Blobbi is still its address', () => {
     const event = born('v3', 'adult');
-    const partial = withTags(event, event.tags.filter((t) => t[0] !== 'eye_color' && t[0] !== 'horns'));
-    const companion = parse(partial);
-    expect(companion.v3Identity?.missing.sort()).toEqual(['eye_color', 'horns']);
-    // A republish does not write the inferred values into the event.
-    const again = updateBlobbiTags(partial.tags, { hunger: '40' });
-    expect(getTagValue(again, 'eye_color')).toBeUndefined();
-    expect(getTagValue(again, 'horns')).toBeUndefined();
-    const visual = toBlobbiVisual(companion);
-    expect(draw(visual)).toBe(draw(toBlobbiVisual(parse(reload(partial)))));
-    // The gaps are filled from the seed under the frozen algorithm: here that is what creation stated anyway.
-    expect(draw(visual)).toBe(draw(toBlobbiVisual(parse(event))));
+    const noVersion = withTags(event, event.tags.filter((t) => t[0] !== 'visual_algorithm'));
+    const companion = parse(noVersion);
+    expect(companion.v3Identity?.missing).toEqual(['visual_algorithm']);
+    // A republish does not invent the version.
+    expect(getTagValue(updateBlobbiTags(noVersion.tags, { hunger: '40' }), 'visual_algorithm')).toBeUndefined();
+    // An absent version reads as version 1, the first: the same drawing.
+    expect(draw(toBlobbiVisual(companion))).toBe(draw(toBlobbiVisual(parse(event))));
   });
 });
 

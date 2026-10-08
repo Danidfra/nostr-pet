@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  BLOBBI_V3_ABSENT_TAG_NAMES,
   KIND_BLOBBI_STATE,
   KIND_BLOBBONAUT_PROFILE,
   NEW_BLOBBI_VISUAL_GENERATION,
@@ -24,7 +25,7 @@ import {
 } from '@blobbi-kit/core';
 import { HATCH_MISSIONS } from '@blobbi-kit/react';
 import { PUBKEY, profileEvent } from '@/test/fixtures';
-import { createBlobbiV3Identity, renderBlobbiSvg } from '@blobbi-kit/renderer';
+import { createBlobbiV3Identity, normalizeBlobbiV3Visual, renderBlobbiSvg } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { ADOPTION_VISUAL_GENERATION, DEFAULT_EGG_NAME, adoptionEggOptions, eggTemplate, isOwnedBlobbiEvent, newEggPreview, normalizeBlobbiName, previewCompanion, profileTemplate, renamePreview } from './adoption-plan';
 
@@ -66,37 +67,25 @@ describe('newEggPreview / eggTemplate', () => {
     expect(companion.evolution.map((m) => m.id).sort()).toEqual(HATCH_MISSIONS.map((m) => m.id).sort());
   });
 
-  it('states the whole V3 identity at birth, from the kit\'s creation rule for the new seed, with nothing missing', () => {
+  it('states no intrinsic identity at birth: only the generation and the algorithm; the address decides the rest', () => {
     const preview = newEggPreview(PUBKEY, 'Pip', NOW);
     const template = eggTemplate(preview);
     const companion = parseModernBlobbiEvent({ ...template, id: 'e'.repeat(64), pubkey: PUBKEY, sig: '0'.repeat(128) })!;
-    // Exactly what the renderer's creation rule gives this seed: nothing invented here, nothing dropped.
-    const { missing, ...identity } = companion.v3Identity!;
-    expect(missing).toEqual([]);
-    expect(identity).toEqual(createBlobbiV3Identity(preview.seed));
-    expect(identity.algorithm).toBe(1);
-    for (const colour of [identity.colors.base, identity.colors.secondary, identity.colors.eye]) expect(colour).toMatch(/^#[0-9a-f]{6}$/);
-    // The explicit identity is on the event itself, in plain, generation-independent tags.
-    expect(getTagValue(template.tags, 'base_color')).toBe(identity.colors.base);
-    expect(getTagValue(template.tags, 'secondary_color')).toBe(identity.colors.secondary);
-    expect(getTagValue(template.tags, 'eye_color')).toBe(identity.colors.eye);
-    expect(getTagValue(template.tags, 'accent_color')).toBe(identity.colors.accent);
+    expect(companion.v3Identity).toEqual({ seed: preview.seed, algorithm: 1, missing: [] });
+    expect(getTagValue(template.tags, VISUAL_GENERATION_TAG)).toBe('v3');
     expect(getTagValue(template.tags, 'visual_algorithm')).toBe('1');
-    for (const trait of ['antenna', 'horns', 'ears', 'tail'] as const) expect(getTagValue(template.tags, trait), trait).toBe(identity.traits[trait]);
-    for (const mark of ['belly', 'freckles'] as const) expect(getTagValue(template.tags, mark), mark).toBe(String(identity.traits[mark]));
-    // Its surface: ONE pattern and a special mark, stated; no `spots`, and none of the older generations' `size`.
-    expect(getTagValue(template.tags, 'pattern')).toBe(identity.traits.pattern);
-    expect(getTagValue(template.tags, 'special_mark')).toBe(identity.traits.specialMark);
-    expect(template.tags.filter((t) => t[0] === 'pattern' || t[0] === 'special_mark')).toHaveLength(2);
-    for (const gone of ['spots', 'size', 'adult_type']) expect(getTagValue(template.tags, gone), gone).toBeUndefined();
+    for (const gone of [...BLOBBI_V3_ABSENT_TAG_NAMES, 'spots']) expect(getTagValue(template.tags, gone), gone).toBeUndefined();
     expect(template.tags.some((t) => t[0].startsWith('v3_'))).toBe(false);
-    // On V3 the colour tags are the Blobbi's own, not the seed's mirrors (which is what a V2 egg of the same seed carries).
+    // Who it is: what Algorithm 1 gives its address, as the renderer resolves the app's visual.
+    const visual = toBlobbiVisual(companion);
+    expect(visual.v3).toEqual({ seed: preview.seed, algorithm: 1 });
+    const identity = normalizeBlobbiV3Visual(visual.v3)!;
+    expect(identity).toEqual(createBlobbiV3Identity(preview.seed));
+    for (const colour of [identity.colors.base, identity.colors.secondary, identity.colors.eye]) expect(colour).toMatch(/^#[0-9a-f]{6}$/);
+    // A V2 egg at the same address still states its V1/V2 seed and mirrors.
     const v2 = buildEggTags(PUBKEY, preview.petId, NOW, 'Pip', { visualGeneration: 'v2' });
     expect(getTagValue(v2, 'seed')).toBe(deriveBlobbiSeedV1(PUBKEY, preview.d, NOW));
     expect(getTagValue(v2, 'seed')).not.toBe(preview.seed);
-    expect(getTagValue(template.tags, 'base_color')).not.toBe(getTagValue(v2, 'base_color'));
-    // The incubation update eggTemplate applies on top did not put the mirrors back.
-    expect(companion.visualTraits.baseColor).toBe(identity.colors.base);
   });
 
   it('the preview IS the egg: what the player sees before adopting is drawn from the event that is published', () => {

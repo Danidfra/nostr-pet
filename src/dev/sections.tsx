@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getStatStatus, type BlobbiCompanion, type BlobbiProgressionState, type BlobbiStage, type BlobbiStats } from '@blobbi-kit/core';
-import { BLOBBI_EMOTIONS, type BlobbiEmotion } from '@blobbi-kit/renderer';
+import { BLOBBI_EMOTIONS, createBlobbiV3Identity, type BlobbiEmotion } from '@blobbi-kit/renderer';
 import { useEnvironment } from '@/environment';
 import type { Lifecycle } from '@/features/lifecycle';
 import type { Facing } from '@/features/home/scene';
@@ -395,6 +395,7 @@ export function WorldSection({ controller, blobbi }: { controller: FixtureContro
 export function InspectorSection({ blobbi }: { blobbi: BlobbiCompanion }) {
   const [raw, setRaw] = useState(false);
   const v3 = blobbi.v3Identity;
+  const v3Own = v3?.seed ? createBlobbiV3Identity(v3.seed) : null;
   const rows: Array<[string, string]> = [
     ['d', blobbi.d],
     ['name', blobbi.name],
@@ -409,12 +410,17 @@ export function InspectorSection({ blobbi }: { blobbi: BlobbiCompanion }) {
     ['progression', `${blobbi.progressionState}${blobbi.progressionStartedAt ? ` since ${blobbi.progressionStartedAt}` : ''}`],
     ['missions', blobbi.evolution.length ? blobbi.evolution.map((m) => `${m.id} ${'count' in m ? m.count : m.events.length}/${m.target}`).join(' · ') : '(none)'],
     ['traits', `${blobbi.visualTraits.baseColor} ${blobbi.visualTraits.secondaryColor} ${blobbi.visualTraits.eyeColor} · ${blobbi.visualTraits.pattern} · ${blobbi.visualTraits.specialMark} · ${blobbi.visualTraits.size}`],
-    // The V3 identity exactly as the event states it. (On V3 the colours in the row above are these too: explicit, not mirrors.)
+    // A V3 Blobbi's identity is its address: the seed above, through Algorithm 1. (The traits row above is the
+    // seed in the older generations' mapping, not its colours.) Nothing here is read from a colour or trait tag.
     ...(v3
       ? ([
-          ['v3 colours', `${v3.colors.base ?? '?'} ${v3.colors.secondary ?? '?'} ${v3.colors.eye ?? '?'} · accent ${v3.colors.accent ?? 'none'}`],
-          ['v3 traits', `antenna ${v3.traits.antenna ?? '?'} · horns ${v3.traits.horns ?? '?'} · ears ${v3.traits.ears ?? '?'} · tail ${v3.traits.tail ?? '?'}`],
-          ['v3 surface', `pattern ${v3.traits.pattern ?? '?'} · mark ${v3.traits.specialMark ?? '?'} · belly ${v3.traits.belly ?? '?'} · freckles ${v3.traits.freckles ?? '?'}`],
+          ...(v3Own
+            ? ([
+                ['v3 colours', `${v3Own.colors.base} ${v3Own.colors.secondary} ${v3Own.colors.eye} · accent ${v3Own.colors.accent ?? 'none'}`],
+                ['v3 traits', `antenna ${v3Own.traits.antenna} · horns ${v3Own.traits.horns} · ears ${v3Own.traits.ears} · tail ${v3Own.traits.tail}`],
+                ['v3 surface', `pattern ${v3Own.traits.pattern} · mark ${v3Own.traits.specialMark} · belly ${v3Own.traits.belly} · freckles ${v3Own.traits.freckles}`],
+              ] as Array<[string, string]>)
+            : []),
           ['v3 algorithm', `${v3.algorithm ?? 'not stated'}${v3.missing.length ? ` · MISSING ${v3.missing.join(', ')}` : ' · identity complete'}`],
         ] as Array<[string, string]>)
       : []),

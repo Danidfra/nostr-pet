@@ -9,7 +9,6 @@
  * writes it.
  */
 import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, BLOBBI_ECOSYSTEM_NAMESPACE, buildEggTags, getCanonicalBlobbonautD, type BlobbiVisualGeneration, type NostrEvent } from '@blobbi-kit/core';
-import { createBlobbiV3Identity } from '@blobbi-kit/renderer';
 
 export const PUBKEY = 'a'.repeat(64);
 export const CREATED_AT = 1_757_000_000;
@@ -32,7 +31,7 @@ export interface BlobbiFixtureOptions {
 export function blobbiEvent(petId: string, options: BlobbiFixtureOptions = {}): NostrEvent {
   const { stage = 'baby', state = 'active', name = 'Pet', createdAt = CREATED_AT, extra = [], without = [], set = {}, visualGeneration = 'v1' } = options;
   const overrides: Record<string, string> = { stage, state, ...set };
-  const tags = buildEggTags(PUBKEY, petId, createdAt, name, visualGeneration === 'v3' ? { visualGeneration, v3: createBlobbiV3Identity } : { visualGeneration })
+  const tags = buildEggTags(PUBKEY, petId, createdAt, name, { visualGeneration })
     .filter(([n]) => !without.includes(n))
     .map((t) => (t[0] in overrides ? [t[0], overrides[t[0]]] : t));
   return {

@@ -1,20 +1,15 @@
 /**
- * A V3 BLOBBI'S IDENTITY IS DECIDED ONCE AND NEVER MOVES.
+ * A V3 BLOBBI IS ITS ADDRESS, AND NOTHING ELSE CAN SAY WHO IT IS.
  *
- * The contract (blobbi-kit, `visual_algorithm = 1`): at creation the seed
- * decides the explicit identity (four colours, the kind of each trait); the
- * event states it; from then on every update PRESERVES what the event
- * states and derives nothing from the seed again. The seed stays for the
- * micro-geometry, under the frozen algorithm. It is never a tag: it is the
- * Blobbi's address (author, d), hashed by the kit, so no update can move it.
- *
- * The Blobbi here is deliberately NOT what its seed would have chosen (dark
- * navy with a yellow pattern, every trait on, a moon on its skin), so that
- * any path that quietly regenerates a field from the seed, or from a
- * default, shows up as a changed tag. Every production path this app has
- * that writes a kind 31124 is pushed through: adoption, each care action,
- * rest, an item, hatch, evolution, the tag repair every transition runs,
- * and a reload between each.
+ * The contract (blobbi-kit, `visual_algorithm = 1`): the kit derives the
+ * seed from (owner, d), and Algorithm 1 derives everything the Blobbi is
+ * from that seed: its colours, anatomy, pattern, mark, belly, freckles and
+ * every proportion. The event states only `visual_generation` and
+ * `visual_algorithm`. Every production path this app has that writes a kind
+ * 31124 is pushed through (adoption, each care action, rest, an item, hatch,
+ * evolution, the tag repair every transition runs, a reload between each),
+ * and every intrinsic tag a replacement event might forge is tried: the
+ * resolved Blobbi and its picture never move.
  */
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
@@ -28,24 +23,22 @@ import {
   canonicalBlobbiV3Seed,
   deriveBlobbiSeedV1,
   deriveBlobbiV3Seed,
-  deriveSeedIdentity,
   getCanonicalBlobbiD,
   getTagValue,
   parseBlobbiV3Identity,
   parseModernBlobbiEvent,
   updateBlobbiTags,
   type BlobbiCompanion,
-  type BlobbiV3Identity,
   type NostrEvent,
 } from '@blobbi-kit/core';
 import { validateAndRepairBlobbiTags } from '@blobbi-kit/core/blobbi-tag-schema';
 import { parseGameItemDefinition } from '@nostr-games/inventory';
 import { planHatchTransition } from '@blobbi-kit/react';
-import { createBlobbiV3Identity, renderBlobbiSvg, resolveBlobbiV3Visual } from '@blobbi-kit/renderer';
+import { createBlobbiV3Identity, normalizeBlobbiV3Visual, renderBlobbiSvg, resolveBlobbiV3Visual } from '@blobbi-kit/renderer';
 import { CREATED_AT, PUBKEY } from '@/test/fixtures';
 import { OFFICIAL_APPLE, OFFICIAL_SOAP, officialCareDefinition } from '@/test/inventory-fixtures';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
-import { eggTemplate, newEggPreview } from '@/features/adoption/adoption-plan';
+import { adoptionEggOptions, eggTemplate, newEggPreview, previewCompanion } from '@/features/adoption/adoption-plan';
 import { planCareAction } from '@/features/care/care-plan';
 import { resolveHomeItem } from '@/features/inventory/item-model';
 import { planItemUse } from '@/features/inventory/item-use-plan';
@@ -57,16 +50,11 @@ const PET_ID = '00000000a7';
 const D = getCanonicalBlobbiD(PUBKEY, PET_ID);
 /** The Blobbi's seed: its address, hashed. */
 const SEED = deriveBlobbiV3Seed(PUBKEY, D);
+/** Who this Blobbi is: Algorithm 1's function of its address. Nothing on the event states any of it. */
+const OWN = createBlobbiV3Identity(SEED);
 
-/** Not what the seed would choose: every field differs from creation's answer, or is set where creation left it off. */
-const UNUSUAL: BlobbiV3Identity = {
-  seed: SEED,
-  algorithm: 1,
-  colors: { base: '#2b3a67', secondary: '#ffd23f', eye: '#e85d75', accent: '#7ad3f4' },
-  traits: { antenna: 'double', horns: 'side', ears: 'pointed', tail: 'leaf', pattern: 'striped', specialMark: 'moon', belly: true, freckles: true },
-};
-
-const IDENTITY_TAGS = [VISUAL_GENERATION_TAG, 'seed', ...BLOBBI_V3_TAG_NAMES];
+/** The only identity tags a V3 event carries. */
+const IDENTITY_TAGS = [VISUAL_GENERATION_TAG, ...BLOBBI_V3_TAG_NAMES];
 const identityTagsOf = (tags: readonly string[][]) => tags.filter((t) => IDENTITY_TAGS.includes(t[0]));
 const reload = (event: NostrEvent): NostrEvent => JSON.parse(JSON.stringify(event));
 const parse = (event: NostrEvent): BlobbiCompanion => {
@@ -75,20 +63,41 @@ const parse = (event: NostrEvent): BlobbiCompanion => {
   return companion;
 };
 const eventWith = (tags: string[][], at: number, content = ''): NostrEvent => ({ id: 'e'.repeat(64), pubkey: PUBKEY, created_at: at, kind: KIND_BLOBBI_STATE, tags, content, sig: '0'.repeat(128) });
+/** What the renderer resolves the app's visual to: the Blobbi as drawn. */
+const resolvedOf = (event: NostrEvent) => normalizeBlobbiV3Visual(toBlobbiVisual(parse(reload(event))).v3);
 
-/** The egg as adoption would publish it, had creation given this seed the unusual identity. */
-function bornUnusual(): NostrEvent {
-  const tags = buildEggTags(PUBKEY, PET_ID, CREATED_AT, 'Umber', { visualGeneration: 'v3', v3: (seed) => ({ ...UNUSUAL, seed }) });
+/** The egg as adoption publishes it at this address. */
+function born(): NostrEvent {
+  const tags = buildEggTags(PUBKEY, PET_ID, CREATED_AT, 'Umber', adoptionEggOptions());
   return eventWith(updateBlobbiTags(tags, { progression_state: 'incubating', progression_started_at: String(CREATED_AT) }), CREATED_AT);
 }
 
-/** Everything that must still be true of an event carrying the unusual Blobbi. */
-function expectUnchanged(event: NostrEvent, label: string) {
+/** Every intrinsic tag a replacement event might try to restate, each with a value this Blobbi does not have. */
+const FORGERIES: string[][] = [
+  ['seed', 'f'.repeat(64)],
+  ['base_color', '#000000'],
+  ['secondary_color', '#ffffff'],
+  ['eye_color', '#ff0000'],
+  ['accent_color', '#00ff00'],
+  ['antenna', OWN.traits.antenna === 'double' ? 'none' : 'double'],
+  ['horns', OWN.traits.horns === 'side' ? 'none' : 'side'],
+  ['ears', OWN.traits.ears === 'pointed' ? 'none' : 'pointed'],
+  ['tail', OWN.traits.tail === 'leaf' ? 'none' : 'leaf'],
+  ['pattern', OWN.traits.pattern === 'striped' ? 'solid' : 'striped'],
+  ['special_mark', OWN.traits.specialMark === 'moon' ? 'none' : 'moon'],
+  ['belly', String(!OWN.traits.belly)],
+  ['freckles', String(!OWN.traits.freckles)],
+];
+
+/** Everything that must still be true of an event at this address. */
+function expectSameBlobbi(event: NostrEvent, label: string) {
   const companion = parse(reload(event));
   expect(companion.visualGeneration, label).toBe('v3');
-  expect(companion.v3Identity, label).toEqual({ ...UNUSUAL, missing: [] });
-  expect(toBlobbiVisual(companion).v3, label).toEqual(UNUSUAL);
-  expect(identityTagsOf(event.tags), label).toEqual(identityTagsOf(bornUnusual().tags));
+  expect(companion.seed, label).toBe(SEED);
+  expect(companion.v3Identity, label).toEqual({ seed: SEED, algorithm: 1, missing: [] });
+  expect(toBlobbiVisual(companion).v3, label).toEqual({ seed: SEED, algorithm: 1 });
+  expect(resolvedOf(event), label).toEqual(OWN);
+  expect(identityTagsOf(event.tags), label).toEqual([[VISUAL_GENERATION_TAG, 'v3'], [VISUAL_ALGORITHM_TAG, '1']]);
   for (const name of BLOBBI_V3_ABSENT_TAG_NAMES) expect(getTagValue(event.tags, name), `${label} ${name}`).toBeUndefined();
   expect(getTagValue(event.tags, 'spots'), label).toBeUndefined();
   // The genealogical generation is not the visual one, and is untouched by any of this.
@@ -96,59 +105,58 @@ function expectUnchanged(event: NostrEvent, label: string) {
   expect(companion.generation, label).toBe(1);
 }
 
-describe('creation: the seed decides once, the event states it', () => {
-  it('the real adoption path: a canonical seed, algorithm 1, exactly the V3 contract, and nothing V3 does not have', () => {
+describe('creation: the address is the Blobbi; the event states only the version', () => {
+  it('the real adoption path: the address seed, algorithm 1, and no colour, trait or seed tag', () => {
     const preview = newEggPreview(PUBKEY, 'Sprout', CREATED_AT);
     const { tags } = eggTemplate(preview);
-    // No seed tag: the seed is the address, and the preview already knew it.
     expect(getTagValue(tags, 'seed')).toBeUndefined();
     const seed = parse(eventWith(tags, CREATED_AT)).seed!;
     expect(seed).toBe(preview.seed);
     expect(seed).toBe(deriveBlobbiV3Seed(PUBKEY, preview.d));
     expect(seed).not.toBe(deriveBlobbiSeedV1(PUBKEY, preview.d, CREATED_AT));
     expect(canonicalBlobbiV3Seed(seed)).toBe(seed);
-    expect(seed).toMatch(/^[0-9a-f]{64}$/);
-    expect(getTagValue(tags, VISUAL_GENERATION_TAG)).toBe('v3');
-    expect(getTagValue(tags, VISUAL_ALGORITHM_TAG)).toBe('1');
-    // Exactly what the kit's creation rule gives this seed: the four colours and the kind of each trait.
-    const own = createBlobbiV3Identity(seed);
-    const parsed = parseBlobbiV3Identity(eventWith(tags, CREATED_AT));
-    expect(parsed).toEqual({ ...own, missing: [] });
-    expect(parsed.seed).toBe(seed);
-    expect(parsed.algorithm).toBe(1);
-    const written = tags.filter((t) => BLOBBI_V3_TAG_NAMES.includes(t[0])).map((t) => t[0]);
-    const expected = BLOBBI_V3_TAG_NAMES.filter((name) => name !== 'accent_color' || own.colors.accent !== undefined);
-    expect([...written].sort()).toEqual([...expected].sort());
-    expect(new Set(written).size).toBe(written.length);
-    // The three colour tags are the identity's, not the seed's old mirrors.
-    expect(getTagValue(tags, 'base_color')).toBe(own.colors.base);
-    expect(getTagValue(tags, 'base_color')).not.toBe(deriveSeedIdentity(seed).baseColor);
-    // Nothing a V3 Blobbi does not have.
-    for (const name of ['spots', 'size', 'adult_type']) expect(getTagValue(tags, name), name).toBeUndefined();
+    expect(identityTagsOf(tags)).toEqual([[VISUAL_GENERATION_TAG, 'v3'], [VISUAL_ALGORITHM_TAG, '1']]);
+    for (const name of [...BLOBBI_V3_ABSENT_TAG_NAMES, 'spots']) expect(getTagValue(tags, name), name).toBeUndefined();
+    expect(parseBlobbiV3Identity(eventWith(tags, CREATED_AT))).toEqual({ seed, algorithm: 1, missing: [] });
+    // Who it is: exactly what Algorithm 1 gives its address, as the renderer resolves it from the app's visual.
+    expect(resolvedOf(eventWith(tags, CREATED_AT))).toEqual(createBlobbiV3Identity(seed));
+    // The preview is the published egg: the same parse, the same drawing.
+    const preview_ = previewCompanion(preview)!;
+    expect(toBlobbiVisual(preview_)).toEqual(toBlobbiVisual(parse(eventWith(tags, CREATED_AT))));
     // The rest of the protocol is there as for any new egg.
     for (const name of ['d', 'name', 'stage', 'state', 'generation', 'hunger', 'happiness', 'health', 'hygiene', 'energy', 'experience', 'progression_state']) expect(getTagValue(tags, name), name).toBeDefined();
     expect(getTagValue(tags, 'stage')).toBe('egg');
     expect(getTagValue(tags, 'generation')).toBe('1');
   });
 
-  it('a seed in another letter case is the same Blobbi, and a value that is not a seed is refused at birth', () => {
-    const upper = SEED.toUpperCase();
-    const born = buildEggTags(PUBKEY, PET_ID, CREATED_AT, 'Umber', { visualGeneration: 'v3', v3: { ...UNUSUAL, seed: upper } });
-    expect(getTagValue(born, 'seed')).toBeUndefined();
-    expect(parseBlobbiV3Identity(eventWith(born, CREATED_AT))).toEqual({ ...UNUSUAL, missing: [] });
-    expect(() => createBlobbiV3Identity('a text seed')).toThrow(TypeError);
-    expect(() => buildEggTags(PUBKEY, PET_ID, CREATED_AT, 'Umber', { visualGeneration: 'v3', v3: { ...UNUSUAL, seed: 'a text seed' } })).toThrow(/Invalid V3 identity/);
-  });
-
-  it('the unusual Blobbi really is unusual: creation would have chosen otherwise', () => {
-    const own = createBlobbiV3Identity(SEED);
-    expect(UNUSUAL.colors).not.toEqual(own.colors);
-    expect(UNUSUAL.traits).not.toEqual(own.traits);
-    expectUnchanged(bornUnusual(), 'born');
+  it('this Blobbi is Algorithm 1\'s for its address', () => {
+    expectSameBlobbi(born(), 'born');
   });
 });
 
-describe('every update preserves the identity the event states', () => {
+describe('a replacement event cannot restate who it is', () => {
+  it.each(FORGERIES.map((f) => [f[0], f[1]] as const))('%s = %s, inserted at any stage, changes neither the resolved Blobbi nor its picture', (name, value) => {
+    let event = born();
+    for (const stage of ['egg', 'baby', 'adult'] as const) {
+      if (stage === 'baby') event = eventWith(updateBlobbiTags(event.tags, { stage: 'baby', progression_state: 'none' }), CREATED_AT + 3600);
+      if (stage === 'adult') event = eventWith(updateBlobbiTags(event.tags, { stage: 'adult', progression_state: 'none' }), CREATED_AT + 7200);
+      const forged = eventWith([...event.tags, [name, value]], event.created_at + 1);
+      expect(resolvedOf(forged), stage).toEqual(OWN);
+      expect(renderBlobbiSvg({ ...toBlobbiVisual(parse(forged)), instanceId: 'f' }).svg, stage).toBe(renderBlobbiSvg({ ...toBlobbiVisual(parse(event)), instanceId: 'f' }).svg);
+      // And the next write through the app drops it.
+      const cared = planCareAction(parse(forged), 'clean', forged.created_at + 60);
+      expect(getTagValue(cared.event.tags, name), stage).toBeUndefined();
+    }
+  });
+
+  it('all of them at once, too', () => {
+    const forged = eventWith([...born().tags, ...FORGERIES], CREATED_AT + 1);
+    expect(resolvedOf(forged)).toEqual(OWN);
+    expectSameBlobbi(eventWith(planCareAction(parse(forged), 'clean', CREATED_AT + 60).event.tags, CREATED_AT + 60), 'after a care write');
+  });
+});
+
+describe('every update keeps the same Blobbi', () => {
   const apple = resolveHomeItem(OFFICIAL_APPLE, parseGameItemDefinition(officialCareDefinition('blobbi:food:apple', 'Apple', 'food', 'feed', { hunger: 25, hygiene: -2, energy: 5 }), { mode: 'permissive' }));
   const soap = resolveHomeItem(OFFICIAL_SOAP, parseGameItemDefinition(officialCareDefinition('blobbi:hygiene:soap', 'Soap', 'hygiene', 'clean', { hygiene: 25 }, { stages: ['egg', 'baby', 'adult'] }), { mode: 'permissive' }));
 
@@ -168,7 +176,7 @@ describe('every update preserves the identity the event states', () => {
   };
 
   it('care: feeding, playing, cleaning, resting and waking, each on a baby and on an adult, through the app\'s own plans', () => {
-    const baby = hatch(bornUnusual(), CREATED_AT + 3600);
+    const baby = hatch(born(), CREATED_AT + 3600);
     const adult = evolve(baby, CREATED_AT + 7200);
     for (const [label, start] of [['baby', baby], ['adult', adult]] as const) {
       let event = start;
@@ -176,7 +184,7 @@ describe('every update preserves the identity the event states', () => {
       for (const action of ['feed', 'play', 'clean', 'rest', 'rest', 'feed'] as const) {
         const plan = planCareAction(parse(reload(event)), action, now);
         event = eventWith(plan.event.tags, now, plan.event.content);
-        expectUnchanged(event, `${label} ${action}`);
+        expectSameBlobbi(event, `${label} ${action}`);
         now += 600;
       }
       expect(parse(event).stage).toBe(label);
@@ -184,49 +192,49 @@ describe('every update preserves the identity the event states', () => {
   });
 
   it('an egg can be cleaned: the care republish of an incubating egg keeps its identity', () => {
-    const egg = bornUnusual();
+    const egg = born();
     const plan = planCareAction(parse(egg), 'clean', CREATED_AT + 60);
-    expectUnchanged(eventWith(plan.event.tags, CREATED_AT + 60, plan.event.content), 'egg clean');
+    expectSameBlobbi(eventWith(plan.event.tags, CREATED_AT + 60, plan.event.content), 'egg clean');
   });
 
   it('an item used on it', () => {
-    const baby = hatch(bornUnusual(), CREATED_AT + 3600);
+    const baby = hatch(born(), CREATED_AT + 3600);
     let event = baby;
     for (const [item, at] of [[apple, CREATED_AT + 4000], [soap, CREATED_AT + 4600]] as const) {
       const plan = planItemUse(parse(reload(event)), item, 's'.repeat(64), at);
       event = eventWith(plan.event.tags, at, plan.event.content);
-      expectUnchanged(event, `item ${item.name}`);
+      expectSameBlobbi(event, `item ${item.name}`);
     }
   });
 
   it('hatch: the same individual, now a baby', () => {
-    const egg = bornUnusual();
+    const egg = born();
     const baby = hatch(egg, CREATED_AT + 3600);
     expect(parse(baby).stage).toBe('baby');
-    expectUnchanged(baby, 'hatched');
+    expectSameBlobbi(baby, 'hatched');
     expect(getTagValue(baby.tags, 'd')).toBe(getTagValue(egg.tags, 'd'));
   });
 
   it('evolution: the same individual, now an adult, with no adult form taken from the seed', () => {
-    const adult = evolve(hatch(bornUnusual(), CREATED_AT + 3600), CREATED_AT + 7200);
+    const adult = evolve(hatch(born(), CREATED_AT + 3600), CREATED_AT + 7200);
     expect(parse(adult).stage).toBe('adult');
-    expectUnchanged(adult, 'evolved');
+    expectSameBlobbi(adult, 'evolved');
     expect(parse(adult).adultType).toBeUndefined();
   });
 
   it('a generic republish, and the tag repair every transition runs, with and without a previous event', () => {
-    const adult = evolve(hatch(bornUnusual(), CREATED_AT + 3600), CREATED_AT + 7200);
-    expectUnchanged(eventWith(updateBlobbiTags(adult.tags, { happiness: '12', last_interaction: String(CREATED_AT + 8000) }), CREATED_AT + 8000), 'republish');
-    expectUnchanged(eventWith(validateAndRepairBlobbiTags(adult.tags, adult.tags).tags, CREATED_AT + 8000), 'repair with previous');
-    expectUnchanged(eventWith(validateAndRepairBlobbiTags(adult.tags).tags, CREATED_AT + 8000), 'repair alone');
+    const adult = evolve(hatch(born(), CREATED_AT + 3600), CREATED_AT + 7200);
+    expectSameBlobbi(eventWith(updateBlobbiTags(adult.tags, { happiness: '12', last_interaction: String(CREATED_AT + 8000) }), CREATED_AT + 8000), 'republish');
+    expectSameBlobbi(eventWith(validateAndRepairBlobbiTags(adult.tags, adult.tags).tags, CREATED_AT + 8000), 'repair with previous');
+    expectSameBlobbi(eventWith(validateAndRepairBlobbiTags(adult.tags).tags, CREATED_AT + 8000), 'repair alone');
     // Nor does a repair put back what V3 does not have, even when an older event carried it.
     const legacy = [...adult.tags, ['size', 'large'], ['adult_type', 'bloomi'], ['spots', 'true']];
     const repaired = validateAndRepairBlobbiTags(adult.tags, legacy).tags;
-    expectUnchanged(eventWith(repaired, CREATED_AT + 8000), 'repair against a legacy previous');
+    expectSameBlobbi(eventWith(repaired, CREATED_AT + 8000), 'repair against a legacy previous');
   });
 
   it('through the whole life: egg, baby, adult, and twenty updates later, one picture per stage', () => {
-    let event = bornUnusual();
+    let event = born();
     const eggDrawing = renderBlobbiSvg({ ...toBlobbiVisual(parse(event)), instanceId: 'life' }).svg;
     event = hatch(event, CREATED_AT + 3600);
     const babyDrawing = renderBlobbiSvg({ ...toBlobbiVisual(parse(event)), instanceId: 'life' }).svg;
@@ -238,7 +246,7 @@ describe('every update preserves the identity the event states', () => {
       event = eventWith(plan.event.tags, now, plan.event.content);
       now += 900;
     }
-    expectUnchanged(event, 'after twenty updates');
+    expectSameBlobbi(event, 'after twenty updates');
     expect(renderBlobbiSvg({ ...toBlobbiVisual(parse(event)), instanceId: 'life' }).svg).toBe(adultDrawing);
     expect(new Set([eggDrawing, babyDrawing, adultDrawing]).size).toBe(3);
     for (const drawing of [eggDrawing, babyDrawing, adultDrawing]) expect(drawing).toContain('data-blobbi-generation="v3"');
@@ -248,18 +256,16 @@ describe('every update preserves the identity the event states', () => {
 describe('rendering is the kit\'s', () => {
   const standing: BlobbiPresentation = { position: { x: 0.5, y: 0.7 }, facing: 'front', motion: 'idle', eyeOffset: undefined, expression: 'neutral', isSleeping: false, gesture: null };
 
-  it('the home\'s actor draws the unusual Blobbi with the kit renderer, as the identity states it', () => {
-    const adult = eventWith(updateBlobbiTags(bornUnusual().tags, { stage: 'adult', progression_state: 'none' }), CREATED_AT + 7200);
+  it('the home\'s actor draws the Blobbi of this address with the kit renderer', () => {
+    const adult = eventWith(updateBlobbiTags(born().tags, { stage: 'adult', progression_state: 'none' }), CREATED_AT + 7200);
     render(<BlobbiActor blobbi={parse(adult)} presentation={standing} />);
     const svg = document.querySelector('[data-blobbi-body-box] svg')!;
     expect(svg.getAttribute('data-blobbi-generation')).toBe('v3');
     expect(svg.getAttribute('data-blobbi-stage')).toBe('adult');
-    // Its own paint and its own traits, straight from the event: the stated pattern colour, the moon, the antennae, the leaf tail from behind.
+    // Its own paint and pattern: Algorithm 1's for its address.
     const markup = svg.outerHTML;
-    expect(markup).toContain(UNUSUAL.colors.secondary);
-    expect(markup).toContain('data-mark="moon"');
-    expect(markup).toContain('data-part="antenna"');
-    expect(markup).toContain('data-pattern="striped"');
+    expect(markup).toContain(`data-pattern="${OWN.traits.pattern}"`);
+    if (OWN.traits.specialMark !== 'none') expect(markup).toContain(`data-mark="${OWN.traits.specialMark}"`);
     // The picture is the kit's for this identity, byte for byte, under the actor's own instance id and state (the
     // rig's stylesheet is mounted by the component rather than inlined, so it is left out of the comparison).
     const asDom = (text: string) => {
