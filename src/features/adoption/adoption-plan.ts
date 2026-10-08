@@ -42,6 +42,7 @@ import {
   buildBlobbonautTags,
   buildEggTags,
   deriveBlobbiSeedV1,
+  deriveBlobbiV3Seed,
   generatePetId10,
   getCanonicalBlobbiD,
   mergeHasForAdoption,
@@ -97,11 +98,16 @@ export interface EggPreview {
   ownerPubkey: string;
 }
 
-/** A fresh identity. Called once per adoption attempt; never regenerated between preview and publish. */
+/**
+ * A fresh identity. Called once per adoption attempt; never regenerated between preview and publish.
+ * The seed is the one the egg will have: on V3 its address (author, d), on V1 and V2 the stated
+ * seed, which also hashes the birth time.
+ */
 export function newEggPreview(ownerPubkey: string, name: string = DEFAULT_EGG_NAME, now: number = Math.floor(Date.now() / 1000)): EggPreview {
   const petId = generatePetId10();
   const d = getCanonicalBlobbiD(ownerPubkey, petId);
-  return { petId, d, createdAt: now, seed: deriveBlobbiSeedV1(ownerPubkey, d, now), name, ownerPubkey };
+  const seed = ADOPTION_VISUAL_GENERATION === 'v3' ? deriveBlobbiV3Seed(ownerPubkey, d) : deriveBlobbiSeedV1(ownerPubkey, d, now);
+  return { petId, d, createdAt: now, seed, name, ownerPubkey };
 }
 
 export function renamePreview(preview: EggPreview, name: string): EggPreview {

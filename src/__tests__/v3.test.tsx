@@ -57,7 +57,9 @@ const svgEl = () => document.querySelector('[data-blobbi-body-box] svg') as SVGS
 describe('a V3 identity reaches the renderer through the one seam', () => {
   it('toBlobbiVisual carries exactly what the event states: the seed, the algorithm, the colours, the trait kinds', () => {
     const event = born('v3');
-    const seed = getTagValue(event.tags, 'seed')!;
+    // The seed is the address (no tag states it), resolved by the kit before the renderer sees it.
+    expect(getTagValue(event.tags, 'seed')).toBeUndefined();
+    const seed = parse(event).seed!;
     const visual = toBlobbiVisual(parse(event));
     expect(visual.visualGeneration).toBe('v3');
     // Exactly the kit's creation rule for this seed: nothing added on the way, nothing lost.
@@ -87,7 +89,10 @@ describe('a V3 identity reaches the renderer through the one seam', () => {
   it('an event that only CLAIMS a generation this app does not know is drawn as V1, never as V3', () => {
     const event = born('v3', 'adult');
     const claimed = withTags(event, event.tags.map((t) => (t[0] === VISUAL_GENERATION_TAG ? [VISUAL_GENERATION_TAG, 'v4'] : t)));
-    const visual = toBlobbiVisual(parse(claimed));
+    // Read as V1 it has no seed tag, which V1 needs: not a modern Blobbi, so never drawn at all.
+    expect(parseModernBlobbiEvent(claimed)).toBeUndefined();
+    // With a seed stated, as a V1 event would have, it is drawn as V1, never as V3.
+    const visual = toBlobbiVisual(parse(withTags(claimed, [...claimed.tags, ['seed', parse(event).seed!]])));
     expect(visual.visualGeneration).toBe('v1');
     expect(visual.v3).toBeUndefined();
     expect(renderBlobbiSvg({ ...visual, instanceId: 'x' }).artwork.generation).toBe('v1');
@@ -157,7 +162,7 @@ describe('a V3 Blobbi is the same individual after every round trip', () => {
     expect(drawings[1]).toContain('data-blobbi-stage="baby"');
     expect(drawings[2]).toContain('data-blobbi-stage="adult"');
     // One palette from egg hint to adult: the colours were stated once, at birth, and are still those.
-    expect(identity?.colors).toEqual(createBlobbiV3Identity(getTagValue(egg.tags, 'seed')!).colors);
+    expect(identity?.colors).toEqual(createBlobbiV3Identity(parse(egg).seed!).colors);
   });
 
   it('explicit colours and traits are the event\'s to state: changing a tag changes the Blobbi, and a republish keeps the change', () => {

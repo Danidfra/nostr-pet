@@ -13,7 +13,7 @@ import { NostrContext } from '@nostrify/react';
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { MemoryRouter } from 'react-router-dom';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
-import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, NEW_BLOBBI_VISUAL_GENERATION, VISUAL_GENERATION_TAG, deriveBlobbiSeedV1, getSelectedBlobbiKey, getTagValue, getTagValues, parseModernBlobbiEvent } from '@blobbi-kit/core';
+import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, NEW_BLOBBI_VISUAL_GENERATION, VISUAL_GENERATION_TAG, deriveBlobbiSeedV1, deriveBlobbiV3Seed, getSelectedBlobbiKey, getTagValue, getTagValues, parseModernBlobbiEvent } from '@blobbi-kit/core';
 import { HATCH_MISSIONS } from '@blobbi-kit/react';
 
 import Home from '@/pages/Home';
@@ -126,7 +126,10 @@ describe('First run', () => {
     expect(getTagValue(egg.tags, 'name')).toBe('Pip');
     expect(getTagValue(egg.tags, 'stage')).toBe('egg');
     expect(getTagValue(egg.tags, 'progression_state')).toBe('incubating');
-    expect(getTagValue(egg.tags, 'seed')).toBe(deriveBlobbiSeedV1(PUBKEY, d, egg.created_at));
+    // A V3 egg states no seed: its seed is its address, the same whenever it was born.
+    expect(getTagValue(egg.tags, 'seed')).toBeUndefined();
+    expect(parseModernBlobbiEvent(egg)!.seed).toBe(deriveBlobbiV3Seed(PUBKEY, d));
+    expect(parseModernBlobbiEvent(egg)!.seed).not.toBe(deriveBlobbiSeedV1(PUBKEY, d, egg.created_at));
     expect(getTagValue(egg.tags, 'client')).toBe('Blobbi');
     expect(getTagValue(egg.tags, 'published_at')).toBe(String(egg.created_at));
     const parsed = parseModernBlobbiEvent(egg)!;
@@ -137,7 +140,7 @@ describe('First run', () => {
     expect(getTagValue(egg.tags, VISUAL_GENERATION_TAG)).toBe('v3');
     expect(parsed.visualGeneration).toBe('v3');
     expect(parsed.v3Identity?.missing).toEqual([]);
-    expect(parsed.v3Identity?.seed).toBe(getTagValue(egg.tags, 'seed'));
+    expect(parsed.v3Identity?.seed).toBe(deriveBlobbiV3Seed(PUBKEY, d));
     await waitFor(() => expect(screen.getByTestId('blobbi-actor').querySelector('[data-blobbi-renderer]')).toHaveAttribute('data-blobbi-generation', 'v3'));
     // The egg in the room is the procedural egg of this identity.
     expect(screen.getByTestId('blobbi-actor').querySelector('[data-blobbi-body-box] svg')).toHaveAttribute('data-blobbi-stage', 'egg');

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { BLOBBI_V3_ONLY_TAG_NAMES, BLOBBI_V3_TAG_NAMES, VISUAL_GENERATION_TAG, blobbiV3IdentityTags, getTagValue, parseModernBlobbiEvent, type BlobbiCompanion } from '@blobbi-kit/core';
+import { BLOBBI_V3_ONLY_TAG_NAMES, BLOBBI_V3_TAG_NAMES, VISUAL_GENERATION_TAG, blobbiV3IdentityTags, getBlobbiV3Seed, parseModernBlobbiEvent, type BlobbiCompanion } from '@blobbi-kit/core';
 import { createBlobbiV3Identity } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 
@@ -23,16 +23,17 @@ export function useSheetVisuals(blobbi: BlobbiCompanion) {
   return useMemo(() => {
     const own = blobbi.event.tags;
     const fixtureIsV3 = blobbi.visualGeneration === 'v3';
-    const seed = getTagValue(own, 'seed');
+    // A V3 row's seed is the address (no tag states it); a V1 or V2 row of a V3 fixture states the Blobbi's seed.
+    const addressSeed = getBlobbiV3Seed(blobbi.event);
     const make = (stage: 'baby' | 'adult', generation: 'v1' | 'v2' | 'v3') => {
       let tags = own.filter((t) => t[0] !== 'stage' && t[0] !== VISUAL_GENERATION_TAG && t[0] !== 'state');
-      if (generation === 'v3' && !fixtureIsV3 && seed) tags = [...tags.filter((t) => !BLOBBI_V3_TAG_NAMES.includes(t[0])), ...blobbiV3IdentityTags(createBlobbiV3Identity(seed))];
-      if (generation !== 'v3' && fixtureIsV3) tags = tags.filter((t) => !BLOBBI_V3_ONLY_TAG_NAMES.includes(t[0]));
+      if (generation === 'v3' && !fixtureIsV3 && addressSeed) tags = [...tags.filter((t) => !BLOBBI_V3_TAG_NAMES.includes(t[0])), ...blobbiV3IdentityTags(createBlobbiV3Identity(addressSeed))];
+      if (generation !== 'v3' && fixtureIsV3 && blobbi.seed) tags = [...tags.filter((t) => !BLOBBI_V3_ONLY_TAG_NAMES.includes(t[0])), ['seed', blobbi.seed]];
       tags.push(['stage', stage], ['state', 'active']);
       if (generation !== 'v1') tags.push([VISUAL_GENERATION_TAG, generation]);
       const parsed = parseModernBlobbiEvent({ ...blobbi.event, tags });
       return parsed ? toBlobbiVisual(parsed) : null;
     };
     return { 'baby v1': make('baby', 'v1'), 'adult v1': make('adult', 'v1'), 'adult v2': make('adult', 'v2'), 'baby v3': make('baby', 'v3'), 'adult v3': make('adult', 'v3') };
-  }, [blobbi.event, blobbi.visualGeneration]);
+  }, [blobbi.event, blobbi.seed, blobbi.visualGeneration]);
 }

@@ -12,6 +12,7 @@ import {
   VISUAL_GENERATION_TAG,
   buildEggTags,
   deriveBlobbiSeedV1,
+  deriveBlobbiV3Seed,
   getBlobbiVisualIdentity,
   getCanonicalBlobbiD,
   getTagValue,
@@ -30,17 +31,19 @@ import { ADOPTION_VISUAL_GENERATION, DEFAULT_EGG_NAME, adoptionEggOptions, eggTe
 const NOW = 1_800_000_000;
 
 describe('newEggPreview / eggTemplate', () => {
-  it('is the kit egg: canonical d, seed from (pubkey, d, createdAt), incubating, hatch missions, created_at pinned', () => {
+  it('is the kit egg: canonical d, seed from the address (pubkey, d), incubating, hatch missions, created_at pinned', () => {
     const preview = newEggPreview(PUBKEY, 'Pip', NOW);
     expect(preview.d).toBe(getCanonicalBlobbiD(PUBKEY, preview.petId));
     expect(preview.d).toMatch(/^blobbi-[0-9a-f]{12}-[0-9a-f]{10}$/);
-    expect(preview.seed).toBe(deriveBlobbiSeedV1(PUBKEY, preview.d, NOW));
+    // Born V3, so the seed is the address: no birth time in it, and no tag states it.
+    expect(preview.seed).toBe(deriveBlobbiV3Seed(PUBKEY, preview.d));
+    expect(newEggPreview(PUBKEY, 'Pip', NOW + 1).seed).not.toBe(preview.seed); // a new d each time
+    expect(getTagValue(eggTemplate(preview).tags, 'seed')).toBeUndefined();
 
     const template = eggTemplate(preview);
     expect(template.kind).toBe(KIND_BLOBBI_STATE);
     expect(template.created_at).toBe(NOW);
     expect(getTagValue(template.tags, 'd')).toBe(preview.d);
-    expect(getTagValue(template.tags, 'seed')).toBe(preview.seed);
     expect(getTagValue(template.tags, 'name')).toBe('Pip');
     expect(getTagValue(template.tags, 'stage')).toBe('egg');
     expect(getTagValue(template.tags, 'state')).toBe('active');
@@ -89,7 +92,8 @@ describe('newEggPreview / eggTemplate', () => {
     expect(template.tags.some((t) => t[0].startsWith('v3_'))).toBe(false);
     // On V3 the colour tags are the Blobbi's own, not the seed's mirrors (which is what a V2 egg of the same seed carries).
     const v2 = buildEggTags(PUBKEY, preview.petId, NOW, 'Pip', { visualGeneration: 'v2' });
-    expect(getTagValue(v2, 'seed')).toBe(preview.seed);
+    expect(getTagValue(v2, 'seed')).toBe(deriveBlobbiSeedV1(PUBKEY, preview.d, NOW));
+    expect(getTagValue(v2, 'seed')).not.toBe(preview.seed);
     expect(getTagValue(template.tags, 'base_color')).not.toBe(getTagValue(v2, 'base_color'));
     // The incubation update eggTemplate applies on top did not put the mirrors back.
     expect(companion.visualTraits.baseColor).toBe(identity.colors.base);

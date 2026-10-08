@@ -5,7 +5,8 @@
  * decides the explicit identity (four colours, the kind of each trait); the
  * event states it; from then on every update PRESERVES what the event
  * states and derives nothing from the seed again. The seed stays for the
- * micro-geometry, under the frozen algorithm.
+ * micro-geometry, under the frozen algorithm. It is never a tag: it is the
+ * Blobbi's address (author, d), hashed by the kit, so no update can move it.
  *
  * The Blobbi here is deliberately NOT what its seed would have chosen (dark
  * navy with a yellow pattern, every trait on, a moon on its skin), so that
@@ -26,6 +27,7 @@ import {
   buildEggTags,
   canonicalBlobbiV3Seed,
   deriveBlobbiSeedV1,
+  deriveBlobbiV3Seed,
   deriveSeedIdentity,
   getCanonicalBlobbiD,
   getTagValue,
@@ -53,7 +55,8 @@ import { V3_REFERENCE_BLOBBIS } from '@/dev/v3-reference';
 
 const PET_ID = '00000000a7';
 const D = getCanonicalBlobbiD(PUBKEY, PET_ID);
-const SEED = deriveBlobbiSeedV1(PUBKEY, D, CREATED_AT);
+/** The Blobbi's seed: its address, hashed. */
+const SEED = deriveBlobbiV3Seed(PUBKEY, D);
 
 /** Not what the seed would choose: every field differs from creation's answer, or is set where creation left it off. */
 const UNUSUAL: BlobbiV3Identity = {
@@ -97,16 +100,19 @@ describe('creation: the seed decides once, the event states it', () => {
   it('the real adoption path: a canonical seed, algorithm 1, exactly the V3 contract, and nothing V3 does not have', () => {
     const preview = newEggPreview(PUBKEY, 'Sprout', CREATED_AT);
     const { tags } = eggTemplate(preview);
-    const seed = getTagValue(tags, 'seed')!;
+    // No seed tag: the seed is the address, and the preview already knew it.
+    expect(getTagValue(tags, 'seed')).toBeUndefined();
+    const seed = parse(eventWith(tags, CREATED_AT)).seed!;
     expect(seed).toBe(preview.seed);
-    expect(seed).toBe(deriveBlobbiSeedV1(PUBKEY, preview.d, CREATED_AT));
+    expect(seed).toBe(deriveBlobbiV3Seed(PUBKEY, preview.d));
+    expect(seed).not.toBe(deriveBlobbiSeedV1(PUBKEY, preview.d, CREATED_AT));
     expect(canonicalBlobbiV3Seed(seed)).toBe(seed);
     expect(seed).toMatch(/^[0-9a-f]{64}$/);
     expect(getTagValue(tags, VISUAL_GENERATION_TAG)).toBe('v3');
     expect(getTagValue(tags, VISUAL_ALGORITHM_TAG)).toBe('1');
     // Exactly what the kit's creation rule gives this seed: the four colours and the kind of each trait.
     const own = createBlobbiV3Identity(seed);
-    const parsed = parseBlobbiV3Identity(tags);
+    const parsed = parseBlobbiV3Identity(eventWith(tags, CREATED_AT));
     expect(parsed).toEqual({ ...own, missing: [] });
     expect(parsed.seed).toBe(seed);
     expect(parsed.algorithm).toBe(1);
@@ -128,8 +134,8 @@ describe('creation: the seed decides once, the event states it', () => {
   it('a seed in another letter case is the same Blobbi, and a value that is not a seed is refused at birth', () => {
     const upper = SEED.toUpperCase();
     const born = buildEggTags(PUBKEY, PET_ID, CREATED_AT, 'Umber', { visualGeneration: 'v3', v3: { ...UNUSUAL, seed: upper } });
-    expect(getTagValue(born, 'seed')).toBe(SEED);
-    expect(parseBlobbiV3Identity(born)).toEqual({ ...UNUSUAL, missing: [] });
+    expect(getTagValue(born, 'seed')).toBeUndefined();
+    expect(parseBlobbiV3Identity(eventWith(born, CREATED_AT))).toEqual({ ...UNUSUAL, missing: [] });
     expect(() => createBlobbiV3Identity('a text seed')).toThrow(TypeError);
     expect(() => buildEggTags(PUBKEY, PET_ID, CREATED_AT, 'Umber', { visualGeneration: 'v3', v3: { ...UNUSUAL, seed: 'a text seed' } })).toThrow(/Invalid V3 identity/);
   });
