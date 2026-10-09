@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLOBBI_V3_RETIRED_TAG_NAMES, BLOBBI_V3_TAG_NAMES, KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, getTagValue, getTagValues, parseModernBlobbiEvent } from '@blobbi-kit/core';
+import { BLOBBI_V3_RETIRED_TAG_NAMES, KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, getTagValue, getTagValues, parseModernBlobbiEvent } from '@blobbi-kit/core';
 import { buildFixtureWorld, createFixturePool, FIXTURE_BORN_AT, FIXTURE_D, FIXTURE_NAMES } from './fixture-world';
 import { EARLIER_D, PUBKEY } from '@/test/fixtures';
 
@@ -14,7 +14,7 @@ describe('dev fixture worlds', () => {
       expect(parsed.visualGeneration).toBe(name.endsWith('-v3') ? 'v3' : name === 'adult-v2' ? 'v2' : 'v1');
       // A V3 fixture is its address, with nothing missing; the others carry no V3 tag.
       if (name.endsWith('-v3')) expect(parsed.v3Identity?.missing).toEqual([]);
-      else expect(blobbi.tags.some((t) => BLOBBI_V3_TAG_NAMES.includes(t[0]) || BLOBBI_V3_RETIRED_TAG_NAMES.includes(t[0]))).toBe(false);
+      else expect(blobbi.tags.some((t) => BLOBBI_V3_RETIRED_TAG_NAMES.includes(t[0]))).toBe(false);
       // No generation-prefixed tag exists any more.
       expect(blobbi.tags.some((t) => t[0].startsWith('v3_'))).toBe(false);
       // The player's events are the fixture pubkey's; item definitions are their issuers'.

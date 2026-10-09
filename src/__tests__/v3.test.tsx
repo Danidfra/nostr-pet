@@ -17,7 +17,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import {
-  BLOBBI_V3_TAG_NAMES,
   VISUAL_GENERATION_TAG,
   deriveSeedIdentity,
   getTagValue,
@@ -47,7 +46,8 @@ const reload = (event: NostrEvent): NostrEvent => JSON.parse(JSON.stringify(even
 const born = (generation: 'v1' | 'v2' | 'v3', stage: 'egg' | 'baby' | 'adult' = 'egg') => blobbiEvent(PET, { name: 'Sprout', stage, visualGeneration: generation });
 const draw = (visual: BlobbiVisual, more: Partial<Parameters<typeof renderBlobbiSvg>[0]> = {}) => renderBlobbiSvg({ ...visual, instanceId: 'same', ...more }).svg;
 const withTags = (event: NostrEvent, tags: string[][]): NostrEvent => ({ ...event, tags });
-const v3TagsOf = (event: NostrEvent) => event.tags.filter((t) => BLOBBI_V3_TAG_NAMES.includes(t[0]));
+/** The V3 tags an event carries: its generation, and nothing else. */
+const v3TagsOf = (event: NostrEvent) => event.tags.filter((t) => t[0] === VISUAL_GENERATION_TAG || t[0] === 'visual_algorithm');
 
 const standing: BlobbiPresentation = { position: { x: 0.5, y: 0.7 }, facing: 'front', motion: 'idle', eyeOffset: undefined, expression: 'neutral', isSleeping: false, gesture: null };
 const rendererEl = () => document.querySelector('[data-blobbi-renderer]') as HTMLElement;
@@ -182,31 +182,28 @@ describe('a V3 Blobbi is the same individual after every round trip', () => {
     expect(getTagValue(v2Edited, 'base_color')).toBe(getTagValue(v2.tags, 'base_color'));
   });
 
-  it('an identity stating an algorithm version the renderer does not implement is flagged, never drawn as the one it has', () => {
+  it('naming another algorithm version cannot redraw it: V3 is Algorithm 1, and a republish drops the tag', () => {
     const event = born('v3', 'adult');
-    const future = withTags(event, event.tags.map((t) => (t[0] === 'visual_algorithm' ? ['visual_algorithm', '2'] : t)));
-    const visual = toBlobbiVisual(parse(reload(future)));
-    expect(visual.v3?.algorithm).toBe(2);
-    const rendered = renderBlobbiSvg({ ...visual, instanceId: 'same' });
-    expect(rendered.artwork.unsupportedAlgorithm).toBe(2);
-    expect(rendered.svg).toContain('data-blobbi-unsupported-algorithm="2"');
-    expect(rendered.svg).not.toBe(draw(toBlobbiVisual(parse(event))));
-    // The version it states survives a republish untouched.
-    expect(getTagValue(updateBlobbiTags(future.tags, { hunger: '40' }), 'visual_algorithm')).toBe('2');
-    // In the home: the actor's renderer says so too.
-    render(<BlobbiActor blobbi={parse(future)} presentation={standing} />);
-    expect(rendererEl()).toHaveAttribute('data-blobbi-unsupported-algorithm', '2');
+    for (const tags of [[...event.tags, ['visual_algorithm', '2']], [...event.tags, ['visual_algorithm', 'x']], [...event.tags, ['visual_algorithm', '2'], ['visual_algorithm', '3']]]) {
+      const forged = withTags(event, tags);
+      const visual = toBlobbiVisual(parse(reload(forged)));
+      expect(visual.v3).toEqual({ seed: parse(event).seed, algorithm: 1 });
+      const rendered = renderBlobbiSvg({ ...visual, instanceId: 'same' });
+      expect(rendered.artwork.unsupportedAlgorithm).toBeUndefined();
+      expect(rendered.svg).toBe(draw(toBlobbiVisual(parse(event))));
+      expect(getTagValue(updateBlobbiTags(forged.tags, { hunger: '40' }), 'visual_algorithm')).toBeUndefined();
+    }
+    // In the home: the actor draws the Blobbi, not a stand-in.
+    render(<BlobbiActor blobbi={parse(withTags(event, [...event.tags, ['visual_algorithm', '2']]))} presentation={standing} />);
+    expect(rendererEl()).not.toHaveAttribute('data-blobbi-unsupported-algorithm');
   });
 
-  it('a V3 event has no gaps to fill: only a missing algorithm version is reported, and the Blobbi is still its address', () => {
+  it('a V3 event has no gaps to fill and states no algorithm: nothing is missing, and the Blobbi is its address', () => {
     const event = born('v3', 'adult');
-    const noVersion = withTags(event, event.tags.filter((t) => t[0] !== 'visual_algorithm'));
-    const companion = parse(noVersion);
-    expect(companion.v3Identity?.missing).toEqual(['visual_algorithm']);
-    // A republish does not invent the version.
-    expect(getTagValue(updateBlobbiTags(noVersion.tags, { hunger: '40' }), 'visual_algorithm')).toBeUndefined();
-    // An absent version reads as version 1, the first: the same drawing.
-    expect(draw(toBlobbiVisual(companion))).toBe(draw(toBlobbiVisual(parse(event))));
+    expect(getTagValue(event.tags, 'visual_algorithm')).toBeUndefined();
+    expect(parse(event).v3Identity).toEqual({ seed: parse(event).seed, algorithm: 1, missing: [] });
+    // A republish does not invent a version.
+    expect(getTagValue(updateBlobbiTags(event.tags, { hunger: '40' }), 'visual_algorithm')).toBeUndefined();
   });
 });
 

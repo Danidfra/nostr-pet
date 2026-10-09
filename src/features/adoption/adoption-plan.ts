@@ -24,8 +24,8 @@
  * own creation default is still V2, and V3 is opt-in per application. A V3
  * Blobbi IS its address: its seed is derived from (owner, d) by the kit,
  * and its colours, anatomy, pattern, mark, belly and freckles are
- * Algorithm 1's function of that seed. The egg states none of it, only
- * `visual_generation` and `visual_algorithm`, so the preview (same owner,
+ * Algorithm 1's function of that seed (V3 is Algorithm 1). The egg states
+ * none of it, only `visual_generation`, so the preview (same owner,
  * same d) is the published egg and every later stage of it, and no later
  * event can repaint or reshape it. Existing Blobbis are untouched: nothing
  * here rewrites one.

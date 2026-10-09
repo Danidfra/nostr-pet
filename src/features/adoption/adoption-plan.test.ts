@@ -67,13 +67,12 @@ describe('newEggPreview / eggTemplate', () => {
     expect(companion.evolution.map((m) => m.id).sort()).toEqual(HATCH_MISSIONS.map((m) => m.id).sort());
   });
 
-  it('states no intrinsic identity at birth: only the generation and the algorithm; the address decides the rest', () => {
+  it('states no intrinsic identity at birth: only the generation; the address decides the rest, under Algorithm 1', () => {
     const preview = newEggPreview(PUBKEY, 'Pip', NOW);
     const template = eggTemplate(preview);
     const companion = parseModernBlobbiEvent({ ...template, id: 'e'.repeat(64), pubkey: PUBKEY, sig: '0'.repeat(128) })!;
     expect(companion.v3Identity).toEqual({ seed: preview.seed, algorithm: 1, missing: [] });
     expect(getTagValue(template.tags, VISUAL_GENERATION_TAG)).toBe('v3');
-    expect(getTagValue(template.tags, 'visual_algorithm')).toBe('1');
     for (const gone of [...BLOBBI_V3_ABSENT_TAG_NAMES, 'spots']) expect(getTagValue(template.tags, gone), gone).toBeUndefined();
     expect(template.tags.some((t) => t[0].startsWith('v3_'))).toBe(false);
     // Who it is: what Algorithm 1 gives its address, as the renderer resolves the app's visual.

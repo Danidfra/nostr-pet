@@ -1,11 +1,11 @@
 /**
  * A V3 BLOBBI IS ITS ADDRESS, AND NOTHING ELSE CAN SAY WHO IT IS.
  *
- * The contract (blobbi-kit, `visual_algorithm = 1`): the kit derives the
+ * The contract (blobbi-kit; V3 is Algorithm 1): the kit derives the
  * seed from (owner, d), and Algorithm 1 derives everything the Blobbi is
  * from that seed: its colours, anatomy, pattern, mark, belly, freckles and
- * every proportion. The event states only `visual_generation` and
- * `visual_algorithm`. Every production path this app has that writes a kind
+ * every proportion. The event states only `visual_generation`. Every
+ * production path this app has that writes a kind
  * 31124 is pushed through (adoption, each care action, rest, an item, hatch,
  * evolution, the tag repair every transition runs, a reload between each),
  * and every intrinsic tag a replacement event might forge is tried: the
@@ -15,7 +15,6 @@ import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import {
   BLOBBI_V3_ABSENT_TAG_NAMES,
-  BLOBBI_V3_TAG_NAMES,
   KIND_BLOBBI_STATE,
   VISUAL_ALGORITHM_TAG,
   VISUAL_GENERATION_TAG,
@@ -54,7 +53,7 @@ const SEED = deriveBlobbiV3Seed(PUBKEY, D);
 const OWN = createBlobbiV3Identity(SEED);
 
 /** The only identity tags a V3 event carries. */
-const IDENTITY_TAGS = [VISUAL_GENERATION_TAG, ...BLOBBI_V3_TAG_NAMES];
+const IDENTITY_TAGS = [VISUAL_GENERATION_TAG, VISUAL_ALGORITHM_TAG];
 const identityTagsOf = (tags: readonly string[][]) => tags.filter((t) => IDENTITY_TAGS.includes(t[0]));
 const reload = (event: NostrEvent): NostrEvent => JSON.parse(JSON.stringify(event));
 const parse = (event: NostrEvent): BlobbiCompanion => {
@@ -87,6 +86,9 @@ const FORGERIES: string[][] = [
   ['special_mark', OWN.traits.specialMark === 'moon' ? 'none' : 'moon'],
   ['belly', String(!OWN.traits.belly)],
   ['freckles', String(!OWN.traits.freckles)],
+  ['visual_algorithm', '1'],
+  ['visual_algorithm', '2'],
+  ['visual_algorithm', 'two'],
 ];
 
 /** Everything that must still be true of an event at this address. */
@@ -97,7 +99,7 @@ function expectSameBlobbi(event: NostrEvent, label: string) {
   expect(companion.v3Identity, label).toEqual({ seed: SEED, algorithm: 1, missing: [] });
   expect(toBlobbiVisual(companion).v3, label).toEqual({ seed: SEED, algorithm: 1 });
   expect(resolvedOf(event), label).toEqual(OWN);
-  expect(identityTagsOf(event.tags), label).toEqual([[VISUAL_GENERATION_TAG, 'v3'], [VISUAL_ALGORITHM_TAG, '1']]);
+  expect(identityTagsOf(event.tags), label).toEqual([[VISUAL_GENERATION_TAG, 'v3']]);
   for (const name of BLOBBI_V3_ABSENT_TAG_NAMES) expect(getTagValue(event.tags, name), `${label} ${name}`).toBeUndefined();
   expect(getTagValue(event.tags, 'spots'), label).toBeUndefined();
   // The genealogical generation is not the visual one, and is untouched by any of this.
@@ -115,7 +117,7 @@ describe('creation: the address is the Blobbi; the event states only the version
     expect(seed).toBe(deriveBlobbiV3Seed(PUBKEY, preview.d));
     expect(seed).not.toBe(deriveBlobbiSeedV1(PUBKEY, preview.d, CREATED_AT));
     expect(canonicalBlobbiV3Seed(seed)).toBe(seed);
-    expect(identityTagsOf(tags)).toEqual([[VISUAL_GENERATION_TAG, 'v3'], [VISUAL_ALGORITHM_TAG, '1']]);
+    expect(identityTagsOf(tags)).toEqual([[VISUAL_GENERATION_TAG, 'v3']]);
     for (const name of [...BLOBBI_V3_ABSENT_TAG_NAMES, 'spots']) expect(getTagValue(tags, name), name).toBeUndefined();
     expect(parseBlobbiV3Identity(eventWith(tags, CREATED_AT))).toEqual({ seed, algorithm: 1, missing: [] });
     // Who it is: exactly what Algorithm 1 gives its address, as the renderer resolves it from the app's visual.
@@ -147,6 +149,15 @@ describe('a replacement event cannot restate who it is', () => {
       const cared = planCareAction(parse(forged), 'clean', forged.created_at + 60);
       expect(getTagValue(cared.event.tags, name), stage).toBeUndefined();
     }
+  });
+
+  it('several algorithm versions at once, or none, still draw Algorithm 1 for this address', () => {
+    const plain = born();
+    const several = eventWith([...plain.tags, ['visual_algorithm', '2'], ['visual_algorithm', '1'], ['visual_algorithm', '7']], CREATED_AT + 1);
+    expect(resolvedOf(several)).toEqual(OWN);
+    expect(toBlobbiVisual(parse(several)).v3).toEqual({ seed: SEED, algorithm: 1 });
+    expect(renderBlobbiSvg({ ...toBlobbiVisual(parse(several)), instanceId: 'a' }).svg).toBe(renderBlobbiSvg({ ...toBlobbiVisual(parse(plain)), instanceId: 'a' }).svg);
+    expect(getTagValue(plain.tags, 'visual_algorithm')).toBeUndefined();
   });
 
   it('all of them at once, too', () => {
