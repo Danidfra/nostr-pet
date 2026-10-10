@@ -9,6 +9,8 @@ import NotFound from '@/pages/NotFound';
  * bundle and the home are untouched until the room replaces the home.
  */
 const RoomPreview = import.meta.env.DEV ? lazy(() => import('@/features/room/RoomPreviewPage')) : null;
+/** The 3D Blobbi lab beside it (`/room/3d-lab`): the same gate, the same lazy load. */
+const RoomLab = import.meta.env.DEV ? lazy(() => import('@/features/room/RoomLabPage')) : null;
 
 /**
  * One screen. The HUD lives inside the home; there is no app bar. `/dev` is
@@ -26,6 +28,16 @@ export function AppRouter({ devLab = null }: { devLab?: ReactNode }) {
           element={
             <Suspense fallback={null}>
               <RoomPreview />
+            </Suspense>
+          }
+        />
+      )}
+      {RoomLab && (
+        <Route
+          path="/room/3d-lab"
+          element={
+            <Suspense fallback={null}>
+              <RoomLab />
             </Suspense>
           }
         />

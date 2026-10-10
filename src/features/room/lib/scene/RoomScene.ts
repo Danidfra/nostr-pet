@@ -33,6 +33,7 @@ import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.j
 
 import type { SnoNode } from './sno-object';
 import { buildSnoObject } from './sno-three';
+import type { ActorModel } from '../blobbi3d/actor';
 
 import type { FurnitureInteraction, FurnitureMount } from '../furniture-3d';
 import type { FurniturePlacement } from '../room-furniture';
@@ -423,6 +424,10 @@ interface Actor {
   walked: number;
   /** Which way it faces: where it is heading while walking, front at rest (`room-facing.ts`). */
   facing: BlobbiFacing;
+  /** The same, continuously: yaw about +y in the room (0 faces +z), toward the camera at rest. */
+  heading: number;
+  /** A 3D model standing in for the DOM drawing, driven each frame (`blobbi3d/actor.ts`). */
+  model: ActorModel | null;
   caster: THREE.Mesh;
   contact: THREE.Mesh;
   /** Has said hello to the user's Blobbi since it last walked over. */
@@ -739,6 +744,8 @@ export class RoomScene {
     cancelAnimationFrame(this.frame);
     if (this.clockTimer) clearInterval(this.clockTimer);
     if (this.wanderTimer) clearTimeout(this.wanderTimer);
+    // The models are the caller's: out of the scene before it is torn down
+    for (const actor of this.actors.values()) if (actor.model) this.scene.remove(actor.model.object);
     disposeObject(this.scene);
     for (const value of [
       this.trimMaterial, this.shellMaterial, this.edgeMaterial, this.okMaterial, this.badMaterial, this.quad,
@@ -1074,7 +1081,7 @@ export class RoomScene {
     contact.rotation.x = -Math.PI / 2;
     contact.renderOrder = 1;
     this.scene.add(caster, contact);
-    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, speed: DEFAULT_WALK_SPEED, path: [], walked: 0, facing: 'front', caster, contact, met: false };
+    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, speed: DEFAULT_WALK_SPEED, path: [], walked: 0, facing: 'front', heading: AZIMUTH, model: null, caster, contact, met: false };
     this.actors.set(id, actor);
     return actor;
   }
@@ -1082,6 +1089,7 @@ export class RoomScene {
   private removeActor(id: string) {
     const actor = this.actors.get(id);
     if (!actor) return;
+    if (actor.model) this.scene.remove(actor.model.object);
     this.scene.remove(actor.caster, actor.contact);
     (actor.contact.material as THREE.Material).dispose();
     this.actors.delete(id);
@@ -1368,6 +1376,7 @@ export class RoomScene {
         const dx = next.x - b.x;
         const dz = next.z - b.z;
         const dist = Math.hypot(dx, dz);
+        if (dist > 1e-6) b.heading = Math.atan2(dx, dz);
         if (dist <= step) {
           b.x = next.x;
           b.z = next.z;
@@ -1385,6 +1394,7 @@ export class RoomScene {
       // (legs or a hop of its own), and the feet must stay on the floor
       if (!b.path.length) {
         b.facing = 'front';
+        b.heading = AZIMUTH;
         this.arrive(b);
       }
       moving = true;
@@ -1393,7 +1403,9 @@ export class RoomScene {
     return moving;
   }
 
-  private placeActorProxies() {
+  /** Place each Blobbi's shadow caster and contact shadow, and drive its 3D model if it has one. True while a model animates. */
+  private placeActorProxies(dt: number): boolean {
+    let animating = false;
     for (const b of this.actors.values()) {
       const tiles = b.tiles;
       const width = tiles * 0.55;
@@ -1405,7 +1417,41 @@ export class RoomScene {
       const contact = width * Math.max(0.4, 1.15 - b.hop * 1.5);
       b.contact.scale.set(contact, contact * 0.85, 1);
       b.contact.position.set(b.x, b.elev + 0.06, b.z);
+      if (b.model) {
+        const o = b.model.object;
+        o.visible = b.visible;
+        o.position.set(b.x, b.elev + b.hop, b.z);
+        o.scale.setScalar(tiles / b.model.box);
+        const sleeping = b.id === MAIN && this.sleepTarget === 1;
+        const motion = b.path.length ? 'walking' : b.isEgg || sleeping ? 'still' : 'idle';
+        if (b.model.update({ dt, motion, heading: b.heading, sleeping })) animating = true;
+      }
     }
+    return animating;
+  }
+
+  /**
+   * Stand a 3D model in a Blobbi's place: the DOM drawing's stand-in, moved,
+   * turned and scaled with the Blobbi each frame and told how it moves. The
+   * model casts the shadow instead of the proxy. The caller owns the model.
+   */
+  setActorModel(id: string, model: ActorModel | null) {
+    const actor = this.actors.get(id);
+    if (!actor || actor.model === model) return;
+    if (actor.model) this.scene.remove(actor.model.object);
+    actor.model = model;
+    actor.caster.castShadow = !model;
+    if (model) {
+      this.scene.add(model.object);
+      this.needsCompile = true;
+    }
+    this.shadowsDirty = true;
+    this.requestRender();
+  }
+
+  /** The way a Blobbi is heading, for tests and for whoever draws it: yaw about +y, 0 facing +z. */
+  headingOf(id = MAIN): number | undefined {
+    return this.actors.get(id)?.heading;
   }
 
   // ─── Room ──────────────────────────────────────────────────────────────────
@@ -2169,7 +2215,7 @@ export class RoomScene {
     }
 
     if (this.stepActors(dt)) animating = true;
-    this.placeActorProxies();
+    if (this.placeActorProxies(dt)) animating = true;
     this.updateClocks();
 
     // Furniture in front of the Blobbi is also drawn to the overlay canvas, over it.

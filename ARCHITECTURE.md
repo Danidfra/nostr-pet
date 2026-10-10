@@ -234,6 +234,66 @@ blocked drops going back, a quarter turn's footprint, decorating stopping
 walks; and with mouse and touch pointers over a faked scene. Next: M4 the
 dock and items, M5 persistence and rooms, M6 replaces the home.
 
+**The M3 regression (a lost WebGL context).** Entering the decorator made
+the room vanish, leaving the DOM-drawn Blobbi, and sometimes fold back in
+later. Not the camera (its transition is eased over rendered frames, now
+pinned by `RoomScene.edit.test.ts`) and not React remounting the shell:
+the catalog's thumbnails each probed `getContext('webgl2')` on a scratch
+canvas and never released it; Chrome caps live contexts at about sixteen
+and loses the OLDEST past the cap, the room's, so `useRoomScene` went
+`unavailable`, unmounted its canvases and remade the scene two seconds
+later (the "reappearing"). The fix is one page-wide probe,
+`webglAvailable()` in `useRoomScene.ts`, taken once, released and cached,
+which the thumbnails ask instead. `RoomShell.lifecycle.test.tsx` runs the
+real hook lifecycle over a recording fake engine and pins that decorating
+(entering, selecting, moving, re-laying out, saving, cancelling) reaches
+ONE scene through setters, never disposes it, keeps the canvases in the
+document, never replays the fold-in, and makes at most one WebGL probe;
+`FurnitureThumbnail.test.tsx` pins the probe count over the whole catalog.
+
+**The 3D Blobbi prototype (`lib/blobbi3d/`, `/room/3d-lab`).** A V3
+Blobbi lofted from the kit's own geometry, through the renderer's
+published `procedural` entry point (`buildBlobbiGeometry`,
+`deriveMorphology`, `motionPose`; allowed by the import contract test as a
+public subpath). Identity: `genomeOf` resolves the identity with the kit's
+`normalizeBlobbiV3Visual` and generates the genome as the kit's
+`blobbiV3Genome` does, pinned path-for-path against the kit's SVG in
+`model.test.ts`; same `(pubkey, d)`, same model. Geometry: each height's
+cross-section is the ellipse the front silhouette (`spanAt`) and the side
+silhouette (`frontAt`/`backAt`) agree on; the face sits on that surface
+where the front view places it; feet, arms, tuft and appendages hang where
+the views attach them, with the side view's depth; the markings (belly,
+spots, stripes, gradient, special mark, freckles) are painted into a
+texture wrapped around the body (`skin.ts`) and drawn as a decal; an
+inverted hull draws the ink line. One model unit is the art box's height,
+so the room scales it by the same `blobbiBoxTiles(stage)` as the drawing.
+Motion: `poseRig` applies the kit's `motionPose` for the front view
+(across, up, roll) and the side view (forward, pitch) about the kit's
+pivots, so idle, the walk and the hop are the drawing's; turning (smooth,
+the short way) and blinking (a cadence from the seed) are the model's own.
+Engine: `RoomScene.setActorModel(id, model)` stands an `ActorModel` in a
+Blobbi's place, moved, scaled and turned each frame and told its motion,
+heading and sleep; `RoomShell` takes `blobbiModel` and steps the DOM
+`stage` aside; the Blobbi's position, path and facing are untouched, so
+the two are interchangeable views of one walk. SNO was tried
+(`sno-figurine.ts`: the same Blobbi as a `sno:` lathe-and-spheres object)
+and judged unfit for a character: flat per-face colours, a 1/120 lattice,
+no smooth normals, no rig; it stands beside the model on the lab's stage
+for comparison. The lab (dev-only, gated like `/room`, never importing
+`src/dev/`) shows three fixed addresses plus the signed-in V3 Blobbi as
+the kit's drawing over the model from the front, side and back, a stage
+with view (incl. a turntable), motion, sleep and figurine controls, and
+the real room with a 2D/3D switch. Nothing is published or stored. Tests:
+`svg-path`, `model` (determinism under a different random stream, no
+clock, kit-matched height/width/depth, parts per morphology, baby, views,
+identity), `rig` (rest, breath, walk antiphase, lids, turn, blink, actor,
+reduced motion), `sno-figurine`, `RoomScene.model.test.ts` (engine hook),
+the lifecycle test's model case, `RoomLabPage.test.tsx` (route gate, three
+identities, views, controls, 2D/3D switch, signed-in Blobbi, no writes).
+Known approximations: the body between the two silhouettes, the arms (the
+front paddle turned halfway to the side), the side face, shaded lighting,
+and the special-mark glyph outlines restated from the kit.
+
 ## Milestone 13: MVP release readiness (M11)
 
 The pass that turns the M10 home into something that can be put in front

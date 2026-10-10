@@ -16,6 +16,8 @@ import type { FurniturePlacement } from '../lib/room-furniture';
 import type { RoomLayout } from '../lib/room-layout';
 import { isOfficialFurnitureId, resolveFurniture } from '../lib/furniture-3d';
 import type { RoomScene, SceneGeometry, SceneItem } from '../lib/scene/RoomScene';
+import type { ActorModel } from '../lib/blobbi3d/actor';
+import { MAIN_BLOBBI } from '../lib/room-geometry';
 import type { FurnitureModel } from './useFurnitureModels';
 
 export type RoomSceneStatus = 'loading' | 'ready' | 'unavailable';
@@ -48,6 +50,8 @@ interface UseRoomSceneOptions {
   models: Map<number, FurnitureModel>;
   /** Keep the object stable between renders. */
   blobbi: SceneBlobbi;
+  /** A 3D model standing in for the user's Blobbi, if one is drawn that way. Keep it stable between renders. */
+  blobbiModel?: ActorModel | null;
   /** Visiting Blobbis. Keep the array stable between renders. */
   guests: SceneGuest[];
   onMeet?: (id: string) => void;
@@ -88,7 +92,7 @@ export function webglAvailable(): boolean {
 export function useRoomScene(options: UseRoomSceneOptions) {
   const {
     canvasRef, frontCanvasRef, geometry, layout, roomKey, placements, models,
-    blobbi, guests, editing, selected, onFrame, onInvalidChange, onMeet,
+    blobbi, blobbiModel = null, guests, editing, selected, onFrame, onInvalidChange, onMeet,
   } = options;
   const sceneRef = useRef<RoomScene | null>(null);
   const [status, setStatus] = useState<RoomSceneStatus>(() => (webglAvailable() ? 'loading' : 'unavailable'));
@@ -219,6 +223,13 @@ export function useRoomScene(options: UseRoomSceneOptions) {
   useEffect(() => {
     if (ready) sceneRef.current?.setBlobbi(blobbi);
   }, [ready, blobbi]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const scene = sceneRef.current;
+    scene?.setActorModel(MAIN_BLOBBI, blobbiModel);
+    return () => scene?.setActorModel(MAIN_BLOBBI, null);
+  }, [ready, blobbiModel]);
 
   useEffect(() => {
     if (ready) sceneRef.current?.setGuests(guests);

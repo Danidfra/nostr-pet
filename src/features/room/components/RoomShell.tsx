@@ -29,6 +29,7 @@ import { ROOM_ORDER, neighbourRoom, roomById, type RoomId } from '@/features/hom
 import { cx } from '../lib/cx';
 import { resolveFurniture, type FurnitureInteraction } from '../lib/furniture-3d';
 import type { FurniturePlacement } from '../lib/room-furniture';
+import type { ActorModel } from '../lib/blobbi3d/actor';
 import type { RoomLayout } from '../lib/room-layout';
 import { ROOM_GRID, blobbiBoxTiles, MAIN_BLOBBI } from '../lib/room-geometry';
 import { useFurnitureModels } from '../hooks/useFurnitureModels';
@@ -107,6 +108,12 @@ export interface RoomShellProps {
   blobbiVisible: boolean;
   /** The Blobbi (RoomBlobbi), positioned in the room each frame. */
   stage?: ReactNode;
+  /**
+   * A 3D model standing in the Blobbi's place instead of `stage`: the scene
+   * walks, turns and animates it (`blobbi3d/actor.ts`). Keep it stable
+   * between renders; the caller owns and disposes it.
+   */
+  blobbiModel?: ActorModel | null;
   /** Something over the room (an "away" card). */
   hero?: ReactNode;
   /** A bar above the room. */
@@ -170,6 +177,7 @@ export function RoomShell({
   blobbiStage,
   blobbiWalkSpeed,
   blobbiVisible,
+  blobbiModel = null,
   stage,
   hero,
   header,
@@ -334,6 +342,7 @@ export function RoomShell({
     placements: furniturePlacements,
     models,
     blobbi,
+    blobbiModel,
     guests: sceneGuests,
     onMeet,
     editing: isEditing,
@@ -450,6 +459,7 @@ export function RoomShell({
       data-testid="room-shell"
       data-room={roomId}
       data-scene={status}
+      data-blobbi-render={blobbiModel ? '3d' : '2d'}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       onPointerMove={pointerHandlers?.onPointerMove}
@@ -476,7 +486,7 @@ export function RoomShell({
 
       {/* Things standing in the room, placed by the scene each frame */}
       <div ref={worldAnchorsRef} className="absolute inset-0 z-[5] pointer-events-none" aria-hidden={!stage}>
-        {stage && blobbiVisible && (
+        {stage && blobbiVisible && !blobbiModel && (
           <div
             data-anchor="blobbi"
             data-testid="room-blobbi-anchor"

@@ -33,7 +33,7 @@ const FORBIDDEN: Array<{ pattern: RegExp; why: string }> = [
   { pattern: /['"]visual_generation['"]/, why: 'visual_generation is parsed in core' },
   { pattern: /incubation_time|start_incubation|egg_temperature|shell_integrity/, why: 'legacy incubation tags' },
   { pattern: /calculateStatDegradation|applyDecay\(|DECAY_RATE/, why: 'local care/decay formula' },
-  { pattern: /import .* from ['"]@blobbi-kit\/(core|react|renderer)\/(?!nostr-protocol)/, why: 'deep import; use the public barrel' },
+  { pattern: /import .* from ['"]@blobbi-kit\/(core|react|renderer)\/(?!nostr-protocol|procedural['"])/, why: "deep import; use the public barrel (or the renderer's published `procedural` entry point)" },
   { pattern: /nsec1[0-9a-z]{20,}/, why: 'a secret key in source' },
   { pattern: /import .*\.svg['"]|\/assets\/.*(baby|adult|egg).*\.svg/, why: 'Blobbi artwork must come from @blobbi-kit/renderer' },
   { pattern: /blobbiBodyGradient|blobbiPupilGradient|blobbiEyeGradient|M 42 62|customizeBabySvg|applyBabyV1Expression|data-part=/, why: 'stage-specific SVG manipulation (a baby face, a V2 part) belongs in @blobbi-kit/renderer' },

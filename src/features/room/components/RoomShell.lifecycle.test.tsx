@@ -47,6 +47,7 @@ class FakeScene {
   floorAt() { return null; }
   requestWalk() { return Promise.resolve('refused' as const); }
   stopWalk() {}
+  setActorModel(id: string, model: unknown) { this.log('setActorModel', id, model); }
 }
 vi.mock('../lib/scene/RoomScene', () => ({ RoomScene: FakeScene }));
 
@@ -54,6 +55,7 @@ import { RoomShell, type RoomEditorBinding } from './RoomShell';
 import { roomLayoutFor } from '../lib/room-layout';
 import { roomFurnitureFor, type FurniturePlacement } from '../lib/room-furniture';
 import type { RoomId } from '@/features/home/rooms/rooms';
+import type { ActorModel } from '../lib/blobbi3d/actor';
 
 const brook = parseModernBlobbiEvent(blobbiEvent('0000000001', { name: 'Brook', stage: 'adult', visualGeneration: 'v3' }))!;
 
@@ -67,9 +69,9 @@ function editorBinding(selected: number | null): RoomEditorBinding {
   return { selectedIndex: selected, onSelect: vi.fn(), onMove: vi.fn(), onInvalidChange: vi.fn(), toolbar: <div data-testid="toolbar" />, overlay: <div><div data-room-top>top</div><div data-room-bottom>tray</div></div> };
 }
 
-function Harness({ roomId, placements, editor, layout }: { roomId: RoomId; placements: readonly FurniturePlacement[]; editor?: RoomEditorBinding; layout?: ReturnType<typeof roomLayoutFor> }) {
+function Harness({ roomId, placements, editor, layout, model }: { roomId: RoomId; placements: readonly FurniturePlacement[]; editor?: RoomEditorBinding; layout?: ReturnType<typeof roomLayoutFor>; model?: ActorModel }) {
   return (
-    <RoomShell roomId={roomId} onChangeRoom={() => {}} isSleeping={false} blobbiStage={brook.stage} blobbiVisible roomLayout={layout ?? roomLayoutFor(roomId)} furniturePlacements={placements} editor={editor} stage={<div data-testid="stage" />} onDecorate={() => {}}>
+    <RoomShell roomId={roomId} onChangeRoom={() => {}} isSleeping={false} blobbiStage={brook.stage} blobbiVisible roomLayout={layout ?? roomLayoutFor(roomId)} furniturePlacements={placements} editor={editor} stage={<div data-testid="stage" />} onDecorate={() => {}} blobbiModel={model ?? null}>
       <div data-testid="dock">dock</div>
     </RoomShell>
   );
@@ -152,5 +154,23 @@ describe('RoomShell keeps one scene through decorating', () => {
     });
     await waitFor(() => expect(screen.getByTestId('room-shell')).toHaveAttribute('data-scene', 'unavailable'));
     expect(s.disposed).toBe(true);
+  });
+  it('a 3D model given to the shell goes to the same scene in the Blobbi\'s place, and the DOM drawing steps aside', async () => {
+    const model = { object: {}, box: 1, update: () => false, dispose: vi.fn() } as unknown as ActorModel & { dispose: ReturnType<typeof vi.fn> };
+    const { rerender } = render(<Harness roomId="home" placements={roomFurnitureFor('home')} />);
+    await waitFor(() => expect(screen.getByTestId('room-shell')).toHaveAttribute('data-scene', 'ready'));
+    const s = made.scenes[0];
+    expect(screen.getByTestId('room-shell')).toHaveAttribute('data-blobbi-render', '2d');
+    expect(screen.getByTestId('room-blobbi-anchor')).toBeInTheDocument();
+    rerender(<Harness roomId="home" placements={roomFurnitureFor('home')} model={model} />);
+    await waitFor(() => expect(s.calls.some((c) => c.name === 'setActorModel' && c.args[1] === model)).toBe(true));
+    expect(screen.getByTestId('room-shell')).toHaveAttribute('data-blobbi-render', '3d');
+    expect(screen.queryByTestId('room-blobbi-anchor')).toBeNull();
+    expect(made.scenes).toHaveLength(1);
+    rerender(<Harness roomId="home" placements={roomFurnitureFor('home')} />);
+    await waitFor(() => expect(s.calls[s.calls.length - 1]).toEqual({ name: 'setActorModel', args: ['main', null] }));
+    expect(screen.getByTestId('room-blobbi-anchor')).toBeInTheDocument();
+    expect(model.dispose).not.toHaveBeenCalled();
+    expect(s.disposed).toBe(false);
   });
 });

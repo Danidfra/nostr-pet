@@ -26,3 +26,6 @@ export type { RoomSession, RoomSessionHandle } from './lib/room-session';
 export { getThemeRoomDefaults } from './lib/room-theme-defaults';
 export { getAvailableFurnitureByCategory, getAvailableFurnitureForRoom, CATEGORY_LABELS } from './lib/furniture-3d';
 export { MAX_FURNITURE_PER_ROOM } from './lib/room-furniture';
+export { Blobbi3dStage } from './components/Blobbi3dStage';
+export { buildBlobbiModel, createBlobbiActor, genomeOf, morphologyOf, stage3dOf, buildSnoFigurine, poseRig, yawForView } from './lib/blobbi3d';
+export type { BlobbiModel, ActorModel, ActorFrame, Blobbi3dStage as Blobbi3dLifeStage } from './lib/blobbi3d';
