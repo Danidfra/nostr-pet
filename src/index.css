@@ -1107,6 +1107,21 @@
     color: hsl(var(--foreground) / 0.75);
     line-height: 1;
   }
+  /* The walking tempo of the 3D room (room-pace.ts, WALK_TEMPO): the kit's
+     walk is CSS on the drawing's rig (V3: 0.62 s a cycle on [data-rig]
+     parts; V1/V2: 0.56 s on the body box and its leg parts). The room plays
+     it --room-walk-tempo times faster and moves the Blobbi that much faster,
+     so the feet stay planted. Only the duration changes: the kit's keyframes,
+     phase delay (the same on every part of one Blobbi) and reduced-motion
+     rule (animation: none !important) are untouched. !important because the
+     kit's own selectors are more specific than a host class. */
+  .room-blobbi [data-blobbi-generation='v3'][data-blobbi-rig-motion='walking'] [data-rig] {
+    animation-duration: calc(0.62s / var(--room-walk-tempo, 1)) !important;
+  }
+  .room-blobbi [data-blobbi-motion='walking'],
+  .room-blobbi [data-blobbi-motion='walking'] * {
+    animation-duration: calc(0.56s / var(--room-walk-tempo, 1)) !important;
+  }
   /* The Blobbi hops in once the room has folded together (0.7 s), a guest right away. */
   .room-enter {
     animation: room-hop-in 500ms ease-out 700ms backwards;

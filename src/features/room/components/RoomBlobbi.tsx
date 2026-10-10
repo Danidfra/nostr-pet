@@ -15,12 +15,13 @@
  * replaced by the canonical renderer and the home's baseline expression.
  */
 
-import { forwardRef, useMemo, type ReactNode } from 'react';
+import { forwardRef, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { BlobbiRenderer, type BlobbiEmotion, type BlobbiFacing, type BlobbiMotion } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { bodyBottomInset } from '../lib/body-inset';
+import { WALK_TEMPO } from '../lib/room-pace';
 
 interface RoomBlobbiProps {
   blobbi: BlobbiCompanion;
@@ -104,13 +105,16 @@ export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function R
     >
       <div
         ref={ref}
-        className="relative size-full"
+        className="room-blobbi relative size-full"
         data-room-blobbi={variant}
         data-facing={facing}
         data-motion={bodyMotion}
         data-stage={blobbi.stage}
         data-generation={blobbi.visualGeneration}
         data-sleeping={isSleeping ? 'true' : 'false'}
+        // The room's walking tempo: the kit's walk cycle plays this many times faster here (index.css), and the
+        // scene moves the Blobbi that much faster with it (room-pace.ts), so a planted foot keeps its spot.
+        style={{ '--room-walk-tempo': WALK_TEMPO } as CSSProperties}
       >
         <BlobbiRenderer
           visual={visual}

@@ -185,8 +185,15 @@ hands it to `BlobbiRenderer motion`, so the kit draws its own gait (the V3
 adult on its legs, a baby with its hop, V1/V2 through the wrapper walk) from
 the side the facing names. The pace is the home's gait table converted to
 room tiles per second (`lib/room-pace.ts`: stride × box tiles × cos(camera
-elevation) × √2 for the diagonal tile axes, over the renderer's cycle; the
-V3 adult about 0.85 tiles/s), set per actor on the engine. The engine now
+elevation) × √2 for the diagonal tile axes, over the renderer's cycle), set
+per actor on the engine. Matched to the kit's short stride and fixed 0.62 s
+cycle that is a shuffle of 0.85 tiles/s, which the review found far too
+slow, so the room plays the kit's walk `WALK_TEMPO` (2.35) times faster
+through a CSS `animation-duration` override keyed to `--room-walk-tempo` on
+the stage, and moves the Blobbi that much faster with it: about 2 tiles/s,
+a room's width in four seconds, the planted foot still planted because
+cadence and pace come from one number. The kit has no rate prop and is
+untouched; its keyframes, phase delay and reduced-motion rule still apply. The engine now
 speaks the home's `WalkOutcome` contract: `requestWalk(id, x, z, 'to' |
 'approach')` resolves `arrived | replaced | stopped | refused`, settled from
 every place a path can end (arrival, a newer request including a floor tap,
