@@ -99,7 +99,8 @@ describe('buildBlobbiModel', () => {
       expect(box.max.x - box.min.x).toBeLessThanOrEqual(width * 1.001);
       const depth = (side.body.right - side.body.left) * U;
       expect(box.max.z - box.min.z).toBeGreaterThan(depth * 0.95);
-      expect(box.max.z - box.min.z).toBeLessThanOrEqual(depth * 1.001);
+      // (the eye mounds raise the face a little in front of the side silhouette)
+      expect(box.max.z - box.min.z).toBeLessThanOrEqual(depth * 1.03);
       // The feet stand on the ground line (their ink line, as the drawing's stroke, hangs just under it)
       const m = built[built.length - 1];
       const whole = new THREE.Box3().setFromObject(m.root, true);

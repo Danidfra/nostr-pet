@@ -13,6 +13,7 @@
 import type * as THREE from 'three';
 import { motionPose, type BlobbiMotion, type RigPart } from '@blobbi-kit/renderer/procedural';
 import { U } from './units';
+import { domeHeight } from './eyes';
 import type { BlobbiModel } from './model';
 
 const DEG = Math.PI / 180;
@@ -63,8 +64,16 @@ export function poseRig(model: BlobbiModel, state: RigState): void {
   }
   const gaze = state.gaze ?? { x: 0, y: 0 };
   for (const eye of rig.eyes) {
-    // The inner eye slides over the white along the surface, as far as the kit lets the pupils travel
-    eye.inner.position.copy(eye.across).multiplyScalar(gaze.x * eye.travel * U).addScaledVector(eye.up, -gaze.y * eye.travel * U);
+    // The inner eye slides over the white along the surface, as far as the kit lets the pupils travel (clamped to the
+    // unit disc, as the kit's gaze is), and rides the white's dome as it goes, so it neither sinks into it nor floats off it
+    const len = Math.hypot(gaze.x, gaze.y);
+    const gx = len > 1 ? gaze.x / len : gaze.x;
+    const gy = len > 1 ? gaze.y / len : gaze.y;
+    const dx = gx * eye.travel;
+    const dy = gy * eye.travel;
+    const rise = domeHeight(eye.white, eye.pupil.x + dx, eye.pupil.y + dy) - domeHeight(eye.white, eye.pupil.x, eye.pupil.y);
+    eye.inner.position.copy(eye.across).multiplyScalar(dx * U).addScaledVector(eye.up, -dy * U);
+    eye.inner.position.z += rise * U;
     const closed = !!state.eyesClosed;
     // Shut: the white and all on it squeezed to a line at the lid, the lid's line drawn over it
     eye.open.scale.y = closed ? 0.06 : 1;

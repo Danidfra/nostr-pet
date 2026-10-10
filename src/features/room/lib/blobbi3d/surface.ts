@@ -46,7 +46,14 @@ export interface Surface {
   phiOf(s: number): number;
   /** Where the surface is under a front-view root point, lifted along the normal. */
   at(xRoot: number, yRoot: number, lift?: number): SurfacePoint;
+  /** How far the skin is raised toward the viewer at a front-view root point (the eye mounds), model units. */
+  mound(xRoot: number, yRoot: number): number;
 }
+
+/** How much of the way to the eye's tangent plane the skin is raised under an eye. */
+export const MOUND = 0.7;
+/** How far out (in eye radii) the mound fades to nothing. */
+export const MOUND_REACH = 1.7;
 
 export function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
@@ -69,8 +76,14 @@ function ringNormal(ring: Ring, sx: number, cz: number): THREE.Vector3 {
   return new THREE.Vector3((pow(sx, e)) / ring.a, 0, (pow(cz, e)) / ring.b).normalize();
 }
 
-/** The surface the kit's two silhouettes agree on. */
-export function makeSurface(front: FrontGeometry, side: SideGeometry, frame: Frame): Surface {
+/**
+ * The surface the kit's two silhouettes agree on, with a gentle mound under
+ * each eye: the skin there is raised toward the eye's tangent plane, so a
+ * big eye on a narrow head (a baby's) sits on a face that is flatter where
+ * it is, rather than wrapping round the side of the head. Only depth
+ * changes, so the front view (and the front silhouette) is untouched.
+ */
+export function makeSurface(front: FrontGeometry, side: SideGeometry, frame: Frame, eyes: readonly EllipseLike[] = []): Surface {
   const fb = front.body;
   const sb = side.body;
   const span = fb.bottom - fb.top;
@@ -93,18 +106,52 @@ export function makeSurface(front: FrontGeometry, side: SideGeometry, frame: Fra
     };
   };
   const fractionOf = (yRoot: number) => clamp((fb.bottom - yRoot) / span, 0, 1);
-  const at = (xRoot: number, yRoot: number, lift = 0): SurfacePoint => {
+  /** The plain surface (no mounds): its front depth and normal under a root point. */
+  const base = (xRoot: number, yRoot: number) => {
     const ring = ringAt(fractionOf(yRoot));
     const xm = toModelX(xRoot, frame);
     const s = clamp((xm - ring.cx) / ring.a, -0.985, 0.985);
-    const phi = phiOf(s);
-    const { sx, cz } = unitProfile(phi);
-    const normal = ringNormal(ring, sx, cz);
-    const position = new THREE.Vector3(ring.cx + ring.a * sx, toModelY(yRoot, frame), ring.zc + ring.b * cz).addScaledVector(normal, lift);
+    const { sx, cz } = unitProfile(phiOf(s));
+    return { x: ring.cx + ring.a * sx, z: ring.zc + ring.b * cz, normal: ringNormal(ring, sx, cz) };
+  };
+  // Each eye's tangent plane at its centre, from the plain surface's slopes there
+  const planes = eyes.map((e) => {
+    const h = 2;
+    const c = base(e.cx, e.cy).z;
+    const zx = (base(e.cx + h, e.cy).z - base(e.cx - h, e.cy).z) / (2 * h);
+    const zy = (base(e.cx, e.cy + h).z - base(e.cx, e.cy - h).z) / (2 * h);
+    return { e, c, zx, zy };
+  });
+  const mound = (xRoot: number, yRoot: number) => {
+    let raise = 0;
+    for (const { e, c, zx, zy } of planes) {
+      const r = Math.hypot((xRoot - e.cx) / e.rx, (yRoot - e.cy) / e.ry);
+      if (r >= MOUND_REACH) continue;
+      const w = 1 - smooth(clamp((r - 1) / (MOUND_REACH - 1), 0, 1));
+      const plane = c + zx * (xRoot - e.cx) + zy * (yRoot - e.cy);
+      raise = Math.max(raise, MOUND * w * Math.max(0, plane - base(xRoot, yRoot).z));
+    }
+    return raise;
+  };
+  const at = (xRoot: number, yRoot: number, lift = 0): SurfacePoint => {
+    const b = base(xRoot, yRoot);
+    const raise = mound(xRoot, yRoot);
+    // The normal tilts toward the viewer with the mound: numerically, from the raised surface's slopes
+    let normal = b.normal;
+    if (raise > 0) {
+      const h = 2;
+      const z = (x: number, y: number) => base(x, y).z + mound(x, y);
+      const zx = (z(xRoot + h, yRoot) - z(xRoot - h, yRoot)) / (2 * h * U);
+      const zy = -(z(xRoot, yRoot + h) - z(xRoot, yRoot - h)) / (2 * h * U);
+      normal = new THREE.Vector3(-zx, -zy, 1).normalize();
+    }
+    const position = new THREE.Vector3(b.x, toModelY(yRoot, frame), b.z + raise).addScaledVector(normal, lift);
     return { position, normal, theta: Math.atan2(normal.x, normal.z) };
   };
-  return { frame, ringAt, fractionOf, phiOf, at };
+  return { frame, ringAt, fractionOf, phiOf, at, mound };
 }
+
+const smooth = (t: number) => t * t * (3 - 2 * t);
 
 export interface LoftOptions {
   segments?: number;

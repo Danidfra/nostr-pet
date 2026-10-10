@@ -334,6 +334,46 @@ under the skin, never further out than the dome; the gaze's travel),
 smoothness; twelve addresses as adults and babies build whole, finite,
 deterministic models with the morphology's parts).
 
+**The general-purpose pass (coverage, appendages, gaze).** The generator
+is split by concern: identity (`identity.ts`: the kit's identity
+normaliser and genome API, no second genome algorithm), coverage and
+compatibility (`compat.ts`: a table of every trait kind the kit publishes
+and how it is drawn; `unknownKinds()` compares it with the kit's own
+`HORN_KINDS`/`EAR_KINDS`/`TAIL_KINDS`/`PATTERN_KINDS`/`MARK_KINDS` and
+algorithm/genome versions, `assertSupported` throws in a dev build on any
+unknown kind or primitive part, so a new trait is a loud failure, never a
+quiet wrong character), the surface (`surface.ts`, with an eye mound: the
+skin under each eye raised 70% of the way to the eye's tangent plane,
+depth only, so big baby eyes no longer wrap round a narrow head), the
+face (`eyes.ts`, flat unshaded fills as in the drawing), appendages
+(`appendages.ts` + `sweep.ts`), materials, motion (`rig.ts`, `actor.ts`)
+and scene integration (`RoomScene.setActorModel`). Antennae, horns, ears
+and the curl tail are swept, tapered tubes along the quadratic centreline
+the kit draws each around: `sweep.ts` reads the centreline and widths back
+out of the kit's `stalk`/`horn`/`softCone` outlines (refusing any other
+structure), and `appendages.ts` combines views (across and up from the
+front, forward from the side; a forehead horn, drawn end-on from the
+front, and the tail, absent from the front, take their curve from the
+side view and their across position from the back view). Ears are flat
+leaves (depth a third of their width, the kit draws no ear depth) with the
+inner ear on the front face. Nub and leaf tails are balls from the side
+drawing, as wide as the back drawing. Cheeks the kit hangs past the
+outline (the baby's) are moved inside the face. The gaze is a point in
+the world (the pointer's ray on a plane in front of the face on the lab's
+stage); the actor turns it into the kit's offset in the Blobbi's own
+frame, clamps it to the unit disc, eases every change (~10/s), keeps the
+moving inner eye on the white's dome, and fades it to rest as the face
+turns away (nothing is looked at with the back of the head). A still pose
+never blinks. The 3D walk (`WALK_TEMPO_3D` 1.08) plays the kit's cycle 8%
+faster and the engine moves a model-driven actor 8% faster with it
+(`ActorModel.pace`); the 2D drawing's room walk is unchanged. Coverage
+fixtures (`coverage.ts`) use only the kit's genome API: one per trait kind,
+every antenna x horn, horn x ear and ear x tail pair, and every gene at
+-1 and +1 with every appendage present. The lab gained a trait-fixture
+picker, matrix sets (identities, every trait, pairs, gene bounds), and the
+coverage table. The kit gives a baby no tail (its development is 0), so
+none is drawn.
+
 ## Milestone 13: MVP release readiness (M11)
 
 The pass that turns the M10 home into something that can be put in front

@@ -25,6 +25,8 @@ import { ROOT_PER_BOX, rootPerBox, toModelX, toModelY, toModelZ, U, type Frame }
 import { paintMarkings } from './skin';
 import { buildEye, type EyeRig } from './eyes';
 import { clamp, loftRings, makeSurface, spanOf, stickerGeometry, type Ring, type Surface } from './surface';
+import { buildAppendage3d, type AppendageKind, type Built3dAppendage } from './appendages';
+import { assertSupported } from './compat';
 
 export type { Ring, Surface } from './surface';
 export type { EyeRig } from './eyes';
@@ -52,7 +54,7 @@ export interface Rig {
   legs: { left: THREE.Group | null; right: THREE.Group | null };
   arms: { left: THREE.Group | null; right: THREE.Group | null };
   tuft: THREE.Group | null;
-  appendages: { part: string; sway: Appendage['sway']; group: THREE.Group }[];
+  appendages: { part: string; sway: Appendage['sway']; group: THREE.Group; built?: Built3dAppendage }[];
   eyes: EyeRig[];
 }
 
@@ -125,6 +127,18 @@ class Parts {
     if (!m) {
       m = this.track(new THREE.MeshStandardMaterial({ color, roughness: 0.78, metalness: 0, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 }));
       this.materials.set(key, m);
+    }
+    return m;
+  }
+
+  private flats = new Map<string, THREE.MeshBasicMaterial>();
+  /** A flat, unshaded fill: what the drawing's flat colours are. */
+  flat(color: string, opacity = 1): THREE.MeshBasicMaterial {
+    const key = `${color}:${opacity}`;
+    let m = this.flats.get(key);
+    if (!m) {
+      m = this.track(new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 }));
+      this.flats.set(key, m);
     }
     return m;
   }
@@ -230,6 +244,7 @@ function loftBody(surface: Surface, front: Front, palette: BlobbiPalette): THREE
       const xr = frame.axisX + (x * Math.cos(phi)) / U;
       const yr = frame.groundY - y / U;
       const t = Math.hypot((xr - g.cx) / g.rx, (yr - g.cy) / g.ry);
+      void _z;
       if (t < g.mid) tint.copy(light).lerp(mid, t / g.mid);
       else tint.copy(mid).lerp(dark, clamp((t - g.mid) / (1 - g.mid), 0, 1));
       return [tint.r, tint.g, tint.b];
@@ -237,7 +252,30 @@ function loftBody(surface: Surface, front: Front, palette: BlobbiPalette): THREE
   });
 }
 
-function buildFace(face: Face, look: 'layered' | 'simple', sleeping: Face | null, surface: Surface, parts: Parts, body: THREE.Group): EyeRig[] {
+/** Raise the skin under the eyes, on the front half only, and recompute the normals. */
+function raiseMounds(geometry: THREE.BufferGeometry, surface: Surface) {
+  const p = geometry.getAttribute('position') as THREE.BufferAttribute;
+  const { frame } = surface;
+  let moved = false;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i);
+    const y = p.getY(i);
+    const z = p.getZ(i);
+    const ring = surface.ringAt(surface.fractionOf(frame.groundY - y / U));
+    if (z <= ring.zc) continue;
+    const raise = surface.mound(frame.axisX + x / U, frame.groundY - y / U);
+    if (raise > 0) {
+      p.setZ(i, z + raise);
+      moved = true;
+    }
+  }
+  if (moved) {
+    p.needsUpdate = true;
+    geometry.computeVertexNormals();
+  }
+}
+
+function buildFace(face: Face, look: 'layered' | 'simple', sleeping: Face | null, surface: Surface, parts: Parts, body: THREE.Group, front: Front): EyeRig[] {
   const { palette } = parts;
   const feature = parts.material(palette.feature);
   const closedLine = (d: string, width: number) => parts.tube(surfacePoints(surface, d, 3 * U), (width / 2) * U, feature);
@@ -272,13 +310,32 @@ function buildFace(face: Face, look: 'layered' | 'simple', sleeping: Face | null
       body.add(inside);
     }
   }
-  for (const cheek of face.cheeks) {
+  for (const raw of face.cheeks) {
+    // The kit lets a cheek hang past the body's outline (the baby's do); on a 3D body it would fold round the side,
+    // so it is drawn within the face: its outer side pulled in to the edge, the rest where the kit puts it
+    const cheek = { ...raw, base: fitInside(raw.base, front), highlight: fitInside(raw.highlight, front) };
     // Blush is flat colour in the drawing, even where it wraps round the silhouette: lit from within so a grazing angle keeps it pink
     const blush = parts.track(new THREE.MeshStandardMaterial({ color: palette.cheek, emissive: palette.cheek, emissiveIntensity: 0.45, roughness: 1, transparent: true, opacity: cheek.baseOpacity, depthWrite: false }));
     body.add(parts.sticker(cheek.base, surface, blush, cheek.base.ry * 0.12, 0.8));
     if (cheek.highlightOpacity > 0) body.add(parts.sticker(cheek.highlight, surface, parts.material(palette.white, cheek.highlightOpacity), 0, 1.4));
   }
   return eyes;
+}
+
+/**
+ * An ellipse moved inside the body's front outline at its height (with a
+ * little margin): its size kept (up to a third of the half-width), its
+ * centre shifted in until its outer side is within the face.
+ */
+function fitInside(e: Ellipse, front: Front): Ellipse {
+  const span = front.body.spanAt(e.cy);
+  if (!span) return e;
+  const half = (span.max - span.min) / 2;
+  const margin = 0.08 * half;
+  const rx = Math.min(e.rx, half / 3);
+  const ry = e.ry * (rx / e.rx);
+  const cx = Math.max(span.min + margin + rx, Math.min(span.max - margin - rx, e.cx));
+  return { ...e, cx, rx, ry };
 }
 
 function buildFoot(foot: Foot, depth: number, frame: Frame, parts: Parts): THREE.Group {
@@ -397,13 +454,16 @@ function buildPrims(prims: readonly Prim[], pivot: Pt, parts: Parts, plane: 'fro
 
 /** Build the model of one morphology. */
 export function buildBlobbiModel(morphology: BlobbiMorphology, seed = ''): BlobbiModel {
+  // A trait or part the builders do not know fails loudly in development, never quietly drawn wrong
+  assertSupported(morphology);
   const front = asFront(buildBlobbiGeometry(morphology, { view: 'front' }));
   const back = asFront(buildBlobbiGeometry(morphology, { view: 'back' }));
   const side = asSide(buildBlobbiGeometry(morphology, { view: 'side' }));
   const asleep = asFront(buildBlobbiGeometry(morphology, { view: 'front', sleeping: true }));
   const palette = front.palette;
   const frame: Frame = { axisX: front.body.axisX, groundY: front.ground.y, sideAxisX: side.body.axisX };
-  const surface = makeSurface(front, side, frame);
+  // The eyes shape the face they sit on (a mound under each); only the front's depth changes
+  const surface = makeSurface(front, side, frame, front.face?.eyes.map((e) => e.white) ?? []);
   const parts = new Parts(palette, front.look.body === 'v1');
 
   const root = new THREE.Group();
@@ -419,6 +479,7 @@ export function buildBlobbiModel(morphology: BlobbiMorphology, seed = ''): Blobb
 
   // The body
   const bodyGeometry = parts.track(loftBody(surface, front, palette));
+  raiseMounds(bodyGeometry, surface);
   const skin = new THREE.Mesh(bodyGeometry, parts.track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78, metalness: 0 })));
   skin.name = 'skin';
   skin.castShadow = true;
@@ -434,7 +495,7 @@ export function buildBlobbiModel(morphology: BlobbiMorphology, seed = ''): Blobb
   if (front.shine) body.add(parts.sticker(front.shine, surface, parts.material(palette.white, 0.55), 0, 1.2));
 
   // The face, on the surface
-  const eyes = front.face ? buildFace(front.face, front.look.eye, asleep.face, surface, parts, body) : [];
+  const eyes = front.face ? buildFace(front.face, front.look.eye, asleep.face, surface, parts, body, front) : [];
 
   // Feet on the ground, arms at the shoulders, the tuft on the crown
   const footDepth = (side.limbs.nearFoot?.foot.rx ?? front.limbs.feet[0]?.foot.rx ?? 60) * 0.9 * U;
@@ -458,13 +519,35 @@ export function buildBlobbiModel(morphology: BlobbiMorphology, seed = ''): Blobb
     body.add(tuft);
   }
 
-  // Appendages: drawn where the front view draws them, as deep as the side view puts them
+  // Antennae, horns and tails: swept along the centreline the kit draws them around, from the views that show it
+  const appendages: Rig['appendages'] = [];
+  const key = (a: Appendage) => `${a.part}:${a.side}`;
+  const swept = new Set<string>();
+  const sideBy = new Map<string, Appendage>();
+  for (const a of side.appendages) if (!sideBy.has(key(a)) || sideBy.get(key(a))!.far) sideBy.set(key(a), a);
+  const backBy = new Map<string, Appendage>();
+  for (const a of back.appendages) if (!backBy.has(key(a))) backBy.set(key(a), a);
+  const frontBy = new Map<string, Appendage>();
+  for (const a of front.appendages) if (!frontBy.has(key(a))) frontBy.set(key(a), a);
+  const keys = new Set([...frontBy.keys(), ...backBy.keys(), ...sideBy.keys()]);
+  for (const k of keys) {
+    const kind = k.split(':')[0] as AppendageKind;
+    if (kind !== 'antenna' && kind !== 'horn' && kind !== 'tail' && kind !== 'ear') continue;
+    const any = frontBy.get(k) ?? backBy.get(k) ?? sideBy.get(k)!;
+    const built = buildAppendage3d(kind, { front: frontBy.get(k) ?? null, back: backBy.get(k) ?? null, side: sideBy.get(k) ?? null, sideGroundY: side.ground.y }, frame, parts);
+    if (!built) continue;
+    swept.add(k);
+    body.add(built.group);
+    appendages.push({ part: kind, sway: any.sway, group: built.group, built });
+  }
+
+  // Anything else: flat shapes drawn where the front view draws them, as deep as the side view puts them
   const sideByPart = new Map<string, Appendage>();
   for (const a of side.appendages) if (!sideByPart.has(a.part)) sideByPart.set(a.part, a);
-  const appendages: Rig['appendages'] = [];
   const seen = new Set<string>();
   for (const a of front.appendages) {
     seen.add(a.part);
+    if (swept.has(key(a))) continue;
     const atSide = sideByPart.get(a.part);
     const z = atSide ? toModelZ(atSide.base.x, frame) : a.layer === 'behind' ? -0.04 : surface.ringAt(surface.fractionOf(a.base.y)).zc;
     const group = new THREE.Group();
@@ -474,9 +557,9 @@ export function buildBlobbiModel(morphology: BlobbiMorphology, seed = ''): Blobb
     body.add(group);
     appendages.push({ part: a.part, sway: a.sway, group });
   }
-  // Parts only the side view shows (a tail): drawn in the side plane, on the axis
+  // Parts only the side view shows: drawn in the side plane, on the axis
   for (const a of side.appendages) {
-    if (seen.has(a.part) || a.far) continue;
+    if (seen.has(a.part) || a.far || swept.has(key(a))) continue;
     seen.add(a.part);
     const group = new THREE.Group();
     group.name = a.part;

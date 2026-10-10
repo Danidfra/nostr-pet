@@ -156,7 +156,7 @@ describe('RoomShell keeps one scene through decorating', () => {
     expect(s.disposed).toBe(true);
   });
   it('a 3D model given to the shell goes to the same scene in the Blobbi\'s place, and the DOM drawing steps aside', async () => {
-    const model = { object: {}, box: 1, update: () => false, dispose: vi.fn() } as unknown as ActorModel & { dispose: ReturnType<typeof vi.fn> };
+    const model = { object: {}, box: 1, pace: 1, gaze: () => ({ x: 0, y: 0 }), update: () => false, dispose: vi.fn() } as unknown as ActorModel & { dispose: ReturnType<typeof vi.fn> };
     const { rerender } = render(<Harness roomId="home" placements={roomFurnitureFor('home')} />);
     await waitFor(() => expect(screen.getByTestId('room-shell')).toHaveAttribute('data-scene', 'ready'));
     const s = made.scenes[0];

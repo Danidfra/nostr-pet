@@ -23,7 +23,9 @@ import { DEFAULT_ROOM, type RoomId } from '@/features/home/rooms/rooms';
 import { RoomShell } from './components/RoomShell';
 import { RoomBlobbi } from './components/RoomBlobbi';
 import { Blobbi3dStage } from './components/Blobbi3dStage';
-import { FidelityMatrix, type MatrixRow } from './components/FidelityMatrix';
+import { FidelityMatrix, KitSvg, type MatrixRow } from './components/FidelityMatrix';
+import { extremeFixtures, pairFixtures, traitFixtures, type Fixture } from './lib/blobbi3d/coverage';
+import { TRAIT_SUPPORT } from './lib/blobbi3d/compat';
 import { useRoomNavigation } from './hooks/useRoomNavigation';
 import { walkCycleSecondsFor, walkSpeedFor } from './lib/room-pace';
 import { roomFurnitureFor } from './lib/room-furniture';
@@ -70,6 +72,16 @@ const FACING: Record<'front' | 'side' | 'back', BlobbiFacing> = { front: 'front'
 const MATRIX_PET_IDS = ['0000000001', '0000000005', '0000000006', '0000000010', '0000000018', '0000000020', '0000000029', '0000000033', '0000000036'];
 const MATRIX_PUBKEY = 'a'.repeat(64);
 
+/** The matrix's sets: real addresses, one per trait kind, appendage pairs, the gene bounds. */
+type MatrixSet = 'identities' | 'traits' | 'pairs' | 'bounds';
+const MATRIX_SETS: { set: MatrixSet; label: string }[] = [
+  { set: 'identities', label: 'Identities' },
+  { set: 'traits', label: 'Every trait' },
+  { set: 'pairs', label: 'Appendage pairs' },
+  { set: 'bounds', label: 'Gene bounds' },
+];
+const FIXTURES = { traits: traitFixtures(), pairs: pairFixtures(), bounds: extremeFixtures() };
+
 /** Where the room's walk button sends the Blobbi, round the room (tiles). */
 const SPOTS = [{ x: 1.5, z: 6.5 }, { x: 6.5, z: 6.5 }, { x: 6.5, z: 1.5 }, { x: 1.5, z: 1.5 }];
 
@@ -104,18 +116,27 @@ export default function RoomLabPage() {
   const [figurine, setFigurine] = useState(false);
   const [tracking, setTracking] = useState(false);
   const [matrixOpen, setMatrixOpen] = useState(false);
+  const [matrixSet, setMatrixSet] = useState<MatrixSet>('identities');
+  // A trait fixture in place of an identity: the kit's genome API, no Blobbi event behind it
+  const [fixtureId, setFixtureId] = useState('');
+  const fixture: Fixture | undefined = [...FIXTURES.traits, ...FIXTURES.pairs, ...FIXTURES.bounds].find((f) => f.id === fixtureId);
+  const subject = fixture ? { id: fixture.id, genome: fixture.genome, stage } : current;
   const visual = useMemo(() => toBlobbiVisual(current.blobbi), [current.blobbi]);
   const matrix = useMemo((): MatrixRow[] => {
     const rows: MatrixRow[] = [];
     for (const s of ['adult', 'baby'] as const) {
-      for (const petId of MATRIX_PET_IDS) {
-        const blobbi = labBlobbi(MATRIX_PUBKEY, petId, `#${Number(petId)}`, s);
-        const genome = genomeOf(toBlobbiVisual(blobbi));
-        if (genome) rows.push({ id: `${s}-${Number(petId)}`, label: `#${Number(petId)}`, visual: toBlobbiVisual(blobbi), genome, stage: s });
+      if (matrixSet === 'identities') {
+        for (const petId of MATRIX_PET_IDS) {
+          const blobbi = labBlobbi(MATRIX_PUBKEY, petId, `#${Number(petId)}`, s);
+          const genome = genomeOf(toBlobbiVisual(blobbi));
+          if (genome) rows.push({ id: `${s}-${Number(petId)}`, label: `#${Number(petId)}`, visual: toBlobbiVisual(blobbi), genome, stage: s });
+        }
+      } else {
+        for (const f of FIXTURES[matrixSet]) rows.push({ id: `${s}-${f.id}`, label: f.label, focus: f.focus, genome: f.genome, stage: s });
       }
     }
     return rows;
-  }, []);
+  }, [matrixSet]);
 
   return (
     <div className="game-shell" data-testid="room-lab">
@@ -133,7 +154,7 @@ export default function RoomLabPage() {
 
           <section className="flex flex-wrap items-center gap-2 px-3 pb-2" aria-label="Identity">
             {identities.map((i) => (
-              <Chip key={i.id} on={i.id === current.id} onClick={() => setChosen(i.id)} testId={`lab-identity-${i.id}`}>
+              <Chip key={i.id} on={!fixture && i.id === current.id} onClick={() => { setChosen(i.id); setFixtureId(''); }} testId={`lab-identity-${i.id}`}>
                 {i.label}
               </Chip>
             ))}
@@ -141,8 +162,23 @@ export default function RoomLabPage() {
             <Chip on={stage === 'adult'} onClick={() => setStage('adult')} testId="lab-life-adult">Adult</Chip>
             <Chip on={stage === 'baby'} onClick={() => setStage('baby')} testId="lab-life-baby">Baby</Chip>
           </section>
+          <section className="flex flex-wrap items-center gap-2 px-3 pb-2" aria-label="Trait fixture">
+            <label className="text-[11px] text-foreground/70" htmlFor="lab-fixture">Or a trait fixture:</label>
+            <select id="lab-fixture" className="decor-chip" data-testid="lab-fixture" value={fixtureId} onChange={(e) => setFixtureId(e.target.value)}>
+              <option value="">(none: the identity above)</option>
+              <optgroup label="One per trait">
+                {FIXTURES.traits.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+              </optgroup>
+              <optgroup label="Appendage pairs">
+                {FIXTURES.pairs.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+              </optgroup>
+              <optgroup label="Gene bounds">
+                {FIXTURES.bounds.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+              </optgroup>
+            </select>
+          </section>
           <p className="px-3 pb-2 text-[11px] text-foreground/60" data-testid="lab-seed">
-            seed {current.genome.seed.slice(0, 16)}…
+            {fixture ? `fixture ${fixture.label} · ` : ''}seed {subject.genome.seed.slice(0, 16)}…
           </p>
 
           <section className="px-3 pb-3" aria-label="Side by side">
@@ -151,9 +187,13 @@ export default function RoomLabPage() {
               {(['front', 'side', 'back'] as const).map((v) => (
                 <figure key={v} className="flex flex-col items-center gap-1" data-testid={`lab-compare-${v}`}>
                   <div className="relative rounded-2xl bg-white/40" style={{ width: 160, height: 160 }} data-testid={`lab-2d-${v}`}>
-                    <BlobbiRenderer visual={visual} instanceId={`lab-2d-${current.id}-${v}`} size="100%" facing={FACING[v]} motion="still" sleepIndicator="none" transparent style={{ width: '100%', height: '100%' }} />
+                    {fixture ? (
+                      <KitSvg genome={fixture.genome} stage={stage} view={v} size={160} />
+                    ) : (
+                      <BlobbiRenderer visual={visual} instanceId={`lab-2d-${current.id}-${v}`} size="100%" facing={FACING[v]} motion="still" sleepIndicator="none" transparent style={{ width: '100%', height: '100%' }} />
+                    )}
                   </div>
-                  <Blobbi3dStage genome={current.genome} stage={current.stage} view={v} motion="still" size={160} testId={`lab-stage-${v}`} label={`3D ${v}`} />
+                  <Blobbi3dStage genome={subject.genome} stage={subject.stage} view={v} motion="still" size={160} testId={`lab-stage-${v}`} label={`3D ${v}`} />
                   <figcaption className="text-[11px] text-foreground/70">{v}</figcaption>
                 </figure>
               ))}
@@ -163,7 +203,7 @@ export default function RoomLabPage() {
           <section className="px-3 pb-3" aria-label="Motion">
             <h2 className="pb-2 text-sm font-bold">On the stage</h2>
             <div className="flex flex-wrap items-start gap-3">
-              <Blobbi3dStage genome={current.genome} stage={current.stage} view={view} motion={motion} sleeping={sleeping} figurine={figurine} trackPointer={tracking} walkCycle={walkCycleSecondsFor('v3')} size={300} testId="lab-stage-main" label="3D stage" />
+              <Blobbi3dStage genome={subject.genome} stage={subject.stage} view={view} motion={motion} sleeping={sleeping} figurine={figurine} trackPointer={tracking} walkCycle={walkCycleSecondsFor('v3')} size={300} testId="lab-stage-main" label="3D stage" />
               <div className="flex flex-col gap-2 text-sm">
                 <div className="flex flex-wrap gap-1" role="group" aria-label="View">
                   {VIEWS.map((v) => (
@@ -195,8 +235,33 @@ export default function RoomLabPage() {
               <h2 className="text-sm font-bold">Comparison matrix</h2>
               <Chip on={matrixOpen} onClick={() => setMatrixOpen((o) => !o)} testId="lab-matrix-toggle">{matrixOpen ? 'Hide' : `Draw ${matrix.length} Blobbis`}</Chip>
             </div>
-            <p className="pb-2 text-[11px] text-foreground/60">Nine addresses, each as an adult and as a baby: the kit's drawing beside the model from three sides, all drawn through one WebGL context.</p>
+            <div className="flex flex-wrap gap-1 pb-2" role="group" aria-label="Matrix set">
+              {MATRIX_SETS.map((m) => (
+                <Chip key={m.set} on={matrixSet === m.set} onClick={() => setMatrixSet(m.set)} testId={`lab-matrix-set-${m.set}`}>{m.label}</Chip>
+              ))}
+            </div>
+            <p className="pb-2 text-[11px] text-foreground/60">Each row as an adult and as a baby: the kit's drawing beside the model from three sides, all drawn through one WebGL context.</p>
             {matrixOpen && <FidelityMatrix rows={matrix} />}
+          </section>
+
+          <section className="px-3 pb-3" aria-label="Coverage">
+            <details data-testid="lab-coverage">
+              <summary className="cursor-pointer text-sm font-bold">Trait coverage</summary>
+              <table className="mt-2 w-full text-left text-[11px]">
+                <thead>
+                  <tr><th className="pr-2">Trait</th><th className="pr-2">Support</th><th>How</th></tr>
+                </thead>
+                <tbody>
+                  {Object.entries(TRAIT_SUPPORT).map(([k, v]) => (
+                    <tr key={k} data-testid={`lab-coverage-${k}`} data-support={v.support} className="align-top">
+                      <td className="pr-2">{v.feature}</td>
+                      <td className="pr-2">{v.support}</td>
+                      <td className="text-foreground/70">{v.how}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
           </section>
 
           <section className="flex min-h-[520px] flex-1 flex-col px-0 pb-3" aria-label="In the room">

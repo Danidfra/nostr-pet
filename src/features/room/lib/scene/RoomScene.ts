@@ -1370,7 +1370,8 @@ export class RoomScene {
         moving = true;
       }
       if (!b.path.length) continue;
-      let step = b.speed * dt;
+      // A 3D model walks at its own pace (its feet keep step with it)
+      let step = b.speed * (b.model?.pace ?? 1) * dt;
       while (step > 0 && b.path.length) {
         const next = b.path[0];
         const dx = next.x - b.x;

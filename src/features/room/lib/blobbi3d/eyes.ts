@@ -48,10 +48,14 @@ export interface EyeRig {
   up: THREE.Vector3;
   /** The eye's parts and their colours, for tests. */
   layers: { part: string; colour: string }[];
+  /** The white, and the inner eye's centre (the pupil's), in root units: to keep the inner eye on the dome as it moves. */
+  white: EllipseLike;
+  pupil: { x: number; y: number };
 }
 
 export interface EyeMaterials {
-  material(colour: string, opacity?: number): THREE.Material;
+  /** A flat fill, as the drawing's: the eye's parts are not shaded, so the white reads as its whole oval from any angle. */
+  flat(colour: string, opacity?: number): THREE.Material;
   track<T extends { dispose(): void }>(x: T): T;
 }
 
@@ -81,7 +85,7 @@ export function buildEye(eye: EyeGeometry, look: EyeLook, palette: BlobbiPalette
   /** A sticker over the white's dome, `layer` layers up. */
   const sticker = (e: EllipseLike, layer: number, colour: string, opacity: number, part: string, into: THREE.Group) => {
     const geometry = parts.track(stickerGeometry(e, (xr, yr) => raised(xr, yr, domeHeight(white, xr, yr) + layer * LAYER)));
-    const mesh = new THREE.Mesh(geometry, parts.material(colour, opacity));
+    const mesh = new THREE.Mesh(geometry, parts.flat(colour, opacity));
     mesh.name = part;
     into.add(mesh);
     layers.push({ part, colour });
@@ -89,7 +93,7 @@ export function buildEye(eye: EyeGeometry, look: EyeLook, palette: BlobbiPalette
 
   // The white: its own dome, its rim on the skin
   const whiteGeometry = parts.track(stickerGeometry(white, (xr, yr, r) => raised(xr, yr, domeHeight(white, xr, yr) + 0.4 * (1 - r)), 7, 32));
-  const whiteMesh = new THREE.Mesh(whiteGeometry, parts.material(palette.white));
+  const whiteMesh = new THREE.Mesh(whiteGeometry, parts.flat(palette.white));
   whiteMesh.name = 'white';
   open.add(whiteMesh);
   layers.push({ part: 'white', colour: palette.white });
@@ -115,5 +119,5 @@ export function buildEye(eye: EyeGeometry, look: EyeLook, palette: BlobbiPalette
   // The surface's tangents at the eye: where the gaze slides the inner eye
   const up = new THREE.Vector3(0, 1, 0);
   const across = new THREE.Vector3().crossVectors(up, centre.normal).normalize();
-  return { group, inner, open, closed, travel: eye.travel, across, up, layers };
+  return { group, inner, open, closed, travel: eye.travel, across, up, layers, white: { ...white }, pupil: { x: eye.pupil.cx, y: eye.pupil.cy } };
 }

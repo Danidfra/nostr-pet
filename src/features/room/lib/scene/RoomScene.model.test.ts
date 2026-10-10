@@ -97,6 +97,8 @@ function fakeModel(): ActorModel & { frames: ActorFrame[] } {
   return {
     object,
     box: 1,
+    pace: 1,
+    gaze: () => ({ x: 0, y: 0 }),
     frames,
     update(frame) {
       frames.push({ ...frame });

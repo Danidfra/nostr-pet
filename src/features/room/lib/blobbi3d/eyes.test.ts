@@ -180,7 +180,10 @@ describe('the eyes', () => {
     const m = model('lab-1', 'adult');
     poseRig(m, { motion: 'still', phase: 0, gaze: { x: 1, y: 0 } });
     for (const eye of m.rig.eyes) {
-      expect(eye.inner.position.length()).toBeCloseTo(eye.travel * U, 6);
+      // Across the surface by the kit's travel (and a little toward the viewer, riding the dome)
+      expect(Math.hypot(eye.inner.position.x, eye.inner.position.y, eye.inner.position.z - 0) ).toBeGreaterThan(eye.travel * U * 0.9);
+      // The dome adds a little toward the viewer, which the tangent (tilted with the skin) picks up a sliver of
+      expect(eye.across.clone().dot(eye.inner.position)).toBeCloseTo(eye.travel * U, 3);
       expect(eye.inner.position.x).toBeGreaterThan(0);
       expect(Math.abs(eye.inner.position.y)).toBeLessThan(1e-9);
     }

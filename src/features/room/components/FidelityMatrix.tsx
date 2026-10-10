@@ -5,16 +5,29 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { BlobbiRenderer, type BlobbiVisual } from '@blobbi-kit/renderer';
-import type { BlobbiGenome } from '@blobbi-kit/renderer/procedural';
+import { renderBlobbiSvg, type BlobbiGenome } from '@blobbi-kit/renderer/procedural';
 
 import { webglAvailable } from '../hooks/useRoomScene';
 import { renderStills, type StillView } from '../lib/blobbi3d/stills';
 import type { Blobbi3dStage } from '../lib/blobbi3d/identity';
 
+/**
+ * The kit's own drawing of a genome (a fixture with no Blobbi event behind
+ * it), as an image: the canonical SVG, untouched, in the stage's own frame
+ * (a baby's is its smaller square, as `BlobbiRenderer` draws it).
+ */
+export function KitSvg({ genome, stage, view, size, testId }: { genome: BlobbiGenome; stage: Blobbi3dStage; view: 'front' | 'side' | 'back'; size: number; testId?: string }) {
+  const src = useMemo(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderBlobbiSvg(genome, { stage, view }, { frame: 'stage' }))}`, [genome, stage, view]);
+  return <img src={src} width={size} height={size} alt={`The kit's ${view} drawing`} data-testid={testId} data-kit-svg={view} />;
+}
+
 export interface MatrixRow {
   id: string;
   label: string;
-  visual: BlobbiVisual;
+  /** What the row is there to show (a trait, a pair, the bounds). */
+  focus?: string;
+  /** The Blobbi's visual, when there is one; else the kit's drawing of the genome. */
+  visual?: BlobbiVisual;
   genome: BlobbiGenome;
   stage: Blobbi3dStage;
 }
@@ -56,10 +69,14 @@ export function FidelityMatrix({ rows, size = 120 }: { rows: readonly MatrixRow[
         <div key={row.id} className="grid items-center gap-1" style={{ gridTemplateColumns: `8rem repeat(4, ${size}px)` }} data-testid={`lab-matrix-${row.id}`} data-seed={row.genome.seed}>
           <div className="min-w-0 pr-2 text-xs">
             <p className="truncate font-bold">{row.label}</p>
-            <p className="truncate text-[10px] text-foreground/60">{row.stage} · {row.genome.seed.slice(0, 10)}…</p>
+            <p className="truncate text-[10px] text-foreground/60">{row.focus ? `${row.focus} · ` : ''}{row.stage}</p>
           </div>
           <div className="rounded-xl bg-white/40" style={{ width: size, height: size }} data-testid={`lab-matrix-${row.id}-2d`}>
-            <BlobbiRenderer visual={row.visual} instanceId={`lab-matrix-${row.id}`} size="100%" facing="front" motion="still" sleepIndicator="none" transparent style={{ width: '100%', height: '100%' }} />
+            {row.visual ? (
+              <BlobbiRenderer visual={row.visual} instanceId={`lab-matrix-${row.id}`} size="100%" facing="front" motion="still" sleepIndicator="none" transparent style={{ width: '100%', height: '100%' }} />
+            ) : (
+              <KitSvg genome={row.genome} stage={row.stage} view="front" size={size} />
+            )}
           </div>
           {VIEWS.map((view) => {
             const url = stills[`${row.id}:${view}`];

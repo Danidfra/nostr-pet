@@ -86,18 +86,16 @@ export function Blobbi3dStage({ genome, stage, view, motion, sleeping = false, f
     stageRef.current?.setSleeping(sleeping);
   }, [sleeping, status]);
   useEffect(() => {
-    if (!trackPointer) stageRef.current?.setGaze(undefined);
+    if (!trackPointer) stageRef.current?.lookAtNothing();
   }, [trackPointer, status]);
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!trackPointer) return;
     const box = e.currentTarget.getBoundingClientRect();
-    const x = Math.max(-1, Math.min(1, ((e.clientX - box.left) / box.width) * 2 - 1));
-    const y = Math.max(-1, Math.min(1, ((e.clientY - box.top) / box.height) * 2 - 1));
-    stageRef.current?.setGaze({ x, y });
+    stageRef.current?.lookAtCanvasPoint(((e.clientX - box.left) / box.width) * size, ((e.clientY - box.top) / box.height) * size);
   };
   const onPointerLeave = () => {
-    if (trackPointer) stageRef.current?.setGaze(undefined);
+    if (trackPointer) stageRef.current?.lookAtNothing();
   };
 
   const box: CSSProperties = { width: size, height: size };

@@ -43,7 +43,7 @@ export class BlobbiStage {
   private view: StageView = 'front';
   private motion: BlobbiMotion = 'idle';
   private sleeping = false;
-  private gaze: { x: number; y: number } | undefined;
+  private lookAt: THREE.Vector3 | null = null;
   private heading = 0;
   private frame = 0;
   private last = 0;
@@ -136,11 +136,29 @@ export class BlobbiStage {
     this.requestFrame();
   }
 
-  /** Where the eyes look (-1..1 each way), or nothing for the resting gaze. */
-  setGaze(gaze: { x: number; y: number } | undefined) {
-    this.gaze = gaze;
-    this.renderFrame(0);
+  /**
+   * Where the eyes look: a point on the canvas (CSS px from its top left),
+   * carried into the world as the point on the plane in front of the face
+   * that the pointer's ray meets; or nothing, for the resting gaze. The
+   * actor eases to it and fades it as the face turns away.
+   */
+  lookAtCanvasPoint(x: number, y: number) {
+    const ray = new THREE.Vector3((x / this.width) * 2 - 1, 1 - (y / this.height) * 2, 0.5).unproject(this.camera).sub(this.camera.position).normalize();
+    // The plane in front of the face: a little toward the camera from the model's centre line
+    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -0.6);
+    const hit = new THREE.Ray(this.camera.position, ray).intersectPlane(plane, new THREE.Vector3());
+    this.lookAt = hit;
     this.requestFrame();
+  }
+
+  lookAtNothing() {
+    this.lookAt = null;
+    this.requestFrame();
+  }
+
+  /** The eyes' gaze as posed, for the lab and its tests. */
+  gaze(): { x: number; y: number } {
+    return this.actor?.gaze() ?? { x: 0, y: 0 };
   }
 
   resize(width: number, height: number) {
@@ -181,7 +199,7 @@ export class BlobbiStage {
       } else {
         this.heading = yawForView(this.view);
       }
-      if (this.actor.update({ dt, motion: this.motion, heading: this.heading, sleeping: this.sleeping, gaze: this.gaze })) animating = true;
+      if (this.actor.update({ dt, motion: this.motion, heading: this.heading, sleeping: this.sleeping, lookAt: this.lookAt })) animating = true;
       if (this.figurine) this.figurine.rotation.y = this.actor.object.rotation.y;
     }
     this.renderer.render(this.scene, this.camera);
