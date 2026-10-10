@@ -1122,6 +1122,222 @@
   .room-blobbi [data-blobbi-motion='walking'] * {
     animation-duration: calc(0.56s / var(--room-walk-tempo, 1)) !important;
   }
+  /* ─── Decorating (M3): Ditto's chrome in the home's tokens ────────────── */
+  .decor-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--border) / 0.5);
+    background: hsl(var(--background) / 0.9);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+    padding: 0.375rem;
+  }
+  .decor-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    color: hsl(var(--foreground) / 0.8);
+    transition: background-color 150ms, color 150ms;
+  }
+  .decor-tool svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  .decor-tool:hover:not(:disabled) {
+    background: hsl(var(--accent));
+    color: hsl(var(--foreground));
+  }
+  .decor-tool:disabled {
+    opacity: 0.35;
+  }
+  .decor-save {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    height: 2.5rem;
+    padding: 0 1rem;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: filter 150ms;
+  }
+  .decor-save svg {
+    width: 1rem;
+    height: 1rem;
+  }
+  .decor-save:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  .decor-save:disabled {
+    opacity: 0.5;
+  }
+  .decor-tray {
+    margin: 0 0.5rem calc(0.5rem + env(safe-area-inset-bottom));
+    border-radius: 1.5rem;
+    border: 1px solid hsl(var(--border) / 0.5);
+    background: hsl(var(--background) / 0.92);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 15px -3px hsl(0 0% 0% / 0.1);
+    overflow: hidden;
+  }
+  .decor-scroll {
+    scrollbar-width: none;
+  }
+  .decor-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .decor-scroll-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--border) / 0.5);
+    background: hsl(var(--background));
+    box-shadow: 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+    color: hsl(var(--foreground) / 0.8);
+  }
+  .decor-scroll-arrow svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  .decor-tab {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    height: 2.25rem;
+    padding: 0 0.875rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    transition: background-color 150ms, color 150ms;
+  }
+  .decor-tab svg {
+    width: 1rem;
+    height: 1rem;
+  }
+  .decor-tab:hover {
+    background: hsl(var(--accent));
+    color: hsl(var(--foreground));
+  }
+  .decor-tab--on,
+  .decor-tab--on:hover {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+  .decor-tile {
+    flex-shrink: 0;
+    width: 5.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 1rem;
+    padding: 0.375rem;
+    transition: background-color 150ms, transform 100ms;
+  }
+  .decor-tile:hover:not(:disabled) {
+    background: hsl(var(--accent));
+  }
+  .decor-tile:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+  .decor-tile:disabled {
+    opacity: 0.4;
+  }
+  .decor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--border) / 0.6);
+    background: hsl(var(--background) / 0.95);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 20px 25px -5px hsl(0 0% 0% / 0.15);
+    padding: 0.25rem;
+    animation: room-hop-in 150ms ease-out;
+  }
+  .decor-toolbar .decor-tool {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .decor-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+  }
+  .decor-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: 2.25rem;
+    padding: 0 1rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+    transition: background-color 150ms, color 150ms;
+  }
+  .decor-chip:hover {
+    background: hsl(var(--secondary) / 0.8);
+  }
+  .decor-chip--on,
+  .decor-chip--on:hover {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+  .decor-color {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+  .decor-color input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .decor-color__swatch {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    border: 2px solid hsl(var(--border));
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.1);
+  }
+  .decor-color__label {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .decor-swatch {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 1rem;
+    border: 1px solid hsl(var(--border) / 0.4);
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.05);
+  }
+
   /* The Blobbi hops in once the room has folded together (0.7 s), a guest right away. */
   .room-enter {
     animation: room-hop-in 500ms ease-out 700ms backwards;
@@ -2096,7 +2312,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .room-enter {
+  .room-enter,
+  .decor-toolbar {
     animation: none;
   }
   html,

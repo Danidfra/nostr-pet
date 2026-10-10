@@ -11,6 +11,9 @@
 
 import type { RoomId } from '@/features/home/rooms/rooms';
 
+/** Maximum number of furniture placements allowed per room (Ditto's limit). */
+export const MAX_FURNITURE_PER_ROOM = 20;
+
 /** Where a placement is mounted: the floor, or the left (x = 0) or right (z = 0) wall. */
 export type FurnitureSurface = 'floor' | 'left' | 'right';
 

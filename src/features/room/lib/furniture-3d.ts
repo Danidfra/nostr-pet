@@ -115,3 +115,38 @@ export function resolveFurniture(id: string): FurnitureDefinition3D | undefined 
 export function canPlaceInRoom(def: FurnitureDefinition3D, roomId: RoomId): boolean {
   return !def.allowedRooms || def.allowedRooms.includes(roomId);
 }
+
+/** Display labels for each category. */
+export const CATEGORY_LABELS: Record<FurnitureCategory, string> = {
+  furniture: 'Furniture',
+  decor: 'Decor',
+  plants: 'Plants',
+  clocks: 'Clocks',
+  frames: 'Frames',
+  objects: '3D Objects',
+};
+
+/** Display order for categories in the catalog (network objects come with a later milestone). */
+const CATEGORY_ORDER: readonly FurnitureCategory[] = ['furniture', 'decor', 'plants', 'clocks', 'frames'];
+
+export interface FurnitureCategoryGroup {
+  category: FurnitureCategory;
+  label: string;
+  items: FurnitureDefinition3D[];
+}
+
+/** Every official piece that may stand in a room. */
+export function getAvailableFurnitureForRoom(roomId: RoomId): FurnitureDefinition3D[] {
+  return OFFICIAL_FURNITURE_3D.filter((def) => canPlaceInRoom(def, roomId));
+}
+
+/** The catalog for a room, grouped by category in display order; empty categories are left out. */
+export function getAvailableFurnitureByCategory(roomId: RoomId): FurnitureCategoryGroup[] {
+  const available = getAvailableFurnitureForRoom(roomId);
+  const groups: FurnitureCategoryGroup[] = [];
+  for (const category of CATEGORY_ORDER) {
+    const items = available.filter((def) => def.category === category);
+    if (items.length > 0) groups.push({ category, label: CATEGORY_LABELS[category], items });
+  }
+  return groups;
+}

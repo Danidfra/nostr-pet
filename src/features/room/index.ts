@@ -14,3 +14,15 @@ export { OFFICIAL_FURNITURE_3D, resolveFurniture, isOfficialFurnitureId, canPlac
 export type { FurnitureDefinition3D, FurnitureMount, FurnitureInteraction } from './lib/furniture-3d';
 export { MAIN_BLOBBI, ROOM_GRID, WALL_HEIGHT, CAMERA_AZIMUTH, CAMERA_ELEVATION, blobbiBoxTiles, clampToRoom, snapCenter } from './lib/room-geometry';
 export { facingBasis, facingForHeading, facingAlongPath } from './lib/room-facing';
+export { RoomDecoratorOverlay, RoomDecoratorToolbar } from './components/RoomDecorator';
+export { SCALE_STEPS, nextScale, resized, rotated, nudged } from './lib/placement-edit';
+export { supportsAngle, getStyleVariants } from './lib/surface-options';
+export { RoomSurfaceEditor } from './components/RoomSurfaceEditor';
+export { FurnitureThumbnail } from './components/FurnitureThumbnail';
+export { useRoomDecorator } from './hooks/useRoomDecorator';
+export type { RoomDecorator } from './hooks/useRoomDecorator';
+export { useRoomSession, sessionFurniture, sessionLayout, saveRoomToSession, EMPTY_ROOM_SESSION } from './lib/room-session';
+export type { RoomSession, RoomSessionHandle } from './lib/room-session';
+export { getThemeRoomDefaults } from './lib/room-theme-defaults';
+export { getAvailableFurnitureByCategory, getAvailableFurnitureForRoom, CATEGORY_LABELS } from './lib/furniture-3d';
+export { MAX_FURNITURE_PER_ROOM } from './lib/room-furniture';

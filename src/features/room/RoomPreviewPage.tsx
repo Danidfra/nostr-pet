@@ -5,8 +5,11 @@
  * Ditto's default furniture, the room switcher, and the player's own Blobbi
  * drawn by the canonical renderer, walking the room at its own gait's pace,
  * facing the way it goes, looking at the pointer when its face is visible.
- * Nothing here publishes: the room choice is this screen's state, the
- * furniture is the defaults, and care stays on the home.
+ * Decorating (milestone 3) is Ditto's: the decorate button, the editing
+ * camera, drag and drop on the grid, the catalog tray, wallpaper and
+ * flooring, save and cancel. What is saved lives in the session store, in
+ * memory, per room. Nothing here publishes: the room choice is this
+ * screen's state, and care stays on the home.
  */
 
 import { useMemo, useRef, useState } from 'react';
@@ -20,11 +23,12 @@ import { baselineExpression } from '@/features/home/scene/reactions';
 import { useGazePolicy } from '@/features/home/scene/useGazePolicy';
 import { useHoverCapable } from '@/features/home/scene/SceneSettings';
 import { DEFAULT_ROOM, resolveRoom, type RoomId } from '@/features/home/rooms/rooms';
-import { RoomShell } from './components/RoomShell';
+import { RoomShell, type RoomEditorBinding } from './components/RoomShell';
 import { RoomBlobbi } from './components/RoomBlobbi';
+import { RoomDecoratorOverlay, RoomDecoratorToolbar } from './components/RoomDecorator';
 import { useRoomNavigation } from './hooks/useRoomNavigation';
-import { roomLayoutFor } from './lib/room-layout';
-import { roomFurnitureFor } from './lib/room-furniture';
+import { useRoomDecorator } from './hooks/useRoomDecorator';
+import { useRoomSession } from './lib/room-session';
 import { walkSpeedFor } from './lib/room-pace';
 import { travelGaze } from './lib/room-gaze';
 
@@ -70,12 +74,17 @@ function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
   const isEgg = blobbi.stage === 'egg';
   // The room the player chose; a sleeper is in the bedroom whatever was chosen.
   const [chosenRoom, setChosenRoom] = useState<RoomId>(DEFAULT_ROOM);
-  const roomId = resolveRoom(chosenRoom, isSleeping);
-  const nav = useRoomNavigation({ blobbi });
+  const resolvedRoom = resolveRoom(chosenRoom, isSleeping);
+  // What each room shows this session: saved decorations, else the defaults.
+  const rooms = useRoomSession();
+  const decorator = useRoomDecorator({ roomId: resolvedRoom, furniture: rooms.furnitureFor(resolvedRoom), layout: rooms.layoutFor(resolvedRoom), onSave: rooms.saveRoom });
+  // The room being decorated is pinned, so falling asleep meanwhile doesn't move the view out from under the draft.
+  const roomId = decorator.room ?? resolvedRoom;
+  const nav = useRoomNavigation({ blobbi, editing: decorator.editing });
   const { facing, motion } = nav;
   const expression = useMemo(() => baselineExpression(blobbi, projected?.stats), [blobbi, projected?.stats]);
-  const layout = roomLayoutFor(roomId);
-  const placements = roomFurnitureFor(roomId);
+  const layout = decorator.layoutDraft ?? rooms.layoutFor(roomId);
+  const placements = decorator.draft ?? rooms.furnitureFor(roomId);
   const walkSpeed = useMemo(() => walkSpeedFor(blobbi.stage, blobbi.visualGeneration), [blobbi.stage, blobbi.visualGeneration]);
 
   // The eyes: on the pointer while standing with a face in view (the home's
@@ -83,9 +92,37 @@ function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const actorRef = useRef<HTMLDivElement | null>(null);
   const hoverCapable = useHoverCapable();
-  const gaze = useGazePolicy({ actorRef, sceneRef: shellRef, hoverCapable, actorKey: `${facing}:${motion}`, enabled: !isEgg && !isSleeping && facing !== 'back' });
+  const gaze = useGazePolicy({ actorRef, sceneRef: shellRef, hoverCapable, actorKey: `${facing}:${motion}`, enabled: !isEgg && !isSleeping && facing !== 'back' && !decorator.editing });
   const eyeOffset = motion === 'walking' ? travelGaze(facing) : gaze.eyeOffset;
   const pointerHandlers = useMemo(() => ({ onPointerMove: gaze.onPointerMove, onPointerLeave: gaze.onPointerLeave, onPointerDown: gaze.onPointerDown }), [gaze.onPointerMove, gaze.onPointerLeave, gaze.onPointerDown]);
+
+  const { draft, layoutDraft, selectedIndex, select, setDraft, setLayoutDraft, move, setInvalid, invalid, save, cancel } = decorator;
+  const controlRef = nav.shellProps.controlRef;
+  const editor = useMemo((): RoomEditorBinding | undefined => {
+    if (!decorator.editing || !draft || !layoutDraft) return undefined;
+    return {
+      selectedIndex,
+      onSelect: select,
+      onMove: move,
+      onInvalidChange: setInvalid,
+      toolbar: selectedIndex !== null ? <RoomDecoratorToolbar draft={draft} onDraftChange={setDraft} selectedIndex={selectedIndex} onSelect={select} /> : undefined,
+      overlay: (
+        <RoomDecoratorOverlay
+          roomId={roomId}
+          draft={draft}
+          onDraftChange={setDraft}
+          layout={layoutDraft}
+          onLayoutChange={setLayoutDraft}
+          selectedIndex={selectedIndex}
+          onSelect={select}
+          invalid={invalid}
+          controlRef={controlRef}
+          onSave={save}
+          onCancel={cancel}
+        />
+      ),
+    };
+  }, [decorator.editing, draft, layoutDraft, selectedIndex, select, move, setInvalid, setDraft, setLayoutDraft, invalid, controlRef, save, cancel, roomId]);
 
   return (
     <div ref={shellRef} className="flex flex-1 min-h-0 flex-col">
@@ -100,6 +137,8 @@ function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
         furniturePlacements={placements}
         pointerHandlers={pointerHandlers}
         {...nav.shellProps}
+        onDecorate={decorator.open}
+        editor={editor}
         stage={<RoomBlobbi ref={actorRef} blobbi={blobbi} facing={facing} motion={motion} eyeOffset={eyeOffset} expression={expression} />}
       >
         <div className="room-dock-bar" data-testid="room-dock" data-motion={motion} data-facing={facing}>

@@ -202,8 +202,37 @@ teleports and has arrived), and the shell's `RoomControl` exposes it as
 promises. The gaze is the home's `useGazePolicy` over the room's own
 elements, with a glance the way it walks (`lib/room-gaze.ts`). The engine
 is tested for real in jsdom with three's renderer stubbed
-(`RoomScene.walk.test.ts`). Next: M3 decorating, M4 the dock and items, M5
-persistence and rooms, M6 replaces the home.
+(`RoomScene.walk.test.ts`).
+
+**Milestone 3 (decorating).** Ditto's decorator is three layers: the
+engine (the editing camera, the grid, picking, dragging on the floor and
+wall planes, grid snapping, stacking on tables, overlap reporting, green
+and red footprints), the shell (grab on `pointerdown`, drag past the slop,
+report a valid drop, anchor the toolbar over the piece, dim the Blobbi,
+disable the swipe, swap the HUD and dock for the editor's bars) and the
+chrome. The first two came whole with M1; M3 adds the chrome and the
+state. `components/RoomDecorator.tsx` is Ditto's overlay (cancel, title,
+hint, Save held while pieces overlap; a tray of category tabs with 3D
+thumbnails, wallpaper and flooring editors, "match my theme") and
+floating toolbar (turn, size steps, put away; R, Delete, Escape, arrows),
+without react-intl, toasts (a notice in the hint line instead), network
+objects and picture uploads. `RoomSurfaceEditor.tsx` uses the browser's
+colour input and the home's own `surfaceBackground` for the swatch.
+Thumbnails are stills of the SNO models on one shared WebGL context
+(`lib/scene/still-renderer.ts`, Ditto's `modelRenderer` without the file
+loaders), cached by react-query, with a box icon without WebGL.
+`hooks/useRoomDecorator.ts` holds what Ditto's page holds (the drafts, the
+selection, the overlaps, the room pinned while decorating) and saves only
+what changed by identity, so an untouched room keeps following its
+defaults; a room change discards the draft, as on Ditto. What is saved
+lives in `lib/room-session.ts`: React state, per room, for the session;
+no localStorage, no Nostr, no new format (tested with spies). The pure
+edits are `lib/placement-edit.ts`. All official furniture is offered in
+the catalog, separate from any inventory; ownership is M4's. Verified for
+real in jsdom with the GPU stubbed: overlaps, free spots, drag and snap,
+blocked drops going back, a quarter turn's footprint, decorating stopping
+walks; and with mouse and touch pointers over a faked scene. Next: M4 the
+dock and items, M5 persistence and rooms, M6 replaces the home.
 
 ## Milestone 13: MVP release readiness (M11)
 

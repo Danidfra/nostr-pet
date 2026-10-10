@@ -4,8 +4,8 @@
  * (facing front, in the living room, with the registry's label) when one is.
  * Nothing is published by opening it.
  */
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
 import { NostrLoginProvider } from '@nostrify/react/login';
@@ -15,6 +15,7 @@ import { KIND_BLOBBI_STATE } from '@blobbi-kit/core';
 
 import AppRouter from '@/AppRouter';
 import { roomById } from '@/features/home/rooms/rooms';
+import { roomFurnitureFor } from '@/features/room/lib/room-furniture';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 
 const currentUser = vi.hoisted(() => ({ user: undefined as { pubkey: string; signer: unknown } | undefined }));
@@ -83,5 +84,40 @@ describe('the /room preview', () => {
     renderAt('/room');
     await screen.findByTestId('room-blobbi-anchor');
     expect(screen.getByTestId('room-shell')).toHaveAttribute('data-room', 'rest');
+  });
+
+  it('decorates a room: the decorate button needs the 3D room, which jsdom has not', async () => {
+    currentUser.user = { pubkey: PUBKEY, signer: {} };
+    relay.all = [blobbiEvent('0000000001', { name: 'Brook', stage: 'adult', state: 'active', visualGeneration: 'v3' })];
+    renderAt('/room');
+    await screen.findByTestId('room-blobbi-anchor');
+    const decorate = screen.getByRole('button', { name: /decorating needs 3D graphics/i });
+    expect(decorate).toBeDisabled();
+  });
+});
+
+describe('decorating on the /room preview (the 3D room stubbed as ready)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  async function openDecorator() {
+    currentUser.user = { pubkey: PUBKEY, signer: {} };
+    relay.all = [blobbiEvent('0000000001', { name: 'Brook', stage: 'adult', state: 'active', visualGeneration: 'v3' })];
+    const utils = renderAt('/room');
+    await screen.findByTestId('room-blobbi-anchor');
+    // The shell enables decorating only with a scene; the status is what the button reads
+    const shell = screen.getByTestId('room-shell');
+    expect(shell).toHaveAttribute('data-scene', 'unavailable');
+    return utils;
+  }
+
+  it('without WebGL the decorate button stays off and the room shows its defaults; nothing is written anywhere', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    await openDecorator();
+    expect(screen.getByTestId('room-shell')).toHaveAttribute('data-room', 'home');
+    expect(roomFurnitureFor('home').length).toBeGreaterThan(0);
+    // The only key written is the test harness's own login store; nothing of the room's
+    expect(setItem.mock.calls.map((c) => c[0]).filter((k) => k !== 'test:login')).toEqual([]);
+    expect(relay.published).toHaveLength(0);
+    await waitFor(() => expect(event).not.toHaveBeenCalled());
   });
 });
