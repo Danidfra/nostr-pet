@@ -1,28 +1,32 @@
 /**
  * `/room` — the 3D room, as a preview beside the home (dev builds only; see
- * `AppRouter`). Milestone 1 of bringing Ditto's room to this app: the
+ * `AppRouter`). Milestones 1 and 2 of bringing Ditto's room to this app: the
  * diorama, its camera and lighting, the registry's rooms painted as paper,
  * Ditto's default furniture, the room switcher, and the player's own Blobbi
- * drawn by the canonical renderer, standing on the floor and facing the way
- * it walks. Nothing here publishes: the room choice is this screen's state,
- * the furniture is the defaults, and care stays on the home.
+ * drawn by the canonical renderer, walking the room at its own gait's pace,
+ * facing the way it goes, looking at the pointer when its face is visible.
+ * Nothing here publishes: the room choice is this screen's state, the
+ * furniture is the defaults, and care stays on the home.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useProjectedBlobbiState } from '@blobbi-kit/react';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
-import type { BlobbiFacing } from '@blobbi-kit/renderer';
 
 import { useHomeBlobbi } from '@/hooks/useHomeBlobbi';
 import { baselineExpression } from '@/features/home/scene/reactions';
+import { useGazePolicy } from '@/features/home/scene/useGazePolicy';
+import { useHoverCapable } from '@/features/home/scene/SceneSettings';
 import { DEFAULT_ROOM, resolveRoom, type RoomId } from '@/features/home/rooms/rooms';
 import { RoomShell } from './components/RoomShell';
 import { RoomBlobbi } from './components/RoomBlobbi';
-import { MAIN_BLOBBI } from './lib/room-geometry';
+import { useRoomNavigation } from './hooks/useRoomNavigation';
 import { roomLayoutFor } from './lib/room-layout';
 import { roomFurnitureFor } from './lib/room-furniture';
+import { walkSpeedFor } from './lib/room-pace';
+import { travelGaze } from './lib/room-gaze';
 
 const STAGE_WORD: Record<BlobbiCompanion['stage'], string> = { egg: 'Egg', baby: 'Baby', adult: 'Adult' };
 
@@ -63,41 +67,54 @@ function RoomMessage({ status }: { status: ReturnType<typeof useHomeBlobbi>['sta
 function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
   const projected = useProjectedBlobbiState(blobbi);
   const isSleeping = blobbi.state === 'sleeping';
+  const isEgg = blobbi.stage === 'egg';
   // The room the player chose; a sleeper is in the bedroom whatever was chosen.
   const [chosenRoom, setChosenRoom] = useState<RoomId>(DEFAULT_ROOM);
   const roomId = resolveRoom(chosenRoom, isSleeping);
-  const [facing, setFacing] = useState<BlobbiFacing>('front');
-  const onActorFacingChange = useCallback((id: string, next: BlobbiFacing) => {
-    if (id === MAIN_BLOBBI) setFacing(next);
-  }, []);
+  const nav = useRoomNavigation({ blobbi });
+  const { facing, motion } = nav;
   const expression = useMemo(() => baselineExpression(blobbi, projected?.stats), [blobbi, projected?.stats]);
   const layout = roomLayoutFor(roomId);
   const placements = roomFurnitureFor(roomId);
+  const walkSpeed = useMemo(() => walkSpeedFor(blobbi.stage, blobbi.visualGeneration), [blobbi.stage, blobbi.visualGeneration]);
+
+  // The eyes: on the pointer while standing with a face in view (the home's
+  // gaze policy over the room's own element), a glance the way it goes while walking.
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const actorRef = useRef<HTMLDivElement | null>(null);
+  const hoverCapable = useHoverCapable();
+  const gaze = useGazePolicy({ actorRef, sceneRef: shellRef, hoverCapable, actorKey: `${facing}:${motion}`, enabled: !isEgg && !isSleeping && facing !== 'back' });
+  const eyeOffset = motion === 'walking' ? travelGaze(facing) : gaze.eyeOffset;
+  const pointerHandlers = useMemo(() => ({ onPointerMove: gaze.onPointerMove, onPointerLeave: gaze.onPointerLeave, onPointerDown: gaze.onPointerDown }), [gaze.onPointerMove, gaze.onPointerLeave, gaze.onPointerDown]);
 
   return (
-    <RoomShell
-      roomId={roomId}
-      onChangeRoom={setChosenRoom}
-      isSleeping={isSleeping}
-      blobbiStage={blobbi.stage}
-      blobbiVisible
-      roomLayout={layout}
-      furniturePlacements={placements}
-      onActorFacingChange={onActorFacingChange}
-      stage={<RoomBlobbi blobbi={blobbi} facing={facing} expression={expression} />}
-    >
-      <div className="room-dock-bar" data-testid="room-dock">
-        <Link to="/" className="room-hud-button" aria-label="Back to the home" data-testid="room-back">
-          <ArrowLeft />
-        </Link>
-        <div className="min-w-0 flex-1 text-center">
-          <p className="truncate text-sm font-bold">{blobbi.name}</p>
-          <p className="truncate text-[11px] text-foreground/70">
-            {STAGE_WORD[blobbi.stage]} · 3D room preview · faces {facing}
-          </p>
+    <div ref={shellRef} className="flex flex-1 min-h-0 flex-col">
+      <RoomShell
+        roomId={roomId}
+        onChangeRoom={setChosenRoom}
+        isSleeping={isSleeping}
+        blobbiStage={blobbi.stage}
+        blobbiWalkSpeed={walkSpeed}
+        blobbiVisible
+        roomLayout={layout}
+        furniturePlacements={placements}
+        pointerHandlers={pointerHandlers}
+        {...nav.shellProps}
+        stage={<RoomBlobbi ref={actorRef} blobbi={blobbi} facing={facing} motion={motion} eyeOffset={eyeOffset} expression={expression} />}
+      >
+        <div className="room-dock-bar" data-testid="room-dock" data-motion={motion} data-facing={facing}>
+          <Link to="/" className="room-hud-button" aria-label="Back to the home" data-testid="room-back">
+            <ArrowLeft />
+          </Link>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="truncate text-sm font-bold">{blobbi.name}</p>
+            <p className="truncate text-[11px] text-foreground/70">
+              {STAGE_WORD[blobbi.stage]} · 3D room preview · {motion === 'walking' ? `walking, faces ${facing}` : 'standing'}
+            </p>
+          </div>
+          <span className="size-[2.75em] shrink-0" aria-hidden />
         </div>
-        <span className="size-[2.75em] shrink-0" aria-hidden />
-      </div>
-    </RoomShell>
+      </RoomShell>
+    </div>
   );
 }

@@ -56,3 +56,12 @@ export function snapCenter(center: number, size: number): number {
   const offset = size % 2 === 1 ? 0.5 : 0;
   return clampToRoom(Math.round(center - offset) + offset, size);
 }
+
+/**
+ * Where the camera looks from: the open (+x, +z) corner, at this azimuth,
+ * this far above the floor. The scene frames the room with them; the
+ * facing rule and the walking pace are derived from them (room-facing.ts,
+ * room-pace.ts), so they live here, outside the three.js module.
+ */
+export const CAMERA_AZIMUTH = Math.PI / 4;
+export const CAMERA_ELEVATION = (35 * Math.PI) / 180;

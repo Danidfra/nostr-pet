@@ -1,5 +1,9 @@
 export { RoomShell } from './components/RoomShell';
-export type { RoomShellProps, RoomControl, RoomGuest, RoomFloorThing, RoomEditorBinding } from './components/RoomShell';
+export type { RoomShellProps, RoomControl, RoomGuest, RoomFloorThing, RoomEditorBinding, RoomActorState, RoomPointerHandlers } from './components/RoomShell';
+export { useRoomNavigation } from './hooks/useRoomNavigation';
+export type { RoomNavigation, RoomMotion } from './hooks/useRoomNavigation';
+export { walkSpeedFor, strideTilesPerCycle } from './lib/room-pace';
+export { travelGaze } from './lib/room-gaze';
 export { RoomBlobbi, BLOBBI_BOX_PX } from './components/RoomBlobbi';
 export { bodyBottomInset } from './lib/body-inset';
 export { roomLayoutFor } from './lib/room-layout';
@@ -8,5 +12,5 @@ export { roomFurnitureFor, DEFAULT_ROOM_FURNITURE } from './lib/room-furniture';
 export type { FurniturePlacement, FurnitureSurface, FurnitureRotation } from './lib/room-furniture';
 export { OFFICIAL_FURNITURE_3D, resolveFurniture, isOfficialFurnitureId, canPlaceInRoom } from './lib/furniture-3d';
 export type { FurnitureDefinition3D, FurnitureMount, FurnitureInteraction } from './lib/furniture-3d';
-export { MAIN_BLOBBI, ROOM_GRID, WALL_HEIGHT, blobbiBoxTiles, clampToRoom, snapCenter } from './lib/room-geometry';
+export { MAIN_BLOBBI, ROOM_GRID, WALL_HEIGHT, CAMERA_AZIMUTH, CAMERA_ELEVATION, blobbiBoxTiles, clampToRoom, snapCenter } from './lib/room-geometry';
 export { facingBasis, facingForHeading, facingAlongPath } from './lib/room-facing';

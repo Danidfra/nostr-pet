@@ -15,7 +15,7 @@
  * replaced by the canonical renderer and the home's baseline expression.
  */
 
-import { useMemo, type ReactNode } from 'react';
+import { forwardRef, useMemo, type ReactNode } from 'react';
 import { BlobbiRenderer, type BlobbiEmotion, type BlobbiFacing, type BlobbiMotion } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 
@@ -28,8 +28,14 @@ interface RoomBlobbiProps {
   facing?: BlobbiFacing;
   /** The face it wears; the home's baseline when nothing is happening. */
   expression?: BlobbiEmotion;
-  /** Body motion: the renderer's idle breath, or still (an egg on its nest). */
+  /**
+   * Body motion: `walking` while the room moves it (the renderer walks the
+   * V3 adult on its legs and hops a baby, its own gaits), else the idle
+   * breath, or still for an egg and a sleeper.
+   */
   motion?: BlobbiMotion;
+  /** Where the eyes look (the renderer's normalized offset); undefined draws them at rest. */
+  eyeOffset?: { x: number; y: number };
   /** A visiting Blobbi's smaller tag. */
   variant?: 'main' | 'guest';
 }
@@ -75,13 +81,13 @@ function Standing({ inset, nameTag, children }: { inset: number; nameTag?: React
   );
 }
 
-export function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', motion, variant = 'main' }: RoomBlobbiProps) {
+export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', motion, eyeOffset, variant = 'main' }, ref) {
   const isSleeping = blobbi.state === 'sleeping';
   const isEgg = blobbi.stage === 'egg';
   const visual = useMemo(() => toBlobbiVisual(blobbi), [blobbi]);
   const inset = useMemo(() => bodyBottomInset(blobbi, facing), [blobbi, facing]);
   // An egg rests; a sleeper lies still; anyone else breathes.
-  const bodyMotion: BlobbiMotion = motion ?? (isEgg || isSleeping ? 'still' : 'idle');
+  const bodyMotion: BlobbiMotion = isEgg || isSleeping ? 'still' : (motion ?? 'idle');
   const instanceId = `room-${variant}-${blobbi.d}`;
 
   return (
@@ -97,9 +103,11 @@ export function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', m
       }
     >
       <div
+        ref={ref}
         className="relative size-full"
         data-room-blobbi={variant}
         data-facing={facing}
+        data-motion={bodyMotion}
         data-stage={blobbi.stage}
         data-generation={blobbi.visualGeneration}
         data-sleeping={isSleeping ? 'true' : 'false'}
@@ -110,6 +118,7 @@ export function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', m
           size="100%"
           facing={facing}
           motion={bodyMotion}
+          eyeOffset={isEgg || isSleeping ? undefined : eyeOffset}
           expression={expression}
           isSleeping={isSleeping}
           sleepIndicator="none"
@@ -126,4 +135,4 @@ export function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', m
       </div>
     </Standing>
   );
-}
+});

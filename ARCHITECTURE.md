@@ -173,9 +173,30 @@ Nothing is read from or written to Nostr for the room: the room choice is
 the page's state and the furniture is Ditto's defaults, kept in Ditto's
 `room_furniture_v2` placement shape so a saved room can be read later.
 three.js (0.186) loads on demand with the scene; `RoomScene-*.js` is its
-own chunk and absent from a production build. Next: M2 wires the scene's
-walking into the behaviour layer, M3 decorating, M4 the dock and items,
-M5 persistence and rooms, M6 replaces the home.
+own chunk and absent from a production build.
+
+**Milestone 2 (walking and the movement contract).** The M1 Blobbi hopped:
+Ditto's engine bounces the whole anchor while a path remains (its own V1/V2
+drawings have no walk) and the stage never told the renderer `walking`.
+Both are gone. The shell reads `RoomScene.isWalking` beside `facingOf` in
+its per-frame anchor pass and reports a CHANGE of `{ facing, motion }`
+(`onActorChange`); `useRoomNavigation` holds it as state and `RoomBlobbi`
+hands it to `BlobbiRenderer motion`, so the kit draws its own gait (the V3
+adult on its legs, a baby with its hop, V1/V2 through the wrapper walk) from
+the side the facing names. The pace is the home's gait table converted to
+room tiles per second (`lib/room-pace.ts`: stride × box tiles × cos(camera
+elevation) × √2 for the diagonal tile axes, over the renderer's cycle; the
+V3 adult about 0.85 tiles/s), set per actor on the engine. The engine now
+speaks the home's `WalkOutcome` contract: `requestWalk(id, x, z, 'to' |
+'approach')` resolves `arrived | replaced | stopped | refused`, settled from
+every place a path can end (arrival, a newer request including a floor tap,
+`stopWalk`, a room change, decorating, going away, disposal; reduced motion
+teleports and has arrived), and the shell's `RoomControl` exposes it as
+promises. The gaze is the home's `useGazePolicy` over the room's own
+elements, with a glance the way it walks (`lib/room-gaze.ts`). The engine
+is tested for real in jsdom with three's renderer stubbed
+(`RoomScene.walk.test.ts`). Next: M3 decorating, M4 the dock and items, M5
+persistence and rooms, M6 replaces the home.
 
 ## Milestone 13: MVP release readiness (M11)
 

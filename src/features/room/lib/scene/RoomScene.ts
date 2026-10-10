@@ -19,6 +19,13 @@
  * tables, and reports overlaps.
  *
  * Imported on demand with three.
+ *
+ * Ditto's engine, with three changes for the standalone: a walk is a
+ * request that resolves how it ended (the home's `WalkOutcome` contract),
+ * each Blobbi walks at the pace of its own gait (`room-pace.ts`) instead of
+ * one constant, and the walker no longer hops: the renderer animates the
+ * body (the V3 adult on its legs, a baby with its own hop), so the anchor
+ * stays on the floor.
  */
 
 import * as THREE from 'three';
@@ -31,6 +38,8 @@ import type { FurnitureInteraction, FurnitureMount } from '../furniture-3d';
 import type { FurniturePlacement } from '../room-furniture';
 import type { RoomLayout, RoomSurfaceLayout } from '../room-layout';
 import {
+  CAMERA_AZIMUTH,
+  CAMERA_ELEVATION,
   MAIN_BLOBBI as MAIN,
   MODEL_UNITS_PER_TILE,
   ROOM_GRID as G,
@@ -39,6 +48,7 @@ import {
   clampToRoom,
   snapCenter,
 } from '../room-geometry';
+import type { WalkOutcome } from '@/features/home/scene/useBlobbiLocomotion';
 import type { BlobbiFacing } from '@blobbi-kit/renderer';
 import { facingAlongPath, facingBasis } from '../room-facing';
 import type { ModelExtras } from './official-models';
@@ -102,9 +112,9 @@ export interface SpotQuery {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FOV = (26 * Math.PI) / 180;
-/** Camera direction: from the open corner, looking into the room. */
-const AZIMUTH = Math.PI / 4;
-const ELEVATION = (35 * Math.PI) / 180;
+/** Camera direction: from the open corner, looking into the room (room-geometry.ts). */
+const AZIMUTH = CAMERA_AZIMUTH;
+const ELEVATION = CAMERA_ELEVATION;
 /** Higher view while decorating, like Animal Crossing's editing camera. */
 const EDIT_ELEVATION = (52 * Math.PI) / 180;
 /**
@@ -153,8 +163,8 @@ const CREASE_ANGLE = (40 * Math.PI) / 180;
 const POP_DURATION = 650;
 const POP_STAGGER = 70;
 const POKE_DURATION = 420;
-/** Blobbi walking speed, tiles per second, and its idle wander interval (ms). */
-const WALK_SPEED = 2.2;
+/** Walking speed, tiles per second, for a Blobbi given none (Ditto's one speed); and the idle wander interval (ms). */
+const DEFAULT_WALK_SPEED = 2.2;
 const WANDER_MS = [4500, 9000] as const;
 /** Network objects are capped at this height, in tiles, at scale 1. */
 const SNO_MAX_HEIGHT = 3;
@@ -407,6 +417,8 @@ interface Actor {
   isEgg: boolean;
   /** Art box size in tiles. */
   tiles: number;
+  /** Walking speed, tiles per second: the pace of its gait (room-pace.ts). */
+  speed: number;
   path: { x: number; z: number }[];
   walked: number;
   /** Which way it faces: where it is heading while walking, front at rest (`room-facing.ts`). */
@@ -512,7 +524,8 @@ export class RoomScene {
 
   // Blobbis: the user's (MAIN) and any visiting friends
   private actors = new Map<string, Actor>();
-  private arriveCallbacks = new Map<string, () => void>();
+  /** The walk request in progress per Blobbi, settled with how it ended. */
+  private pendingWalks = new Map<string, (outcome: WalkOutcome) => void>();
   private contactTexture = shared(contactShadowTexture());
   private halo = shared(haloTexture());
   private casterGeometry = shared(new THREE.SphereGeometry(0.5, 16, 12));
@@ -653,16 +666,17 @@ export class RoomScene {
     this.requestRender();
   }
 
-  setBlobbi(blobbi: { visible: boolean; isEgg: boolean; tiles: number; sleeping: boolean }) {
+  setBlobbi(blobbi: { visible: boolean; isEgg: boolean; tiles: number; sleeping: boolean; walkSpeed?: number }) {
     const main = this.actors.get(MAIN)!;
     const sleepChanged = (this.sleepTarget === 1) !== blobbi.sleeping;
     if (main.visible && !blobbi.visible) {
       main.path = [];
-      this.finishApproach();
+      this.settleWalk(MAIN, 'stopped');
     }
     main.visible = blobbi.visible;
     main.isEgg = blobbi.isEgg;
     main.tiles = blobbi.tiles;
+    main.speed = blobbi.walkSpeed ?? DEFAULT_WALK_SPEED;
     this.sleepTarget = blobbi.sleeping ? 1 : 0;
     if (this.reducedMotion) this.sleeping = this.sleepTarget;
     if (sleepChanged) this.spawnBlobbi();
@@ -674,7 +688,7 @@ export class RoomScene {
    * Visiting Blobbis. New ones appear at `spawn` (or beside the user's
    * Blobbi); ones no longer listed leave.
    */
-  setGuests(guests: { id: string; isEgg: boolean; tiles: number; spawn?: { x: number; z: number } }[]) {
+  setGuests(guests: { id: string; isEgg: boolean; tiles: number; spawn?: { x: number; z: number }; walkSpeed?: number }[]) {
     const ids = new Set(guests.map((g) => g.id));
     for (const id of [...this.actors.keys()]) {
       if (id !== MAIN && !ids.has(id)) this.removeActor(id);
@@ -689,6 +703,7 @@ export class RoomScene {
       }
       actor.isEgg = g.isEgg;
       actor.tiles = g.tiles;
+      actor.speed = g.walkSpeed ?? DEFAULT_WALK_SPEED;
     }
     this.shadowsDirty = true;
     this.requestRender();
@@ -705,8 +720,10 @@ export class RoomScene {
     if (editing !== this.editing) {
       this.editing = editing;
       this.parallaxTarget = { x: 0, y: 0 };
-      for (const a of this.actors.values()) a.path = [];
-      this.finishApproach();
+      for (const a of this.actors.values()) {
+        a.path = [];
+        this.settleWalk(a.id, 'stopped');
+      }
       if (this.reducedMotion) this.editT = editing ? 1 : 0;
     }
     this.selected = editing ? selected : null;
@@ -716,8 +733,8 @@ export class RoomScene {
 
   dispose() {
     this.disposed = true;
-    // Walks end without arriving; whoever set them up times them out
-    this.arriveCallbacks.clear();
+    // Walks end without arriving
+    for (const id of [...this.pendingWalks.keys()]) this.settleWalk(id, 'stopped');
     this.motionQuery?.removeEventListener('change', this.onMotionChange);
     cancelAnimationFrame(this.frame);
     if (this.clockTimer) clearInterval(this.clockTimer);
@@ -1057,7 +1074,7 @@ export class RoomScene {
     contact.rotation.x = -Math.PI / 2;
     contact.renderOrder = 1;
     this.scene.add(caster, contact);
-    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, path: [], walked: 0, facing: 'front', caster, contact, met: false };
+    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, speed: DEFAULT_WALK_SPEED, path: [], walked: 0, facing: 'front', caster, contact, met: false };
     this.actors.set(id, actor);
     return actor;
   }
@@ -1068,7 +1085,7 @@ export class RoomScene {
     this.scene.remove(actor.caster, actor.contact);
     (actor.contact.material as THREE.Material).dispose();
     this.actors.delete(id);
-    this.arriveCallbacks.delete(id);
+    this.settleWalk(id, 'stopped');
   }
 
   /** Eggs don't walk, nor a sleeping Blobbi, nor anyone while decorating. */
@@ -1078,7 +1095,7 @@ export class RoomScene {
   }
 
   private canWander(actor: Actor): boolean {
-    return this.canWalk(actor) && !this.reducedMotion && !this.arriveCallbacks.has(actor.id);
+    return this.canWalk(actor) && !this.reducedMotion && !this.pendingWalks.has(actor.id);
   }
 
   private scheduleWander() {
@@ -1157,34 +1174,63 @@ export class RoomScene {
     return blocked;
   }
 
-  /**
-   * Walk the user's Blobbi to the free tile nearest a floor point. Ignored
-   * while it's on its way to something (`approach`): it would otherwise get
-   * there somewhere else.
-   */
-  walkTo(x: number, z: number) {
-    if (this.arriveCallbacks.has(MAIN)) return;
-    this.walkActor(MAIN, x, z);
+  /** Whether a Blobbi is on its way somewhere (the user's by default). */
+  isWalking(id = MAIN): boolean {
+    return (this.actors.get(id)?.path.length ?? 0) > 0;
+  }
+
+  /** Whether a Blobbi may be sent walking right now: not an egg, not asleep, not while decorating. */
+  canWalkNow(id = MAIN): boolean {
+    const actor = this.actors.get(id);
+    return !!actor && this.canWalk(actor);
   }
 
   /**
-   * Walk the user's Blobbi up to something on the floor, standing just
-   * behind it so it stays in view, and call `onArrive` there. Calls straight
-   * away when the Blobbi can't walk (an egg, asleep, decorating).
+   * Send a Blobbi to a floor point: the free tile nearest it (`'to'`), or
+   * the free tile just behind it on the open side, to stand by something
+   * and stay in view (`'approach'`). Resolves with how the walk ended, the
+   * home's contract (`WalkOutcome`): `arrived` is the only outcome after
+   * which an action waiting for the walk may run; a newer request settles
+   * the older one `replaced`; a stop, a room change, decorating, going away
+   * or disposal settle it `stopped`; a walk that cannot start (an egg,
+   * asleep, decorating, nowhere to stand) is `refused`. Under reduced motion
+   * the Blobbi is taken straight there and the walk has arrived. Never
+   * rejects, and never stays pending once the walk is over.
    */
-  approach(x: number, z: number, onArrive: () => void) {
-    const main = this.actors.get(MAIN)!;
-    if (!this.canWalk(main)) {
-      onArrive();
-      return;
+  requestWalk(id: string, x: number, z: number, how: 'to' | 'approach' = 'to'): Promise<WalkOutcome> {
+    const actor = this.actors.get(id);
+    if (!actor || !this.canWalk(actor)) return Promise.resolve('refused');
+    const [i, j] = how === 'approach' ? this.nearestFreeTile(x - 0.6, z - 0.6, id) : this.nearestFreeTile(x, z, id);
+    // Whatever walk was requested before is being replaced, whether or not this one starts
+    this.settleWalk(id, 'replaced');
+    if (!this.walkToTile(actor, i, j)) return Promise.resolve('refused');
+    if (!actor.path.length) {
+      // Already standing there, or taken straight there under reduced motion
+      this.arrive(actor);
+      return Promise.resolve('arrived');
     }
-    const [i, j] = this.nearestFreeTile(x - 0.6, z - 0.6, MAIN);
-    if (!this.walkToTile(main, i, j)) {
-      onArrive();
-      return;
+    return new Promise((resolve) => {
+      this.pendingWalks.set(id, resolve);
+    });
+  }
+
+  /** Walk the user's Blobbi to the free tile nearest a floor point (a tap on the floor). */
+  walkTo(x: number, z: number) {
+    void this.requestWalk(MAIN, x, z, 'to');
+  }
+
+  /** Stop a Blobbi where it stands; its pending walk resolves `stopped`. */
+  stopWalk(id = MAIN) {
+    const actor = this.actors.get(id);
+    if (!actor) return;
+    const walking = actor.path.length > 0;
+    actor.path = [];
+    this.settleWalk(id, 'stopped');
+    if (walking) {
+      actor.facing = 'front';
+      this.shadowsDirty = true;
+      this.requestRender();
     }
-    this.arriveCallbacks.set(MAIN, onArrive);
-    if (!main.path.length) this.arrive(main);
   }
 
   private walkActor(id: string, x: number, z: number) {
@@ -1237,18 +1283,16 @@ export class RoomScene {
     return true;
   }
 
-  /**
-   * Run a pending `approach` callback. A walk that gets cut short ends this
-   * way too, as if the Blobbi got there, as `approach` does when it can't walk.
-   */
-  private finishApproach(id = MAIN) {
-    const pending = this.arriveCallbacks.get(id);
-    this.arriveCallbacks.delete(id);
-    pending?.();
+  /** Settle a Blobbi's pending walk request, if any, with how it ended. */
+  private settleWalk(id: string, outcome: WalkOutcome) {
+    const pending = this.pendingWalks.get(id);
+    if (!pending) return;
+    this.pendingWalks.delete(id);
+    pending(outcome);
   }
 
   private arrive(actor: Actor) {
-    this.finishApproach(actor.id);
+    this.settleWalk(actor.id, 'arrived');
     const main = this.actors.get(MAIN)!;
     if (actor.id !== MAIN && !actor.met && Math.hypot(actor.x - main.x, actor.z - main.z) < 1.6) {
       actor.met = true;
@@ -1272,7 +1316,8 @@ export class RoomScene {
       this.standNear(b, 4.5, 4.5);
       b.elev = 0;
     }
-    this.finishApproach();
+    // Coming into a room (or into bed) ends whatever walk was under way
+    this.settleWalk(MAIN, 'stopped');
     this.shadowsDirty = true;
   }
 
@@ -1311,15 +1356,13 @@ export class RoomScene {
       // Face where the walk is heading (a few waypoints ahead, so a staircase
       // path around furniture reads as one direction), front with no path.
       b.facing = facingAlongPath(b.x, b.z, b.path, b.facing, FACING_BASIS);
-      if (!b.path.length) {
-        // Settle any hop
-        if (b.hop > 0) {
-          b.hop = Math.max(0, b.hop - dt * 2.4);
-          moving = true;
-        }
-        continue;
+      // Settle a tap's hop, standing or walking
+      if (b.hop > 0) {
+        b.hop = Math.max(0, b.hop - dt * 2.4);
+        moving = true;
       }
-      let step = WALK_SPEED * dt;
+      if (!b.path.length) continue;
+      let step = b.speed * dt;
       while (step > 0 && b.path.length) {
         const next = b.path[0];
         const dx = next.x - b.x;
@@ -1338,7 +1381,8 @@ export class RoomScene {
           step = 0;
         }
       }
-      b.hop = b.path.length ? Math.abs(Math.sin(b.walked * Math.PI * 1.6)) * 0.12 : 0;
+      // No bob of the anchor while walking: the renderer animates the body
+      // (legs or a hop of its own), and the feet must stay on the floor
       if (!b.path.length) {
         b.facing = 'front';
         this.arrive(b);

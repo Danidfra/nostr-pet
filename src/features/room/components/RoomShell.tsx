@@ -20,9 +20,10 @@
  * and stat-guide pulses left out, over this app's room registry.
  */
 
-import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, type CSSProperties, type MutableRefObject, type ReactNode } from 'react';
+import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, type CSSProperties, type MutableRefObject, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Armchair, ChevronLeft, ChevronRight, Cross, Home, Moon, Refrigerator, Shirt, type LucideIcon } from 'lucide-react';
 import type { BlobbiFacing } from '@blobbi-kit/renderer';
+import type { WalkOutcome } from '@/features/home/scene/useBlobbiLocomotion';
 
 import { ROOM_ORDER, neighbourRoom, roomById, type RoomId } from '@/features/home/rooms/rooms';
 import { cx } from '../lib/cx';
@@ -36,17 +37,31 @@ import type { RoomScene, SceneGeometry, ScreenAnchor, SpotQuery } from '../lib/s
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-/** What a decorator can ask of the room. */
+/** What the Blobbi's presentation in the room is: which way it faces, whether it walks. */
+export interface RoomActorState {
+  facing: BlobbiFacing;
+  motion: 'idle' | 'walking';
+}
+
+/** What the app can ask of the room while it is 3D (see `useRoomNavigation`). */
 export interface RoomControl {
-  /** A free spot for a new item, or null if the room is full (or not 3D). */
+  /** A free spot for a new item, or null if the room is full. */
   findSpot: (query: SpotQuery) => Pick<FurniturePlacement, 'at' | 'x' | 'y'> | null;
   /** The floor point (tiles) under a screen point, or null off the floor. */
   floorAt: (clientX: number, clientY: number) => { x: number; z: number } | null;
-  /**
-   * Walk the user's Blobbi up to a floor point; `onArrive` runs when it gets
-   * there, or never if the room goes away first (a lost WebGL context).
-   */
-  approach: (x: number, z: number, onArrive: () => void) => void;
+  /** Walk the user's Blobbi to the free tile nearest a floor point; resolves how the walk ended. */
+  walkTo: (x: number, z: number) => Promise<WalkOutcome>;
+  /** Walk the user's Blobbi up to something on the floor, standing just in front of it; resolves how the walk ended. */
+  approach: (x: number, z: number) => Promise<WalkOutcome>;
+  /** Stop the user's Blobbi where it stands; a walk in progress resolves `stopped`. */
+  stop: () => void;
+}
+
+/** Pointer events over the room, for a gaze policy (the home's `ScenePointerHandlers`). */
+export interface RoomPointerHandlers {
+  onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
+  onPointerLeave: () => void;
+  onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
 }
 
 /** A visiting Blobbi standing in the room. */
@@ -86,6 +101,8 @@ export interface RoomShellProps {
   isSleeping: boolean;
   /** Egg, baby or adult: sets its size in the room. */
   blobbiStage: string;
+  /** Its walking pace in tiles per second (`walkSpeedFor`); Ditto's one speed when unset. */
+  blobbiWalkSpeed?: number;
   /** False while the Blobbi is away. */
   blobbiVisible: boolean;
   /** The Blobbi (RoomBlobbi), positioned in the room each frame. */
@@ -112,10 +129,13 @@ export interface RoomShellProps {
   /** A Blobbi was tapped (MAIN_BLOBBI for the user's). */
   onBlobbiTap?: (id: string) => void;
   /**
-   * A Blobbi turned: it faces where it walks and front at rest (MAIN_BLOBBI
-   * for the user's). Presentation only; called when the facing changes, not per frame.
+   * A Blobbi turned or set off or stopped: it faces where it walks and front
+   * at rest, and walks or stands (MAIN_BLOBBI for the user's). Presentation
+   * only; called when either changes, not per frame.
    */
-  onActorFacingChange?: (id: string, facing: BlobbiFacing) => void;
+  onActorChange?: (id: string, state: RoomActorState) => void;
+  /** Pointer events over the room, for the gaze. */
+  pointerHandlers?: RoomPointerHandlers;
   floorThings?: RoomFloorThing[];
   /** Tapping a piece of furniture that does something. */
   onInteract?: (interaction: FurnitureInteraction, index: number) => void;
@@ -148,6 +168,7 @@ export function RoomShell({
   onChangeRoom,
   isSleeping,
   blobbiStage,
+  blobbiWalkSpeed,
   blobbiVisible,
   stage,
   hero,
@@ -163,7 +184,8 @@ export function RoomShell({
   guests,
   onMeet,
   onBlobbiTap,
-  onActorFacingChange,
+  onActorChange,
+  pointerHandlers,
   floorThings,
   editor,
   controlRef,
@@ -249,7 +271,7 @@ export function RoomShell({
   const models = useFurnitureModels(furniturePlacements);
   const isEgg = blobbiStage === 'egg';
   const blobbiTiles = blobbiBoxTiles(blobbiStage);
-  const blobbi = useMemo(() => ({ visible: blobbiVisible, isEgg, tiles: blobbiTiles, sleeping: isSleeping }), [blobbiVisible, isEgg, blobbiTiles, isSleeping]);
+  const blobbi = useMemo(() => ({ visible: blobbiVisible, isEgg, tiles: blobbiTiles, sleeping: isSleeping, walkSpeed: blobbiWalkSpeed }), [blobbiVisible, isEgg, blobbiTiles, isSleeping, blobbiWalkSpeed]);
   const guestsKey = (guests ?? []).map((g) => `${g.id}:${g.stage}:${g.spawn?.x ?? ''},${g.spawn?.z ?? ''}`).join('|');
   const sceneGuests = useMemo(
     () => (guests ?? []).map(({ id, stage: s, spawn }) => ({ id, isEgg: s === 'egg', tiles: blobbiBoxTiles(s), spawn })),
@@ -259,11 +281,11 @@ export function RoomShell({
   );
   const statusRef = useRef<RoomSceneStatus>('loading');
   const sceneHandle = useRef<RoomScene | null>(null);
-  /** The facing last reported per Blobbi, so the callback fires on changes only. */
-  const facingsRef = useRef(new Map<string, BlobbiFacing>());
-  const onActorFacingChangeRef = useRef(onActorFacingChange);
+  /** The state last reported per Blobbi, so the callback fires on changes only. */
+  const actorStatesRef = useRef(new Map<string, RoomActorState>());
+  const onActorChangeRef = useRef(onActorChange);
   useEffect(() => {
-    onActorFacingChangeRef.current = onActorFacingChange;
+    onActorChangeRef.current = onActorChange;
   });
 
   /** Move every anchored DOM element to where its room point is on screen. */
@@ -277,12 +299,15 @@ export function RoomShell({
         const { anchor: kind, x, z, index, actor } = el.dataset;
         if (kind === 'blobbi') {
           anchor = scene ? scene.projectBlobbi(actor) : actor ? null : flat?.blobbi() ?? null;
-          // Without the scene (flat room) nobody walks, so everyone faces front
+          // Without the scene (flat room) nobody walks, so everyone stands facing front
           const id = actor ?? MAIN_BLOBBI;
-          const facing = scene ? scene.facingOf(id) : 'front';
-          if (facingsRef.current.get(id) !== facing) {
-            facingsRef.current.set(id, facing);
-            onActorFacingChangeRef.current?.(id, facing);
+          const facing: BlobbiFacing = scene ? scene.facingOf(id) : 'front';
+          const motion = scene?.isWalking(id) ? 'walking' : 'idle';
+          const last = actorStatesRef.current.get(id);
+          if (last?.facing !== facing || last.motion !== motion) {
+            const next: RoomActorState = { facing, motion };
+            actorStatesRef.current.set(id, next);
+            onActorChangeRef.current?.(id, next);
           }
         }
         else if (kind === 'floor') anchor = scene ? scene.projectFloor(Number(x), Number(z)) : flat?.floor(Number(x), Number(z)) ?? null;
@@ -336,11 +361,9 @@ export function RoomShell({
         const box = shellRef.current?.getBoundingClientRect();
         return box ? sceneRef.current?.floorAt(clientX - box.left, clientY - box.top) ?? null : null;
       },
-      approach: (x, z, onArrive) => {
-        const scene = sceneRef.current;
-        if (scene) scene.approach(x, z, onArrive);
-        else onArrive();
-      },
+      walkTo: (x, z) => sceneRef.current?.requestWalk(MAIN_BLOBBI, x, z, 'to') ?? Promise.resolve('refused'),
+      approach: (x, z) => sceneRef.current?.requestWalk(MAIN_BLOBBI, x, z, 'approach') ?? Promise.resolve('refused'),
+      stop: () => sceneRef.current?.stopWalk(MAIN_BLOBBI),
     } : null;
     return () => { controlRef.current = null; };
   }, [is3d, controlRef, sceneRef]);
@@ -429,6 +452,9 @@ export function RoomShell({
       data-scene={status}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
+      onPointerMove={pointerHandlers?.onPointerMove}
+      onPointerLeave={pointerHandlers?.onPointerLeave}
+      onPointerDown={pointerHandlers?.onPointerDown}
     >
       {/* Backdrop the diorama floats in */}
       <div className="absolute inset-0 room-backdrop" aria-hidden />

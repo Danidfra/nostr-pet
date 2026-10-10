@@ -25,6 +25,8 @@ export interface SceneBlobbi {
   isEgg: boolean;
   tiles: number;
   sleeping: boolean;
+  /** Tiles per second, the pace of its gait (room-pace.ts). */
+  walkSpeed?: number;
 }
 
 export interface SceneGuest {
@@ -32,6 +34,7 @@ export interface SceneGuest {
   isEgg: boolean;
   tiles: number;
   spawn?: { x: number; z: number };
+  walkSpeed?: number;
 }
 
 interface UseRoomSceneOptions {
