@@ -21,6 +21,8 @@ export interface Blobbi3dStageProps {
   sleeping?: boolean;
   /** Stand the SNO figurine of the same Blobbi beside it. */
   figurine?: boolean;
+  /** The eyes follow the pointer over the stage; otherwise the resting gaze. */
+  trackPointer?: boolean;
   /** Seconds per walk cycle (the room's tempo); the kit's by default. */
   walkCycle?: number;
   /** CSS px, square. */
@@ -31,7 +33,7 @@ export interface Blobbi3dStageProps {
 
 type Status = 'loading' | 'ready' | 'unavailable';
 
-export function Blobbi3dStage({ genome, stage, view, motion, sleeping = false, figurine = false, walkCycle, size = 240, testId = 'blobbi-3d-stage', label }: Blobbi3dStageProps) {
+export function Blobbi3dStage({ genome, stage, view, motion, sleeping = false, figurine = false, trackPointer = false, walkCycle, size = 240, testId = 'blobbi-3d-stage', label }: Blobbi3dStageProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<BlobbiStage | null>(null);
   const [status, setStatus] = useState<Status>(() => (webglAvailable() ? 'loading' : 'unavailable'));
@@ -83,10 +85,24 @@ export function Blobbi3dStage({ genome, stage, view, motion, sleeping = false, f
   useEffect(() => {
     stageRef.current?.setSleeping(sleeping);
   }, [sleeping, status]);
+  useEffect(() => {
+    if (!trackPointer) stageRef.current?.setGaze(undefined);
+  }, [trackPointer, status]);
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!trackPointer) return;
+    const box = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(-1, Math.min(1, ((e.clientX - box.left) / box.width) * 2 - 1));
+    const y = Math.max(-1, Math.min(1, ((e.clientY - box.top) / box.height) * 2 - 1));
+    stageRef.current?.setGaze({ x, y });
+  };
+  const onPointerLeave = () => {
+    if (trackPointer) stageRef.current?.setGaze(undefined);
+  };
 
   const box: CSSProperties = { width: size, height: size };
   return (
-    <div className="relative shrink-0 rounded-2xl bg-white/40" style={box} data-testid={testId} data-stage={status} data-view={view} data-motion={motion} data-seed={genome.seed} aria-label={label}>
+    <div className="relative shrink-0 rounded-2xl bg-white/40" style={box} data-testid={testId} data-stage={status} data-view={view} data-motion={motion} data-seed={genome.seed} data-tracking={trackPointer ? 'pointer' : 'rest'} aria-label={label} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}>
       {status !== 'unavailable' && <div ref={hostRef} style={box} />}
       {status === 'unavailable' && (
         <p className="flex h-full items-center justify-center p-4 text-center text-xs text-foreground/70" role="status">

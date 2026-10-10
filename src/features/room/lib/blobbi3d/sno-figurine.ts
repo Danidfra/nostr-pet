@@ -12,7 +12,7 @@ import { buildBlobbiGeometry, type BlobbiMorphology } from '@blobbi-kit/renderer
 import { SnoBuilder, type SnoPayload } from '../scene/sno-builder';
 import { snoNodeFromPayload } from '../scene/sno-object';
 import { buildSnoObject } from '../scene/sno-three';
-import { toModelX, toModelY, U, type Frame } from './units';
+import { ROOT_PER_BOX, rootPerBox, toModelX, toModelY, U, type Frame } from './units';
 
 export interface SnoFigurine {
   payload: SnoPayload;
@@ -57,5 +57,6 @@ export function buildSnoFigurine(morphology: BlobbiMorphology): SnoFigurine {
   }
   const payload = b.build('Blobbi figurine');
   const object = buildSnoObject(snoNodeFromPayload(payload));
+  object.scale.setScalar(ROOT_PER_BOX / rootPerBox(geo.stage === 'baby' ? 'baby' : 'adult'));
   return { payload, object, faces: payload.faces.length };
 }

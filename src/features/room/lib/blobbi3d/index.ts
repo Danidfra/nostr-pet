@@ -1,5 +1,11 @@
-export { buildBlobbiModel, makeSurface } from './model';
-export type { BlobbiModel, Rig, EyeRig, Ring, Surface } from './model';
+export { buildBlobbiModel } from './model';
+export type { BlobbiModel, Rig } from './model';
+export { makeSurface, loftRings, stickerGeometry, spanOf, unitProfile, phiOf, SUPER } from './surface';
+export type { Ring, Surface, SurfacePoint } from './surface';
+export { buildEye, domeHeight, EYE_BULGE } from './eyes';
+export type { EyeRig, EyeLook } from './eyes';
+export { renderStills } from './stills';
+export type { Still, StillRequest, StillView } from './stills';
 export { poseRig, yawForView, turnToward, blinking, BLINK_SECONDS } from './rig';
 export type { RigState } from './rig';
 export { createBlobbiActor } from './actor';

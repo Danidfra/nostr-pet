@@ -6,12 +6,12 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { renderBlobbiSvg as renderVisualSvg } from '@blobbi-kit/renderer';
-import { buildBlobbiGeometry, deriveMorphology, generateGenome, renderBlobbiSvg } from '@blobbi-kit/renderer/procedural';
+import { BABY_BOX, buildBlobbiGeometry, deriveMorphology, generateGenome, renderBlobbiSvg } from '@blobbi-kit/renderer/procedural';
 
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { buildBlobbiModel, type BlobbiModel } from './model';
 import { genomeOf, labBlobbi, morphologyOf, stage3dOf } from './identity';
-import { toModelY, U } from './units';
+import { ROOT_PER_BOX, toModelY, U } from './units';
 import { yawForView } from './rig';
 
 const PUBKEY = 'a'.repeat(64);
@@ -133,14 +133,19 @@ describe('buildBlobbiModel', () => {
     expect(tail.position.z).toBeLessThan(0); // behind the body
   });
 
-  it('draws a baby smaller, without feet or arms, on the hop gait', () => {
+  it("draws a baby without feet or arms, on the hop gait, filling its own box as the drawing fills the kit's baby frame", () => {
     const baby = model('lab-1', 'baby');
     const adult = model('lab-1', 'adult');
     expect(baby.gait).toBe('hop');
     expect(baby.rig.legs.left).toBeNull();
     expect(baby.rig.arms.left).toBeNull();
-    expect(baby.bounds.height).toBeLessThan(adult.bounds.height * 0.75);
     expect(baby.scale).toBeLessThan(adult.scale);
+    // Its geometry is smaller, in the adult's units; its box is the kit's baby frame, so in box units it stands as tall as the drawing
+    expect(baby.figure.scale.x).toBeCloseTo(ROOT_PER_BOX / BABY_BOX.size, 6);
+    expect(adult.figure.scale.x).toBe(1);
+    const geo = buildBlobbiGeometry(deriveMorphology(generateGenome('lab-1'), 'baby'), { view: 'front' });
+    expect(baby.bounds.height).toBeCloseTo(((geo.ground.y - geo.body.top) / BABY_BOX.size), 1);
+    expect(baby.bounds.height).toBeGreaterThan(0.6);
   });
 
   it('faces the viewer, screen-right and away for the front, side and back views', () => {

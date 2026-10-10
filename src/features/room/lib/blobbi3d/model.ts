@@ -5,70 +5,46 @@
  * `buildBlobbiGeometry`: a front silhouette (`spanAt(y)`: how wide the body
  * is at each height), a side silhouette (`frontAt(y)`/`backAt(y)`: how deep),
  * a face, limbs, appendages and markings, every one placed in root units.
- * This module lofts the body from those two silhouettes (each height's
- * cross-section is the ellipse the front and side views agree on), puts the
- * eyes, brows, mouth and cheeks on that surface where the front view puts
- * them, hangs the feet, arms, tuft and appendages where the views attach
- * them (the side view gives their depth), wraps the markings around the body
- * (`skin.ts`), and colours everything from the morphology's palette. No
- * number here is random or time-dependent: the same morphology is the same
- * model, vertex for vertex.
+ * This module lofts the body from those two silhouettes (`surface.ts`),
+ * lays the eyes, brows, mouth and cheeks on that surface where the front
+ * view puts them (`eyes.ts` for the eyes), lofts each arm from its own
+ * front and side outlines, hangs the feet, tuft and appendages where the
+ * views attach them (the side view gives their depth), wraps the markings
+ * around the body (`skin.ts`), and colours everything from the morphology's
+ * palette. No number here is random or time-dependent: the same morphology
+ * is the same model, vertex for vertex.
  *
  * Model units: one unit is the art box's height (`units.ts`). The root group
  * stands on the origin, facing +z.
  */
 import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { buildBlobbiGeometry, type Appendage, type BlobbiGeometry, type BlobbiMorphology, type BlobbiPalette, type FrontGeometry, type Gait, type SideGeometry } from '@blobbi-kit/renderer/procedural';
+import { buildBlobbiGeometry, type Appendage, type BlobbiGeometry, type BlobbiMorphology, type BlobbiPalette, type FrontGeometry, type Gait } from '@blobbi-kit/renderer/procedural';
 import { boundsOf, samplePath, type Pt } from './svg-path';
-import { toModelX, toModelY, toModelZ, U, type Frame } from './units';
+import { ROOT_PER_BOX, rootPerBox, toModelX, toModelY, toModelZ, U, type Frame } from './units';
 import { paintMarkings } from './skin';
+import { buildEye, type EyeRig } from './eyes';
+import { clamp, loftRings, makeSurface, spanOf, stickerGeometry, type Ring, type Surface } from './surface';
+
+export type { Ring, Surface } from './surface';
+export type { EyeRig } from './eyes';
 
 type Front = Extract<BlobbiGeometry, { view: 'front' | 'back' }>;
 type Side = Extract<BlobbiGeometry, { view: 'side' }>;
 type Prim = Appendage['prims'][number];
 type Ellipse = NonNullable<Prim['ellipse']>;
 type Face = NonNullable<FrontGeometry['face']>;
-type Eye = Face['eyes'][number];
 type Foot = FrontGeometry['limbs']['feet'][number];
 type Arm = FrontGeometry['limbs']['arms'][number];
 type Tuft = NonNullable<FrontGeometry['limbs']['tuft']>;
 
-/** Rings up the body and segments around it. */
+/** Rings up the body. */
 const RINGS = 40;
-const SEGMENTS = 48;
+/** Rings along an arm. */
+const ARM_RINGS = 16;
 /** The ink line around the body and its parts, in root units (the kit strokes ~7). */
 const LINE = 6 * U;
 const DEG = Math.PI / 180;
-
-/** One horizontal cross-section of the body: an ellipse at height `y`. */
-export interface Ring {
-  y: number;
-  cx: number;
-  a: number;
-  zc: number;
-  b: number;
-}
-
-/** Where the body's surface is, for putting things on it. */
-export interface Surface {
-  frame: Frame;
-  ringAt(f: number): Ring;
-  fractionOf(yRoot: number): number;
-  at(xRoot: number, yRoot: number, lift?: number): { position: THREE.Vector3; normal: THREE.Vector3; theta: number };
-}
-
-export interface EyeRig {
-  /** The eye on the surface, turned to face out of it. */
-  group: THREE.Group;
-  /** The iris, pupil and highlights: moved for the gaze. */
-  inner: THREE.Group;
-  open: THREE.Group;
-  /** The closed lid's line (the sleeping drawing's), shown when the eye is shut. */
-  closed: THREE.Object3D | null;
-  /** How far the gaze may move the inner eye (root units). */
-  travel: number;
-}
 
 /** The parts a motion moves, each at rest where the kit's rig pivots it. */
 export interface Rig {
@@ -81,13 +57,18 @@ export interface Rig {
 }
 
 export interface BlobbiModel {
+  /** One unit tall: the Blobbi's art box. The room scales it by the box's size in tiles. */
   root: THREE.Group;
+  /** The geometry, in the adult document's units, scaled into the stage's own box. */
+  figure: THREE.Group;
   rig: Rig;
   seed: string;
   stage: BlobbiGeometry['stage'];
   /** The life stage's size and gait, for `motionPose`. */
   scale: number;
   gait: Gait;
+  /** Where the body's surface is, for tests and for laying more on it. */
+  surface: Surface;
   /** The model's extent at rest, in model units. */
   bounds: { width: number; height: number; depth: number };
   dispose(): void;
@@ -107,10 +88,6 @@ const PAINT: Record<string, keyof BlobbiPalette> = {
   shade: 'bodyDark',
 };
 
-function clamp(v: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, v));
-}
-
 function asFront(geo: BlobbiGeometry): Front {
   if (geo.view === 'side') throw new Error('front geometry expected');
   return geo;
@@ -119,108 +96,6 @@ function asFront(geo: BlobbiGeometry): Front {
 function asSide(geo: BlobbiGeometry): Side {
   if (geo.view !== 'side') throw new Error('side geometry expected');
   return geo;
-}
-
-/** The surface the two silhouettes agree on. */
-export function makeSurface(front: FrontGeometry, side: SideGeometry, frame: Frame): Surface {
-  const fb = front.body;
-  const sb = side.body;
-  const span = fb.bottom - fb.top;
-  const sideSpan = sb.bottom - sb.top;
-  const ringAt = (f: number): Ring => {
-    const t = clamp(f, 0.004, 0.996);
-    const yF = fb.bottom - t * span;
-    const yS = sb.bottom - t * sideSpan;
-    const s = fb.spanAt(yF);
-    const min = s ? s.min : fb.apex.x - 0.5;
-    const max = s ? s.max : fb.apex.x + 0.5;
-    const fr = sb.frontAt(yS);
-    const bk = sb.backAt(yS);
-    return {
-      y: toModelY(yF, frame),
-      cx: toModelX((min + max) / 2, frame),
-      a: Math.max(0.5, (max - min) / 2) * U,
-      zc: toModelZ((fr + bk) / 2, frame),
-      b: Math.max(0.5, (fr - bk) / 2) * U,
-    };
-  };
-  const fractionOf = (yRoot: number) => clamp((fb.bottom - yRoot) / span, 0, 1);
-  const at = (xRoot: number, yRoot: number, lift = 0) => {
-    const ring = ringAt(fractionOf(yRoot));
-    const xm = toModelX(xRoot, frame);
-    const sn = clamp((xm - ring.cx) / ring.a, -0.985, 0.985);
-    const theta = Math.asin(sn);
-    const cs = Math.cos(theta);
-    const normal = new THREE.Vector3(sn / ring.a, 0, cs / ring.b).normalize();
-    const position = new THREE.Vector3(ring.cx + ring.a * sn, toModelY(yRoot, frame), ring.zc + ring.b * cs).addScaledVector(normal, lift);
-    return { position, normal, theta };
-  };
-  return { frame, ringAt, fractionOf, at };
-}
-
-/** The body: rings lofted between the two silhouettes, coloured by the kit's radial gradient. */
-function loftBody(surface: Surface, front: FrontGeometry, palette: BlobbiPalette): THREE.BufferGeometry {
-  const { frame } = surface;
-  const positions: number[] = [];
-  const uvs: number[] = [];
-  const colors: number[] = [];
-  const index: number[] = [];
-  const light = new THREE.Color(palette.bodyLight);
-  const mid = new THREE.Color(palette.bodyMid);
-  const dark = new THREE.Color(palette.bodyDark);
-  const g = front.gradient;
-  const tint = new THREE.Color();
-  const colourAt = (x: number, y: number) => {
-    const xr = frame.axisX + x / U;
-    const yr = frame.groundY - y / U;
-    const t = Math.hypot((xr - g.cx) / g.rx, (yr - g.cy) / g.ry);
-    if (t < g.mid) tint.copy(light).lerp(mid, t / g.mid);
-    else tint.copy(mid).lerp(dark, clamp((t - g.mid) / (1 - g.mid), 0, 1));
-    colors.push(tint.r, tint.g, tint.b);
-  };
-  for (let r = 0; r <= RINGS; r++) {
-    const f = r / RINGS;
-    const ring = surface.ringAt(f);
-    for (let i = 0; i <= SEGMENTS; i++) {
-      const phi = -Math.PI + (2 * Math.PI * i) / SEGMENTS;
-      const x = ring.cx + ring.a * Math.sin(phi);
-      const z = ring.zc + ring.b * Math.cos(phi);
-      positions.push(x, ring.y, z);
-      uvs.push(i / SEGMENTS, f);
-      colourAt(x, ring.y);
-    }
-  }
-  const stride = SEGMENTS + 1;
-  for (let r = 0; r < RINGS; r++) {
-    for (let i = 0; i < SEGMENTS; i++) {
-      const a = r * stride + i;
-      const b = a + stride;
-      index.push(a, a + 1, b, a + 1, b + 1, b);
-    }
-  }
-  // Close the crown at the apex and the base under the belly
-  const top = surface.ringAt(1);
-  const base = surface.ringAt(0);
-  const apex = positions.length / 3;
-  positions.push(toModelX(front.body.apex.x, frame), toModelY(front.body.top, frame), top.zc);
-  uvs.push(0.5, 1);
-  colourAt(toModelX(front.body.apex.x, frame), toModelY(front.body.top, frame));
-  const bottom = apex + 1;
-  positions.push(base.cx, toModelY(front.body.bottom, frame), base.zc);
-  uvs.push(0.5, 0);
-  colourAt(base.cx, toModelY(front.body.bottom, frame));
-  for (let i = 0; i < SEGMENTS; i++) {
-    const t = RINGS * stride + i;
-    index.push(t, t + 1, apex);
-    index.push(i + 1, i, bottom);
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geometry.setIndex(index);
-  geometry.computeVertexNormals();
-  return geometry;
 }
 
 /** The ink line: the same shape pushed out along its normals, drawn inside-out behind it. */
@@ -236,7 +111,7 @@ function hull(geometry: THREE.BufferGeometry, material: THREE.Material, thicknes
 class Parts {
   private disposables: { dispose(): void }[] = [];
   private materials = new Map<string, THREE.MeshStandardMaterial>();
-  constructor(readonly palette: BlobbiPalette) {}
+  constructor(readonly palette: BlobbiPalette, readonly baby = false) {}
 
   track<T extends { dispose(): void }>(x: T): T {
     this.disposables.push(x);
@@ -261,6 +136,7 @@ class Parts {
   }
 
   paint(role: string | undefined): string {
+    if (role === 'shade' && this.baby) return this.palette.babyDark;
     return this.palette[PAINT[role ?? 'limb'] ?? 'limbLight'];
   }
 
@@ -315,6 +191,12 @@ class Parts {
     return g;
   }
 
+  /** A front-view ellipse laid on a surface with a small dome. */
+  sticker(e: Ellipse, surface: Surface, material: THREE.Material, dome = 0, lift = 0.6): THREE.Mesh {
+    const geometry = this.track(stickerGeometry(e, (xr, yr, r) => surface.at(xr, yr, (lift + dome * Math.sqrt(Math.max(0, 1 - r * r))) * U).position));
+    return new THREE.Mesh(geometry, material);
+  }
+
   dispose() {
     for (const d of this.disposables) d.dispose();
     this.disposables = [];
@@ -325,73 +207,76 @@ function surfacePoints(surface: Surface, d: string, lift: number): THREE.Vector3
   return samplePath(d, 8).flatMap((poly) => poly.points.map((p) => surface.at(p.x, p.y, lift).position));
 }
 
-function buildEye(eye: Eye, lid: { d: string; width: number } | null, surface: Surface, parts: Parts, body: THREE.Group): EyeRig {
-  const { palette } = parts;
-  const centre = { x: eye.white.cx, y: eye.white.cy };
-  const rx = eye.white.rx * U;
-  const ry = eye.white.ry * U;
-  const rz = Math.min(rx, ry) * 0.62;
-  const on = surface.at(centre.x, centre.y);
-  const group = new THREE.Group();
-  group.position.copy(on.position).addScaledVector(on.normal, -rz * 0.45);
-  group.rotation.y = on.theta;
-  const open = new THREE.Group();
-  group.add(open);
-  open.add(parts.ellipsoid(rx, ry, rz, parts.material(palette.white), false));
-  const inner = new THREE.Group();
-  open.add(inner);
-  const disc = (e: Ellipse, depth: number, material: THREE.Material) => {
-    const d = parts.ellipsoid(e.rx * U, e.ry * U, rz * 0.1, material, false);
-    d.position.set((e.cx - centre.x) * U, -(e.cy - centre.y) * U, rz * depth);
-    return d;
-  };
-  inner.add(disc(eye.iris, 0.86, parts.material(palette.irisMid)));
-  inner.add(disc(eye.pupil, 0.93, parts.material(palette.pupil)));
-  inner.add(disc(eye.highlight, 1.0, parts.material(palette.white)));
-  inner.add(disc(eye.glint, 1.02, parts.material(palette.white, eye.glint.opacity)));
-  body.add(group);
-  let closed: THREE.Object3D | null = null;
-  if (lid) {
-    closed = parts.tube(surfacePoints(surface, lid.d, 3 * U), (lid.width / 2) * U, parts.material(palette.feature));
-    closed.visible = false;
-    body.add(closed);
-  }
-  return { group, inner, open, closed, travel: eye.travel };
+/** The body: rings lofted between the two silhouettes, coloured by the kit's radial gradient. */
+function loftBody(surface: Surface, front: Front, palette: BlobbiPalette): THREE.BufferGeometry {
+  const { frame } = surface;
+  // The baby's body (the v1 look) is painted in its own three colours, as the kit's gradient is
+  const baby = front.look.body === 'v1';
+  const light = new THREE.Color(baby ? palette.babyLight : palette.bodyLight);
+  const mid = new THREE.Color(baby ? palette.babyMid : palette.bodyMid);
+  const dark = new THREE.Color(baby ? palette.babyDark : palette.bodyDark);
+  const g = front.gradient;
+  const tint = new THREE.Color();
+  const rings: Ring[] = [];
+  for (let r = 0; r <= RINGS; r++) rings.push(surface.ringAt(r / RINGS));
+  const top = rings[RINGS];
+  const base = rings[0];
+  return loftRings(rings, {
+    capTop: new THREE.Vector3(toModelX(front.body.apex.x, frame), toModelY(front.body.top, frame), top.zc),
+    capBottom: new THREE.Vector3(base.cx, toModelY(front.body.bottom, frame), base.zc),
+    colour: (x, y, _z, _f, phi) => {
+      // The gradient as the kit paints it on the view that sees this point: the front view's at the belly,
+      // the back view's (the same, mirrored) at the back, turning smoothly from one to the other round the sides
+      const xr = frame.axisX + (x * Math.cos(phi)) / U;
+      const yr = frame.groundY - y / U;
+      const t = Math.hypot((xr - g.cx) / g.rx, (yr - g.cy) / g.ry);
+      if (t < g.mid) tint.copy(light).lerp(mid, t / g.mid);
+      else tint.copy(mid).lerp(dark, clamp((t - g.mid) / (1 - g.mid), 0, 1));
+      return [tint.r, tint.g, tint.b];
+    },
+  });
 }
 
-function buildFace(face: Face, sleeping: Face | null, surface: Surface, parts: Parts, body: THREE.Group): EyeRig[] {
+function buildFace(face: Face, look: 'layered' | 'simple', sleeping: Face | null, surface: Surface, parts: Parts, body: THREE.Group): EyeRig[] {
   const { palette } = parts;
   const feature = parts.material(palette.feature);
+  const closedLine = (d: string, width: number) => parts.tube(surfacePoints(surface, d, 3 * U), (width / 2) * U, feature);
   const eyes = face.eyes.map((eye, i) => {
     const lid = sleeping?.eyes[i]?.lid;
-    return buildEye(eye, lid?.closed ? { d: lid.line, width: lid.lineWidth } : null, surface, parts, body);
+    const rig = buildEye(eye, look, palette, surface, parts, lid?.closed ? { d: lid.line, width: lid.lineWidth } : null, closedLine);
+    body.add(rig.group);
+    if (rig.closed) body.add(rig.closed);
+    return rig;
   });
   for (const brow of face.brows) {
-    const stroke = parts.tube(surfacePoints(surface, brow.d, 3 * U), (brow.strokeWidth / 2) * U, parts.material(palette.feature, brow.opacity));
-    body.add(stroke);
+    body.add(parts.tube(surfacePoints(surface, brow.d, 3 * U), (brow.strokeWidth / 2) * U, parts.material(palette.feature, brow.opacity)));
   }
   const mouth = face.mouth;
   body.add(parts.tube(surfacePoints(surface, mouth.d, 2.5 * U), (mouth.strokeWidth / 2) * U, feature));
   if (mouth.open) {
-    const middle = { x: (mouth.left.x + mouth.right.x) / 2, y: (mouth.left.y + mouth.right.y) / 2 };
     const poly = samplePath(mouth.d, 8)[0];
     if (poly && poly.points.length > 2) {
-      const shape = new THREE.Shape(poly.points.map((p) => new THREE.Vector2((p.x - middle.x) * U, -(p.y - middle.y) * U)));
-      const geometry = parts.track(new THREE.ShapeGeometry(shape, 8));
-      const inside = new THREE.Mesh(geometry, feature);
-      const on = surface.at(middle.x, middle.y, 1.5 * U);
-      inside.position.copy(on.position);
-      inside.rotation.y = on.theta;
+      // The open mouth: the path's inside, laid on the surface
+      const contour = poly.points.map((p) => new THREE.Vector2(p.x, p.y));
+      const faces = THREE.ShapeUtils.triangulateShape(contour, []);
+      const positions: number[] = [];
+      for (const p of poly.points) {
+        const v = surface.at(p.x, p.y, 1.5 * U).position;
+        positions.push(v.x, v.y, v.z);
+      }
+      const geometry = parts.track(new THREE.BufferGeometry());
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setIndex(faces.flat());
+      geometry.computeVertexNormals();
+      const inside = new THREE.Mesh(geometry, parts.track(new THREE.MeshStandardMaterial({ color: palette.feature, roughness: 0.8, side: THREE.DoubleSide })));
       body.add(inside);
     }
   }
   for (const cheek of face.cheeks) {
-    const e = cheek.base;
-    const blush = parts.ellipsoid(e.rx * U, e.ry * U, e.ry * 0.25 * U, parts.material(palette.cheek, cheek.baseOpacity), false);
-    const on = surface.at(e.cx, e.cy, 0.5 * U);
-    blush.position.copy(on.position);
-    blush.rotation.y = on.theta;
-    body.add(blush);
+    // Blush is flat colour in the drawing, even where it wraps round the silhouette: lit from within so a grazing angle keeps it pink
+    const blush = parts.track(new THREE.MeshStandardMaterial({ color: palette.cheek, emissive: palette.cheek, emissiveIntensity: 0.45, roughness: 1, transparent: true, opacity: cheek.baseOpacity, depthWrite: false }));
+    body.add(parts.sticker(cheek.base, surface, blush, cheek.base.ry * 0.12, 0.8));
+    if (cheek.highlightOpacity > 0) body.add(parts.sticker(cheek.highlight, surface, parts.material(palette.white, cheek.highlightOpacity), 0, 1.4));
   }
   return eyes;
 }
@@ -407,21 +292,61 @@ function buildFoot(foot: Foot, depth: number, frame: Frame, parts: Parts): THREE
   return g;
 }
 
-/** How far each arm's paddle is turned from the front plane toward the side, so both views see a paddle. */
-const ARM_YAW = (48 * Math.PI) / 180;
-
-function buildArm(arm: Arm, z: number, frame: Frame, parts: Parts): THREE.Group {
+/**
+ * An arm: the front view's paddle says how wide it is at each height and
+ * where, the side view's how deep and where; lofted between them it is a
+ * rounded limb hanging from the shoulder, which is the group's origin.
+ */
+function buildArm(arm: Arm, sideArm: Side['limbs']['nearArm'], frame: Frame, parts: Parts): THREE.Group {
   const g = new THREE.Group();
   g.name = `${arm.side}-arm`;
-  g.position.set(toModelX(arm.shoulder.x, frame), toModelY(arm.shoulder.y, frame), z);
-  const outline = samplePath(arm.d, 8)[0];
-  if (outline) {
-    const width = (arm.box.x2 - arm.box.x1) * U;
-    const paddle = parts.extruded(outline.points, arm.shoulder, parts.material(parts.palette.limbLight, arm.opacity), true, width * 0.4);
-    // The front view's paddle, turned halfway toward the side view's: the left arm's face turns to -x
-    paddle.rotation.y = arm.side === 'left' ? -ARM_YAW : ARM_YAW;
-    g.add(paddle);
+  const front = samplePath(arm.d, 10)[0]?.points ?? [];
+  const side = sideArm ? (samplePath(sideArm.d, 10)[0]?.points ?? []) : [];
+  const box = boundsOf(front);
+  const sbox = side.length ? boundsOf(side) : null;
+  const shoulderZ = sideArm ? toModelZ(sideArm.shoulder.x, frame) : 0;
+  g.position.set(toModelX(arm.shoulder.x, frame), toModelY(arm.shoulder.y, frame), shoulderZ);
+  if (front.length < 3) return g;
+  const rings: Ring[] = [];
+  for (let k = ARM_RINGS; k >= 0; k--) {
+    const f = clamp(k / ARM_RINGS, 0.015, 0.985);
+    const yF = box.y1 + f * (box.y2 - box.y1);
+    const span = spanOf(front, yF) ?? { min: (box.x1 + box.x2) / 2 - 0.5, max: (box.x1 + box.x2) / 2 + 0.5 };
+    let zc = 0;
+    let b = ((span.max - span.min) / 2) * 0.7 * U;
+    if (sbox) {
+      const yS = sbox.y1 + f * (sbox.y2 - sbox.y1);
+      const s = spanOf(side, yS);
+      if (s) {
+        zc = toModelZ((s.min + s.max) / 2, frame) - shoulderZ;
+        b = Math.max(0.5, (s.max - s.min) / 2) * U;
+      }
+    }
+    rings.push({ y: toModelY(yF, frame) - toModelY(arm.shoulder.y, frame), cx: toModelX((span.min + span.max) / 2, frame) - toModelX(arm.shoulder.x, frame), a: Math.max(0.5, (span.max - span.min) / 2) * U, zc, b });
   }
+  const light = new THREE.Color(parts.palette.limbLight);
+  const dark = new THREE.Color(parts.palette.limbDark);
+  const tint = new THREE.Color();
+  const w = Math.max(1, box.x2 - box.x1);
+  const h = Math.max(1, box.y2 - box.y1);
+  const top = rings[rings.length - 1];
+  const bottom = rings[0];
+  const geometry = parts.track(loftRings(rings, {
+    segments: 24,
+    capTop: new THREE.Vector3(top.cx, top.y + 0.5 * U, top.zc),
+    capBottom: new THREE.Vector3(bottom.cx, bottom.y - 0.5 * U, bottom.zc),
+    colour: (x, y) => {
+      // The kit's limb gradient runs corner to corner over the arm's box
+      const fx = clamp((x / U + arm.shoulder.x - box.x1) / w, 0, 1);
+      const fy = clamp((arm.shoulder.y - y / U - box.y1) / h, 0, 1);
+      tint.copy(light).lerp(dark, (fx + fy) / 2);
+      return [tint.r, tint.g, tint.b];
+    },
+  }));
+  const mesh = new THREE.Mesh(geometry, parts.track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78, metalness: 0, transparent: arm.opacity < 1, opacity: arm.opacity })));
+  mesh.name = 'arm';
+  mesh.castShadow = true;
+  g.add(mesh, parts.track(hull(geometry, parts.ink)));
   return g;
 }
 
@@ -479,13 +404,18 @@ export function buildBlobbiModel(morphology: BlobbiMorphology, seed = ''): Blobb
   const palette = front.palette;
   const frame: Frame = { axisX: front.body.axisX, groundY: front.ground.y, sideAxisX: side.body.axisX };
   const surface = makeSurface(front, side, frame);
-  const parts = new Parts(palette);
+  const parts = new Parts(palette, front.look.body === 'v1');
 
   const root = new THREE.Group();
   root.name = 'blobbi';
+  // Built in the adult document's units; a baby stands in its own smaller box, so it is scaled up into it
+  const figure = new THREE.Group();
+  figure.name = 'figure';
+  figure.scale.setScalar(ROOT_PER_BOX / rootPerBox(front.stage === 'baby' ? 'baby' : 'adult'));
+  root.add(figure);
   const body = new THREE.Group();
   body.name = 'body';
-  root.add(body);
+  figure.add(body);
 
   // The body
   const bodyGeometry = parts.track(loftBody(surface, front, palette));
@@ -501,32 +431,23 @@ export function buildBlobbiModel(morphology: BlobbiMorphology, seed = ''): Blobb
     body.add(decal);
   }
   body.add(parts.track(hull(bodyGeometry, parts.ink)));
-  if (front.shine) {
-    const e = front.shine;
-    const shine = parts.ellipsoid(e.rx * U, e.ry * U, e.ry * 0.2 * U, parts.material(palette.white, 0.55), false);
-    const on = surface.at(e.cx, e.cy, 0.5 * U);
-    shine.position.copy(on.position);
-    shine.rotation.y = on.theta;
-    shine.rotation.z = -(e.rotation ?? 0) * DEG;
-    body.add(shine);
-  }
+  if (front.shine) body.add(parts.sticker(front.shine, surface, parts.material(palette.white, 0.55), 0, 1.2));
 
   // The face, on the surface
-  const eyes = front.face ? buildFace(front.face, asleep.face, surface, parts, body) : [];
+  const eyes = front.face ? buildFace(front.face, front.look.eye, asleep.face, surface, parts, body) : [];
 
   // Feet on the ground, arms at the shoulders, the tuft on the crown
   const footDepth = (side.limbs.nearFoot?.foot.rx ?? front.limbs.feet[0]?.foot.rx ?? 60) * 0.9 * U;
   const legs: Rig['legs'] = { left: null, right: null };
   for (const foot of front.limbs.feet) {
     const leg = buildFoot(foot, footDepth, frame, parts);
-    root.add(leg);
+    figure.add(leg);
     if (foot.side === 'left') legs.left = leg;
     else if (foot.side === 'right') legs.right = leg;
   }
   const arms: Rig['arms'] = { left: null, right: null };
-  const armZ = side.limbs.nearArm ? toModelZ(side.limbs.nearArm.shoulder.x, frame) : 0;
   for (const arm of front.limbs.arms) {
-    const a = buildArm(arm, armZ, frame, parts);
+    const a = buildArm(arm, side.limbs.nearArm, frame, parts);
     body.add(a);
     if (arm.side === 'left') arms.left = a;
     else if (arm.side === 'right') arms.right = a;
@@ -574,11 +495,13 @@ export function buildBlobbiModel(morphology: BlobbiMorphology, seed = ''): Blobb
   const size = box.getSize(new THREE.Vector3());
   return {
     root,
+    figure,
     rig: { body, legs, arms, tuft, appendages, eyes },
     seed,
     stage: front.stage,
     scale: front.scale,
     gait: front.look.gait,
+    surface,
     bounds: { width: size.x, height: size.y, depth: size.z },
     dispose: () => parts.dispose(),
   };

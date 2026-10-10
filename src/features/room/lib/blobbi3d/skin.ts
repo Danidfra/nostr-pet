@@ -13,12 +13,13 @@ import * as THREE from 'three';
 import type { BlobbiPalette, FrontGeometry } from '@blobbi-kit/renderer/procedural';
 import { samplePath, type Pt } from './svg-path';
 import { U, type Frame } from './units';
-import type { Ring } from './model';
+import type { Ring } from './surface';
 
 export interface SurfaceMap {
   frame: Frame;
   ringAt(f: number): Ring;
   fractionOf(yRoot: number): number;
+  phiOf(s: number): number;
 }
 
 type UV = [number, number];
@@ -89,7 +90,7 @@ export function paintMarkings(front: FrontGeometry, back: FrontGeometry, surface
     const xm = (p.x - frame.axisX) * U;
     const s = Math.max(-1, Math.min(1, (xm - ring.cx) / ring.a));
     // Seen from behind, screen-right is the Blobbi's left
-    const phi = view === 'front' ? Math.asin(s) : Math.PI + Math.asin(s);
+    const phi = view === 'front' ? surface.phiOf(s) : Math.PI + surface.phiOf(s);
     return [(phi + Math.PI) / (2 * Math.PI), f];
   };
   const px = ([u, v]: UV, shift: number): [number, number] => [(u + shift) * WIDTH, (1 - v) * HEIGHT];

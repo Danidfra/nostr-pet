@@ -23,6 +23,7 @@ import { DEFAULT_ROOM, type RoomId } from '@/features/home/rooms/rooms';
 import { RoomShell } from './components/RoomShell';
 import { RoomBlobbi } from './components/RoomBlobbi';
 import { Blobbi3dStage } from './components/Blobbi3dStage';
+import { FidelityMatrix, type MatrixRow } from './components/FidelityMatrix';
 import { useRoomNavigation } from './hooks/useRoomNavigation';
 import { walkCycleSecondsFor, walkSpeedFor } from './lib/room-pace';
 import { roomFurnitureFor } from './lib/room-furniture';
@@ -61,6 +62,14 @@ const MOTIONS: { motion: BlobbiMotion; label: string }[] = [
 /** The kit's facing for each compared view (its side view faces screen-right). */
 const FACING: Record<'front' | 'side' | 'back', BlobbiFacing> = { front: 'front', side: 'right', back: 'back' };
 
+/**
+ * The comparison matrix's addresses: one account's Blobbis, chosen for the
+ * spread of what their seeds give them (antennae, horns, ears, tails,
+ * patterns, marks, bellies, freckles, body shapes, eye sizes and spacing).
+ */
+const MATRIX_PET_IDS = ['0000000001', '0000000005', '0000000006', '0000000010', '0000000018', '0000000020', '0000000029', '0000000033', '0000000036'];
+const MATRIX_PUBKEY = 'a'.repeat(64);
+
 /** Where the room's walk button sends the Blobbi, round the room (tiles). */
 const SPOTS = [{ x: 1.5, z: 6.5 }, { x: 6.5, z: 6.5 }, { x: 6.5, z: 1.5 }, { x: 1.5, z: 1.5 }];
 
@@ -93,7 +102,20 @@ export default function RoomLabPage() {
   const [motion, setMotion] = useState<BlobbiMotion>('idle');
   const [sleeping, setSleeping] = useState(false);
   const [figurine, setFigurine] = useState(false);
+  const [tracking, setTracking] = useState(false);
+  const [matrixOpen, setMatrixOpen] = useState(false);
   const visual = useMemo(() => toBlobbiVisual(current.blobbi), [current.blobbi]);
+  const matrix = useMemo((): MatrixRow[] => {
+    const rows: MatrixRow[] = [];
+    for (const s of ['adult', 'baby'] as const) {
+      for (const petId of MATRIX_PET_IDS) {
+        const blobbi = labBlobbi(MATRIX_PUBKEY, petId, `#${Number(petId)}`, s);
+        const genome = genomeOf(toBlobbiVisual(blobbi));
+        if (genome) rows.push({ id: `${s}-${Number(petId)}`, label: `#${Number(petId)}`, visual: toBlobbiVisual(blobbi), genome, stage: s });
+      }
+    }
+    return rows;
+  }, []);
 
   return (
     <div className="game-shell" data-testid="room-lab">
@@ -141,7 +163,7 @@ export default function RoomLabPage() {
           <section className="px-3 pb-3" aria-label="Motion">
             <h2 className="pb-2 text-sm font-bold">On the stage</h2>
             <div className="flex flex-wrap items-start gap-3">
-              <Blobbi3dStage genome={current.genome} stage={current.stage} view={view} motion={motion} sleeping={sleeping} figurine={figurine} walkCycle={walkCycleSecondsFor('v3')} size={300} testId="lab-stage-main" label="3D stage" />
+              <Blobbi3dStage genome={current.genome} stage={current.stage} view={view} motion={motion} sleeping={sleeping} figurine={figurine} trackPointer={tracking} walkCycle={walkCycleSecondsFor('v3')} size={300} testId="lab-stage-main" label="3D stage" />
               <div className="flex flex-col gap-2 text-sm">
                 <div className="flex flex-wrap gap-1" role="group" aria-label="View">
                   {VIEWS.map((v) => (
@@ -157,11 +179,24 @@ export default function RoomLabPage() {
                   <Chip on={sleeping} onClick={() => setSleeping((s) => !s)} testId="lab-sleeping">Asleep</Chip>
                   <Chip on={figurine} onClick={() => setFigurine((f) => !f)} testId="lab-figurine">SNO figurine beside it</Chip>
                 </div>
+                <div className="flex flex-wrap gap-1" role="group" aria-label="Gaze">
+                  <Chip on={!tracking} onClick={() => setTracking(false)} testId="lab-gaze-rest">Neutral gaze</Chip>
+                  <Chip on={tracking} onClick={() => setTracking(true)} testId="lab-gaze-track">Eyes follow the pointer</Chip>
+                </div>
                 <p className="max-w-[16rem] text-[11px] text-foreground/60">
                   Breathing, blinking, the walk and the turn come from the kit's own motion functions and the seed; the SNO figurine is the furniture format's flat-faced lattice, for comparison.
                 </p>
               </div>
             </div>
+          </section>
+
+          <section className="px-3 pb-3" aria-label="Comparison matrix">
+            <div className="flex items-center gap-2 pb-2">
+              <h2 className="text-sm font-bold">Comparison matrix</h2>
+              <Chip on={matrixOpen} onClick={() => setMatrixOpen((o) => !o)} testId="lab-matrix-toggle">{matrixOpen ? 'Hide' : `Draw ${matrix.length} Blobbis`}</Chip>
+            </div>
+            <p className="pb-2 text-[11px] text-foreground/60">Nine addresses, each as an adult and as a baby: the kit's drawing beside the model from three sides, all drawn through one WebGL context.</p>
+            {matrixOpen && <FidelityMatrix rows={matrix} />}
           </section>
 
           <section className="flex min-h-[520px] flex-1 flex-col px-0 pb-3" aria-label="In the room">

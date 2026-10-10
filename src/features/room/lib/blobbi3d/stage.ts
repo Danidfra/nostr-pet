@@ -43,6 +43,7 @@ export class BlobbiStage {
   private view: StageView = 'front';
   private motion: BlobbiMotion = 'idle';
   private sleeping = false;
+  private gaze: { x: number; y: number } | undefined;
   private heading = 0;
   private frame = 0;
   private last = 0;
@@ -135,6 +136,13 @@ export class BlobbiStage {
     this.requestFrame();
   }
 
+  /** Where the eyes look (-1..1 each way), or nothing for the resting gaze. */
+  setGaze(gaze: { x: number; y: number } | undefined) {
+    this.gaze = gaze;
+    this.renderFrame(0);
+    this.requestFrame();
+  }
+
   resize(width: number, height: number) {
     this.width = Math.max(1, width);
     this.height = Math.max(1, height);
@@ -173,7 +181,7 @@ export class BlobbiStage {
       } else {
         this.heading = yawForView(this.view);
       }
-      if (this.actor.update({ dt, motion: this.motion, heading: this.heading, sleeping: this.sleeping })) animating = true;
+      if (this.actor.update({ dt, motion: this.motion, heading: this.heading, sleeping: this.sleeping, gaze: this.gaze })) animating = true;
       if (this.figurine) this.figurine.rotation.y = this.actor.object.rotation.y;
     }
     this.renderer.render(this.scene, this.camera);

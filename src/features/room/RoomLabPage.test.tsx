@@ -100,9 +100,36 @@ describe('the /room/3d-lab route', () => {
     expect(main).toHaveAttribute('data-motion', 'walking');
     fireEvent.click(screen.getByTestId('lab-life-baby'));
     expect(screen.getByTestId('lab-life-baby')).toHaveAttribute('aria-pressed', 'true');
+    // The gaze: at rest until the eyes are told to follow the pointer
+    expect(main).toHaveAttribute('data-tracking', 'rest');
+    fireEvent.click(screen.getByTestId('lab-gaze-track'));
+    expect(main).toHaveAttribute('data-tracking', 'pointer');
+    fireEvent.click(screen.getByTestId('lab-gaze-rest'));
+    expect(main).toHaveAttribute('data-tracking', 'rest');
     expect(relay.published).toEqual([]);
     expect(event).not.toHaveBeenCalled();
     expect(storageKeys()).toEqual(before);
+  });
+
+  it('draws the comparison matrix on request: nine addresses as adults and babies, each the kit\'s drawing beside three 3D stills', async () => {
+    renderAt('/room/3d-lab');
+    await waitFor(() => expect(screen.getByTestId('room-lab')).toBeInTheDocument());
+    expect(screen.queryByTestId('lab-matrix')).toBeNull();
+    fireEvent.click(screen.getByTestId('lab-matrix-toggle'));
+    const matrix = screen.getByTestId('lab-matrix');
+    const rows = matrix.querySelectorAll('[data-testid^="lab-matrix-adult-"], [data-testid^="lab-matrix-baby-"]');
+    const rowIds = [...rows].map((r) => r.getAttribute('data-testid')!).filter((id) => /^lab-matrix-(adult|baby)-\d+$/.test(id));
+    expect(rowIds.filter((id) => id.includes('adult'))).toHaveLength(9);
+    expect(rowIds.filter((id) => id.includes('baby'))).toHaveLength(9);
+    // Nine different Blobbis, each the same seed as an adult and as a baby
+    const seeds = (stage: string) => rowIds.filter((id) => id.includes(stage)).map((id) => screen.getByTestId(id).getAttribute('data-seed'));
+    expect(new Set(seeds('adult')).size).toBe(9);
+    expect(seeds('baby')).toEqual(seeds('adult'));
+    for (const id of rowIds) {
+      expect(screen.getByTestId(`${id}-2d`).querySelector('[data-blobbi-generation="v3"]')).not.toBeNull();
+      for (const view of ['front', 'side', 'back']) expect(screen.getByTestId(`${id}-${view}`)).toHaveAttribute('data-still', 'unavailable');
+    }
+    expect(relay.published).toEqual([]);
   });
 
   it('draws the Blobbi in the room as the 2D drawing or the 3D model, switched without leaving the room', async () => {

@@ -290,9 +290,49 @@ identity), `rig` (rest, breath, walk antiphase, lids, turn, blink, actor,
 reduced motion), `sno-figurine`, `RoomScene.model.test.ts` (engine hook),
 the lifecycle test's model case, `RoomLabPage.test.tsx` (route gate, three
 identities, views, controls, 2D/3D switch, signed-in Blobbi, no writes).
-Known approximations: the body between the two silhouettes, the arms (the
-front paddle turned halfway to the side), the side face, shaded lighting,
-and the special-mark glyph outlines restated from the kit.
+Known approximations: the body between the two silhouettes, the side
+face, shaded lighting, and the special-mark glyph outlines restated from
+the kit.
+
+**The fidelity pass (eyes, arms, the rear, the baby).** The first eyes
+were wrong for three reasons, all found by measuring the kit: (1) the eye
+was an ellipsoid turned to the skin's normal (±25° on an adult, ±31° on a
+baby) with the iris and pupil as discs at a fixed depth on it, so the
+kit's resting inward pupil offset, meant for a flat drawing, came out
+skewed and the whites showed as crescents, which reads as cross-eyed;
+(2) the kit's side view paints the eye INSIDE the silhouette (its depth is
+not a 3D position at all), so no eye orientation can satisfy both views
+and the front has to win; (3) the baby's "simple" eye is one big disc in
+the iris gradient (`babyEyeLight`/`babyEyeDark`) with a highlight, never a
+black pupil, and the baby's body is painted in `babyLight/Mid/Dark`. Now
+(`eyes.ts`, `surface.ts`) every feature is a STICKER: the kit's ellipse
+sampled in the picture plane and each sample projected onto the body
+(`Surface.at`), so its rim is on the skin wherever the body curves, with
+the white's dome and the layers on it raised toward the viewer (+z) rather
+than along the normal, so seen from the front every point is exactly where
+the drawing has it: level eyes, mirrored resting pupils, no clipping, no
+floating, and consistent under rotation because nothing is turned on its
+own. The gaze slides the inner eye along the surface's tangents by the
+kit's `travel`; a blink squeezes the open eye flat and draws the kit's
+closed-lid line. The arms are lofted (`loftRings`) from the front paddle's
+outline (width and place at each height) and the side paddle's (depth and
+place), hung from the shoulder: rounded limbs with the kit's corner-to-
+corner limb gradient and an ink hull, posed as before. The body's
+cross-section is a superellipse (`SUPER` = 2.4): the front and side
+silhouettes stay exactly the kit's and the diagonals are fuller, and the
+body gradient turns smoothly from the front view's to the back view's
+round the sides. The baby is scaled into its own box (`BABY_BOX`, the
+kit's stage viewBox for it, `rootPerBox`), so it fills the room's baby
+box as the drawing does. The lab gained a comparison matrix (nine
+addresses as adults and babies, the kit's drawing beside three 3D stills
+drawn through ONE WebGL context, `stills.ts`) and a gaze switch (resting,
+or following the pointer). Tests: `eyes.test.ts` (centres on the kit's
+centres on the surface, both stages; mirrored resting pupils at the kit's
+offsets; layered vs simple eyes and their proportions; attachment: never
+under the skin, never further out than the dome; the gaze's travel),
+`limbs.test.ts` (arm size against both paddles, shoulder attachment,
+smoothness; twelve addresses as adults and babies build whole, finite,
+deterministic models with the morphology's parts).
 
 ## Milestone 13: MVP release readiness (M11)
 

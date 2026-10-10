@@ -13,12 +13,23 @@
  * viewer of the front view (the belly side). The origin is the ground point
  * under the body's axis.
  */
-import { DOCUMENT_TRANSFORM, VIEWBOX } from '@blobbi-kit/renderer/procedural';
+import { BABY_BOX, DOCUMENT_TRANSFORM, VIEWBOX } from '@blobbi-kit/renderer/procedural';
 
-/** Root units per art box height. */
+/** Root units per art box height: the adult's document. */
 export const ROOT_PER_BOX = VIEWBOX.height / DOCUMENT_TRANSFORM.scale;
-/** Model units per root unit. */
+/** Model units per root unit, in the geometry as built (the adult's box). */
 export const U = 1 / ROOT_PER_BOX;
+
+/**
+ * Root units per art box for a life stage. The baby is drawn in its own,
+ * smaller square frame (`BABY_BOX`, the kit's stage viewBox for it), which
+ * the room scales to the baby's size in tiles just as it scales the adult's
+ * document to the adult's; so a model built in the adult's units is scaled
+ * by `ROOT_PER_BOX / rootPerBox(stage)` to stand in its own box.
+ */
+export function rootPerBox(stage: 'baby' | 'adult'): number {
+  return stage === 'baby' ? BABY_BOX.size : ROOT_PER_BOX;
+}
 
 /** Where the root coordinates of the front and side views sit in the model. */
 export interface Frame {

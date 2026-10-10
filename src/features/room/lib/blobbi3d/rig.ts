@@ -63,9 +63,12 @@ export function poseRig(model: BlobbiModel, state: RigState): void {
   }
   const gaze = state.gaze ?? { x: 0, y: 0 };
   for (const eye of rig.eyes) {
-    eye.inner.position.set(gaze.x * eye.travel * U, -gaze.y * eye.travel * U, 0);
-    const closed = !!state.eyesClosed && eye.closed !== null;
-    eye.open.visible = !closed;
+    // The inner eye slides over the white along the surface, as far as the kit lets the pupils travel
+    eye.inner.position.copy(eye.across).multiplyScalar(gaze.x * eye.travel * U).addScaledVector(eye.up, -gaze.y * eye.travel * U);
+    const closed = !!state.eyesClosed;
+    // Shut: the white and all on it squeezed to a line at the lid, the lid's line drawn over it
+    eye.open.scale.y = closed ? 0.06 : 1;
+    eye.open.visible = !closed || eye.closed === null;
     if (eye.closed) eye.closed.visible = closed;
   }
 }
