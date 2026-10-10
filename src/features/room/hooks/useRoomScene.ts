@@ -65,8 +65,14 @@ const RECOVERED_MS = 10_000;
 
 let hasWebgl: boolean | undefined;
 
-/** Checked once: browsers cap live WebGL contexts, so the probe's is released right away. */
-function webglAvailable(): boolean {
+/**
+ * Whether this browser gives WebGL at all. Checked ONCE for the page and
+ * the probe's context released at once: browsers cap live WebGL contexts
+ * (Chrome at about sixteen) and lose the oldest past that, which would be
+ * the room's. Anything else that wants to know (the thumbnails) asks here
+ * instead of probing again.
+ */
+export function webglAvailable(): boolean {
   if (hasWebgl === undefined) {
     try {
       const gl = document.createElement('canvas').getContext('webgl2');

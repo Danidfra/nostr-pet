@@ -4,7 +4,10 @@
  *
  * Stills render one at a time on one shared WebGL context, released once
  * the catalog has finished: browsers allow only a handful of contexts, and a
- * fresh one per still would recompile every shader each time.
+ * fresh one per still would recompile every shader each time. Nothing here
+ * creates a context of its own to ask whether WebGL exists: that is the
+ * room's one cached probe, because every live context past the browser's
+ * limit costs the oldest one, the room's.
  */
 import { useQuery } from '@tanstack/react-query';
 import { Box } from 'lucide-react';
@@ -12,6 +15,7 @@ import { Box } from 'lucide-react';
 import { cx } from '../lib/cx';
 import type { StillRenderer } from '../lib/scene/still-renderer';
 import { getOfficialFurnitureModel, type FurnitureModel } from '../hooks/useFurnitureModels';
+import { webglAvailable } from '../hooks/useRoomScene';
 
 const THUMB_PX = 192;
 /** Idle time after the last still before the context is released. */
@@ -41,15 +45,6 @@ function renderQueued(model: FurnitureModel): Promise<string> {
   return next;
 }
 
-/** Whether a still can be drawn here at all (no WebGL in a test runner, or in a locked-down browser). */
-function canRenderStills(): boolean {
-  try {
-    return typeof HTMLCanvasElement !== 'undefined' && !!document.createElement('canvas').getContext('webgl2');
-  } catch {
-    return false;
-  }
-}
-
 interface FurnitureThumbnailProps {
   id: string;
   /** For network objects, the already-resolved model. */
@@ -63,7 +58,9 @@ export function FurnitureThumbnail({ id, model, alt, className }: FurnitureThumb
   const still = useQuery({
     queryKey: ['room-furniture-thumb', id],
     queryFn: () => renderQueued(resolved!),
-    enabled: !!resolved && !resolved.missing && canRenderStills(),
+    // The one page-wide WebGL check (useRoomScene): a probe context per tile would exhaust the browser's
+    // context limit and lose the room's own context (the room went blank on entering the editor)
+    enabled: !!resolved && !resolved.missing && webglAvailable(),
     staleTime: Infinity,
     gcTime: Infinity,
     // A failed still is tried again when the catalog next shows it, not in a loop

@@ -203,6 +203,32 @@ describe('decorating in the engine', () => {
     expect([...invalid()].sort()).toEqual([0, 1]);
   });
 
+  it('entering and leaving decorating keeps the room on screen: the camera eases between its two views over rendered frames, nothing is resized or folded in again', async () => {
+    const { scene } = await room([{ id: 'official:toybox', at: 'floor', x: 1.5, y: 7 }]);
+    const inner = scene as unknown as { renderer: { render: ReturnType<typeof vi.fn>; setSize: ReturnType<typeof vi.fn> }; introStart: number | null; folds?: { floor: { visible: boolean }; left: { visible: boolean }; right: { visible: boolean } }; editT: number; built: Map<string, unknown> };
+    await frames(60); // the first fold-in has played out
+    expect(inner.introStart).toBeNull();
+    const renderSpy = vi.spyOn(inner.renderer, 'render');
+    const sizeSpy = vi.spyOn(inner.renderer, 'setSize');
+    scene.setEditing(true, null);
+    await frames(2);
+    // Mid-transition: frames are drawn, the room is whole, no fold-in restarted
+    expect(renderSpy).toHaveBeenCalled();
+    expect(inner.editT).toBeGreaterThan(0);
+    expect(inner.editT).toBeLessThan(1);
+    expect(inner.introStart).toBeNull();
+    expect(inner.folds!.floor.visible && inner.folds!.left.visible && inner.folds!.right.visible).toBe(true);
+    expect(inner.built.size).toBe(1);
+    await frames(60);
+    expect(inner.editT).toBe(1);
+    scene.setEditing(false, null);
+    await frames(60);
+    expect(inner.editT).toBe(0);
+    expect(inner.introStart).toBeNull();
+    expect(sizeSpy).not.toHaveBeenCalled();
+    expect(inner.built.size).toBe(1);
+  });
+
   it('decorating stops the Blobbi: a walk in progress is stopped, and a tap cannot start one; it walks again after', async () => {
     const { scene } = await room([]);
     const walk = scene.requestWalk(MAIN_BLOBBI, 1.5, 1.5);
