@@ -144,6 +144,39 @@ rendering (31634) is still read-only. Relay discovery for ecosystem data is
 the read router below (no relay settings UI). Also deferred: account
 switcher, social interaction projection on the home, the companion runtime.
 
+## The 3D room, milestone 1 (preview, 2026-10-10)
+
+The room Ditto draws on its `/blobbi` page (a three.js papercraft diorama:
+an 8×8 tile floor, two back walls, a 45° camera from the open corner, paper
+textures, soft shadows, furniture modelled as Simple Nostr Objects) is
+being brought into this app one milestone at a time, as `src/features/room/`.
+Milestone 1 is the foundation and lives behind a dev-only lazy route,
+`/room` (`AppRouter`, gated on `import.meta.env.DEV`), so the production
+bundle and the home at `/` are untouched until the room can carry the care
+flows.
+
+What is Ditto's, copied as it is: the engine (`lib/scene/RoomScene.ts`),
+the textures, the SNO builder and the 45 official models, the facing rule
+(`lib/room-facing.ts`, with its test) and the geometry. What is this
+app's: `RoomShell` (Ditto's shell without i18n, haptics, arc chrome, poop
+and guide pulses, over the existing room registry's ids, labels and order),
+`RoomBlobbi` (the canonical `BlobbiRenderer` for V1, V2 and V3 alike,
+standing on the renderer's own ground line from `describeBlobbiArtwork`
+rather than Ditto's per-form table), a trusted-input SNO adapter
+(`lib/scene/sno-object.ts`, the bundled models only; the network parser
+comes with the milestone that places `sno:` objects), and the 3D catalog
+(`lib/furniture-3d.ts`: mounts, surfaces, interactions). The room's
+surfaces ARE the registry's (`roomLayoutFor` returns `roomById(id).surfaces`);
+a sleeper is in the bedroom by the registry's `resolveRoom`.
+
+Nothing is read from or written to Nostr for the room: the room choice is
+the page's state and the furniture is Ditto's defaults, kept in Ditto's
+`room_furniture_v2` placement shape so a saved room can be read later.
+three.js (0.186) loads on demand with the scene; `RoomScene-*.js` is its
+own chunk and absent from a production build. Next: M2 wires the scene's
+walking into the behaviour layer, M3 decorating, M4 the dock and items,
+M5 persistence and rooms, M6 replaces the home.
+
 ## Milestone 13: MVP release readiness (M11)
 
 The pass that turns the M10 home into something that can be put in front
