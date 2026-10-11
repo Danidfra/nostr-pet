@@ -55,10 +55,47 @@ export interface ActorModel {
   lean: number;
   /** Pose for this frame. True while it keeps moving on its own (so the scene keeps drawing frames). */
   update(frame: ActorFrame): boolean;
+  /** Play one of the home's body gestures (a glad bounce, a recoil, a stir, a wiggle) over the next frames. */
+  gesture(kind: ActorGesture): void;
   /** The gaze as posed this frame, -1..1 each way (for tests and the lab). */
   gaze(): { x: number; y: number };
   dispose(): void;
 }
+
+/** The home's poke gestures (`home/personality.ts`), in the model's own body. */
+export type ActorGesture = 'wiggle' | 'bounce' | 'recoil' | 'stir';
+
+/**
+ * Each gesture as a few keys of the figure's offsets, mirroring the home's
+ * CSS keyframes (`home/scene/gestures.ts`) so the 2D and 3D Blobbi move
+ * alike: `lift` in box heights, `sx`/`sy` the squash (about the ground, so
+ * the feet stay down), `roll` a tilt in the view's plane, `shift` sideways
+ * in box widths; times as fractions of the duration.
+ */
+interface GestureKey { at: number; lift?: number; sx?: number; sy?: number; roll?: number; shift?: number }
+const GESTURE_KEYS: Record<ActorGesture, { durationMs: number; keys: GestureKey[] }> = {
+  wiggle: { durationMs: 650, keys: [{ at: 0 }, { at: 0.2, roll: -7 }, { at: 0.45, roll: 6 }, { at: 0.7, roll: -4 }, { at: 0.88, roll: 2 }, { at: 1 }] },
+  bounce: { durationMs: 520, keys: [{ at: 0 }, { at: 0.15, sx: 1.06, sy: 0.92 }, { at: 0.5, lift: 0.09, sx: 0.96, sy: 1.06 }, { at: 0.82, sx: 1.03, sy: 0.97 }, { at: 1 }] },
+  recoil: { durationMs: 420, keys: [{ at: 0 }, { at: 0.25, shift: -0.04, roll: -3 }, { at: 0.55, shift: 0.03, roll: 2 }, { at: 1 }] },
+  stir: { durationMs: 600, keys: [{ at: 0 }, { at: 0.5, roll: -1.5, sx: 1.01, sy: 0.99 }, { at: 1 }] },
+};
+
+/** The figure's offsets at `t` (0..1) through a gesture's keys, eased between keys. */
+export function gestureAt(kind: ActorGesture, t: number): Required<Omit<GestureKey, 'at'>> {
+  const keys = GESTURE_KEYS[kind].keys;
+  const v = (k: GestureKey, f: keyof Omit<GestureKey, 'at'>) => k[f] ?? (f === 'sx' || f === 'sy' ? 1 : 0);
+  const clamped = Math.min(1, Math.max(0, t));
+  let i = 0;
+  while (i < keys.length - 2 && keys[i + 1].at < clamped) i++;
+  const a = keys[i];
+  const b = keys[i + 1];
+  const local = b.at > a.at ? (clamped - a.at) / (b.at - a.at) : 1;
+  const e = local * local * (3 - 2 * local);
+  const mix = (f: keyof Omit<GestureKey, 'at'>) => v(a, f) + (v(b, f) - v(a, f)) * e;
+  return { lift: mix('lift'), sx: mix('sx'), sy: mix('sy'), roll: mix('roll'), shift: mix('shift') };
+}
+
+export const GESTURE_DURATION_MS: Record<ActorGesture, number> = Object.fromEntries(Object.entries(GESTURE_KEYS).map(([k, g]) => [k, g.durationMs])) as Record<ActorGesture, number>;
 
 export interface ActorOptions {
   /** Seconds per walk cycle (the room's tempo); the kit's by default. Played `WALK_TEMPO_3D` times faster. */
@@ -106,6 +143,28 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
   const gaze = { x: 0, y: 0 };
   const wanted = { x: 0, y: 0 };
   const lean = ROOM_LEAN[model.stage] ?? 0;
+  // The figure's resting pose, which a gesture moves about and always returns to
+  const figure = model.figure;
+  const restScale = figure.scale.clone();
+  const restPosition = figure.position.clone();
+  const restRotation = figure.rotation.clone();
+  let playing: { kind: ActorGesture; startedAt: number } | null = null;
+  /** Pose the figure for the gesture in progress; true while one is. */
+  const poseGesture = (): boolean => {
+    if (!playing) return false;
+    const t = (age - playing.startedAt) / (GESTURE_KEYS[playing.kind].durationMs / 1000);
+    const g = gestureAt(playing.kind, t);
+    figure.scale.set(restScale.x * g.sx, restScale.y * g.sy, restScale.z * g.sx);
+    figure.position.set(restPosition.x + g.shift, restPosition.y + g.lift, restPosition.z);
+    figure.rotation.set(restRotation.x, restRotation.y, restRotation.z + (g.roll * Math.PI) / 180);
+    if (t >= 1) {
+      playing = null;
+      figure.scale.copy(restScale);
+      figure.position.copy(restPosition);
+      figure.rotation.copy(restRotation);
+    }
+    return true;
+  };
   const yaw = new THREE.Quaternion();
   const tilt = new THREE.Quaternion();
   const leanAxis = new THREE.Vector3();
@@ -182,10 +241,16 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
         gaze.y = wanted.y;
       }
       poseRig(model, { motion, phase, gaze, eyesClosed });
+      const gesturing = poseGesture();
       const turning = Math.abs(Math.atan2(Math.sin(frame.heading - heading), Math.cos(frame.heading - heading))) > 0.002;
       const blinkChanged = eyesClosed !== lastEyes;
       lastEyes = eyesClosed;
-      return motion !== 'still' || turning || blinkChanged || !settled || (!reduced && !frame.sleeping);
+      return gesturing || motion !== 'still' || turning || blinkChanged || !settled || (!reduced && !frame.sleeping);
+    },
+    gesture(kind) {
+      // Reduced motion: no body gestures, as on the home
+      if (options.reducedMotion?.()) return;
+      playing = { kind, startedAt: age };
     },
     gaze: () => ({ x: gaze.x, y: gaze.y }),
     dispose: () => model.dispose(),

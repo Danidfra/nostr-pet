@@ -33,7 +33,7 @@ import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.j
 
 import type { SnoNode } from './sno-object';
 import { buildSnoObject } from './sno-three';
-import type { ActorModel } from '../blobbi3d/actor';
+import type { ActorGesture, ActorModel } from '../blobbi3d/actor';
 
 import type { FurnitureInteraction, FurnitureMount } from '../furniture-3d';
 import type { FurniturePlacement } from '../room-furniture';
@@ -443,6 +443,8 @@ interface Actor {
   model: ActorModel | null;
   /** The model has been on a drawn frame (its shaders compiled): the DOM drawing may step aside. */
   modelDrawn: boolean;
+  /** Where its 3D eyes look, the kit's offset (-1..1 each way), when the app says (a glance, the pointer); null to rest. */
+  gaze: { x: number; y: number } | null;
   caster: THREE.Mesh;
   contact: THREE.Mesh;
   /** Has said hello to the user's Blobbi since it last walked over. */
@@ -1117,7 +1119,7 @@ export class RoomScene {
     contact.rotation.x = -Math.PI / 2;
     contact.renderOrder = 1;
     this.scene.add(caster, contact);
-    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, speed: DEFAULT_WALK_SPEED, path: [], walked: 0, facing: 'front', heading: AZIMUTH, reach: { back: 0.5, front: 0.5 }, model: null, modelDrawn: false, caster, contact, met: false };
+    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, speed: DEFAULT_WALK_SPEED, path: [], walked: 0, facing: 'front', heading: AZIMUTH, reach: { back: 0.5, front: 0.5 }, model: null, modelDrawn: false, gaze: null, caster, contact, met: false };
     this.actors.set(id, actor);
     return actor;
   }
@@ -1420,6 +1422,24 @@ export class RoomScene {
     return true;
   }
 
+  /** Where a Blobbi's 3D eyes look (the 2D drawing takes the same offset as a prop); null for its resting gaze. */
+  setActorGaze(id: string, gaze: { x: number; y: number } | null) {
+    const actor = this.actors.get(id);
+    if (!actor) return;
+    const same = actor.gaze === gaze || (!!actor.gaze && !!gaze && actor.gaze.x === gaze.x && actor.gaze.y === gaze.y);
+    if (same) return;
+    actor.gaze = gaze;
+    if (actor.model) this.requestRender();
+  }
+
+  /** Play one of the home's body gestures on a Blobbi's 3D model (the 2D drawing plays it on its own box). */
+  playGesture(id: string, kind: ActorGesture) {
+    const model = this.actors.get(id)?.model;
+    if (!model) return;
+    model.gesture(kind);
+    this.requestRender();
+  }
+
   /** Make a Blobbi hop, as if tapped. */
   hop(id: string) {
     const actor = this.actors.get(id);
@@ -1496,7 +1516,7 @@ export class RoomScene {
         const sleeping = b.id === MAIN && this.sleepTarget === 1;
         const motion = b.path.length ? 'walking' : b.isEgg || sleeping ? 'still' : 'idle';
         // Seen from the open corner: it leans back from the camera by its stage's lean (`ROOM_LEAN`)
-        if (b.model.update({ dt, motion, heading: b.heading, sleeping, viewAzimuth: AZIMUTH })) animating = true;
+        if (b.model.update({ dt, motion, heading: b.heading, sleeping, viewAzimuth: AZIMUTH, gaze: b.gaze ?? undefined })) animating = true;
       }
     }
     return animating;

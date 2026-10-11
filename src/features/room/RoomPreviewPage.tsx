@@ -38,6 +38,11 @@ import { useRoomNavigation } from './hooks/useRoomNavigation';
 import { useRoomDecorator } from './hooks/useRoomDecorator';
 import { useRoomActorModel } from './hooks/useRoomActorModel';
 import { useRoomCare } from './hooks/useRoomCare';
+import { useRoomLife } from './hooks/useRoomLife';
+import { useSound, soundForPoke } from '@/features/sound';
+import { useReducedMotion } from '@/features/home/scene/SceneSettings';
+import { POKE_PATIENCE, pokeReaction, type PokeGesture } from '@/features/home/personality';
+import type { EyeOffset } from '@/features/home/scene/gaze';
 import { useRoomItemDrag } from './hooks/useRoomItemDrag';
 import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
 import { RoomHeader } from './components/RoomHeader';
@@ -47,6 +52,7 @@ import { useReactionPolicy } from '@/features/home/scene/useReactionPolicy';
 import { roomById, type RoomActivity } from '@/features/home/rooms/rooms';
 import { resolveFurniture, type FurnitureInteraction } from './lib/furniture-3d';
 import { MAIN_BLOBBI } from './lib/room-geometry';
+import type { FurniturePlacement } from './lib/room-furniture';
 import { planDrop, planUse, shelfEntries, shelfKey, type CareShelf, type DropPlace, type RoomCareEntry } from './lib/room-care';
 import { RoomAppearanceControl } from './components/RoomAppearanceControl';
 import { useBlobbiAppearance } from './lib/blobbi-appearance';
@@ -55,6 +61,10 @@ import { roomStoreKey, type LoadStatus, type SaveStatus } from './lib/room-store
 import { walkSpeedFor } from './lib/room-pace';
 import { travelGaze } from './lib/room-gaze';
 
+/** How long its eyes stay on something the player touched. */
+const ATTENTION_MS = 1_600;
+/** When a 3D Blobbi's landing hop comes after a room change: as the room finishes folding in. */
+const ROOM_LANDING_MS = 700;
 /** How long the carousel pulses when a piece of furniture points at it (one turn of Ditto's guide pulse). */
 const PULSE_MS = 2_600;
 
@@ -139,14 +149,31 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const actorRef = useRef<HTMLDivElement | null>(null);
   const hoverCapable = useHoverCapable();
   const gaze = useGazePolicy({ actorRef, sceneRef: shellRef, hoverCapable, actorKey: `${facing}:${motion}`, enabled: !isEgg && !isSleeping && facing !== 'back' && !decorator.editing });
-  const eyeOffset = motion === 'walking' ? travelGaze(facing) : gaze.eyeOffset;
   const pointerHandlers = useMemo(() => ({ onPointerMove: gaze.onPointerMove, onPointerLeave: gaze.onPointerLeave, onPointerDown: gaze.onPointerDown }), [gaze.onPointerMove, gaze.onPointerLeave, gaze.onPointerDown]);
 
   const { draft, layoutDraft, selectedIndex, select, setDraft, setLayoutDraft, move, setInvalid, invalid, save, cancel } = decorator;
   const controlRef = nav.shellProps.controlRef;
 
+  // ─── Its body: one gesture vocabulary (the home's), played by whichever drawing stands in the room ───
+  const { play } = useSound();
+  const reducedMotion = useReducedMotion();
+  const [gestureNow, setGestureNow] = useState<{ kind: PokeGesture; key: number } | null>(null);
+  const gestureKey = useRef(0);
+  const gesture = useCallback((kind: PokeGesture) => {
+    gestureKey.current += 1;
+    setGestureNow({ kind, key: gestureKey.current });
+    controlRef.current?.gesture(kind);
+  }, [controlRef]);
+  // A moment's attention: its eyes on something the player just touched
+  const [attention, setAttention] = useState<EyeOffset | null>(null);
+  useEffect(() => {
+    if (!attention) return;
+    const timer = setTimeout(() => setAttention(null), ATTENTION_MS);
+    return () => clearTimeout(timer);
+  }, [attention]);
+
   // ─── Care: one adapter over the home's write paths ───
-  const hop = useCallback(() => controlRef.current?.hop(), [controlRef]);
+  const hop = useCallback(() => gesture('bounce'), [gesture]);
   const care = useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav, react: reactions.react, hop });
 
   // What the strip shows: the room's own shelf, or what a piece of furniture opened (until the room changes)
@@ -196,7 +223,10 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
       if (!entry) return;
       selectItem(key);
       const plan = planDrop(entry.action, placeAt(clientX, clientY), controlRef.current?.blobbiPosition() ?? null);
-      if (plan.kind !== 'cancel') applyEntry(entry, plan, roomId);
+      if (plan.kind === 'cancel') return;
+      // Set down on the floor: a soft thud (handed over, the eating says it)
+      if (plan.kind === 'set-down') play('drop');
+      applyEntry(entry, plan, roomId);
     },
   });
   const startDrag = drag.start;
@@ -217,6 +247,65 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   useEffect(() => {
     if (draggedGone) cancelDrag();
   }, [draggedGone, cancelDrag]);
+  // Picked up: "hup"
+  const lifted = drag.session?.lifted ?? false;
+  useEffect(() => {
+    if (lifted) play('pickup');
+  }, [lifted, play]);
+
+  // ─── Its own life, when nothing else is going on (useRoomLife) ───
+  const lifeEnabled = !isEgg && !isSleeping && !decorator.editing && !care.busy && drag.session === null;
+  const life = useRoomLife({
+    enabled: lifeEnabled,
+    canWalk: nav.canWalk && !reducedMotion,
+    position: () => controlRef.current?.blobbiPosition() ?? null,
+    walkTo: nav.walkTo,
+    gesture,
+  });
+  const markActivity = life.markActivity;
+  // Its eyes: the pointer's when it has one, else what it is attending to, else where its own thoughts wander;
+  // a glance the way it goes while walking (the 2D drawing; the 3D model turns its whole body)
+  const restingGaze = gaze.eyeOffset ?? attention ?? life.glance ?? undefined;
+  const eyeOffset = motion === 'walking' ? travelGaze(facing) : restingGaze;
+  const gaze3d = isEgg || isSleeping || motion === 'walking' ? null : restingGaze ?? null;
+  useEffect(() => {
+    controlRef.current?.gaze(gaze3d);
+    // The offset's numbers are what matter, not its identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controlRef, gaze3d?.x, gaze3d?.y, actor3d.model]);
+
+  // A tap on the Blobbi: the home's poke personality (glad, then grumpy if overdone; sleepy when tired)
+  const pokes = useRef<number[]>([]);
+  const stats = projected?.stats;
+  const react = reactions.react;
+  const onBlobbiTap = useCallback((id: string) => {
+    if (id !== MAIN_BLOBBI) return;
+    markActivity();
+    const now = Date.now();
+    pokes.current = [...pokes.current.filter((t) => now - t < POKE_PATIENCE.windowMs), now];
+    const reaction = pokeReaction({ stage: blobbi.stage, state: blobbi.state, stats, recentPokes: pokes.current.length });
+    if (reaction.mood === 'annoyed') pokes.current = [];
+    if (reaction.expression) react(reaction.expression, reaction.durationMs);
+    gesture(reaction.gesture);
+    const sound = soundForPoke(reaction.mood);
+    if (sound) play(sound);
+  }, [markActivity, blobbi.stage, blobbi.state, stats, react, gesture, play]);
+
+  // Going to another room: a soft swish; the 3D Blobbi gives a little hop as it lands (the drawing hops in by itself)
+  const firstRoom = useRef(true);
+  const has3d = actor3d.model !== null;
+  useEffect(() => {
+    if (firstRoom.current) {
+      firstRoom.current = false;
+      return;
+    }
+    play('room');
+    if (!has3d) return;
+    const timer = setTimeout(() => gesture('bounce'), ROOM_LANDING_MS);
+    return () => clearTimeout(timer);
+    // Only a change of room
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
 
   // Furniture: the bed rests or wakes; the fridge, the tub and the toy box open their items
   const bed = useMemo(() => {
@@ -224,6 +313,18 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
     return p ? { x: p.x, z: p.y } : null;
   }, [placements]);
   const rest = care.rest;
+  // Any piece tapped: a wooden knock, and the Blobbi looks over at it
+  const onPieceTap = useCallback((index: number, lamp: boolean) => {
+    markActivity();
+    play(lamp ? 'select' : 'knock');
+    const p = placements[index];
+    const at = controlRef.current?.blobbiPosition();
+    if (p && at && p.at === 'floor') {
+      // Across the screen is x - z from the camera's corner; nearer the camera is lower
+      const across = (p.x - p.y) - (at.x - at.z);
+      setAttention({ x: Math.max(-0.8, Math.min(0.8, across * 0.25)), y: p.x + p.y > at.x + at.z ? 0.4 : -0.1 });
+    }
+  }, [markActivity, play, placements, controlRef]);
   const onInteract = useCallback((interaction: FurnitureInteraction, index: number) => {
     if (interaction === 'bed') {
       const p = placements[index];
@@ -248,12 +349,37 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   // Its name, shown over its head on demand (hover, tap, keyboard focus), in 2D and 3D alike
   const nameTag = useMemo(() => ({ text: blobbi.name, color: toBlobbiVisual(blobbi).baseColor }), [blobbi]);
   const handed = offer && offer.place.kind === 'hand' && offer.phase !== 'failed' && offerGlyph ? { glyph: offerGlyph, phase: offer.phase } : null;
+  // The carousel's focus moving: the smallest tick
+  const focusItem = useCallback((key: string) => {
+    selectItem(key);
+    play('select');
+  }, [selectItem, play]);
+  // A use that failed: a short "nuh" as the reason appears
+  const failed = offer?.phase === 'failed';
+  useEffect(() => {
+    if (failed) play('invalid');
+  }, [failed, play]);
+  // Decorating: a piece set down pops, a new piece too, and Save chimes
+  const placeMove = useCallback((index: number, placement: FurniturePlacement) => {
+    play('place');
+    move(index, placement);
+  }, [move, play]);
+  const draftCount = draft?.length ?? null;
+  const lastDraftCount = useRef(draftCount);
+  useEffect(() => {
+    if (draftCount !== null && lastDraftCount.current !== null && draftCount > lastDraftCount.current) play('place');
+    lastDraftCount.current = draftCount;
+  }, [draftCount, play]);
+  const saveWithChime = useCallback(() => {
+    play('save');
+    save();
+  }, [save, play]);
   const editor = useMemo((): RoomEditorBinding | undefined => {
     if (!decorator.editing || !draft || !layoutDraft) return undefined;
     return {
       selectedIndex,
       onSelect: select,
-      onMove: move,
+      onMove: placeMove,
       onInvalidChange: setInvalid,
       toolbar: selectedIndex !== null ? <RoomDecoratorToolbar draft={draft} onDraftChange={setDraft} selectedIndex={selectedIndex} onSelect={select} /> : undefined,
       overlay: (
@@ -267,15 +393,16 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
           onSelect={select}
           invalid={invalid}
           controlRef={controlRef}
-          onSave={save}
+          onSave={saveWithChime}
           onCancel={cancel}
         />
       ),
     };
-  }, [decorator.editing, draft, layoutDraft, selectedIndex, select, move, setInvalid, setDraft, setLayoutDraft, invalid, controlRef, save, cancel, roomId]);
+  }, [decorator.editing, draft, layoutDraft, selectedIndex, select, placeMove, setInvalid, setDraft, setLayoutDraft, invalid, controlRef, saveWithChime, cancel, roomId]);
 
   return (
-    <div ref={shellRef} className="flex flex-1 min-h-0 flex-col">
+    // Any touch of the player's holds the Blobbi's own life off for a while
+    <div ref={shellRef} className="flex flex-1 min-h-0 flex-col" onPointerDownCapture={markActivity} onKeyDownCapture={markActivity}>
       <RoomShell
         roomId={roomId}
         onChangeRoom={setChosenRoom}
@@ -292,6 +419,8 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         // Its life is the app's (useRoomLife): it ambles only when nothing else is going on
         blobbiWanders={false}
         onInteract={onInteract}
+        onPieceTap={onPieceTap}
+        onBlobbiTap={onBlobbiTap}
         floorThings={floorThings}
         blobbiOverlay={<RoomBlobbiOverlay feedback={care.feedback} handed={handed} />}
         blobbiName={nameTag}
@@ -301,7 +430,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         blobbiModel={actor3d.model}
         hudEnd={<RoomAppearanceControl appearance={appearance} onChange={setAppearance} unavailable3d={actor3d.unavailable3d} />}
         editor={editor}
-        stage={<RoomBlobbi ref={actorRef} blobbi={blobbi} facing={facing} motion={motion} eyeOffset={eyeOffset} expression={expression} />}
+        stage={<RoomBlobbi ref={actorRef} blobbi={blobbi} facing={facing} motion={motion} eyeOffset={eyeOffset} expression={expression} gesture={gestureNow} />}
       >
         <RoomBottomBar
           blobbi={blobbi}
@@ -309,9 +438,12 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
           carousel={hasStrip ? {
             entries,
             focusedKey: selectedKey,
-            onFocus: selectItem,
+            onFocus: focusItem,
             onUse,
-            onBlocked: (entry) => care.notify(entry.reason ?? 'Not right now.'),
+            onBlocked: (entry) => {
+              play('invalid');
+              care.notify(entry.reason ?? 'Not right now.');
+            },
             onDragStart,
             onClose: furnitureShelf ? () => setFurnitureShelf(null) : undefined,
             highlight: pulse,

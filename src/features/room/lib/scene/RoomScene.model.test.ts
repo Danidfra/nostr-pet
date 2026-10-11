@@ -99,6 +99,7 @@ function fakeModel(): ActorModel & { frames: ActorFrame[] } {
     box: 1,
     pace: 1,
     lean: 0,
+    gesture: vi.fn(),
     gaze: () => ({ x: 0, y: 0 }),
     frames,
     update(frame) {

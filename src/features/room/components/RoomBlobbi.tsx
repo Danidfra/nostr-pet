@@ -16,13 +16,16 @@
  * replaced by the canonical renderer and the home's baseline expression.
  */
 
-import { forwardRef, useMemo, type CSSProperties, type ReactNode } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
 import { BlobbiRenderer, type BlobbiEmotion, type BlobbiFacing, type BlobbiMotion } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { bodyBottomInset } from '../lib/body-inset';
 import { walkTempoFor } from '../lib/room-pace';
+import { GESTURES } from '@/features/home/scene/gestures';
+import { useReducedMotion } from '@/features/home/scene/SceneSettings';
+import type { PokeGesture } from '@/features/home/personality';
 
 interface RoomBlobbiProps {
   blobbi: BlobbiCompanion;
@@ -40,6 +43,8 @@ interface RoomBlobbiProps {
   eyeOffset?: { x: number; y: number };
   /** A visiting Blobbi's smaller tag. */
   variant?: 'main' | 'guest';
+  /** A body gesture to play (the home's): a new key plays it again. */
+  gesture?: { kind: PokeGesture; key: number } | null;
 }
 
 /** Side of the Blobbi's art box before the room scales it. */
@@ -83,7 +88,18 @@ function Standing({ inset, nameTag, children }: { inset: number; nameTag?: React
   );
 }
 
-export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', motion, eyeOffset, variant = 'main' }, ref) {
+export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', motion, eyeOffset, variant = 'main', gesture }, ref) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  useImperativeHandle(ref, () => boxRef.current as HTMLDivElement);
+  // A gesture: the home's keyframes on this box around the renderer, composited over whatever it is doing
+  const reducedMotion = useReducedMotion();
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!gesture || !box || reducedMotion || typeof box.animate !== 'function') return;
+    const spec = GESTURES[gesture.kind];
+    const animation = box.animate(spec.keyframes, { duration: spec.durationMs, easing: spec.easing, composite: 'add' });
+    return () => animation.cancel();
+  }, [gesture, reducedMotion]);
   const isSleeping = blobbi.state === 'sleeping';
   const isEgg = blobbi.stage === 'egg';
   const visual = useMemo(() => toBlobbiVisual(blobbi), [blobbi]);
@@ -106,7 +122,7 @@ export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function R
       }
     >
       <div
-        ref={ref}
+        ref={boxRef}
         className="room-blobbi relative size-full"
         data-room-blobbi={variant}
         data-facing={facing}

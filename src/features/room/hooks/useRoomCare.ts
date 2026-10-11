@@ -133,7 +133,8 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
       setFeedback({ result, key: feedbackKeyRef.current });
       react(reactionForCare(result.action, result.nextState));
       if (result.nextState === 'active') hop();
-      const sound = soundForCare(result.action, result.nextState);
+      // In the room an energy drink is sipped (the home keeps its cheer)
+      const sound = result.action === 'boost' ? 'drink' : soundForCare(result.action, result.nextState);
       if (sound) play(sound);
     },
     [react, hop, play],

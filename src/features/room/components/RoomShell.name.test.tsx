@@ -92,8 +92,9 @@ describe('the Blobbi\'s name', () => {
     const { surface, onBlobbiTap } = renderShell();
     tap(surface, 200, 300);
     expect(name()).toHaveAttribute('data-shown', 'true');
-    expect(fakeScene.hop).toHaveBeenCalledWith('main');
+    // The app reacts to its own Blobbi (a face, a gesture, a sound); the scene's hop is for visitors
     expect(onBlobbiTap).toHaveBeenCalledWith('main');
+    expect(fakeScene.hop).not.toHaveBeenCalled();
     expect(fakeScene.walkTo).not.toHaveBeenCalled();
     act(() => { vi.advanceTimersByTime(2000); });
     tap(surface, 200, 300);
@@ -114,7 +115,6 @@ describe('the Blobbi\'s name', () => {
     fireEvent.focus(blobbi);
     expect(name()).toHaveAttribute('data-shown', 'true');
     fireEvent.click(blobbi);
-    expect(fakeScene.hop).toHaveBeenCalledWith('main');
     expect(onBlobbiTap).toHaveBeenCalledWith('main');
     fireEvent.blur(blobbi);
     expect(name()).toHaveAttribute('data-shown', 'false');

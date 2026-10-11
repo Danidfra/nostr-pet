@@ -39,6 +39,9 @@ interface SoundContextValue {
   play: (id: BlobbiSoundId) => void;
 }
 
+/** The same sound within this long of itself is not played again. */
+export const REPEAT_GAP_MS = 90;
+
 const SoundContext = createContext<SoundContextValue>({ enabled: false, setEnabled: () => {}, play: () => {} });
 
 interface SoundProviderProps {
@@ -67,9 +70,17 @@ export function SoundProvider({ children, engine }: SoundProviderProps) {
     };
   }, [enabled]);
 
+  // The same sound asked for again within a beat is one sound (a double tap, a burst of events)
+  const lastPlayed = useRef(new Map<BlobbiSoundId, number>());
   const play = useCallback(
     (id: BlobbiSoundId) => {
       if (!enabled) return;
+      // Nobody hears a backgrounded tab; nothing is queued for later either
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const last = lastPlayed.current.get(id);
+      if (last !== undefined && now - last < REPEAT_GAP_MS) return;
+      lastPlayed.current.set(id, now);
       try {
         getEngine().play(VOICE[id]);
       } catch {

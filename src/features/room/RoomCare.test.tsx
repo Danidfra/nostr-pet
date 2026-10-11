@@ -88,6 +88,8 @@ const scene = vi.hoisted(() => {
     /** What a point is over: the Blobbi in a box round (200, 300), an item by index above y 80, else the floor. */
     itemAt: null as number | null,
     hops: 0,
+    gestures: [] as string[],
+    wanders: [] as boolean[],
   };
   const fake = {
     pick: (x: number, y: number) => {
@@ -105,6 +107,9 @@ const scene = vi.hoisted(() => {
     stopWalk: () => state.walks.splice(0).forEach((w) => w.resolve('stopped')),
     positionOf: () => ({ x: 4, z: 4 }),
     hop: () => { state.hops += 1; },
+    playGesture: (_id: string, kind: string) => { state.gestures.push(kind); },
+    setActorGaze: () => {},
+    setMainWanders: (on: boolean) => { state.wanders.push(on); },
     projectBlobbi: () => ({ x: 200, y: 320, pxPerTile: 40 }),
     projectFloor: () => ({ x: 200, y: 400, pxPerTile: 40 }),
     projectItemTop: () => ({ x: 150, y: 300, pxPerTile: 40 }),
@@ -189,6 +194,8 @@ beforeEach(async () => {
   scene.state.autoArrive = false;
   scene.state.itemAt = null;
   scene.state.hops = 0;
+  scene.state.gestures = [];
+  scene.state.wanders = [];
   localStorage.clear();
   event.mockClear();
 });
@@ -274,7 +281,8 @@ describe('using an item in the room', () => {
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });
     await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook with Apple/), { timeout: 3000 });
     expect(within(screen.getByTestId('room-blobbi-overlay')).getByTestId('care-hearts')).toBeInTheDocument();
-    expect(scene.state.hops).toBe(1);
+    // The celebration's glad bounce, played by whichever drawing stands in the room
+    expect(scene.state.gestures).toEqual(['bounce']);
     expect(screen.queryByTestId('room-handed-item')).toBeNull();
     await quiet();
     expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]);
@@ -487,5 +495,32 @@ describe('2D and 3D, one Blobbi, one care', () => {
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });
     await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook/), { timeout: 3000 });
     expect(within(screen.getByTestId('room-blobbi-overlay')).getByTestId('care-hearts')).toBeInTheDocument();
+  });
+});
+
+describe('its life and its reactions', () => {
+  const tapBlobbi = () => {
+    const layer = screen.getByTestId('room-tap-layer');
+    fireEvent.pointerDown(layer, { pointerId: 4, isPrimary: true, clientX: 200, clientY: 280 });
+    fireEvent.pointerUp(layer, { pointerId: 4, isPrimary: true, clientX: 200, clientY: 280 });
+  };
+
+  it('the room drives its life itself: the scene does not amble it about on its own', async () => {
+    renderRoom();
+    await ready();
+    expect(scene.state.wanders).toContain(false);
+    expect(scene.state.wanders).not.toContain(true);
+  });
+
+  it('a tap is the home\'s poke: a glad bounce, then, overdone, a recoil; a face, never a write', async () => {
+    renderRoom();
+    await ready();
+    tapBlobbi();
+    expect(scene.state.gestures).toEqual(['bounce']);
+    for (let i = 0; i < 3; i++) tapBlobbi();
+    expect(scene.state.gestures[scene.state.gestures.length - 1]).toBe('recoil');
+    expect(scene.state.hops).toBe(0);
+    await quiet(200);
+    expect(relay.published).toEqual([]);
   });
 });

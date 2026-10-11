@@ -30,7 +30,7 @@ import { cx } from '../lib/cx';
 import { ArcBackground } from './ArcBackground';
 import { resolveFurniture, type FurnitureInteraction } from '../lib/furniture-3d';
 import type { FurniturePlacement } from '../lib/room-furniture';
-import type { ActorModel } from '../lib/blobbi3d/actor';
+import type { ActorGesture, ActorModel } from '../lib/blobbi3d/actor';
 import type { RoomLayout } from '../lib/room-layout';
 import { ROOM_GRID, blobbiBoxTiles, blobbiReachTiles, MAIN_BLOBBI } from '../lib/room-geometry';
 import { useFurnitureModels } from '../hooks/useFurnitureModels';
@@ -63,6 +63,10 @@ export interface RoomControl {
   blobbiPosition: () => { x: number; z: number } | null;
   /** A little hop of the user's Blobbi (a reaction), drawn either way it is drawn. */
   hop: () => void;
+  /** One of the home's body gestures on the 3D model (the 2D drawing plays it itself). */
+  gesture: (kind: ActorGesture) => void;
+  /** Where the 3D model's eyes look (the 2D drawing takes the same offset as a prop). */
+  gaze: (offset: { x: number; y: number } | null) => void;
 }
 
 /** Pointer events over the room, for a gaze policy (the home's `ScenePointerHandlers`). */
@@ -169,6 +173,8 @@ export interface RoomShellProps {
   floorThings?: RoomFloorThing[];
   /** Tapping a piece of furniture that does something. */
   onInteract?: (interaction: FurnitureInteraction, index: number) => void;
+  /** Any piece tapped outside decorating (before `onInteract`), and whether it was a lamp switched. */
+  onPieceTap?: (index: number, lamp: boolean) => void;
   /** Enter decorating mode. The button is disabled without WebGL. */
   onDecorate?: () => void;
   /** Disables the decorate button, e.g. while the Blobbi is busy with something. */
@@ -219,6 +225,7 @@ export function RoomShell({
   furniturePlacements,
   roomOverlay,
   onInteract,
+  onPieceTap,
   guests,
   onMeet,
   onBlobbiTap,
@@ -423,6 +430,8 @@ export function RoomShell({
       },
       blobbiPosition: () => sceneRef.current?.positionOf(MAIN_BLOBBI) ?? null,
       hop: () => sceneRef.current?.hop(MAIN_BLOBBI),
+      gesture: (kind) => sceneRef.current?.playGesture?.(MAIN_BLOBBI, kind),
+      gaze: (offset) => sceneRef.current?.setActorGaze?.(MAIN_BLOBBI, offset),
     } : null;
     return () => { controlRef.current = null; };
   }, [is3d, controlRef, sceneRef]);
@@ -513,7 +522,8 @@ export function RoomShell({
     }
     const hit = scene.pick(x, y);
     if (hit?.kind === 'actor') {
-      scene.hop(hit.id);
+      // The app reacts to its own Blobbi (a face, a gesture, a sound); a visitor, or a Blobbi nobody listens for, hops
+      if (hit.id !== MAIN_BLOBBI || !onBlobbiTap) scene.hop(hit.id);
       if (hit.id === MAIN_BLOBBI) showNameForTap();
       onBlobbiTap?.(hit.id);
       return;
@@ -522,13 +532,14 @@ export function RoomShell({
     hideNameForTap();
     if (hit?.kind === 'item') {
       scene.poke(hit.index);
-      scene.toggleLamp(hit.index);
+      const lamp = scene.toggleLamp(hit.index);
+      onPieceTap?.(hit.index, lamp);
       const interaction = furniturePlacements?.[hit.index] && resolveFurniture(furniturePlacements[hit.index].id)?.interaction;
       if (interaction) onInteract?.(interaction, hit.index);
     } else if (hit?.kind === 'floor') {
       scene.walkTo(hit.x, hit.z);
     }
-  }, [editor, sceneRef, furniturePlacements, onInteract, onBlobbiTap, showNameForTap, hideNameForTap]);
+  }, [editor, sceneRef, furniturePlacements, onInteract, onPieceTap, onBlobbiTap, showNameForTap, hideNameForTap]);
 
   const onPointerCancel = useCallback((e: React.PointerEvent) => {
     if (press.current?.id !== e.pointerId) return;
@@ -607,8 +618,8 @@ export function RoomShell({
                   onFocus={() => setNameBy((n) => ({ ...n, focus: true }))}
                   onBlur={() => setNameBy((n) => ({ ...n, focus: false }))}
                   onClick={() => {
-                    sceneRef.current?.hop(MAIN_BLOBBI);
-                    onBlobbiTap?.(MAIN_BLOBBI);
+                    if (onBlobbiTap) onBlobbiTap(MAIN_BLOBBI);
+                    else sceneRef.current?.hop(MAIN_BLOBBI);
                   }}
                   tabIndex={isEditing ? -1 : 0}
                   data-testid="room-blobbi-focus"

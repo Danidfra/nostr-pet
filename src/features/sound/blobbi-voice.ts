@@ -19,7 +19,8 @@
  * triangle is displeased, a rising run of pops is a small fanfare.
  *
  * Nothing here touches an AudioContext; `voice-engine.ts` plays a recipe.
- * Durations are short on purpose (the longest, eat, is 1.24 s).
+ * Durations are short on purpose (the longest creature noise, eat, is
+ * 1.24 s; a journey is told in short cues, played on its timeline).
  */
 export type Wave = 'sine' | 'triangle';
 
@@ -87,6 +88,46 @@ export const VOICE: Record<import('./sounds').BlobbiSoundId, Recipe> = {
   sleepy: { durationMs: 520, master: 0.3, lowpassHz: 1400, layers: [hum(0, [340, 300, 230], 460, 0.07), pop(0, 300, 240, 200, 0.05)] },
   /** Hatch: a small rising run, the last pop held. */
   hatch: { durationMs: 700, master: 0.38, lowpassHz: 2400, layers: [pop(0, 440, 520, 90, 0.11), pop(150, 560, 660, 90, 0.11), pop(300, 700, 840, 120, 0.12), hum(340, [840, 980, 900], 320, 0.05)] },
+  /** A drink: a sip that rises (the hum lifted and quickened), two small gulps after it. */
+  drink: { durationMs: 480, master: 0.32, lowpassHz: 2000, layers: [hum(0, [420, 640, 560], 200, 0.06), pop(210, 520, 600, 60, 0.06), pop(330, 560, 640, 60, 0.05)] },
+  /** Choosing an item: the smallest tick, high and quiet. */
+  select: { durationMs: 70, master: 0.22, lowpassHz: 2400, layers: [pop(0, 880, 980, 45, 0.06)] },
+  /** Picking an item up: a short pop that rises, "hup". */
+  pickup: { durationMs: 110, master: 0.26, lowpassHz: 2400, layers: [pop(0, 520, 760, 75, 0.08)] },
+  /** Setting it down: a soft low pop that falls, with a breath of hum under it. */
+  drop: { durationMs: 170, master: 0.28, lowpassHz: 1600, layers: [pop(0, 320, 210, 95, 0.1), hum(10, [260, 220, 200], 120, 0.03)] },
+  /** Going to another room: a gentle swish, the hum gliding up and settling, a light tap at its end. */
+  room: { durationMs: 330, master: 0.24, lowpassHz: 1800, layers: [hum(0, [380, 520, 460], 260, 0.05), pop(150, 600, 700, 60, 0.04)] },
+  /** A piece of furniture answering a tap: a low wooden knock, twice, the second quieter. */
+  knock: { durationMs: 170, master: 0.3, lowpassHz: 1300, layers: [pop(0, 240, 200, 60, 0.1), pop(75, 300, 260, 50, 0.05)] },
+  /** A piece set down while decorating: a settled pop and a small lift. */
+  place: { durationMs: 150, master: 0.28, lowpassHz: 1900, layers: [pop(0, 420, 360, 70, 0.09), pop(65, 560, 620, 50, 0.05)] },
+  /** A room saved: a two-note chime, the second higher and held. */
+  save: { durationMs: 380, master: 0.3, lowpassHz: 2400, layers: [pop(0, 660, 700, 90, 0.08), pop(120, 880, 940, 140, 0.08), hum(120, [880, 990, 940], 220, 0.03)] },
+  /** Not possible: a short low "nuh", never a buzzer. */
+  invalid: { durationMs: 190, master: 0.26, lowpassHz: 1300, layers: [hum(0, [300, 260, 240], 160, 0.05)] },
+  /** A journey's first cue: gathering itself, eyes shut. A hum that swells, low and patient. */
+  gather: { durationMs: 640, master: 0.24, lowpassHz: 2000, layers: [hum(0, [300, 380, 460], 620, 0.045), hum(200, [380, 460, 520], 420, 0.025)] },
+  /**
+   * Rising away as the body dissolves top to bottom: a shimmer of small pops
+   * that climbs, quieter as it goes, and a light whoosh up at the end.
+   * Magic, not lasers.
+   */
+  rise: {
+    durationMs: 1260,
+    master: 0.24,
+    lowpassHz: 2400,
+    layers: [...[0, 1, 2, 3, 4, 5, 6].map((i) => pop(i * 115, 640 + i * 70, 760 + i * 60, 60, 0.04 - i * 0.003)), hum(860, [700, 950, 1180], 380, 0.025)],
+  },
+  /** Coming down: the shimmer falling, then a soft settling hum as the body forms bottom to top. */
+  descend: {
+    durationMs: 1240,
+    master: 0.24,
+    lowpassHz: 2400,
+    layers: [...[0, 1, 2, 3, 4, 5].map((i) => pop(i * 90, 1150 - i * 80, 1050 - i * 80, 60, 0.035)), hum(420, [520, 440, 480], 800, 0.035)],
+  },
+  /** It worked: the glad two pops, a little brighter, as the eyes open. */
+  tada: { durationMs: 360, master: 0.3, lowpassHz: 2400, layers: [pop(0, 620, 720, 80, 0.11), pop(120, 760, 900, 110, 0.11), hum(20, [760, 880, 820], 220, 0.035)] },
   /** Evolve: the same run, one step further and longer. */
   evolve: { durationMs: 960, master: 0.38, lowpassHz: 2400, layers: [pop(0, 440, 520, 90, 0.11), pop(150, 560, 660, 90, 0.11), pop(300, 700, 840, 90, 0.11), pop(450, 880, 1040, 140, 0.12), hum(480, [1000, 1180, 1080], 440, 0.05)] },
 };

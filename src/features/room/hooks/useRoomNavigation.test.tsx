@@ -24,6 +24,8 @@ function fakeControl() {
     pickAt: () => null,
     blobbiPosition: () => null,
     hop: () => {},
+    gesture: () => {},
+    gaze: () => {},
   };
   return { control, settle: (o: WalkOutcome) => pending.shift()?.(o), pending };
 }
