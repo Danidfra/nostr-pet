@@ -21,25 +21,13 @@
  * with no quantity; that is NOT this app's economy and is not copied: an
  * owned item here shows its real balance and is spent on use.
  */
-import { optionKey, type CareChoice } from '@/features/home/care-model';
+import { isHandFed, ownedEntry, starterEntry, type CareEntry } from '@/features/care-ui/care-entries';
 import { roomById, roomShowsItem, type RoomActivity, type RoomId } from '@/features/home/rooms/rooms';
-import type { HomeInventory, HomeInventoryItem, HomeItem, ItemAction, ItemGlyphModel, StarterEntry } from '@/features/inventory';
+import type { HomeInventory, HomeItem, ItemAction } from '@/features/inventory';
 import { ROOM_GRID } from './room-geometry';
 
-/** One item a room offers. */
-export interface RoomCareEntry {
-  /** Stable across renders and refetches (`optionKey`). */
-  key: string;
-  choice: CareChoice;
-  name: string;
-  glyph: ItemGlyphModel;
-  action: ItemAction;
-  /** How many the player owns; null for a starter (free, unlimited). */
-  quantity: number | null;
-  /** Whether it can be used on this Blobbi now; when not, why. */
-  usable: boolean;
-  reason: string | null;
-}
+/** One item a room offers (the carousel's model, shared with the classic home). */
+export type RoomCareEntry = CareEntry;
 
 /** Which activities a strip shows: a room's own, or what a piece of furniture opens (the toy box anywhere). */
 export type CareShelf = { kind: 'room'; roomId: RoomId } | { kind: 'furniture'; label: string; activities: readonly RoomActivity[] };
@@ -76,21 +64,8 @@ export function shelfEntries(shelf: CareShelf, inventory: Pick<HomeInventory, 's
   return [...starters, ...owned];
 }
 
-function starterEntry(entry: StarterEntry): RoomCareEntry {
-  const choice: CareChoice = { source: 'starter', entry };
-  return { key: optionKey(choice), choice, name: entry.item.name, glyph: entry.item.glyph, action: entry.item.care!.action, quantity: null, usable: entry.usability.ok, reason: entry.usability.ok ? null : entry.usability.reason ?? 'Not right now.' };
-}
-
-function ownedEntry(entry: HomeInventoryItem): RoomCareEntry {
-  const choice: CareChoice = { source: 'owned', entry };
-  const reason = entry.unverified ? "This inventory's balance can't be verified right now." : !entry.usability.ok ? entry.usability.reason ?? 'Not right now.' : null;
-  return { key: optionKey(choice), choice, name: entry.item.name, glyph: entry.item.glyph, action: entry.item.care!.action, quantity: entry.quantity, usable: reason === null, reason };
-}
-
 /** Food and drink are handed to the Blobbi; everything else is set down for it to come to. */
-export function isHandFed(action: ItemAction): boolean {
-  return action === 'feed' || action === 'boost';
-}
+export { isHandFed };
 
 /** Where a drop lands, from what the room reports under the point. */
 export type DropPlace = { kind: 'blobbi' } | { kind: 'floor'; x: number; z: number } | { kind: 'nowhere' };

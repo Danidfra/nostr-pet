@@ -18,7 +18,7 @@ import { Moon, Sun, Undo2 } from 'lucide-react';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 
 import type { RoomId } from '@/features/home/rooms/rooms';
-import { ItemCarousel } from './ItemCarousel';
+import { ItemCarousel } from '@/features/care-ui/ItemCarousel';
 import { RoomActionButton } from './RoomActionButton';
 import { RoomOfferFailure } from './RoomCareParts';
 import type { RoomOffer } from '../hooks/useRoomCare';

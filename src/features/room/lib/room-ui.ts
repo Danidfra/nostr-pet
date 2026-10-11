@@ -15,8 +15,10 @@ export const ROOM_BOTTOM_BAR_CLASS =
 /** Fixed-width side slot in a bottom bar, so the center carousel stays centered. */
 export const ROOM_ACTION_SLOT = 'w-[4.75em] shrink-0';
 
+import { CONTROL_SURFACE, GUIDE_HIGHLIGHT } from '@/features/care-ui/ui';
+
 /** Floating control surface: readable contrast over any room background, light or dark. */
-export const ROOM_CONTROL_SURFACE = 'bg-background/60 backdrop-blur-sm border border-border/20 shadow-sm';
+export const ROOM_CONTROL_SURFACE = CONTROL_SURFACE;
 
 /** Guide highlight: a ring that pulses gently (not on elements positioned by transform). */
-export const ROOM_GUIDE_HIGHLIGHT = 'ring-2 ring-primary ring-offset-2 ring-offset-background motion-safe:animate-[guide-pulse_2.6s_ease-in-out_infinite]';
+export const ROOM_GUIDE_HIGHLIGHT = GUIDE_HIGHLIGHT;

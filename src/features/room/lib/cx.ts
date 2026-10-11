@@ -1,4 +1,2 @@
-/** Join class names, skipping the falsy ones. */
-export function cx(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(' ');
-}
+/** Join class names, skipping the falsy ones (shared with the care carousel). */
+export { cx } from '@/features/care-ui/ui';

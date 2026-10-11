@@ -1845,80 +1845,26 @@
   .care-options > * {
     pointer-events: auto;
   }
-  .care-options__strip {
-    display: flex;
-    justify-content: safe center;
-    gap: 0.5rem;
-    padding: 0.35rem 0.25rem 0.25rem;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .care-options__strip::-webkit-scrollbar {
-    display: none;
-  }
-  .care-option__slot {
-    flex: none;
-    scroll-snap-align: start;
-  }
-  .care-option {
-    position: relative;
-    display: flex;
-    width: 4.75rem;
-    min-height: 4.75rem;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.2rem;
-    border-radius: 1.1rem;
-    padding: 0.4rem 0.3rem 0.35rem;
-    background: hsl(var(--card));
-    border: 2px solid hsl(0 0% 100% / 0.55);
-    color: hsl(var(--card-foreground));
-    box-shadow: 0 10px 22px -12px hsl(0 0% 0% / 0.75), inset 0 -2px 0 hsl(0 0% 0% / 0.06);
-    transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .care-option:not(:disabled):hover {
-    transform: translateY(-2px);
-    border-color: hsl(var(--primary) / 0.7);
-  }
-  .care-option:not(:disabled):active {
-    transform: scale(0.94);
-    box-shadow: 0 4px 10px -8px hsl(0 0% 0% / 0.8);
-  }
-  .care-option:disabled {
-    opacity: 0.5;
-  }
-  .care-option:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px hsl(var(--card)), 0 0 0 4px hsl(var(--ring));
-  }
-  .care-option__art {
-    display: flex;
-    height: 2.2rem;
-    align-items: center;
-    justify-content: center;
-    filter: drop-shadow(0 3px 4px hsl(0 0% 0% / 0.2));
-  }
-  .care-option__qty {
-    position: absolute;
-    top: 0.2rem;
-    right: 0.3rem;
-    font-size: 0.6rem;
-    font-weight: 800;
-    color: hsl(var(--foreground) / 0.7);
-  }
-  .care-option__name {
+  /* The care carousel (the room dock's own ItemCarousel) on a card of the home's: light, rounded, one thumb high */
+  .care-options__carousel {
+    margin: 0 auto;
+    width: fit-content;
     max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.66rem;
-    font-weight: 800;
-    line-height: 1.1;
+    padding: 0.35rem 0.5rem;
+    border-radius: 1.4rem;
+    font-size: 15px;
+    background: hsl(var(--card) / 0.92);
+    color: hsl(var(--card-foreground));
+    border: 2px solid hsl(0 0% 100% / 0.55);
+    box-shadow: 0 10px 22px -12px hsl(0 0% 0% / 0.75), inset 0 -2px 0 hsl(0 0% 0% / 0.06);
+  }
+  .care-options__note {
+    margin: 0.35rem auto 0;
+    max-width: 22rem;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: hsl(0 0% 100% / 0.92);
   }
   .scene-actor[data-invite='true'] .scene-actor__box::after {
     content: '';

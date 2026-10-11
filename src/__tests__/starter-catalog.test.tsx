@@ -24,7 +24,7 @@ import { OFFICIAL_CATALOG_SNAPSHOT, SNAPSHOT_ADDRESSES, builtinStarterItem, reso
 import { OFFICIAL_ITEM_ISSUER } from '@/features/inventory/issuers';
 import { PET_OP_TAG } from '@/features/inventory/item-use-plan';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
-import { chooseCare, useOwnedItem } from '@/test/care-ui';
+import { chooseCare, useOwnedItem, carouselCurrent, carouselItems } from '@/test/care-ui';
 import { OFFICIAL_APPLE, inventoryEvent, officialCareDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 
 let signCount = 0;
@@ -144,19 +144,19 @@ describe('in the home', () => {
     const expected = { feed: ['feed', 'boost'], play: ['play'], clean: ['clean', 'medicine'] } as const;
     for (const verb of ['feed', 'play', 'clean'] as const) {
       await userEvent.click(screen.getByTestId(`care-${verb}`));
-      const options = within(screen.getByTestId('care-options')).getAllByRole('button');
+      const items = await carouselItems();
       const rows = OFFICIAL_CATALOG_SNAPSHOT.filter((r) => (expected[verb] as readonly string[]).includes(r.action) && r.stages.includes('baby'));
-      expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(rows.map((r) => `care-option-starter-${r.d}`));
-      expect(options.length).toBeGreaterThan(0);
-      for (const o of options) {
-        expect(o.getAttribute('data-source')).toBe('starter');
-        expect(o.getAttribute('data-testid')).not.toMatch(/plain/);
-        expect(o.textContent).not.toMatch(/free/i);
+      expect(items.filter((i) => i.source === 'starter').map((i) => i.id)).toEqual(rows.map((r) => r.d));
+      expect(items.length).toBeGreaterThan(0);
+      for (const i of items) {
+        expect(i.id).not.toMatch(/plain/);
+        if (i.source === 'starter') expect(i.label).not.toMatch(/free|left/i);
       }
+      expect(screen.getByTestId('care-options').textContent).not.toMatch(/free/i);
       await userEvent.click(screen.getByTestId(`care-${verb}`));
       expect(screen.queryByTestId('care-options')).toBeNull();
     }
-    expect(document.querySelector('[data-testid^="care-option-plain"]')).toBeNull();
+    expect(document.querySelector('[data-item-id*="plain"]')).toBeNull();
     await settle(50);
     expect(relay.published).toHaveLength(0);
   });
@@ -200,7 +200,10 @@ describe('in the home', () => {
     renderHome();
     await ready();
     await userEvent.click(screen.getByTestId('care-clean'));
-    const soap = screen.getByTestId('care-option-starter-blobbi:hygiene:soap');
+    const count = Number(screen.getByTestId('care-item-carousel').getAttribute('data-count'));
+    for (let i = 0; i < count && carouselCurrent().id !== 'blobbi:hygiene:soap'; i++) await userEvent.click(screen.getByTestId('care-item-next'));
+    const soap = screen.getByTestId('care-item-use');
+    expect(soap).toHaveAttribute('data-item-id', 'blobbi:hygiene:soap');
     expect(soap).toHaveAttribute('data-definition', 'builtin');
     expect(soap).toHaveAttribute('title', expect.stringMatching(/built-in/));
     await userEvent.click(soap);

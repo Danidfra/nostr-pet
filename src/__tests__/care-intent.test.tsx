@@ -24,12 +24,14 @@ import { approachSpot } from '@/features/home/rooms';
 import { HOME_SPACE, STAGE_OBJECTS } from '@/features/home/space/home-space';
 import { readLedger } from '@/features/inventory';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
-import { chooseCare, useOwnedItem } from '@/test/care-ui';
+import { carouselCurrent, carouselItems, chooseCare, chooseFromCarousel, useOwnedItem } from '@/test/care-ui';
 import { FARM_CARROT, OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_GLASSES, OFFICIAL_SOAP, farmProduceDefinition, inventoryEvent, officialCareDefinition, officialCosmeticDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 import { OFFICIAL_CATALOG_SNAPSHOT } from '@/features/inventory';
 
 /** The starter tiles a verb shows for a baby: every official item whose care action answers it, in catalog order. */
-const starterTiles = (actions: readonly string[]) => OFFICIAL_CATALOG_SNAPSHOT.filter((r) => actions.includes(r.action) && r.stages.includes('baby')).map((r) => `care-option-starter-${r.d}`);
+const starterTiles = (actions: readonly string[]) => OFFICIAL_CATALOG_SNAPSHOT.filter((r) => actions.includes(r.action) && r.stages.includes('baby')).map((r) => r.d);
+/** The starter items of the open carousel, in order. */
+const startersShown = async () => (await carouselItems()).filter((i) => i.source === 'starter').map((i) => i.id);
 
 let signCount = 0;
 const signer = {
@@ -173,44 +175,63 @@ describe('One home', () => {
 });
 
 describe('Choosing a verb', () => {
-  it('opens that verb’s options above the row: the starter kit that does it, never an owned copy; another verb swaps, the same verb closes', async () => {
+  it('opens that verb’s carousel above the row: the starter kit that does it, then what the player owns with how many are left; another verb swaps, the same verb closes', async () => {
     renderHome();
     await ready();
     await userEvent.click(screen.getByTestId('care-feed'));
     const strip = screen.getByTestId('care-options');
     expect(strip).toHaveAttribute('data-verb', 'feed');
     expect(screen.getByTestId('care-feed')).toHaveAttribute('aria-expanded', 'true');
-    // Above the row: the strip precedes the dock in the action bar.
+    // Above the row: the carousel precedes the dock in the action bar.
     const bar = screen.getByTestId('action-bar');
     expect(bar.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_CONTAINED_BY).toBeTruthy();
     expect(strip.compareDocumentPosition(dock()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const options = within(strip).getAllByRole('button');
-    // Every official food and drink, and nothing else: the owned apple and carrot live in the Inventory, not here again.
-    expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(starterTiles(['feed', 'boost']));
-    expect(screen.queryByTestId('care-option-blobbi:food:apple')).toBeNull();
-    expect(screen.queryByTestId('care-option-farm:produce:carrot')).toBeNull();
-    const starterApple = within(strip).getByTestId('care-option-starter-blobbi:food:apple');
-    // The name alone: no "free" label, no count; availability is not a price.
-    expect(starterApple).toHaveAccessibleName('Apple');
-    expect(strip.textContent).not.toMatch(/free/i);
-    expect(strip.querySelector('.care-option__free')).toBeNull();
-    // The starter apple resolved from the fetched official definition; the burger has none in this relay, so its snapshot row stands in.
-    expect(starterApple).toHaveAttribute('data-definition', 'nostr');
-    expect(within(strip).getByTestId('care-option-starter-blobbi:food:burger')).toHaveAttribute('data-definition', 'builtin');
+    // The room's own carousel, one item in the middle
+    expect(within(strip).getByTestId('care-item-carousel')).toBeInTheDocument();
+    const items = await carouselItems();
+    // Every official food and drink first, then the owned apple (two left) and carrot, by name
+    expect(items.filter((i) => i.source === 'starter').map((i) => i.id)).toEqual(starterTiles(['feed', 'boost']));
+    const owned = items.filter((i) => i.source === 'owned');
+    expect(owned.map((i) => i.id)).toEqual(['blobbi:food:apple', 'farm:produce:carrot']);
+    expect(owned[0].label).toMatch(/Apple, 2 left/);
+    expect(items.indexOf(owned[0])).toBeGreaterThan(items.findIndex((i) => i.source === 'starter' && i.id === 'blobbi:food:apple'));
+    // A starter in the middle: its name alone, no count badge (availability is not a price)
+    expect(carouselCurrent().id).toBe('blobbi:food:apple');
+    expect(carouselCurrent().label).toBe('Give Apple');
+    expect(within(strip).queryByTestId('care-item-badge')).toBeNull();
+    // The starter apple resolved from the fetched official definition
+    expect(screen.getByTestId('care-item-use')).toHaveAttribute('data-definition', 'nostr');
 
     await userEvent.click(screen.getByTestId('care-play'));
     expect(screen.getByTestId('care-options')).toHaveAttribute('data-verb', 'play');
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(starterTiles(['play']));
+    expect(await startersShown()).toEqual(starterTiles(['play']));
     expect(screen.getByTestId('care-feed')).toHaveAttribute('aria-expanded', 'false');
 
     await userEvent.click(screen.getByTestId('care-clean'));
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(starterTiles(['clean', 'medicine']));
+    expect(await startersShown()).toEqual(starterTiles(['clean', 'medicine']));
     // Cosmetics never answer a verb.
-    expect(screen.queryByTestId('care-option-blobbi:cosmetic:stargazer-glasses')).toBeNull();
+    expect((await carouselItems()).some((i) => i.id === 'blobbi:cosmetic:stargazer-glasses')).toBe(false);
 
     await userEvent.click(screen.getByTestId('care-clean'));
     expect(screen.queryByTestId('care-options')).toBeNull();
     expect(relay.published).toHaveLength(0);
+  });
+
+  it('the carousel remembers which item was in the middle for each verb, and an owned item chosen there is spent the Inventory’s way', async () => {
+    renderHome();
+    await ready();
+    await userEvent.click(screen.getByTestId('care-feed'));
+    await userEvent.click(screen.getByTestId('care-item-next'));
+    const second = carouselCurrent().id;
+    await userEvent.click(screen.getByTestId('care-play'));
+    await userEvent.click(screen.getByTestId('care-feed'));
+    expect(carouselCurrent().id).toBe(second);
+    // The owned carrot from the carousel: one spend, one state, one receipt
+    await chooseFromCarousel('farm:produce:carrot');
+    expect(screen.queryByTestId('care-options')).toBeNull();
+    await waitFor(() => expect(spends()).toHaveLength(1), { timeout: 4000 });
+    await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
+    await waitFor(() => expect(interactions()).toHaveLength(1), { timeout: 4000 });
   });
 
   it('a new player with nothing owned still has every verb through the starter kit: the food is set down, the care is written, nothing is spent', async () => {
@@ -219,12 +240,12 @@ describe('Choosing a verb', () => {
     await ready();
     expect(screen.getByTestId('action-items')).toHaveAccessibleName('Items');
     await userEvent.click(screen.getByTestId('care-feed'));
-    const options = within(screen.getByTestId('care-options')).getAllByRole('button');
-    expect(options.map((o) => o.getAttribute('data-testid'))).toEqual(starterTiles(['feed', 'boost']));
-    expect(options[0]).toHaveAttribute('data-testid', 'care-option-starter-blobbi:food:apple');
-    expect(options[0]).toHaveAttribute('data-source', 'starter');
-    expect(options[0]).toHaveAttribute('data-definition', 'builtin'); // no definition relay answered here
-    await userEvent.click(options[0]);
+    const items = await carouselItems();
+    // Nothing owned: the starter kit alone
+    expect(items.map((i) => i.id)).toEqual(starterTiles(['feed', 'boost']));
+    expect(carouselCurrent()).toMatchObject({ id: 'blobbi:food:apple', source: 'starter' });
+    expect(screen.getByTestId('care-item-use')).toHaveAttribute('data-definition', 'builtin'); // no definition relay answered here
+    await userEvent.click(screen.getByTestId('care-item-use'));
     expect(screen.queryByTestId('care-options')).toBeNull();
     expect(screen.getByTestId('scene-object-offer')).toBeInTheDocument();
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 3000 });
@@ -234,7 +255,7 @@ describe('Choosing a verb', () => {
     await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook with Apple/), { timeout: 3000 });
     await waitFor(() => expect(screen.queryByTestId('scene-object-offer')).toBeNull(), { timeout: 3000 });
     await userEvent.click(screen.getByTestId('care-play'));
-    expect(screen.getByTestId('care-option-starter-blobbi:toy:ball')).toBeInTheDocument();
+    expect(carouselCurrent().id).toBe('blobbi:toy:ball');
   });
 
   it('a floor tap closes the options without choosing', async () => {
@@ -348,9 +369,9 @@ describe('Clean brings the tub out', () => {
     expect(screen.getByTestId('care-feed')).toBeDisabled();
     await userEvent.click(screen.getByTestId('care-clean'));
     // Owned soap first, then every official cleaning and medicine item an egg may use.
-    const eggTiles = OFFICIAL_CATALOG_SNAPSHOT.filter((r) => ['clean', 'medicine'].includes(r.action) && r.stages.includes('egg')).map((r) => `care-option-starter-${r.d}`);
-    expect(within(screen.getByTestId('care-options')).getAllByRole('button').map((o) => o.getAttribute('data-testid'))).toEqual(eggTiles);
-    await userEvent.click(screen.getByTestId('care-option-starter-blobbi:hygiene:soap'));
+    const eggTiles = OFFICIAL_CATALOG_SNAPSHOT.filter((r) => ['clean', 'medicine'].includes(r.action) && r.stages.includes('egg')).map((r) => r.d);
+    expect(await startersShown()).toEqual(eggTiles);
+    await chooseFromCarousel('blobbi:hygiene:soap');
     expect(actor()).not.toHaveAttribute('data-motion', 'walking');
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 3000 });
     expect(getTagValue(states()[0].tags, 'stage')).toBe('egg');

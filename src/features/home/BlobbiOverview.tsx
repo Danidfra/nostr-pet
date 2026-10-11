@@ -12,7 +12,8 @@ import type { StatItem } from './BlobbiStatusPanel';
 import { CareError, CareFeedback } from './CareFeedback';
 import type { FeedbackResult } from './care-feedback-text';
 import { describeMood } from './mood';
-import { careOptionsFor, type CareChoice, type CareOption, type CareVerb } from './care-model';
+import { type CareChoice, type CareVerb } from './care-model';
+import { homeCareEntries, type CareEntry } from '@/features/care-ui/care-entries';
 import { detectStreakIncrease, type StreakChange } from './streak';
 import { HOME_SPACE, STAGE_OBJECTS, type StageObjectKind } from './space/home-space';
 import { FurnitureLayer, RoomBackdrop, approachSpot, surfaceBackground, type Placement } from './rooms';
@@ -182,6 +183,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // The verb whose options are open (UI state), an item set down (offer),
   // a piece of furniture out for a moment (stage object).
   const [selectedVerb, setSelectedVerb] = useState<CareVerb | null>(null);
+  const selectedVerbRef = useRef<CareVerb | null>(null);
+  selectedVerbRef.current = selectedVerb;
   const [offer, setOffer] = useState<ItemOffer | null>(null);
   const offerRef = useRef<ItemOffer | null>(null);
   useEffect(() => {
@@ -506,16 +509,19 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // Choosing on the strip: an item, owned or starter, is offered. There is no
   // other way to feed, play or clean.
   const chooseOption = useCallback(
-    (option: CareOption) => {
+    (entry: CareEntry) => {
       setSelectedVerb(null);
-      offerItem(option);
+      offerItem(entry.choice);
     },
     [offerItem],
   );
 
   // The verb row: a verb opens its options; Rest and Wake act at once (one
   // way only); tapping the open verb again closes it.
-  const options = useMemo(() => (selectedVerb ? careOptionsFor(selectedVerb, inventory.starters, actions) : []), [selectedVerb, inventory.starters, actions]);
+  const options = useMemo(() => (selectedVerb ? homeCareEntries(selectedVerb, inventory, actions) : []), [selectedVerb, inventory, actions]);
+  // The item in the middle of each verb's carousel, for the visit
+  const [focusByVerb, setFocusByVerb] = useState<Partial<Record<CareVerb, string>>>({});
+  const focusItem = useCallback((key: string) => setFocusByVerb((f) => (selectedVerbRef.current ? { ...f, [selectedVerbRef.current]: key } : f)), []);
   const selectVerb = useCallback(
     (verb: CareVerb) => {
       setDoorPrompt(false);
@@ -713,7 +719,18 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           onLifecycle={startCeremony}
           disabled={inCeremony || busyWithObject}
           floorBackground={surfaceBackground(HOME_SPACE.room.surfaces.floor)}
-          options={selectedVerb && options.length > 0 ? <CareOptions verb={selectedVerb} options={options} onChoose={chooseOption} /> : undefined}
+          options={
+            selectedVerb && options.length > 0 ? (
+              <CareOptions
+                verb={selectedVerb}
+                entries={options}
+                focusedKey={focusByVerb[selectedVerb] ?? null}
+                onFocus={focusItem}
+                onChoose={chooseOption}
+                disabled={useItem.isPending || useStarter.isPending || busyWithObject}
+              />
+            ) : undefined
+          }
         />
       }
       overlays={

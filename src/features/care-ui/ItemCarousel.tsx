@@ -19,14 +19,16 @@
  *    (`onBlocked`) instead of using it.
  *  - The arrow keys move the focus while the carousel has keyboard focus, and
  *    a polite status says which item is in the middle.
+ *
+ * One carousel for every screen that offers items: the 3D room's dock and
+ * the classic home's care options (`idPrefix` names its test hooks).
  */
 import { useCallback, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 import { ItemGlyph, type ItemGlyphModel } from '@/features/inventory';
-import { cx } from '../lib/cx';
-import { ROOM_CONTROL_SURFACE, ROOM_GUIDE_HIGHLIGHT } from '../lib/room-ui';
-import { isHandFed, type RoomCareEntry } from '../lib/room-care';
+import { CONTROL_SURFACE as ROOM_CONTROL_SURFACE, GUIDE_HIGHLIGHT as ROOM_GUIDE_HIGHLIGHT, cx } from './ui';
+import { isHandFed, type CareEntry as RoomCareEntry } from './care-entries';
 
 interface ItemCarouselProps {
   items: readonly RoomCareEntry[];
@@ -45,6 +47,8 @@ interface ItemCarouselProps {
   disabled?: boolean;
   /** A piece of furniture pointed here: the middle card pulses for a moment. */
   highlight?: boolean;
+  /** The test hooks' prefix (`room-item` in the room, `care-item` on the classic home). */
+  idPrefix?: string;
 }
 
 const ARROW_CLASS = cx(
@@ -63,7 +67,7 @@ export function ItemIcon({ glyph }: { glyph: ItemGlyphModel }) {
   return <ItemGlyph glyph={glyph} size="1em" className="room-item-icon" />;
 }
 
-export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onDragStart, activeKey, disabled, highlight }: ItemCarouselProps) {
+export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onDragStart, activeKey, disabled, highlight, idPrefix = 'room-item' }: ItemCarouselProps) {
   const count = items.length;
   const found = items.findIndex((e) => e.key === focusedKey);
   const index = found < 0 ? 0 : found;
@@ -85,7 +89,7 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
 
   if (count === 0) {
     return (
-      <div className="flex items-center justify-center h-[3.6em]" data-testid="room-item-empty">
+      <div className="flex items-center justify-center h-[3.6em]" data-testid={`${idPrefix}-empty`}>
         <p className="text-[0.8em] text-muted-foreground">Nothing here yet</p>
       </div>
     );
@@ -104,7 +108,7 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
       disabled={disabled}
       className={cx(ARROW_CLASS, disabled && 'opacity-30 pointer-events-none')}
       aria-label={dir === 1 ? 'Next item' : 'Previous item'}
-      data-testid={dir === 1 ? 'room-item-next' : 'room-item-prev'}
+      data-testid={dir === 1 ? `${idPrefix}-next` : `${idPrefix}-prev`}
     >
       {dir === 1 ? <ChevronRight className="size-[1.3em]" /> : <ChevronLeft className="size-[1.3em]" />}
     </button>
@@ -113,7 +117,7 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
     if (!showPreviews) return null;
     const neighbour = items[(index + dir + count) % count];
     return (
-      <button type="button" onClick={() => step(dir)} disabled={disabled} tabIndex={-1} aria-hidden className={PREVIEW_CLASS} data-testid={dir === 1 ? 'room-item-preview-next' : 'room-item-preview-prev'}>
+      <button type="button" onClick={() => step(dir)} disabled={disabled} tabIndex={-1} aria-hidden className={PREVIEW_CLASS} data-testid={dir === 1 ? `${idPrefix}-preview-next` : `${idPrefix}-preview-prev`}>
         <span className="text-[1.5em] leading-none block">
           <ItemIcon glyph={neighbour.glyph} />
         </span>
@@ -122,7 +126,7 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
   };
 
   return (
-    <div className="flex items-center justify-center gap-[0.4em]" onKeyDown={onKeyDown} data-testid="room-item-carousel" data-count={count}>
+    <div className="flex items-center justify-center gap-[0.4em]" onKeyDown={onKeyDown} data-testid={`${idPrefix}-carousel`} data-count={count}>
       {arrow(-1)}
       {preview(-1)}
 
@@ -133,8 +137,11 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
         disabled={disabled}
         data-room-drag={draggable ? '' : undefined}
         aria-label={`${verb} ${current.name}${current.quantity === null ? '' : `, ${current.quantity} left`}${current.usable ? '' : `. ${current.reason}`}`}
-        data-testid="room-item-use"
+        data-testid={`${idPrefix}-use`}
         data-entry-key={current.key}
+        data-item-id={current.choice.entry.item.itemId}
+        data-definition={current.choice.entry.item.definitionSource}
+        title={current.choice.entry.item.definitionSource === 'builtin' ? 'Details are built-in; the definition relay did not answer' : undefined}
         data-source={current.choice.source}
         data-usable={current.usable}
         className={cx(
@@ -153,7 +160,7 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
         </span>
         <span className="text-[0.8em] font-medium text-foreground mt-[0.3em] w-[6em] text-center truncate">{current.name}</span>
         {current.quantity !== null && (
-          <span className="absolute top-[0.25em] right-[0.35em] rounded-full bg-primary px-[0.45em] text-[0.62em] font-bold leading-[1.55] text-primary-foreground" data-testid="room-item-badge">
+          <span className="absolute top-[0.25em] right-[0.35em] rounded-full bg-primary px-[0.45em] text-[0.62em] font-bold leading-[1.55] text-primary-foreground" data-testid={`${idPrefix}-badge`}>
             ×{current.quantity}
           </span>
         )}
@@ -163,8 +170,9 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
       {preview(1)}
       {arrow(1)}
 
-      <p className="sr-only" aria-live="polite" data-testid="room-item-status">
-        {current.name}, {current.quantity === null ? 'free' : `${current.quantity} left`}, {index + 1} of {count}
+      <p className="sr-only" aria-live="polite" data-testid={`${idPrefix}-status`}>
+        {/* A starter's availability is not a price: no "free", just its name; an owned item says how many are left */}
+        {current.name}, {current.quantity === null ? '' : `${current.quantity} left, `}{index + 1} of {count}
       </p>
     </div>
   );
