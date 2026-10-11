@@ -1029,6 +1029,16 @@
   .touch-hit {
     position: relative;
   }
+  /* The room's own controls show the app's focus ring to a keyboard, as the rest of the app does */
+  .room-hud-button:focus-visible,
+  .room-fallback-note__close:focus-visible,
+  .decor-tab:focus-visible,
+  .decor-tile:focus-visible,
+  .decor-tool:focus-visible,
+  .decor-save:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
   .touch-hit::before {
     content: '';
     position: absolute;
