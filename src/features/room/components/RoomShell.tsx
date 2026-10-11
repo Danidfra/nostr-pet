@@ -74,6 +74,8 @@ export interface RoomControl {
   face: (face: ProceduralFace | null) => void;
   /** A choreographed pose of the 3D body (the 2D drawing poses itself), or null. */
   pose: (pose: ActorFrame['pose']) => void;
+  /** Development measurements of the room's drawing (`RoomScene.stats`), or null without a scene. */
+  stats: () => ReturnType<RoomScene['stats']> | null;
   /** Hold the room's fold-in at a moment (a scrubber), or let it run (null). */
   holdIntro: (ms: number | null) => void;
   /** Draw a frame now, not on the next animation frame (a held moment, in a tab that may be hidden). */
@@ -491,6 +493,7 @@ export function RoomShell({
       canChoreograph: () => typeof sceneRef.current?.setActorScript === 'function',
       render: () => sceneRef.current?.renderNow?.(),
       holdIntro: (ms) => sceneRef.current?.holdIntro?.(ms),
+      stats: () => sceneRef.current?.stats?.() ?? null,
       script: (script) => sceneRef.current?.setActorScript?.(MAIN_BLOBBI, script),
       wallsCover: (on) => sceneRef.current?.setWallsCover?.(on),
       skyAt: (x, z) => sceneRef.current?.skyAt?.(x, z) ?? 12,

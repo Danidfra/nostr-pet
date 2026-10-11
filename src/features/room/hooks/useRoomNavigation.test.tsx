@@ -27,7 +27,7 @@ function fakeControl() {
     gesture: () => {},
     gaze: () => {},
     journey: () => {},
-    journeyPreview: () => {}, face: () => {}, pose: () => {}, script: () => {}, wallsCover: () => {}, skyAt: () => 12, standPointNear: (x: number, z: number) => ({ x, z }), canChoreograph: () => false, render: () => {}, holdIntro: () => {},
+    journeyPreview: () => {}, face: () => {}, pose: () => {}, script: () => {}, wallsCover: () => {}, skyAt: () => 12, standPointNear: (x: number, z: number) => ({ x, z }), canChoreograph: () => false, render: () => {}, holdIntro: () => {}, stats: () => null,
   };
   return { control, settle: (o: WalkOutcome) => pending.shift()?.(o), pending };
 }

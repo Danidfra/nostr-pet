@@ -47,6 +47,7 @@ import { usePresence } from '@/features/teleport/react/usePresence';
 import { journeyFrame } from '@/features/teleport/timeline';
 import { TeleportDevPanel } from './components/TeleportDevPanel';
 import { AnimationPlayground } from './components/AnimationPlayground';
+import { RoomPerfOverlay } from './components/RoomPerfOverlay';
 import { useRoomItemDrag } from './hooks/useRoomItemDrag';
 import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
 import { RoomHeader } from './components/RoomHeader';
@@ -270,6 +271,8 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const care = useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav, react: reactions.react, hop, reducedMotion });
   // The playground's feeding: the same presentation with a pretend offer (nothing is used, nothing is written)
   const [feedPreview, setFeedPreview] = useState<RoomOffer | null>(null);
+  // The playground's performance overlay
+  const [perfShown, setPerfShown] = useState(false);
   const shownOffer = care.offer ?? feedPreview;
   // Food taken: eager while the write is out, eaten bite by bite once it has landed (never before)
   const eatingView = useEatingPresentation({ offer: shownOffer, controlRef, boxRef: actorRef, showFace, clearFace, reducedMotion });
@@ -580,6 +583,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
       </RoomShell>
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
       {DEV_TELEPORT && <TeleportDevPanel presence={presence} preview={journeyPreview} onPreview={setJourneyPreview} />}
+      {DEV_TELEPORT && perfShown && <RoomPerfOverlay controlRef={controlRef} />}
       {DEV_TELEPORT && (
         <AnimationPlayground
           transitions={transitions}
@@ -603,6 +607,8 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
               gesture('bounce');
             }, 700 + (reducedMotion ? 1 : EAT.food) * EAT.biteMs);
           }}
+          perf={perfShown}
+          onPerf={setPerfShown}
           onPet={() => {
             petting.onPet('start');
             [400, 800, 1200, 1600].forEach((t) => setTimeout(() => petting.onPet('stroke'), t));

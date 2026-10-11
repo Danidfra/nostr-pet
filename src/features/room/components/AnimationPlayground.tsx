@@ -39,9 +39,12 @@ interface AnimationPlaygroundProps {
   /** Play the eating animation and the petting reaction, presentation only. */
   onFeed?: () => void;
   onPet?: () => void;
+  /** Show the performance overlay. */
+  perf?: boolean;
+  onPerf?: (on: boolean) => void;
 }
 
-export function AnimationPlayground({ transitions, roomId, appearance, onAppearance, onFace, onRoom, onFeed, onPet }: AnimationPlaygroundProps) {
+export function AnimationPlayground({ transitions, roomId, appearance, onAppearance, onFace, onRoom, onFeed, onPet, perf = false, onPerf }: AnimationPlaygroundProps) {
   const [open, setOpen] = useState(false);
   const [scene, setScene] = useState(SCENES[2]);
   const nextRoom = ROOM_ORDER[(ROOM_ORDER.indexOf(roomId) + 1) % ROOM_ORDER.length];
@@ -123,6 +126,11 @@ export function AnimationPlayground({ transitions, roomId, appearance, onAppeara
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => onAppearance(appearance === '3d' ? '2d' : '3d')} data-testid="playground-appearance">{appearance === '3d' ? 'Show 2D' : 'Show 3D'}</button>
+        {onPerf && (
+          <label>
+            <input type="checkbox" checked={perf} onChange={(e) => onPerf(e.target.checked)} data-testid="playground-perf" /> performance
+          </label>
+        )}
         <a href="?fixture=adult-v3">adult</a>
         <a href="?fixture=baby-v3">baby</a>
       </div>

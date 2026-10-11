@@ -169,6 +169,9 @@ const INTRO = { floor: [0, 420], left: [200, 760], right: [300, 860], furniture:
  * A room seen before comes back quickly: the same fold, brisk, its pieces up together. About 400 ms in all, so an
  * ordinary change of room stays quick (the full fold-in is for a room's first visit).
  */
+/** Idle life alone (a 3D model breathing and blinking) is drawn this often: ~30 frames a second, not every vsync. */
+const IDLE_FRAME_MS = 1000 / 30;
+
 const QUICK_INTRO = { floor: [0, 170], left: [30, 240], right: [60, 270], furniture: 110, stagger: 16, pop: 280 } as const;
 
 /** How a room comes on screen: folding together for the first time, briskly when seen before, or simply there. */
@@ -585,6 +588,14 @@ export class RoomScene {
   /** The piece under the pointer (never while decorating), and the ring that marks one that does something. */
   private hovered: number | null = null;
   private hoverRing?: THREE.Mesh;
+  /** Only idle life (a 3D model breathing, blinking) wants another frame: drawn at `IDLE_FRAME_MS`, not every vsync. */
+  private idleAnimating = false;
+  private idleTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Development measurements (`stats()`): frames drawn, idle ones among them, and each frame's main-thread cost. */
+  private perf = { frames: 0, idleFrames: 0, cpuMs: 0, cpuSamples: [] as number[] };
+  private onVisibility = () => {
+    if (!document.hidden) this.requestRender();
+  };
   /** The fold-in held at this many ms (a development scrubber), or null to let it run. */
   private introHeld: number | null = null;
   private folds?: { floor: THREE.Group; left: THREE.Group; right: THREE.Group };
@@ -613,6 +624,8 @@ export class RoomScene {
   onInvalidChange?: (invalid: Set<number>) => void;
 
   constructor(canvas: HTMLCanvasElement, fgCanvas: HTMLCanvasElement) {
+    // Back from a hidden tab: the idle life resumes (it stops while hidden)
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.onVisibility);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     // A teleporting Blobbi's model is cut by a plane (teleport3d.ts); nothing else uses clipping, which costs nothing unset
     this.renderer.localClippingEnabled = true;
@@ -829,6 +842,8 @@ export class RoomScene {
     cancelAnimationFrame(this.frame);
     if (this.clockTimer) clearInterval(this.clockTimer);
     if (this.wanderTimer) clearTimeout(this.wanderTimer);
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.onVisibility);
     // The models are the caller's: out of the scene before it is torn down
     for (const actor of this.actors.values()) if (actor.model) this.scene.remove(actor.model.object);
     disposeObject(this.scene);
@@ -1741,7 +1756,11 @@ export class RoomScene {
         const sleeping = b.id === MAIN && this.sleepTarget === 1;
         const motion = b.script ? (b.script.walking ? 'walking' : 'idle') : b.path.length ? 'walking' : b.isEgg || sleeping ? 'still' : 'idle';
         // Seen from the open corner: it leans back from the camera by its stage's lean (`ROOM_LEAN`)
-        if (b.model.update({ dt, motion, heading: b.heading, sleeping, viewAzimuth: AZIMUTH, gaze: b.gaze ?? undefined, journey: travel, face: b.face ?? null, pose: b.pose ?? null })) animating = true;
+        if (b.model.update({ dt, motion, heading: b.heading, sleeping, viewAzimuth: AZIMUTH, gaze: b.gaze ?? undefined, journey: travel, face: b.face ?? null, pose: b.pose ?? null })) {
+          // Breathing and blinking alone are drawn at a gentler rate (`IDLE_FRAME_MS`); anything moving at full rate
+          if (b.model.busy?.() === false && !travel) this.idleAnimating = true;
+          else animating = true;
+        }
       }
     }
     return animating;
@@ -2534,6 +2553,7 @@ export class RoomScene {
   private renderFrame() {
     if (!this.geometry || !this.layout || this.disposed) return;
     const now = performance.now();
+    this.idleAnimating = false;
     // The fold-in's own clock: held by a scrubber, or running
     const introNow = this.introHeld !== null && this.introStart !== null ? this.introStart + this.introHeld : now;
     // The first frame after a rest counts as one frame's worth
@@ -2691,8 +2711,52 @@ export class RoomScene {
     for (const b of this.actors.values()) if (b.model) b.modelDrawn = true;
 
     this.onFrame?.();
+    const cost = performance.now() - now;
+    this.perf.frames += 1;
+    if (!animating && this.idleAnimating) this.perf.idleFrames += 1;
+    this.perf.cpuMs = cost;
+    this.perf.cpuSamples.push(cost);
+    if (this.perf.cpuSamples.length > 240) this.perf.cpuSamples.shift();
     if (animating) this.requestRender();
+    else if (this.idleAnimating) this.requestIdleRender();
     else this.lastFrame = 0;
+  }
+
+  /** The next frame of idle life only: a little later than the next vsync, and none at all in a hidden tab. */
+  private requestIdleRender() {
+    if (this.idleTimer || this.disposed) return;
+    if (typeof document !== 'undefined' && document.hidden) {
+      this.lastFrame = 0;
+      return;
+    }
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = undefined;
+      this.requestRender();
+    }, IDLE_FRAME_MS - 4);
+  }
+
+  /**
+   * Development measurements: frames drawn so far (and how many were idle life only), the last frame's
+   * main-thread cost and its recent average and 95th percentile (ms), and the renderer's own counts (draw calls,
+   * triangles, live geometries, textures, shader programs).
+   */
+  stats() {
+    const samples = [...this.perf.cpuSamples].sort((a, b) => a - b);
+    const avg = samples.length ? samples.reduce((a, b) => a + b, 0) / samples.length : 0;
+    const p95 = samples.length ? samples[Math.min(samples.length - 1, Math.floor(samples.length * 0.95))] : 0;
+    const info = this.renderer.info;
+    return {
+      frames: this.perf.frames,
+      idleFrames: this.perf.idleFrames,
+      cpuMs: this.perf.cpuMs,
+      cpuAvgMs: avg,
+      cpuP95Ms: p95,
+      calls: info.render.calls,
+      triangles: info.render.triangles,
+      geometries: info.memory.geometries,
+      textures: info.memory.textures,
+      programs: info.programs?.length ?? 0,
+    };
   }
 }
 

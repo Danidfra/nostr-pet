@@ -1194,6 +1194,19 @@
     width: auto;
     cursor: pointer;
   }
+  /* Development only: the room's performance overlay (RoomPerfOverlay) */
+  .room-perf {
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    z-index: 300;
+    padding: 6px 9px;
+    border-radius: 10px;
+    background: rgba(20, 18, 32, 0.88);
+    color: #d9f99d;
+    font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    pointer-events: none;
+  }
   /* The animation playground sits below the teleport panel's button */
   .playground-dev,
   .playground-dev--closed {

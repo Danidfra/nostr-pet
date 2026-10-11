@@ -68,6 +68,11 @@ export interface ActorModel {
   lean: number;
   /** Pose for this frame. True while it keeps moving on its own (so the scene keeps drawing frames). */
   update(frame: ActorFrame): boolean;
+  /**
+   * Whether the last update moved anything beyond its idle life (a walk, a turn, a gesture, a journey, a face,
+   * a pose, the eyes settling): the scene draws those at full rate, and idle breathing alone at a gentler one.
+   */
+  busy?(): boolean;
   /** Play one of the home's body gestures (a glad bounce, a recoil, a stir, a wiggle) over the next frames. */
   gesture(kind: ActorGesture): void;
   /** The gaze as posed this frame, -1..1 each way (for tests and the lab). */
@@ -169,6 +174,7 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
   let faceWorn = 'neutral';
   let faceClosed = false;
   let posed = false;
+  let lastBusy = false;
   /** Pose the figure for the gesture in progress; true while one is. */
   const poseGesture = (): boolean => {
     if (!playing) return false;
@@ -298,7 +304,8 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
       const turning = Math.abs(Math.atan2(Math.sin(frame.heading - heading), Math.cos(frame.heading - heading))) > 0.002;
       const blinkChanged = eyesClosed !== lastEyes;
       lastEyes = eyesClosed;
-      return travelling || gesturing || motion !== 'still' || turning || blinkChanged || faceChanged || pose !== null || !settled || (!reduced && !frame.sleeping);
+      lastBusy = travelling || gesturing || motion === 'walking' || turning || blinkChanged || faceChanged || pose !== null || !settled;
+      return lastBusy || motion !== 'still' || (!reduced && !frame.sleeping);
     },
     gesture(kind) {
       // Reduced motion: no body gestures, as on the home
@@ -306,6 +313,7 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
       playing = { kind, startedAt: age };
     },
     gaze: () => ({ x: gaze.x, y: gaze.y }),
+    busy: () => lastBusy,
     dispose: () => {
       teleport?.dispose();
       model.dispose();

@@ -67,7 +67,7 @@ describe('RoomDecoratorOverlay', () => {
 
   it('a tile adds the piece at a spot the room gives (or the middle without a room) and picks it up', () => {
     const findSpot = vi.fn(() => ({ at: 'floor' as const, x: 2.5, y: 3.5 }));
-    const { props, unmount } = overlay('home', [], { controlRef: { current: { findSpot, floorAt: () => null, walkTo: async () => 'refused', approach: async () => 'refused', stop: () => {}, pickAt: () => null, blobbiPosition: () => null, hop: () => {}, gesture: () => {}, gaze: () => {}, journey: () => {}, journeyPreview: () => {}, face: () => {}, pose: () => {}, script: () => {}, wallsCover: () => {}, skyAt: () => 12, standPointNear: (x: number, z: number) => ({ x, z }), canChoreograph: () => false, render: () => {}, holdIntro: () => {} } } });
+    const { props, unmount } = overlay('home', [], { controlRef: { current: { findSpot, floorAt: () => null, walkTo: async () => 'refused', approach: async () => 'refused', stop: () => {}, pickAt: () => null, blobbiPosition: () => null, hop: () => {}, gesture: () => {}, gaze: () => {}, journey: () => {}, journeyPreview: () => {}, face: () => {}, pose: () => {}, script: () => {}, wallsCover: () => {}, skyAt: () => 12, standPointNear: (x: number, z: number) => ({ x, z }), canChoreograph: () => false, render: () => {}, holdIntro: () => {}, stats: () => null } } });
     fireEvent.click(screen.getByTestId('catalog-official:toybox'));
     expect(findSpot).toHaveBeenCalledWith(expect.objectContaining({ official: true, mount: 'floor' }));
     expect(props.onDraftChange).toHaveBeenCalledWith([{ id: 'official:toybox', at: 'floor', x: 2.5, y: 3.5 }]);
@@ -89,7 +89,7 @@ describe('RoomDecoratorOverlay', () => {
     expect(props.onDraftChange).not.toHaveBeenCalled();
     expect(screen.getByTestId('decorator-hint')).toHaveTextContent(`${MAX_FURNITURE_PER_ROOM}/${MAX_FURNITURE_PER_ROOM}`);
     unmount();
-    const crowded = overlay('home', [], { controlRef: { current: { findSpot: () => null, floorAt: () => null, walkTo: async () => 'refused', approach: async () => 'refused', stop: () => {}, pickAt: () => null, blobbiPosition: () => null, hop: () => {}, gesture: () => {}, gaze: () => {}, journey: () => {}, journeyPreview: () => {}, face: () => {}, pose: () => {}, script: () => {}, wallsCover: () => {}, skyAt: () => 12, standPointNear: (x: number, z: number) => ({ x, z }), canChoreograph: () => false, render: () => {}, holdIntro: () => {} } } });
+    const crowded = overlay('home', [], { controlRef: { current: { findSpot: () => null, floorAt: () => null, walkTo: async () => 'refused', approach: async () => 'refused', stop: () => {}, pickAt: () => null, blobbiPosition: () => null, hop: () => {}, gesture: () => {}, gaze: () => {}, journey: () => {}, journeyPreview: () => {}, face: () => {}, pose: () => {}, script: () => {}, wallsCover: () => {}, skyAt: () => 12, standPointNear: (x: number, z: number) => ({ x, z }), canChoreograph: () => false, render: () => {}, holdIntro: () => {}, stats: () => null } } });
     fireEvent.click(screen.getByTestId('catalog-official:toybox'));
     expect(crowded.props.onDraftChange).not.toHaveBeenCalled();
     expect(screen.getByTestId('decorator-hint')).toHaveTextContent('No space left');
