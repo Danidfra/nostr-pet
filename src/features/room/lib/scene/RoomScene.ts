@@ -656,7 +656,8 @@ export class RoomScene {
     // A teleporting Blobbi's model is cut by a plane (teleport3d.ts); nothing else uses clipping, which costs nothing unset
     this.renderer.localClippingEnabled = true;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // PCF: three 0.186 removed PCFSoftShadowMap (it fell back to PCF with a warning)
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     // Shadows re-render only when something that casts them moves
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.toneMapping = THREE.NeutralToneMapping;
@@ -1619,7 +1620,7 @@ export class RoomScene {
   }
 
   /**
-   * Draw at a quality level (`room-quality.ts`): the pixel ratio, the key light's shadow (soft, plain or none),
+   * Draw at a quality level (`room-quality.ts`): the pixel ratio, the key light's shadow (its map's size, or none),
    * how many lamps' light is drawn, the journey motes' density and the idle frame rate. The Blobbi, the furniture
    * and the room are the same at every level; only how they are drawn changes.
    */
@@ -1628,15 +1629,6 @@ export class RoomScene {
     this.quality = quality;
     if (before.shadows !== quality.shadows || before.shadowMapSize !== quality.shadowMapSize) {
       this.key.castShadow = quality.shadows !== 'off';
-      const type = quality.shadows === 'soft' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
-      if (this.renderer.shadowMap.type !== type) {
-        this.renderer.shadowMap.type = type;
-        this.scene.traverse((o) => {
-          const mesh = o as THREE.Mesh;
-          if (!mesh.isMesh) return;
-          for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) m.needsUpdate = true;
-        });
-      }
       if (this.key.shadow.mapSize.x !== quality.shadowMapSize) {
         this.key.shadow.map?.dispose();
         this.key.shadow.map = null;

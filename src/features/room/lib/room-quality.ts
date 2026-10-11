@@ -1,11 +1,11 @@
 /**
  * How much the 3D room spends drawing itself: three levels and how one is chosen.
  *
- *   high      the room as designed: pixel ratio up to 1.5, soft shadows from
- *             the key light, every lamp lit, every journey mote, idle life at
+ *   high      the room as designed: pixel ratio up to 1.5, the key light's
+ *             shadows from a 1024 map, every lamp lit, every journey mote, idle life at
  *             30 frames a second
  *   balanced  a little less of everything that costs the GPU per pixel: pixel
- *             ratio up to 1.25, plain-filtered and smaller shadows, two lamps
+ *             ratio up to 1.25, shadows from a smaller map, two lamps
  *             lit, fewer motes, idle life at 24 frames a second
  *   low       for older and budget phones: pixel ratio 1, no cast shadows
  *             (the soft contact shadow under the Blobbi still grounds it), one
@@ -39,8 +39,8 @@ export interface QualitySettings {
   level: QualityLevel;
   /** The renderer's pixel ratio is the device's, up to this. */
   maxPixelRatio: number;
-  /** The key light's shadow: soft, plain, or none (the contact shadows remain). */
-  shadows: 'soft' | 'plain' | 'off';
+  /** Whether the key light casts shadows (the contact shadows under things remain either way). */
+  shadows: 'on' | 'off';
   shadowMapSize: number;
   /** Lamps whose light is drawn at once (their bulbs glow either way). */
   lamps: number;
@@ -51,8 +51,8 @@ export interface QualitySettings {
 }
 
 export const QUALITY: Readonly<Record<QualityLevel, QualitySettings>> = {
-  high: { level: 'high', maxPixelRatio: 1.5, shadows: 'soft', shadowMapSize: 1024, lamps: 3, moteDensity: 1, idleFps: 30 },
-  balanced: { level: 'balanced', maxPixelRatio: 1.25, shadows: 'plain', shadowMapSize: 512, lamps: 2, moteDensity: 0.7, idleFps: 24 },
+  high: { level: 'high', maxPixelRatio: 1.5, shadows: 'on', shadowMapSize: 1024, lamps: 3, moteDensity: 1, idleFps: 30 },
+  balanced: { level: 'balanced', maxPixelRatio: 1.25, shadows: 'on', shadowMapSize: 512, lamps: 2, moteDensity: 0.7, idleFps: 24 },
   low: { level: 'low', maxPixelRatio: 1, shadows: 'off', shadowMapSize: 512, lamps: 1, moteDensity: 0.45, idleFps: 15 },
 };
 
