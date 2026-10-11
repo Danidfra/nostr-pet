@@ -12,7 +12,7 @@ import type { BlobbiFacing, BlobbiMotion } from '@blobbi-kit/renderer';
 
 import { blobbiEvent } from '@/test/fixtures';
 import { RoomBlobbi } from './RoomBlobbi';
-import { WALK_TEMPO } from '../lib/room-pace';
+import { walkTempoFor } from '../lib/room-pace';
 
 function blobbi(generation: 'v1' | 'v2' | 'v3', stage: 'egg' | 'baby' | 'adult' = 'adult', state: 'active' | 'sleeping' = 'active'): BlobbiCompanion {
   return parseModernBlobbiEvent(blobbiEvent('00000000a7', { name: 'Umber', stage, state, visualGeneration: generation }))!;
@@ -45,7 +45,7 @@ describe('the room Blobbi walks with the renderer\'s own gait', () => {
   it('carries the room\'s walking tempo for the stylesheet, so the cadence and the pace come from one number', () => {
     const d = draw(blobbi('v3'), { motion: 'walking' });
     expect(d.box().classList.contains('room-blobbi')).toBe(true);
-    expect(d.box().style.getPropertyValue('--room-walk-tempo')).toBe(String(WALK_TEMPO));
+    expect(d.box().style.getPropertyValue('--room-walk-tempo')).toBe(String(walkTempoFor('adult')));
     // The kit's own phase delay stays: every part of one Blobbi keeps the same offset, so the rig stays in step
     expect(d.svg().getAttribute('style') ?? '').not.toMatch(/animation/);
   });

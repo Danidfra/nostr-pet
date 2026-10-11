@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import { GAITS, gaitFor, walkCycleFor } from '@/features/home/scene/motion-contract';
 import { CAMERA_ELEVATION, blobbiBoxTiles } from './room-geometry';
-import { WALK_TEMPO, strideTilesPerCycle, walkCycleSecondsFor, walkSpeedFor } from './room-pace';
+import { WALK_TEMPO, strideTilesPerCycle, walkCycleSecondsFor, walkSpeedFor, walkTempoFor } from './room-pace';
 
 describe('the walking pace in the room', () => {
   it('is the gait\'s stride, in the art box\'s tiles, per renderer cycle, for the camera\'s elevation and the diagonal tile axes', () => {
@@ -21,9 +21,9 @@ describe('the walking pace in the room', () => {
         expect(strideTilesPerCycle(stage, generation)).toBeCloseTo(lateralPerCycle, 10);
         // Along a tile axis (a screen diagonal) only 1/√2 of the step is lateral, and a lateral
         // world tile shows as 1/cos(el) of the box's unit: the speed that keeps the foot planted.
-        const expected = (lateralPerCycle * Math.cos(CAMERA_ELEVATION) * Math.SQRT2) / (walkCycleFor(generation) / WALK_TEMPO);
+        const expected = (lateralPerCycle * Math.cos(CAMERA_ELEVATION) * Math.SQRT2) / (walkCycleFor(generation) / walkTempoFor(stage));
         expect(walkSpeedFor(stage, generation)).toBeCloseTo(expected, 10);
-        expect(walkCycleSecondsFor(generation)).toBeCloseTo(walkCycleFor(generation) / WALK_TEMPO, 10);
+        expect(walkCycleSecondsFor(generation, stage)).toBeCloseTo(walkCycleFor(generation) / walkTempoFor(stage), 10);
       }
     }
   });
@@ -34,15 +34,22 @@ describe('the walking pace in the room', () => {
     expect(speed).toBeLessThan(2.1);
     expect(8 / speed).toBeGreaterThan(3.5);
     expect(8 / speed).toBeLessThan(4.5);
-    // The tempo is what makes it so: at the kit's own cycle it would be a shuffle of 0.85 tiles a second
-    expect(speed / WALK_TEMPO).toBeCloseTo(0.852, 2);
+    // The tempo is what makes it so: at the kit's own cycle, in its box as approved, a shuffle of 0.85 tiles a second
+    expect(speed / walkTempoFor('adult')).toBeCloseTo(0.852 * (blobbiBoxTiles('adult') / 3.8), 2);
+  });
+
+  it('the adult drawn smaller keeps its approved ground speed by stepping quicker; the baby keeps the room\'s tempo', () => {
+    expect(blobbiBoxTiles('adult')).toBeLessThan(3.8);
+    expect(walkTempoFor('adult')).toBeCloseTo(WALK_TEMPO * (3.8 / blobbiBoxTiles('adult')), 10);
+    expect(walkTempoFor('baby')).toBe(WALK_TEMPO);
+    expect(walkTempoFor('egg')).toBe(WALK_TEMPO);
   });
 
   it('the lateral screen travel in one cycle AS PLAYED equals the stride, so nothing slides at any tempo', () => {
     // One cycle at the walking speed, along a tile axis, is √2 · lateral; its lateral part on
     // screen (÷ cos el) is the stride in box units. The cycle is the one the CSS plays: the kit's over the tempo.
-    const cycle = walkCycleSecondsFor('v3');
-    expect(cycle).toBeCloseTo(0.62 / WALK_TEMPO, 10);
+    const cycle = walkCycleSecondsFor('v3', 'adult');
+    expect(cycle).toBeCloseTo(0.62 / walkTempoFor('adult'), 10);
     const alongPath = walkSpeedFor('adult', 'v3') * cycle;
     const lateralOnScreen = (alongPath / Math.SQRT2) / Math.cos(CAMERA_ELEVATION);
     expect(lateralOnScreen).toBeCloseTo(gaitFor('adult', 'v3').stride * blobbiBoxTiles('adult'), 10);

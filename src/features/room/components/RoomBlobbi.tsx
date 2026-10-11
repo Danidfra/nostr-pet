@@ -21,7 +21,7 @@ import type { BlobbiCompanion } from '@blobbi-kit/core';
 
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { bodyBottomInset } from '../lib/body-inset';
-import { WALK_TEMPO } from '../lib/room-pace';
+import { walkTempoFor } from '../lib/room-pace';
 
 interface RoomBlobbiProps {
   blobbi: BlobbiCompanion;
@@ -114,7 +114,7 @@ export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function R
         data-sleeping={isSleeping ? 'true' : 'false'}
         // The room's walking tempo: the kit's walk cycle plays this many times faster here (index.css), and the
         // scene moves the Blobbi that much faster with it (room-pace.ts), so a planted foot keeps its spot.
-        style={{ '--room-walk-tempo': WALK_TEMPO } as CSSProperties}
+        style={{ '--room-walk-tempo': walkTempoFor(blobbi.stage) } as CSSProperties}
       >
         <BlobbiRenderer
           visual={visual}

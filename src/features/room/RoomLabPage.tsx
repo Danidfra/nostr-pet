@@ -203,7 +203,7 @@ export default function RoomLabPage() {
           <section className="px-3 pb-3" aria-label="Motion">
             <h2 className="pb-2 text-sm font-bold">On the stage</h2>
             <div className="flex flex-wrap items-start gap-3">
-              <Blobbi3dStage genome={subject.genome} stage={subject.stage} view={view} motion={motion} sleeping={sleeping} figurine={figurine} trackPointer={tracking} walkCycle={walkCycleSecondsFor('v3')} size={300} testId="lab-stage-main" label="3D stage" />
+              <Blobbi3dStage genome={subject.genome} stage={subject.stage} view={view} motion={motion} sleeping={sleeping} figurine={figurine} trackPointer={tracking} walkCycle={walkCycleSecondsFor('v3', subject.stage)} size={300} testId="lab-stage-main" label="3D stage" />
               <div className="flex flex-col gap-2 text-sm">
                 <div className="flex flex-wrap gap-1" role="group" aria-label="View">
                   {VIEWS.map((v) => (
@@ -282,7 +282,7 @@ function LabRoom({ identity }: { identity: LabIdentity }) {
   const nav = useRoomNavigation({ blobbi, editing: false });
   const walkSpeed = useMemo(() => walkSpeedFor(stage, 'v3'), [stage]);
   // The 3D stand-in: the same genome's model, driven by the room at the room's walking tempo
-  const actor = useMemo(() => createBlobbiActor(buildBlobbiModel(morphologyOf(genome, stage), genome.seed), { walkCycle: walkCycleSecondsFor('v3'), reducedMotion: prefersReducedMotion }), [genome, stage]);
+  const actor = useMemo(() => createBlobbiActor(buildBlobbiModel(morphologyOf(genome, stage), genome.seed), { walkCycle: walkCycleSecondsFor('v3', stage), reducedMotion: prefersReducedMotion }), [genome, stage]);
   useEffect(() => () => actor.dispose(), [actor]);
 
   return (

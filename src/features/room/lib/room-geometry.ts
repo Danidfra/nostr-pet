@@ -32,8 +32,17 @@ export const SNO_FIT_TILES = 2;
  * forms are drawn on a 200×200 canvas with room for petals, wings and
  * floating bits). Adults get a bigger box, so they stand clearly taller than
  * babies instead of looking smaller.
+ *
+ * The adult's box was 3.8 (Ditto's). Measured against the furniture it
+ * stood about 3.2 tiles tall with its appendages, over the sink (2.7) and
+ * the toy box (2.2) and two thirds of the fridge (4.5): a giant in its own
+ * kitchen. 3.35 (12% less) puts it at about 2.8, level with the sink,
+ * while the baby (1.9 tall in its 2.5 box) stays a clear two thirds of it.
+ * Presentation only: the box scales the drawing, the 3D model, the
+ * Blobbi's footprint, its tap target and its pace alike (`room-pace.ts`
+ * derives the stride from it), never the genome or the morphology.
  */
-const BLOBBI_HEIGHT_TILES = { egg: 1.7, baby: 2.5, adult: 3.8 } as const;
+const BLOBBI_HEIGHT_TILES = { egg: 1.7, baby: 2.5, adult: 3.35 } as const;
 
 type BlobbiSizeStage = keyof typeof BLOBBI_HEIGHT_TILES;
 

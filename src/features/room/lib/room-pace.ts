@@ -31,6 +31,13 @@
  *
  * Seen from the front or the back the feet step in place and nothing can
  * slide; the same pace is kept, as the home keeps one pace per walk.
+ *
+ * THE ADULT'S SIZE. The pace was approved with the adult in Ditto's 3.8-tile
+ * box. The room has since drawn it 12% smaller (`room-geometry.ts`), which
+ * at the same tempo would shorten its stride on the floor and slow it to
+ * about 1.76 tiles a second. It keeps the approved ground speed instead: its
+ * tempo rises by the same factor (`walkTempoFor`), so a smaller body takes
+ * quicker steps, and a foot still keeps its spot.
  */
 import { gaitFor, walkCycleFor } from '@/features/home/scene/motion-contract';
 import { CAMERA_ELEVATION, blobbiBoxTiles } from './room-geometry';
@@ -42,17 +49,26 @@ import { CAMERA_ELEVATION, blobbiBoxTiles } from './room-geometry';
  */
 export const WALK_TEMPO = 2.35;
 
+/** The box (tiles) a stage's approved ground speed was set at, where the room has drawn it smaller since. */
+const PACE_REFERENCE_TILES: Readonly<Record<string, number>> = { adult: 3.8 };
+
+/** How many times faster than the renderer's cycle THIS stage walks in the room: the tempo, quickened as much as its box shrank. */
+export function walkTempoFor(stage: string): number {
+  const box = blobbiBoxTiles(stage);
+  return WALK_TEMPO * ((PACE_REFERENCE_TILES[stage] ?? box) / box);
+}
+
 /** Lateral screen travel per walk cycle, in tiles of the scene's vertical unit. */
 export function strideTilesPerCycle(stage: string, generation: string): number {
   return gaitFor(stage, generation).stride * blobbiBoxTiles(stage);
 }
 
-/** Seconds one walk cycle takes in the room: the renderer's cycle at the room's tempo (what the CSS override plays). */
-export function walkCycleSecondsFor(generation: string): number {
-  return walkCycleFor(generation) / WALK_TEMPO;
+/** Seconds one walk cycle takes in the room: the renderer's cycle at the stage's tempo (what the CSS override plays). */
+export function walkCycleSecondsFor(generation: string, stage: string): number {
+  return walkCycleFor(generation) / walkTempoFor(stage);
 }
 
 /** The walking speed along a tile path, in tiles per second, for a Blobbi of this stage and generation, at the room's tempo. */
 export function walkSpeedFor(stage: string, generation: string): number {
-  return (strideTilesPerCycle(stage, generation) * Math.cos(CAMERA_ELEVATION) * Math.SQRT2) / walkCycleSecondsFor(generation);
+  return (strideTilesPerCycle(stage, generation) * Math.cos(CAMERA_ELEVATION) * Math.SQRT2) / walkCycleSecondsFor(generation, stage);
 }
