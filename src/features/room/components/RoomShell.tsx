@@ -16,8 +16,8 @@
  * there, or use the piece of furniture tapped), and, while decorating,
  * picking and dragging furniture.
  *
- * Ditto's `BlobbiRoomShell`, with its i18n, haptics, arc chrome, poop layer
- * and stat-guide pulses left out, over this app's room registry.
+ * Ditto's `BlobbiRoomShell`, with its i18n, haptics, poop layer and
+ * stat-guide pulses left out, over this app's room registry.
  */
 
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, type CSSProperties, type MutableRefObject, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
@@ -27,11 +27,12 @@ import type { WalkOutcome } from '@/features/home/scene/useBlobbiLocomotion';
 
 import { ROOM_ORDER, neighbourRoom, roomById, type RoomId } from '@/features/home/rooms/rooms';
 import { cx } from '../lib/cx';
+import { ArcBackground } from './ArcBackground';
 import { resolveFurniture, type FurnitureInteraction } from '../lib/furniture-3d';
 import type { FurniturePlacement } from '../lib/room-furniture';
 import type { ActorModel } from '../lib/blobbi3d/actor';
 import type { RoomLayout } from '../lib/room-layout';
-import { ROOM_GRID, blobbiBoxTiles, MAIN_BLOBBI } from '../lib/room-geometry';
+import { ROOM_GRID, blobbiBoxTiles, blobbiReachTiles, MAIN_BLOBBI } from '../lib/room-geometry';
 import { useFurnitureModels } from '../hooks/useFurnitureModels';
 import { useRoomScene, type RoomSceneStatus } from '../hooks/useRoomScene';
 import type { PickResult, RoomScene, SceneGeometry, ScreenAnchor, SpotQuery } from '../lib/scene/RoomScene';
@@ -128,6 +129,12 @@ export interface RoomShellProps {
   blobbiOverlay?: ReactNode;
   /** The HUD's right-hand slot (opposite the decorate button). */
   hudEnd?: ReactNode;
+  /**
+   * The user's Blobbi's name, and its colour for the tag's dot: shown over its
+   * head only on demand (a hover, a tap, keyboard focus), drawn either way,
+   * and the accessible name of its keyboard stand-in.
+   */
+  blobbiName?: { text: string; color?: string };
   /** Something over the room (an "away" card). */
   hero?: ReactNode;
   /** A bar above the room. */
@@ -177,6 +184,9 @@ export interface RoomShellProps {
 const SWIPE_THRESHOLD = 50;
 /** Movement (px) under which a press is a tap rather than a drag. */
 const TAP_SLOP = 8;
+/** How long the name stays after the pointer leaves the Blobbi, and after a tap on it (ms). */
+const NAME_HOVER_GRACE_MS = 180;
+const NAME_TAP_MS = 2_500;
 /** Room widths (px) below which the room is framed for a phone. */
 const PHONE_WIDTH = 500;
 
@@ -194,6 +204,7 @@ export function RoomShell({
   blobbiModel = null,
   blobbiOverlay,
   hudEnd,
+  blobbiName,
   stage,
   hero,
   header,
@@ -295,10 +306,14 @@ export function RoomShell({
   const models = useFurnitureModels(furniturePlacements);
   const isEgg = blobbiStage === 'egg';
   const blobbiTiles = blobbiBoxTiles(blobbiStage);
-  const blobbi = useMemo(() => ({ visible: blobbiVisible, isEgg, tiles: blobbiTiles, sleeping: isSleeping, walkSpeed: blobbiWalkSpeed }), [blobbiVisible, isEgg, blobbiTiles, isSleeping, blobbiWalkSpeed]);
+  // How far its body reaches: it stands that far clear of the walls and the floor's edge, drawn either way
+  const blobbi = useMemo(
+    () => ({ visible: blobbiVisible, isEgg, tiles: blobbiTiles, sleeping: isSleeping, walkSpeed: blobbiWalkSpeed, reach: blobbiReachTiles(blobbiStage) }),
+    [blobbiVisible, isEgg, blobbiTiles, isSleeping, blobbiWalkSpeed, blobbiStage],
+  );
   const guestsKey = (guests ?? []).map((g) => `${g.id}:${g.stage}:${g.spawn?.x ?? ''},${g.spawn?.z ?? ''}`).join('|');
   const sceneGuests = useMemo(
-    () => (guests ?? []).map(({ id, stage: s, spawn }) => ({ id, isEgg: s === 'egg', tiles: blobbiBoxTiles(s), spawn })),
+    () => (guests ?? []).map(({ id, stage: s, spawn }) => ({ id, isEgg: s === 'egg', tiles: blobbiBoxTiles(s), spawn, reach: blobbiReachTiles(s) })),
     // Only the fields the scene uses
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [guestsKey],
@@ -406,6 +421,33 @@ export function RoomShell({
     return () => { controlRef.current = null; };
   }, [is3d, controlRef, sceneRef]);
 
+  // ─── The name: shown while hovered, for a moment after a tap, while focused; never left up ───
+  const [nameBy, setNameBy] = useState({ hover: false, tap: false, focus: false });
+  const nameShown = !isEditing && (nameBy.hover || nameBy.tap || nameBy.focus);
+  const hoverGrace = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setHover = useCallback((on: boolean) => {
+    if (hoverGrace.current) clearTimeout(hoverGrace.current);
+    hoverGrace.current = null;
+    if (on) setNameBy((n) => (n.hover ? n : { ...n, hover: true }));
+    // A short grace on leaving, so the name does not flicker at the body's edge
+    else hoverGrace.current = setTimeout(() => setNameBy((n) => (n.hover ? { ...n, hover: false } : n)), NAME_HOVER_GRACE_MS);
+  }, []);
+  const showNameForTap = useCallback(() => {
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    setNameBy((n) => (n.tap ? n : { ...n, tap: true }));
+    tapTimer.current = setTimeout(() => setNameBy((n) => ({ ...n, tap: false })), NAME_TAP_MS);
+  }, []);
+  const hideNameForTap = useCallback(() => {
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    tapTimer.current = null;
+    setNameBy((n) => (n.tap ? { ...n, tap: false } : n));
+  }, []);
+  useEffect(() => () => {
+    if (hoverGrace.current) clearTimeout(hoverGrace.current);
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+  }, []);
+
   // ─── Taps and drags in the room ───
   const press = useRef<{ id: number; x: number; y: number; t: number; item: number | null; dragging: boolean } | null>(null);
 
@@ -431,6 +473,11 @@ export function RoomShell({
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const p = press.current;
     const scene = sceneRef.current;
+    // A hovering pointer over the Blobbi shows its name; nothing pressed (no drag, no press in progress), not while decorating
+    if (blobbiName && !editor && scene && e.pointerType !== 'touch') {
+      const { x, y } = localPoint(e);
+      setHover(e.buttons === 0 && !p && scene.overActor(x, y, MAIN_BLOBBI));
+    }
     if (!p || p.id !== e.pointerId || !scene || !editor || p.item === null) return;
     const { x, y } = localPoint(e);
     if (!p.dragging) {
@@ -438,7 +485,7 @@ export function RoomShell({
       p.dragging = scene.beginDrag(p.item, p.x, p.y);
     }
     if (p.dragging) scene.dragTo(x, y);
-  }, [editor, sceneRef]);
+  }, [editor, sceneRef, blobbiName, setHover]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     const p = press.current;
@@ -461,8 +508,13 @@ export function RoomShell({
     const hit = scene.pick(x, y);
     if (hit?.kind === 'actor') {
       scene.hop(hit.id);
+      if (hit.id === MAIN_BLOBBI) showNameForTap();
       onBlobbiTap?.(hit.id);
-    } else if (hit?.kind === 'item') {
+      return;
+    }
+    // A tap anywhere else puts the name away
+    hideNameForTap();
+    if (hit?.kind === 'item') {
       scene.poke(hit.index);
       scene.toggleLamp(hit.index);
       const interaction = furniturePlacements?.[hit.index] && resolveFurniture(furniturePlacements[hit.index].id)?.interaction;
@@ -470,7 +522,7 @@ export function RoomShell({
     } else if (hit?.kind === 'floor') {
       scene.walkTo(hit.x, hit.z);
     }
-  }, [editor, sceneRef, furniturePlacements, onInteract, onBlobbiTap]);
+  }, [editor, sceneRef, furniturePlacements, onInteract, onBlobbiTap, showNameForTap, hideNameForTap]);
 
   const onPointerCancel = useCallback((e: React.PointerEvent) => {
     if (press.current?.id !== e.pointerId) return;
@@ -509,6 +561,7 @@ export function RoomShell({
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerCancel}
+          onPointerLeave={() => setHover(false)}
           aria-hidden
           data-testid="room-tap-layer"
         />
@@ -516,7 +569,7 @@ export function RoomShell({
 
       {/* Things standing in the room, placed by the scene each frame */}
       <div ref={worldAnchorsRef} className="absolute inset-0 z-[5] pointer-events-none" aria-hidden={!stage}>
-        {(stage || blobbiOverlay) && blobbiVisible && (
+        {(stage || blobbiOverlay || blobbiName) && blobbiVisible && (
           <div
             data-anchor="blobbi"
             data-testid="room-blobbi-anchor"
@@ -533,6 +586,29 @@ export function RoomShell({
               </div>
             )}
             {blobbiOverlay && !isEditing && <div className="absolute left-0 top-0" data-testid="room-blobbi-overlay">{blobbiOverlay}</div>}
+            {blobbiName && (
+              <>
+                {/* The name over its head, on demand only; the screen reader has it from the stand-in below */}
+                <span className="room-name-tag room-blobbi-name" data-shown={nameShown} aria-hidden data-testid="room-blobbi-name">
+                  <span className="room-name-tag__dot" style={{ background: blobbiName.color }} />
+                  {blobbiName.text}
+                </span>
+                {/* The Blobbi for the keyboard: focus shows the name; Enter says hello (a hop). Never in the pointer's way. */}
+                <button
+                  type="button"
+                  className="room-blobbi-focus"
+                  aria-label={`${blobbiName.text}, your Blobbi`}
+                  onFocus={() => setNameBy((n) => ({ ...n, focus: true }))}
+                  onBlur={() => setNameBy((n) => ({ ...n, focus: false }))}
+                  onClick={() => {
+                    sceneRef.current?.hop(MAIN_BLOBBI);
+                    onBlobbiTap?.(MAIN_BLOBBI);
+                  }}
+                  tabIndex={isEditing ? -1 : 0}
+                  data-testid="room-blobbi-focus"
+                />
+              </>
+            )}
           </div>
         )}
         {is3d && !isEditing && guests?.map((g) => (
@@ -633,11 +709,14 @@ export function RoomShell({
 
       <div className="flex-1 min-h-0" />
 
-      {/* Dock: inline activity, then the bar */}
+      {/* Dock: inline activity, then the per-room bar on Ditto's arc */}
       {!isEditing && (
         <div data-room-bottom className="room-dock relative z-[15] shrink-0">
           {middleSlot}
-          {children}
+          <div className="relative">
+            <ArcBackground variant="up-subtle" />
+            {children}
+          </div>
         </div>
       )}
 

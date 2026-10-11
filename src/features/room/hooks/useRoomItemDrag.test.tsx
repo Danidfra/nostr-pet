@@ -1,7 +1,6 @@
 /**
- * Carrying an item into the room: a mouse lifts it past the slop in any
- * direction, a finger only upward or downward (sideways is the strip
- * scrolling); a press that never lifts is a tap (it selects); and every
+ * Carrying an item into the room: past the slop it lifts, mouse or finger,
+ * in any direction; a press that never lifts is a tap; and every
  * other ending (cancel, blur, Escape, the caller's cancel) drops nothing.
  * The ghost moves without React rendering.
  */
@@ -69,19 +68,14 @@ describe('carrying an item into the room', () => {
     expect(onDrop).not.toHaveBeenCalled();
   });
 
-  it('a finger moving sideways is scrolling the strip: no lift, no drop, no tap; moving up lifts the item', () => {
+  it('a finger carries the item in any direction once past the slop, as in Ditto (the middle card is touch-none)', () => {
     const { onDrop, onTap } = setup();
     press('touch');
     move(160, 304, 'touch');
-    expect(screen.getByTestId('session')).toHaveTextContent('none');
-    up(200, 304);
-    expect(onDrop).not.toHaveBeenCalled();
-    expect(onTap).not.toHaveBeenCalled();
-    press('touch');
-    move(104, 250, 'touch');
     expect(screen.getByTestId('session')).toHaveTextContent('apple:lifted');
-    up(104, 200);
-    expect(onDrop).toHaveBeenCalledTimes(1);
+    up(200, 304);
+    expect(onDrop).toHaveBeenCalledWith('apple', 200, 304);
+    expect(onTap).not.toHaveBeenCalled();
   });
 
   it('pointercancel, losing the window, Escape and the caller\'s cancel each end the drag with nothing dropped', () => {

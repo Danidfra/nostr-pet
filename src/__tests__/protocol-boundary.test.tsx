@@ -246,19 +246,23 @@ describe('The 3D room keeps the boundary', () => {
     window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 9, clientX: x, clientY: y, pointerType: 'mouse' }));
     window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 9, clientX: x, clientY: y }));
   };
-  const roomTiles = () => within(screen.getByTestId('room-item-list')).getAllByRole('option');
-  const ownedTile = () => roomTiles().find((t) => t.dataset.source === 'owned')!;
+  /** The carousel's middle item, stepped to the first of this source. */
+  const middleOf = (source: 'owned' | 'starter') => {
+    for (let i = 0; i < 40 && screen.getByTestId('room-item-use').dataset.source !== source; i++) fireEvent.click(screen.getByTestId('room-item-next'));
+    return screen.getByTestId('room-item-use');
+  };
   async function inRoom() {
     renderRoom();
-    await screen.findByTestId('room-care-panel');
-    await waitFor(() => expect(screen.getAllByTestId('room-item-badge').some((b) => b.textContent!.startsWith('×'))).toBe(true));
+    await screen.findByTestId('room-bar');
+    await waitFor(() => expect(middleOf('owned').dataset.source).toBe('owned'));
   }
 
-  it('selecting, the arrow keys, carrying off the floor, rooms, and the 2D/3D switch write nothing', async () => {
+  it('stepping the carousel, the arrow keys, carrying off the floor, rooms, and the 2D/3D switch write nothing', async () => {
     await inRoom();
-    fireEvent.click(ownedTile());
-    fireEvent.keyDown(screen.getByTestId('room-item-list'), { key: 'ArrowRight' });
-    carry(ownedTile(), 300, -40);
+    fireEvent.click(screen.getByTestId('room-item-next'));
+    fireEvent.click(screen.getByTestId('room-item-prev'));
+    fireEvent.keyDown(screen.getByTestId('room-item-carousel'), { key: 'ArrowRight' });
+    carry(middleOf('owned'), 300, -40);
     await new Promise((r) => setTimeout(r, 0));
     for (const side of ['room-nav-left', 'room-nav-right', 'room-nav-right'] as const) fireEvent.click(screen.getByTestId(side));
     fireEvent.click(screen.getByTestId('room-appearance-toggle'));
@@ -271,14 +275,12 @@ describe('The 3D room keeps the boundary', () => {
 
   it('its uses write the home\'s kinds exactly: a starter 31124 and 1124, an owned item 1416, 31124 and 1124', async () => {
     await inRoom();
-    const starter = roomTiles().find((t) => t.dataset.source === 'starter')!;
-    fireEvent.click(starter);
-    fireEvent.click(screen.getByTestId('room-item-use'));
+    fireEvent.click(middleOf('starter'));
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });
     await waitFor(() => expect(screen.getByTestId('room-item-use')).toBeEnabled(), { timeout: 3000 });
     relay.published = [];
     await new Promise((r) => setTimeout(r, 0));
-    carry(ownedTile(), 300, 400);
+    carry(middleOf('owned'), 300, 400);
     await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
   });
 });

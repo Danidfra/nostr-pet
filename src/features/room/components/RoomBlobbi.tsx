@@ -6,7 +6,8 @@
  * px per tile there), which scales the BLOBBI_BOX_PX art box to the Blobbi's
  * size at that spot in the room. The body bottom is aligned to the anchor
  * using the renderer's own ground line, and the name floats above it at a
- * readable size. The 3D scene draws the Blobbi's shadow.
+ * readable size (a visitor's; the user's Blobbi's name is shown by the room,
+ * on demand). The 3D scene draws the Blobbi's shadow.
  *
  * The drawing is the kit's `BlobbiRenderer` over `toBlobbiVisual`, exactly
  * as the 2D home draws it: V1, V2 and V3 all come through here, and the
@@ -94,9 +95,10 @@ export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function R
   return (
     <Standing
       inset={inset}
+      // The user's Blobbi's name is the room's to show, on demand (RoomShell); a visitor wears its own tag
       nameTag={
-        !isEgg && (
-          <span className={variant === 'main' ? 'room-name-tag' : 'room-name-tag room-name-tag--guest'}>
+        !isEgg && variant === 'guest' && (
+          <span className="room-name-tag room-name-tag--guest">
             <span className="room-name-tag__dot" style={{ background: visual.baseColor }} aria-hidden />
             {blobbi.name}
           </span>

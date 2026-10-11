@@ -91,6 +91,8 @@ export interface RoomCare {
   /** A failed rest write, or a short notice (a walk that could not reach the item). */
   error: Error | null;
   notice: string | null;
+  /** Say something short (why an item cannot be used now). */
+  notify: (text: string) => void;
 }
 
 /** How long a notice stays. */
@@ -278,6 +280,7 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
     feedback,
     error: care.error,
     notice,
+    notify: setNotice,
   };
 }
 

@@ -51,6 +51,45 @@ export function blobbiBoxTiles(stage: string): number {
   return BLOBBI_HEIGHT_TILES[stage as BlobbiSizeStage] ?? BLOBBI_HEIGHT_TILES.baby;
 }
 
+/**
+ * How far a Blobbi's body reaches from the point it stands on, as fractions
+ * of its art box (the room scales them by `blobbiBoxTiles`): toward the two
+ * back walls, and toward the open front edges of the floor. Measured, not
+ * chosen: the 3D model is the kit's drawing in depth, so its outline (ink
+ * line, arms, tails, ears) posed at every heading IS the visual footprint of
+ * both renderers. Over 122 body shapes per stage (60 addresses, every trait
+ * fixture, appendage pair and gene bound), the widest reached 0.370 of the
+ * box for an adult in any direction; a baby 0.313 upright and 0.421 toward
+ * the back walls when it leans back from the camera (`ROOM_LEAN`).
+ * `room-reach.test.ts` holds every shape to these. The scene keeps a
+ * standing point at least this far from each edge, so no body ever reaches
+ * into a wall or hangs over the floor's edge.
+ */
+const BLOBBI_REACH = { egg: { back: 0.36, front: 0.36 }, baby: { back: 0.43, front: 0.32 }, adult: { back: 0.38, front: 0.38 } } as const;
+
+export interface BlobbiReach {
+  /** Toward the back walls (the x = 0 and z = 0 planes), in tiles. */
+  back: number;
+  /** Toward the open front edges (x = G, z = G), in tiles. */
+  front: number;
+}
+
+/** A Blobbi's reach in tiles for its stage (unknown stages reach as babies). */
+export function blobbiReachTiles(stage: string): BlobbiReach {
+  const f = BLOBBI_REACH[stage as BlobbiSizeStage] ?? BLOBBI_REACH.baby;
+  const box = blobbiBoxTiles(stage);
+  return { back: f.back * box, front: f.front * box };
+}
+
+/** The reach fractions themselves, for the test that holds every body shape to them. */
+export const BLOBBI_REACH_FRACTIONS = BLOBBI_REACH;
+
+/** Keep a standing point at least `reach` from every edge of the floor (the middle, if the room is narrower than the body). */
+export function clampToReach(v: number, reach: BlobbiReach, extent = ROOM_GRID): number {
+  if (reach.back + reach.front >= extent) return extent / 2;
+  return Math.min(extent - reach.front, Math.max(reach.back, v));
+}
+
 /** Clamp a floor coordinate so a footprint of `size` tiles stays inside the room. */
 export function clampToRoom(center: number, size: number, extent = ROOM_GRID): number {
   const half = size / 2;

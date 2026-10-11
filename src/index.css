@@ -1107,204 +1107,41 @@
     backdrop-filter: blur(12px);
     border-top: 1px solid hsl(var(--border) / 0.4);
   }
-  /* ─── Care in the 3D room (milestone 4): the dock's panel, the item strip, items in the room ─── */
-  .room-care-panel {
+  /* ─── Care in the 3D room (milestone 4): the bar is Ditto's (Tailwind, room-ui.ts); here, what it does not cover ─── */
+  /* Ditto's guide pulse, for the carousel's middle card when a piece of furniture points at it */
+  @keyframes guide-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+  }
+  .room-header-back {
     display: flex;
-    flex-direction: column;
-    gap: 0.4em;
-    padding: 0.55em 0.75em 0.45em;
-    background: hsl(var(--background) / 0.8);
-    backdrop-filter: blur(12px);
-    border-top: 1px solid hsl(var(--border) / 0.35);
-  }
-  .room-item-strip {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 0.3em;
-    min-width: 0;
-  }
-  .room-item-strip__glow {
-    position: absolute;
-    inset: -0.3em;
-    border-radius: 1em;
-    pointer-events: none;
-    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.55);
-    animation: room-strip-glow 1.4s ease-out forwards;
-  }
-  @keyframes room-strip-glow {
-    from { opacity: 1; }
-    to { opacity: 0; }
-  }
-  .room-item-strip__list {
-    display: flex;
-    flex: 1 1 auto;
-    min-width: 0;
-    gap: 0.4em;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    padding: 0.15em 0.1em 0.2em;
-  }
-  .room-item-strip__list::-webkit-scrollbar {
-    display: none;
-  }
-  .room-item-strip__empty {
-    padding: 0.6em 0.25em;
-    text-align: center;
-    font-size: 0.8em;
-    color: hsl(var(--muted-foreground));
-  }
-  .room-item-tile {
-    position: relative;
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.15em;
-    width: 4.6em;
-    min-height: 4.4em;
-    padding: 0.3em 0.2em 0.25em;
-    border-radius: 0.9em;
-    border: 1px solid hsl(var(--border) / 0.35);
-    background: hsl(var(--background) / 0.7);
-    scroll-snap-align: start;
-    cursor: grab;
-    /* A finger pans the strip sideways; anything else is the item's (it lifts into the room) */
-    touch-action: pan-x;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    transition: background-color 150ms, box-shadow 150ms, transform 150ms;
-  }
-  .room-item-tile:hover {
-    background: hsl(var(--background));
-  }
-  .room-item-tile:focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
-  }
-  .room-item-tile--on {
-    background: hsl(var(--primary) / 0.12);
-    box-shadow: inset 0 0 0 1.5px hsl(var(--primary) / 0.65);
-  }
-  .room-item-tile--off {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .room-item-tile__name {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.68em;
-    font-weight: 600;
-    color: hsl(var(--foreground));
-  }
-  .room-item-tile__badge {
-    position: absolute;
-    top: 0.2em;
-    right: 0.25em;
+    width: 2.25em;
+    height: 2.25em;
     border-radius: 9999px;
-    padding: 0 0.4em;
-    font-size: 0.6em;
-    font-weight: 700;
-    line-height: 1.5;
-  }
-  .room-item-tile__badge--starter {
-    background: hsl(var(--muted) / 0.9);
-    color: hsl(var(--muted-foreground));
-  }
-  .room-item-tile__badge--owned {
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-  }
-  .room-item-tile__spinner {
-    position: absolute;
-    bottom: 0.2em;
-    left: 0.3em;
-  }
-  .room-use-button {
-    flex: 0 0 auto;
-    align-self: center;
-    min-width: 3.6em;
-    min-height: 2.75rem;
-    padding: 0 0.9em;
-    border-radius: 9999px;
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-    font-size: 0.85em;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 10px -4px hsl(var(--primary) / 0.6);
-    transition: opacity 150ms, transform 150ms;
-  }
-  .room-use-button:disabled {
-    opacity: 0.4;
-    box-shadow: none;
-  }
-  .room-use-button:not(:disabled):active {
-    transform: scale(0.96);
-  }
-  .room-use-button:focus-visible,
-  .room-rest-button:focus-visible,
-  .room-chip-button:focus-visible,
-  .room-strip-close:focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
-  }
-  .room-strip-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.8em;
-    height: 1.8em;
-    border-radius: 9999px;
-    color: hsl(var(--foreground) / 0.7);
-  }
-  .room-strip-close:hover {
-    background: hsl(var(--foreground) / 0.08);
-  }
-  .room-rest-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.75em;
-    padding: 0.2em 0.25em;
-  }
-  .room-rest-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5em;
-    min-height: 2.75rem;
-    padding: 0 1.1em;
-    border-radius: 9999px;
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-    font-weight: 700;
-    font-size: 0.9em;
-    flex: 0 0 auto;
-  }
-  .room-rest-button:disabled {
-    opacity: 0.5;
-  }
-  .room-care-notice {
-    font-size: 0.75em;
-    text-align: center;
     color: hsl(var(--foreground) / 0.75);
   }
-  .room-offer-failure {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.4em;
-    padding: 0.4em 0.5em;
-    border-radius: 0.8em;
-    border: 1px solid hsl(var(--destructive) / 0.35);
-    background: hsl(var(--card) / 0.9);
+  .room-header-back:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--foreground) / 0.08);
+  }
+  .room-header-back svg {
+    width: 1.2em;
+    height: 1.2em;
+  }
+  /* An image or icon item drawn at the text's size, without the inventory's tile behind it */
+  .room-item-icon.item-glyph {
+    background: none;
+    box-shadow: none;
+    border: 0;
+    border-radius: 0;
+    vertical-align: -0.1em;
+  }
+  .room-chip-button:focus-visible,
+  .room-header-back:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
   .room-chip-button {
     display: inline-flex;
@@ -1394,16 +1231,42 @@
     transform: translateX(-50%);
     filter: drop-shadow(0 2px 2px hsl(0 0% 0% / 0.2));
   }
-  /* The name over a 3D Blobbi (the 2D drawing has its own); above the head, unscaled so it stays readable */
-  .room-overlay-name {
+  /* The user's Blobbi's name, over its head, on demand (RoomShell: hover, a tap, keyboard focus); unscaled so it stays readable */
+  .room-blobbi-name {
     position: absolute;
-    left: 50%;
-    top: 10%;
-    transform: translate(-50%, -100%);
-    display: none;
+    left: 0;
+    bottom: calc(var(--anchor-px, 100) * var(--blobbi-tiles, 2) * 0.9px);
+    transform: translateX(-50%);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 160ms ease-out, visibility 0s linear 160ms;
   }
-  [data-render='3d'] .room-overlay-name {
-    display: inline-flex;
+  .room-blobbi-name[data-shown='true'] {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 160ms ease-out, visibility 0s;
+  }
+  /* The Blobbi for the keyboard: over its body, invisible, never in the pointer's way; a ring when focused */
+  .room-blobbi-focus {
+    position: absolute;
+    left: calc(var(--anchor-px, 100) * var(--blobbi-tiles, 2) * -0.3px);
+    bottom: 0;
+    width: calc(var(--anchor-px, 100) * var(--blobbi-tiles, 2) * 0.6px);
+    height: calc(var(--anchor-px, 100) * var(--blobbi-tiles, 2) * 0.85px);
+    border-radius: 45%;
+    background: none;
+    pointer-events: none;
+  }
+  .room-blobbi-focus:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .room-blobbi-name,
+    .room-blobbi-name[data-shown='true'] {
+      transition: none;
+    }
   }
   .room-drop-ring {
     position: absolute;
@@ -1436,8 +1299,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .room-floor-item__glyph,
-    .room-item-strip__glow {
+    .room-floor-item__glyph {
       animation: none;
     }
     .room-floor-item[data-phase='using'] .room-floor-item__glyph,

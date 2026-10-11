@@ -72,7 +72,10 @@ describe('the /room preview', () => {
     expect(anchor.querySelector('[data-blobbi-renderer]')).toHaveAttribute('data-blobbi-facing', 'front');
     expect(screen.getByTestId('room-shell')).toHaveAttribute('data-room', 'home');
     expect(screen.getByTestId('room-label')).toHaveTextContent(roomById('home').label);
-    expect(screen.getByTestId('room-dock')).toHaveTextContent('Brook');
+    expect(screen.getByTestId('room-header-name')).toHaveTextContent('Brook');
+    // Its name is not left over its head: it shows on demand
+    expect(screen.getByTestId('room-blobbi-name')).toHaveAttribute('data-shown', 'false');
+    expect(screen.getByRole('button', { name: 'Brook, your Blobbi' })).toBeInTheDocument();
     expect(screen.getByTestId('room-back')).toHaveAttribute('href', '/');
     expect(relay.published.filter((e) => e.kind === KIND_BLOBBI_STATE)).toHaveLength(0);
     expect(relay.published).toHaveLength(0);

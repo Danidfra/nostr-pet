@@ -39,13 +39,14 @@ import { useRoomDecorator } from './hooks/useRoomDecorator';
 import { useRoomActorModel } from './hooks/useRoomActorModel';
 import { useRoomCare } from './hooks/useRoomCare';
 import { useRoomItemDrag } from './hooks/useRoomItemDrag';
-import { RoomCarePanel } from './components/RoomCarePanel';
+import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
+import { RoomHeader } from './components/RoomHeader';
 import { RoomBlobbiOverlay, RoomDragGhost, RoomFloorItem } from './components/RoomCareParts';
 import { useReactionPolicy } from '@/features/home/scene/useReactionPolicy';
 import { roomById, type RoomActivity } from '@/features/home/rooms/rooms';
 import { resolveFurniture, type FurnitureInteraction } from './lib/furniture-3d';
 import { MAIN_BLOBBI } from './lib/room-geometry';
-import { emptyShelfText, planDrop, planUse, shelfEntries, shelfKey, type CareShelf, type DropPlace, type RoomCareEntry } from './lib/room-care';
+import { planDrop, planUse, shelfEntries, shelfKey, type CareShelf, type DropPlace, type RoomCareEntry } from './lib/room-care';
 import { RoomAppearanceControl } from './components/RoomAppearanceControl';
 import { useBlobbiAppearance } from './lib/blobbi-appearance';
 import { useRoomSession } from './lib/room-session';
@@ -53,7 +54,8 @@ import { roomStoreKey, type LoadStatus, type SaveStatus } from './lib/room-store
 import { walkSpeedFor } from './lib/room-pace';
 import { travelGaze } from './lib/room-gaze';
 
-const STAGE_WORD: Record<BlobbiCompanion['stage'], string> = { egg: 'Egg', baby: 'Baby', adult: 'Adult' };
+/** How long the carousel pulses when a piece of furniture points at it (one turn of Ditto's guide pulse). */
+const PULSE_MS = 2_600;
 
 export default function RoomPreviewPage() {
   const home = useHomeBlobbi();
@@ -148,7 +150,13 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
 
   // What the strip shows: the room's own shelf, or what a piece of furniture opened (until the room changes)
   const [furnitureShelf, setFurnitureShelf] = useState<CareShelf | null>(null);
-  const [highlight, setHighlight] = useState(0);
+  // A piece of furniture pointed at the carousel: its middle card pulses for a moment (Ditto's guide ring)
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    if (!pulse) return;
+    const timer = setTimeout(() => setPulse(false), PULSE_MS);
+    return () => clearTimeout(timer);
+  }, [pulse]);
   useEffect(() => setFurnitureShelf(null), [roomId]);
   const shelf = useMemo<CareShelf>(() => furnitureShelf ?? { kind: 'room', roomId }, [furnitureShelf, roomId]);
   const hasStrip = furnitureShelf !== null || (roomId !== 'rest' && roomId !== 'closet');
@@ -225,7 +233,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
     const own = roomById(roomId).activities;
     const same = opened.activities.length === own.length && opened.activities.every((a) => own.includes(a));
     setFurnitureShelf(same ? null : { kind: 'furniture', label: opened.label, activities: opened.activities });
-    setHighlight((h) => h + 1);
+    setPulse(true);
   }, [placements, rest, roomId]);
 
   const offer = care.offer;
@@ -236,6 +244,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
       : []),
     [offer, offerGlyph, roomId, care.putAway],
   );
+  // Its name, shown over its head on demand (hover, tap, keyboard focus), in 2D and 3D alike
   const nameTag = useMemo(() => ({ text: blobbi.name, color: toBlobbiVisual(blobbi).baseColor }), [blobbi]);
   const handed = offer && offer.place.kind === 'hand' && offer.phase !== 'failed' && offerGlyph ? { glyph: offerGlyph, phase: offer.phase } : null;
   const editor = useMemo((): RoomEditorBinding | undefined => {
@@ -281,51 +290,33 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         decorateDisabled={care.busy}
         onInteract={onInteract}
         floorThings={floorThings}
-        blobbiOverlay={<RoomBlobbiOverlay feedback={care.feedback} handed={handed} name={blobbi.stage === 'egg' ? undefined : nameTag} />}
-        middleSlot={
-          <RoomCarePanel
-            blobbi={blobbi}
-            roomId={roomId}
-            strip={hasStrip ? {
-              title: furnitureShelf?.kind === 'furniture' ? furnitureShelf.label : roomById(roomId).description,
-              entries,
-              selectedKey,
-              onSelect: selectItem,
-              onUse,
-              onDragStart,
-              emptyText: emptyShelfText(shelf, blobbi),
-              onClose: furnitureShelf ? () => setFurnitureShelf(null) : undefined,
-              highlightKey: highlight || undefined,
-            } : null}
-            offer={offer}
-            busy={care.busy}
-            onRetry={care.retry}
-            onPutAway={care.putAway}
-            onRest={() => rest(bed)}
-            restPending={care.restPending}
-            hasBed={bed !== null}
-            closetHint={roomById('closet').emptyHint}
-            error={care.error}
-            notice={care.notice ?? storeNotice}
-          />
-        }
+        blobbiOverlay={<RoomBlobbiOverlay feedback={care.feedback} handed={handed} />}
+        blobbiName={nameTag}
+        header={<RoomHeader name={blobbi.name} stage={blobbi.stage} />}
+        middleSlot={<RoomCareCards offer={offer} onRetry={care.retry} onPutAway={care.putAway} error={care.error} notice={care.notice ?? storeNotice} />}
         blobbiModel={actor3d.model}
         hudEnd={<RoomAppearanceControl appearance={appearance} onChange={setAppearance} unavailable3d={actor3d.unavailable3d} />}
         editor={editor}
         stage={<RoomBlobbi ref={actorRef} blobbi={blobbi} facing={facing} motion={motion} eyeOffset={eyeOffset} expression={expression} />}
       >
-        <div className="room-dock-bar" data-testid="room-dock" data-motion={motion} data-facing={facing}>
-          <Link to="/" className="room-hud-button" aria-label="Back to the home" data-testid="room-back">
-            <ArrowLeft />
-          </Link>
-          <div className="min-w-0 flex-1 text-center">
-            <p className="truncate text-sm font-bold">{blobbi.name}</p>
-            <p className="truncate text-[11px] text-foreground/70">
-              {STAGE_WORD[blobbi.stage]} · 3D room preview{actor3d.model ? ' · drawn in 3D' : ''} · {motion === 'walking' ? `walking, faces ${facing}` : 'standing'}
-            </p>
-          </div>
-          <span className="size-[2.75em] shrink-0" aria-hidden />
-        </div>
+        <RoomBottomBar
+          blobbi={blobbi}
+          roomId={roomId}
+          carousel={hasStrip ? {
+            entries,
+            focusedKey: selectedKey,
+            onFocus: selectItem,
+            onUse,
+            onBlocked: (entry) => care.notify(entry.reason ?? 'Not right now.'),
+            onDragStart,
+            onClose: furnitureShelf ? () => setFurnitureShelf(null) : undefined,
+            highlight: pulse,
+          } : null}
+          offer={offer}
+          busy={care.busy}
+          onRest={() => rest(bed)}
+          restPending={care.restPending}
+        />
       </RoomShell>
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
     </div>

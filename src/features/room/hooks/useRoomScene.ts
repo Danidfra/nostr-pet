@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import type { BlobbiReach } from '../lib/room-geometry';
 
 import type { FurniturePlacement } from '../lib/room-furniture';
 import type { RoomLayout } from '../lib/room-layout';
@@ -29,6 +30,8 @@ export interface SceneBlobbi {
   sleeping: boolean;
   /** Tiles per second, the pace of its gait (room-pace.ts). */
   walkSpeed?: number;
+  /** How far its body reaches (tiles, `blobbiReachTiles`): kept clear of the walls and the floor's edge. */
+  reach?: BlobbiReach;
 }
 
 export interface SceneGuest {
@@ -37,6 +40,7 @@ export interface SceneGuest {
   tiles: number;
   spawn?: { x: number; z: number };
   walkSpeed?: number;
+  reach?: BlobbiReach;
 }
 
 interface UseRoomSceneOptions {

@@ -9,10 +9,10 @@
  * `onDrop` with the screen point; a press that never lifted is a tap
  * (`onTap`), which only selects: nothing here ever uses an item.
  *
- * Touch: the strip scrolls sideways under a finger (`touch-action: pan-x`
- * on its tiles), and the browser cancels the pointer when it takes over the
- * pan; only a mostly upward or downward move lifts an item, so scrolling
- * the strip never drags. A mouse lifts in any direction.
+ * Touch: the carousel's middle card is `touch-none`, as in Ditto, so a
+ * finger on it carries the item in any direction; the arrows and previews
+ * (which only move the focus) are plain buttons, and the dock never turns a
+ * swipe into a room change (the shell ignores touches on `data-room-bottom`).
  *
  * Ends without a drop: pointercancel, the window losing focus, Escape, and
  * `cancel()` (the caller's: a room switch, the item gone or no longer
@@ -68,7 +68,6 @@ export function useRoomItemDrag(options: UseRoomItemDragOptions) {
       if (!e.isPrimary || e.button > 0) return;
       cancel();
       const pid = e.pointerId;
-      const touch = e.pointerType === 'touch' || e.pointerType === 'pen';
       const startX = e.clientX;
       const startY = e.clientY;
       let lifted = false;
@@ -87,11 +86,6 @@ export function useRoomItemDrag(options: UseRoomItemDragOptions) {
           const dx = ev.clientX - startX;
           const dy = ev.clientY - startY;
           if (Math.hypot(dx, dy) < DRAG_SLOP) return;
-          // A finger moving sideways is scrolling the strip, not carrying the item
-          if (touch && Math.abs(dy) < Math.abs(dx)) {
-            cancel();
-            return;
-          }
           lifted = true;
           activeRef.current = { key, lifted: true };
           setSession({ key, lifted: true });

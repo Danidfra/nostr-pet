@@ -79,7 +79,7 @@ describe('the Blobbi\'s appearance in the room', () => {
     choose('3d');
     expect(shell()).toHaveAttribute('data-blobbi-render', '3d');
     expect(screen.getByTestId('room-appearance-3d')).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByTestId('room-dock')).toHaveTextContent('drawn in 3D');
+    expect(screen.getByTestId('room-appearance-toggle')).toHaveAttribute('data-appearance', '3d');
     choose('2d');
     expect(shell()).toHaveAttribute('data-blobbi-render', '2d');
     expect(screen.getByTestId('room-blobbi-anchor').querySelector('[data-blobbi-renderer]')).not.toBeNull();
@@ -117,7 +117,7 @@ describe('the Blobbi\'s appearance in the room', () => {
     expect(shell()).toHaveAttribute('data-room', room!);
     expect(screen.getByTestId('room-blobbi-anchor')).toBe(anchor);
     expect(anchor.style.getPropertyValue('--blobbi-tiles')).toBe(String(blobbiBoxTiles('adult')));
-    expect(screen.getByTestId('room-dock')).toHaveTextContent('Brook');
+    expect(screen.getByTestId('room-header-name')).toHaveTextContent('Brook');
     choose('2d');
     expect(shell()).toHaveAttribute('data-room', room!);
   });

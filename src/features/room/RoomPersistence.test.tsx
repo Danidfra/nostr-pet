@@ -106,7 +106,7 @@ describe('decorating kept on this device', () => {
   it('Save keeps a room through room switches and a reload; Cancel and the draft write nothing', async () => {
     signedIn();
     const first = renderRoom();
-    await screen.findByTestId('room-care-panel');
+    await screen.findByTestId('room-bar');
     const defaults = roomFurnitureFor('home').length;
     addAPlantAnd('cancel');
     expect(storedKeys()).toEqual([]);
@@ -121,7 +121,7 @@ describe('decorating kept on this device', () => {
     first.unmount();
     // A reload: a new page, the same device
     renderRoom();
-    await screen.findByTestId('room-care-panel');
+    await screen.findByTestId('room-bar');
     expect(piecesInRoom()).toBe(defaults + 1);
     goTo('care');
     expect(piecesInRoom()).toBe(roomFurnitureFor('care').length);
@@ -131,12 +131,12 @@ describe('decorating kept on this device', () => {
   it('another Blobbi has its own rooms: what one saved never shows for the other', async () => {
     signedIn('0000000001');
     const first = renderRoom();
-    await screen.findByTestId('room-care-panel');
+    await screen.findByTestId('room-bar');
     addAPlantAnd('save');
     first.unmount();
     signedIn('0000000002');
     renderRoom();
-    await screen.findByTestId('room-care-panel');
+    await screen.findByTestId('room-bar');
     expect(piecesInRoom()).toBe(roomFurnitureFor('home').length);
     expect(localStorage.getItem(keyFor('0000000002'))).toBeNull();
   });
@@ -145,7 +145,7 @@ describe('decorating kept on this device', () => {
     signedIn();
     localStorage.setItem(keyFor('0000000001'), '{"v":1,"rooms":');
     renderRoom();
-    await screen.findByTestId('room-care-panel');
+    await screen.findByTestId('room-bar');
     expect(screen.getByTestId('room-care-notice')).toHaveTextContent(/could not be read/);
     expect(piecesInRoom()).toBe(roomFurnitureFor('home').length);
     // Saving again replaces the unreadable document with a good one
@@ -157,7 +157,7 @@ describe('decorating kept on this device', () => {
     signedIn();
     localStorage.setItem(keyFor('0000000001'), JSON.stringify({ v: 1, rooms: { home: { furniture: [{ id: 'official:plant-small', at: 'floor', x: 2.5, y: 6.5 }, { id: 'official:jukebox', at: 'floor', x: 4, y: 4 }] } } }));
     renderRoom();
-    await screen.findByTestId('room-care-panel');
+    await screen.findByTestId('room-bar');
     expect(screen.getByTestId('room-care-notice')).toHaveTextContent(/no longer available/);
     expect(piecesInRoom()).toBe(1);
   });

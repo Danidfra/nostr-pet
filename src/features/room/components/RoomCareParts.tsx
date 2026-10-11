@@ -10,6 +10,8 @@ import { RotateCcw, Undo2 } from 'lucide-react';
 
 import { ItemGlyph, type ItemGlyphModel } from '@/features/inventory';
 import { CareFeedback } from '@/features/home/CareFeedback';
+import { cx } from '../lib/cx';
+import { ROOM_CONTROL_SURFACE } from '../lib/room-ui';
 import type { RoomCareFeedback, RoomOffer } from '../hooks/useRoomCare';
 
 /** An item on the floor: waiting for the Blobbi (it can be put back), being used (eaten, played with, lathered), or failed (the dock says why). */
@@ -28,18 +30,18 @@ export function RoomFloorItem({ offer, glyph, onPutAway }: { offer: RoomOffer; g
   );
 }
 
-/** A use that failed, where the player looks: why, Try again (their tap, never by itself) and Put away. */
+/** A use that failed, where the player looks: why, Try again (their tap, never by itself) and Put away. Ditto's inline-card look. */
 export function RoomOfferFailure({ offer, onRetry, onPutAway }: { offer: RoomOffer; onRetry: () => void; onPutAway: () => void }) {
   return (
-    <div className="room-offer-failure" role="group" aria-label={`${offer.name} was not used`} data-testid="room-offer-failure">
-      <p className="min-w-0 flex-1 text-xs text-destructive" role="alert" data-testid="room-offer-error">
+    <div className={cx('flex flex-wrap items-center gap-2 rounded-2xl px-3 py-2', ROOM_CONTROL_SURFACE)} role="group" aria-label={`${offer.name} was not used`} data-testid="room-offer-failure">
+      <p className="min-w-0 flex-1 text-[0.8em] text-destructive" role="alert" data-testid="room-offer-error">
         {offer.name}: {offer.error ?? 'that did not work.'}
       </p>
       <button type="button" className="room-chip-button" onClick={onRetry} data-testid="room-offer-retry">
-        <RotateCcw className="size-3.5" aria-hidden /> Try again
+        <RotateCcw className="size-[1em]" aria-hidden /> Try again
       </button>
       <button type="button" className="room-chip-button room-chip-button--quiet" onClick={onPutAway} data-testid="room-offer-put-away">
-        <Undo2 className="size-3.5" aria-hidden /> Put away
+        <Undo2 className="size-[1em]" aria-hidden /> Put away
       </button>
     </div>
   );
@@ -51,16 +53,9 @@ export function RoomOfferFailure({ offer, onRetry, onPutAway }: { offer: RoomOff
  * head, hearts, the spoken result) sits on it as it does on the home, in 2D
  * or 3D. An item handed to it shows at its mouth while it is used.
  */
-export function RoomBlobbiOverlay({ feedback, handed, name }: { feedback: RoomCareFeedback | undefined; handed: { glyph: ItemGlyphModel; phase: RoomOffer['phase'] } | null; name?: { text: string; color: string | undefined } }) {
+export function RoomBlobbiOverlay({ feedback, handed }: { feedback: RoomCareFeedback | undefined; handed: { glyph: ItemGlyphModel; phase: RoomOffer['phase'] } | null }) {
   return (
     <div className="room-blobbi-overlay" aria-live="off">
-      {/* The 2D drawing carries its own name tag; this one shows only while the 3D model stands in its place (the anchor's data-render) */}
-      {name && (
-        <span className="room-name-tag room-overlay-name" aria-hidden data-testid="room-overlay-name">
-          <span className="room-name-tag__dot" style={{ background: name.color }} />
-          {name.text}
-        </span>
-      )}
       {/* Lit while an item is carried over the Blobbi (the shell's data-drop, set without a render) */}
       <span className="room-drop-ring" aria-hidden />
       {handed && (

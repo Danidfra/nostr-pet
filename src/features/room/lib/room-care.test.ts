@@ -14,7 +14,7 @@ import { blobbiEvent } from '@/test/fixtures';
 import { ISLAND_INVENTORY, OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_SOAP, officialCareDefinition } from '@/test/inventory-fixtures';
 import type { RoomId } from '@/features/home/rooms/rooms';
 import { ROOM_GRID } from './room-geometry';
-import { emptyShelfText, isHandFed, planDrop, planUse, setDownNear, shelfEntries, shelfKey, type CareShelf } from './room-care';
+import { isHandFed, planDrop, planUse, setDownNear, shelfEntries, shelfKey, type CareShelf } from './room-care';
 
 function blobbi(state: 'active' | 'sleeping' = 'active', stage: 'egg' | 'baby' | 'adult' = 'adult'): BlobbiCompanion {
   return parseModernBlobbiEvent(blobbiEvent('0000000003', { name: 'Moss', stage, state, visualGeneration: 'v3' }))!;
@@ -70,8 +70,6 @@ describe('what a room offers', () => {
     const unverified = shelfEntries(room('kitchen'), { starters: [], items: [owned(OFFICIAL_APPLE, 3, b, true)] });
     expect(unverified[0]).toMatchObject({ usable: false, quantity: 3 });
     expect(unverified[0].reason).toMatch(/verified/);
-    expect(emptyShelfText(room('kitchen'), asleep)).toMatch(/asleep/);
-    expect(emptyShelfText(room('home'), b)).toMatch(/Toys/);
   });
 
   it('a piece of furniture opens its own shelf (the toy box in any room), remembered apart from the room\'s', () => {

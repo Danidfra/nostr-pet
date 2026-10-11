@@ -21,8 +21,6 @@
  * with no quantity; that is NOT this app's economy and is not copied: an
  * owned item here shows its real balance and is spent on use.
  */
-import type { BlobbiCompanion } from '@blobbi-kit/core';
-
 import { optionKey, type CareChoice } from '@/features/home/care-model';
 import { roomById, roomShowsItem, type RoomActivity, type RoomId } from '@/features/home/rooms/rooms';
 import type { HomeInventory, HomeInventoryItem, HomeItem, ItemAction, ItemGlyphModel, StarterEntry } from '@/features/inventory';
@@ -92,12 +90,6 @@ function ownedEntry(entry: HomeInventoryItem): RoomCareEntry {
 /** Food and drink are handed to the Blobbi; everything else is set down for it to come to. */
 export function isHandFed(action: ItemAction): boolean {
   return action === 'feed' || action === 'boost';
-}
-
-/** What the room says about a shelf with nothing in it. */
-export function emptyShelfText(shelf: CareShelf, blobbi: Pick<BlobbiCompanion, 'state'>): string {
-  if (blobbi.state === 'sleeping') return 'Shh, your Blobbi is asleep.';
-  return shelf.kind === 'room' ? roomById(shelf.roomId).emptyHint : 'Nothing in here you can use right now.';
 }
 
 /** Where a drop lands, from what the room reports under the point. */

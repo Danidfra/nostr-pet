@@ -46,8 +46,10 @@ import {
   ROOM_GRID as G,
   SNO_FIT_TILES,
   WALL_HEIGHT as H,
+  clampToReach,
   clampToRoom,
   snapCenter,
+  type BlobbiReach,
 } from '../room-geometry';
 import type { WalkOutcome } from '@/features/home/scene/useBlobbiLocomotion';
 import type { BlobbiFacing } from '@blobbi-kit/renderer';
@@ -171,6 +173,15 @@ const WANDER_MS = [4500, 9000] as const;
 const SNO_MAX_HEIGHT = 3;
 /** Half a Blobbi's body width as a fraction of its art box: the clearance it keeps from furniture. */
 const BODY_HALF_WIDTH = 0.3;
+/** A Blobbi's reach when the caller gives none: the adult's fraction of its box, every way (`blobbiReachTiles` gives the measured one). */
+function defaultReach(tiles: number): BlobbiReach {
+  return { back: tiles * 0.38, front: tiles * 0.38 };
+}
+
+function sameReach(a: BlobbiReach, b: BlobbiReach): boolean {
+  return a.back === b.back && a.front === b.front;
+}
+
 /** How far a piece must come nearer the camera than a Blobbi's feet (in x + z) to be drawn over it. */
 const BODY_DEPTH = 0.5;
 /** Network objects no taller than this fraction of their footprint lie on the floor like rugs. */
@@ -426,6 +437,8 @@ interface Actor {
   facing: BlobbiFacing;
   /** The same, continuously: yaw about +y in the room (0 faces +z), toward the camera at rest. */
   heading: number;
+  /** How far its body reaches from where it stands (tiles): it keeps that clear of the walls and the floor's edge. */
+  reach: BlobbiReach;
   /** A 3D model standing in for the DOM drawing, driven each frame (`blobbi3d/actor.ts`). */
   model: ActorModel | null;
   /** The model has been on a drawn frame (its shaders compiled): the DOM drawing may step aside. */
@@ -673,7 +686,7 @@ export class RoomScene {
     this.requestRender();
   }
 
-  setBlobbi(blobbi: { visible: boolean; isEgg: boolean; tiles: number; sleeping: boolean; walkSpeed?: number }) {
+  setBlobbi(blobbi: { visible: boolean; isEgg: boolean; tiles: number; sleeping: boolean; walkSpeed?: number; reach?: BlobbiReach }) {
     const main = this.actors.get(MAIN)!;
     const sleepChanged = (this.sleepTarget === 1) !== blobbi.sleeping;
     if (main.visible && !blobbi.visible) {
@@ -684,6 +697,10 @@ export class RoomScene {
     main.isEgg = blobbi.isEgg;
     main.tiles = blobbi.tiles;
     main.speed = blobbi.walkSpeed ?? DEFAULT_WALK_SPEED;
+    const reachChanged = !sameReach(main.reach, blobbi.reach ?? defaultReach(blobbi.tiles));
+    main.reach = blobbi.reach ?? defaultReach(blobbi.tiles);
+    // A bigger body (a stage reached) steps clear of a wall it now reaches into
+    if (reachChanged && !main.path.length) this.keepClear(main);
     this.sleepTarget = blobbi.sleeping ? 1 : 0;
     if (this.reducedMotion) this.sleeping = this.sleepTarget;
     if (sleepChanged) this.spawnBlobbi();
@@ -695,7 +712,7 @@ export class RoomScene {
    * Visiting Blobbis. New ones appear at `spawn` (or beside the user's
    * Blobbi); ones no longer listed leave.
    */
-  setGuests(guests: { id: string; isEgg: boolean; tiles: number; spawn?: { x: number; z: number }; walkSpeed?: number }[]) {
+  setGuests(guests: { id: string; isEgg: boolean; tiles: number; spawn?: { x: number; z: number }; walkSpeed?: number; reach?: BlobbiReach }[]) {
     const ids = new Set(guests.map((g) => g.id));
     for (const id of [...this.actors.keys()]) {
       if (id !== MAIN && !ids.has(id)) this.removeActor(id);
@@ -704,12 +721,15 @@ export class RoomScene {
       let actor = this.actors.get(g.id);
       if (!actor) {
         actor = this.addActor(g.id, g.isEgg);
+        actor.tiles = g.tiles;
+        actor.reach = g.reach ?? defaultReach(g.tiles);
         const main = this.actors.get(MAIN)!;
         this.standNear(actor, g.spawn?.x ?? main.x + 1, g.spawn?.z ?? main.z + 1);
         actor.hop = 0.6;
       }
       actor.isEgg = g.isEgg;
       actor.tiles = g.tiles;
+      actor.reach = g.reach ?? defaultReach(g.tiles);
       actor.speed = g.walkSpeed ?? DEFAULT_WALK_SPEED;
     }
     this.shadowsDirty = true;
@@ -935,6 +955,18 @@ export class RoomScene {
     return floor ? { kind: 'floor', x: floor.x, z: floor.z } : null;
   }
 
+  /**
+   * Whether a canvas point is over a Blobbi or just above its head, where its
+   * name shows: a little taller than the tap target (`pick`), so moving from
+   * the body to the name never counts as leaving it.
+   */
+  overActor(sx: number, sy: number, id = MAIN): boolean {
+    const actor = this.actors.get(id);
+    if (!actor?.visible) return false;
+    const box = this.actorScreenBox(actor, 0.3, 1.1);
+    return !!box && sx > box.x0 && sx < box.x1 && sy > box.y0 && sy < box.y1;
+  }
+
   /** A Blobbi's body on screen: `halfWidth` and `height` are fractions of its art box. */
   private actorScreenBox(a: Actor, halfWidth: number, height: number) {
     const anchor = this.projectBlobbi(a.id);
@@ -1083,7 +1115,7 @@ export class RoomScene {
     contact.rotation.x = -Math.PI / 2;
     contact.renderOrder = 1;
     this.scene.add(caster, contact);
-    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, speed: DEFAULT_WALK_SPEED, path: [], walked: 0, facing: 'front', heading: AZIMUTH, model: null, modelDrawn: false, caster, contact, met: false };
+    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, speed: DEFAULT_WALK_SPEED, path: [], walked: 0, facing: 'front', heading: AZIMUTH, reach: { back: 0.5, front: 0.5 }, model: null, modelDrawn: false, caster, contact, met: false };
     this.actors.set(id, actor);
     return actor;
   }
@@ -1150,8 +1182,24 @@ export class RoomScene {
   /** Stand an actor on the free tile nearest (x, z). */
   private standNear(actor: Actor, x: number, z: number) {
     const [i, j] = this.nearestFreeTile(x, z, actor.id);
-    actor.x = i + 0.5;
-    actor.z = j + 0.5;
+    actor.x = clampToReach(i + 0.5, actor.reach);
+    actor.z = clampToReach(j + 0.5, actor.reach);
+  }
+
+  /** Step a standing Blobbi clear of the walls and the floor's edge, if its body reaches past them. */
+  private keepClear(actor: Actor) {
+    const x = clampToReach(actor.x, actor.reach);
+    const z = clampToReach(actor.z, actor.reach);
+    if (x === actor.x && z === actor.z) return;
+    actor.x = x;
+    actor.z = z;
+    this.shadowsDirty = true;
+    this.requestRender();
+  }
+
+  /** Where a Blobbi stands for a tile: its centre, kept its reach clear of the walls and the floor's edge. */
+  private standPoint(actor: Actor, i: number, j: number): { x: number; z: number } {
+    return { x: clampToReach(i + 0.5, actor.reach), z: clampToReach(j + 0.5, actor.reach) };
   }
 
   private nearestFreeTile(x: number, z: number, except?: string): [number, number] {
@@ -1275,20 +1323,26 @@ export class RoomScene {
     if (!prev.has(key(ti, tj))) return false;
     const path: { x: number; z: number }[] = [];
     for (let k = key(ti, tj); k !== -1 && k !== key(start[0], start[1]); k = prev.get(k)!) {
-      path.unshift({ x: Math.floor(k / G) + 0.5, z: (k % G) + 0.5 });
+      // Each step clear of the walls by the body's reach: beside a wall it walks along it, not into it
+      const step = this.standPoint(b, Math.floor(k / G), k % G);
+      if (!path.length || step.x !== path[0].x || step.z !== path[0].z) path.unshift(step);
     }
     b.elev = 0;
     this.shadowsDirty = true;
     this.requestRender();
+    const end = this.standPoint(b, ti, tj);
+    // Two tiles clamped to one point make one step
+    while (path.length > 1 && path[path.length - 1].x === path[path.length - 2].x && path[path.length - 1].z === path[path.length - 2].z) path.pop();
+    if (path.length && Math.abs(path[0].x - b.x) < 1e-6 && Math.abs(path[0].z - b.z) < 1e-6) path.shift();
     if (this.reducedMotion) {
       // Go straight there
-      b.x = ti + 0.5;
-      b.z = tj + 0.5;
+      b.x = end.x;
+      b.z = end.z;
       b.path = [];
       return true;
     }
-    // Finish on the tile's center even when already standing on it
-    if (!path.length && (Math.abs(b.x - ti - 0.5) > 0.05 || Math.abs(b.z - tj - 0.5) > 0.05)) path.push({ x: ti + 0.5, z: tj + 0.5 });
+    // Finish on the tile's standing point even when already on the tile
+    if (!path.length && (Math.abs(b.x - end.x) > 0.05 || Math.abs(b.z - end.z) > 0.05)) path.push(end);
     b.path = path;
     return true;
   }
@@ -1319,8 +1373,9 @@ export class RoomScene {
       ? [...this.built.values()].find((x) => x.item.interaction === 'bed')
       : undefined;
     if (bed) {
-      b.x = midX(bed.rect);
-      b.z = midZ(bed.rect);
+      // On the bed, and still clear of the wall it stands against
+      b.x = clampToReach(midX(bed.rect), b.reach);
+      b.z = clampToReach(midZ(bed.rect), b.reach);
       b.elev = bed.size.y * 0.55;
     } else {
       this.standNear(b, 4.5, 4.5);

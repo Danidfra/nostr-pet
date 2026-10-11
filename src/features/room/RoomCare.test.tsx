@@ -29,6 +29,7 @@ import AppRouter from '@/AppRouter';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 import { OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_SOAP, inventoryEvent, officialCareDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 import { roomFurnitureFor } from './lib/room-furniture';
+import { carouselItems, focusOn, middle, middleItem, offers } from './test/carousel';
 import { APPEARANCE_STORAGE_KEY } from './lib/blobbi-appearance';
 
 // ─── A relay that records ───
@@ -151,16 +152,14 @@ const stock = () => [inventoryEvent('blobbi:island', { [OFFICIAL_APPLE]: 2, [OFF
 const kinds = () => relay.published.map((e) => e.kind);
 
 const shell = () => screen.getByTestId('room-shell');
-const tiles = () => within(screen.getByTestId('room-item-list')).getAllByRole('option');
-const tile = (name: string, source: 'starter' | 'owned') => tiles().find((t) => t.dataset.source === source && t.getAttribute('aria-label')!.startsWith(`${name},`))!;
 const goTo = async (room: string) => {
   for (let i = 0; i < 5 && shell().dataset.room !== room; i++) fireEvent.click(screen.getByTestId('room-nav-right'));
   expect(shell()).toHaveAttribute('data-room', room);
 };
 async function ready() {
-  await screen.findByTestId('room-care-panel');
+  await screen.findByTestId('room-bar');
   // The owned items are in once the inventory has been read
-  await waitFor(() => expect(screen.getAllByTestId('room-item-badge').some((b) => b.textContent!.startsWith('×'))).toBe(true));
+  await waitFor(() => expect(carouselItems().some((i) => i.source === 'owned')).toBe(true));
 }
 /** A finger or mouse carrying a tile into the room and letting go at (x, y). */
 function dragTile(el: HTMLElement, x: number, y: number, finish: 'drop' | 'none' = 'drop') {
@@ -196,53 +195,66 @@ beforeEach(async () => {
 afterEach(() => localStorage.clear());
 
 describe('the room\'s items', () => {
-  it('each room offers its own: toys here, food and drink in the kitchen, soap and medicine in the care room; Sleep in the bedroom; starters free, owned items counted', async () => {
+  it('each room offers its own in Ditto\'s carousel: toys here, food and drink in the kitchen, soap and medicine in the care room; Sleep in the bedroom; owned items counted, starters free', async () => {
     renderRoom();
     await ready();
     expect(shell()).toHaveAttribute('data-room', 'home');
-    expect(tile('Ball', 'starter')).toHaveTextContent('Free');
-    expect(tile('Ball', 'owned')).toHaveTextContent('×2');
-    expect(tiles().some((t) => /Apple|Soap/.test(t.getAttribute('aria-label')!))).toBe(false);
+    const home = carouselItems();
+    expect(home.find((i) => i.name === 'Ball' && i.source === 'owned')?.quantity).toBe(2);
+    expect(home.find((i) => i.name === 'Ball' && i.source === 'starter')?.quantity).toBeNull();
+    expect(home.some((i) => /Apple|Soap/.test(i.name))).toBe(false);
+    // The badge is on owned items only
+    expect(focusOn('Ball', 'owned')).toHaveTextContent('×2');
+    expect(within(focusOn('Ball', 'starter')).queryByTestId('room-item-badge')).toBeNull();
     await goTo('rest');
-    expect(screen.queryByTestId('room-item-strip')).toBeNull();
+    expect(screen.queryByTestId('room-item-carousel')).toBeNull();
     expect(screen.getByTestId('room-rest')).toHaveTextContent('Sleep');
     await goTo('closet');
     expect(screen.getByTestId('room-closet-hint')).toHaveTextContent(/Island/);
     await goTo('care');
-    expect(tile('Soap', 'owned')).toHaveTextContent('×1');
-    expect(tiles().every((t) => !/Ball|Apple/.test(t.getAttribute('aria-label')!))).toBe(true);
+    expect(focusOn('Soap', 'owned')).toHaveTextContent('×1');
+    expect(carouselItems().some((i) => /Ball|Apple/.test(i.name))).toBe(false);
     await goTo('kitchen');
-    expect(tile('Apple', 'owned')).toHaveTextContent('×2');
-    expect(tile('Apple', 'starter')).toHaveTextContent('Free');
+    expect(focusOn('Apple', 'owned')).toHaveTextContent('×2');
+    expect(offers('Apple', 'starter')).toBe(true);
     expect(relay.published).toEqual([]);
   });
 
-  it('a tap or the arrow keys select, never use; the selection is the room\'s, kept while away; Use waits for one', async () => {
+  it('the arrows, the previews and the arrow keys only move the focus, which each room keeps for the visit; nothing is used', async () => {
     renderRoom();
     await ready();
-    const use = screen.getByTestId('room-item-use');
-    expect(use).toBeDisabled();
-    fireEvent.click(tile('Ball', 'owned'));
-    expect(tile('Ball', 'owned')).toHaveAttribute('aria-selected', 'true');
-    expect(use).toBeEnabled();
-    expect(use).toHaveAccessibleName('Use Ball');
-    const list = screen.getByTestId('room-item-list');
-    fireEvent.keyDown(list, { key: 'Home' });
-    expect(tiles()[0]).toHaveAttribute('aria-selected', 'true');
-    fireEvent.keyDown(list, { key: 'ArrowRight' });
-    expect(tiles()[1]).toHaveAttribute('aria-selected', 'true');
-    fireEvent.keyDown(list, { key: 'ArrowLeft' });
-    fireEvent.keyDown(list, { key: 'ArrowLeft' });
-    expect(tiles()[tiles().length - 1]).toHaveAttribute('aria-selected', 'true');
-    fireEvent.keyDown(list, { key: 'End' });
-    const chosen = tiles()[tiles().length - 1].dataset.entryKey;
+    const first = middleItem().key;
+    fireEvent.click(screen.getByTestId('room-item-next'));
+    const second = middleItem().key;
+    expect(second).not.toBe(first);
+    fireEvent.click(screen.getByTestId('room-item-prev'));
+    expect(middleItem().key).toBe(first);
+    fireEvent.click(screen.getByTestId('room-item-preview-next'));
+    expect(middleItem().key).toBe(second);
+    fireEvent.keyDown(screen.getByTestId('room-item-carousel'), { key: 'ArrowLeft' });
+    expect(middleItem().key).toBe(first);
+    fireEvent.keyDown(screen.getByTestId('room-item-carousel'), { key: 'ArrowRight' });
+    expect(screen.getByTestId('room-item-status')).toHaveTextContent(/2 of \d+/);
     await goTo('kitchen');
-    expect(screen.getByTestId('room-item-use')).toBeDisabled();
+    expect(middleItem().name).not.toBe('Ball');
     await goTo('home');
-    expect(tiles().find((t) => t.getAttribute('aria-selected') === 'true')!.dataset.entryKey).toBe(chosen);
+    expect(middleItem().key).toBe(second);
     await quiet(200);
     expect(relay.published).toEqual([]);
     expect(event).not.toHaveBeenCalled();
+  });
+
+  it('an item that cannot be used now stays in the carousel, dimmed; tapping it says why and uses nothing', async () => {
+    relay.all = [blobbiEvent('0000000001', { name: 'Brook', stage: 'egg', state: 'active', visualGeneration: 'v3', createdAt: NOW - 120 }), ...definitions(), ...stock()];
+    renderRoom();
+    await screen.findByTestId('room-bar');
+    await goTo('kitchen');
+    const apple = focusOn('Apple', 'starter');
+    expect(apple).toHaveAttribute('data-usable', 'false');
+    fireEvent.click(apple);
+    expect(screen.getByTestId('room-care-notice')).not.toBeEmptyDOMElement();
+    await quiet();
+    expect(relay.published).toEqual([]);
   });
 });
 
@@ -251,8 +263,7 @@ describe('using an item in the room', () => {
     renderRoom();
     await ready();
     await goTo('kitchen');
-    fireEvent.click(tile('Apple', 'starter'));
-    const give = screen.getByTestId('room-item-use');
+    const give = focusOn('Apple', 'starter');
     expect(give).toHaveAccessibleName('Give Apple');
     fireEvent.click(give);
     fireEvent.click(give);
@@ -272,8 +283,7 @@ describe('using an item in the room', () => {
   it('Use sets an owned toy down by the Blobbi; nothing is written while it walks; on arrival exactly one spend, the state and the receipt, and the count goes down', async () => {
     renderRoom();
     await ready();
-    fireEvent.click(tile('Ball', 'owned'));
-    fireEvent.click(screen.getByTestId('room-item-use'));
+    fireEvent.click(focusOn('Ball', 'owned'));
     expect(screen.getByTestId('room-floor-item')).toHaveAttribute('data-phase', 'walking');
     expect(scene.state.walks).toHaveLength(1);
     await quiet();
@@ -281,7 +291,7 @@ describe('using an item in the room', () => {
     settleWalk('arrived');
     await waitFor(() => expect(screen.getByTestId('room-floor-item')).toHaveAttribute('data-phase', 'using'));
     await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
-    await waitFor(() => expect(tile('Ball', 'owned')).toHaveTextContent('×1'), { timeout: 4000 });
+    await waitFor(() => expect(focusOn('Ball', 'owned')).toHaveTextContent('×1'), { timeout: 4000 });
     await waitFor(() => expect(screen.queryByTestId('room-floor-item')).toBeNull(), { timeout: 3000 });
   });
 
@@ -289,8 +299,7 @@ describe('using an item in the room', () => {
     renderRoom();
     await ready();
     for (const outcome of ['stopped', 'replaced', 'refused'] as const) {
-      fireEvent.click(tile('Ball', 'starter'));
-      fireEvent.click(screen.getByTestId('room-item-use'));
+      fireEvent.click(focusOn('Ball', 'starter'));
       expect(screen.getByTestId('room-floor-item')).toBeInTheDocument();
       settleWalk(outcome);
       await waitFor(() => expect(screen.queryByTestId('room-floor-item')).toBeNull());
@@ -303,15 +312,14 @@ describe('using an item in the room', () => {
   it('a room switch on the way stops the walk: nothing is used', async () => {
     renderRoom();
     await ready();
-    fireEvent.click(tile('Ball', 'starter'));
-    fireEvent.click(screen.getByTestId('room-item-use'));
+    fireEvent.click(focusOn('Ball', 'starter'));
     expect(screen.getByTestId('room-floor-item')).toBeInTheDocument();
     // The scene ends any walk when the next room folds in
     fireEvent.click(screen.getByTestId('room-nav-left'));
     act(() => scene.fake.stopWalk());
     await goTo('home');
     await waitFor(() => expect(screen.queryByTestId('room-floor-item')).toBeNull());
-    expect(screen.getByTestId('room-item-use')).toBeEnabled();
+    expect(middle()).toBeEnabled();
     await quiet();
     expect(relay.published).toEqual([]);
   });
@@ -322,7 +330,7 @@ describe('dragging an item into the room', () => {
     renderRoom();
     await ready();
     await goTo('kitchen');
-    dragTile(tile('Apple', 'owned'), 200, 280, 'none');
+    dragTile(focusOn('Apple', 'owned'), 200, 280, 'none');
     expect(shell()).toHaveAttribute('data-drop', 'blobbi');
     act(() => { window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7, clientX: 200, clientY: 280 })); });
     expect(shell()).not.toHaveAttribute('data-drop');
@@ -334,7 +342,7 @@ describe('dragging an item into the room', () => {
   it('a toy let go on the floor lies where it fell for the Blobbi to walk to; on arrival it is used', async () => {
     renderRoom();
     await ready();
-    dragTile(tile('Ball', 'starter'), 300, 360);
+    dragTile(focusOn('Ball', 'starter'), 300, 360);
     expect(screen.getByTestId('room-floor-item')).toBeInTheDocument();
     expect(scene.state.walks[0]).toMatchObject({ x: 5, z: 6 });
     await quiet(200);
@@ -346,14 +354,14 @@ describe('dragging an item into the room', () => {
   it('let go off the floor, cancelled, or carried while the room changes: nothing happens and nothing is written', async () => {
     renderRoom();
     await ready();
-    dragTile(tile('Ball', 'starter'), 300, -50);
+    dragTile(focusOn('Ball', 'starter'), 300, -50);
     expect(screen.queryByTestId('room-floor-item')).toBeNull();
     // (A drop swallows the click that follows it in the same task; a person's next click is a later one)
     await quiet(0);
-    dragTile(tile('Ball', 'owned'), 300, 360, 'none');
+    dragTile(focusOn('Ball', 'owned'), 300, 360, 'none');
     act(() => { window.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 7 })); });
     act(() => { window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7, clientX: 300, clientY: 360 })); });
-    dragTile(tile('Ball', 'owned'), 300, 360, 'none');
+    dragTile(focusOn('Ball', 'owned'), 300, 360, 'none');
     expect(screen.getByTestId('room-drag-ghost').style.display).toBe('');
     fireEvent.click(screen.getByTestId('room-nav-left'));
     expect(shell()).toHaveAttribute('data-room', 'kitchen');
@@ -374,8 +382,7 @@ describe('when a use fails', () => {
     renderRoom();
     await ready();
     await goTo('kitchen');
-    fireEvent.click(tile('Apple', 'starter'));
-    fireEvent.click(screen.getByTestId('room-item-use'));
+    fireEvent.click(focusOn('Apple', 'starter'));
     await screen.findByTestId('room-offer-failure', {}, { timeout: 3000 });
     const tries = attempts.length;
     await quiet(1200);
@@ -391,8 +398,7 @@ describe('when a use fails', () => {
     renderRoom();
     await ready();
     await goTo('kitchen');
-    fireEvent.click(tile('Apple', 'owned'));
-    fireEvent.click(screen.getByTestId('room-item-use'));
+    fireEvent.click(focusOn('Apple', 'owned'));
     await screen.findByTestId('room-offer-failure', {}, { timeout: 4000 });
     const first = attempts.filter((e) => e.kind === KIND_GAME_INVENTORY_SPEND);
     expect(first).toHaveLength(1);
@@ -409,11 +415,10 @@ describe('when a use fails', () => {
     renderRoom();
     await ready();
     await goTo('kitchen');
-    fireEvent.click(tile('Apple', 'starter'));
-    fireEvent.click(screen.getByTestId('room-item-use'));
+    fireEvent.click(focusOn('Apple', 'starter'));
     fireEvent.click(await screen.findByTestId('room-offer-put-away', {}, { timeout: 3000 }));
     expect(screen.queryByTestId('room-offer-failure')).toBeNull();
-    expect(screen.getByTestId('room-item-use')).toBeEnabled();
+    expect(middle()).toBeEnabled();
     await quiet();
     expect(relay.published).toEqual([]);
   });
@@ -448,19 +453,20 @@ describe('furniture', () => {
     await ready();
     await goTo('kitchen');
     tapItemAt(roomFurnitureFor('kitchen').findIndex((p) => p.id === 'official:fridge'));
-    expect(screen.getByTestId('room-item-strip-glow')).toBeInTheDocument();
-    expect(screen.queryByTestId('room-item-strip-close')).toBeNull();
+    // Ditto's guide ring on the middle card, for a moment
+    expect(middle().className).toContain('ring-primary');
+    expect(screen.queryByTestId('room-shelf-back')).toBeNull();
     // Decorate: a toy box in the kitchen, saved for the session
     fireEvent.click(screen.getByRole('button', { name: /decorate this room/i }));
     fireEvent.click(screen.getByTestId('catalog-official:toybox'));
     fireEvent.click(screen.getByTestId('decorator-save'));
-    await waitFor(() => expect(screen.getByTestId('room-care-panel')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('room-bar')).toBeInTheDocument());
     tapItemAt(roomFurnitureFor('kitchen').length);
-    expect(screen.getByTestId('room-item-strip-title')).toHaveTextContent('From the toy box');
-    expect(tiles().some((t) => /Ball/.test(t.getAttribute('aria-label')!))).toBe(true);
-    expect(tiles().some((t) => /Apple|Soap/.test(t.getAttribute('aria-label')!))).toBe(false);
-    fireEvent.click(screen.getByTestId('room-item-strip-close'));
-    expect(tiles().some((t) => /Apple/.test(t.getAttribute('aria-label')!))).toBe(true);
+    expect(screen.getByTestId('room-shelf-back')).toHaveTextContent('Back');
+    expect(carouselItems().some((i) => i.name === 'Ball')).toBe(true);
+    expect(carouselItems().some((i) => /Apple|Soap/.test(i.name))).toBe(false);
+    fireEvent.click(screen.getByTestId('room-shelf-back'));
+    expect(carouselItems().some((i) => i.name === 'Apple')).toBe(true);
     await quiet(200);
     expect(relay.published).toEqual([]);
   });
@@ -473,8 +479,7 @@ describe('2D and 3D, one Blobbi, one care', () => {
     await ready();
     expect(shell()).toHaveAttribute('data-blobbi-render', '3d');
     await goTo('kitchen');
-    fireEvent.click(tile('Apple', 'starter'));
-    fireEvent.click(screen.getByTestId('room-item-use'));
+    fireEvent.click(focusOn('Apple', 'starter'));
     // Back to 2D while the write is out
     fireEvent.click(screen.getByTestId('room-appearance-toggle'));
     fireEvent.click(screen.getByTestId('room-appearance-2d'));

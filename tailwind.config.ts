@@ -15,6 +15,8 @@ export default {
       screens: { "2xl": "1200px" },
     },
     extend: {
+      // Ditto's breakpoint for its wide layout; the 3D room's bar uses it (src/features/room/lib/room-ui.ts)
+      screens: { sidebar: "900px" },
       fontFamily: {
         sans: ["Comfortaa Variable", "Comfortaa", "system-ui", "sans-serif"],
       },
