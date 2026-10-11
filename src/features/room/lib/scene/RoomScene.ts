@@ -1170,6 +1170,17 @@ export class RoomScene {
     return result;
   }
 
+  /** Abandon a drag (the system took the pointer away): the piece goes back where it was picked up. */
+  cancelDrag() {
+    const drag = this.drag;
+    this.drag = null;
+    const built = drag && this.byIndex.get(drag.index);
+    if (!drag || !built) return;
+    built.item = { ...built.item, placement: drag.origin };
+    this.layoutItems();
+    this.requestRender();
+  }
+
   /**
    * A free spot for a new item, nearest the middle of the floor (or of the
    * walls, for wall items). Null when the room has no room left.

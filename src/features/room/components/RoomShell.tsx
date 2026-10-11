@@ -254,6 +254,8 @@ export interface RoomShellProps {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Minimum horizontal swipe distance (px) to trigger room change */
+/** A touch this soon after a press on the Blobbi or a grabbed piece belongs to that press (ms). */
+const SWIPE_PRESS_MS = 400;
 const SWIPE_THRESHOLD = 50;
 /** Movement (px) under which a press is a tap rather than a drag. */
 const TAP_SLOP = 8;
@@ -322,22 +324,34 @@ export function RoomShell({
   const RoomIcon = ROOM_ICON[navRoom];
 
   // ─── Touch swipe between rooms ───
-  const touchStartX = useRef<number | null>(null);
+  /** The finger a swipe follows (one at a time: a second finger is not a swipe of its own). */
+  const swipe = useRef<{ id: number; x: number } | null>(null);
+  /** When the room's last press began on the Blobbi (a stroke) or grabbed a piece: not a swipe. Pointer events come first. */
+  const notSwipeAt = useRef(-Infinity);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
-    // Drags that start on the dock must not switch rooms; nor do touches on chrome.
+    if (swipe.current) return;
+    // Drags that start on the dock must not switch rooms; nor do touches on chrome, nor stroking the Blobbi.
     if ((e.target as HTMLElement).closest?.('[data-room-drag], [data-room-header], [data-room-top], [data-room-bottom]')) return;
-    touchStartX.current = e.touches[0].clientX;
+    if (e.timeStamp - notSwipeAt.current < SWIPE_PRESS_MS) return;
+    const t = e.changedTouches[0] ?? e.touches[0];
+    swipe.current = { id: t.identifier, x: t.clientX };
   }, []);
 
   const onTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
+    const start = swipe.current;
+    const t = start && Array.from(e.changedTouches).find((c) => c.identifier === start.id);
+    if (!start || !t) return;
+    swipe.current = null;
+    const dx = t.clientX - start.x;
     if (isEditing || Math.abs(dx) < SWIPE_THRESHOLD) return;
     if (dx > 0) goLeft();
     else goRight();
   }, [isEditing, goLeft, goRight]);
+
+  const onTouchCancel = useCallback(() => {
+    swipe.current = null;
+  }, []);
 
   // ─── Framing: the stage is the space between the top and bottom chrome ───
   const shellRef = useRef<HTMLDivElement>(null);
@@ -580,6 +594,7 @@ export function RoomShell({
     const item = hit?.kind === 'item' ? hit.index : null;
     const onBlobbi = !editor && hit?.kind === 'actor' && hit.id === MAIN_BLOBBI && !!onBlobbiPet;
     press.current = { id: e.pointerId, x, y, t: performance.now(), item, dragging: false, onBlobbi, rubbed: 0, last: { x, y }, petting: false, strokeAt: 0 };
+    notSwipeAt.current = onBlobbi || (editor && item !== null) ? e.timeStamp : -Infinity;
     // A piece pressed gives a little under the finger (touch feedback), until released
     if (!editor && item !== null) scene.pressItem?.(item);
     // A press on the Blobbi may become a stroke: keep its moves even if the finger slides off a little
@@ -674,14 +689,12 @@ export function RoomShell({
 
   const onPointerCancel = useCallback((e: React.PointerEvent) => {
     if (press.current?.id !== e.pointerId) return;
-    if (press.current.dragging) {
-      const result = sceneRef.current?.endDrag();
-      if (result?.valid) editor?.onMove(result.index, result.placement);
-    }
+    // Taken away by the system (a call, a gesture of the OS): the piece goes back where it was
+    if (press.current.dragging) sceneRef.current?.cancelDrag?.();
     if (press.current.petting) onBlobbiPet?.('end');
     sceneRef.current?.pressItem?.(null);
     press.current = null;
-  }, [editor, sceneRef, onBlobbiPet]);
+  }, [sceneRef, onBlobbiPet]);
 
   return (
     <div
@@ -695,6 +708,7 @@ export function RoomShell({
       data-blobbi-render={blobbiModel ? '3d' : '2d'}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchCancel}
       onPointerMove={pointerHandlers?.onPointerMove}
       onPointerLeave={pointerHandlers?.onPointerLeave}
       onPointerDown={pointerHandlers?.onPointerDown}
@@ -705,7 +719,7 @@ export function RoomShell({
       {(failure || notice) && !failureDismissed && (
         <div className="room-fallback-note" role="status" data-testid="room-fallback-note" data-reason={failure ?? 'blobbi-3d'}>
           <span>{failure ? FAILURE_TEXT[failure] : notice}</span>
-          <button type="button" className="room-fallback-note__close" onClick={() => setFailureDismissed(true)} aria-label="Dismiss">
+          <button type="button" className="room-fallback-note__close touch-hit" onClick={() => setFailureDismissed(true)} aria-label="Dismiss">
             ×
           </button>
         </div>
@@ -832,7 +846,7 @@ export function RoomShell({
                   type="button"
                   onClick={onDecorate}
                   disabled={!is3d || decorateDisabled}
-                  className="room-hud-button"
+                  className="room-hud-button touch-hit"
                   aria-label={status === 'unavailable' ? 'Decorating needs 3D graphics, which this browser has turned off' : 'Decorate this room'}
                   title={status === 'unavailable' ? 'Decorating needs 3D graphics' : 'Decorate'}
                 >
@@ -918,7 +932,7 @@ function RoomNavButton({ direction, label, onClick }: { direction: 'left' | 'rig
       type="button"
       onClick={onClick}
       className={cx(
-        'size-[2.4em] shrink-0 rounded-full flex items-center justify-center',
+        'touch-hit size-[2.4em] shrink-0 rounded-full flex items-center justify-center',
         'text-foreground/70 hover:text-foreground hover:bg-foreground/10',
         'transition-colors duration-150 active:scale-90 motion-reduce:active:scale-100',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',

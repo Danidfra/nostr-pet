@@ -90,7 +90,7 @@ export function RoomAppearanceControl({ appearance, onChange, unavailable3d, qua
       <button
         ref={buttonRef}
         type="button"
-        className="room-hud-button"
+        className="room-hud-button touch-hit"
         aria-label="Room settings"
         aria-expanded={open}
         aria-controls={panelId}

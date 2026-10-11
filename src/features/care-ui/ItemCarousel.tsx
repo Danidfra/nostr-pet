@@ -52,7 +52,7 @@ interface ItemCarouselProps {
 }
 
 const ARROW_CLASS = cx(
-  'size-[2.3em] rounded-full flex items-center justify-center shrink-0',
+  'touch-hit size-[2.3em] rounded-full flex items-center justify-center shrink-0',
   ROOM_CONTROL_SURFACE,
   'text-foreground/70 hover:text-foreground hover:bg-background/80',
   'transition-all duration-200 active:scale-90 motion-reduce:active:scale-100',

@@ -1021,6 +1021,23 @@
   .room-shell {
     container-type: inline-size;
     background: hsl(var(--background));
+    /* No long-press picture callout on a phone (it would cancel a drag from the dock), no double-tap zoom on its buttons */
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+  /* A small control drawn small but tapped like a big one: its hit area is at least 44 px */
+  .touch-hit {
+    position: relative;
+  }
+  .touch-hit::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+    border-radius: 9999px;
   }
   .room-backdrop {
     background: radial-gradient(ellipse 85% 65% at 50% 48%, hsl(var(--primary) / 0.16), hsl(var(--primary) / 0.05) 60%, hsl(var(--background)) 100%);

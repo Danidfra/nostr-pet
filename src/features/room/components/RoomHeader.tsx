@@ -21,7 +21,7 @@ export function RoomHeader({ name, stage }: { name: string; stage: BlobbiCompani
     <div className="room-header relative z-10" data-testid="room-header">
       <ArcBackground variant="down" />
       <div className="relative flex min-h-[3.25em] items-center gap-[0.5em] px-3 pb-[0.4em] pt-[0.25em]">
-        <Link to="/" state={BACK_HOME} className="room-header-back" aria-label="Classic home" title="Classic home" data-testid="room-back">
+        <Link to="/" state={BACK_HOME} className="room-header-back touch-hit" aria-label="Classic home" title="Classic home" data-testid="room-back">
           <ArrowLeft />
         </Link>
         <p className="min-w-0 flex-1 truncate text-center text-[0.95em] font-semibold" data-testid="room-header-name">

@@ -14,7 +14,7 @@
  * decorated around. Reduced motion: the face and the purr, no wiggles and no
  * hearts.
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { PRIORITY } from '@/features/expression/controller';
 import type { ExpressionName } from '@/features/expression/faces';
 import type { BlobbiSoundId } from '@/features/sound/sounds';
@@ -74,7 +74,11 @@ export function usePetting({ enabled, reducedMotion, showFace, clearFace, gestur
     (phase: 'start' | 'stroke' | 'end') => {
       const o = opts.current;
       if (!o.enabled) {
-        if (phase === 'end') setPetting(false);
+        // Stopped from outside mid-stroke (sleep, care, a room change): the contented face goes with it
+        if (phase === 'end') {
+          setPetting(false);
+          o.clearFace('petting');
+        }
         return;
       }
       o.markActivity();
@@ -97,6 +101,10 @@ export function usePetting({ enabled, reducedMotion, showFace, clearFace, gestur
     },
     [beat],
   );
+
+  useEffect(() => () => {
+    if (lingerTimer.current) clearTimeout(lingerTimer.current);
+  }, []);
 
   return { onPet, heart, petting };
 }

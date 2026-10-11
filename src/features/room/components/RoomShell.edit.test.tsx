@@ -16,6 +16,8 @@ const fakeScene = vi.hoisted(() => ({
   beginDrag: vi.fn(() => true),
   dragTo: vi.fn(),
   endDrag: vi.fn(),
+  cancelDrag: vi.fn(),
+  overActor: vi.fn(() => true),
   hop: vi.fn(),
   poke: vi.fn(),
   toggleLamp: vi.fn(() => false),
@@ -127,5 +129,61 @@ describe('RoomShell decorating', () => {
     press(surface, 'pointerup', 200, 400);
     expect(fakeScene.poke).toHaveBeenCalledWith(2);
     expect(fakeScene.beginDrag).not.toHaveBeenCalled();
+  });
+});
+
+describe('RoomShell gestures on a phone', () => {
+  function renderWithPetting() {
+    const onChangeRoom = vi.fn();
+    const onBlobbiPet = vi.fn();
+    render(
+      <RoomShell roomId="home" onChangeRoom={onChangeRoom} isSleeping={false} blobbiStage={brook.stage} blobbiVisible roomLayout={roomLayoutFor('home')} furniturePlacements={roomFurnitureFor('home')} stage={<div data-testid="stage" />} onBlobbiPet={onBlobbiPet}>
+        <div data-testid="dock">dock</div>
+      </RoomShell>,
+    );
+    const surface = screen.getByTestId('room-shell').querySelector('.touch-none') as HTMLElement;
+    surface.setPointerCapture = vi.fn();
+    return { surface, onChangeRoom, onBlobbiPet };
+  }
+
+  it('stroking the Blobbi sideways pets it, and neither walks nor changes room', () => {
+    fakeScene.pick.mockReturnValue({ kind: 'actor', id: 'main' });
+    const { surface, onChangeRoom, onBlobbiPet } = renderWithPetting();
+    press(surface, 'pointerdown', 300, 400, 'touch');
+    fireEvent.touchStart(surface, { touches: [{ identifier: 0, clientX: 300, clientY: 400 }], changedTouches: [{ identifier: 0, clientX: 300, clientY: 400 }] });
+    for (const x of [270, 230, 190, 150, 110]) press(surface, 'pointermove', x, 400, 'touch');
+    press(surface, 'pointerup', 110, 400, 'touch');
+    fireEvent.touchEnd(surface, { changedTouches: [{ identifier: 0, clientX: 110, clientY: 400 }] });
+    expect(onBlobbiPet).toHaveBeenCalledWith('start');
+    expect(onBlobbiPet).toHaveBeenLastCalledWith('end');
+    expect(onChangeRoom).not.toHaveBeenCalled();
+    expect(fakeScene.walkTo).not.toHaveBeenCalled();
+  });
+
+  it('a swipe across the floor still changes room; a second finger is not a swipe of its own', () => {
+    fakeScene.pick.mockReturnValue({ kind: 'floor', x: 3, z: 3 });
+    const { surface, onChangeRoom } = renderWithPetting();
+    // One finger holds still, another lands far away and lifts: nothing
+    fireEvent.touchStart(surface, { touches: [{ identifier: 1, clientX: 300, clientY: 400 }], changedTouches: [{ identifier: 1, clientX: 300, clientY: 400 }] });
+    fireEvent.touchStart(surface, { changedTouches: [{ identifier: 2, clientX: 60, clientY: 400 }] });
+    fireEvent.touchEnd(surface, { changedTouches: [{ identifier: 2, clientX: 60, clientY: 400 }] });
+    fireEvent.touchEnd(surface, { changedTouches: [{ identifier: 1, clientX: 290, clientY: 400 }] });
+    expect(onChangeRoom).not.toHaveBeenCalled();
+    // A real swipe
+    fireEvent.touchStart(surface, { changedTouches: [{ identifier: 3, clientX: 300, clientY: 400 }] });
+    fireEvent.touchEnd(surface, { changedTouches: [{ identifier: 3, clientX: 100, clientY: 400 }] });
+    expect(onChangeRoom).toHaveBeenCalledTimes(1);
+  });
+
+  it('a decorating drag the system takes away puts the piece back instead of saving the move', () => {
+    fakeScene.pick.mockReturnValue({ kind: 'item', index: 0 });
+    const binding = editor(0);
+    const { surface } = renderShell(binding);
+    press(surface, 'pointerdown', 100, 300, 'touch');
+    press(surface, 'pointermove', 160, 340, 'touch');
+    press(surface, 'pointercancel', 160, 340, 'touch');
+    expect(fakeScene.cancelDrag).toHaveBeenCalled();
+    expect(fakeScene.endDrag).not.toHaveBeenCalled();
+    expect(binding.onMove).not.toHaveBeenCalled();
   });
 });
