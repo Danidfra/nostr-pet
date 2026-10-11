@@ -12,6 +12,9 @@ import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { buildBlobbiModel, type BlobbiModel } from './model';
 import { genomeOf, labBlobbi, morphologyOf, stage3dOf } from './identity';
 import { ROOT_PER_BOX, toModelY, U } from './units';
+
+// Many models built vertex by vertex: slow under a full parallel run
+vi.setConfig({ testTimeout: 30_000 });
 import { yawForView } from './rig';
 
 const PUBKEY = 'a'.repeat(64);

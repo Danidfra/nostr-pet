@@ -97,6 +97,54 @@ export function domeHeight(white: EllipseLike, xRoot: number, yRoot: number): nu
   return white.rx * EYE_BULGE * Math.sqrt(Math.max(0, 1 - dx * dx - dy * dy));
 }
 
+/** Grid nodes across an eye for the skin's slopes (a look moves the inner eye a few root units; the skin's slope changes slowly). */
+const SLOPE_GRID = 9;
+
+/**
+ * How the skin moves per root unit of the drawing, across and down, under
+ * every inner-eye vertex: sampled on a small grid over the eye (two surface
+ * lookups a node) and interpolated, rather than three lookups a vertex,
+ * which made building a model several times slower.
+ */
+function fillSlopes(seats: EyeSeat[], white: EllipseLike, raised: (x: number, y: number, h: number) => THREE.Vector3) {
+  const x0 = white.cx - white.rx * 1.3;
+  const y0 = white.cy - white.ry * 1.3;
+  const sx = (white.rx * 2.6) / (SLOPE_GRID - 1);
+  const sy = (white.ry * 2.6) / (SLOPE_GRID - 1);
+  const dx: THREE.Vector3[] = [];
+  const dy: THREE.Vector3[] = [];
+  for (let j = 0; j < SLOPE_GRID; j++) {
+    for (let i = 0; i < SLOPE_GRID; i++) {
+      const x = x0 + i * sx;
+      const y = y0 + j * sy;
+      const at = raised(x, y, 0);
+      dx.push(raised(x + 1, y, 0).sub(at));
+      dy.push(raised(x, y + 1, 0).sub(at));
+    }
+  }
+  const sample = (grid: THREE.Vector3[], x: number, y: number, out: Float32Array, at: number) => {
+    const fx = Math.min(SLOPE_GRID - 1.0001, Math.max(0, (x - x0) / sx));
+    const fy = Math.min(SLOPE_GRID - 1.0001, Math.max(0, (y - y0) / sy));
+    const i = Math.floor(fx);
+    const j = Math.floor(fy);
+    const u = fx - i;
+    const v = fy - j;
+    const a = grid[j * SLOPE_GRID + i];
+    const b = grid[j * SLOPE_GRID + i + 1];
+    const c = grid[(j + 1) * SLOPE_GRID + i];
+    const d = grid[(j + 1) * SLOPE_GRID + i + 1];
+    out[at] = (a.x * (1 - u) + b.x * u) * (1 - v) + (c.x * (1 - u) + d.x * u) * v;
+    out[at + 1] = (a.y * (1 - u) + b.y * u) * (1 - v) + (c.y * (1 - u) + d.y * u) * v;
+    out[at + 2] = (a.z * (1 - u) + b.z * u) * (1 - v) + (c.z * (1 - u) + d.z * u) * v;
+  };
+  for (const seat of seats) {
+    for (let k = 0, n = seat.roots.length / 2; k < n; k++) {
+      sample(dx, seat.roots[2 * k], seat.roots[2 * k + 1], seat.skinDx, k * 3);
+      sample(dy, seat.roots[2 * k], seat.roots[2 * k + 1], seat.skinDy, k * 3);
+    }
+  }
+}
+
 export function buildEye(eye: EyeGeometry, look: EyeLook, palette: BlobbiPalette, surface: Surface, parts: EyeMaterials, lid: { d: string; width: number } | null, closedLine: (d: string, width: number) => THREE.Object3D): EyeRig {
   const white = eye.white;
   const centre = surface.at(white.cx, white.cy);
@@ -123,21 +171,16 @@ export function buildEye(eye: EyeGeometry, look: EyeLook, palette: BlobbiPalette
     into.add(mesh);
     layers.push({ part, colour });
     if (into === inner) {
+      // The skin under each vertex is where it was laid, less its height over the dome; how the skin moves under a
+      // look comes from a coarse grid over the eye (`slopes`), filled in once all the stickers are laid
       const n = roots.length / 2;
+      const rest = geometry.getAttribute('position');
       const skin = new Float32Array(n * 3);
-      const skinDx = new Float32Array(n * 3);
-      const skinDy = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) {
-        const xr = roots[2 * i];
-        const yr = roots[2 * i + 1];
-        const at = raised(xr, yr, 0);
-        const ax = raised(xr + 1, yr, 0).sub(at);
-        const ay = raised(xr, yr + 1, 0).sub(at);
-        skin.set([at.x, at.y, at.z], i * 3);
-        skinDx.set([ax.x, ax.y, ax.z], i * 3);
-        skinDy.set([ay.x, ay.y, ay.z], i * 3);
+        const lift = (domeHeight(white, roots[2 * i], roots[2 * i + 1]) + layer * LAYER) * U;
+        skin.set([rest.getX(i), rest.getY(i), rest.getZ(i) - lift], i * 3);
       }
-      seats.push({ mesh, roots: Float32Array.from(roots), height: layer * LAYER, skin, skinDx, skinDy });
+      seats.push({ mesh, roots: Float32Array.from(roots), height: layer * LAYER, skin, skinDx: new Float32Array(n * 3), skinDy: new Float32Array(n * 3) });
     }
   };
 
@@ -160,6 +203,8 @@ export function buildEye(eye: EyeGeometry, look: EyeLook, palette: BlobbiPalette
     sticker({ cx: p.cx - 0.22 * p.rx, cy: p.cy - 0.22 * p.ry, rx: p.rx * 0.62, ry: p.ry * 0.62 }, 2, palette.babyEyeLight, 0.85, 'pupil-light', inner);
     sticker(eye.highlight, 3, palette.white, 1, 'highlight', inner);
   }
+
+  fillSlopes(seats, white, raised);
 
   let closed: THREE.Object3D | null = null;
   if (lid) {

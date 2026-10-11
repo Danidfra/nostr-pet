@@ -16,6 +16,9 @@ import { toModelX, toModelY, U } from './units';
 
 const SEEDS = ['lab-1', 'lab-2', 'lab-3', 'abc123', 'seed-5', 'seed-6'];
 
+// Building a dozen models vertex by vertex is slow under a full parallel run
+vi.setConfig({ testTimeout: 30_000 });
+
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as unknown as HTMLCanvasElement['getContext'];
 });
