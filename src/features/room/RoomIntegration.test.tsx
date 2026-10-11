@@ -132,6 +132,26 @@ describe('the room in the app', () => {
     expect(screen.getByRole('button', { name: /decorating needs 3D graphics/i })).toBeDisabled();
   });
 
+  it('changing rooms, the graphics quality, the Blobbi\'s look and the sound stays on this device: nothing is published, only local preferences are written', async () => {
+    signedInWith();
+    renderAt('/room');
+    await inRoom();
+    const before = new Set(Object.keys(localStorage));
+    fireEvent.click(screen.getByTestId('room-nav-right'));
+    fireEvent.click(screen.getByTestId('room-nav-right'));
+    fireEvent.click(screen.getByTestId('room-settings-toggle'));
+    fireEvent.change(screen.getByTestId('room-quality-select'), { target: { value: 'low' } });
+    expect(localStorage.getItem('blobbi:room:quality')).toBe('low');
+    fireEvent.click(screen.getByTestId('room-sound-toggle'));
+    fireEvent.click(screen.getByTestId('room-nav-left'));
+    // Whatever was written is a local preference or the room's own memory, never an event
+    await new Promise((r) => setTimeout(r, 50));
+    const written = Object.keys(localStorage).filter((k) => !before.has(k));
+    for (const key of written) expect(key).toMatch(/^blobbi[:-]/);
+    expect(relay.published).toEqual([]);
+    expect(pool.event).not.toHaveBeenCalled();
+  });
+
   it('a V1 Blobbi and an egg have their room too: drawn by the kit, 2D, no blank screen', async () => {
     for (const [stage, generation] of [['adult', 'v1'], ['egg', 'v3']] as const) {
       signedInWith(stage, generation);

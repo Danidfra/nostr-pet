@@ -72,7 +72,7 @@ function editorBinding(selected: number | null): RoomEditorBinding {
   return { selectedIndex: selected, onSelect: vi.fn(), onMove: vi.fn(), onInvalidChange: vi.fn(), toolbar: <div data-testid="toolbar" />, overlay: <div><div data-room-top>top</div><div data-room-bottom>tray</div></div> };
 }
 
-function Harness({ roomId, placements, editor, layout, model, care }: { roomId: RoomId; placements: readonly FurniturePlacement[]; editor?: RoomEditorBinding; layout?: ReturnType<typeof roomLayoutFor>; model?: ActorModel; care?: { n: number } }) {
+function Harness({ roomId, placements, editor, layout, model, care, header }: { roomId: RoomId; placements: readonly FurniturePlacement[]; editor?: RoomEditorBinding; layout?: ReturnType<typeof roomLayoutFor>; model?: ActorModel; care?: { n: number }; header?: boolean }) {
   return (
     <RoomShell
       roomId={roomId}
@@ -86,6 +86,7 @@ function Harness({ roomId, placements, editor, layout, model, care }: { roomId: 
       stage={<div data-testid="stage" />}
       onDecorate={() => {}}
       blobbiModel={model ?? null}
+      header={header ? <div>Brook</div> : undefined}
       // What care puts in the room: an item on the floor, the feedback on the Blobbi, the dock's panel
       floorThings={care ? [{ key: `item-${care.n}`, x: 2 + care.n * 0.1, z: 3, node: <span data-testid="floor-thing">{care.n}</span> }] : undefined}
       blobbiOverlay={care ? <span data-testid="feedback">{care.n}</span> : undefined}
@@ -218,5 +219,48 @@ describe('RoomShell keeps one scene through decorating', () => {
     expect(names(s, mark)).not.toContain('dispose');
     expect(s.calls.slice(mark).filter((c) => c.name === 'setItems' && c.args[1] === true)).toEqual([]);
     expect([...screen.getByTestId('room-shell').querySelectorAll('canvas')]).toEqual(canvases);
+  });
+});
+
+describe('RoomShell through a change of viewport', () => {
+  it('a phone turned on its side re-frames the same scene (no new scene, no new context), with the room reaching up behind the HUD', async () => {
+    const observers: (() => void)[] = [];
+    const original = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(private cb: () => void) { observers.push(() => this.cb()); }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+    let size = { width: 390, height: 700 };
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const el = this;
+      if (el.dataset.testid === 'room-shell') return { x: 0, y: 0, left: 0, top: 0, right: size.width, bottom: size.height, width: size.width, height: size.height, toJSON() {} } as DOMRect;
+      if ('roomHeader' in el.dataset) return { left: 0, top: 0, right: size.width, bottom: 40, width: size.width, height: 40, x: 0, y: 0, toJSON() {} } as DOMRect;
+      if ('roomTop' in el.dataset) return { left: 0, top: 40, right: size.width, bottom: 120, width: size.width, height: 80, x: 0, y: 40, toJSON() {} } as DOMRect;
+      if ('roomBottom' in el.dataset) return { left: 0, top: size.height - 80, right: size.width, bottom: size.height, width: size.width, height: 80, x: 0, y: size.height - 80, toJSON() {} } as DOMRect;
+      return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON() {} } as DOMRect;
+    });
+    try {
+      render(<Harness roomId="home" placements={roomFurnitureFor('home')} header />);
+      await waitFor(() => expect(screen.getByTestId('room-shell')).toHaveAttribute('data-scene', 'ready'));
+      const s = scene();
+      const geometries = () => s.calls.filter((c) => c.name === 'setGeometry').map((c) => c.args[0] as { width: number; height: number; behindTop: number });
+      expect(geometries().at(-1)).toMatchObject({ width: 390, height: 700 });
+      // Turned: a wide, short view (wider than a phone in portrait, so only its height makes it a phone)
+      size = { width: 700, height: 330 };
+      act(() => observers.forEach((o) => o()));
+      await waitFor(() => expect(geometries().at(-1)).toMatchObject({ width: 700, height: 330 }));
+      expect(geometries().at(-1)!.behindTop).toBeGreaterThan(0);
+      // And back
+      size = { width: 390, height: 700 };
+      act(() => observers.forEach((o) => o()));
+      await waitFor(() => expect(geometries().at(-1)).toMatchObject({ width: 390, height: 700 }));
+      expect(made.scenes).toHaveLength(1);
+      expect(s.disposed).toBe(false);
+    } finally {
+      rect.mockRestore();
+      globalThis.ResizeObserver = original;
+    }
   });
 });
