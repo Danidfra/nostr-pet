@@ -34,7 +34,7 @@ import type { RoomLayout } from '../lib/room-layout';
 import { ROOM_GRID, blobbiBoxTiles, MAIN_BLOBBI } from '../lib/room-geometry';
 import { useFurnitureModels } from '../hooks/useFurnitureModels';
 import { useRoomScene, type RoomSceneStatus } from '../hooks/useRoomScene';
-import type { RoomScene, SceneGeometry, ScreenAnchor, SpotQuery } from '../lib/scene/RoomScene';
+import type { PickResult, RoomScene, SceneGeometry, ScreenAnchor, SpotQuery } from '../lib/scene/RoomScene';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +56,12 @@ export interface RoomControl {
   approach: (x: number, z: number) => Promise<WalkOutcome>;
   /** Stop the user's Blobbi where it stands; a walk in progress resolves `stopped`. */
   stop: () => void;
+  /** What is under a screen point (a Blobbi, a piece, the floor), as a tap would find it. */
+  pickAt: (clientX: number, clientY: number) => PickResult;
+  /** Where the user's Blobbi stands (tiles). */
+  blobbiPosition: () => { x: number; z: number } | null;
+  /** A little hop of the user's Blobbi (a reaction), drawn either way it is drawn. */
+  hop: () => void;
 }
 
 /** Pointer events over the room, for a gaze policy (the home's `ScenePointerHandlers`). */
@@ -390,6 +396,12 @@ export function RoomShell({
       walkTo: (x, z) => sceneRef.current?.requestWalk(MAIN_BLOBBI, x, z, 'to') ?? Promise.resolve('refused'),
       approach: (x, z) => sceneRef.current?.requestWalk(MAIN_BLOBBI, x, z, 'approach') ?? Promise.resolve('refused'),
       stop: () => sceneRef.current?.stopWalk(MAIN_BLOBBI),
+      pickAt: (clientX, clientY) => {
+        const box = shellRef.current?.getBoundingClientRect();
+        return box ? sceneRef.current?.pick(clientX - box.left, clientY - box.top) ?? null : null;
+      },
+      blobbiPosition: () => sceneRef.current?.positionOf(MAIN_BLOBBI) ?? null,
+      hop: () => sceneRef.current?.hop(MAIN_BLOBBI),
     } : null;
     return () => { controlRef.current = null; };
   }, [is3d, controlRef, sceneRef]);
@@ -498,6 +510,7 @@ export function RoomShell({
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerCancel}
           aria-hidden
+          data-testid="room-tap-layer"
         />
       )}
 

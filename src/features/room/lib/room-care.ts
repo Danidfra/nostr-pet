@@ -1,0 +1,146 @@
+/**
+ * Care in the 3D room, as pure decisions: which items a room offers, and
+ * what a drop or a Use means. No React, no Nostr; `useRoomCare` acts on
+ * these through the home's own write paths.
+ *
+ * THE BOUNDARY. What an item is, whether this Blobbi may use it, how much
+ * of it the player owns and what using it writes all belong to the
+ * inventory feature and are not restated here:
+ *
+ *  - a STARTER (`StarterEntry`) is the official catalog, free and
+ *    unlimited, never owned: using one is the care write alone
+ *    (`useStarterUse`: kind 31124, then the 1124 receipt);
+ *  - an OWNED item (`HomeInventoryItem`) is a balance in another game's
+ *    inventory: using one spends exactly one (`useUseItem`: kind 1416, then
+ *    31124 with `blobbi_op`, then the 1124 receipt), with its ledger,
+ *    resume and ambiguity rules;
+ *  - which items belong in which room is the registry's (`roomShowsItem`,
+ *    the M8 hotbar's filter over `room.activities`).
+ *
+ * Ditto's room shows its whole shop catalog as free, reusable abilities
+ * with no quantity; that is NOT this app's economy and is not copied: an
+ * owned item here shows its real balance and is spent on use.
+ */
+import type { BlobbiCompanion } from '@blobbi-kit/core';
+
+import { optionKey, type CareChoice } from '@/features/home/care-model';
+import { roomById, roomShowsItem, type RoomActivity, type RoomId } from '@/features/home/rooms/rooms';
+import type { HomeInventory, HomeInventoryItem, HomeItem, ItemAction, ItemGlyphModel, StarterEntry } from '@/features/inventory';
+import { ROOM_GRID } from './room-geometry';
+
+/** One item a room offers. */
+export interface RoomCareEntry {
+  /** Stable across renders and refetches (`optionKey`). */
+  key: string;
+  choice: CareChoice;
+  name: string;
+  glyph: ItemGlyphModel;
+  action: ItemAction;
+  /** How many the player owns; null for a starter (free, unlimited). */
+  quantity: number | null;
+  /** Whether it can be used on this Blobbi now; when not, why. */
+  usable: boolean;
+  reason: string | null;
+}
+
+/** Which activities a strip shows: a room's own, or what a piece of furniture opens (the toy box anywhere). */
+export type CareShelf = { kind: 'room'; roomId: RoomId } | { kind: 'furniture'; label: string; activities: readonly RoomActivity[] };
+
+export function shelfActivities(shelf: CareShelf): readonly RoomActivity[] {
+  return shelf.kind === 'room' ? roomById(shelf.roomId).activities : shelf.activities;
+}
+
+/** A stable key for a shelf, so a selection is remembered per room and per piece of furniture. */
+export function shelfKey(shelf: CareShelf): string {
+  return shelf.kind === 'room' ? `room:${shelf.roomId}` : `furniture:${shelf.activities.join('+')}`;
+}
+
+/** The registry's own rule (`roomShowsItem`), over a shelf's activities. */
+function shows(activities: readonly RoomActivity[], item: Pick<HomeItem, 'care'>): boolean {
+  return roomShowsItem({ ...roomById('home'), activities }, item);
+}
+
+/**
+ * What a shelf offers: the starter kit's items that answer its activities,
+ * then the player's owned items that do, each with whether it can be used
+ * now. An owned item the relays could not verify, or with none left, is
+ * shown but cannot be used; one that is not a care item never shows.
+ */
+export function shelfEntries(shelf: CareShelf, inventory: Pick<HomeInventory, 'starters' | 'items'>): RoomCareEntry[] {
+  const activities = shelfActivities(shelf);
+  const starters = inventory.starters
+    .filter((s) => shows(activities, s.item))
+    .map((entry) => starterEntry(entry));
+  const owned = inventory.items
+    .filter((i) => shows(activities, i.item) && i.quantity > 0)
+    .map((entry) => ownedEntry(entry))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return [...starters, ...owned];
+}
+
+function starterEntry(entry: StarterEntry): RoomCareEntry {
+  const choice: CareChoice = { source: 'starter', entry };
+  return { key: optionKey(choice), choice, name: entry.item.name, glyph: entry.item.glyph, action: entry.item.care!.action, quantity: null, usable: entry.usability.ok, reason: entry.usability.ok ? null : entry.usability.reason ?? 'Not right now.' };
+}
+
+function ownedEntry(entry: HomeInventoryItem): RoomCareEntry {
+  const choice: CareChoice = { source: 'owned', entry };
+  const reason = entry.unverified ? "This inventory's balance can't be verified right now." : !entry.usability.ok ? entry.usability.reason ?? 'Not right now.' : null;
+  return { key: optionKey(choice), choice, name: entry.item.name, glyph: entry.item.glyph, action: entry.item.care!.action, quantity: entry.quantity, usable: reason === null, reason };
+}
+
+/** Food and drink are handed to the Blobbi; everything else is set down for it to come to. */
+export function isHandFed(action: ItemAction): boolean {
+  return action === 'feed' || action === 'boost';
+}
+
+/** What the room says about a shelf with nothing in it. */
+export function emptyShelfText(shelf: CareShelf, blobbi: Pick<BlobbiCompanion, 'state'>): string {
+  if (blobbi.state === 'sleeping') return 'Shh, your Blobbi is asleep.';
+  return shelf.kind === 'room' ? roomById(shelf.roomId).emptyHint : 'Nothing in here you can use right now.';
+}
+
+/** Where a drop lands, from what the room reports under the point. */
+export type DropPlace = { kind: 'blobbi' } | { kind: 'floor'; x: number; z: number } | { kind: 'nowhere' };
+
+/**
+ * What letting an item go somewhere means, by what it is: food or drink on
+ * the Blobbi is handed over at once; anything else on the Blobbi is set
+ * down at its feet; anything on the floor is set down there for it to walk
+ * to. Off the floor (a wall, the chrome): nothing, the item goes back.
+ */
+export type DropPlan = { kind: 'hand' } | { kind: 'set-down'; x: number; z: number } | { kind: 'cancel' };
+
+export function planDrop(action: ItemAction, place: DropPlace, blobbiAt: { x: number; z: number } | null): DropPlan {
+  if (place.kind === 'nowhere') return { kind: 'cancel' };
+  if (place.kind === 'blobbi') {
+    if (isHandFed(action)) return { kind: 'hand' };
+    return blobbiAt ? { kind: 'set-down', ...setDownNear(blobbiAt) } : { kind: 'hand' };
+  }
+  return { kind: 'set-down', x: clampFloor(place.x), z: clampFloor(place.z) };
+}
+
+/** The explicit Use (no drag): food handed over; anything else set down just in front of the Blobbi, toward the viewer. */
+export function planUse(action: ItemAction, blobbiAt: { x: number; z: number } | null): DropPlan {
+  if (isHandFed(action) || !blobbiAt) return { kind: 'hand' };
+  return { kind: 'set-down', ...setDownNear(blobbiAt) };
+}
+
+/** How far in front of the Blobbi (tiles, toward the open corner) a used item is set down. */
+export const SET_DOWN_OFFSET = 1.1;
+/** How close to a wall an item may lie (tiles). */
+const FLOOR_MARGIN = 0.6;
+
+function clampFloor(v: number): number {
+  return Math.min(ROOM_GRID - FLOOR_MARGIN, Math.max(FLOOR_MARGIN, v));
+}
+
+/** A spot just in front of the Blobbi, toward the camera's corner, inside the room. */
+export function setDownNear(at: { x: number; z: number }): { x: number; z: number } {
+  const d = SET_DOWN_OFFSET / Math.SQRT2;
+  const x = at.x + d;
+  const z = at.z + d;
+  // Against the open edge, set it down on the side instead
+  if (x > ROOM_GRID - FLOOR_MARGIN || z > ROOM_GRID - FLOOR_MARGIN) return { x: clampFloor(at.x - d), z: clampFloor(at.z + d) };
+  return { x: clampFloor(x), z: clampFloor(z) };
+}

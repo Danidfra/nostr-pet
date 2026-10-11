@@ -21,6 +21,9 @@ function fakeControl() {
     walkTo: vi.fn(() => new Promise<WalkOutcome>((resolve) => { pending.push(resolve); })),
     approach: vi.fn(() => new Promise<WalkOutcome>((resolve) => { pending.push(resolve); })),
     stop: vi.fn(() => { pending.splice(0).forEach((r) => r('stopped')); }),
+    pickAt: () => null,
+    blobbiPosition: () => null,
+    hop: () => {},
   };
   return { control, settle: (o: WalkOutcome) => pending.shift()?.(o), pending };
 }

@@ -8,15 +8,22 @@
  * Decorating (milestone 3) is Ditto's: the decorate button, the editing
  * camera, drag and drop on the grid, the catalog tray, wallpaper and
  * flooring, save and cancel. What is saved lives in the session store, in
- * memory, per room. Nothing here publishes: the room choice is this
- * screen's state, and care stays on the home.
+ * memory, per room.
+ *
+ * Care (milestone 4): each room's items in a strip along the dock (the
+ * registry's activities: food and drink in the kitchen, soap and medicine in
+ * the care room, toys in the living room), starters and owned items with
+ * their counts; selected, then used with the Use button or dragged onto the
+ * Blobbi or the floor; the bed, the fridge, the tub and the toy box answer a
+ * tap. Every use goes through the home's own write paths (`useRoomCare`);
+ * choosing, dragging, walking and the room itself publish nothing.
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useProjectedBlobbiState } from '@blobbi-kit/react';
-import type { BlobbiCompanion } from '@blobbi-kit/core';
+import type { BlobbiCompanion, NostrEvent } from '@blobbi-kit/core';
 
 import { useHomeBlobbi } from '@/hooks/useHomeBlobbi';
 import { baselineExpression } from '@/features/home/scene/reactions';
@@ -29,6 +36,15 @@ import { RoomDecoratorOverlay, RoomDecoratorToolbar } from './components/RoomDec
 import { useRoomNavigation } from './hooks/useRoomNavigation';
 import { useRoomDecorator } from './hooks/useRoomDecorator';
 import { useRoomActorModel } from './hooks/useRoomActorModel';
+import { useRoomCare } from './hooks/useRoomCare';
+import { useRoomItemDrag } from './hooks/useRoomItemDrag';
+import { RoomCarePanel } from './components/RoomCarePanel';
+import { RoomBlobbiOverlay, RoomDragGhost, RoomFloorItem } from './components/RoomCareParts';
+import { useReactionPolicy } from '@/features/home/scene/useReactionPolicy';
+import { roomById, type RoomActivity } from '@/features/home/rooms/rooms';
+import { resolveFurniture, type FurnitureInteraction } from './lib/furniture-3d';
+import { MAIN_BLOBBI } from './lib/room-geometry';
+import { emptyShelfText, planDrop, planUse, shelfEntries, shelfKey, type CareShelf, type DropPlace, type RoomCareEntry } from './lib/room-care';
 import { RoomAppearanceControl } from './components/RoomAppearanceControl';
 import { useBlobbiAppearance } from './lib/blobbi-appearance';
 import { useRoomSession } from './lib/room-session';
@@ -44,7 +60,7 @@ export default function RoomPreviewPage() {
       <div className="game-frame">
         <div className="game-column">
           {home.status === 'ready' && home.current ? (
-            <BlobbiRoom key={home.current.d} blobbi={home.current} />
+            <BlobbiRoom key={home.current.d} blobbi={home.current} pubkey={home.pubkey} updateCompanionEvent={home.updateCompanionEvent} refresh={home.refresh} />
           ) : (
             <RoomMessage status={home.status} />
           )}
@@ -71,7 +87,21 @@ function RoomMessage({ status }: { status: ReturnType<typeof useHomeBlobbi>['sta
   );
 }
 
-function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
+/** What a piece of furniture opens when tapped: the items of its activities (the bed is rest, handled on its own). */
+const FURNITURE_SHELVES: Record<Exclude<FurnitureInteraction, 'bed'>, { label: string; activities: readonly RoomActivity[] }> = {
+  fridge: { label: 'From the fridge', activities: ['feed', 'boost'] },
+  bath: { label: 'At the tub', activities: ['clean', 'medicine'] },
+  toys: { label: 'From the toy box', activities: ['play'] },
+};
+
+interface BlobbiRoomProps {
+  blobbi: BlobbiCompanion;
+  pubkey: string | undefined;
+  updateCompanionEvent: (event: NostrEvent) => void;
+  refresh: () => void;
+}
+
+function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoomProps) {
   const projected = useProjectedBlobbiState(blobbi);
   const isSleeping = blobbi.state === 'sleeping';
   const isEgg = blobbi.stage === 'egg';
@@ -85,7 +115,10 @@ function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
   const roomId = decorator.room ?? resolvedRoom;
   const nav = useRoomNavigation({ blobbi, editing: decorator.editing });
   const { facing, motion } = nav;
-  const expression = useMemo(() => baselineExpression(blobbi, projected?.stats), [blobbi, projected?.stats]);
+  const baseline = useMemo(() => baselineExpression(blobbi, projected?.stats), [blobbi, projected?.stats]);
+  // A care result's face for a moment (the 2D drawing's; the 3D model hops), then the baseline again
+  const reactions = useReactionPolicy();
+  const expression = reactions.reaction ?? baseline;
   const layout = decorator.layoutDraft ?? rooms.layoutFor(roomId);
   const placements = decorator.draft ?? rooms.furnitureFor(roomId);
   const walkSpeed = useMemo(() => walkSpeedFor(blobbi.stage, blobbi.visualGeneration), [blobbi.stage, blobbi.visualGeneration]);
@@ -104,6 +137,102 @@ function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
 
   const { draft, layoutDraft, selectedIndex, select, setDraft, setLayoutDraft, move, setInvalid, invalid, save, cancel } = decorator;
   const controlRef = nav.shellProps.controlRef;
+
+  // ─── Care: one adapter over the home's write paths ───
+  const hop = useCallback(() => controlRef.current?.hop(), [controlRef]);
+  const care = useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav, react: reactions.react, hop });
+
+  // What the strip shows: the room's own shelf, or what a piece of furniture opened (until the room changes)
+  const [furnitureShelf, setFurnitureShelf] = useState<CareShelf | null>(null);
+  const [highlight, setHighlight] = useState(0);
+  useEffect(() => setFurnitureShelf(null), [roomId]);
+  const shelf = useMemo<CareShelf>(() => furnitureShelf ?? { kind: 'room', roomId }, [furnitureShelf, roomId]);
+  const hasStrip = furnitureShelf !== null || (roomId !== 'rest' && roomId !== 'closet');
+  const entries = useMemo(() => (hasStrip ? shelfEntries(shelf, care.inventory) : []), [hasStrip, shelf, care.inventory]);
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+  // The selection, per shelf, for this visit (React state only; selecting never uses anything)
+  const [selections, setSelections] = useState<Record<string, string>>({});
+  const currentShelfKey = shelfKey(shelf);
+  const chosen = selections[currentShelfKey];
+  const selectedKey = chosen && entries.some((e) => e.key === chosen) ? chosen : null;
+  const selectItem = useCallback((key: string) => setSelections((s) => (s[currentShelfKey] === key ? s : { ...s, [currentShelfKey]: key })), [currentShelfKey]);
+
+  // Where a point in the room lands: on the Blobbi (as a tap would find it, 2D or 3D alike), the floor, or nowhere
+  const placeAt = useCallback((clientX: number, clientY: number): DropPlace => {
+    const control = controlRef.current;
+    const hit = control?.pickAt(clientX, clientY);
+    if (!control || !hit) return { kind: 'nowhere' };
+    if (hit.kind === 'actor') return hit.id === MAIN_BLOBBI ? { kind: 'blobbi' } : { kind: 'nowhere' };
+    if (hit.kind === 'floor') return { kind: 'floor', x: hit.x, z: hit.z };
+    const floor = control.floorAt(clientX, clientY);
+    return floor ? { kind: 'floor', ...floor } : { kind: 'nowhere' };
+  }, [controlRef]);
+  const applyEntry = care.use;
+  const drag = useRoomItemDrag({
+    onTap: selectItem,
+    // Lights the drop ring or the floor under the item, with no render (the shell's data attribute)
+    onHover: (_key, point) => {
+      const shell = shellRef.current?.querySelector<HTMLElement>('[data-testid="room-shell"]');
+      if (!shell) return;
+      if (point) shell.dataset.drop = placeAt(point.x, point.y).kind;
+      else delete shell.dataset.drop;
+    },
+    onDrop: (key, clientX, clientY) => {
+      const entry = entriesRef.current.find((e) => e.key === key);
+      if (!entry) return;
+      selectItem(key);
+      const plan = planDrop(entry.action, placeAt(clientX, clientY), controlRef.current?.blobbiPosition() ?? null);
+      if (plan.kind !== 'cancel') applyEntry(entry, plan, roomId);
+    },
+  });
+  const startDrag = drag.start;
+  const onDragStart = useCallback((e: ReactPointerEvent, entry: RoomCareEntry) => {
+    // Only into a 3D room, which can tell the Blobbi from the floor; without it, Use is the way
+    if (controlRef.current) startDrag(e, entry.key);
+  }, [controlRef, startDrag]);
+  const onUse = useCallback((entry: RoomCareEntry) => {
+    selectItem(entry.key);
+    applyEntry(entry, planUse(entry.action, controlRef.current?.blobbiPosition() ?? null), roomId);
+  }, [selectItem, applyEntry, controlRef, roomId]);
+
+  // A drag ends without a drop when the room changes, decorating begins, or the item is gone or no longer usable
+  const cancelDrag = drag.cancel;
+  useEffect(() => cancelDrag(), [roomId, decorator.editing, cancelDrag]);
+  const dragged = drag.session ? entries.find((e) => e.key === drag.session!.key) ?? null : null;
+  const draggedGone = drag.session !== null && (!dragged || !dragged.usable || care.busy || (dragged.choice.source === 'owned' && care.inventory.status !== 'ready'));
+  useEffect(() => {
+    if (draggedGone) cancelDrag();
+  }, [draggedGone, cancelDrag]);
+
+  // Furniture: the bed rests or wakes; the fridge, the tub and the toy box open their items
+  const bed = useMemo(() => {
+    const p = placements.find((f) => f.at === 'floor' && resolveFurniture(f.id)?.interaction === 'bed');
+    return p ? { x: p.x, z: p.y } : null;
+  }, [placements]);
+  const rest = care.rest;
+  const onInteract = useCallback((interaction: FurnitureInteraction, index: number) => {
+    if (interaction === 'bed') {
+      const p = placements[index];
+      rest(p ? { x: p.x, z: p.y } : null);
+      return;
+    }
+    const opened = FURNITURE_SHELVES[interaction];
+    const own = roomById(roomId).activities;
+    const same = opened.activities.length === own.length && opened.activities.every((a) => own.includes(a));
+    setFurnitureShelf(same ? null : { kind: 'furniture', label: opened.label, activities: opened.activities });
+    setHighlight((h) => h + 1);
+  }, [placements, rest, roomId]);
+
+  const offer = care.offer;
+  const offerGlyph = offer?.choice.entry.item.glyph ?? null;
+  const floorThings = useMemo(
+    () => (offer && offer.place.kind === 'floor' && offer.place.roomId === roomId && offerGlyph
+      ? [{ key: `offer-${offer.key}`, x: offer.place.x, z: offer.place.z, node: <RoomFloorItem offer={offer} glyph={offerGlyph} onPutAway={care.putAway} /> }]
+      : []),
+    [offer, offerGlyph, roomId, care.putAway],
+  );
+  const handed = offer && offer.place.kind === 'hand' && offer.phase !== 'failed' && offerGlyph ? { glyph: offerGlyph, phase: offer.phase } : null;
   const editor = useMemo((): RoomEditorBinding | undefined => {
     if (!decorator.editing || !draft || !layoutDraft) return undefined;
     return {
@@ -144,6 +273,37 @@ function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
         pointerHandlers={pointerHandlers}
         {...nav.shellProps}
         onDecorate={decorator.open}
+        decorateDisabled={care.busy}
+        onInteract={onInteract}
+        floorThings={floorThings}
+        blobbiOverlay={<RoomBlobbiOverlay feedback={care.feedback} handed={handed} />}
+        middleSlot={
+          <RoomCarePanel
+            blobbi={blobbi}
+            roomId={roomId}
+            strip={hasStrip ? {
+              title: furnitureShelf?.kind === 'furniture' ? furnitureShelf.label : roomById(roomId).description,
+              entries,
+              selectedKey,
+              onSelect: selectItem,
+              onUse,
+              onDragStart,
+              emptyText: emptyShelfText(shelf, blobbi),
+              onClose: furnitureShelf ? () => setFurnitureShelf(null) : undefined,
+              highlightKey: highlight || undefined,
+            } : null}
+            offer={offer}
+            busy={care.busy}
+            onRetry={care.retry}
+            onPutAway={care.putAway}
+            onRest={() => rest(bed)}
+            restPending={care.restPending}
+            hasBed={bed !== null}
+            closetHint={roomById('closet').emptyHint}
+            error={care.error}
+            notice={care.notice}
+          />
+        }
         blobbiModel={actor3d.model}
         hudEnd={<RoomAppearanceControl appearance={appearance} onChange={setAppearance} unavailable3d={actor3d.unavailable3d} />}
         editor={editor}
@@ -162,6 +322,7 @@ function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
           <span className="size-[2.75em] shrink-0" aria-hidden />
         </div>
       </RoomShell>
+      <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
     </div>
   );
 }

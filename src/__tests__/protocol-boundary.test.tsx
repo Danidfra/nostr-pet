@@ -5,6 +5,11 @@
  * nothing new; the semantic actions write exactly their kinds. Also the
  * renderer contract: a V1 Blobbi draws without expressions, a V2 Blobbi
  * carries them, and the home hands both the same inputs.
+ *
+ * The 3D room (`/room`, a dev preview) keeps the same boundary with the
+ * same write paths: selecting, carrying, dropping off the floor, walking,
+ * furniture, rooms and the 2D/3D switch write nothing; its uses write the
+ * home's kinds exactly.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -13,6 +18,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { MemoryRouter } from 'react-router-dom';
+import AppRouter from '@/AppRouter';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { KIND_BLOBBI_INTERACTION, KIND_BLOBBI_STATE, getTagValue } from '@blobbi-kit/core';
 import { KIND_GAME_INVENTORY_SPEND } from '@nostr-games/inventory';
@@ -57,6 +63,44 @@ const event = vi.fn(async (ev: NostrEvent) => {
   else relay.all.push(ev);
 });
 const pool = { query, event } as unknown as NPool;
+
+// The 3D room's scene, faked: everything under (200, 300) is the Blobbi, the rest is floor, and every walk arrives
+vi.mock('@/features/room/hooks/useRoomScene', () => {
+  const fake = {
+    pick: (x: number, y: number) => (y < 0 ? null : x > 150 && x < 250 && y > 220 && y < 320 ? { kind: 'actor', id: 'main' } : { kind: 'floor', x: x / 60, z: y / 60 }),
+    floorAt: (x: number, y: number) => (y < 0 ? null : { x: x / 60, z: y / 60 }),
+    requestWalk: () => Promise.resolve('arrived'),
+    stopWalk: () => {},
+    positionOf: () => ({ x: 4, z: 4 }),
+    hop: () => {},
+    projectBlobbi: () => ({ x: 200, y: 320, pxPerTile: 40 }),
+    projectFloor: () => ({ x: 200, y: 400, pxPerTile: 40 }),
+    projectItemTop: () => ({ x: 150, y: 300, pxPerTile: 40 }),
+    facingOf: () => 'front',
+    isWalking: () => false,
+    actorModelDrawn: () => false,
+    poke: () => {},
+    toggleLamp: () => false,
+    walkTo: () => {},
+    findSpot: () => null,
+  };
+  return { useRoomScene: () => ({ status: 'ready', sceneRef: { current: fake } }), webglAvailable: () => false };
+});
+function renderRoom() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as unknown as HTMLCanvasElement['getContext'];
+  return render(
+    <NostrLoginProvider storageKey="test:login">
+      <NostrContext.Provider value={{ nostr: pool }}>
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={['/room']}>
+            <AppRouter />
+          </MemoryRouter>
+        </QueryClientProvider>
+      </NostrContext.Provider>
+    </NostrLoginProvider>,
+  );
+}
 
 const FAST: Partial<SceneSettings> = { walkSpeed: 4, idleEnabled: false };
 const SLOW: Partial<SceneSettings> = { walkSpeed: 1.2, idleEnabled: false };
@@ -192,5 +236,49 @@ describe('The renderer contract', () => {
     await useOwnedItem('blobbi:toy:ball');
     await waitFor(() => expect(kinds().filter((k) => k === KIND_GAME_INVENTORY_SPEND)).toHaveLength(1), { timeout: 4000 });
     expect(relay.published).toHaveLength(kinds().length);
+  });
+});
+
+describe('The 3D room keeps the boundary', () => {
+  const carry = (el: HTMLElement, x: number, y: number) => {
+    fireEvent.pointerDown(el, { pointerId: 9, isPrimary: true, button: 0, pointerType: 'mouse', clientX: 100, clientY: 700 });
+    window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 9, clientX: 130, clientY: 600, pointerType: 'mouse' }));
+    window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 9, clientX: x, clientY: y, pointerType: 'mouse' }));
+    window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 9, clientX: x, clientY: y }));
+  };
+  const roomTiles = () => within(screen.getByTestId('room-item-list')).getAllByRole('option');
+  const ownedTile = () => roomTiles().find((t) => t.dataset.source === 'owned')!;
+  async function inRoom() {
+    renderRoom();
+    await screen.findByTestId('room-care-panel');
+    await waitFor(() => expect(screen.getAllByTestId('room-item-badge').some((b) => b.textContent!.startsWith('×'))).toBe(true));
+  }
+
+  it('selecting, the arrow keys, carrying off the floor, rooms, and the 2D/3D switch write nothing', async () => {
+    await inRoom();
+    fireEvent.click(ownedTile());
+    fireEvent.keyDown(screen.getByTestId('room-item-list'), { key: 'ArrowRight' });
+    carry(ownedTile(), 300, -40);
+    await new Promise((r) => setTimeout(r, 0));
+    for (const side of ['room-nav-left', 'room-nav-right', 'room-nav-right'] as const) fireEvent.click(screen.getByTestId(side));
+    fireEvent.click(screen.getByTestId('room-appearance-toggle'));
+    fireEvent.click(screen.getByTestId('room-appearance-3d'));
+    fireEvent.click(screen.getByTestId('room-appearance-2d'));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(relay.published).toEqual([]);
+    expect(event).not.toHaveBeenCalled();
+  });
+
+  it('its uses write the home\'s kinds exactly: a starter 31124 and 1124, an owned item 1416, 31124 and 1124', async () => {
+    await inRoom();
+    const starter = roomTiles().find((t) => t.dataset.source === 'starter')!;
+    fireEvent.click(starter);
+    fireEvent.click(screen.getByTestId('room-item-use'));
+    await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByTestId('room-item-use')).toBeEnabled(), { timeout: 3000 });
+    relay.published = [];
+    await new Promise((r) => setTimeout(r, 0));
+    carry(ownedTile(), 300, 400);
+    await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
   });
 });

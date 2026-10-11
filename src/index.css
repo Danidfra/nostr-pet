@@ -1107,6 +1107,335 @@
     backdrop-filter: blur(12px);
     border-top: 1px solid hsl(var(--border) / 0.4);
   }
+  /* ─── Care in the 3D room (milestone 4): the dock's panel, the item strip, items in the room ─── */
+  .room-care-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+    padding: 0.55em 0.75em 0.45em;
+    background: hsl(var(--background) / 0.8);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid hsl(var(--border) / 0.35);
+  }
+  .room-item-strip {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+    min-width: 0;
+  }
+  .room-item-strip__glow {
+    position: absolute;
+    inset: -0.3em;
+    border-radius: 1em;
+    pointer-events: none;
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.55);
+    animation: room-strip-glow 1.4s ease-out forwards;
+  }
+  @keyframes room-strip-glow {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  .room-item-strip__list {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 0.4em;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    padding: 0.15em 0.1em 0.2em;
+  }
+  .room-item-strip__list::-webkit-scrollbar {
+    display: none;
+  }
+  .room-item-strip__empty {
+    padding: 0.6em 0.25em;
+    text-align: center;
+    font-size: 0.8em;
+    color: hsl(var(--muted-foreground));
+  }
+  .room-item-tile {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15em;
+    width: 4.6em;
+    min-height: 4.4em;
+    padding: 0.3em 0.2em 0.25em;
+    border-radius: 0.9em;
+    border: 1px solid hsl(var(--border) / 0.35);
+    background: hsl(var(--background) / 0.7);
+    scroll-snap-align: start;
+    cursor: grab;
+    /* A finger pans the strip sideways; anything else is the item's (it lifts into the room) */
+    touch-action: pan-x;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    transition: background-color 150ms, box-shadow 150ms, transform 150ms;
+  }
+  .room-item-tile:hover {
+    background: hsl(var(--background));
+  }
+  .room-item-tile:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  .room-item-tile--on {
+    background: hsl(var(--primary) / 0.12);
+    box-shadow: inset 0 0 0 1.5px hsl(var(--primary) / 0.65);
+  }
+  .room-item-tile--off {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .room-item-tile__name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.68em;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+  .room-item-tile__badge {
+    position: absolute;
+    top: 0.2em;
+    right: 0.25em;
+    border-radius: 9999px;
+    padding: 0 0.4em;
+    font-size: 0.6em;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  .room-item-tile__badge--starter {
+    background: hsl(var(--muted) / 0.9);
+    color: hsl(var(--muted-foreground));
+  }
+  .room-item-tile__badge--owned {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+  .room-item-tile__spinner {
+    position: absolute;
+    bottom: 0.2em;
+    left: 0.3em;
+  }
+  .room-use-button {
+    flex: 0 0 auto;
+    align-self: center;
+    min-width: 3.6em;
+    min-height: 2.75rem;
+    padding: 0 0.9em;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-size: 0.85em;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px -4px hsl(var(--primary) / 0.6);
+    transition: opacity 150ms, transform 150ms;
+  }
+  .room-use-button:disabled {
+    opacity: 0.4;
+    box-shadow: none;
+  }
+  .room-use-button:not(:disabled):active {
+    transform: scale(0.96);
+  }
+  .room-use-button:focus-visible,
+  .room-rest-button:focus-visible,
+  .room-chip-button:focus-visible,
+  .room-strip-close:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  .room-strip-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.8em;
+    height: 1.8em;
+    border-radius: 9999px;
+    color: hsl(var(--foreground) / 0.7);
+  }
+  .room-strip-close:hover {
+    background: hsl(var(--foreground) / 0.08);
+  }
+  .room-rest-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75em;
+    padding: 0.2em 0.25em;
+  }
+  .room-rest-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    min-height: 2.75rem;
+    padding: 0 1.1em;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-weight: 700;
+    font-size: 0.9em;
+    flex: 0 0 auto;
+  }
+  .room-rest-button:disabled {
+    opacity: 0.5;
+  }
+  .room-care-notice {
+    font-size: 0.75em;
+    text-align: center;
+    color: hsl(var(--foreground) / 0.75);
+  }
+  .room-offer-failure {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.4em 0.5em;
+    border-radius: 0.8em;
+    border: 1px solid hsl(var(--destructive) / 0.35);
+    background: hsl(var(--card) / 0.9);
+  }
+  .room-chip-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    min-height: 2.25rem;
+    padding: 0 0.75em;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-size: 0.75em;
+    font-weight: 700;
+  }
+  .room-chip-button--quiet {
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+  }
+
+  /* An item set down in the room, sized to the room at its spot (--anchor-px) */
+  .room-floor-item {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+  }
+  .room-floor-item__glyph {
+    position: absolute;
+    left: calc(var(--anchor-px, 60) * -0.32px);
+    bottom: 0;
+    width: calc(var(--anchor-px, 60) * 0.64px);
+    height: calc(var(--anchor-px, 60) * 0.64px);
+    filter: drop-shadow(0 3px 2px hsl(0 0% 0% / 0.22));
+    transform-origin: 50% 100%;
+    animation: room-item-set-down 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .room-floor-item[data-phase='using'] .room-floor-item__glyph,
+  .room-handed-item[data-phase='using'] {
+    animation: room-item-consume 900ms ease-in forwards;
+  }
+  .room-floor-item[data-phase='failed'] .room-floor-item__glyph {
+    opacity: 0.7;
+    filter: grayscale(0.4) drop-shadow(0 3px 2px hsl(0 0% 0% / 0.22));
+  }
+  .room-floor-item__cancel {
+    position: absolute;
+    left: calc(var(--anchor-px, 60) * 0.18px);
+    bottom: calc(var(--anchor-px, 60) * 0.5px);
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: hsl(var(--background) / 0.9);
+    border: 1px solid hsl(var(--border) / 0.5);
+    color: hsl(var(--foreground) / 0.75);
+    pointer-events: auto;
+  }
+  @keyframes room-item-set-down {
+    from { transform: translateY(-40%) scale(0.6); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+  /* Eaten, played with, lathered: drawn into the Blobbi (Ditto's consume, as a shrink toward it) */
+  @keyframes room-item-consume {
+    0% { transform: none; opacity: 1; }
+    30% { transform: translateY(-8%) scale(1.08) rotate(-6deg); }
+    60% { transform: translateY(-4%) scale(0.85) rotate(6deg); opacity: 0.9; }
+    100% { transform: translateY(-20%) scale(0.2); opacity: 0; }
+  }
+
+  /* What follows the Blobbi: a box its art box's size, on its feet (the shell sets --anchor-px and --blobbi-tiles) */
+  .room-blobbi-overlay {
+    position: absolute;
+    left: calc(var(--anchor-px, 100) * var(--blobbi-tiles, 2) * -0.5px);
+    bottom: 0;
+    width: calc(var(--anchor-px, 100) * var(--blobbi-tiles, 2) * 1px);
+    height: calc(var(--anchor-px, 100) * var(--blobbi-tiles, 2) * 1px);
+    pointer-events: none;
+  }
+  .room-handed-item {
+    position: absolute;
+    left: 50%;
+    top: 46%;
+    width: 22%;
+    height: 22%;
+    transform: translateX(-50%);
+    filter: drop-shadow(0 2px 2px hsl(0 0% 0% / 0.2));
+  }
+  .room-drop-ring {
+    position: absolute;
+    left: 20%;
+    right: 20%;
+    top: 25%;
+    bottom: 0;
+    border-radius: 45% 45% 40% 40%;
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.7), 0 0 24px 6px hsl(var(--primary) / 0.35);
+    opacity: 0;
+    transition: opacity 120ms;
+  }
+  .room-shell[data-drop='blobbi'] .room-drop-ring {
+    opacity: 1;
+  }
+  .room-shell[data-drop='nowhere'] {
+    cursor: no-drop;
+  }
+
+  /* The carried item, under the pointer (positioned by the drag hook) */
+  .room-drag-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 200;
+    width: 3.25rem;
+    height: 3.25rem;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 6px hsl(0 0% 0% / 0.3));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .room-floor-item__glyph,
+    .room-item-strip__glow {
+      animation: none;
+    }
+    .room-floor-item[data-phase='using'] .room-floor-item__glyph,
+    .room-handed-item[data-phase='using'] {
+      animation: none;
+      opacity: 0.5;
+    }
+  }
+
   .room-name-tag {
     display: inline-flex;
     align-items: center;

@@ -96,7 +96,7 @@ export interface ScreenAnchor {
   pxPerTile: number;
 }
 
-type PickResult =
+export type PickResult =
   | { kind: 'actor'; id: string }
   | { kind: 'item'; index: number }
   | { kind: 'floor'; x: number; z: number }
@@ -1462,6 +1462,12 @@ export class RoomScene {
   actorModelDrawn(id = MAIN): boolean {
     const actor = this.actors.get(id);
     return !!actor?.model && actor.modelDrawn;
+  }
+
+  /** Where a Blobbi stands on the floor (tiles), or null if it is not in the room. */
+  positionOf(id = MAIN): { x: number; z: number } | null {
+    const actor = this.actors.get(id);
+    return actor ? { x: actor.x, z: actor.z } : null;
   }
 
   /** The way a Blobbi is heading, for tests and for whoever draws it: yaw about +y, 0 facing +z. */
