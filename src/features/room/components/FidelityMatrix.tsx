@@ -32,7 +32,8 @@ export interface MatrixRow {
   stage: Blobbi3dStage;
 }
 
-const VIEWS: readonly StillView[] = ['front', 'side', 'back'];
+/** The kit's three views, and the room's: the front from the room camera's elevation, as the room shows it at rest. */
+const VIEWS: readonly StillView[] = ['front', 'side', 'back', 'room'];
 
 export function FidelityMatrix({ rows, size = 120 }: { rows: readonly MatrixRow[]; size?: number }) {
   const [stills, setStills] = useState<Record<string, string>>({});
@@ -57,16 +58,17 @@ export function FidelityMatrix({ rows, size = 120 }: { rows: readonly MatrixRow[
   }, [requests, size]);
 
   return (
-    <div className="flex flex-col gap-2" data-testid="lab-matrix" data-status={status}>
-      <div className="grid gap-1 text-[11px] text-foreground/60" style={{ gridTemplateColumns: `8rem repeat(4, ${size}px)` }}>
+    <div className="flex flex-col gap-2 overflow-x-auto" data-testid="lab-matrix" data-status={status}>
+      <div className="grid gap-1 text-[11px] text-foreground/60" style={{ gridTemplateColumns: `8rem repeat(5, ${size}px)` }}>
         <span />
         <span>2D front (kit)</span>
         <span>3D front</span>
         <span>3D side</span>
         <span>3D back</span>
+        <span>3D in the room</span>
       </div>
       {rows.map((row) => (
-        <div key={row.id} className="grid items-center gap-1" style={{ gridTemplateColumns: `8rem repeat(4, ${size}px)` }} data-testid={`lab-matrix-${row.id}`} data-seed={row.genome.seed}>
+        <div key={row.id} className="grid items-center gap-1" style={{ gridTemplateColumns: `8rem repeat(5, ${size}px)` }} data-testid={`lab-matrix-${row.id}`} data-seed={row.genome.seed}>
           <div className="min-w-0 pr-2 text-xs">
             <p className="truncate font-bold">{row.label}</p>
             <p className="truncate text-[10px] text-foreground/60">{row.focus ? `${row.focus} · ` : ''}{row.stage}</p>

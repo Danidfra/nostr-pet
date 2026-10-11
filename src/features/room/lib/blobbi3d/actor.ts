@@ -36,6 +36,12 @@ export interface ActorFrame {
   gaze?: { x: number; y: number };
   /** A point in the world to look at (the pointer, another Blobbi); the resting gaze when absent. */
   lookAt?: THREE.Vector3 | null;
+  /**
+   * The yaw (about +y, 0 toward +z) of the direction from the Blobbi to an
+   * elevated camera that sees it (the room's). Given, the actor leans back
+   * from that camera by its `lean`; absent, it stands upright.
+   */
+  viewAzimuth?: number;
 }
 
 /** Something the scene stands in a Blobbi's place and drives each frame. */
@@ -45,6 +51,8 @@ export interface ActorModel {
   box: number;
   /** How much faster than the drawing's pace this actor walks, its feet keeping step (`WALK_TEMPO_3D`). */
   pace: number;
+  /** How far (radians) it leans back from an elevated camera that sees it (`ROOM_LEAN`); 0 stands upright. */
+  lean: number;
   /** Pose for this frame. True while it keeps moving on its own (so the scene keeps drawing frames). */
   update(frame: ActorFrame): boolean;
   /** The gaze as posed this frame, -1..1 each way (for tests and the lab). */
@@ -67,6 +75,21 @@ export interface ActorOptions {
  */
 export const WALK_TEMPO_3D = 1.08;
 
+/**
+ * How far a Blobbi leans back, away from the room's elevated camera, by
+ * stage. The kit draws a baby as a seed whose crown rises only about 23°
+ * above level at its tip; a solid true to both its silhouettes, seen from
+ * the room's 35° above, hides that tip behind its own crown and reads as a
+ * ball. Leaning back, its face turned up toward the viewer, lets the room's
+ * camera see it nearly as the kit draws it: the tip, the narrower crown,
+ * the fuller base, the face level. The geometry stays the kit's from every
+ * side; only the pose changes, and only toward an elevated camera. An adult
+ * stands on its feet and reads true as it is, so it stands upright.
+ */
+export const ROOM_LEAN: Readonly<Record<BlobbiModel['stage'], number>> = { baby: (18 * Math.PI) / 180, adult: 0 };
+
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+
 /** A target this far off the eyes' axis (as a sine) is a full look. */
 const FULL_LOOK = Math.sin((35 * Math.PI) / 180);
 /** The gaze eases toward its target at this rate (per second). */
@@ -82,6 +105,10 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
   let lastEyes = false;
   const gaze = { x: 0, y: 0 };
   const wanted = { x: 0, y: 0 };
+  const lean = ROOM_LEAN[model.stage] ?? 0;
+  const yaw = new THREE.Quaternion();
+  const tilt = new THREE.Quaternion();
+  const leanAxis = new THREE.Vector3();
   const eyeCentre = new THREE.Vector3();
   const toEyes = new THREE.Vector3();
   const inverse = new THREE.Quaternion();
@@ -121,6 +148,7 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
     object: model.root,
     box: 1,
     pace: WALK_TEMPO_3D,
+    lean,
     update(frame) {
       const reduced = options.reducedMotion?.() ?? false;
       age += frame.dt;
@@ -130,7 +158,15 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
       } else {
         heading = reduced ? frame.heading : turnToward(heading, frame.heading, frame.dt);
       }
-      model.root.rotation.y = heading;
+      // Turned to its heading; leaned back from the camera that sees it, about the ground under it
+      if (lean && frame.viewAzimuth !== undefined) {
+        yaw.setFromAxisAngle(Y_AXIS, heading);
+        leanAxis.set(Math.cos(frame.viewAzimuth), 0, -Math.sin(frame.viewAzimuth));
+        tilt.setFromAxisAngle(leanAxis, -lean);
+        model.root.quaternion.multiplyQuaternions(tilt, yaw);
+      } else {
+        model.root.rotation.set(0, heading, 0);
+      }
       const motion: BlobbiMotion = reduced || frame.sleeping ? 'still' : frame.motion;
       const cycle = motion === 'walking' ? walkCycle : idleCycle;
       phase = motion === 'still' ? 0 : (phase + frame.dt / cycle) % 1;

@@ -9,8 +9,22 @@ import type { BlobbiMotion } from '@blobbi-kit/renderer/procedural';
 import { createBlobbiActor, type ActorModel } from './actor';
 import type { BlobbiModel } from './model';
 import { yawForView } from './rig';
+import { CAMERA_ELEVATION } from '../room-geometry';
 
-export type StageView = 'front' | 'side' | 'back' | 'turn';
+/** Where the stage's camera looks (model units), and from how far: alone, and beside the figurine. */
+const LOOK_AT_Y = 0.4;
+const DISTANCE = 2.45;
+const DISTANCE_PAIR = 3.6;
+/** The kit's views are drawn level: the camera a touch above the look point, as before. */
+const LEVEL_ELEVATION = Math.atan2(0.08, DISTANCE);
+
+/**
+ * Which way the stage shows the model: the kit's three views, a turntable,
+ * or `room`: facing the camera from the room's own elevation
+ * (`CAMERA_ELEVATION`), the way the room shows a Blobbi at rest. A solid seen
+ * from above is not its front drawing, so this is the view to judge it by.
+ */
+export type StageView = 'front' | 'side' | 'back' | 'turn' | 'room';
 
 export interface StageOptions {
   walkCycle?: number;
@@ -85,8 +99,16 @@ export class BlobbiStage {
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.receiveShadow = true;
     this.scene.add(this.ground);
-    this.camera.position.set(0, 0.48, 2.45);
-    this.camera.lookAt(0, 0.4, 0);
+    this.placeCamera();
+  }
+
+  /** Level for the kit's views and the turntable, the room's elevation for `room`; further back with the figurine. */
+  private placeCamera() {
+    const x = this.figurine ? 0.48 : 0;
+    const distance = this.figurine ? DISTANCE_PAIR : DISTANCE;
+    const elevation = this.view === 'room' ? CAMERA_ELEVATION : LEVEL_ELEVATION;
+    this.camera.position.set(x, LOOK_AT_Y + distance * Math.sin(elevation), distance * Math.cos(elevation));
+    this.camera.lookAt(x, LOOK_AT_Y, 0);
   }
 
   /** Stand a model on the stage (replacing the last), and optionally the SNO figurine beside it. */
@@ -110,8 +132,7 @@ export class BlobbiStage {
       this.scene.add(figurine);
     }
     // Two on the stage: step back and look between them
-    this.camera.position.set(figurine ? 0.48 : 0, 0.48, figurine ? 3.6 : 2.45);
-    this.camera.lookAt(figurine ? 0.48 : 0, 0.4, 0);
+    this.placeCamera();
     this.last = 0;
     // Drawn at once (a hidden tab gets no animation frames), then kept moving
     this.renderFrame(0);
@@ -120,6 +141,7 @@ export class BlobbiStage {
 
   setView(view: StageView) {
     this.view = view;
+    this.placeCamera();
     this.renderFrame(0);
     this.requestFrame();
   }
@@ -199,7 +221,9 @@ export class BlobbiStage {
       } else {
         this.heading = yawForView(this.view);
       }
-      if (this.actor.update({ dt, motion: this.motion, heading: this.heading, sleeping: this.sleeping, lookAt: this.lookAt })) animating = true;
+      // The room's view sees it as the room does: leaning back from the camera (on +z here)
+      const viewAzimuth = this.view === 'room' ? 0 : undefined;
+      if (this.actor.update({ dt, motion: this.motion, heading: this.heading, sleeping: this.sleeping, lookAt: this.lookAt, viewAzimuth })) animating = true;
       if (this.figurine) this.figurine.rotation.y = this.actor.object.rotation.y;
     }
     this.renderer.render(this.scene, this.camera);

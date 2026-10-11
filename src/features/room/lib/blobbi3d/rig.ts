@@ -83,8 +83,9 @@ export function poseRig(model: BlobbiModel, state: RigState): void {
 }
 
 /** The yaw that faces a view: the front faces the viewer, the side faces screen-right as the kit's side view does. */
-export function yawForView(view: 'front' | 'side' | 'back'): number {
-  return view === 'front' ? 0 : view === 'side' ? Math.PI / 2 : Math.PI;
+export function yawForView(view: 'front' | 'side' | 'back' | 'room'): number {
+  // The room shows a Blobbi at rest facing its camera: the front, seen from above
+  return view === 'side' ? Math.PI / 2 : view === 'back' ? Math.PI : 0;
 }
 
 /** Ease a heading toward another the short way round. Settles exactly when close. */

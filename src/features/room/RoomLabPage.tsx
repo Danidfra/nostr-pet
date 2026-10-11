@@ -55,6 +55,7 @@ const VIEWS: { view: StageView; label: string }[] = [
   { view: 'side', label: 'Side' },
   { view: 'back', label: 'Back' },
   { view: 'turn', label: 'Turn' },
+  { view: 'room', label: 'Room view' },
 ];
 const MOTIONS: { motion: BlobbiMotion; label: string }[] = [
   { motion: 'still', label: 'Still' },

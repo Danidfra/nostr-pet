@@ -1425,7 +1425,8 @@ export class RoomScene {
         o.scale.setScalar(tiles / b.model.box);
         const sleeping = b.id === MAIN && this.sleepTarget === 1;
         const motion = b.path.length ? 'walking' : b.isEgg || sleeping ? 'still' : 'idle';
-        if (b.model.update({ dt, motion, heading: b.heading, sleeping })) animating = true;
+        // Seen from the open corner: it leans back from the camera by its stage's lean (`ROOM_LEAN`)
+        if (b.model.update({ dt, motion, heading: b.heading, sleeping, viewAzimuth: AZIMUTH })) animating = true;
       }
     }
     return animating;
