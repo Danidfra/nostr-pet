@@ -65,6 +65,8 @@ export interface FakeAudioContext {
   nodes: FakeNode[];
   resumes: number;
   resume: () => Promise<void>;
+  suspends: number;
+  suspend: () => Promise<void>;
   createOscillator: () => FakeNode;
   createGain: () => FakeNode;
   createBiquadFilter: () => FakeNode;
@@ -80,6 +82,11 @@ export function fakeAudioContext(state: 'suspended' | 'running' = 'running'): Fa
     resume: async () => {
       ctx.resumes += 1;
       ctx.state = 'running';
+    },
+    suspends: 0,
+    suspend: async () => {
+      ctx.suspends += 1;
+      ctx.state = 'suspended';
     },
     createOscillator: () => {
       const n = node('osc');

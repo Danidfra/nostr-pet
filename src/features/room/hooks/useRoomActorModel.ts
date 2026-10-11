@@ -13,7 +13,7 @@
  * or a stage reached). The key is the genome itself, so a Blobbi whose care
  * state changes (a new event, the same identity) keeps its model.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
@@ -72,7 +72,19 @@ export function useRoomActorModel(blobbi: BlobbiCompanion, appearance: BlobbiApp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildKey]);
   const actor = built.actor;
-  useEffect(() => () => actor?.dispose(), [actor]);
+  // Disposed a moment after it is let go, unless it is taken straight back (React's development double mount
+  // lets go and takes back the same model: disposing it then would hand back a model already torn down)
+  const letGo = useRef<{ actor: typeof actor; timer: ReturnType<typeof setTimeout> } | null>(null);
+  useEffect(() => {
+    if (letGo.current?.actor === actor) {
+      clearTimeout(letGo.current.timer);
+      letGo.current = null;
+    }
+    return () => {
+      if (!actor) return;
+      letGo.current = { actor, timer: setTimeout(() => actor.dispose(), 0) };
+    };
+  }, [actor]);
 
   return { model: wanted ? actor : null, unavailable3d: built.failed ? FAILED_3D : unavailable3d, failed: built.failed };
 }

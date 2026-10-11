@@ -418,11 +418,23 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const rememberPosition = memory.rememberPosition;
   useEffect(() => {
     if (motion !== 'idle' || transitioning || !present || isSleeping || decorator.editing) return;
-    const timer = setTimeout(() => {
+    const remember = (now: boolean) => {
       const at = controlRef.current?.blobbiPosition();
-      if (at) rememberPosition(roomId, at);
-    }, 500);
-    return () => clearTimeout(timer);
+      if (at) rememberPosition(roomId, at, now);
+    };
+    const timer = setTimeout(() => remember(false), 500);
+    // A reload, a closed tab or a phone put away never unmounts the page: written as it goes
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') remember(true);
+    };
+    const onPageHide = () => remember(true);
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', onPageHide);
+    };
   }, [motion, transitioning, present, isSleeping, decorator.editing, roomId, rememberPosition, controlRef]);
 
   // Furniture: the bed rests or wakes; the fridge, the tub and the toy box open their items

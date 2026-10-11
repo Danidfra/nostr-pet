@@ -70,6 +70,16 @@ export function SoundProvider({ children, engine }: SoundProviderProps) {
     };
   }, [enabled]);
 
+  // A hidden page plays nothing (play refuses), so its audio thread need not keep running (battery, the phone's audio session)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisibility = () => {
+      if (document.hidden) engineRef.current?.suspend?.();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
   // The same sound asked for again within a beat is one sound (a double tap, a burst of events)
   const lastPlayed = useRef(new Map<BlobbiSoundId, number>());
   const play = useCallback(

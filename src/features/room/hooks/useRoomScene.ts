@@ -125,6 +125,9 @@ export function useRoomScene(options: UseRoomSceneOptions) {
   /** Contexts lost in a row; the room comes back on a fresh canvas a few times. */
   const losses = useRef(0);
   /** Given up on for this visit, and why (a context lost too often counts through `losses`). */
+  /** Where the Blobbi stood when a scene went away, and whether the next scene must put it back there. */
+  const lastSpot = useRef<{ x: number; z: number } | null>(null);
+  const respawn = useRef(false);
   const [gaveUp, setGaveUp] = useState<'slow' | 'unsupported' | null>(null);
 
   // Latest callbacks, read by the scene without re-subscribing
@@ -168,6 +171,8 @@ export function useRoomScene(options: UseRoomSceneOptions) {
         scene.onSlow = () => callbacks.current.onSlow?.();
         if (qualityRef.current) scene.setQuality(qualityRef.current);
         sceneRef.current = scene;
+        // A scene made again (after a lost context) puts the Blobbi back where it stood, without folding the room in again
+        respawn.current = shownRoom.current !== null;
         setStatus('ready');
         callbacks.current.onGpu?.(scene.gpuName());
         // Drawn fine for a while: forget earlier losses
@@ -184,6 +189,7 @@ export function useRoomScene(options: UseRoomSceneOptions) {
       cancelled = true;
       clearTimeout(recovered);
       canvas.removeEventListener('webglcontextlost', onLost);
+      lastSpot.current = scene?.positionOf?.() ?? lastSpot.current;
       scene?.dispose();
       sceneRef.current = null;
     };
@@ -275,7 +281,9 @@ export function useRoomScene(options: UseRoomSceneOptions) {
     const changed = shownRoom.current !== roomKey;
     shownRoom.current = roomKey;
     const entry = roomEntryRef.current;
-    scene.setItems(items, changed ? (entry?.intro ?? 'build') : 'none', changed ? (entry ? entry.spawn : { x: 4.5, z: 4.5 }) : null);
+    const back = respawn.current && !changed ? lastSpot.current : null;
+    respawn.current = false;
+    scene.setItems(items, changed ? (entry?.intro ?? 'build') : 'none', changed ? (entry ? entry.spawn : { x: 4.5, z: 4.5 }) : back);
   }, [ready, placements, models, roomKey, editing]);
 
   useEffect(() => {

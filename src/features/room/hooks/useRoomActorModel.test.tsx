@@ -37,7 +37,9 @@ function blobbi(stage: 'egg' | 'baby' | 'adult', generation: 'v1' | 'v2' | 'v3' 
   return parseModernBlobbiEvent(blobbiEvent('0000000007', { name: 'Fern', stage, visualGeneration: generation, extra }))!;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  // Models let go by the previous test are disposed a moment later: let that happen before counting again
+  await new Promise((r) => setTimeout(r, 0));
   built.calls = [];
   built.disposed = 0;
   built.fail = false;
@@ -72,14 +74,24 @@ describe('the room\'s 3D model', () => {
     expect(built.disposed).toBe(0);
   });
 
-  it('is disposed and rebuilt when the Blobbi grows up, and disposed when the room goes', () => {
+  it('is disposed (a moment after it is let go) and rebuilt when the Blobbi grows up, and disposed when the room goes', async () => {
+    const tick = () => new Promise((r) => setTimeout(r, 0));
     const { result, rerender, unmount } = renderHook(({ b }: { b: BlobbiCompanion }) => useRoomActorModel(b, '3d'), { initialProps: { b: blobbi('baby') } });
     const baby = result.current.model;
     rerender({ b: blobbi('adult') });
     expect(result.current.model).not.toBe(baby);
+    await tick();
     expect(built.disposed).toBe(1);
     unmount();
+    await tick();
     expect(built.disposed).toBe(2);
+  });
+
+  it('survives React\'s development double mount: the model handed back is not one already torn down', async () => {
+    const { result } = renderHook(() => useRoomActorModel(blobbi('adult'), '3d'), { reactStrictMode: true });
+    expect(result.current.model).not.toBeNull();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(built.disposed).toBe(0);
   });
 
   it('an egg and V1/V2 art have no 3D model: 2D is drawn whatever is chosen, and why is said', () => {

@@ -31,6 +31,8 @@ export interface VoiceEngine {
   hasContext: () => boolean;
   /** Resume a suspended context from a user gesture, creating none. */
   resume: () => void;
+  /** Let the audio hardware rest (a hidden page); the next play or gesture resumes it. */
+  suspend?: () => void;
 }
 
 export function createVoiceEngine(createContext: () => AudioContext | null = defaultCreateContext): VoiceEngine {
@@ -127,6 +129,9 @@ export function createVoiceEngine(createContext: () => AudioContext | null = def
     hasContext: () => ctx !== null,
     resume: () => {
       if (ctx && ctx.state === 'suspended') void ctx.resume().catch(() => {});
+    },
+    suspend: () => {
+      if (ctx && ctx.state === 'running') void ctx.suspend().catch(() => {});
     },
   };
 }

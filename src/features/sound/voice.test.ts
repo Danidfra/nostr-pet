@@ -38,6 +38,20 @@ describe('the voice recipes', () => {
 });
 
 describe('the voice engine', () => {
+  it('lets the audio rest while the page is hidden, and the next sound wakes it', async () => {
+    const ctx = fakeAudioContext('running');
+    const engine = createVoiceEngine(() => ctx as unknown as AudioContext);
+    engine.suspend?.(); // no context yet: nothing to do
+    expect(ctx.suspends).toBe(0);
+    engine.play(VOICE.poke);
+    engine.suspend?.();
+    await Promise.resolve();
+    expect(ctx.state).toBe('suspended');
+    engine.play(VOICE.poke);
+    await Promise.resolve();
+    expect(ctx.state).toBe('running');
+  });
+
   it('creates the context lazily on the first play and never before, resumes it when suspended, and builds the munch graph', () => {
     let created = 0;
     const ctx = fakeAudioContext('suspended');

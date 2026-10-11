@@ -232,6 +232,20 @@ export function useRoomTransitions(options: UseRoomTransitionsOptions): RoomTran
     frameId.current = requestAnimationFrame(tick);
   }, [finish, applyAt]);
 
+  // A hidden tab draws no frames, so the tick above cannot see it go: a scene under way ends the moment the
+  // page is hidden (its room in place, no pile of its remaining sounds on the way back)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisibility = () => {
+      const run = running.current;
+      if (!document.hidden || !run || run.held) return;
+      cancelAnimationFrame(frameId.current);
+      finish();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [finish]);
+
   const start = useCallback(
     (room: RoomId, forcedKind: TransitionKind | null, intro?: RoomIntro, holdAt?: number) => {
       const o = opts.current;

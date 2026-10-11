@@ -85,6 +85,17 @@ describe('useRoomMemory', () => {
     vi.useRealTimers();
   });
 
+  it('a resting place remembered as the page goes away is written at once (a reload never unmounts it), and so is one still waiting', () => {
+    const storage = memoryStorage();
+    const { result } = renderHook(() => useRoomMemory('pk', 'd1', storage));
+    act(() => result.current.rememberPosition('kitchen', { x: 2, z: 3 }, true));
+    expect(parseNavMemory(storage.data.get(roomNavKey('pk', 'd1')) ?? null).at.kitchen).toEqual({ x: 2, z: 3 });
+    act(() => result.current.rememberPosition('home', { x: 5, z: 5 }));
+    expect(parseNavMemory(storage.data.get(roomNavKey('pk', 'd1')) ?? null).at.home).toBeUndefined();
+    act(() => result.current.rememberPosition('home', { x: 5, z: 5 }, true));
+    expect(parseNavMemory(storage.data.get(roomNavKey('pk', 'd1')) ?? null).at.home).toEqual({ x: 5, z: 5 });
+  });
+
   it('storage that refuses only means not remembered: nothing throws', () => {
     const broken: MemoryStorage = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('quota'); } };
     const { result } = renderHook(() => useRoomMemory('pk', 'd1', broken));

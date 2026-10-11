@@ -33,7 +33,8 @@ export interface RoomMemory {
   initialRoom: RoomId | null;
   positionIn: (room: RoomId) => FloorPoint | null;
   rememberRoom: (room: RoomId) => void;
-  rememberPosition: (room: RoomId, at: FloorPoint) => void;
+  /** `now`: written at once (the page is going away), not after a short wait. */
+  rememberPosition: (room: RoomId, at: FloorPoint, now?: boolean) => void;
   seen: (room: RoomId) => boolean;
   markSeen: (room: RoomId) => void;
 }
@@ -75,11 +76,16 @@ export function useRoomMemory(pubkey: string | undefined, blobbiD: string, stora
     [flush],
   );
   const rememberPosition = useCallback(
-    (room: RoomId, at: FloorPoint) => {
-      if (!movedEnough(nav.current.at[room], at)) return;
+    (room: RoomId, at: FloorPoint, now = false) => {
+      if (!movedEnough(nav.current.at[room], at)) {
+        // The page is going away: whatever is still waiting is written now
+        if (now && timer.current) flush();
+        return;
+      }
       nav.current = { ...nav.current, at: { ...nav.current.at, [room]: { x: at.x, z: at.z } } };
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(flush, WRITE_AFTER_MS);
+      if (now) flush();
+      else timer.current = setTimeout(flush, WRITE_AFTER_MS);
     },
     [flush],
   );

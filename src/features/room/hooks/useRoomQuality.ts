@@ -40,9 +40,9 @@ function lowest(a: QualityLevel, b: QualityLevel): QualityLevel {
 export function useRoomQuality(storage: MemoryStorage | null = safeStorage()): RoomQuality {
   const store = useRef(storage);
   const [preference, setPref] = useState<QualityPreference>(() => parseQualityPreference(readItem(store.current, QUALITY_STORAGE_KEY)));
-  const learnedRaw = readItem(store.current, QUALITY_LEARNED_KEY);
-  const learned = learnedRaw && (QUALITY_LEVELS as readonly string[]).includes(learnedRaw) ? (learnedRaw as QualityLevel) : null;
   const [auto, setAuto] = useState<{ level: QualityLevel; reason: 'device' | 'measured' }>(() => {
+    const learnedRaw = readItem(store.current, QUALITY_LEARNED_KEY);
+    const learned = learnedRaw && (QUALITY_LEVELS as readonly string[]).includes(learnedRaw) ? (learnedRaw as QualityLevel) : null;
     const guess = initialQuality(readDeviceSignals());
     return learned ? { level: lowest(guess, learned), reason: 'measured' } : { level: guess, reason: 'device' };
   });

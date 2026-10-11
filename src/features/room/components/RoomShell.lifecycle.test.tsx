@@ -31,7 +31,7 @@ class FakeScene {
   }
   setGeometry(g: unknown) { this.log('setGeometry', g); }
   setLayout(l: unknown) { this.log('setLayout', l); }
-  setItems(items: unknown, animate: boolean) { this.log('setItems', items, animate); }
+  setItems(items: unknown, animate: unknown, spawn?: unknown) { this.log('setItems', items, animate, ...(spawn ? [spawn] : [])); }
   setBlobbi(b: unknown) { this.log('setBlobbi', b); }
   setGuests(g: unknown) { this.log('setGuests', g); }
   setEditing(editing: boolean, selected: number | null) { this.log('setEditing', editing, selected); }
@@ -51,6 +51,7 @@ class FakeScene {
   requestWalk() { return Promise.resolve('refused' as const); }
   stopWalk() {}
   setActorModel(id: string, model: unknown) { this.model = model; this.log('setActorModel', id, model); }
+  positionOf() { return { x: 2, z: 6 }; }
 }
 vi.mock('../lib/scene/RoomScene', () => ({ RoomScene: FakeScene }));
 
@@ -176,6 +177,18 @@ describe('RoomShell keeps one scene through decorating', () => {
     await waitFor(() => expect(screen.getByTestId('room-shell')).toHaveAttribute('data-scene', 'unavailable'));
     expect(s.disposed).toBe(true);
   });
+  it('a room made again after a lost context puts the Blobbi back where it stood, without folding the room in again', async () => {
+    render(<Harness roomId="home" placements={roomFurnitureFor('home')} />);
+    await waitFor(() => expect(screen.getByTestId('room-shell')).toHaveAttribute('data-scene', 'ready'));
+    act(() => {
+      fireEvent(scene().canvas, new Event('webglcontextlost', { cancelable: true }));
+    });
+    await waitFor(() => expect(made.scenes).toHaveLength(2), { timeout: 4000 });
+    const again = made.scenes[1];
+    await waitFor(() => expect(again.calls.some((c) => c.name === 'setItems')).toBe(true));
+    expect(again.calls.find((c) => c.name === 'setItems')?.args.slice(1)).toEqual(['none', { x: 2, z: 6 }]);
+  });
+
   it('a 3D model given to the shell goes to the same scene in the Blobbi\'s place, and the DOM drawing steps aside once it is drawn', async () => {
     const model = { object: {}, box: 1, pace: 1, gaze: () => ({ x: 0, y: 0 }), update: () => false, dispose: vi.fn() } as unknown as ActorModel & { dispose: ReturnType<typeof vi.fn> };
     const { rerender } = render(<Harness roomId="home" placements={roomFurnitureFor('home')} />);
@@ -234,11 +247,10 @@ describe('RoomShell through a change of viewport', () => {
     } as unknown as typeof ResizeObserver;
     let size = { width: 390, height: 700 };
     const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      const el = this;
-      if (el.dataset.testid === 'room-shell') return { x: 0, y: 0, left: 0, top: 0, right: size.width, bottom: size.height, width: size.width, height: size.height, toJSON() {} } as DOMRect;
-      if ('roomHeader' in el.dataset) return { left: 0, top: 0, right: size.width, bottom: 40, width: size.width, height: 40, x: 0, y: 0, toJSON() {} } as DOMRect;
-      if ('roomTop' in el.dataset) return { left: 0, top: 40, right: size.width, bottom: 120, width: size.width, height: 80, x: 0, y: 40, toJSON() {} } as DOMRect;
-      if ('roomBottom' in el.dataset) return { left: 0, top: size.height - 80, right: size.width, bottom: size.height, width: size.width, height: 80, x: 0, y: size.height - 80, toJSON() {} } as DOMRect;
+      if (this.dataset.testid === 'room-shell') return { x: 0, y: 0, left: 0, top: 0, right: size.width, bottom: size.height, width: size.width, height: size.height, toJSON() {} } as DOMRect;
+      if ('roomHeader' in this.dataset) return { left: 0, top: 0, right: size.width, bottom: 40, width: size.width, height: 40, x: 0, y: 0, toJSON() {} } as DOMRect;
+      if ('roomTop' in this.dataset) return { left: 0, top: 40, right: size.width, bottom: 120, width: size.width, height: 80, x: 0, y: 40, toJSON() {} } as DOMRect;
+      if ('roomBottom' in this.dataset) return { left: 0, top: size.height - 80, right: size.width, bottom: size.height, width: size.width, height: 80, x: 0, y: size.height - 80, toJSON() {} } as DOMRect;
       return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON() {} } as DOMRect;
     });
     try {
