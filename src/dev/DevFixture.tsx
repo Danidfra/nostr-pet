@@ -20,7 +20,16 @@ import './dev-panel.css';
  */
 export default function DevFixture({ search, floatingPanel = true, children }: { search: string; floatingPanel?: boolean; children: ReactNode }) {
   const controller = useMemo(() => createFixtureController(readFixtureRequest(search) ?? { name: 'baby', state: 'active', low: undefined, expression: null }), [search]);
-  const user = useMemo(() => ({ pubkey: PUBKEY, signer: fixtureSigner as unknown as NostrSigner }), []);
+  // A dev surface over the game (the room's dev tools) may show the panel inside itself; the floating one hides meanwhile
+  const [claims, setClaims] = useState(0);
+  const claim = useCallback(() => {
+    setClaims((n) => n + 1);
+    return () => setClaims((n) => n - 1);
+  }, []);
+  const user = useMemo(
+    () => ({ pubkey: PUBKEY, signer: fixtureSigner as unknown as NostrSigner, panel: { node: <DevPanel controller={controller} embedded />, claim } }),
+    [controller, claim],
+  );
   const [pins, setPins] = useState<PresentationPins>(() => controller.pins());
   useEffect(() => controller.subscribe((change) => change.kind === 'pins' && setPins(change.pins)), [controller]);
   // The home hands its scene controller over through the settings seam; the dev surfaces drive it.
@@ -35,7 +44,7 @@ export default function DevFixture({ search, floatingPanel = true, children }: {
         <NostrContext.Provider value={{ nostr: controller.store.pool }}>
           <SceneSettingsProvider value={settings}>
             {children}
-            {floatingPanel && <DevPanel controller={controller} />}
+            {floatingPanel && claims === 0 && <DevPanel controller={controller} />}
           </SceneSettingsProvider>
         </NostrContext.Provider>
       </FixtureControllerContext.Provider>

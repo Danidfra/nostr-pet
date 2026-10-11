@@ -1232,31 +1232,266 @@
     width: 100%;
     pointer-events: none;
   }
-  /* Development only: the teleport preview's panel (TeleportDevPanel) */
-  .teleport-dev {
+  /* Development only: the room's dev tools (RoomDevTools), one surface over the room */
+  .devtools__pills {
     position: fixed;
-    left: 12px;
-    top: 72px;
+    right: calc(0.75rem + env(safe-area-inset-right, 0px));
+    bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
     z-index: 300;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    width: 230px;
-    padding: 8px 10px;
-    border-radius: 12px;
+    align-items: flex-end;
+    gap: 0.35rem;
+    pointer-events: none;
+  }
+  .devtools__pills > * {
+    pointer-events: auto;
+  }
+  @media (min-width: 768px) {
+    .devtools__pills {
+      bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    }
+  }
+  .devtools__pill,
+  .devtools__fps {
+    min-height: 2.5rem;
+    padding: 0 0.9rem;
+    border-radius: 9999px;
     background: rgba(20, 18, 32, 0.92);
     color: #f5f3ff;
-    font: 12px ui-monospace, Menlo, monospace;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  }
-  .teleport-dev button {
-    padding: 3px 8px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.12);
-  }
-  .teleport-dev--closed {
-    width: auto;
+    font: 600 12px/1 ui-monospace, Menlo, monospace;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
     cursor: pointer;
+  }
+  .devtools__pill[data-playing='true'] {
+    background: rgba(76, 29, 149, 0.94);
+  }
+  .devtools__pill--error {
+    background: rgba(153, 27, 27, 0.94);
+  }
+  .devtools__fps {
+    min-height: 1.75rem;
+    padding: 0 0.6rem;
+    font-size: 11px;
+    color: #d9f99d;
+  }
+  .devtools__fps[data-recording='true'] {
+    color: #fca5a5;
+  }
+  .devtools {
+    position: fixed;
+    z-index: 310;
+    display: flex;
+    flex-direction: column;
+    background: rgba(20, 18, 32, 0.96);
+    color: #f5f3ff;
+    font: 12px/1.4 ui-monospace, Menlo, monospace;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.4);
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+  }
+  .devtools--sheet {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: min(62dvh, calc(100dvh - 7rem));
+    border-radius: 1rem 1rem 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .devtools--side {
+    right: 0.75rem;
+    top: calc(4.5rem + env(safe-area-inset-top, 0px));
+    bottom: 3.75rem;
+    width: 20rem;
+    max-width: calc(100vw - 1.5rem);
+    border-radius: 0.9rem;
+  }
+  .devtools__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.5rem 0.25rem 0.9rem;
+  }
+  .devtools__title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .devtools__close {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    border-radius: 9999px;
+    font-size: 1.1rem;
+  }
+  .devtools__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.25rem 0.75rem 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .devtools__tab {
+    flex: 0 0 auto;
+    min-height: 2.5rem;
+    padding: 0 0.85rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+  }
+  .devtools__tab[aria-pressed='true'] {
+    background: #c4b5fd;
+    color: #1e1b4b;
+  }
+  .devtools__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.5rem 0.9rem 0.9rem;
+  }
+  .devtools__view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .devtools__group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .devtools__group-title {
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    font-size: 11px;
+  }
+  .devtools__hint {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+    opacity: 0.75;
+  }
+  .devtools__grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .devtools__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .devtools__row input[type='range'] {
+    flex: 1;
+    min-width: 7rem;
+  }
+  .devtools__check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2.25rem;
+    font-size: 11px;
+    opacity: 0.9;
+  }
+  .devtools button,
+  .devtools select,
+  .devtools__link {
+    min-height: 2.5rem;
+    padding: 0 0.8rem;
+    border-radius: 0.6rem;
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    font: inherit;
+  }
+  .devtools__link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+  }
+  .devtools button[aria-pressed='true'],
+  .devtools button[data-active='true'] {
+    background: rgba(196, 181, 253, 0.35);
+    outline: 1px solid #c4b5fd;
+  }
+  .devtools button[data-playing='true'] {
+    background: #c4b5fd;
+    color: #1e1b4b;
+  }
+  .devtools button:disabled {
+    opacity: 0.45;
+  }
+  .devtools__reset {
+    background: rgba(251, 191, 36, 0.25) !important;
+  }
+  .devtools__perf {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    color: #d9f99d;
+    font-size: 11px;
+  }
+  .devtools__warn {
+    color: #fca5a5;
+  }
+  .devtools__report {
+    width: 100%;
+    font: 11px/1.4 ui-monospace, Menlo, monospace;
+    color: inherit;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 0.5rem;
+    padding: 0.4rem;
+  }
+  .devtools__errors {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    color: #fecaca;
+    font-size: 11px;
+    word-break: break-word;
+  }
+  @media (min-width: 768px) {
+    .devtools button,
+    .devtools select,
+    .devtools__link,
+    .devtools__tab {
+      min-height: 2rem;
+    }
+    .devtools__close {
+      min-width: 2.25rem;
+      min-height: 2.25rem;
+    }
+  }
+  /* The room's error boundary: what stands in the room's place after a render error (RoomErrorBoundary) */
+  .room-crash {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.75rem;
+    justify-content: center;
+    padding: 1.25rem;
+    text-align: center;
+  }
+  .room-crash__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .room-crash__details {
+    text-align: left;
+  }
+  .room-crash__report {
+    width: 100%;
+    margin-top: 0.4rem;
+    font: 11px/1.4 ui-monospace, Menlo, monospace;
+    background: hsl(var(--background) / 0.7);
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.5rem;
+    padding: 0.4rem;
   }
   /* The simple room's one line about why it is simple */
   .room-fallback-note {
@@ -1300,52 +1535,6 @@
   .room-settings-select:focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 1px;
-  }
-  /* Development only: the room's performance overlay (RoomPerfOverlay) */
-  .room-perf {
-    position: fixed;
-    right: 12px;
-    bottom: 12px;
-    z-index: 300;
-    padding: 6px 9px;
-    border-radius: 10px;
-    background: rgba(20, 18, 32, 0.88);
-    color: #d9f99d;
-    font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
-    max-width: min(26rem, calc(100vw - 24px));
-  }
-  .room-perf__warn {
-    color: #fca5a5;
-  }
-  .room-perf__actions {
-    display: flex;
-    gap: 6px;
-    margin-top: 4px;
-  }
-  .room-perf__actions button {
-    padding: 2px 8px;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.12);
-  }
-  .room-perf__report {
-    width: 100%;
-    margin-top: 4px;
-    font: inherit;
-    color: inherit;
-    background: rgba(0, 0, 0, 0.35);
-  }
-  /* The animation playground sits below the teleport panel's button */
-  .playground-dev,
-  .playground-dev--closed {
-    top: 112px;
-  }
-  .playground-dev {
-    width: 260px;
-    max-height: calc(100vh - 130px);
-    overflow-y: auto;
-  }
-  .playground-dev button[data-active='true'] {
-    outline: 1px solid #c4b5fd;
   }
   /* The 3D room's loading pulse (RoomLoading) */
   .room-loading-dot {

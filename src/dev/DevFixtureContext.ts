@@ -1,4 +1,4 @@
-import { createContext } from 'react';
+import { createContext, type ReactNode } from 'react';
 import type { NostrSigner } from '@nostrify/nostrify';
 
 /**
@@ -10,6 +10,13 @@ import type { NostrSigner } from '@nostrify/nostrify';
 export interface DevFixtureUser {
   pubkey: string;
   signer: NostrSigner;
+  /**
+   * The fixture world's own panel, for a dev surface that would rather show
+   * it inside its own (the room's dev tools): `node` is the panel, embedded;
+   * `claim` hides the floating one while the claim lasts and returns the
+   * release.
+   */
+  panel?: { node: ReactNode; claim: () => () => void };
 }
 
 export const DevFixtureContext = createContext<DevFixtureUser | null>(null);

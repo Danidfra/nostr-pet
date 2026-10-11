@@ -45,9 +45,8 @@ import { POKE_PATIENCE, pokeReaction, type PokeGesture } from '@/features/home/p
 import type { EyeOffset } from '@/features/home/scene/gaze';
 import { usePresence } from '@/features/teleport/react/usePresence';
 import { journeyFrame } from '@/features/teleport/timeline';
-import { TeleportDevPanel } from './components/TeleportDevPanel';
-import { AnimationPlayground } from './components/AnimationPlayground';
-import { RoomPerfOverlay } from './components/RoomPerfOverlay';
+import { RoomDevTools } from './components/RoomDevTools';
+import { RoomErrorBoundary } from './components/RoomErrorBoundary';
 import { useRoomItemDrag } from './hooks/useRoomItemDrag';
 import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
 import { RoomHeader } from './components/RoomHeader';
@@ -74,7 +73,7 @@ import { useExpression } from '@/features/expression/react/useExpression';
 import { PRIORITY } from '@/features/expression/controller';
 import { proceduralFace, type ExpressionName } from '@/features/expression/faces';
 
-/** The journey preview's controls: a development build with the dev tools only, never production. */
+/** The room's dev tools (animations, teleport, performance…): a development build with the dev tools only, never production. */
 const DEV_TELEPORT = import.meta.env.DEV && import.meta.env.VITE_BLOBBI_DEV_TOOLS === 'true';
 /** Concentrating on a journey: eyes shut tight, brows down, mouth set, cheeks flushed with the effort (the renderer's own parts). */
 /** How long the relieved, happy face lasts after an arrival. */
@@ -92,7 +91,10 @@ export default function RoomPreviewPage() {
       <div className="game-frame">
         <div className="game-column">
           {home.status === 'ready' && home.current ? (
-            <BlobbiRoom key={`${home.pubkey ?? 'anon'}:${home.current.d}`} blobbi={home.current} pubkey={home.pubkey} updateCompanionEvent={home.updateCompanionEvent} refresh={home.refresh} />
+            // A render error in the room stays in the room: the page, the fixture and the way home remain
+            <RoomErrorBoundary>
+              <BlobbiRoom key={`${home.pubkey ?? 'anon'}:${home.current.d}`} blobbi={home.current} pubkey={home.pubkey} updateCompanionEvent={home.updateCompanionEvent} refresh={home.refresh} />
+            </RoomErrorBoundary>
           ) : (
             <RoomMessage status={home.status} error={home.error} onRetry={home.refresh} />
           )}
@@ -287,9 +289,8 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const care = useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav, react: reactions.react, hop, reducedMotion });
   // The playground's feeding: the same presentation with a pretend offer (nothing is used, nothing is written)
   const [feedPreview, setFeedPreview] = useState<RoomOffer | null>(null);
-  // The playground's performance overlay
-  // `?perf` opens it at once (handy on a phone)
-  const [perfShown, setPerfShown] = useState(() => typeof location !== 'undefined' && new URLSearchParams(location.search).has('perf'));
+  // The dev tools open on their performance view, with the indicator on, when the link says `?perf` (handy on a phone)
+  const [perfRequested] = useState(() => typeof location !== 'undefined' && new URLSearchParams(location.search).has('perf'));
   const shownOffer = care.offer ?? feedPreview;
   // Food taken: eager while the write is out, eaten bite by bite once it has landed (never before)
   const eatingView = useEatingPresentation({ offer: shownOffer, controlRef, boxRef: actorRef, showFace, clearFace, reducedMotion });
@@ -616,16 +617,16 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         />
       </RoomShell>
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
-      {DEV_TELEPORT && <TeleportDevPanel presence={presence} preview={journeyPreview} onPreview={setJourneyPreview} />}
-      {DEV_TELEPORT && perfShown && <RoomPerfOverlay controlRef={controlRef} quality={{ preference: quality.preference, level: quality.level, reason: quality.reason }} mode={actor3d.model ? '3D Blobbi' : '2D Blobbi'} />}
       {DEV_TELEPORT && (
-        <AnimationPlayground
+        <RoomDevTools
           transitions={transitions}
           roomId={roomId}
+          onRoom={setChosenRoom}
           appearance={appearance}
           onAppearance={setAppearance}
+          unavailable3d={actor3d.unavailable3d}
+          quality={{ preference: quality.preference, level: quality.level, reason: quality.reason, onChange: quality.setPreference }}
           onFace={(name) => (name ? showFace('playground', name, { priority: PRIORITY.journey + 1 }) : clearFace('playground'))}
-          onRoom={setChosenRoom}
           onFeed={() => {
             const food = care.inventory.starters.find((s) => s.item.care?.action === 'feed');
             if (!food || care.busy) return;
@@ -641,13 +642,17 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
               gesture('bounce');
             }, 700 + (reducedMotion ? 1 : EAT.food) * EAT.biteMs);
           }}
-          perf={perfShown}
-          onPerf={setPerfShown}
           onPet={() => {
             petting.onPet('start');
             [400, 800, 1200, 1600].forEach((t) => setTimeout(() => petting.onPet('stroke'), t));
             setTimeout(() => petting.onPet('end'), 1900);
           }}
+          presence={presence}
+          preview={journeyPreview}
+          onPreview={setJourneyPreview}
+          controlRef={controlRef}
+          mode={actor3d.model ? '3D Blobbi' : '2D Blobbi'}
+          perfOnOpen={perfRequested}
         />
       )}
     </div>

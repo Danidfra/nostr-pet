@@ -110,9 +110,22 @@ Two things to know:
 - **Fixtures need the flag.** With `VITE_BLOBBI_DEV_TOOLS=true` in
   `.env.local` (or in front of `npm run dev`), open
   `http://<mac-address>:8080/room?fixture=adult-v3&perf` (or `baby-v3`):
-  the real room over a simulated Blobbi, with the performance overlay, and
-  no account, key, relay, internet or write involved. The in-memory world
-  does not mind plain HTTP.
+  the real room over a simulated Blobbi, with the dev tools' frames-per-second
+  indicator on, and no account, key, relay, internet or write involved. The
+  in-memory world does not mind plain HTTP.
+- **The room's dev tools** are one **Dev Tools** pill in the corner (dev
+  builds with the flag). It opens a bottom sheet on a phone, a side panel on
+  a wide screen, with one view at a time: Animations (the room transitions,
+  a scrubber, speed, feeding and petting previews, Reset to neutral),
+  Teleport (leave, arrive, round trip, cancel, a scrubber), Room (go to a
+  room, the other fixtures), Visual (2D or 3D, graphics quality, every face),
+  Performance (live numbers, Record 10 s, Copy report, Select all, the
+  page's runtime errors, copyable) and Fixture (the fixture world's own
+  panel). Starting something to watch closes the sheet on a phone and the
+  pill names what plays; a recording runs on while the sheet is closed. A
+  render error inside the room is caught by the room's error boundary
+  (`RoomErrorBoundary`): the page stays, the cause is shown with a copyable
+  report, and the room can be tried again, in 2D if it was 3D.
 - **A real account needs HTTPS (or localhost).** Browsers treat a plain
   `http://192.168.x.x` page as insecure and withhold `crypto.randomUUID`
   (and `crypto.subtle`, and the clipboard). nostrify's relay subscriptions

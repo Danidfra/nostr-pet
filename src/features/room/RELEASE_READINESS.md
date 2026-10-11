@@ -60,8 +60,18 @@ yet.** The steps for that are at the end.
 - **Auto quality never raises itself** (by design, to avoid switching back
   and forth). A device that was slow once stays at the learned level
   until the player picks a level by hand.
-- **The development playground's timers** are not cleared on unmount
-  (development only).
+- **The development previews' timers** (feeding, petting) are not cleared
+  on unmount (development only).
+- **A white screen on Chrome for Android** when triggering animations was
+  reported from a real phone (2026-10-11) and could not be reproduced in
+  desktop Chrome (the extension's tab stays hidden, so frames and timers do
+  not run as on a phone; every scene, journey, face, feeding, petting,
+  rapid switching and 2D/3D switching was driven without an error). A whole
+  white page is what React does when a render or commit throws anywhere
+  with no boundary: the root unmounts. The room now has one
+  (`RoomErrorBoundary`), the page's uncaught errors and rejections are kept
+  and copyable in **Dev Tools → Performance**, so the next phone run can
+  name the cause.
 
 ### Performance (measured, desktop Chrome, adult V3, care room)
 
@@ -131,13 +141,23 @@ What the first attempt (2026-10-11) ran into, so it is not run into again:
    `http://<that address>:8080/room?fixture=adult-v3&perf`
    (and `baby-v3` for the baby). The simulated Blobbi shows at once, with
    no account; a yellow banner means the flag is off.
-3. Leave it idle for 10 s, then tap **Record 10 s** in the performance
-   panel. While it records, walk the Blobbi around, change rooms twice
-   and pet it.
-4. Tap **Copy report**; on a plain-HTTP address the clipboard is withheld,
-   so tap **Select all** and long-press the text box to copy it, and paste
-   it somewhere.
-5. Repeat with Graphics set to High, Balanced and Low (room settings).
+3. Leave it idle for 10 s, then tap **Dev Tools** → **Performance** →
+   **Record 10 s**, and close the sheet (the recording runs on; the corner
+   shows the countdown). While it records, walk the Blobbi around, change
+   rooms twice and pet it.
+4. Open **Dev Tools** → **Performance** again and tap **Copy report**; on a
+   plain-HTTP address the clipboard is withheld, so tap **Select all** and
+   long-press the text box to copy it, and paste it somewhere. If the pill
+   shows **⚠ n**, the page had runtime errors: the same view lists them with
+   **Copy errors**; paste those too.
+5. Repeat with Graphics set to High, Balanced and Low (**Dev Tools** →
+   **Visual**, or the room settings).
+5b. **Dev Tools** → **Animations**: tap each scene (the sheet closes to
+   watch; the pill names what plays and reopens the tools), then
+   **Feeding** and **Petting**; **Teleport**: **Leave**, **Arrive**,
+   **Round trip**. If the page ever goes white, note the last tap; if the
+   room is replaced by "The room hit an error", tap the details box, copy,
+   and paste it along with the report.
 6. Put the browser in the background for 30 s, come back, and check
    that the room returns (on iOS, possibly after a short fallback) with
    the Blobbi where it was.

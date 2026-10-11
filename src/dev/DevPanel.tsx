@@ -26,9 +26,11 @@ function readCollapsed(): boolean {
  * browser tests. An engineering tool over the game, not part of it: its own
  * stylesheet, its own layer, a dev bundle only.
  */
-export function DevPanel({ controller }: { controller: FixtureController }) {
+export function DevPanel({ controller, embedded = false }: { controller: FixtureController; embedded?: boolean }) {
   const home = useDevHome(controller);
-  const [collapsed, setCollapsed] = useState(readCollapsed);
+  // Embedded in another dev surface: always open, in its flow, nothing floating
+  const [collapsedAlone, setCollapsed] = useState(readCollapsed);
+  const collapsed = embedded ? false : collapsedAlone;
   const toggle = () => {
     setCollapsed((c) => {
       try {
@@ -41,7 +43,7 @@ export function DevPanel({ controller }: { controller: FixtureController }) {
   };
   const blobbi = home.current;
   return (
-    <aside className={`dev-panel ${collapsed ? 'dev-panel--collapsed' : ''}`} data-testid="dev-panel" aria-label="Dev panel">
+    <aside className={`dev-panel ${collapsed ? 'dev-panel--collapsed' : ''} ${embedded ? 'dev-panel--embedded' : ''}`} data-testid="dev-panel" data-embedded={embedded ? 'true' : 'false'} aria-label="Dev panel">
       <div className="dev-panel__head">
         <span className="dev-panel__title" data-testid="dev-summary">
           DEV · {summaryOf(blobbi, home.status)}
@@ -49,9 +51,11 @@ export function DevPanel({ controller }: { controller: FixtureController }) {
         <button type="button" className="dev-panel__danger" onClick={() => controller.reset()} data-testid="dev-reset" title="Back to the world the URL asked for; clears pins and the kit's session stores">
           Reset fixture
         </button>
-        <button type="button" onClick={toggle} aria-expanded={!collapsed} aria-label={collapsed ? 'Open dev panel' : 'Collapse dev panel'} data-testid="dev-toggle">
-          {collapsed ? '▴' : '▾'}
-        </button>
+        {!embedded && (
+          <button type="button" onClick={toggle} aria-expanded={!collapsed} aria-label={collapsed ? 'Open dev panel' : 'Collapse dev panel'} data-testid="dev-toggle">
+            {collapsed ? '▴' : '▾'}
+          </button>
+        )}
       </div>
       {!collapsed &&
         (blobbi && blobbi.d !== FIXTURE_D ? (

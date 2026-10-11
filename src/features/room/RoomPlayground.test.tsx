@@ -100,7 +100,8 @@ describe('the animation playground', () => {
   it('feeding: eager first, then bites (mouth open, then closed, eyes shut), then glad; the food goes bite by bite; nothing written', async () => {
     renderRoom();
     await screen.findByTestId('room-bar');
-    fireEvent.click(screen.getByTestId('playground-open'));
+    fireEvent.click(screen.getByTestId('dev-tools-open'));
+    fireEvent.click(screen.getByTestId('dev-tools-tab-animations'));
     const watch = watchFaces();
     fireEvent.click(screen.getByTestId('playground-feed'));
     expect(screen.getByTestId('room-handed-item')).toHaveAttribute('data-phase', 'using');
@@ -123,10 +124,12 @@ describe('the animation playground', () => {
   it('petting: contentment and a heart; faces by name; nothing written', async () => {
     renderRoom();
     await screen.findByTestId('room-bar');
-    fireEvent.click(screen.getByTestId('playground-open'));
+    fireEvent.click(screen.getByTestId('dev-tools-open'));
+    fireEvent.click(screen.getByTestId('dev-tools-tab-animations'));
     fireEvent.click(screen.getByTestId('playground-pet'));
     expect(screen.getByTestId('room-pet-heart')).toBeInTheDocument();
     expect(document.querySelector('[data-room-blobbi="main"]')?.getAttribute('data-expression')).toMatch(/"eyes":"closed".*"mouth":"smile"/);
+    fireEvent.click(screen.getByTestId('dev-tools-tab-visual'));
     fireEvent.click(screen.getByTestId('playground-face-worried'));
     await waitFor(() => expect(document.querySelector('[data-room-blobbi="main"]')?.getAttribute('data-expression')).toMatch(/"sad":0\.55/), { timeout: 1000 });
     expect(relay.published).toEqual([]);

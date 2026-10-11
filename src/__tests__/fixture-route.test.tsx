@@ -59,8 +59,13 @@ describe('the fixture route', () => {
     await openApp('/room?fixture=adult-v3&perf');
     await inRoom();
     expect(screen.getByTestId('room-header-name')).toHaveTextContent('Elder');
-    expect(screen.getByTestId('room-perf')).toBeInTheDocument();
+    // `?perf`: the fps indicator is on; the tools open on the performance view with Record ready; nothing else floats
+    expect(screen.getByTestId('room-perf-pill')).toBeInTheDocument();
+    expect(screen.queryByTestId('dev-panel')).toBeNull();
+    fireEvent.click(screen.getByTestId('dev-tools-open'));
+    expect(screen.getByTestId('dev-tools')).toHaveAttribute('data-view', 'performance');
     expect(screen.getByTestId('room-perf-record')).toBeEnabled();
+    fireEvent.click(screen.getByTestId('dev-tools-close'));
     // The way in was never shown and no login was made
     expect(screen.queryByText(/Looking for your Blobbi/)).toBeNull();
     expect(screen.queryByText(/Sign in/)).toBeNull();
@@ -90,7 +95,7 @@ describe('the fixture route', () => {
     await openApp('/room?fixture=baby-v3&perf');
     await inRoom();
     expect(screen.getByTestId('room-header-name')).toHaveTextContent('Brook');
-    expect(screen.getByTestId('room-perf')).toBeInTheDocument();
+    expect(screen.getByTestId('room-perf-pill')).toBeInTheDocument();
     expect(socket).not.toHaveBeenCalled();
   });
 
@@ -99,7 +104,12 @@ describe('the fixture route', () => {
     await openApp('/room?fixture=adult-v3');
     await inRoom();
     expect(screen.getByTestId('room-header-name')).toHaveTextContent('Elder');
-    expect(screen.getByTestId('dev-panel')).toBeInTheDocument();
+    // The fixture world's panel lives inside the room's dev tools (its Fixture view), not floating beside them
+    expect(screen.queryByTestId('dev-panel')).toBeNull();
+    fireEvent.click(screen.getByTestId('dev-tools-open'));
+    fireEvent.click(screen.getByTestId('dev-tools-tab-fixture'));
+    expect(screen.getByTestId('dev-panel')).toHaveAttribute('data-embedded', 'true');
+    fireEvent.click(screen.getByTestId('dev-tools-close'));
     expect(socket).not.toHaveBeenCalled();
     expect(localStorage.getItem('nostr:login')).toBe(STORED_LOGIN);
     // Back on the classic home, the fixture user is the one in the menu, and signing out there touches no real login

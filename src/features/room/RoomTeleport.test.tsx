@@ -86,7 +86,8 @@ function renderRoom() {
 }
 
 const panel = async () => {
-  fireEvent.click(await screen.findByTestId('teleport-dev-open'));
+  fireEvent.click(await screen.findByTestId('dev-tools-open'));
+  fireEvent.click(screen.getByTestId('dev-tools-tab-teleport'));
   return screen.getByTestId('teleport-dev');
 };
 const wait = (ms: number) => act(() => new Promise((r) => setTimeout(r, ms)));
