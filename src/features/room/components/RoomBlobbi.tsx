@@ -24,6 +24,7 @@ import type { JourneyKind } from '@/features/teleport/timeline';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
+import { gazeReachOfVisual, limitGaze } from '@/lib/gaze-reach';
 import { bodyBottomInset } from '../lib/body-inset';
 import { walkTempoFor } from '../lib/room-pace';
 import { GESTURES } from '@/features/home/scene/gestures';
@@ -112,6 +113,8 @@ export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function R
   const isSleeping = blobbi.state === 'sleeping';
   const isEgg = blobbi.stage === 'egg';
   const visual = useMemo(() => toBlobbiVisual(blobbi), [blobbi]);
+  // No further than keeps each pupil on its white (the 3D model's rig keeps the same reach)
+  const gazeReach = useMemo(() => gazeReachOfVisual(visual), [visual]);
   const inset = useMemo(() => bodyBottomInset(blobbi, facing), [blobbi, facing]);
   // An egg rests; a sleeper lies still; anyone else breathes.
   const bodyMotion: BlobbiMotion = isEgg || isSleeping ? 'still' : (motion ?? 'idle');
@@ -151,7 +154,7 @@ export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function R
             size="100%"
             facing={facing}
             motion={bodyMotion}
-            eyeOffset={isEgg || isSleeping ? undefined : eyeOffset}
+            eyeOffset={isEgg || isSleeping ? undefined : limitGaze(eyeOffset, gazeReach)}
             expression={expression}
             isSleeping={isSleeping}
             sleepIndicator="none"

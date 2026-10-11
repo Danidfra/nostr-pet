@@ -23,6 +23,7 @@ import * as THREE from 'three';
 import type { BlobbiPalette, FrontGeometry } from '@blobbi-kit/renderer/procedural';
 import { stickerGeometry, type EllipseLike, type Surface } from './surface';
 import { U } from './units';
+import { gazeReach, outerDisc } from '@/lib/gaze-reach';
 
 type Face = NonNullable<FrontGeometry['face']>;
 export type EyeGeometry = Face['eyes'][number];
@@ -51,6 +52,33 @@ export interface EyeRig {
   /** The white, and the inner eye's centre (the pupil's), in root units: to keep the inner eye on the dome as it moves. */
   white: EllipseLike;
   pupil: { x: number; y: number };
+  /** How much of the kit's `travel` the gaze may use before the inner eye's outer disc would leave the white (0..1). */
+  reach: number;
+  /**
+   * The inner eye's stickers as built: each vertex's place at rest (relative to the eye) and the point of the
+   * drawing it stands for (root units), so a look can seat every vertex back on the dome where it now is.
+   */
+  seats: EyeSeat[];
+  /** The look the seats were last fitted to (`poseRig` skips refitting an unchanged look). */
+  seated?: string;
+  /** A point of the drawing on the skin, raised toward the viewer by `height` root units, relative to the eye's centre. */
+  place: (xRoot: number, yRoot: number, height: number) => THREE.Vector3;
+  /** The look the inner eye now shows, in model units relative to rest (for tests and the lab). */
+  look: THREE.Vector3;
+}
+
+/** One sticker of the inner eye, as `poseRig` re-seats it on the dome for a look. */
+export interface EyeSeat {
+  mesh: THREE.Mesh;
+  /** The drawing's point under each vertex, root units (x, y per vertex). */
+  roots: Float32Array;
+  /** How far above the white's dome it lies (root units). */
+  height: number;
+  /** The skin under each vertex at rest, relative to the eye's centre (x, y, z per vertex). */
+  skin: Float32Array;
+  /** How the skin there moves per root unit across and down the drawing (x, y, z per vertex, each): a look is a few units, so linear is exact enough. */
+  skinDx: Float32Array;
+  skinDy: Float32Array;
 }
 
 export interface EyeMaterials {
@@ -79,16 +107,38 @@ export function buildEye(eye: EyeGeometry, look: EyeLook, palette: BlobbiPalette
   const inner = new THREE.Group();
   open.add(inner);
   const layers: EyeRig['layers'] = [];
+  const seats: EyeSeat[] = [];
 
   /** A point of the drawing on the skin, raised toward the viewer by `height` root units, relative to the eye's centre. */
   const raised = (xr: number, yr: number, height: number) => surface.at(xr, yr).position.add(new THREE.Vector3(0, 0, height * U)).sub(centre.position);
   /** A sticker over the white's dome, `layer` layers up. */
   const sticker = (e: EllipseLike, layer: number, colour: string, opacity: number, part: string, into: THREE.Group) => {
-    const geometry = parts.track(stickerGeometry(e, (xr, yr) => raised(xr, yr, domeHeight(white, xr, yr) + layer * LAYER)));
+    const roots: number[] = [];
+    const geometry = parts.track(stickerGeometry(e, (xr, yr) => {
+      roots.push(xr, yr);
+      return raised(xr, yr, domeHeight(white, xr, yr) + layer * LAYER);
+    }));
     const mesh = new THREE.Mesh(geometry, parts.flat(colour, opacity));
     mesh.name = part;
     into.add(mesh);
     layers.push({ part, colour });
+    if (into === inner) {
+      const n = roots.length / 2;
+      const skin = new Float32Array(n * 3);
+      const skinDx = new Float32Array(n * 3);
+      const skinDy = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        const xr = roots[2 * i];
+        const yr = roots[2 * i + 1];
+        const at = raised(xr, yr, 0);
+        const ax = raised(xr + 1, yr, 0).sub(at);
+        const ay = raised(xr, yr + 1, 0).sub(at);
+        skin.set([at.x, at.y, at.z], i * 3);
+        skinDx.set([ax.x, ax.y, ax.z], i * 3);
+        skinDy.set([ay.x, ay.y, ay.z], i * 3);
+      }
+      seats.push({ mesh, roots: Float32Array.from(roots), height: layer * LAYER, skin, skinDx, skinDy });
+    }
   };
 
   // The white: its own dome, its rim on the skin
@@ -119,5 +169,6 @@ export function buildEye(eye: EyeGeometry, look: EyeLook, palette: BlobbiPalette
   // The surface's tangents at the eye: where the gaze slides the inner eye
   const up = new THREE.Vector3(0, 1, 0);
   const across = new THREE.Vector3().crossVectors(up, centre.normal).normalize();
-  return { group, inner, open, closed, travel: eye.travel, across, up, layers, white: { ...white }, pupil: { x: eye.pupil.cx, y: eye.pupil.cy } };
+  const reach = gazeReach(white, outerDisc(eye, look), eye.travel);
+  return { group, inner, open, closed, travel: eye.travel, across, up, layers, white: { ...white }, pupil: { x: eye.pupil.cx, y: eye.pupil.cy }, reach, seats, place: raised, look: new THREE.Vector3() };
 }

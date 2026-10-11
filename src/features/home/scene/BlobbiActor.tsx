@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, type React
 import { BlobbiRenderer, blobbiMotionPhase, describeBlobbiArtwork, BLOBBI_MOTION_PHASES, type BlobbiEggCrack, type BlobbiVisualEffect, type NormalizedAccessoryPlacement } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
+import { gazeReachOfVisual, limitGaze } from '@/lib/gaze-reach';
 import { placeOnFloor } from './geometry';
 import { walkCycleFor } from './motion-contract';
 import { GESTURES, hatchRock } from './gestures';
@@ -105,6 +106,8 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
   // the home puts its shadow on that. Where a generation's artwork has not
   // been measured, the stylesheet's own placement stays.
   const visual = useMemo(() => toBlobbiVisual(blobbi), [blobbi]);
+  // No further than keeps each pupil on its white
+  const gazeReach = useMemo(() => gazeReachOfVisual(visual), [visual]);
   const { facing } = presentation;
   const shadowStyle = useMemo(() => shadowFor(describeBlobbiArtwork({ ...visual, facing }).boxAnchors), [visual, facing]);
 
@@ -160,7 +163,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
             facing={presentation.facing}
             motion={presentation.motion}
             expression={presentation.expression}
-            eyeOffset={presentation.eyeOffset}
+            eyeOffset={limitGaze(presentation.eyeOffset, gazeReach)}
             isSleeping={isSleeping}
             sleepIndicator="none"
             eggCrack={eggCrack}

@@ -53,9 +53,9 @@ export function RoomOfferFailure({ offer, onRetry, onPutAway }: { offer: RoomOff
  * head, hearts, the spoken result) sits on it as it does on the home, in 2D
  * or 3D. An item handed to it shows at its mouth while it is used.
  */
-export function RoomBlobbiOverlay({ feedback, handed }: { feedback: RoomCareFeedback | undefined; handed: { glyph: ItemGlyphModel; phase: RoomOffer['phase'] } | null }) {
+export const RoomBlobbiOverlay = forwardRef<HTMLDivElement, { feedback: RoomCareFeedback | undefined; handed: { glyph: ItemGlyphModel; phase: RoomOffer['phase'] } | null }>(function RoomBlobbiOverlay({ feedback, handed }, ref) {
   return (
-    <div className="room-blobbi-overlay" aria-live="off">
+    <div ref={ref} className="room-blobbi-overlay" aria-live="off" data-testid="room-blobbi-box">
       {/* Lit while an item is carried over the Blobbi (the shell's data-drop, set without a render) */}
       <span className="room-drop-ring" aria-hidden />
       {handed && (
@@ -66,7 +66,7 @@ export function RoomBlobbiOverlay({ feedback, handed }: { feedback: RoomCareFeed
       <CareFeedback result={feedback?.result} resultKey={feedback?.key ?? 0} />
     </div>
   );
-}
+});
 
 /** The item under the pointer while it is carried; moved by the drag hook, never by React. */
 export const RoomDragGhost = forwardRef<HTMLDivElement, { glyph: ItemGlyphModel | null }>(function RoomDragGhost({ glyph }, ref) {

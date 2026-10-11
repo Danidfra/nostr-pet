@@ -176,20 +176,81 @@ describe('the eyes', () => {
     }
   }, 30_000); // a dozen models, vertex by vertex: room under a full parallel run
 
-  it('look where the gaze says, sliding over the white by the kit\'s travel, and back to rest', () => {
-    const m = model('lab-1', 'adult');
-    poseRig(m, { motion: 'still', phase: 0, gaze: { x: 1, y: 0 } });
-    for (const eye of m.rig.eyes) {
-      // Across the surface by the kit's travel (and a little toward the viewer, riding the dome)
-      expect(Math.hypot(eye.inner.position.x, eye.inner.position.y, eye.inner.position.z - 0) ).toBeGreaterThan(eye.travel * U * 0.9);
-      // The dome adds a little toward the viewer, which the tangent (tilted with the skin) picks up a sliver of
-      expect(eye.across.clone().dot(eye.inner.position)).toBeCloseTo(eye.travel * U, 3);
-      expect(eye.inner.position.x).toBeGreaterThan(0);
-      expect(Math.abs(eye.inner.position.y)).toBeLessThan(1e-9);
+  /** The centre of the inner eye's pupil sticker, relative to the eye (its first vertex is its centre). */
+  const pupilCentre = (eye: BlobbiModel['rig']['eyes'][number]) => {
+    const pupil = eye.seats.find((s) => s.mesh.name === 'pupil')!;
+    const p = pupil.mesh.geometry.getAttribute('position');
+    return new THREE.Vector3(p.getX(0), p.getY(0), p.getZ(0)).add(eye.inner.position);
+  };
+
+  it('look where the gaze says, sliding over the white by the kit\'s travel (as far as keeps the pupil on it), and back to rest', () => {
+    for (const stage of ['adult', 'baby'] as const) {
+      const m = model('lab-1', stage);
+      poseRig(m, { motion: 'still', phase: 0 });
+      const rest = m.rig.eyes.map(pupilCentre);
+      poseRig(m, { motion: 'still', phase: 0, gaze: { x: 1, y: 0 } });
+      m.rig.eyes.forEach((eye, i) => {
+        const moved = pupilCentre(eye).sub(rest[i]);
+        expect(moved.x).toBeCloseTo(eye.travel * eye.reach * U, 2);
+        expect(Math.abs(moved.y)).toBeLessThan(eye.travel * U * 0.15);
+      });
+      poseRig(m, { motion: 'still', phase: 0, gaze: { x: 0, y: 1 } });
+      m.rig.eyes.forEach((eye, i) => expect(pupilCentre(eye).sub(rest[i]).y).toBeCloseTo(-eye.travel * eye.reach * U, 2));
+      poseRig(m, { motion: 'still', phase: 0 });
+      m.rig.eyes.forEach((eye, i) => expect(pupilCentre(eye).distanceTo(rest[i])).toBeLessThan(1e-9));
     }
-    poseRig(m, { motion: 'still', phase: 0, gaze: { x: 0, y: 1 } });
-    for (const eye of m.rig.eyes) expect(eye.inner.position.y).toBeCloseTo(-eye.travel * U, 6);
-    poseRig(m, { motion: 'still', phase: 0 });
-    for (const eye of m.rig.eyes) expect(eye.inner.position.length()).toBe(0);
+  });
+
+  // The bug this guards: the inner eye slid rigidly, so its trailing side sank under the white's dome and vanished
+  // (half a pupil cut by a straight seam: one eye fixed, another sliding over it)
+  it('stay whole however they look: every part of the inner eye stays over the white, never under it, every way, both stages', () => {
+    const DIRECTIONS = Array.from({ length: 8 }, (_, i) => ({ x: Math.cos((i / 8) * Math.PI * 2), y: Math.sin((i / 8) * Math.PI * 2) }));
+    let clearance = Infinity;
+    for (const stage of ['adult', 'baby'] as const) {
+      for (const seed of SEEDS.slice(0, 2)) {
+        const m = model(seed, stage);
+        for (const gaze of DIRECTIONS) {
+          poseRig(m, { motion: 'still', phase: 0, gaze });
+          for (const eye of m.rig.eyes) {
+            const len = Math.hypot(gaze.x, gaze.y);
+            const dx = (gaze.x / len) * eye.travel * eye.reach;
+            const dy = (gaze.y / len) * eye.travel * eye.reach;
+            for (const seat of eye.seats) {
+              const p = seat.mesh.geometry.getAttribute('position');
+              for (let v = 0; v < p.count; v++) {
+                const xr = seat.roots[2 * v] + dx;
+                const yr = seat.roots[2 * v + 1] + dy;
+                // The white's top there (its dome plus the most its rim bulge adds)
+                const whiteTop = eye.place(xr, yr, domeHeight(eye.white, xr, yr) + 0.4);
+                clearance = Math.min(clearance, p.getZ(v) + eye.inner.position.z - whiteTop.z);
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(clearance).toBeGreaterThan(0);
+  }, 30_000);
+
+  it('keep the outer disc (the adult\'s iris, the baby\'s big pupil) inside its white at a full look, every way', () => {
+    const DIRECTIONS = Array.from({ length: 16 }, (_, i) => ({ x: Math.cos((i / 16) * Math.PI * 2), y: Math.sin((i / 16) * Math.PI * 2) }));
+    for (const stage of ['adult', 'baby'] as const) {
+      for (const seed of SEEDS) {
+        const geo = front(seed, stage);
+        const m = model(seed, stage);
+        m.rig.eyes.forEach((eye, i) => {
+          const kit = geo.face.eyes[i];
+          const outer = stage === 'adult' ? kit.iris : kit.pupil;
+          for (const g of DIRECTIONS) {
+            for (let a = 0; a < 24; a++) {
+              const t = (a / 24) * Math.PI * 2;
+              const x = outer.cx + g.x * eye.travel * eye.reach + outer.rx * Math.cos(t);
+              const y = outer.cy + g.y * eye.travel * eye.reach + outer.ry * Math.sin(t);
+              expect(Math.hypot((x - kit.white.cx) / kit.white.rx, (y - kit.white.cy) / kit.white.ry)).toBeLessThanOrEqual(0.98);
+            }
+          }
+        });
+      }
+    }
   });
 });

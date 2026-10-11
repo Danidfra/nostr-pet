@@ -13,7 +13,7 @@
 import type * as THREE from 'three';
 import { motionPose, type BlobbiMotion, type RigPart } from '@blobbi-kit/renderer/procedural';
 import { U } from './units';
-import { domeHeight } from './eyes';
+import { domeHeight, type EyeRig } from './eyes';
 import type { BlobbiModel } from './model';
 
 const DEG = Math.PI / 180;
@@ -65,21 +65,51 @@ export function poseRig(model: BlobbiModel, state: RigState): void {
   const gaze = state.gaze ?? { x: 0, y: 0 };
   for (const eye of rig.eyes) {
     // The inner eye slides over the white along the surface, as far as the kit lets the pupils travel (clamped to the
-    // unit disc, as the kit's gaze is), and rides the white's dome as it goes, so it neither sinks into it nor floats off it
+    // unit disc, as the kit's gaze is) and no further than keeps it on its white (`reach`)
     const len = Math.hypot(gaze.x, gaze.y);
-    const gx = len > 1 ? gaze.x / len : gaze.x;
-    const gy = len > 1 ? gaze.y / len : gaze.y;
-    const dx = gx * eye.travel;
-    const dy = gy * eye.travel;
-    const rise = domeHeight(eye.white, eye.pupil.x + dx, eye.pupil.y + dy) - domeHeight(eye.white, eye.pupil.x, eye.pupil.y);
-    eye.inner.position.copy(eye.across).multiplyScalar(dx * U).addScaledVector(eye.up, -dy * U);
-    eye.inner.position.z += rise * U;
+    const k = (len > 1 ? 1 / len : 1) * eye.reach;
+    const dx = gaze.x * k * eye.travel;
+    const dy = gaze.y * k * eye.travel;
+    seatOnDome(eye, dx, dy);
     const closed = !!state.eyesClosed;
     // Shut: the white and all on it squeezed to a line at the lid, the lid's line drawn over it
     eye.open.scale.y = closed ? 0.06 : 1;
     eye.open.visible = !closed || eye.closed === null;
     if (eye.closed) eye.closed.visible = closed;
   }
+}
+
+/**
+ * Lay the inner eye on the white where the look has moved it: every vertex
+ * is the drawing's point it stands for, moved by the look, put back on the
+ * skin and raised over the white's dome there, as the eye was built at
+ * rest. Sliding the stickers rigidly is not enough: the dome is highest in
+ * its middle and the skin curves away, so the trailing side of a disc
+ * sliding toward the rim sank under the white and vanished (half a pupil,
+ * cut by a straight seam: an eye that looked doubled). Rewritten only when
+ * the look changes.
+ */
+function seatOnDome(eye: EyeRig, dx: number, dy: number) {
+  const key = `${dx.toFixed(3)},${dy.toFixed(3)}`;
+  if (eye.seated === key) return;
+  eye.seated = key;
+  for (const seat of eye.seats) {
+    const position = seat.mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const out = position.array as Float32Array;
+    const { roots, skin, skinDx, skinDy } = seat;
+    for (let i = 0, n = roots.length / 2; i < n; i++) {
+      const xr = roots[2 * i] + dx;
+      const yr = roots[2 * i + 1] + dy;
+      const j = 3 * i;
+      out[j] = skin[j] + skinDx[j] * dx + skinDy[j] * dy;
+      out[j + 1] = skin[j + 1] + skinDx[j + 1] * dx + skinDy[j + 1] * dy;
+      out[j + 2] = skin[j + 2] + skinDx[j + 2] * dx + skinDy[j + 2] * dy + (domeHeight(eye.white, xr, yr) + seat.height) * U;
+    }
+    position.needsUpdate = true;
+  }
+  // The look as a vector, for tests and the lab: where the pupil's centre went
+  const pupil = eye.seats[0];
+  if (pupil) eye.look.set(pupil.skinDx[0] * dx + pupil.skinDy[0] * dy, pupil.skinDx[1] * dx + pupil.skinDy[1] * dy, pupil.skinDx[2] * dx + pupil.skinDy[2] * dy);
 }
 
 /** The yaw that faces a view: the front faces the viewer, the side faces screen-right as the kit's side view does. */

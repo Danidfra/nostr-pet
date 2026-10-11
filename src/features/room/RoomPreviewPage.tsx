@@ -63,7 +63,7 @@ import { useBlobbiAppearance } from './lib/blobbi-appearance';
 import { useRoomSession } from './lib/room-session';
 import { roomStoreKey, type LoadStatus, type SaveStatus } from './lib/room-store';
 import { walkSpeedFor } from './lib/room-pace';
-import { travelGaze } from './lib/room-gaze';
+import { pickGaze } from './lib/room-gaze';
 
 /** The journey preview's controls: a development build with the dev tools only, never production. */
 const DEV_TELEPORT = import.meta.env.DEV && import.meta.env.VITE_BLOBBI_DEV_TOOLS === 'true';
@@ -157,8 +157,11 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   // gaze policy over the room's own element), a glance the way it goes while walking.
   const shellRef = useRef<HTMLDivElement | null>(null);
   const actorRef = useRef<HTMLDivElement | null>(null);
+  // Where the eyes are, for the gaze: the Blobbi's art box on its feet, in 2D and 3D alike (the 2D drawing's own box
+  // is folded away while the model stands in, and measuring it aimed the model's eyes from its feet)
+  const gazeBoxRef = useRef<HTMLDivElement | null>(null);
   const hoverCapable = useHoverCapable();
-  const gaze = useGazePolicy({ actorRef, sceneRef: shellRef, hoverCapable, actorKey: `${facing}:${motion}`, enabled: !isEgg && !isSleeping && facing !== 'back' && !decorator.editing });
+  const gaze = useGazePolicy({ actorRef: gazeBoxRef, sceneRef: shellRef, hoverCapable, actorKey: `${facing}:${motion}`, enabled: !isEgg && !isSleeping && facing !== 'back' && !decorator.editing });
   const pointerHandlers = useMemo(() => ({ onPointerMove: gaze.onPointerMove, onPointerLeave: gaze.onPointerLeave, onPointerDown: gaze.onPointerDown }), [gaze.onPointerMove, gaze.onPointerLeave, gaze.onPointerDown]);
 
   const { draft, layoutDraft, selectedIndex, select, setDraft, setLayoutDraft, move, setInvalid, invalid, save, cancel } = decorator;
@@ -307,9 +310,9 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const markActivity = life.markActivity;
   // Its eyes: the pointer's when it has one, else what it is attending to, else where its own thoughts wander;
   // a glance the way it goes while walking (the 2D drawing; the 3D model turns its whole body)
-  const restingGaze = gaze.eyeOffset ?? attention ?? life.glance ?? undefined;
-  const eyeOffset = motion === 'walking' ? travelGaze(facing) : restingGaze;
-  const gaze3d = isEgg || isSleeping || motion === 'walking' ? null : restingGaze ?? null;
+  const eyeOffset = pickGaze({ pointer: gaze.eyeOffset, attention, glance: life.glance, walking: motion === 'walking' ? { facing } : null });
+  // The 3D model turns its whole body as it walks, so its eyes rest then
+  const gaze3d = isEgg || isSleeping || motion === 'walking' ? null : eyeOffset ?? null;
   useEffect(() => {
     controlRef.current?.gaze(gaze3d);
     // The offset's numbers are what matter, not its identity
@@ -465,7 +468,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         onPieceTap={onPieceTap}
         onBlobbiTap={onBlobbiTap}
         floorThings={floorThings}
-        blobbiOverlay={<RoomBlobbiOverlay feedback={care.feedback} handed={handed} />}
+        blobbiOverlay={<RoomBlobbiOverlay ref={gazeBoxRef} feedback={care.feedback} handed={handed} />}
         blobbiName={nameTag}
         header={<RoomHeader name={blobbi.name} stage={blobbi.stage} />}
         statusHud={!isEgg && <RoomStatusHud stage={blobbi.stage} stats={projected?.stats} onGuide={isSleeping ? undefined : setChosenRoom} />}

@@ -18,3 +18,29 @@ export function travelGaze(facing: BlobbiFacing): EyeOffset | undefined {
   const direction = SCREEN_DIRECTION[facing];
   return direction ? travelGlance(direction) : undefined;
 }
+
+/** Everything that wants the eyes, at once; `pickGaze` decides. */
+export interface GazeWants {
+  /** A choreographed look (a transition's "look down", "look at the player", the food it is about to eat): above all. */
+  scripted?: EyeOffset | null;
+  /** The pointer hovering, or a tap it is still attending to (the home's gaze policy). */
+  pointer?: EyeOffset;
+  /** Something just touched in the room (a piece knocked, an item set down). */
+  attention?: EyeOffset | null;
+  /** Its own idle glance. */
+  glance?: EyeOffset | null;
+  /** Walking: a glance the way it goes, unless a script says otherwise. */
+  walking?: { facing: BlobbiFacing } | null;
+}
+
+/**
+ * The one place the eyes are decided, in order: a choreographed look, then
+ * (walking) the way it goes, then the pointer, then what it is attending
+ * to, then its own glance; nothing wanted is the eyes at rest (undefined).
+ * Both drawings take this one answer, so 2D and 3D never disagree.
+ */
+export function pickGaze(wants: GazeWants): EyeOffset | undefined {
+  if (wants.scripted) return wants.scripted;
+  if (wants.walking) return travelGaze(wants.walking.facing);
+  return wants.pointer ?? wants.attention ?? wants.glance ?? undefined;
+}

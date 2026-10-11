@@ -77,7 +77,7 @@ describe('poseRig', () => {
     for (const eye of m.rig.eyes) {
       expect(eye.open.visible).toBe(true);
       expect(eye.closed!.visible).toBe(false);
-      expect(eye.inner.position.x).toBeGreaterThan(0);
+      expect(eye.look.x).toBeGreaterThan(0);
     }
   });
 });
