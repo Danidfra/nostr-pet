@@ -1031,6 +1031,39 @@
   .room-dock {
     font-size: clamp(13px, 3.4cqw, 20px);
   }
+  /* The smallest phones: a size down, so the switcher's longest room name stays on one line */
+  @container (max-width: 359px) {
+    .room-hud {
+      font-size: 14px;
+    }
+  }
+  /* A phone on its side: the header, the HUD and the dock would fill the
+     whole height. The HUD becomes one row (switcher, then the needs), the
+     header and the dock a size down, so the room keeps the middle. */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .room-header > div {
+      min-height: 2.6em;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+    .room-hud {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.25em;
+      font-size: 14px;
+      padding-top: 0.2em;
+      padding-bottom: 0.2em;
+    }
+    .room-hud__status {
+      margin-top: 0;
+      /* the needs' gentle arc dips them; lift the row back level with the switcher */
+      transform: translateY(-0.3em);
+    }
+    .room-dock {
+      font-size: 12px;
+    }
+  }
   .room-switcher {
     background: hsl(var(--background) / 0.6);
     backdrop-filter: blur(4px);
@@ -1068,6 +1101,10 @@
     backdrop-filter: blur(12px);
     box-shadow: 0 10px 20px -6px hsl(0 0% 0% / 0.2);
     font-size: 0.875rem;
+    /* never past the bottom of a short screen (a phone on its side): it scrolls instead */
+    max-height: calc(100dvh - 8rem - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .room-settings-divider {
     height: 1px;
@@ -1745,6 +1782,21 @@
   }
   .decor-tile:disabled {
     opacity: 0.4;
+  }
+  /* A phone on its side: smaller tiles, so the room being decorated keeps most of the height */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .decor-tile {
+      width: 4.25rem;
+      padding: 0.25rem;
+      gap: 0.125rem;
+    }
+    .decor-tile > :first-child {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+    .decor-tray {
+      margin-bottom: calc(0.25rem + env(safe-area-inset-bottom));
+    }
   }
   .decor-toolbar {
     display: flex;

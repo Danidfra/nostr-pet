@@ -262,6 +262,8 @@ const NAME_HOVER_GRACE_MS = 180;
 const NAME_TAP_MS = 2_500;
 /** Room widths (px) below which the room is framed for a phone. */
 const PHONE_WIDTH = 500;
+/** A phone on its side: the HUD and the dock leave little height, so the room reaches up behind the HUD too. */
+const SHORT_HEIGHT = 500;
 
 const ROOM_ICON: Record<RoomId, LucideIcon> = { home: Home, kitchen: Refrigerator, care: Cross, rest: Moon, closet: Shirt };
 
@@ -363,7 +365,7 @@ export function RoomShell({
       const headerEl = shell.querySelector<HTMLElement>('[data-room-header]');
       if (headerEl) {
         const headerBottom = headerEl.getBoundingClientRect().bottom - box.top;
-        behindTopRef.current = box.width < PHONE_WIDTH ? Math.round(Math.max(0, top - headerBottom) * 0.75) : 0;
+        behindTopRef.current = box.width < PHONE_WIDTH || box.height < SHORT_HEIGHT ? Math.round(Math.max(0, top - headerBottom) * 0.75) : 0;
       }
       const next: SceneGeometry = {
         width: Math.round(box.width),
@@ -823,7 +825,7 @@ export function RoomShell({
           aria-hidden={!hudVisible}
           className={cx('room-hud relative z-30 px-3 pt-[1.1em] pb-[0.6em] pointer-events-none transition-opacity duration-200', !hudVisible && 'opacity-0')}
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="room-hud__row flex items-center justify-between gap-2">
             <div className={cx('size-[2.75em] shrink-0', hudVisible && 'pointer-events-auto')}>
               {onDecorate && (
                 <button
@@ -842,7 +844,7 @@ export function RoomShell({
             <div className={cx('room-switcher flex items-center gap-1 p-1 rounded-full', hudVisible && 'pointer-events-auto')} data-testid="room-switcher">
               <RoomNavButton direction="left" label={roomById(neighbourRoom(navRoom, 'left')).label} onClick={goLeft} />
               <div className="flex flex-col items-center gap-[0.25em] min-w-[6.5em] px-[0.25em]">
-                <span className="flex items-center gap-[0.4em] text-[1em] font-semibold text-foreground" data-testid="room-label">
+                <span className="flex items-center gap-[0.4em] whitespace-nowrap text-[1em] font-semibold text-foreground" data-testid="room-label">
                   <RoomIcon className="size-[1.1em] text-muted-foreground" aria-hidden />
                   {room.label}
                 </span>
@@ -863,7 +865,7 @@ export function RoomShell({
           </div>
 
           {statusHud && (
-            <div className={cx('mt-[1.25em] flex justify-center', hudVisible && 'pointer-events-auto')}>
+            <div className={cx('room-hud__status mt-[1.25em] flex justify-center', hudVisible && 'pointer-events-auto')}>
               {statusHud}
             </div>
           )}
