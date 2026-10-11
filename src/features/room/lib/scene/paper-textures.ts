@@ -19,9 +19,17 @@ function makeCanvas(width: number, height: number): HTMLCanvasElement {
   return canvas;
 }
 
-function context(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+/**
+ * A 2D context, or null where the browser hands out none: Chrome stops
+ * giving new canvases a context once its canvas memory budget is spent (a
+ * phone, after many rooms and journeys). A texture that cannot be painted
+ * is reported and not drawn; the scene falls back to a flat colour. It is
+ * never thrown: the textures are painted inside React's commit (a room
+ * change), where a throw would take the whole page down.
+ */
+function context(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D unavailable');
+  if (!ctx) console.warn('[paper-textures] the browser gave this canvas no 2D context; the surface is drawn flat');
   return ctx;
 }
 
@@ -105,9 +113,10 @@ export function drawSurface(
   height: number,
   pxPerUnit: number,
   seed: number,
-): HTMLCanvasElement {
+): HTMLCanvasElement | null {
   const canvas = makeCanvas(width * pxPerUnit, height * pxPerUnit);
   const ctx = context(canvas);
+  if (!ctx) return null;
   const w = canvas.width;
   const h = canvas.height;
   const u = pxPerUnit;
@@ -279,11 +288,12 @@ export function drawSurface(
 let bumpCache: HTMLCanvasElement | null = null;
 
 /** Tileable 256px crumple map: soft blotches plus fine fibre. Cached. */
-export function paperBump(): HTMLCanvasElement {
+export function paperBump(): HTMLCanvasElement | null {
   if (bumpCache) return bumpCache;
   const size = 256;
   const canvas = makeCanvas(size, size);
   const ctx = context(canvas);
+  if (!ctx) return null;
   const rand = rng(42);
   ctx.fillStyle = 'rgb(128,128,128)';
   ctx.fillRect(0, 0, size, size);

@@ -71,7 +71,19 @@ yet.** The steps for that are at the end.
   with no boundary: the root unmounts. The room now has one
   (`RoomErrorBoundary`), the page's uncaught errors and rejections are kept
   and copyable in **Dev Tools → Performance**, so the next phone run can
-  name the cause.
+  name the cause. A code review of every render- and commit-phase path the
+  dev tools reach found three concrete risks, all fixed: the paper textures
+  threw `Canvas 2D unavailable` inside the room-change effect when the
+  browser gave a new canvas no 2D context (Chrome does, once its canvas
+  memory budget is spent; Safari does not), which on a phone after enough
+  rooms and journeys is exactly a white page (now: a flat-coloured surface
+  and a warning); a held scrubber frame drew the whole three.js frame
+  synchronously inside an effect (now: a failed frame is reported and left
+  undrawn, the animation-frame path untouched); and a scene forced toward
+  the room already under way stayed armed and started the next real
+  navigation held, freezing the room (now dropped). Whether the first of
+  these is the phone's white screen is likely but unconfirmed: it was
+  reasoned from code, not reproduced.
 
 ### Performance (measured, desktop Chrome, adult V3, care room)
 

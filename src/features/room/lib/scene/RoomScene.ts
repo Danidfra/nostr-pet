@@ -62,6 +62,7 @@ import { facingAlongPath, facingBasis, facingForHeading } from '../room-facing';
 import type { ModelExtras } from './official-models';
 import { latheSegments } from './sno-builder';
 import { drawSurface, paperBump } from './paper-textures';
+import { recordRuntimeError } from '../runtime-errors';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -545,7 +546,7 @@ export class RoomScene {
   private furniture = new THREE.Group();
   private overlay = new THREE.Group();
   private furnitureMaterial: THREE.MeshStandardMaterial;
-  private bump: THREE.CanvasTexture;
+  private bump: THREE.CanvasTexture | null;
 
   private fgCanvas: HTMLCanvasElement;
   private fgContext: CanvasRenderingContext2D | null;
@@ -667,15 +668,17 @@ export class RoomScene {
     this.fgCanvas = fgCanvas;
     this.fgContext = fgCanvas.getContext('2d');
 
-    this.bump = shared(new THREE.CanvasTexture(paperBump()));
-    this.bump.wrapS = this.bump.wrapT = THREE.RepeatWrapping;
+    // No crumple map where the browser gives the canvas no context: the furniture is smooth, the room stands
+    const bump = paperBump();
+    this.bump = bump ? shared(new THREE.CanvasTexture(bump)) : null;
+    if (this.bump) this.bump.wrapS = this.bump.wrapT = THREE.RepeatWrapping;
 
     this.furnitureMaterial = shared(new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.62,
       metalness: 0,
       side: THREE.DoubleSide,
-      bumpMap: this.bump,
+      bumpMap: this.bump ?? undefined,
       bumpScale: 0.25,
     }));
 
@@ -876,9 +879,10 @@ export class RoomScene {
     disposeObject(this.scene);
     for (const value of [
       this.trimMaterial, this.shellMaterial, this.edgeMaterial, this.okMaterial, this.badMaterial, this.quad,
-      ...this.handMaterials.values(), ...this.pools.screen, ...this.pools.picture, this.furnitureMaterial, this.bump,
+      ...this.handMaterials.values(), ...this.pools.screen, ...this.pools.picture, this.furnitureMaterial,
       this.contactTexture, this.halo, this.casterGeometry, this.casterMaterial,
     ]) value.dispose();
+    this.bump?.dispose();
     for (const material of this.surfaces.values()) disposeSurface(material);
     for (const template of this.templates.values()) this.disposeTemplate(template);
     this.renderer.dispose();
@@ -1951,11 +1955,21 @@ export class RoomScene {
     this.requestRender();
   }
 
-  /** Draw a frame now, not on the next animation frame: a development scrubber's moment, in a tab that may be hidden. */
+  /**
+   * Draw a frame now, not on the next animation frame: a development scrubber's moment, in a tab that may be
+   * hidden. Called from inside React's commit (an effect), where a throw would unmount the whole page; a frame that
+   * fails is reported (console, and the dev tools' error list) and left undrawn instead. The animation-frame path is
+   * untouched: an error there is uncaught as before.
+   */
   renderNow() {
     if (this.frame) cancelAnimationFrame(this.frame);
     this.frame = 0;
-    this.renderFrame();
+    try {
+      this.renderFrame();
+    } catch (error) {
+      console.error('[room-scene] a held frame could not be drawn:', error);
+      recordRuntimeError('error', error);
+    }
   }
 
   /**
@@ -2018,12 +2032,20 @@ export class RoomScene {
     const w = width * PATTERN_PX_PER_TILE;
     const h = height * PATTERN_PX_PER_TILE;
     const pxPerUnit = Math.min(2, 1024 / Math.max(w, h));
-    const texture = new THREE.CanvasTexture(drawSurface(surface, w, h, pxPerUnit, seed));
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-    // No bump map: the paper grain is painted in, and a bump map on these big,
-    // far-off planes shimmers as it minifies
-    const material = shared(new THREE.MeshStandardMaterial({ map: texture, roughness: kind === 'floor' ? 0.55 : 0.95, metalness: 0 }));
+    const painted = drawSurface(surface, w, h, pxPerUnit, seed);
+    let material: THREE.MeshStandardMaterial;
+    if (painted) {
+      const texture = new THREE.CanvasTexture(painted);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+      // No bump map: the paper grain is painted in, and a bump map on these big,
+      // far-off planes shimmers as it minifies
+      material = shared(new THREE.MeshStandardMaterial({ map: texture, roughness: kind === 'floor' ? 0.55 : 0.95, metalness: 0 }));
+    } else {
+      // The browser gave the texture's canvas no context (its canvas budget is spent): the surface in its first
+      // colour, flat, rather than no room at all. Not cached, so a later visit tries to paint again.
+      return shared(new THREE.MeshStandardMaterial({ color: new THREE.Color(surface.palette[0] ?? '#d9d4c7'), roughness: kind === 'floor' ? 0.55 : 0.95, metalness: 0 }));
+    }
     this.surfaces.set(key, material);
     while (this.surfaces.size > SURFACE_CACHE) {
       const [oldKey, old] = this.surfaces.entries().next().value as [string, THREE.MeshStandardMaterial];

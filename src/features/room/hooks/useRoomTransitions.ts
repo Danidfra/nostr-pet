@@ -302,7 +302,12 @@ export function useRoomTransitions(options: UseRoomTransitionsOptions): RoomTran
   const request = useCallback(
     (room: RoomId) => {
       const target = running.current?.room ?? shownRef.current;
-      if (room === target) return;
+      if (room === target) {
+        // Already there, or already on the way: a scene forced for this request is dropped, not left armed for the
+        // next real navigation (which would then start held, with nothing to release it)
+        forced.current = null;
+        return;
+      }
       const f = forced.current;
       forced.current = null;
       start(room, f?.kind ?? null, f?.intro, f?.holdAt);
