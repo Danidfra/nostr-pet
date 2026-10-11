@@ -43,7 +43,6 @@ import { useSound, soundForPoke } from '@/features/sound';
 import { useReducedMotion } from '@/features/home/scene/SceneSettings';
 import { POKE_PATIENCE, pokeReaction, type PokeGesture } from '@/features/home/personality';
 import type { EyeOffset } from '@/features/home/scene/gaze';
-import type { BlobbiExpression } from '@blobbi-kit/renderer';
 import { usePresence } from '@/features/teleport/react/usePresence';
 import { journeyFrame } from '@/features/teleport/timeline';
 import { TeleportDevPanel } from './components/TeleportDevPanel';
@@ -64,11 +63,13 @@ import { useRoomSession } from './lib/room-session';
 import { roomStoreKey, type LoadStatus, type SaveStatus } from './lib/room-store';
 import { walkSpeedFor } from './lib/room-pace';
 import { pickGaze } from './lib/room-gaze';
+import { useExpression } from '@/features/expression/react/useExpression';
+import { PRIORITY } from '@/features/expression/controller';
+import { proceduralFace, type ExpressionName } from '@/features/expression/faces';
 
 /** The journey preview's controls: a development build with the dev tools only, never production. */
 const DEV_TELEPORT = import.meta.env.DEV && import.meta.env.VITE_BLOBBI_DEV_TOOLS === 'true';
 /** Concentrating on a journey: eyes shut tight, brows down, mouth set, cheeks flushed with the effort (the renderer's own parts). */
-const CONCENTRATE: BlobbiExpression = { eyes: 'closed', mouth: 'flat', brows: 'lowered', blush: 'strong' };
 /** How long the relieved, happy face lasts after an arrival. */
 const RELIEF_MS = 1_800;
 /** How long its eyes stay on something the player touched. */
@@ -145,7 +146,15 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const baseline = useMemo(() => baselineExpression(blobbi, projected?.stats), [blobbi, projected?.stats]);
   // A care result's face for a moment (the 2D drawing's; the 3D model hops), then the baseline again
   const reactions = useReactionPolicy();
-  const faceNow: BlobbiExpression = reactions.reaction ?? baseline;
+  // Its face: one controller decides between everything that wants one (a reaction, a journey, a scene, care,
+  // petting), by priority; the drawing eases between the kit's faces, and the 3D model wears the same face
+  const expression = useExpression(baseline, { reducedMotion: false });
+  const showFace = expression.show;
+  const clearFace = expression.clear;
+  useEffect(() => {
+    if (reactions.reaction && reactions.reaction !== 'neutral') showFace('reaction', reactions.reaction, { priority: PRIORITY.reaction });
+    else clearFace('reaction');
+  }, [reactions.reaction, showFace, clearFace]);
   const layout = decorator.layoutDraft ?? rooms.layoutFor(roomId);
   const placements = decorator.draft ?? rooms.furnitureFor(roomId);
   const walkSpeed = useMemo(() => walkSpeedFor(blobbi.stage, blobbi.visualGeneration), [blobbi.stage, blobbi.visualGeneration]);
@@ -196,7 +205,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
       if (cue === 'tada') {
         // "It worked!": eyes open, a relieved smile, a little hop
         setRelievedFor(presence.controller.snapshot().journey?.startedAt ?? null);
-        reactions.react('happy', RELIEF_MS);
+        showFace('relief', 'relieved', { priority: PRIORITY.journey, durationMs: RELIEF_MS });
         gesture('bounce');
       }
     },
@@ -216,6 +225,15 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   }, [controlRef, journeyPreview]);
   // A scrubbed moment shows the face that moment asks for
   const previewFace = journeyPreview ? journeyFrame(journeyPreview.kind, journeyPreview.t, journeyPreview.reduced).face : null;
+  const journeyFace: ExpressionName | null = previewFace === 'concentrate' || (!journeyPreview && concentrating) ? 'concentrating' : previewFace === 'relieved' ? 'relieved' : null;
+  useEffect(() => {
+    if (journeyFace) showFace('journey', journeyFace, { priority: PRIORITY.journey });
+    else clearFace('journey');
+  }, [journeyFace, showFace, clearFace]);
+  // The 3D model wears the drawing's face (the kit's procedural face for the same expression)
+  useEffect(() => {
+    controlRef.current?.face(proceduralFace(expression.face === baseline ? (baseline === 'neutral' ? null : baseline) : expression.face));
+  }, [controlRef, expression.face, baseline, actor3d.model]);
 
   // ─── Care: one adapter over the home's write paths ───
   const hop = useCallback(() => gesture('bounce'), [gesture]);
@@ -483,7 +501,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
             facing={facing}
             motion={motion}
             eyeOffset={concentrating ? undefined : eyeOffset}
-            expression={previewFace === 'concentrate' || (!journeyPreview && concentrating) ? CONCENTRATE : previewFace === 'relieved' ? 'happy' : faceNow}
+            expression={expression.face}
             gesture={gestureNow}
             journey={journey}
             absent={absent}

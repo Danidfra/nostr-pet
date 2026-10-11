@@ -25,6 +25,8 @@ export interface RigState {
   /** Where the eyes look, -1..1 each way, as the kit's gaze. */
   gaze?: { x: number; y: number };
   eyesClosed?: boolean;
+  /** The face worn shuts the eyes and draws its own lids (`BlobbiModel.setFace`): the eyes are hidden, no sleep line. */
+  faceClosed?: boolean;
 }
 
 interface Rest {
@@ -71,10 +73,12 @@ export function poseRig(model: BlobbiModel, state: RigState): void {
     const dx = gaze.x * k * eye.travel;
     const dy = gaze.y * k * eye.travel;
     seatOnDome(eye, dx, dy);
-    const closed = !!state.eyesClosed;
-    // Shut: the white and all on it squeezed to a line at the lid, the lid's line drawn over it
+    const faceShut = !!state.faceClosed;
+    const closed = !!state.eyesClosed && !faceShut;
+    // Shut: the white and all on it squeezed to a line at the lid, the lid's line drawn over it; shut by the face
+    // worn, the eye is hidden and the face's own lids (a happy curve, a squeeze) are drawn instead
     eye.open.scale.y = closed ? 0.06 : 1;
-    eye.open.visible = !closed || eye.closed === null;
+    eye.open.visible = !faceShut && (!closed || eye.closed === null);
     if (eye.closed) eye.closed.visible = closed;
   }
 }

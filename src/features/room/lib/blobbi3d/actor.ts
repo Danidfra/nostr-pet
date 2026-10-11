@@ -25,6 +25,7 @@ import { MOTION_DURATION, type BlobbiMotion } from '@blobbi-kit/renderer/procedu
 import type { BlobbiModel } from './model';
 import { blinking, poseRig, turnToward } from './rig';
 import { createTeleport3D, type Teleport3DOptions, type Teleport3D } from '@/features/teleport/three/teleport3d';
+import { faceKey, type ProceduralFace } from '@/features/expression/faces';
 import type { JourneyFrame, JourneyKind } from '@/features/teleport/timeline';
 
 export interface ActorFrame {
@@ -46,6 +47,14 @@ export interface ActorFrame {
   viewAzimuth?: number;
   /** A journey to draw (teleporting): the model comes apart or together, its eyes shut while it concentrates. */
   journey?: { frame: JourneyFrame; kind: JourneyKind; t: number; options?: Teleport3DOptions } | null;
+  /** The face it wears (the kit's procedural face for an expression); absent or null, the neutral face. */
+  face?: ProceduralFace | null;
+  /**
+   * A choreographed pose of the body about its feet (a crouch, a landing, a lean to look down, a wiggle):
+   * a squash (x and z by `sx`, y by `sy`), a pitch forward and a roll (radians). A gesture or a journey,
+   * when one is playing, owns the body instead.
+   */
+  pose?: { sx?: number; sy?: number; pitch?: number; roll?: number; lift?: number } | null;
 }
 
 /** Something the scene stands in a Blobbi's place and drives each frame. */
@@ -156,6 +165,10 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
   // A journey's effect on this model, made the first time one is drawn
   let teleport: Teleport3D | null = null;
   let travelling = false;
+  // The face worn, by key, and whether it shuts the eyes
+  let faceWorn = 'neutral';
+  let faceClosed = false;
+  let posed = false;
   /** Pose the figure for the gesture in progress; true while one is. */
   const poseGesture = (): boolean => {
     if (!playing) return false;
@@ -248,9 +261,32 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
         gaze.y = wanted.y;
       }
       const journey = frame.journey ?? null;
-      poseRig(model, { motion, phase, gaze, eyesClosed: eyesClosed || !!journey?.frame.eyesClosed });
+      const key = faceKey(frame.face ?? null);
+      const faceChanged = key !== faceWorn;
+      if (faceChanged) {
+        faceWorn = key;
+        faceClosed = model.setFace(frame.face ?? null);
+      }
+      poseRig(model, { motion, phase, gaze, eyesClosed: eyesClosed || !!journey?.frame.eyesClosed, faceClosed });
       // A journey owns the body (its squash); a gesture plays only once it is whole again (the arrival's hop)
       const gesturing = journey && journey.frame.cut < 1 ? false : poseGesture();
+      // A choreographed pose, when nothing else owns the body
+      const pose = frame.pose ?? null;
+      if (!gesturing && !journey) {
+        if (pose) {
+          const sx = pose.sx ?? 1;
+          const sy = pose.sy ?? 1;
+          figure.scale.set(restScale.x * sx, restScale.y * sy, restScale.z * sx);
+          figure.position.set(restPosition.x, restPosition.y + (pose.lift ?? 0), restPosition.z);
+          figure.rotation.set(restRotation.x + (pose.pitch ?? 0), restRotation.y, restRotation.z + (pose.roll ?? 0));
+          posed = true;
+        } else if (posed) {
+          figure.scale.copy(restScale);
+          figure.position.copy(restPosition);
+          figure.rotation.copy(restRotation);
+          posed = false;
+        }
+      }
       if (journey) {
         teleport ??= createTeleport3D({ root: model.root, figure: model.figure }, new THREE.Color(model.tint));
         if (!gesturing) teleport.apply(journey.frame, journey.kind, journey.t, journey.options);
@@ -262,7 +298,7 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
       const turning = Math.abs(Math.atan2(Math.sin(frame.heading - heading), Math.cos(frame.heading - heading))) > 0.002;
       const blinkChanged = eyesClosed !== lastEyes;
       lastEyes = eyesClosed;
-      return travelling || gesturing || motion !== 'still' || turning || blinkChanged || !settled || (!reduced && !frame.sleeping);
+      return travelling || gesturing || motion !== 'still' || turning || blinkChanged || faceChanged || pose !== null || !settled || (!reduced && !frame.sleeping);
     },
     gesture(kind) {
       // Reduced motion: no body gestures, as on the home

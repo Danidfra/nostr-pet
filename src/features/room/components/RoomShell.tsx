@@ -30,7 +30,8 @@ import { cx } from '../lib/cx';
 import { ArcBackground } from './ArcBackground';
 import { resolveFurniture, type FurnitureInteraction } from '../lib/furniture-3d';
 import type { FurniturePlacement } from '../lib/room-furniture';
-import type { ActorGesture, ActorModel } from '../lib/blobbi3d/actor';
+import type { ActorFrame, ActorGesture, ActorModel } from '../lib/blobbi3d/actor';
+import type { ProceduralFace } from '@/features/expression/faces';
 import type { JourneyKind } from '@/features/teleport/timeline';
 import type { RoomLayout } from '../lib/room-layout';
 import { ROOM_GRID, blobbiBoxTiles, blobbiReachTiles, MAIN_BLOBBI } from '../lib/room-geometry';
@@ -68,6 +69,10 @@ export interface RoomControl {
   gesture: (kind: ActorGesture) => void;
   /** Where the 3D model's eyes look (the 2D drawing takes the same offset as a prop). */
   gaze: (offset: { x: number; y: number } | null) => void;
+  /** The face the 3D model wears (the kit's procedural face; the 2D drawing takes the expression as a prop). */
+  face: (face: ProceduralFace | null) => void;
+  /** A choreographed pose of the 3D body (the 2D drawing poses itself), or null. */
+  pose: (pose: ActorFrame['pose']) => void;
   /** The journey under way (teleporting), for the scene to draw on the model and the shadow. */
   journey: (journey: { kind: JourneyKind; startedAt: number; reduced: boolean } | null) => void;
   /** Show a fixed moment of a journey and draw it at once (the development scrubber). */
@@ -437,6 +442,8 @@ export function RoomShell({
       hop: () => sceneRef.current?.hop(MAIN_BLOBBI),
       gesture: (kind) => sceneRef.current?.playGesture?.(MAIN_BLOBBI, kind),
       gaze: (offset) => sceneRef.current?.setActorGaze?.(MAIN_BLOBBI, offset),
+      face: (face) => sceneRef.current?.setActorFace?.(MAIN_BLOBBI, face),
+      pose: (pose) => sceneRef.current?.setActorPose?.(MAIN_BLOBBI, pose),
       journey: (journey) => sceneRef.current?.setActorJourney?.(MAIN_BLOBBI, journey),
       journeyPreview: (preview) => {
         sceneRef.current?.setActorJourneyPreview?.(MAIN_BLOBBI, preview);

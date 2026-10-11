@@ -27,6 +27,8 @@ import { buildEye, type EyeRig } from './eyes';
 import { clamp, loftRings, makeSurface, spanOf, stickerGeometry, type Ring, type Surface } from './surface';
 import { buildAppendage3d, type AppendageKind, type Built3dAppendage } from './appendages';
 import { assertSupported } from './compat';
+import { faceKey, type ProceduralFace } from '@/features/expression/faces';
+import { domeHeight } from './eyes';
 
 export type { Ring, Surface } from './surface';
 export type { EyeRig } from './eyes';
@@ -75,6 +77,14 @@ export interface BlobbiModel {
   bounds: { width: number; height: number; depth: number };
   /** Its body's middle colour (the baby's own palette for a baby): for anything drawn in its colours, like a journey's motes. */
   tint: string;
+  /**
+   * Wear a face: the kit's procedural face for this expression (`proceduralFace`), its brows, mouth, cheeks and
+   * lids built from the kit's own geometry the first time it is worn and kept; null is the neutral face. Returns
+   * whether that face has its eyes shut (the rig then keeps them so).
+   */
+  setFace(face: ProceduralFace | null): boolean;
+  /** Build faces ahead of time (when the page is idle), so the first time one is worn costs nothing. */
+  prepareFaces(faces: (ProceduralFace | null)[]): void;
   dispose(): void;
 }
 
@@ -277,51 +287,101 @@ function raiseMounds(geometry: THREE.BufferGeometry, surface: Surface) {
   }
 }
 
-function buildFace(face: Face, look: 'layered' | 'simple', sleeping: Face | null, surface: Surface, parts: Parts, body: THREE.Group, front: Front): EyeRig[] {
+function buildFace(face: Face, look: 'layered' | 'simple', sleeping: Face | null, surface: Surface, parts: Parts, body: THREE.Group): EyeRig[] {
   const { palette } = parts;
   const feature = parts.material(palette.feature);
   const closedLine = (d: string, width: number) => parts.tube(surfacePoints(surface, d, 3 * U), (width / 2) * U, feature);
-  const eyes = face.eyes.map((eye, i) => {
+  return face.eyes.map((eye, i) => {
     const lid = sleeping?.eyes[i]?.lid;
     const rig = buildEye(eye, look, palette, surface, parts, lid?.closed ? { d: lid.line, width: lid.lineWidth } : null, closedLine);
     body.add(rig.group);
     if (rig.closed) body.add(rig.closed);
     return rig;
   });
+}
+
+/** A face's features (the parts an expression changes): brows, mouth, cheeks, and lids over the eyes. */
+interface FaceFeatures {
+  group: THREE.Group;
+  /** The eyes are shut (only the lid lines are drawn). */
+  closed: boolean;
+  /** The kit's iris scale (its "wide" eyes are a smaller iris in a whiter eye). */
+  irisScale: number;
+}
+
+/**
+ * The features of one face, from the kit's geometry for it: the brows and
+ * mouth as inked tubes on the skin, an open mouth filled, the cheeks, and
+ * (for a half-shut or shut eye) the lid: its skin laid over the eye's dome,
+ * above everything on the eye, and its edge inked.
+ */
+function buildFeatures(face: Face, surface: Surface, parts: Parts, front: Front, skinColour: string): FaceFeatures {
+  const { palette } = parts;
+  const group = new THREE.Group();
+  group.name = 'face';
+  const feature = parts.material(palette.feature);
   for (const brow of face.brows) {
-    body.add(parts.tube(surfacePoints(surface, brow.d, 3 * U), (brow.strokeWidth / 2) * U, parts.material(palette.feature, brow.opacity)));
+    group.add(parts.tube(surfacePoints(surface, brow.d, 3 * U), (brow.strokeWidth / 2) * U, parts.material(palette.feature, brow.opacity)));
   }
   const mouth = face.mouth;
-  body.add(parts.tube(surfacePoints(surface, mouth.d, 2.5 * U), (mouth.strokeWidth / 2) * U, feature));
+  group.add(parts.tube(surfacePoints(surface, mouth.d, 2.5 * U), (mouth.strokeWidth / 2) * U, feature));
   if (mouth.open) {
-    const poly = samplePath(mouth.d, 8)[0];
-    if (poly && poly.points.length > 2) {
-      // The open mouth: the path's inside, laid on the surface
-      const contour = poly.points.map((p) => new THREE.Vector2(p.x, p.y));
-      const faces = THREE.ShapeUtils.triangulateShape(contour, []);
-      const positions: number[] = [];
-      for (const p of poly.points) {
-        const v = surface.at(p.x, p.y, 1.5 * U).position;
-        positions.push(v.x, v.y, v.z);
-      }
-      const geometry = parts.track(new THREE.BufferGeometry());
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      geometry.setIndex(faces.flat());
-      geometry.computeVertexNormals();
-      const inside = new THREE.Mesh(geometry, parts.track(new THREE.MeshStandardMaterial({ color: palette.feature, roughness: 0.8, side: THREE.DoubleSide })));
-      body.add(inside);
-    }
+    const fill = pathFill(mouth.d, surface, () => 1.5, parts, parts.track(new THREE.MeshStandardMaterial({ color: palette.feature, roughness: 0.8, side: THREE.DoubleSide })));
+    if (fill) group.add(fill);
   }
   for (const raw of face.cheeks) {
     // The kit lets a cheek hang past the body's outline (the baby's do); on a 3D body it would fold round the side,
     // so it is drawn within the face: its outer side pulled in to the edge, the rest where the kit puts it
     const cheek = { ...raw, base: fitInside(raw.base, front), highlight: fitInside(raw.highlight, front) };
+    if (cheek.baseOpacity <= 0.01) continue;
     // Blush is flat colour in the drawing, even where it wraps round the silhouette: lit from within so a grazing angle keeps it pink
     const blush = parts.track(new THREE.MeshStandardMaterial({ color: palette.cheek, emissive: palette.cheek, emissiveIntensity: 0.45, roughness: 1, transparent: true, opacity: cheek.baseOpacity, depthWrite: false }));
-    body.add(parts.sticker(cheek.base, surface, blush, cheek.base.ry * 0.12, 0.8));
-    if (cheek.highlightOpacity > 0) body.add(parts.sticker(cheek.highlight, surface, parts.material(palette.white, cheek.highlightOpacity), 0, 1.4));
+    group.add(parts.sticker(cheek.base, surface, blush, cheek.base.ry * 0.12, 0.8));
+    if (cheek.highlightOpacity > 0) group.add(parts.sticker(cheek.highlight, surface, parts.material(palette.white, cheek.highlightOpacity), 0, 1.4));
   }
-  return eyes;
+  let closed = face.eyes.length > 0;
+  for (const eye of face.eyes) {
+    const lid = eye.lid;
+    if (!lid?.closed) closed = false;
+    if (!lid) continue;
+    if (!lid.closed) {
+      // The lid's skin, over the eye's dome and above all the eye's layers; its colour the skin's, shaded as the kit tints it
+      const colour = new THREE.Color(skinColour).multiplyScalar(1 - 0.5 * Math.min(0.25, Math.max(0, lid.tint ?? 0)));
+      const height = (x: number, y: number) => domeHeight(eye.white, x, y) + 5.2;
+      for (const d of [lid.upper, lid.lower]) {
+        if (!d) continue;
+        const fill = pathFill(d, surface, height, parts, parts.track(new THREE.MeshStandardMaterial({ color: colour, roughness: 0.78, side: THREE.DoubleSide })));
+        if (fill) group.add(fill);
+      }
+    }
+    group.add(parts.tube(surfacePoints(surface, lid.line, (domeHeight(eye.white, eye.white.cx, eye.white.cy) + 5.6) * U), (lid.lineWidth / 2) * U, parts.material(palette.feature, lid.lineOpacity ?? 1)));
+  }
+  return { group, closed, irisScale: face.eyes[0]?.iris && face.eyes[0]?.white ? irisScaleOf(face) : 1 };
+}
+
+/** The kit's iris scale for a face, read back from its geometry: how much smaller the iris is than the neutral face's. */
+function irisScaleOf(face: Face): number {
+  const eye = face.eyes[0];
+  return eye.iris.rx > 0 && eye.white.rx > 0 ? eye.iris.rx / eye.white.rx : 1;
+}
+
+/** A closed path filled and laid on the skin, raised by `height` root units at each point. */
+function pathFill(d: string, surface: Surface, height: (x: number, y: number) => number, parts: Parts, material: THREE.Material): THREE.Mesh | null {
+  const poly = samplePath(d, 8)[0];
+  if (!poly || poly.points.length < 3) return null;
+  const contour = poly.points.map((p) => new THREE.Vector2(p.x, p.y));
+  const faces = THREE.ShapeUtils.triangulateShape(contour, []);
+  if (!faces.length) return null;
+  const positions: number[] = [];
+  for (const p of poly.points) {
+    const v = surface.at(p.x, p.y, height(p.x, p.y) * U).position;
+    positions.push(v.x, v.y, v.z);
+  }
+  const geometry = parts.track(new THREE.BufferGeometry());
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(faces.flat());
+  geometry.computeVertexNormals();
+  return new THREE.Mesh(geometry, material);
 }
 
 /**
@@ -496,8 +556,29 @@ export function buildBlobbiModel(morphology: BlobbiMorphology, seed = ''): Blobb
   body.add(parts.track(hull(bodyGeometry, parts.ink)));
   if (front.shine) body.add(parts.sticker(front.shine, surface, parts.material(palette.white, 0.55), 0, 1.2));
 
-  // The face, on the surface
-  const eyes = front.face ? buildFace(front.face, front.look.eye, asleep.face, surface, parts, body, front) : [];
+  // The face, on the surface: the eyes once, the features (brows, mouth, cheeks, lids) per face worn
+  const eyes = front.face ? buildFace(front.face, front.look.eye, asleep.face, surface, parts, body) : [];
+  const skinColour = front.look.body === 'v1' ? palette.babyMid : palette.bodyMid;
+  const faces = new Map<string, FaceFeatures>();
+  const featuresFor = (face: ProceduralFace | null): FaceFeatures | null => {
+    const key = faceKey(face);
+    let built = faces.get(key);
+    if (!built) {
+      const geometry = face ? asFront(buildBlobbiGeometry(morphology, { view: 'front', expression: face.expression, face: face.face })) : front;
+      if (!geometry.face) return null;
+      built = buildFeatures(geometry.face, surface, parts, front, skinColour);
+      built.group.visible = false;
+      built.group.traverse((o) => {
+        o.userData.rest = { position: o.position.clone(), rotation: o.rotation.clone(), scale: o.scale.clone() };
+      });
+      body.add(built.group);
+      faces.set(key, built);
+    }
+    return built;
+  };
+  let worn = featuresFor(null);
+  if (worn) worn.group.visible = true;
+  const neutralIris = worn?.irisScale ?? 1;
 
   // Feet on the ground, arms at the shoulders, the tuft on the crown
   const footDepth = (side.limbs.nearFoot?.foot.rx ?? front.limbs.feet[0]?.foot.rx ?? 60) * 0.9 * U;
@@ -588,7 +669,26 @@ export function buildBlobbiModel(morphology: BlobbiMorphology, seed = ''): Blobb
     gait: front.look.gait,
     surface,
     bounds: { width: size.x, height: size.y, depth: size.z },
-    tint: front.look.body === 'v1' ? palette.babyMid : palette.bodyMid,
+    tint: skinColour,
+    setFace(face) {
+      const next = featuresFor(face) ?? featuresFor(null);
+      if (!next) return false;
+      if (next !== worn) {
+        if (worn) worn.group.visible = false;
+        next.group.visible = true;
+        worn = next;
+        // The kit's "wide" eyes: the iris (with the pupil and highlights) smaller in the white, lifted a hair off the dome
+        const k = next.irisScale / neutralIris;
+        for (const eye of eyes) {
+          eye.inner.scale.set(k, k, 1);
+          eye.inner.position.z = k < 0.999 ? 1.2 * U : 0;
+        }
+      }
+      return next.closed;
+    },
+    prepareFaces(list) {
+      for (const face of list) featuresFor(face);
+    },
     dispose: () => parts.dispose(),
   };
 }

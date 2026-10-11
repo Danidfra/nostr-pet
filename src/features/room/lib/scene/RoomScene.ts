@@ -33,9 +33,10 @@ import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.j
 
 import type { SnoNode } from './sno-object';
 import { buildSnoObject } from './sno-three';
-import type { ActorGesture, ActorModel } from '../blobbi3d/actor';
+import type { ActorFrame, ActorGesture, ActorModel } from '../blobbi3d/actor';
 import { journeyDuration, journeyFrame, journeyShadow, type JourneyFrame, type JourneyKind } from '@/features/teleport/timeline';
 import { moteLayers } from '@/features/teleport/particles';
+import type { ProceduralFace } from '@/features/expression/faces';
 import type { Teleport3DOptions } from '@/features/teleport/three/teleport3d';
 
 import type { FurnitureInteraction, FurnitureMount } from '../furniture-3d';
@@ -446,6 +447,10 @@ interface Actor {
   model: ActorModel | null;
   /** The model has been on a drawn frame (its shaders compiled): the DOM drawing may step aside. */
   modelDrawn: boolean;
+  /** The face it wears in 3D (the kit's procedural face for an expression), or null for the neutral face. */
+  face?: ProceduralFace | null;
+  /** A choreographed pose of its 3D body (a crouch, a landing, a lean): see `ActorFrame.pose`. */
+  pose?: ActorFrame['pose'];
   /** Whether its model's meshes cast their shadows now (a reduced-motion fade turns them off as it crosses half). */
   modelShadow?: boolean;
   /** Where its 3D eyes look, the kit's offset (-1..1 each way), when the app says (a glance, the pointer); null to rest. */
@@ -1437,6 +1442,22 @@ export class RoomScene {
     return true;
   }
 
+  /** The face a Blobbi's 3D model wears (the 2D drawing takes the same expression as a prop); null for the neutral face. */
+  setActorFace(id: string, face: ProceduralFace | null) {
+    const actor = this.actors.get(id);
+    if (!actor || actor.face === face) return;
+    actor.face = face;
+    this.requestRender();
+  }
+
+  /** A choreographed pose of a Blobbi's 3D body, or null to let it stand as it does. Drawn on the next frame. */
+  setActorPose(id: string, pose: ActorFrame['pose']) {
+    const actor = this.actors.get(id);
+    if (!actor) return;
+    actor.pose = pose ?? null;
+    this.requestRender();
+  }
+
   /** Where a Blobbi's 3D eyes look (the 2D drawing takes the same offset as a prop); null for its resting gaze. */
   setActorGaze(id: string, gaze: { x: number; y: number } | null) {
     const actor = this.actors.get(id);
@@ -1548,7 +1569,7 @@ export class RoomScene {
         const sleeping = b.id === MAIN && this.sleepTarget === 1;
         const motion = b.path.length ? 'walking' : b.isEgg || sleeping ? 'still' : 'idle';
         // Seen from the open corner: it leans back from the camera by its stage's lean (`ROOM_LEAN`)
-        if (b.model.update({ dt, motion, heading: b.heading, sleeping, viewAzimuth: AZIMUTH, gaze: b.gaze ?? undefined, journey: travel })) animating = true;
+        if (b.model.update({ dt, motion, heading: b.heading, sleeping, viewAzimuth: AZIMUTH, gaze: b.gaze ?? undefined, journey: travel, face: b.face ?? null, pose: b.pose ?? null })) animating = true;
       }
     }
     return animating;

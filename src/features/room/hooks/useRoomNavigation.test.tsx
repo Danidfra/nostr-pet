@@ -27,7 +27,7 @@ function fakeControl() {
     gesture: () => {},
     gaze: () => {},
     journey: () => {},
-    journeyPreview: () => {},
+    journeyPreview: () => {}, face: () => {}, pose: () => {},
   };
   return { control, settle: (o: WalkOutcome) => pending.shift()?.(o), pending };
 }
