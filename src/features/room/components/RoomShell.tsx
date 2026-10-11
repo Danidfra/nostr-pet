@@ -547,6 +547,8 @@ export function RoomShell({
     const item = hit?.kind === 'item' ? hit.index : null;
     const onBlobbi = !editor && hit?.kind === 'actor' && hit.id === MAIN_BLOBBI && !!onBlobbiPet;
     press.current = { id: e.pointerId, x, y, t: performance.now(), item, dragging: false, onBlobbi, rubbed: 0, last: { x, y }, petting: false, strokeAt: 0 };
+    // A piece pressed gives a little under the finger (touch feedback), until released
+    if (!editor && item !== null) scene.pressItem?.(item);
     // A press on the Blobbi may become a stroke: keep its moves even if the finger slides off a little
     if (onBlobbi) (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     if (editor && item !== null) {
@@ -559,10 +561,14 @@ export function RoomShell({
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const p = press.current;
     const scene = sceneRef.current;
-    // A hovering pointer over the Blobbi shows its name; nothing pressed (no drag, no press in progress), not while decorating
-    if (blobbiName && !editor && scene && e.pointerType !== 'touch') {
+    // A hovering pointer: over the Blobbi it shows its name; over a piece the piece answers (a lift, a ring if it
+    // does something) and the pointer says it can be tapped. Nothing pressed, not while decorating, never by touch.
+    if (!editor && scene && e.pointerType !== 'touch' && e.buttons === 0 && !p) {
       const { x, y } = localPoint(e);
-      setHover(e.buttons === 0 && !p && scene.overActor(x, y, MAIN_BLOBBI));
+      if (blobbiName) setHover(scene.overActor(x, y, MAIN_BLOBBI));
+      const kind = scene.hoverAt?.(x, y) ?? null;
+      const layer = e.currentTarget as HTMLElement;
+      if (layer.dataset.hover !== (kind ?? '')) layer.dataset.hover = kind ?? '';
     }
     // Petting: rubbing across the Blobbi (only the distance travelled over it counts)
     if (p && p.id === e.pointerId && scene && p.onBlobbi) {
@@ -595,6 +601,7 @@ export function RoomShell({
     press.current = null;
     const scene = sceneRef.current;
     if (!scene) return;
+    scene.pressItem?.(null);
     if (p.dragging) {
       const result = scene.endDrag();
       if (result?.valid) editor?.onMove(result.index, result.placement);
@@ -639,6 +646,7 @@ export function RoomShell({
       if (result?.valid) editor?.onMove(result.index, result.placement);
     }
     if (press.current.petting) onBlobbiPet?.('end');
+    sceneRef.current?.pressItem?.(null);
     press.current = null;
   }, [editor, sceneRef, onBlobbiPet]);
 
@@ -667,12 +675,16 @@ export function RoomShell({
       {/* Taps and drags in the room */}
       {is3d && (
         <div
-          className={cx('absolute inset-0 z-[4] touch-none', isEditing ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer')}
+          className={cx('room-tap-layer absolute inset-0 z-[4] touch-none', isEditing && 'cursor-grab active:cursor-grabbing')}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerCancel}
-          onPointerLeave={() => setHover(false)}
+          onPointerLeave={(e) => {
+            setHover(false);
+            sceneRef.current?.hoverAt?.(-1, -1);
+            (e.currentTarget as HTMLElement).dataset.hover = '';
+          }}
           aria-hidden
           data-testid="room-tap-layer"
         />

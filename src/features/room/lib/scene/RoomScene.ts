@@ -438,6 +438,10 @@ interface Built {
   shade?: THREE.Mesh;
   popStart?: number;
   pokeStart?: number;
+  /** Under the pointer (0..1, eased): it lifts a little, and if it does something a soft ring shows under it. */
+  hover?: number;
+  /** Pressed: it gives a little under the finger until released. */
+  pressed?: boolean;
 }
 
 interface Actor {
@@ -578,6 +582,9 @@ export class RoomScene {
   private introTiming: { floor: readonly [number, number]; left: readonly [number, number]; right: readonly [number, number]; furniture: number; stagger: number; pop: number } = INTRO;
   /** The back walls drawn over the 2D Blobbi too (it is behind one: a transition's). */
   private wallsCover = false;
+  /** The piece under the pointer (never while decorating), and the ring that marks one that does something. */
+  private hovered: number | null = null;
+  private hoverRing?: THREE.Mesh;
   /** The fold-in held at this many ms (a development scrubber), or null to let it run. */
   private introHeld: number | null = null;
   private folds?: { floor: THREE.Group; left: THREE.Group; right: THREE.Group };
@@ -698,6 +705,8 @@ export class RoomScene {
    */
   setItems(items: SceneItem[], intro: RoomIntro | boolean = 'none', spawn: { x: number; z: number } | null = null) {
     const mode: RoomIntro = intro === true ? 'build' : intro === false ? 'none' : intro;
+    // The pieces may be others now: nothing is hovered until the pointer says so again
+    if (mode !== 'none') this.hovered = null;
     const timing = mode === 'quick' ? QUICK_INTRO : INTRO;
     const next = new Map(items.map((item) => [item.key, item]));
     for (const [key, built] of this.built) {
@@ -1517,6 +1526,55 @@ export class RoomScene {
     if (!actor) return { x, z };
     const [i, j] = this.nearestFreeTile(Math.min(G - 0.01, Math.max(0.01, x)), Math.min(G - 0.01, Math.max(0.01, z)), id);
     return this.standPoint(actor, i, j);
+  }
+
+  /**
+   * What is under a pointer that is only hovering (a mouse, a pen), for the room's affordances: a piece lifts a
+   * little (and one that does something shows a soft ring under it), and the pointer says it can be tapped.
+   * Returns what is there. Never while decorating, where the editor has its own selection.
+   */
+  hoverAt(sx: number, sy: number): 'item' | 'actor' | 'floor' | null {
+    const hit = sx < 0 || this.editing ? null : this.pick(sx, sy);
+    const index = hit?.kind === 'item' ? hit.index : null;
+    if (index !== this.hovered) {
+      this.hovered = index;
+      this.requestRender();
+    }
+    return hit?.kind ?? null;
+  }
+
+  /** A piece pressed (a finger or button down on it), or none: it gives a little until released. */
+  pressItem(index: number | null) {
+    for (const built of this.built.values()) {
+      const pressed = built.item.index === index && !this.editing;
+      if (!!built.pressed !== pressed) {
+        built.pressed = pressed;
+        this.requestRender();
+      }
+    }
+  }
+
+  /** The soft ring under a hovered piece that does something (a bed, the fridge, the toy box, a lamp). */
+  private placeHoverRing() {
+    const built = this.hovered !== null ? this.byIndex.get(this.hovered) : undefined;
+    const meaningful = !!built && built.item.placement.at === 'floor' && (!!built.item.interaction || !!built.lamp);
+    const level = meaningful ? built!.hover ?? 0 : 0;
+    if (!this.hoverRing) {
+      if (level <= 0) return;
+      this.hoverRing = new THREE.Mesh(this.quad, new THREE.MeshBasicMaterial({ map: this.contactTexture, color: new THREE.Color(1, 0.96, 0.82), transparent: true, depthWrite: false, opacity: 0, blending: THREE.AdditiveBlending }));
+      this.hoverRing.rotation.x = -Math.PI / 2;
+      this.hoverRing.renderOrder = 1;
+      this.scene.add(this.hoverRing);
+    }
+    const ring = this.hoverRing;
+    ring.visible = level > 0.01;
+    if (!ring.visible || !built) return;
+    const r = built.rect;
+    const w = (r.x1 - r.x0) * 1.35;
+    const d = (r.z1 - r.z0) * 1.35;
+    ring.position.set((r.x0 + r.x1) / 2, 0.03, (r.z0 + r.z1) / 2);
+    ring.scale.set(w, d, 1);
+    (ring.material as THREE.MeshBasicMaterial).opacity = 0.5 * level;
   }
 
   /** Hold the room's fold-in at `ms` after it began (a development scrubber), or let it run again (null). */
@@ -2574,6 +2632,21 @@ export class RoomScene {
         }
         this.shadowsDirty = true;
       }
+      // Under the pointer: a small lift (it answers before it is touched); pressed: it gives under the finger
+      const wantHover = this.hovered === built.item.index && !this.editing ? 1 : 0;
+      const hover = built.hover ?? 0;
+      if (Math.abs(wantHover - hover) > 0.001) {
+        built.hover = this.reducedMotion ? wantHover : hover + (wantHover - hover) * Math.min(1, dt * 14);
+        animating = true;
+        this.shadowsDirty = true;
+      } else built.hover = wantHover;
+      if (!this.reducedMotion) {
+        sy *= 1 + 0.04 * (built.hover ?? 0);
+        if (built.pressed) {
+          sx *= 1.03;
+          sy *= 0.95;
+        }
+      }
       // Floor pieces only bulge into spare room on their tiles, never through
       // a wall or into a neighbour
       if (sx > 1 && built.item.placement.at === 'floor') {
@@ -2587,6 +2660,7 @@ export class RoomScene {
       built.root.visible = sy > 0.05;
     }
 
+    this.placeHoverRing();
     if (this.stepActors(dt)) animating = true;
     if (this.placeActorProxies(dt)) animating = true;
     this.updateClocks();

@@ -91,6 +91,8 @@ const scene = vi.hoisted(() => {
     gestures: [] as string[],
     wanders: [] as boolean[],
     faces: [] as unknown[],
+    hovers: [] as string[],
+    presses: [] as (number | null)[],
   };
   const fake = {
     pick: (x: number, y: number) => {
@@ -112,6 +114,12 @@ const scene = vi.hoisted(() => {
     setActorGaze: () => {},
     setActorFace: (_id: string, face: unknown) => { state.faces.push(face); },
     overActor: (x: number, y: number) => x > 150 && x < 250 && y > 220 && y < 320,
+    hoverAt: (x: number, y: number) => {
+      const kind = x < 0 ? null : x > 150 && x < 250 && y > 220 && y < 320 ? 'actor' : state.itemAt !== null && y < 80 ? 'item' : 'floor';
+      state.hovers.push(String(kind));
+      return kind;
+    },
+    pressItem: (index: number | null) => { state.presses.push(index); },
     setMainWanders: (on: boolean) => { state.wanders.push(on); },
     projectBlobbi: () => ({ x: 200, y: 320, pxPerTile: 40 }),
     projectFloor: () => ({ x: 200, y: 400, pxPerTile: 40 }),
@@ -199,6 +207,8 @@ beforeEach(async () => {
   scene.state.hops = 0;
   scene.state.gestures = [];
   scene.state.faces = [];
+  scene.state.hovers = [];
+  scene.state.presses = [];
   scene.state.wanders = [];
   localStorage.clear();
   event.mockClear();
@@ -478,6 +488,27 @@ describe('furniture', () => {
     fireEvent.pointerDown(layer, { pointerId: 3, isPrimary: true, clientX: 300, clientY: 40 });
     fireEvent.pointerUp(layer, { pointerId: 3, isPrimary: true, clientX: 300, clientY: 40 });
   };
+
+  it('pieces answer before they are touched: a hovering mouse marks what can be tapped, a press gives the piece a little until it lifts; a finger never hovers', async () => {
+    renderRoom();
+    await ready();
+    scene.state.itemAt = 2;
+    const layer = screen.getByTestId('room-tap-layer');
+    fireEvent.pointerMove(layer, { pointerId: 9, pointerType: 'mouse', buttons: 0, clientX: 300, clientY: 40 });
+    expect(layer).toHaveAttribute('data-hover', 'item');
+    fireEvent.pointerMove(layer, { pointerId: 9, pointerType: 'mouse', buttons: 0, clientX: 200, clientY: 280 });
+    expect(layer).toHaveAttribute('data-hover', 'actor');
+    fireEvent.pointerMove(layer, { pointerId: 9, pointerType: 'mouse', buttons: 0, clientX: 420, clientY: 420 });
+    expect(layer).toHaveAttribute('data-hover', 'floor');
+    fireEvent.pointerLeave(layer, { pointerId: 9, pointerType: 'mouse' });
+    expect(layer).toHaveAttribute('data-hover', '');
+    const hovered = scene.state.hovers.length;
+    fireEvent.pointerMove(layer, { pointerId: 10, pointerType: 'touch', buttons: 0, clientX: 300, clientY: 40 });
+    expect(scene.state.hovers).toHaveLength(hovered);
+    tapItemAt(2);
+    expect(scene.state.presses).toEqual([2, null]);
+    expect(relay.published).toEqual([]);
+  });
 
   it('the bed: Brook walks to it and sleeps only on arrival; the dock then offers Wake up', async () => {
     renderRoom();

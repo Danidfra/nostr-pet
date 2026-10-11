@@ -1351,6 +1351,11 @@
     transform: translateX(-50%);
     filter: drop-shadow(0 2px 2px hsl(0 0% 0% / 0.2));
   }
+  /* The room's tap layer: the pointer says what can be tapped (a piece, the Blobbi); the floor is just walked on */
+  .room-tap-layer[data-hover='item'],
+  .room-tap-layer[data-hover='actor'] {
+    cursor: pointer;
+  }
   /* Petted: a small heart rising off its head, a little to one side, and gone */
   .room-pet-heart {
     position: absolute;
