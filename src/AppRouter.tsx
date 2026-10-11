@@ -2,14 +2,17 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import Home from '@/pages/Home';
 import NotFound from '@/pages/NotFound';
+import { ROOM_PATH } from '@/lib/home-experience';
+import { RoomLoading } from '@/features/room/RoomLoading';
 
 /**
- * The 3D room preview (`/room`), while it is being built: a dev build's
- * route only, loaded on demand (three.js comes with it), so the production
- * bundle and the home are untouched until the room replaces the home.
+ * The 3D room (`/room`, beta): in every build, loaded only when visited
+ * (three.js comes with it, in its own chunk), so the classic home's bundle
+ * is untouched. The classic home stays the default; the player opens the
+ * room from the menu, and may choose to open on it (`home-experience.ts`).
  */
-const RoomPreview = import.meta.env.DEV ? lazy(() => import('@/features/room/RoomPreviewPage')) : null;
-/** The 3D Blobbi lab beside it (`/room/3d-lab`): the same gate, the same lazy load. */
+const RoomPage = lazy(() => import('@/features/room/RoomPreviewPage'));
+/** The 3D Blobbi lab (`/room/3d-lab`): a dev build's only, loaded on demand. */
 const RoomLab = import.meta.env.DEV ? lazy(() => import('@/features/room/RoomLabPage')) : null;
 
 /**
@@ -22,16 +25,14 @@ export function AppRouter({ devLab = null }: { devLab?: ReactNode }) {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/dev" element={devLab ?? <NotFound />} />
-      {RoomPreview && (
-        <Route
-          path="/room"
-          element={
-            <Suspense fallback={null}>
-              <RoomPreview />
-            </Suspense>
-          }
-        />
-      )}
+      <Route
+        path={ROOM_PATH}
+        element={
+          <Suspense fallback={<RoomLoading />}>
+            <RoomPage />
+          </Suspense>
+        }
+      />
       {RoomLab && (
         <Route
           path="/room/3d-lab"

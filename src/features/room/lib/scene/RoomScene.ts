@@ -503,6 +503,8 @@ export class RoomScene {
   private lastFrame = 0;
   private clockTimer: ReturnType<typeof setInterval> | undefined;
   private wanderTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Whether the scene sends the user's Blobbi ambling on its own (Ditto's way); an app that drives its life itself turns it off. */
+  private mainWanders = true;
   private disposed = false;
   private motionQuery = typeof matchMedia !== 'undefined' ? matchMedia('(prefers-reduced-motion: reduce)') : undefined;
   private reducedMotion = this.motionQuery?.matches ?? false;
@@ -1136,7 +1138,18 @@ export class RoomScene {
     return actor.visible && !actor.isEgg && !asleep && !this.editing;
   }
 
+  /**
+   * Let the scene amble the user's Blobbi about on its own, or not. Off, it
+   * stands where it was left until the app sends it somewhere: the app then
+   * decides when it may wander (never mid-care, never while the player is
+   * busy). Visitors amble regardless.
+   */
+  setMainWanders(on: boolean) {
+    this.mainWanders = on;
+  }
+
   private canWander(actor: Actor): boolean {
+    if (actor.id === MAIN && !this.mainWanders) return false;
     return this.canWalk(actor) && !this.reducedMotion && !this.pendingWalks.has(actor.id);
   }
 

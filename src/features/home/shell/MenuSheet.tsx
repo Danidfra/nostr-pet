@@ -1,4 +1,5 @@
-import { Check, ExternalLink, LogOut, Map as MapIcon, Moon, Sun, Sunrise, Volume2, VolumeX } from 'lucide-react';
+import { Armchair, Check, ChevronRight, ExternalLink, LogOut, Map as MapIcon, Moon, Sun, Sunrise, Volume2, VolumeX } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { GameOverlay } from './GameOverlay';
 import { useEnvironment } from '@/environment';
 import { useSound } from '@/features/sound';
@@ -7,6 +8,7 @@ import { useLoginActions } from '@/hooks/useLoginActions';
 import { shortNpub } from '@/lib/format';
 import { BLOBBI_ISLAND_URL, DITTO_BLOBBI_URL } from '@/config/ecosystem';
 import { KeyBackup } from '@/features/onboarding/KeyBackup';
+import { ROOM_PATH, useHomeExperience } from '@/lib/home-experience';
 
 interface MenuSheetProps {
   open: boolean;
@@ -26,6 +28,8 @@ export function MenuSheet({ open, onClose }: MenuSheetProps) {
   const sound = useSound();
   const { user, metadata } = useCurrentUser();
   const { logout, sessionNsec, loginType } = useLoginActions();
+  const [experience, setExperience] = useHomeExperience();
+  const opensOnRoom = experience === 'room';
 
   return (
     <GameOverlay open={open} onClose={onClose} title="Menu" testId="menu-sheet" size="medium">
@@ -40,6 +44,31 @@ export function MenuSheet({ open, onClose }: MenuSheetProps) {
           </span>
           <ExternalLink className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
         </a>
+
+        {user && (
+          <section className="menu-section" aria-labelledby="menu-room">
+            <h3 id="menu-room" className="menu-section__title">
+              The new room <span className="menu-beta">Beta</span>
+            </h3>
+            <Link to={ROOM_PATH} onClick={onClose} data-testid="open-room" className="menu-tile">
+              <span className="menu-tile__icon">
+                <Armchair className="h-6 w-6" aria-hidden />
+              </span>
+              <span className="menu-tile__text">
+                <span className="menu-tile__title">Visit the 3D room</span>
+                <span className="menu-tile__sub">Rooms to walk around, decorate and care in. The same Blobbi, the same care.</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
+            </Link>
+            <button type="button" role="switch" aria-checked={opensOnRoom} onClick={() => setExperience(opensOnRoom ? 'classic' : 'room')} data-testid="room-first-toggle" className={`menu-tile ${opensOnRoom ? 'menu-tile--on' : ''}`}>
+              <span className="menu-tile__text">
+                <span className="menu-tile__title">Open in the room</span>
+                <span className="menu-tile__sub">Start in the 3D room instead of this home. You can come back here any time.</span>
+              </span>
+              <span className="menu-switch" aria-hidden data-on={opensOnRoom ? 'true' : 'false'} />
+            </button>
+          </section>
+        )}
 
         <section className="menu-section" aria-labelledby="menu-sound">
           <h3 id="menu-sound" className="menu-section__title">

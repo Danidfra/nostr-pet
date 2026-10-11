@@ -56,8 +56,7 @@ beforeEach(() => {
 });
 
 describe('the /room preview', () => {
-  it('is a dev route, and asks a signed-out visitor to sign in on the home', async () => {
-    expect(import.meta.env.DEV).toBe(true);
+  it('is served in every build, and asks a signed-out visitor to sign in on the home', async () => {
     renderAt('/room');
     expect(await screen.findByTestId('room-preview')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(/sign in/i);

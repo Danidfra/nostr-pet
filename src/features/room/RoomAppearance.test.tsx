@@ -51,7 +51,7 @@ function signedInWith(stage: 'egg' | 'baby' | 'adult', generation: 'v1' | 'v2' |
 
 const shell = () => screen.getByTestId('room-shell');
 function choose(appearance: '2d' | '3d') {
-  if (!screen.queryByTestId('room-appearance-panel')) fireEvent.click(screen.getByTestId('room-appearance-toggle'));
+  if (!screen.queryByTestId('room-appearance-panel')) fireEvent.click(screen.getByTestId('room-settings-toggle'));
   fireEvent.click(screen.getByTestId(`room-appearance-${appearance}`));
 }
 
@@ -71,15 +71,15 @@ describe('the Blobbi\'s appearance in the room', () => {
     renderRoom();
     await screen.findByTestId('room-blobbi-anchor');
     expect(shell()).toHaveAttribute('data-blobbi-render', '2d');
-    expect(screen.getByTestId('room-appearance-toggle')).toHaveAttribute('data-appearance', '2d');
-    fireEvent.click(screen.getByTestId('room-appearance-toggle'));
+    expect(screen.getByTestId('room-settings-toggle')).toHaveAttribute('data-appearance', '2d');
+    fireEvent.click(screen.getByTestId('room-settings-toggle'));
     expect(screen.getByRole('radiogroup', { name: 'Blobbi appearance' })).toBeInTheDocument();
     expect(screen.getByTestId('room-appearance-2d')).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('room-appearance-3d')).toHaveTextContent(/3D.*Experimental/);
     choose('3d');
     expect(shell()).toHaveAttribute('data-blobbi-render', '3d');
     expect(screen.getByTestId('room-appearance-3d')).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByTestId('room-appearance-toggle')).toHaveAttribute('data-appearance', '3d');
+    expect(screen.getByTestId('room-settings-toggle')).toHaveAttribute('data-appearance', '3d');
     choose('2d');
     expect(shell()).toHaveAttribute('data-blobbi-render', '2d');
     expect(screen.getByTestId('room-blobbi-anchor').querySelector('[data-blobbi-renderer]')).not.toBeNull();
@@ -127,7 +127,7 @@ describe('the Blobbi\'s appearance in the room', () => {
       signedInWith(stage, generation);
       const view = renderRoom();
       await screen.findByTestId('room-blobbi-anchor');
-      fireEvent.click(screen.getByTestId('room-appearance-toggle'));
+      fireEvent.click(screen.getByTestId('room-settings-toggle'));
       expect(screen.getByTestId('room-appearance-3d')).toHaveAttribute('aria-disabled', 'true');
       expect(screen.getByTestId('room-appearance-note')).toBeInTheDocument();
       fireEvent.click(screen.getByTestId('room-appearance-3d'));
@@ -141,7 +141,7 @@ describe('the Blobbi\'s appearance in the room', () => {
     signedInWith('adult');
     renderRoom();
     await screen.findByTestId('room-blobbi-anchor');
-    fireEvent.click(screen.getByTestId('room-appearance-toggle'));
+    fireEvent.click(screen.getByTestId('room-settings-toggle'));
     const panel = screen.getByTestId('room-appearance-panel');
     fireEvent.keyDown(panel, { key: 'ArrowDown' });
     expect(shell()).toHaveAttribute('data-blobbi-render', '3d');

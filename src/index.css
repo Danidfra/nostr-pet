@@ -1069,6 +1069,27 @@
     box-shadow: 0 10px 20px -6px hsl(0 0% 0% / 0.2);
     font-size: 0.875rem;
   }
+  .room-settings-divider {
+    height: 1px;
+    margin: 0.35em 0.25em;
+    background: hsl(var(--border) / 0.6);
+  }
+  .room-settings-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    min-height: 2.75rem;
+    padding: 0 0.75em;
+    border-radius: 0.75em;
+    color: hsl(var(--foreground));
+  }
+  .room-settings-row:hover {
+    background: hsl(var(--foreground) / 0.06);
+  }
+  .room-settings-row:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
   .room-appearance-option {
     min-height: 2.75rem;
     padding: 0 0.75em;
@@ -1112,6 +1133,49 @@
   @keyframes guide-pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.03); }
+  }
+  /* A low stat's glow in the room's status HUD (Ditto's): steady, and pulsing only where motion is welcome */
+  @keyframes stat-glow-pulse-attention {
+    0%, 8% { box-shadow: 0 0 0 0 currentColor; }
+    50% { box-shadow: 0 0 6px 2px currentColor; }
+    92%, 100% { box-shadow: 0 0 0 0 currentColor; }
+  }
+  @keyframes stat-glow-pulse-urgent {
+    0%, 8% { box-shadow: 0 0 0 0 currentColor; }
+    50% { box-shadow: 0 0 10px 3px currentColor; }
+    92%, 100% { box-shadow: 0 0 0 0 currentColor; }
+  }
+  .stat-glow-attention { box-shadow: 0 0 6px 2px currentColor; }
+  .stat-glow-urgent { box-shadow: 0 0 10px 3px currentColor; }
+  @media (prefers-reduced-motion: no-preference) {
+    .stat-glow-attention { animation: stat-glow-pulse-attention 2s linear -999999s infinite; }
+    .stat-glow-urgent { animation: stat-glow-pulse-urgent 2s linear -999999s infinite; }
+  }
+  /* The 3D room's loading pulse (RoomLoading) */
+  .room-loading-dot {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle at 40% 35%, hsl(var(--primary) / 0.55), hsl(var(--primary) / 0.15) 70%);
+    animation: room-loading-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes room-loading-pulse {
+    0%, 100% { transform: scale(0.85); opacity: 0.6; }
+    50% { transform: scale(1); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .room-loading-dot { animation: none; }
+  }
+  /* "Beta" beside a menu section's title */
+  .menu-beta {
+    margin-left: 0.4em;
+    border-radius: 9999px;
+    padding: 0.05em 0.5em;
+    font-size: 0.7em;
+    font-weight: 700;
+    vertical-align: middle;
+    background: hsl(var(--primary) / 0.15);
+    color: hsl(var(--primary));
   }
   .room-header-back {
     display: flex;

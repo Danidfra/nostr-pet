@@ -481,7 +481,7 @@ describe('2D and 3D, one Blobbi, one care', () => {
     await goTo('kitchen');
     fireEvent.click(focusOn('Apple', 'starter'));
     // Back to 2D while the write is out
-    fireEvent.click(screen.getByTestId('room-appearance-toggle'));
+    fireEvent.click(screen.getByTestId('room-settings-toggle'));
     fireEvent.click(screen.getByTestId('room-appearance-2d'));
     expect(shell()).toHaveAttribute('data-blobbi-render', '2d');
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });

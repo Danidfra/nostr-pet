@@ -41,6 +41,7 @@ import { useRoomCare } from './hooks/useRoomCare';
 import { useRoomItemDrag } from './hooks/useRoomItemDrag';
 import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
 import { RoomHeader } from './components/RoomHeader';
+import { RoomStatusHud } from './components/RoomStatusHud';
 import { RoomBlobbiOverlay, RoomDragGhost, RoomFloorItem } from './components/RoomCareParts';
 import { useReactionPolicy } from '@/features/home/scene/useReactionPolicy';
 import { roomById, type RoomActivity } from '@/features/home/rooms/rooms';
@@ -288,11 +289,14 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         {...nav.shellProps}
         onDecorate={decorator.open}
         decorateDisabled={care.busy}
+        // Its life is the app's (useRoomLife): it ambles only when nothing else is going on
+        blobbiWanders={false}
         onInteract={onInteract}
         floorThings={floorThings}
         blobbiOverlay={<RoomBlobbiOverlay feedback={care.feedback} handed={handed} />}
         blobbiName={nameTag}
         header={<RoomHeader name={blobbi.name} stage={blobbi.stage} />}
+        statusHud={!isEgg && <RoomStatusHud stage={blobbi.stage} stats={projected?.stats} onGuide={isSleeping ? undefined : setChosenRoom} />}
         middleSlot={<RoomCareCards offer={offer} onRetry={care.retry} onPutAway={care.putAway} error={care.error} notice={care.notice ?? storeNotice} />}
         blobbiModel={actor3d.model}
         hudEnd={<RoomAppearanceControl appearance={appearance} onChange={setAppearance} unavailable3d={actor3d.unavailable3d} />}

@@ -135,6 +135,8 @@ export interface RoomShellProps {
    * and the accessible name of its keyboard stand-in.
    */
   blobbiName?: { text: string; color?: string };
+  /** Whether the scene ambles the user's Blobbi about by itself (default yes); off when the app drives its life. */
+  blobbiWanders?: boolean;
   /** Something over the room (an "away" card). */
   hero?: ReactNode;
   /** A bar above the room. */
@@ -205,6 +207,7 @@ export function RoomShell({
   blobbiOverlay,
   hudEnd,
   blobbiName,
+  blobbiWanders = true,
   stage,
   hero,
   header,
@@ -394,6 +397,9 @@ export function RoomShell({
   useEffect(() => {
     onStatusChange?.(status);
   }, [status, onStatusChange]);
+  useEffect(() => {
+    if (status === 'ready') sceneRef.current?.setMainWanders?.(blobbiWanders);
+  }, [status, sceneRef, blobbiWanders]);
 
   // Anchored elements mount and unmount with React; place them right away
   useLayoutEffect(() => {
