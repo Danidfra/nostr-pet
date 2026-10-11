@@ -7,8 +7,8 @@
  * facing the way it goes, looking at the pointer when its face is visible.
  * Decorating (milestone 3) is Ditto's: the decorate button, the editing
  * camera, drag and drop on the grid, the catalog tray, wallpaper and
- * flooring, save and cancel. What is saved lives in the session store, in
- * memory, per room.
+ * flooring, save and cancel. What is saved is kept on this device, per
+ * player, Blobbi and room (milestone 5, `room-store.ts`): never published.
  *
  * Care (milestone 4): each room's items in a strip along the dock (the
  * registry's activities: food and drink in the kitchen, soap and medicine in
@@ -48,6 +48,7 @@ import { emptyShelfText, planDrop, planUse, shelfEntries, shelfKey, type CareShe
 import { RoomAppearanceControl } from './components/RoomAppearanceControl';
 import { useBlobbiAppearance } from './lib/blobbi-appearance';
 import { useRoomSession } from './lib/room-session';
+import { roomStoreKey, type LoadStatus, type SaveStatus } from './lib/room-store';
 import { walkSpeedFor } from './lib/room-pace';
 import { travelGaze } from './lib/room-gaze';
 
@@ -60,7 +61,7 @@ export default function RoomPreviewPage() {
       <div className="game-frame">
         <div className="game-column">
           {home.status === 'ready' && home.current ? (
-            <BlobbiRoom key={home.current.d} blobbi={home.current} pubkey={home.pubkey} updateCompanionEvent={home.updateCompanionEvent} refresh={home.refresh} />
+            <BlobbiRoom key={`${home.pubkey ?? 'anon'}:${home.current.d}`} blobbi={home.current} pubkey={home.pubkey} updateCompanionEvent={home.updateCompanionEvent} refresh={home.refresh} />
           ) : (
             <RoomMessage status={home.status} />
           )}
@@ -109,7 +110,9 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const [chosenRoom, setChosenRoom] = useState<RoomId>(DEFAULT_ROOM);
   const resolvedRoom = resolveRoom(chosenRoom, isSleeping);
   // What each room shows this session: saved decorations, else the defaults.
-  const rooms = useRoomSession();
+  // Kept on this device for this player and this Blobbi; written on Save only
+  const rooms = useRoomSession({ storageKey: roomStoreKey(pubkey, blobbi.d) });
+  const storeNotice = useStoreNotice(rooms.persistence);
   const decorator = useRoomDecorator({ roomId: resolvedRoom, furniture: rooms.furnitureFor(resolvedRoom), layout: rooms.layoutFor(resolvedRoom), onSave: rooms.saveRoom });
   // The room being decorated is pinned, so falling asleep meanwhile doesn't move the view out from under the draft.
   const roomId = decorator.room ?? resolvedRoom;
@@ -301,7 +304,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
             hasBed={bed !== null}
             closetHint={roomById('closet').emptyHint}
             error={care.error}
-            notice={care.notice}
+            notice={care.notice ?? storeNotice}
           />
         }
         blobbiModel={actor3d.model}
@@ -325,4 +328,32 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
     </div>
   );
+}
+
+/** How long a word about the stored rooms stays. */
+const STORE_NOTICE_MS = 6_000;
+
+/** One honest line when the stored rooms could not be read whole, or a save could not be kept. */
+function useStoreNotice(persistence: { load: LoadStatus | null; save: SaveStatus | null }): string | null {
+  const [notice, setNotice] = useState<string | null>(() => loadNotice(persistence.load));
+  const save = persistence.save;
+  useEffect(() => {
+    if (save === 'full') setNotice('This browser is out of room, so your decorating is kept for this visit only.');
+    else if (save === 'unavailable') setNotice('This browser would not keep your decorating, so it lasts for this visit only.');
+    else if (save === 'newer') setNotice('A newer version of Blobbi saved these rooms here; they were left as they are.');
+    else if (save === 'saved') setNotice(null);
+  }, [save]);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), STORE_NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  return notice;
+}
+
+function loadNotice(load: LoadStatus | null): string | null {
+  if (load === 'repaired') return 'Some saved furniture is no longer available and was left out.';
+  if (load === 'corrupt') return 'Your saved rooms could not be read, so they show their defaults.';
+  if (load === 'newer') return 'These rooms were saved by a newer version of Blobbi, so they show their defaults here.';
+  return null;
 }

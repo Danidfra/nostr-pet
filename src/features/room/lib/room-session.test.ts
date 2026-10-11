@@ -1,7 +1,9 @@
 /**
- * The session store: each room keeps what was saved to it this session and
- * shows its defaults otherwise; saving one room never touches another; the
- * session is never mutated; and nothing reaches localStorage or a relay.
+ * The session store: each room keeps what was saved to it and shows its
+ * defaults otherwise; saving one room never touches another; the session is
+ * never mutated. Without a storage key nothing reaches localStorage; with
+ * one, each Save (and only a Save) writes the player's and Blobbi's
+ * document, which the next mount reads back. Never a relay.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
@@ -10,6 +12,7 @@ import { ROOM_ORDER } from '@/features/home/rooms/rooms';
 import { EMPTY_ROOM_SESSION, saveRoomToSession, sessionFurniture, sessionLayout, useRoomSession } from './room-session';
 import { roomFurnitureFor } from './room-furniture';
 import { roomLayoutFor } from './room-layout';
+import { roomStoreKey } from './room-store';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -46,5 +49,38 @@ describe('the room session', () => {
     expect(result.current.furnitureFor('home')).toBe(roomFurnitureFor('home'));
     expect(result.current.layoutFor('rest')).toBe(roomLayoutFor('rest'));
     expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it('with a storage key: starts from what was kept, writes the whole document on each save only, and a remount (a reload) reads it back', () => {
+    const data = new Map<string, string>();
+    const storage = { getItem: vi.fn((k: string) => data.get(k) ?? null), setItem: vi.fn((k: string, v: string) => void data.set(k, v)) };
+    const key = roomStoreKey('a'.repeat(64), 'pet-1');
+    const first = renderHook(() => useRoomSession({ storageKey: key, storage }));
+    expect(first.result.current.persistence).toEqual({ load: 'empty', save: null });
+    expect(storage.setItem).not.toHaveBeenCalled();
+    const furniture = [{ id: 'official:rug-round', at: 'floor' as const, x: 3, y: 3 }];
+    act(() => first.result.current.saveRoom('rest', { furniture }));
+    expect(storage.setItem).toHaveBeenCalledTimes(1);
+    expect(first.result.current.persistence.save).toBe('saved');
+    // Saving nothing new writes nothing
+    act(() => first.result.current.saveRoom('rest', {}));
+    expect(storage.setItem).toHaveBeenCalledTimes(1);
+    first.unmount();
+    const again = renderHook(() => useRoomSession({ storageKey: key, storage }));
+    expect(again.result.current.persistence.load).toBe('loaded');
+    expect(again.result.current.furnitureFor('rest')).toEqual(furniture);
+    expect(again.result.current.furnitureFor('home')).toBe(roomFurnitureFor('home'));
+    // Another Blobbi of the same player: its own rooms, the defaults
+    const other = renderHook(() => useRoomSession({ storageKey: roomStoreKey('a'.repeat(64), 'pet-2'), storage }));
+    expect(other.result.current.furnitureFor('rest')).toBe(roomFurnitureFor('rest'));
+  });
+
+  it('a save the browser will not keep still holds for the visit, and says so', () => {
+    const storage = { getItem: () => null, setItem: () => { throw new DOMException('full', 'QuotaExceededError'); } };
+    const { result } = renderHook(() => useRoomSession({ storageKey: 'k', storage }));
+    const furniture = [{ id: 'official:rug-round', at: 'floor' as const, x: 3, y: 3 }];
+    act(() => result.current.saveRoom('rest', { furniture }));
+    expect(result.current.furnitureFor('rest')).toBe(furniture);
+    expect(result.current.persistence.save).toBe('full');
   });
 });

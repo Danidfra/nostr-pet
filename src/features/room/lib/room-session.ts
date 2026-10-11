@@ -1,21 +1,24 @@
 /**
- * What the player has decorated THIS SESSION: the furniture and the surfaces
- * of each room, in memory and nowhere else.
+ * What the player has decorated: the furniture and the surfaces of each
+ * room, as React state, per room. A room never saved shows its defaults
+ * (the registry's surfaces, Ditto's default furniture).
  *
- * Ditto saves a room to the Blobbonaut profile (kind 11125). That is the
- * persistence milestone's; until then a saved room lives here, per room,
- * for as long as the page does: switching rooms keeps it, a reload loses
- * it. Nothing here touches Nostr, localStorage or any store, and a test
- * checks it (`room-session.test.ts`). A room never saved shows its
- * defaults (the registry's surfaces, Ditto's default furniture).
+ * Given a storage key (milestone 5), the session starts from what this
+ * device kept for that player and Blobbi (`room-store.ts`) and each Save is
+ * written there as one whole document: it survives switching rooms, a
+ * reload and a browser restart. Without a key it is memory only, for as
+ * long as the page lives. Only `saveRoom` ever writes, and it is called on
+ * the decorator's Save alone; drafts, drags and Cancel never reach it.
+ * Nothing here touches Nostr (`room-session.test.ts`, `room-store.test.ts`).
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import type { RoomId } from '@/features/home/rooms/rooms';
 import type { FurniturePlacement } from './room-furniture';
 import { roomFurnitureFor } from './room-furniture';
 import type { RoomLayout } from './room-layout';
 import { roomLayoutFor } from './room-layout';
+import { loadRooms, saveRooms, type LoadStatus, type SaveStatus } from './room-store';
 
 export interface RoomSession {
   furniture: Partial<Record<RoomId, readonly FurniturePlacement[]>>;
@@ -48,16 +51,53 @@ export interface RoomSessionHandle {
   furnitureFor: (roomId: RoomId) => readonly FurniturePlacement[];
   layoutFor: (roomId: RoomId) => RoomLayout;
   saveRoom: (roomId: RoomId, saved: { furniture?: readonly FurniturePlacement[]; layout?: RoomLayout }) => void;
+  /** How the stored rooms read (null without a storage key), and how the last save went (null before one). */
+  persistence: { load: LoadStatus | null; save: SaveStatus | null };
 }
 
-/** The session's rooms as React state: lives with the component that mounts it, which is the page. */
-export function useRoomSession(initial: RoomSession = EMPTY_ROOM_SESSION): RoomSessionHandle {
-  const [session, setSession] = useState<RoomSession>(initial);
-  const saveRoom = useCallback((roomId: RoomId, saved: { furniture?: readonly FurniturePlacement[]; layout?: RoomLayout }) => {
-    setSession((prev) => saveRoomToSession(prev, roomId, saved));
-  }, []);
-  return useMemo(
-    () => ({ session, furnitureFor: (roomId: RoomId) => sessionFurniture(session, roomId), layoutFor: (roomId: RoomId) => sessionLayout(session, roomId), saveRoom }),
-    [session, saveRoom],
+export interface RoomSessionOptions {
+  /** Where this player's and Blobbi's rooms are kept (`roomStoreKey`); memory only without one. */
+  storageKey?: string;
+  storage?: Pick<Storage, 'getItem' | 'setItem'> | null;
+  /** A starting session, for memory-only use and tests. */
+  initial?: RoomSession;
+}
+
+/** The rooms as React state: lives with the component that mounts it, which is the page. */
+export function useRoomSession({ storageKey, storage = storeOrNull(), initial = EMPTY_ROOM_SESSION }: RoomSessionOptions = {}): RoomSessionHandle {
+  const [loaded] = useState(() => (storageKey ? loadRooms(storage, storageKey) : null));
+  const [session, setSession] = useState<RoomSession>(() => loaded?.session ?? initial);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const saveRoom = useCallback(
+    (roomId: RoomId, saved: { furniture?: readonly FurniturePlacement[]; layout?: RoomLayout }) => {
+      const next = saveRoomToSession(sessionRef.current, roomId, saved);
+      if (next === sessionRef.current) return;
+      sessionRef.current = next;
+      setSession(next);
+      // One whole document per Save; refused, the save still holds for this visit
+      if (storageKey) setSaveStatus(saveRooms(storage, storageKey, next));
+    },
+    [storage, storageKey],
   );
+  const loadStatus = loaded?.status ?? null;
+  return useMemo(
+    () => ({
+      session,
+      furnitureFor: (roomId: RoomId) => sessionFurniture(session, roomId),
+      layoutFor: (roomId: RoomId) => sessionLayout(session, roomId),
+      saveRoom,
+      persistence: { load: loadStatus, save: saveStatus },
+    }),
+    [session, saveRoom, loadStatus, saveStatus],
+  );
+}
+
+function storeOrNull(): Pick<Storage, 'getItem' | 'setItem'> | null {
+  try {
+    return typeof window !== 'undefined' ? window.localStorage : null;
+  } catch {
+    return null;
+  }
 }
