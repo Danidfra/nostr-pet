@@ -51,7 +51,18 @@ export interface TransitionContext {
   /** How high (tiles over the floor) the view's top is above `from` and above `to`. */
   skyFrom: number;
   skyTo: number;
+  /** How far its body reaches from where it stands (tiles): what it takes to be wholly off the floor, or behind a wall. */
+  reach?: number;
+  /** A number in [0, 1) for this scene's choices (which edge, which wall), so a scene is the same however often it is drawn. */
+  choice?: number;
+  /** Whether the floor under a point is free of furniture (a path that would walk through a piece is not taken). */
+  isFree?: (x: number, z: number) => boolean;
 }
+
+/** How far its body reaches when the room does not say: an adult's. */
+const DEFAULT_REACH = 1.27;
+/** The back walls' thickness (they stand outside the floor, x < 0 and z < 0). */
+const WALL_THICK = 0.25;
 
 /** One moment of a scene. */
 export interface ChoreoFrame {
@@ -65,8 +76,8 @@ export interface ChoreoFrame {
   face: ExpressionName | null;
   /** Where it looks (the kit's offset), or null to leave the eyes to the room. */
   gaze: { x: number; y: number } | null;
-  /** It is behind a back wall: the walls are drawn over the 2D drawing too. */
-  wallsCover: boolean;
+  /** The back wall it is behind (the 2D drawing is hidden inside that wall's outline), or false. */
+  wallsCover: 'left' | 'right' | false;
 }
 
 export interface Choreography {
@@ -182,16 +193,20 @@ function bigJump(): Choreography {
   };
 }
 
-/** Where it steps off the floor: through whichever open edge is nearer, a little way out. */
-function edgeExit(from: FloorPoint): FloorPoint {
+/**
+ * Where it steps off the floor: through whichever open edge is nearer, just far enough that the whole body is
+ * clear of it (its reach, and a hair), so it is plainly standing outside the room.
+ */
+function edgeExit(from: FloorPoint, reach: number): FloorPoint {
   const towardX = G - from.x < G - from.z;
   const along = (v: number) => Math.min(G - 1.2, Math.max(1.2, v));
-  return towardX ? { x: G + 0.85, z: along(from.z) } : { x: along(from.x), z: G + 0.85 };
+  const out = G + reach + 0.15;
+  return towardX ? { x: out, z: along(from.z) } : { x: along(from.x), z: out };
 }
 
 /** Outside the room: it walks off the floor's edge, turns to watch the new room build itself, and walks back in. */
 function outside(ctx: TransitionContext): Choreography {
-  const exit = edgeExit(ctx.from);
+  const exit = edgeExit(ctx.from, ctx.reach ?? DEFAULT_REACH);
   const OUT = walkMs(dist(ctx.from, exit), 2.4, 500, 1400);
   const TURN = 380;
   const WATCH = 1500;
@@ -226,16 +241,84 @@ function outside(ctx: TransitionContext): Choreography {
   };
 }
 
+/** A walk along a polyline at a steady pace: where it is and which way it faces `t` ms in. */
+interface Path {
+  points: FloorPoint[];
+  /** Arrival time at each point (ms). */
+  at: number[];
+  total: number;
+}
+
+function path(points: FloorPoint[], speed: number): Path {
+  const at = [0];
+  for (let i = 1; i < points.length; i++) at.push(at[i - 1] + (dist(points[i - 1], points[i]) / speed) * 1000);
+  return { points, at, total: at[at.length - 1] };
+}
+
+function along(p: Path, t: number): { at: FloorPoint; heading: number; segment: number } {
+  const k = Math.min(Math.max(t, 0), p.total);
+  let i = 1;
+  while (i < p.points.length - 1 && p.at[i] < k) i++;
+  const a = p.points[i - 1];
+  const b = p.points[i];
+  const span = p.at[i] - p.at[i - 1];
+  return { at: lerpPoint(a, b, span > 0 ? (k - p.at[i - 1]) / span : 1), heading: headingFrom(a, b), segment: i - 1 };
+}
+
+/** Whether a straight walk crosses only free floor (or no floor at all). */
+function clear(a: FloorPoint, b: FloorPoint, isFree?: (x: number, z: number) => boolean): boolean {
+  if (!isFree) return true;
+  const steps = Math.max(2, Math.ceil(dist(a, b) / 0.4));
+  for (let i = 1; i < steps; i++) {
+    const p = lerpPoint(a, b, i / steps);
+    if (!isFree(p.x, p.z)) return false;
+  }
+  return true;
+}
+
+/** An open edge to walk off: which (the x = G or the z = G side) and where along it. */
+interface EdgeChoice {
+  /** On the floor, just inside the edge. */
+  inside: FloorPoint;
+  /** Off the floor, the whole body past the edge by `beyond`. */
+  outside: FloorPoint;
+  /** The way out (yaw). */
+  heading: number;
+}
+
 /**
- * The invisible floor: a confident stroll off the front edge, a beat of
- * not knowing, the look down, then (slowly) the look back at the player,
- * "uh oh", and the drop. It comes down into the new room from the top of
- * the screen, lands hard (softly), and shakes it off. The look at the
- * player is held: that beat is the joke.
+ * The open edges it could walk off from where it stands, best first: the nearer edge first (the other too when it
+ * is nearly as near, picked between by `choice`), straight out from where it stands along that edge, kept away from
+ * the corners (the walls' ends and the bottom of the view), and only where the walk there is clear of furniture.
+ */
+function openEdges(ctx: TransitionContext, beyond: number): EdgeChoice[] {
+  const { from } = ctx;
+  const keep = (v: number) => Math.min(G - 2, Math.max(2, v));
+  const sides = [
+    { d: G - from.x, edge: (o: number): EdgeChoice => ({ inside: { x: G - 0.5, z: keep(from.z) }, outside: { x: G + o, z: keep(from.z) }, heading: Math.PI / 2 }) },
+    { d: G - from.z, edge: (o: number): EdgeChoice => ({ inside: { x: keep(from.x), z: G - 0.5 }, outside: { x: keep(from.x), z: G + o }, heading: 0 }) },
+  ].sort((a, b) => a.d - b.d);
+  // Nearly as near: let the scene's choice pick, so the same spot does not always walk off the same edge
+  if (Math.abs(sides[0].d - sides[1].d) < 1.5 && (ctx.choice ?? 0) >= 0.5) sides.reverse();
+  return sides.map((s) => s.edge(beyond)).filter((e) => clear(from, e.inside, ctx.isFree));
+}
+
+/**
+ * The invisible floor: it walks to an open edge of the room and on, past
+ * the floor's boundary, a little farther still, sure of ground that is not
+ * there, and stops, standing on nothing, wholly outside the room. A beat of
+ * not knowing; it looks down into the empty space; then (slowly) back at the
+ * player, "uh oh"; and it drops out of view. It comes down into the new room
+ * from the top of the screen, lands hard (softly), and shakes it off. Every
+ * moment of the joke happens out past the edge, never over the floor.
  */
 function floorGag(ctx: TransitionContext): Choreography {
-  const edgeOut = { x: G + 0.3, z: G + 0.3 };
-  const STROLL = walkMs(dist(ctx.from, edgeOut), 2.2, 600, 1500);
+  const reach = ctx.reach ?? DEFAULT_REACH;
+  // Far enough out that it plainly stands on nothing (its body well clear of the edge), still well in view;
+  // no open edge it can reach without walking through furniture: the quick change instead
+  const edge = openEdges(ctx, reach + 0.85)[0];
+  if (!edge) return quick();
+  const walk = path([ctx.from, edge.inside, edge.outside], 2.6);
   const CONFIDENT = 320;
   const NOTICE = 240;
   const DOWN = 420;
@@ -246,7 +329,7 @@ function floorGag(ctx: TransitionContext): Choreography {
   const DROP = 620;
   const LAND = 320;
   const RECOVER = 820;
-  const t1 = STROLL;
+  const t1 = walk.total;
   const t2 = t1 + CONFIDENT;
   const t3 = t2 + NOTICE;
   const t4 = t3 + DOWN;
@@ -256,7 +339,7 @@ function floorGag(ctx: TransitionContext): Choreography {
   const t8 = t7 + GAP;
   const t9 = t8 + DROP;
   const t10 = t9 + LAND;
-  const stroll = headingFrom(ctx.from, edgeOut);
+  const out = edge.heading;
   return {
     kind: 'floor-gag',
     durationMs: t10 + RECOVER,
@@ -269,32 +352,35 @@ function floorGag(ctx: TransitionContext): Choreography {
       { at: t9, cue: 'land' },
       { at: t10 + 420, cue: 'happy' },
     ],
-    frame(t, { from, to, skyTo }) {
-      if (t < t1) return frame({ at: { ...lerpPoint(from, edgeOut, t / STROLL), elev: 0 }, heading: stroll, walking: true, face: 'happy' });
-      const there = { ...edgeOut, elev: 0 };
-      // Standing on nothing, pleased with itself
-      if (t < t2) return frame({ at: there, heading: TOWARD_PLAYER, face: 'happy' });
+    frame(t, { to, skyTo }) {
+      if (t < t1) {
+        const w = along(walk, t);
+        return frame({ at: { ...w.at, elev: 0 }, heading: w.heading, walking: true, face: 'happy' });
+      }
+      const there = { ...edge.outside, elev: 0 };
+      // Standing on nothing, pleased with itself, still facing the way it was going
+      if (t < t2) return frame({ at: there, heading: out, face: 'happy' });
       // Something is wrong
-      if (t < t3) return frame({ at: there, heading: TOWARD_PLAYER, face: 'surprised', pose: { sx: 0.97, sy: 1.05, pitch: 0, roll: 0 } });
-      // It looks down
+      if (t < t3) return frame({ at: there, heading: out, face: 'surprised', pose: { sx: 0.97, sy: 1.05, pitch: 0, roll: 0 } });
+      // It looks down, into the empty space under it
       if (t < t4) {
         const k = easeInOut((t - t3) / DOWN);
-        return frame({ at: there, heading: TOWARD_PLAYER, face: 'surprised', gaze: { x: 0, y: k }, pose: { sx: 1, sy: 1, pitch: 0.32 * k, roll: 0 } });
+        return frame({ at: there, heading: out, face: 'surprised', gaze: { x: 0, y: k }, pose: { sx: 1, sy: 1, pitch: 0.32 * k, roll: 0 } });
       }
-      // Slowly, it looks back up at the player
+      // Slowly, it turns and looks back up, at the player
       if (t < t5) {
         const k = easeInOut((t - t4) / LOOK_BACK);
-        return frame({ at: there, heading: TOWARD_PLAYER, face: 'worried', gaze: { x: 0, y: 1 - 1.05 * k }, pose: { sx: 1, sy: 1, pitch: 0.32 * (1 - k), roll: 0 } });
+        return frame({ at: there, heading: turn(out, TOWARD_PLAYER, k), face: 'worried', gaze: { x: 0, y: 1 - 1.05 * k }, pose: { sx: 1, sy: 1, pitch: 0.32 * (1 - k), roll: 0 } });
       }
       // "I'm in trouble": held, with a little tremble
       if (t < t6) {
         const k = (t - t5) / TROUBLE;
         return frame({ at: there, heading: TOWARD_PLAYER, face: 'worried', gaze: { x: 0, y: -0.05 }, pose: { sx: 1, sy: 1 - 0.03 * Math.sin(k * Math.PI), pitch: 0, roll: 0.035 * Math.sin(k * Math.PI * 8) } });
       }
-      // Down it goes, out of view
+      // Down it goes, out of view, past the outside of the floor
       if (t < t7) {
         const k = (t - t6) / FALL;
-        return frame({ at: { ...edgeOut, elev: -11 * k * k }, heading: TOWARD_PLAYER, face: 'surprised', pose: { sx: 0.9, sy: 1.14, pitch: 0, roll: 0 } });
+        return frame({ at: { ...edge.outside, elev: -11 * k * k }, heading: TOWARD_PLAYER, face: 'surprised', pose: { sx: 0.9, sy: 1.14, pitch: 0, roll: 0 } });
       }
       // Into the new room, from the top of the screen
       if (t < t8) return frame({ at: { ...to, elev: skyTo + 2 }, heading: TOWARD_PLAYER, face: 'surprised' });
@@ -312,44 +398,88 @@ function floorGag(ctx: TransitionContext): Choreography {
 }
 
 /**
- * Behind the wall: it scurries round the front end of the left wall and
- * out of sight, and pops out from behind the front end of the right wall,
- * in the new room. Brisk: a far start hurries.
+ * The two back walls, each a slab standing outside the floor along one of its back edges, with one free end at
+ * the open side of the room. For each: a spot on the floor near that end, a spot off the floor beyond the open
+ * edge there, a spot beside the wall's end (outside the room, past the end, the body clear of the slab), and a spot
+ * behind the wall (the body wholly behind it, out of the camera's sight).
+ */
+function wallRoute(wall: 'left' | 'right', reach: number) {
+  const m = reach + 0.25;
+  const off = WALL_THICK + m;
+  // On the floor near the wall's end, the body still clear of the wall
+  const clearOfWall = Math.max(1.2, reach + 0.15);
+  if (wall === 'left') {
+    // The left wall stands at x < 0 along z, its free end at z = G
+    return {
+      onFloor: { x: clearOfWall, z: G - 0.6 },
+      outside: { x: clearOfWall, z: G + m },
+      beside: { x: -off, z: G + m },
+      behind: { x: -off, z: G - m - 1.8 },
+    };
+  }
+  // The right wall stands at z < 0 along x, its free end at x = G
+  return {
+    onFloor: { x: G - 0.6, z: clearOfWall },
+    outside: { x: G + m, z: clearOfWall },
+    beside: { x: G + m, z: -off },
+    behind: { x: G - m - 1.8, z: -off },
+  };
+}
+
+/**
+ * Behind the wall: it steps off the floor near the free end of one back
+ * wall, goes round that end (never through the wall: past its end, outside
+ * the room) and slips behind it, where the wall hides it as it goes (in 3D by
+ * depth, in 2D by the wall's own outline on screen). The room changes while it
+ * is out of sight; it comes out from behind the other wall, round its end,
+ * and steps back onto the floor. Which wall it leaves behind is the nearer
+ * one's (the other when nearly as near, by the scene's choice). Brisk.
  */
 function behindWall(ctx: TransitionContext): Choreography {
-  const near = { x: 0.6, z: G - 0.9 };
-  const hidden = { x: -0.9, z: G - 0.9 };
-  const behind = { x: G - 0.9, z: -0.9 };
-  const out = { x: G - 0.9, z: 0.6 };
-  const A = walkMs(dist(ctx.from, near), 4.5, 220, 620);
-  const B = 240;
-  const GAP = 90;
-  const C = 240;
-  const D = walkMs(dist(out, ctx.to), 4, 220, 700);
-  const tA = A;
-  const tB = tA + B;
-  const tC = tB + GAP;
-  const tD = tC + C;
-  const tE = tD + D;
+  const reach = ctx.reach ?? DEFAULT_REACH;
+  const leftEnd = { x: 0, z: G };
+  const rightEnd = { x: G, z: 0 };
+  const dl = dist(ctx.from, leftEnd);
+  const dr = dist(ctx.from, rightEnd);
+  let order: ('left' | 'right')[] = dl <= dr ? ['left', 'right'] : ['right', 'left'];
+  if (Math.abs(dl - dr) < 1.5 && (ctx.choice ?? 0) >= 0.5) order = [order[1], order[0]];
+  // Never through furniture: the first wall whose way is clear, the way back from the other clear too; neither: quick
+  const usable = order.filter((w) => clear(ctx.from, wallRoute(w, reach).onFloor, ctx.isFree) && clear(wallRoute(w === 'left' ? 'right' : 'left', reach).onFloor, ctx.to, ctx.isFree));
+  if (!usable.length) return quick();
+  const first = usable[0];
+  const second: 'left' | 'right' = first === 'left' ? 'right' : 'left';
+  const away = wallRoute(first, reach);
+  const back = wallRoute(second, reach);
+  const SPEED = 4.2;
+  const out = path([ctx.from, away.onFloor, away.outside, away.beside, away.behind], SPEED);
+  const GAP = 120;
+  // Back: out from behind the other wall, round its end, onto the floor (the last leg's end is where it was going)
+  const inFrom = [back.behind, back.beside, back.outside, back.onFloor];
+  const inPath = path([...inFrom, ctx.to], SPEED);
+  const tHidden = out.total;
+  const tBack = tHidden + GAP;
+  const tHome = tBack + inPath.total;
+  /** Behind a wall: on the way in along its far side (the last leg out), or on the way out (the first leg back). */
+  const cover = (wall: 'left' | 'right', p: FloorPoint) => (wall === 'left' ? p.x < -WALL_THICK : p.z < -WALL_THICK);
   return {
     kind: 'behind-wall',
-    durationMs: tE + 160,
-    swapAtMs: tB + 20,
+    durationMs: tHome + 160,
+    swapAtMs: tHidden + GAP / 2,
     intro: 'quick',
-    cues: [{ at: tC, cue: 'peek' }],
-    frame(t, { from, to }) {
-      if (t < tA) return frame({ at: { ...lerpPoint(from, near, t / A), elev: 0 }, heading: headingFrom(from, near), walking: true, face: 'happy' });
-      if (t < tB) {
-        const p = lerpPoint(near, hidden, (t - tA) / B);
-        return frame({ at: { ...p, elev: 0 }, heading: headingFrom(near, hidden), walking: true, face: 'happy', wallsCover: p.x < -0.15 });
+    cues: [{ at: tBack + (inPath.at[1] ?? 0) * 0.6, cue: 'peek' }],
+    frame(t, { to }) {
+      if (t < tHidden) {
+        const w = along(out, t);
+        // Behind the wall once it is on the far side of it (the last leg), never while it walks round the end
+        return frame({ at: { ...w.at, elev: 0 }, heading: w.heading, walking: true, face: 'happy', wallsCover: w.segment === 3 && cover(first, w.at) ? first : false });
       }
-      if (t < tC) return frame({ at: { ...behind, elev: 0 }, heading: headingFrom(behind, out), wallsCover: true });
-      if (t < tD) {
-        const p = lerpPoint(behind, out, (t - tC) / C);
-        return frame({ at: { ...p, elev: 0 }, heading: headingFrom(behind, out), walking: true, face: 'excited', wallsCover: p.z < -0.15 });
+      if (t < tBack) return frame({ at: { ...away.behind, elev: 0 }, heading: headingFrom(away.beside, away.behind), wallsCover: first });
+      const live = path([...inFrom, to], SPEED);
+      if (t < tHome) {
+        const w = along(live, t - tBack);
+        return frame({ at: { ...w.at, elev: 0 }, heading: w.heading, walking: true, face: w.segment >= 2 ? 'excited' : null, wallsCover: w.segment === 0 && cover(second, w.at) ? second : false });
       }
-      if (t < tE) return frame({ at: { ...lerpPoint(out, to, (t - tD) / D), elev: 0 }, heading: headingFrom(out, to), walking: true, face: 'excited' });
-      return frame({ at: { ...to, elev: 0 }, heading: turn(headingFrom(out, to), TOWARD_PLAYER, easeInOut((t - tE) / 160)) });
+      return frame({ at: { ...to, elev: 0 }, heading: turn(headingFrom(back.onFloor, to), TOWARD_PLAYER, easeInOut((t - tHome) / 160)) });
     },
   };
 }

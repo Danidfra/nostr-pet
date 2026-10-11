@@ -12,7 +12,13 @@ import { describe, expect, it } from 'vitest';
 import { choreograph, chooseTransition, GAG_COOLDOWN, TRANSITION_KINDS, type TransitionContext, type TransitionKind } from './room-transitions';
 import { ROOM_GRID } from './room-geometry';
 
-const ctx = (): TransitionContext => ({ from: { x: 3.5, z: 4.5 }, to: { x: 5.5, z: 2.5 }, skyFrom: 9, skyTo: 10 });
+const ctx = (over: Partial<TransitionContext> = {}): TransitionContext => ({ from: { x: 3.5, z: 4.5 }, to: { x: 5.5, z: 2.5 }, skyFrom: 9, skyTo: 10, reach: 1.27, choice: 0.2, ...over });
+/** Starting places all over the floor, and both stages' reach. */
+const STARTS = [{ x: 1.5, z: 1.5 }, { x: 6.5, z: 1.4 }, { x: 1.4, z: 6.5 }, { x: 6.6, z: 6.6 }, { x: 4, z: 4 }, { x: 2.2, z: 5.1 }];
+const REACHES = [1.27, 1.07];
+/** The back walls' slabs, from above: x and z extents (the left at x < 0, the right at z < 0). */
+const SLABS = [{ x0: -0.25, x1: 0, z0: -0.25, z1: ROOM_GRID + 0.1 }, { x0: -0.25, x1: ROOM_GRID + 0.1, z0: -0.25, z1: 0 }];
+const gap = (p: { x: number; z: number }, r: { x0: number; x1: number; z0: number; z1: number }) => Math.hypot(Math.max(r.x0 - p.x, 0, p.x - r.x1), Math.max(r.z0 - p.z, 0, p.z - r.z1));
 const seq = (...values: number[]) => {
   let i = 0;
   return () => values[i++ % values.length];
@@ -103,22 +109,89 @@ describe('the scenes', () => {
     expect(s.cues.map((q) => q.cue)).toEqual(['surprise', 'fall', 'land', 'happy']);
   });
 
-  it('behind the wall: the walls cover it only while it is behind one, and the room changes while it is out of sight', () => {
-    const c = ctx();
-    const s = choreograph('behind-wall', c);
-    for (let t = 0; t <= s.durationMs; t += 10) {
-      const f = s.frame(t, c);
-      if (f.wallsCover) expect(f.at!.x < 0 || f.at!.z < 0).toBe(true);
+
+  it('outside the room: wholly off the floor (the body past the edge by more than its reach), turned to watch the room build, and back in', () => {
+    for (const reach of REACHES) {
+      for (const from of STARTS) {
+        const c = ctx({ from, reach });
+        const s = choreograph('outside', c);
+        const at = s.frame(s.swapAtMs, c).at!;
+        expect(Math.max(at.x, at.z) - reach).toBeGreaterThan(ROOM_GRID);
+        // ...but not far: just clear of it
+        expect(Math.max(at.x, at.z) - reach).toBeLessThan(ROOM_GRID + 0.3);
+        expect(s.intro).toBe('build');
+      }
     }
-    expect(s.frame(s.swapAtMs, c).wallsCover).toBe(true);
-    expect(s.durationMs).toBeLessThan(2400);
   });
 
-  it('outside the room: off the floor\'s edge, turned to watch the room build, and back in', () => {
-    const c = ctx();
-    const s = choreograph('outside', c);
-    const at = s.frame(s.swapAtMs, c).at!;
-    expect(at.x > ROOM_GRID || at.z > ROOM_GRID).toBe(true);
-    expect(s.intro).toBe('build');
+  it('the invisible floor: from anywhere, the whole surprise happens wholly outside the floor, past an open edge, never over it', () => {
+    for (const reach of REACHES) {
+      for (const from of STARTS) {
+        for (const choice of [0.1, 0.9]) {
+          const c = ctx({ from, reach, choice });
+          const s = choreograph('floor-gag', c);
+          const frames = Array.from({ length: 400 }, (_, i) => ({ t: (i / 400) * s.durationMs, f: s.frame((i / 400) * s.durationMs, c) }));
+          // From the stop (the last moment of walking) to the fall: out past the edge, the body clear of the floor
+          const surprised = frames.filter(({ f }) => f.face === 'surprised' || f.face === 'worried').filter(({ t }) => t < s.swapAtMs);
+          expect(surprised.length).toBeGreaterThan(10);
+          for (const { f } of surprised) {
+            expect(Math.max(f.at!.x, f.at!.z) - reach).toBeGreaterThan(ROOM_GRID + 0.2);
+            // Kept away from the corners: framed by the room, not at its bottom tip or a wall's end
+            expect(Math.min(f.at!.x, f.at!.z)).toBeGreaterThanOrEqual(2);
+            expect(Math.min(f.at!.x, f.at!.z)).toBeLessThanOrEqual(ROOM_GRID - 2);
+          }
+        }
+      }
+    }
+  });
+
+  it('the invisible floor walks off the nearer open edge; nearly as near, either; never through furniture when another edge is clear', () => {
+    const near = choreograph('floor-gag', ctx({ from: { x: 7, z: 3 } }));
+    expect(near.frame(near.swapAtMs - 300, ctx({ from: { x: 7, z: 3 } })).at!.x).toBeGreaterThan(ROOM_GRID);
+    const tie = { x: 6, z: 6 };
+    const a = choreograph('floor-gag', ctx({ from: tie, choice: 0.1 }));
+    const b = choreograph('floor-gag', ctx({ from: tie, choice: 0.9 }));
+    const pa = a.frame(a.swapAtMs - 300, ctx({ from: tie, choice: 0.1 })).at!;
+    const pb = b.frame(b.swapAtMs - 300, ctx({ from: tie, choice: 0.9 })).at!;
+    expect(pa.x > ROOM_GRID).not.toBe(pb.x > ROOM_GRID);
+    // A piece of furniture between it and the x = G edge: it takes the z = G edge
+    const blocked = (x: number) => !(x > 6 && x < 7.5);
+    const c = ctx({ from: { x: 5, z: 3.5 }, isFree: (x) => blocked(x) });
+    const s = choreograph('floor-gag', c);
+    expect(s.frame(s.swapAtMs - 300, c).at!.z).toBeGreaterThan(ROOM_GRID);
+  });
+
+  it('when furniture blocks every way out, the gag and the wall give way to the quick change', () => {
+    const c = ctx({ isFree: () => false });
+    expect(choreograph('floor-gag', c).kind).toBe('quick');
+    expect(choreograph('behind-wall', c).kind).toBe('quick');
+    // One wall's way blocked: the other wall
+    const leftBlocked = ctx({ from: { x: 1.5, z: 5.5 }, isFree: (x, z) => !(x < 1.6 && z > 6 && z < 7) });
+    const s = choreograph('behind-wall', leftBlocked);
+    expect(s.kind).toBe('behind-wall');
+    let hiddenBy: string | false = false;
+    for (let t = 0; t < s.swapAtMs; t += 20) hiddenBy ||= s.frame(t, leftBlocked).wallsCover;
+    expect(hiddenBy).toBe('right');
+  });
+
+  it('behind the wall: never through a wall (the body always clear of both slabs), round the wall\'s end, hidden only while behind it', () => {
+    for (const reach of REACHES) {
+      for (const from of STARTS) {
+        for (const choice of [0.1, 0.9]) {
+          const c = ctx({ from, reach, choice, to: { x: 4.5, z: 4.5 } });
+          const s = choreograph('behind-wall', c);
+          let hidden = 0;
+          for (let t = 0; t <= s.durationMs; t += 8) {
+            const f = s.frame(t, c);
+            for (const slab of SLABS) expect(gap(f.at!, slab)).toBeGreaterThan(reach - 1e-6);
+            if (f.wallsCover === 'left') expect(f.at!.x + reach).toBeLessThan(-0.24);
+            if (f.wallsCover === 'right') expect(f.at!.z + reach).toBeLessThan(-0.24);
+            if (f.wallsCover) hidden++;
+          }
+          expect(hidden).toBeGreaterThan(5);
+          expect(s.frame(s.swapAtMs, c).wallsCover).toBeTruthy();
+        }
+      }
+    }
   });
 });

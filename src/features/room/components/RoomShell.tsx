@@ -84,8 +84,10 @@ export interface RoomControl {
   canChoreograph: () => boolean;
   /** Choreograph the user's Blobbi (a room transition), or let it go (back on the floor, inside the room). */
   script: (script: ActorScript | null) => void;
-  /** Draw the back walls over the 2D Blobbi too, while it is behind one. */
-  wallsCover: (on: boolean) => void;
+  /** The back wall the Blobbi is behind (the 2D drawing is hidden inside its outline), or none. */
+  wallsCover: (wall: 'left' | 'right' | null) => void;
+  /** Whether the floor tile under a point is free of furniture, in the room on screen. */
+  tileFree: (x: number, z: number) => boolean;
   /** How high (tiles above the floor) a point over (x, z) can go before it leaves the top of the view. */
   skyAt: (x: number, z: number) => number;
   /** Where the user's Blobbi would stand for a floor point: the free spot nearest it, in the room on screen. */
@@ -406,9 +408,9 @@ export function RoomShell({
             drawing.style.display = hide ? 'none' : '';
             el.dataset.render = hide ? '3d' : '2d';
             // Behind a back wall (a transition's scene): the drawing shows only outside the walls' outlines
-            const behind = !hide && !!scene && scene.behindWalls?.() === true;
-            const at = behind ? scene.projectBlobbi() : null;
-            drawing.style.clipPath = behind && at ? wallsClip(scene.wallsOnScreen(), at) : '';
+            const behind = !hide && scene ? scene.behindWalls?.() ?? null : null;
+            const at = behind && scene ? scene.projectBlobbi() : null;
+            drawing.style.clipPath = behind && at && scene ? wallsClip(scene.wallsOnScreen(behind), at) : '';
           }
           // Without the scene (flat room) nobody walks, so everyone stands facing front
           const id = actor ?? MAIN_BLOBBI;
@@ -495,7 +497,8 @@ export function RoomShell({
       holdIntro: (ms) => sceneRef.current?.holdIntro?.(ms),
       stats: () => sceneRef.current?.stats?.() ?? null,
       script: (script) => sceneRef.current?.setActorScript?.(MAIN_BLOBBI, script),
-      wallsCover: (on) => sceneRef.current?.setWallsCover?.(on),
+      wallsCover: (wall) => sceneRef.current?.setWallsCover?.(wall),
+      tileFree: (x, z) => sceneRef.current?.tileFree?.(x, z) ?? true,
       skyAt: (x, z) => sceneRef.current?.skyAt?.(x, z) ?? 12,
       standPointNear: (x, z) => sceneRef.current?.standPointNear?.(x, z) ?? { x, z },
       journey: (journey) => sceneRef.current?.setActorJourney?.(MAIN_BLOBBI, journey),

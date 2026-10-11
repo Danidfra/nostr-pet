@@ -56,7 +56,7 @@ import { RoomBlobbiOverlay, RoomDragGhost, RoomFloorItem } from './components/Ro
 import { useReactionPolicy } from '@/features/home/scene/useReactionPolicy';
 import { roomById, type RoomActivity } from '@/features/home/rooms/rooms';
 import { resolveFurniture, type FurnitureInteraction } from './lib/furniture-3d';
-import { MAIN_BLOBBI } from './lib/room-geometry';
+import { MAIN_BLOBBI, blobbiReachTiles } from './lib/room-geometry';
 import type { FurniturePlacement } from './lib/room-furniture';
 import { planDrop, planUse, shelfEntries, shelfKey, type CareShelf, type DropPlace, type RoomCareEntry } from './lib/room-care';
 import { RoomAppearanceControl } from './components/RoomAppearanceControl';
@@ -159,6 +159,8 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
     memory,
     canAct: () => canActRef.current,
     reducedMotion: () => reduceMotionRef.current,
+    // The body's widest reach, toward the open edges or the walls alike
+    reach: () => { const r = blobbiReachTiles(blobbi.stage); return Math.max(r.front, r.back); },
     play: (sound) => play(sound),
     showFace: (source, name, opts) => showFace(source, name, opts),
     clearFace: (source) => clearFace(source),

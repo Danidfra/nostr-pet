@@ -56,6 +56,8 @@ export interface UseRoomTransitionsOptions {
   showFace: (source: string, name: ExpressionName, options?: { priority?: number; durationMs?: number }) => void;
   clearFace: (source: string) => void;
   random?: () => number;
+  /** How far the Blobbi's body reaches from where it stands (tiles), for scenes that take it off the floor or behind a wall. */
+  reach?: () => number;
 }
 
 export interface RoomTransitions {
@@ -98,7 +100,7 @@ interface Running {
   intro?: RoomIntro;
   /** Held at a moment by the scrubber. */
   held: boolean;
-  last: { face: ExpressionName | null; gaze: string; walls: boolean; scripted: boolean };
+  last: { face: ExpressionName | null; gaze: string; walls: 'left' | 'right' | false; scripted: boolean };
 }
 
 export function useRoomTransitions(options: UseRoomTransitionsOptions): RoomTransitions {
@@ -163,7 +165,7 @@ export function useRoomTransitions(options: UseRoomTransitionsOptions): RoomTran
     if (run.last.scripted) control?.script(null);
     if (run.held) control?.holdIntro(null);
     control?.pose(null);
-    if (run.last.walls) control?.wallsCover(false);
+    if (run.last.walls) control?.wallsCover(null);
     pose2d(null);
     opts.current.clearFace('transition');
     lastEnd.current = performance.now();
@@ -192,7 +194,7 @@ export function useRoomTransitions(options: UseRoomTransitionsOptions): RoomTran
       control.pose(f.pose);
       if (f.wallsCover !== run.last.walls) {
         run.last.walls = f.wallsCover;
-        control.wallsCover(f.wallsCover);
+        control.wallsCover(f.wallsCover || null);
       }
     }
     pose2d(f.pose);
@@ -251,7 +253,15 @@ export function useRoomTransitions(options: UseRoomTransitionsOptions): RoomTran
           history: history.current,
           random: o.random ?? Math.random,
         });
-      const ctx: TransitionContext = { from, to: target, skyFrom: control?.skyAt(from.x, from.z) ?? 12, skyTo: control?.skyAt(target.x, target.z) ?? 12 };
+      const ctx: TransitionContext = {
+        from,
+        to: target,
+        skyFrom: control?.skyAt(from.x, from.z) ?? 12,
+        skyTo: control?.skyAt(target.x, target.z) ?? 12,
+        reach: o.reach?.(),
+        choice: (o.random ?? Math.random)(),
+        isFree: control ? (x, z) => control.tileFree(x, z) : undefined,
+      };
       const choreo = choreograph(chosen, ctx);
       history.current = [...history.current.slice(-12), chosen];
       const run: Running = { room, choreo, ctx, target, startedAt: performance.now(), swapped: false, fired: 0, firstVisit, intro, held: false, last: { face: null, gaze: '', walls: false, scripted: false } };
@@ -309,7 +319,7 @@ export function useRoomTransitions(options: UseRoomTransitionsOptions): RoomTran
       const control = opts.current.controlRef.current;
       control?.script(null);
       control?.pose(null);
-      control?.wallsCover(false);
+      control?.wallsCover(null);
       opts.current.clearFace('transition');
     },
     [],

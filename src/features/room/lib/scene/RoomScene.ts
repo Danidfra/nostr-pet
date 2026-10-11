@@ -169,6 +169,24 @@ const INTRO = { floor: [0, 420], left: [200, 760], right: [300, 860], furniture:
  * A room seen before comes back quickly: the same fold, brisk, its pieces up together. About 400 ms in all, so an
  * ordinary change of room stays quick (the full fold-in is for a room's first visit).
  */
+/** The convex hull of points (Andrew's monotone chain), clockwise on screen. */
+function convexHull(points: { x: number; y: number }[]): { x: number; y: number }[] {
+  const p = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+  if (p.length < 3) return p;
+  const cross = (o: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower: { x: number; y: number }[] = [];
+  for (const q of p) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop();
+    lower.push(q);
+  }
+  const upper: { x: number; y: number }[] = [];
+  for (const q of [...p].reverse()) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop();
+    upper.push(q);
+  }
+  return [...lower.slice(0, -1), ...upper.slice(0, -1)];
+}
+
 /** Idle life alone (a 3D model breathing and blinking) is drawn this often: ~30 frames a second, not every vsync. */
 const IDLE_FRAME_MS = 1000 / 30;
 
@@ -584,7 +602,8 @@ export class RoomScene {
   private introPending = false;
   private introTiming: { floor: readonly [number, number]; left: readonly [number, number]; right: readonly [number, number]; furniture: number; stagger: number; pop: number } = INTRO;
   /** The back walls drawn over the 2D Blobbi too (it is behind one: a transition's). */
-  private wallsCover = false;
+  /** The back wall the 2D Blobbi is behind now (a transition's scene), or null. */
+  private wallsCover: 'left' | 'right' | null = null;
   /** The piece under the pointer (never while decorating), and the ring that marks one that does something. */
   private hovered: number | null = null;
   private hoverRing?: THREE.Mesh;
@@ -1604,24 +1623,41 @@ export class RoomScene {
    * the 2D drawing, which is drawn over the canvas, is clipped to everything outside the walls' outlines on screen
    * (`wallsOnScreen`), so the wall hides it exactly as far as it is behind it.
    */
-  setWallsCover(on: boolean) {
-    if (this.wallsCover === on) return;
-    this.wallsCover = on;
+  setWallsCover(wall: 'left' | 'right' | null | boolean) {
+    const next = wall === true ? 'left' : wall === false ? null : wall;
+    if (this.wallsCover === next) return;
+    this.wallsCover = next;
     this.requestRender();
   }
 
-  /** Whether the 2D Blobbi is behind a back wall now (`setWallsCover`). */
-  behindWalls(): boolean {
+  /** Which back wall the 2D Blobbi is behind now (`setWallsCover`), or null. */
+  behindWalls(): 'left' | 'right' | null {
     return this.wallsCover;
   }
 
-  /** The two back walls' outlines on the canvas (each four points), for clipping what is behind them. */
-  wallsOnScreen(): { x: number; y: number }[][] {
-    const quads = [
-      [[0, 0, 0], [0, 0, G], [0, H, G], [0, H, 0]],
-      [[0, 0, 0], [G, 0, 0], [G, H, 0], [0, H, 0]],
-    ];
-    return quads.map((q) => q.map(([x, y, z]) => this.projectPoint(x, y, z) ?? { x: 0, y: 0 }));
+  /**
+   * A back wall's outline on the canvas: the outline of its whole slab (its face, its thickness, its top and its
+   * end), as the convex hull of the slab's corners projected. A drawing behind the wall is hidden exactly inside it.
+   */
+  wallsOnScreen(wall: 'left' | 'right' = this.wallsCover ?? 'left'): { x: number; y: number }[][] {
+    const t = THICK;
+    const top = H + 0.1;
+    const box = wall === 'left'
+      ? { x: [-t, 0], z: [-t, G + 0.1] }
+      : { x: [-t, G + 0.1], z: [-t, 0] };
+    const points: { x: number; y: number }[] = [];
+    for (const x of box.x) for (const y of [-BASE, top]) for (const z of box.z) {
+      const p = this.projectPoint(x, y, z);
+      if (p) points.push({ x: p.x, y: p.y });
+    }
+    return [convexHull(points)];
+  }
+
+  /** Whether the floor tile under a point is free of furniture (a scene's path checks it is not walking through a piece). */
+  tileFree(x: number, z: number): boolean {
+    if (x < 0 || z < 0 || x >= G || z >= G) return true;
+    const [i, j] = this.nearestFreeTile(x, z);
+    return i === Math.floor(x) && j === Math.floor(z);
   }
 
   /** The face a Blobbi's 3D model wears (the 2D drawing takes the same expression as a prop); null for the neutral face. */
@@ -1737,10 +1773,12 @@ export class RoomScene {
       const solid = travel ? travel.frame.cut * travel.frame.opacity : 1;
       const shade = journeyShadow(travel?.frame ?? null);
       const castHeight = height * Math.max(0, solid);
-      b.caster.visible = b.visible && solid > 0.02;
+      b.caster.visible = b.visible && solid > 0.02 && b.x > -0.5 && b.x < G + 0.5 && b.z > -0.5 && b.z < G + 0.5;
       b.caster.scale.set(width, Math.max(1e-3, castHeight), width * 0.8);
       b.caster.position.set(b.x, b.elev + b.hop + castHeight / 2, b.z);
-      b.contact.visible = b.visible && shade > 0.01;
+      // Off the floor (a scene has it stepping past the edge, or falling): no shadow on the floor it is not over
+      const overFloor = b.x > -0.05 && b.x < G + 0.05 && b.z > -0.05 && b.z < G + 0.05 && b.elev > -0.2;
+      b.contact.visible = b.visible && shade > 0.01 && overFloor;
       (b.contact.material as THREE.MeshBasicMaterial).opacity = shade;
       const contact = width * Math.max(0.4, 1.15 - b.hop * 1.5) * (0.7 + 0.3 * shade);
       b.contact.scale.set(contact, contact * 0.85, 1);
