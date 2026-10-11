@@ -67,6 +67,7 @@ import { walkSpeedFor } from './lib/room-pace';
 import { pickGaze } from './lib/room-gaze';
 import { useRoomMemory } from './hooks/useRoomMemory';
 import { useRoomTransitions } from './hooks/useRoomTransitions';
+import { useRoomQuality } from './hooks/useRoomQuality';
 import { useEatingPresentation } from './hooks/useEatingPresentation';
 import { usePetting } from './hooks/usePetting';
 import { useExpression } from '@/features/expression/react/useExpression';
@@ -191,7 +192,13 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const walkSpeed = useMemo(() => walkSpeedFor(blobbi.stage, blobbi.visualGeneration), [blobbi.stage, blobbi.visualGeneration]);
   // How it is drawn: the kit's 2D (default) or the 3D model, this device's choice; one Blobbi, one walk, either way
   const [appearance, setAppearance] = useBlobbiAppearance();
+  // How much the 3D room spends drawing itself: the player's choice, or chosen and adjusted for this device
+  const quality = useRoomQuality();
   const actor3d = useRoomActorModel(blobbi, appearance);
+  // The 3D model could not be built here: the choice becomes 2D (kept), never switched back by itself
+  useEffect(() => {
+    if (actor3d.failed && appearance === '3d') setAppearance('2d');
+  }, [actor3d.failed, appearance, setAppearance]);
 
   // The eyes: on the pointer while standing with a face in view (the home's
   // gaze policy over the room's own element), a glance the way it goes while walking.
@@ -274,7 +281,8 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   // The playground's feeding: the same presentation with a pretend offer (nothing is used, nothing is written)
   const [feedPreview, setFeedPreview] = useState<RoomOffer | null>(null);
   // The playground's performance overlay
-  const [perfShown, setPerfShown] = useState(false);
+  // `?perf` opens it at once (handy on a phone)
+  const [perfShown, setPerfShown] = useState(() => typeof location !== 'undefined' && new URLSearchParams(location.search).has('perf'));
   const shownOffer = care.offer ?? feedPreview;
   // Food taken: eager while the write is out, eaten bite by bite once it has landed (never before)
   const eatingView = useEatingPresentation({ offer: shownOffer, controlRef, boxRef: actorRef, showFace, clearFace, reducedMotion });
@@ -544,7 +552,11 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         statusHud={!isEgg && <RoomStatusHud stage={blobbi.stage} stats={projected?.stats} onGuide={isSleeping ? undefined : setChosenRoom} />}
         middleSlot={<RoomCareCards offer={offer} onRetry={care.retry} onPutAway={care.putAway} error={care.error} notice={care.notice ?? storeNotice} />}
         blobbiModel={actor3d.model}
-        hudEnd={<RoomAppearanceControl appearance={appearance} onChange={setAppearance} unavailable3d={actor3d.unavailable3d} />}
+        hudEnd={<RoomAppearanceControl appearance={appearance} onChange={setAppearance} unavailable3d={actor3d.unavailable3d} quality={{ preference: quality.preference, level: quality.level, onChange: quality.setPreference }} />}
+        quality={quality.settings}
+        notice={actor3d.failed ? actor3d.unavailable3d : null}
+        onSlow={quality.onSlow}
+        onGpu={quality.onGpu}
         editor={editor}
         stage={
           <RoomBlobbi
@@ -558,6 +570,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
             journey={journey}
             absent={absent}
             journeyPreview={journeyPreview}
+            moteDensity={quality.settings.moteDensity}
           />
         }
       >
@@ -585,7 +598,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
       </RoomShell>
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
       {DEV_TELEPORT && <TeleportDevPanel presence={presence} preview={journeyPreview} onPreview={setJourneyPreview} />}
-      {DEV_TELEPORT && perfShown && <RoomPerfOverlay controlRef={controlRef} />}
+      {DEV_TELEPORT && perfShown && <RoomPerfOverlay controlRef={controlRef} quality={{ preference: quality.preference, level: quality.level, reason: quality.reason }} mode={actor3d.model ? '3D Blobbi' : '2D Blobbi'} />}
       {DEV_TELEPORT && (
         <AnimationPlayground
           transitions={transitions}

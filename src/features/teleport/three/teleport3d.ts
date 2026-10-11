@@ -49,6 +49,8 @@ export interface Teleport3DOptions {
   ceiling?: number;
   /** The motes to draw, current and handed on (`moteLayers`); by default the current journey's only. */
   layers?: MoteLayer[];
+  /** The share of motes drawn (a lower rendering quality's); 1 by default. */
+  density?: number;
 }
 
 export interface Teleport3D {
@@ -388,8 +390,8 @@ export function createTeleport3D(target: TeleportTarget3D, tint: THREE.Color): T
         out[at + 2] = d.minZ + (d.maxZ - d.minZ) * (0.55 + 0.45 * m.depth);
       };
       for (const layer of layers) {
-        const motes = motesAt(layer.kind, layer.t, o.silhouette, { ceiling, bornBefore: layer.bornBefore });
-        const before = new Map(motesAt(layer.kind, layer.t - TRAIL_MS, o.silhouette, { ceiling, bornBefore: layer.bornBefore }).map((m) => [m.index, m]));
+        const motes = motesAt(layer.kind, layer.t, o.silhouette, { ceiling, bornBefore: layer.bornBefore, density: options.density });
+        const before = new Map(motesAt(layer.kind, layer.t - TRAIL_MS, o.silhouette, { ceiling, bornBefore: layer.bornBefore, density: options.density }).map((m) => [m.index, m]));
         for (const m of motes) {
           if (n >= MOTE_COUNT * 2) break;
           place(m, positions, n * 3);

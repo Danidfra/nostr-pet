@@ -33,11 +33,12 @@ import type { FurniturePlacement } from '../lib/room-furniture';
 import type { ActorFrame, ActorGesture, ActorModel } from '../lib/blobbi3d/actor';
 import type { ProceduralFace } from '@/features/expression/faces';
 import type { ActorScript, RoomIntro } from '../lib/scene/RoomScene';
+import type { QualitySettings } from '../lib/room-quality';
 import type { JourneyKind } from '@/features/teleport/timeline';
 import type { RoomLayout } from '../lib/room-layout';
 import { ROOM_GRID, blobbiBoxTiles, blobbiReachTiles, MAIN_BLOBBI } from '../lib/room-geometry';
 import { useFurnitureModels } from '../hooks/useFurnitureModels';
-import { useRoomScene, type RoomSceneStatus } from '../hooks/useRoomScene';
+import { useRoomScene, type RoomSceneFailure, type RoomSceneStatus } from '../hooks/useRoomScene';
 import type { PickResult, RoomScene, SceneGeometry, ScreenAnchor, SpotQuery } from '../lib/scene/RoomScene';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -74,6 +75,8 @@ export interface RoomControl {
   face: (face: ProceduralFace | null) => void;
   /** A choreographed pose of the 3D body (the 2D drawing poses itself), or null. */
   pose: (pose: ActorFrame['pose']) => void;
+  /** The GPU's name where the browser gives it (the performance report). */
+  gpu?: () => string | undefined;
   /** Development measurements of the room's drawing (`RoomScene.stats`), or null without a scene. */
   stats: () => ReturnType<RoomScene['stats']> | null;
   /** Hold the room's fold-in at a moment (a scrubber), or let it run (null). */
@@ -97,6 +100,13 @@ export interface RoomControl {
   /** Show a fixed moment of a journey and draw it at once (the development scrubber). */
   journeyPreview: (preview: { kind: JourneyKind; t: number; reduced: boolean } | null) => void;
 }
+
+/** What the simple room says about why it is simple. */
+const FAILURE_TEXT: Record<Exclude<RoomSceneFailure, null>, string> = {
+  unsupported: 'This browser has 3D graphics turned off, so the room is shown simply. Everything else works.',
+  lost: '3D graphics stopped working on this device, so the room is shown simply for now. Everything else works.',
+  slow: 'The 3D room took too long to start, so it is shown simply for this visit. Everything else works.',
+};
 
 /** How far a press must rub across the Blobbi before it is a stroke (px), and how far each further stroke is. */
 const PET_START_PX = 28;
@@ -151,6 +161,12 @@ export interface RoomShellProps {
   roomId: RoomId;
   /** The room the header names and steps from: the one asked for, before a transition has brought it on screen. */
   headerRoomId?: RoomId;
+  /** One line the page wants said where the room's own fallback note goes (the 3D Blobbi fell back to 2D). */
+  notice?: string | null;
+  /** The rendering quality to draw the 3D room at, and the scene's reports for choosing it (`useRoomQuality`). */
+  quality?: QualitySettings;
+  onSlow?: () => void;
+  onGpu?: (gpu: string | undefined) => void;
   /** How the next room shown arrives and where the Blobbi stands in it (`useRoomScene`'s `roomEntry`); unset, the full fold-in, the Blobbi hopping in. */
   roomEntry?: { intro: RoomIntro; spawn: { x: number; z: number } | null };
   onChangeRoom: (roomId: RoomId) => void;
@@ -255,6 +271,10 @@ export function RoomShell({
   roomId,
   headerRoomId,
   roomEntry,
+  quality,
+  onSlow,
+  onGpu,
+  notice = null,
   onChangeRoom,
   isSleeping,
   blobbiStage,
@@ -293,6 +313,7 @@ export function RoomShell({
   const isEditing = !!editor;
 
   const navRoom = headerRoomId ?? roomId;
+  const [failureDismissed, setFailureDismissed] = useState(false);
   const goLeft = useCallback(() => onChangeRoom(neighbourRoom(navRoom, 'left')), [onChangeRoom, navRoom]);
   const goRight = useCallback(() => onChangeRoom(neighbourRoom(navRoom, 'right')), [onChangeRoom, navRoom]);
   const room = roomById(navRoom);
@@ -438,13 +459,16 @@ export function RoomShell({
     }
   }, [geometry, blobbiTiles]);
 
-  const { status, sceneRef } = useRoomScene({
+  const { status, sceneRef, failure } = useRoomScene({
     canvasRef: sceneCanvasRef,
     frontCanvasRef,
     geometry,
     layout: roomLayout,
     roomKey: roomId,
     roomEntry,
+    quality,
+    onSlow,
+    onGpu,
     placements: furniturePlacements,
     models,
     blobbi,
@@ -496,6 +520,7 @@ export function RoomShell({
       render: () => sceneRef.current?.renderNow?.(),
       holdIntro: (ms) => sceneRef.current?.holdIntro?.(ms),
       stats: () => sceneRef.current?.stats?.() ?? null,
+      gpu: () => sceneRef.current?.gpuName?.(),
       script: (script) => sceneRef.current?.setActorScript?.(MAIN_BLOBBI, script),
       wallsCover: (wall) => sceneRef.current?.setWallsCover?.(wall),
       tileFree: (x, z) => sceneRef.current?.tileFree?.(x, z) ?? true,
@@ -674,6 +699,15 @@ export function RoomShell({
     >
       {/* Backdrop the diorama floats in */}
       <div className="absolute inset-0 room-backdrop" aria-hidden />
+      {/* The 3D room could not be drawn: one honest line, then the simple room carries on (care, items, rooms) */}
+      {(failure || notice) && !failureDismissed && (
+        <div className="room-fallback-note" role="status" data-testid="room-fallback-note" data-reason={failure ?? 'blobbi-3d'}>
+          <span>{failure ? FAILURE_TEXT[failure] : notice}</span>
+          <button type="button" className="room-fallback-note__close" onClick={() => setFailureDismissed(true)} aria-label="Dismiss">
+            ×
+          </button>
+        </div>
+      )}
       {status !== 'unavailable' && (
         <canvas ref={sceneCanvasRef} className="absolute inset-0 size-full" aria-hidden data-testid="room-canvas-3d" />
       )}

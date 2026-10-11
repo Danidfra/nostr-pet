@@ -24,11 +24,16 @@ import { genomeOf, morphologyOf, stage3dOf } from '../lib/blobbi3d/identity';
 import { prefersReducedMotion } from '../lib/blobbi3d/stage';
 import { walkCycleSecondsFor } from '../lib/room-pace';
 
+/** Why the drawing stands in when the 3D model could not be built here. */
+export const FAILED_3D = 'The 3D Blobbi could not be drawn on this device, so it is shown in 2D.';
+
 export interface RoomActorModel {
   /** The model to stand in the room, or null to draw the 2D Blobbi. */
   model: ActorModel | null;
   /** Why this Blobbi has no 3D model (the room draws it in 2D whatever is chosen); null when it has one. */
   unavailable3d: string | null;
+  /** Building the model failed here (the page switches the choice to 2D and says why). */
+  failed: boolean;
 }
 
 /** Why a Blobbi has no 3D model, or null when it has one. */
@@ -53,13 +58,21 @@ export function useRoomActorModel(blobbi: BlobbiCompanion, appearance: BlobbiApp
   }, [wanted, key, builtFor]);
   const buildKey = wanted ? key : builtFor === key ? key : null;
 
-  const actor = useMemo(() => {
-    if (!buildKey || !genome || !stage) return null;
-    return createBlobbiActor(buildBlobbiModel(morphologyOf(genome, stage), genome.seed), { walkCycle: walkCycleSecondsFor('v3', stage), reducedMotion: prefersReducedMotion });
+  // A model that cannot be built here (a trait this build cannot draw, a device out of memory) is never retried
+  // for this identity: the drawing stands in, and the page says so
+  const built = useMemo(() => {
+    if (!buildKey || !genome || !stage) return { actor: null, failed: false };
+    try {
+      return { actor: createBlobbiActor(buildBlobbiModel(morphologyOf(genome, stage), genome.seed), { walkCycle: walkCycleSecondsFor('v3', stage), reducedMotion: prefersReducedMotion }), failed: false };
+    } catch (error) {
+      console.warn('[room] the 3D Blobbi could not be built; drawing it in 2D', error);
+      return { actor: null, failed: true };
+    }
     // The key carries genome and stage
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildKey]);
+  const actor = built.actor;
   useEffect(() => () => actor?.dispose(), [actor]);
 
-  return { model: wanted ? actor : null, unavailable3d };
+  return { model: wanted ? actor : null, unavailable3d: built.failed ? FAILED_3D : unavailable3d, failed: built.failed };
 }

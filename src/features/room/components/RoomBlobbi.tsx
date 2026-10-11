@@ -53,6 +53,8 @@ interface RoomBlobbiProps {
   journey?: Journey | null;
   /** Away (gone somewhere else): nothing is drawn. */
   absent?: boolean;
+  /** The share of a journey's motes drawn (the room's rendering quality); 1 by default. */
+  moteDensity?: number;
   /** A fixed moment of a journey to show (the development scrubber). */
   journeyPreview?: { kind: JourneyKind; t: number; reduced?: boolean } | null;
 }
@@ -98,7 +100,7 @@ function Standing({ inset, nameTag, children }: { inset: number; nameTag?: React
   );
 }
 
-export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', motion, eyeOffset, variant = 'main', gesture, journey = null, absent = false, journeyPreview = null }, ref) {
+export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', motion, eyeOffset, variant = 'main', gesture, journey = null, absent = false, journeyPreview = null, moteDensity = 1 }, ref) {
   const boxRef = useRef<HTMLDivElement>(null);
   useImperativeHandle(ref, () => boxRef.current as HTMLDivElement);
   // A gesture: the home's keyframes on this box around the renderer, composited over whatever it is doing
@@ -148,7 +150,7 @@ export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function R
         style={{ '--room-walk-tempo': walkTempoFor(blobbi.stage) } as CSSProperties}
       >
         {/* A journey is drawn around the kit's drawing (a mask, a glow, motes), never in it */}
-        <TeleportFrame2D journey={journey} absent={absent} preview={journeyPreview} fallbackTint={visual.baseColor}>
+        <TeleportFrame2D journey={journey} absent={absent} preview={journeyPreview} density={moteDensity} fallbackTint={visual.baseColor}>
           <BlobbiRenderer
             visual={visual}
             instanceId={instanceId}

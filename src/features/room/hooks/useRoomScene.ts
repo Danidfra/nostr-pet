@@ -17,11 +17,17 @@ import type { FurniturePlacement } from '../lib/room-furniture';
 import type { RoomLayout } from '../lib/room-layout';
 import { isOfficialFurnitureId, resolveFurniture } from '../lib/furniture-3d';
 import type { RoomIntro, RoomScene, SceneGeometry, SceneItem } from '../lib/scene/RoomScene';
+import type { QualitySettings } from '../lib/room-quality';
 import type { ActorModel } from '../lib/blobbi3d/actor';
 import { MAIN_BLOBBI } from '../lib/room-geometry';
 import type { FurnitureModel } from './useFurnitureModels';
 
 export type RoomSceneStatus = 'loading' | 'ready' | 'unavailable';
+/** Why the 3D room is not drawing: no WebGL here, the GPU gave it up (and kept doing so), or it never got going. */
+export type RoomSceneFailure = 'unsupported' | 'lost' | 'slow' | null;
+
+/** How long the 3D room may take to start drawing (its code arriving, its first frame) before the simple room stands in. */
+export const LOAD_TIMEOUT_MS = 15_000;
 
 export interface SceneBlobbi {
   visible: boolean;
@@ -56,6 +62,12 @@ interface UseRoomSceneOptions {
    * with the Blobbi in the middle.
    */
   roomEntry?: { intro: RoomIntro; spawn: { x: number; z: number } | null };
+  /** The rendering quality to draw at (`room-quality.ts`); high when unset. */
+  quality?: QualitySettings;
+  /** The scene measured sustained slowness. */
+  onSlow?: () => void;
+  /** The scene can name its GPU (once, when it is ready). */
+  onGpu?: (gpu: string | undefined) => void;
   placements: readonly FurniturePlacement[] | undefined;
   models: Map<number, FurnitureModel>;
   /** Keep the object stable between renders. */
@@ -107,14 +119,18 @@ export function useRoomScene(options: UseRoomSceneOptions) {
   const sceneRef = useRef<RoomScene | null>(null);
   const roomEntryRef = useRef(options.roomEntry);
   roomEntryRef.current = options.roomEntry;
+  const qualityRef = useRef(options.quality);
+  qualityRef.current = options.quality;
   const [status, setStatus] = useState<RoomSceneStatus>(() => (webglAvailable() ? 'loading' : 'unavailable'));
   /** Contexts lost in a row; the room comes back on a fresh canvas a few times. */
   const losses = useRef(0);
+  /** Given up on for this visit, and why (a context lost too often counts through `losses`). */
+  const [gaveUp, setGaveUp] = useState<'slow' | 'unsupported' | null>(null);
 
   // Latest callbacks, read by the scene without re-subscribing
-  const callbacks = useRef({ onFrame, onInvalidChange, onMeet });
+  const callbacks = useRef({ onFrame, onInvalidChange, onMeet, onSlow: options.onSlow, onGpu: options.onGpu });
   useEffect(() => {
-    callbacks.current = { onFrame, onInvalidChange, onMeet };
+    callbacks.current = { onFrame, onInvalidChange, onMeet, onSlow: options.onSlow, onGpu: options.onGpu };
   });
 
   // Create the scene once three has loaded
@@ -137,12 +153,23 @@ export function useRoomScene(options: UseRoomSceneOptions) {
     import('../lib/scene/RoomScene')
       .then(({ RoomScene }) => {
         if (cancelled) return;
-        scene = new RoomScene(canvas, front);
+        try {
+          scene = new RoomScene(canvas, front);
+        } catch {
+          // The renderer could not be made at all (no usable WebGL after all): no retries this visit
+          losses.current = MAX_LOSSES + 1;
+          setGaveUp('unsupported');
+          setStatus('unavailable');
+          return;
+        }
         scene.onFrame = () => callbacks.current.onFrame();
         scene.onInvalidChange = (invalid) => callbacks.current.onInvalidChange?.(invalid);
         scene.onMeet = (id) => callbacks.current.onMeet?.(id);
+        scene.onSlow = () => callbacks.current.onSlow?.();
+        if (qualityRef.current) scene.setQuality(qualityRef.current);
         sceneRef.current = scene;
         setStatus('ready');
+        callbacks.current.onGpu?.(scene.gpuName());
         // Drawn fine for a while: forget earlier losses
         recovered = setTimeout(() => { losses.current = 0; }, RECOVERED_MS);
       })
@@ -164,6 +191,18 @@ export function useRoomScene(options: UseRoomSceneOptions) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status === 'unavailable']);
 
+  // Never stuck loading: a 3D room that has not started drawing in time (a slow connection, a stalled GPU) gives
+  // way to the simple room, and is not tried again for this visit
+  useEffect(() => {
+    if (status !== 'loading') return;
+    const timer = setTimeout(() => {
+      losses.current = MAX_LOSSES + 1;
+      setGaveUp('slow');
+      setStatus('unavailable');
+    }, LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [status]);
+
   // iOS drops WebGL contexts in the background: try again on a fresh canvas
   // when the page is shown, or shortly, if it never left
   useEffect(() => {
@@ -180,6 +219,12 @@ export function useRoomScene(options: UseRoomSceneOptions) {
   }, [status]);
 
   const ready = status === 'ready';
+
+  // The quality to draw at, whenever it changes
+  const quality = options.quality;
+  useEffect(() => {
+    if (ready && quality) sceneRef.current?.setQuality?.(quality);
+  }, [ready, quality]);
 
   // Moving to a screen of another pixel density redraws at its resolution
   const [dpr, setDpr] = useState(() => window.devicePixelRatio);
@@ -280,5 +325,8 @@ export function useRoomScene(options: UseRoomSceneOptions) {
     };
   }, [ready, editing, canvasRef]);
 
-  return { status, sceneRef };
+  const failure: RoomSceneFailure = status !== 'unavailable' ? null : gaveUp ?? (losses.current > 0 ? 'lost' : 'unsupported');
+  // Still retrying after a loss is not a failure to tell the player about yet
+  const settled = failure === 'lost' && losses.current <= MAX_LOSSES ? null : failure;
+  return { status, sceneRef, failure: settled };
 }

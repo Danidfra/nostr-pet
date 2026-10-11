@@ -37,6 +37,7 @@ import type { ActorFrame, ActorGesture, ActorModel } from '../blobbi3d/actor';
 import { journeyDuration, journeyFrame, journeyShadow, type JourneyFrame, type JourneyKind } from '@/features/teleport/timeline';
 import { moteLayers } from '@/features/teleport/particles';
 import type { ProceduralFace } from '@/features/expression/faces';
+import { QUALITY, createQualityMonitor, type QualitySettings } from '../room-quality';
 import type { Teleport3DOptions } from '@/features/teleport/three/teleport3d';
 
 import type { FurnitureInteraction, FurnitureMount } from '../furniture-3d';
@@ -607,11 +608,17 @@ export class RoomScene {
   /** The piece under the pointer (never while decorating), and the ring that marks one that does something. */
   private hovered: number | null = null;
   private hoverRing?: THREE.Mesh;
+  /** How much it spends drawing (`room-quality.ts`): the device's level, high until told otherwise. */
+  private quality: QualitySettings = QUALITY.high;
+  /** Watches real frame intervals for sustained slowness; `onSlow` hears when quality should go down. */
+  private monitor = createQualityMonitor(typeof performance !== 'undefined' ? performance.now() : 0);
+  onSlow?: () => void;
   /** Only idle life (a 3D model breathing, blinking) wants another frame: drawn at `IDLE_FRAME_MS`, not every vsync. */
   private idleAnimating = false;
   private idleTimer: ReturnType<typeof setTimeout> | undefined;
   /** Development measurements (`stats()`): frames drawn, idle ones among them, and each frame's main-thread cost. */
   private perf = { frames: 0, idleFrames: 0, cpuMs: 0, cpuSamples: [] as number[] };
+  private lastFrameAt = 0;
   private onVisibility = () => {
     if (!document.hidden) this.requestRender();
   };
@@ -707,7 +714,7 @@ export class RoomScene {
 
   setGeometry(geometry: SceneGeometry) {
     this.geometry = geometry;
-    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR, this.quality.maxPixelRatio);
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(geometry.width, geometry.height, false);
     this.fgCanvas.width = Math.round(geometry.width * dpr);
@@ -1611,6 +1618,57 @@ export class RoomScene {
     (ring.material as THREE.MeshBasicMaterial).opacity = 0.5 * level;
   }
 
+  /**
+   * Draw at a quality level (`room-quality.ts`): the pixel ratio, the key light's shadow (soft, plain or none),
+   * how many lamps' light is drawn, the journey motes' density and the idle frame rate. The Blobbi, the furniture
+   * and the room are the same at every level; only how they are drawn changes.
+   */
+  setQuality(quality: QualitySettings) {
+    const before = this.quality;
+    this.quality = quality;
+    if (before.shadows !== quality.shadows || before.shadowMapSize !== quality.shadowMapSize) {
+      this.key.castShadow = quality.shadows !== 'off';
+      const type = quality.shadows === 'soft' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+      if (this.renderer.shadowMap.type !== type) {
+        this.renderer.shadowMap.type = type;
+        this.scene.traverse((o) => {
+          const mesh = o as THREE.Mesh;
+          if (!mesh.isMesh) return;
+          for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) m.needsUpdate = true;
+        });
+      }
+      if (this.key.shadow.mapSize.x !== quality.shadowMapSize) {
+        this.key.shadow.map?.dispose();
+        this.key.shadow.map = null;
+        this.key.shadow.mapSize.set(quality.shadowMapSize, quality.shadowMapSize);
+      }
+      this.shadowsDirty = true;
+    }
+    // Lights not drawn are left out of the shaders altogether (one recompile, then nothing per pixel)
+    this.lamps.forEach((lamp, i) => {
+      lamp.visible = i < quality.lamps;
+    });
+    if (this.geometry && before.maxPixelRatio !== quality.maxPixelRatio) this.setGeometry(this.geometry);
+    this.monitor.reset(performance.now());
+    this.requestRender();
+  }
+
+  /** The quality it draws at now. */
+  qualityNow(): QualitySettings {
+    return this.quality;
+  }
+
+  /** The GPU's name, where the browser gives it (for the first guess at quality and the performance report). */
+  gpuName(): string | undefined {
+    try {
+      const gl = this.renderer.getContext();
+      const info = gl.getExtension('WEBGL_debug_renderer_info');
+      return info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   /** Hold the room's fold-in at `ms` after it began (a development scrubber), or let it run again (null). */
   holdIntro(ms: number | null) {
     this.introHeld = ms;
@@ -1823,7 +1881,7 @@ export class RoomScene {
     if (b.journeyPreview) {
       const { kind, t, reduced } = b.journeyPreview;
       const frame = journeyFrame(kind, t, reduced);
-      return { frame, kind, t, options: { skyY: this.skyAbove(b), layers: frame.motes ? [{ kind, t, fade: 1 }] : [] } };
+      return { frame, kind, t, options: { skyY: this.skyAbove(b), layers: frame.motes ? [{ kind, t, fade: 1 }] : [], density: this.quality.moteDensity } };
     }
     if (!b.journey) return null;
     const t = now - b.journey.startedAt;
@@ -1835,7 +1893,7 @@ export class RoomScene {
     }
     const frame = journeyFrame(b.journey.kind, t, b.journey.reduced);
     const layers = moteLayers(frame.motes ? { kind: b.journey.kind, t } : null, b.journeyBefore ?? null, now);
-    return { frame, kind: b.journey.kind, t, options: { skyY: b.skyY ?? this.skyAbove(b), layers } };
+    return { frame, kind: b.journey.kind, t, options: { skyY: b.skyY ?? this.skyAbove(b), layers, density: this.quality.moteDensity } };
   }
 
   /**
@@ -2422,6 +2480,17 @@ export class RoomScene {
    * Which standing furniture is in front of the Blobbi this frame: nearer the
    * open corner and overlapping it on screen. Those are drawn over it.
    */
+  /** Nothing is drawn over the page's Blobbis (there are none): every piece back to the plain pass. */
+  private clearFront(): boolean {
+    for (const built of this.built.values()) {
+      if (built.front) {
+        built.front = false;
+        setFront(built.root, false);
+      }
+    }
+    return false;
+  }
+
   private classifyFront(): boolean {
     const actors = [...this.actors.values()].filter((a) => a.visible);
     const fronts = new Set<number>();
@@ -2648,7 +2717,8 @@ export class RoomScene {
     // them, in a fixed order, so lights never jump between lamps as the Blobbi moves
     if (lit.length > this.lamps.length) lit.sort((a, b) => b.intensity - a.intensity);
     this.lamps.forEach((lamp, i) => {
-      const source = lit[i];
+      // Fewer lights drawn at lower quality (the bulbs and their halos still glow)
+      const source = i < this.quality.lamps ? lit[i] : undefined;
       lamp.intensity = source ? source.intensity * source.level * 6 * (1 + dark * 1.5) : 0;
       if (!source) return;
       lamp.position.copy(source.world);
@@ -2727,7 +2797,10 @@ export class RoomScene {
     // That pass only sees layer 1, so it keeps the last shadow map rather than
     // rebuilding it from the front pieces alone.
     const ctx = this.fgContext;
-    const hasFront = this.classifyFront();
+    // Only a Blobbi drawn by the page (the 2D drawing, a visitor) needs furniture drawn over it; a 3D model is
+    // hidden by depth like anything else, so with none drawn by the page the second pass is skipped altogether
+    const domDrawn = [...this.actors.values()].some((a) => a.visible && !(a.model && a.modelDrawn));
+    const hasFront = domDrawn ? this.classifyFront() : this.clearFront();
     if (ctx) {
       ctx.clearRect(0, 0, this.fgCanvas.width, this.fgCanvas.height);
       if (hasFront) {
@@ -2753,6 +2826,9 @@ export class RoomScene {
     this.perf.frames += 1;
     if (!animating && this.idleAnimating) this.perf.idleFrames += 1;
     this.perf.cpuMs = cost;
+    // Sustained slowness while something moves (a real frame interval, not the idle rate's) lowers quality
+    if (this.lastFrameAt > 0 && this.monitor.frame(now - this.lastFrameAt, animating, now)) this.onSlow?.();
+    this.lastFrameAt = now;
     this.perf.cpuSamples.push(cost);
     if (this.perf.cpuSamples.length > 240) this.perf.cpuSamples.shift();
     if (animating) this.requestRender();
@@ -2770,7 +2846,7 @@ export class RoomScene {
     this.idleTimer = setTimeout(() => {
       this.idleTimer = undefined;
       this.requestRender();
-    }, IDLE_FRAME_MS - 4);
+    }, Math.max(IDLE_FRAME_MS, 1000 / this.quality.idleFps) - 4);
   }
 
   /**
@@ -2783,7 +2859,11 @@ export class RoomScene {
     const avg = samples.length ? samples.reduce((a, b) => a + b, 0) / samples.length : 0;
     const p95 = samples.length ? samples[Math.min(samples.length - 1, Math.floor(samples.length * 0.95))] : 0;
     const info = this.renderer.info;
+    const canvas = this.renderer.domElement;
     return {
+      pixelRatio: this.renderer.getPixelRatio(),
+      canvas: [canvas.width, canvas.height] as [number, number],
+      quality: this.quality.level,
       frames: this.perf.frames,
       idleFrames: this.perf.idleFrames,
       cpuMs: this.perf.cpuMs,

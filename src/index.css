@@ -1194,6 +1194,49 @@
     width: auto;
     cursor: pointer;
   }
+  /* The simple room's one line about why it is simple */
+  .room-fallback-note {
+    position: absolute;
+    left: 50%;
+    top: calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 4.25rem);
+    z-index: 12;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: min(22rem, calc(100% - 2rem));
+    transform: translateX(-50%);
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.9rem;
+    background: hsl(var(--background) / 0.92);
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+    font-size: 0.78rem;
+    line-height: 1.35;
+    box-shadow: 0 6px 18px -10px hsl(0 0% 0% / 0.45);
+  }
+  .room-fallback-note__close {
+    min-width: 2rem;
+    min-height: 2rem;
+    margin: -0.35rem -0.4rem -0.35rem 0;
+    border-radius: 9999px;
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+  /* The settings menu's graphics choice: a native select, comfortable on a phone */
+  .room-settings-select {
+    min-height: 2rem;
+    border-radius: 0.6rem;
+    padding: 0 0.5rem;
+    background: hsl(var(--background) / 0.85);
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+    font: inherit;
+    font-size: 0.8rem;
+  }
+  .room-settings-select:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 1px;
+  }
   /* Development only: the room's performance overlay (RoomPerfOverlay) */
   .room-perf {
     position: fixed;
@@ -1205,7 +1248,27 @@
     background: rgba(20, 18, 32, 0.88);
     color: #d9f99d;
     font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
-    pointer-events: none;
+    max-width: min(26rem, calc(100vw - 24px));
+  }
+  .room-perf__warn {
+    color: #fca5a5;
+  }
+  .room-perf__actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .room-perf__actions button {
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.12);
+  }
+  .room-perf__report {
+    width: 100%;
+    margin-top: 4px;
+    font: inherit;
+    color: inherit;
+    background: rgba(0, 0, 0, 0.35);
   }
   /* The animation playground sits below the teleport panel's button */
   .playground-dev,

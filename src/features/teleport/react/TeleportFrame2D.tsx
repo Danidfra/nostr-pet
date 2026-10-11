@@ -37,6 +37,8 @@ interface TeleportFrame2DProps {
   onFace?: (face: JourneyFace) => void;
   /** The arrival's little hop is due. */
   onHop?: () => void;
+  /** The share of motes drawn (a lower rendering quality's); 1 by default. */
+  density?: number;
   /** The motes' colour when the drawing cannot be read. */
   fallbackTint?: string;
   children: ReactNode;
@@ -69,7 +71,7 @@ function sprite(color: string): HTMLCanvasElement | null {
   return c;
 }
 
-export function TeleportFrame2D({ journey, absent, preview = null, onFace, onHop, fallbackTint = 'rgb(255, 230, 180)', children }: TeleportFrame2DProps) {
+export function TeleportFrame2D({ journey, absent, preview = null, onFace, onHop, density = 1, fallbackTint = 'rgb(255, 230, 180)', children }: TeleportFrame2DProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const outlineRef = useRef<DrawingOutline | null>(null);
@@ -129,7 +131,7 @@ export function TeleportFrame2D({ journey, absent, preview = null, onFace, onHop
       const t = preview ? preview.t : now - journey!.startedAt;
       const frame = journeyFrame(kind, t, reduced);
       const layers = frame.motes ? moteLayers({ kind, t }, preview ? null : previous.current, now) : moteLayers(null, preview ? null : previous.current, now);
-      paint(body, canvas, frame, layers, sky, outlineRef.current, fallbackTint);
+      paint(body, canvas, frame, layers, sky, outlineRef.current, fallbackTint, density);
       if (frame.face !== lastFace.current) {
         lastFace.current = frame.face;
         callbacks.current.onFace?.(frame.face);
@@ -142,7 +144,7 @@ export function TeleportFrame2D({ journey, absent, preview = null, onFace, onHop
     };
     draw();
     return () => cancelAnimationFrame(frameId);
-  }, [active, absent, journey, preview, fallbackTint]);
+  }, [active, absent, journey, preview, fallbackTint, density]);
 
   return (
     <div className="teleport-2d" data-teleport={active ? (preview?.kind ?? journey?.kind) : absent ? 'absent' : 'none'}>
@@ -203,7 +205,7 @@ function clearBody(body: HTMLDivElement) {
 }
 
 /** One frame of the effect: the body's mask, squash and glow, then the motes (with their trails) and the edge's light. */
-function paint(body: HTMLDivElement, canvas: HTMLCanvasElement, frame: JourneyFrame, layers: MoteLayer[], sky: number, outline: DrawingOutline | null, fallbackTint: string) {
+function paint(body: HTMLDivElement, canvas: HTMLCanvasElement, frame: JourneyFrame, layers: MoteLayer[], sky: number, outline: DrawingOutline | null, fallbackTint: string, density = 1) {
   const bounds = outline ?? DEFAULT_BOUNDS;
   const silhouette: Silhouette = outline?.silhouette ?? BLOB_SILHOUETTE;
   const height = bounds.top - bounds.bottom;
@@ -264,8 +266,8 @@ function paint(body: HTMLDivElement, canvas: HTMLCanvasElement, frame: JourneyFr
   const hot = sprite('rgba(255,252,240,1)');
   const tinted = sprite(tint);
   for (const layer of layers) {
-    const now = motesAt(layer.kind, layer.t, silhouette, { ceiling: sky, bornBefore: layer.bornBefore });
-    const before = new Map(motesAt(layer.kind, layer.t - TRAIL_MS, silhouette, { ceiling: sky, bornBefore: layer.bornBefore }).map((m) => [m.index, m]));
+    const now = motesAt(layer.kind, layer.t, silhouette, { ceiling: sky, bornBefore: layer.bornBefore, density });
+    const before = new Map(motesAt(layer.kind, layer.t - TRAIL_MS, silhouette, { ceiling: sky, bornBefore: layer.bornBefore, density }).map((m) => [m.index, m]));
     for (const m of now) {
       const r = Math.max(1, m.size * boxW);
       const x = px(m.x);

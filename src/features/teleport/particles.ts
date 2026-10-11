@@ -97,6 +97,8 @@ export interface MoteOptions {
   ceiling?: number;
   /** Only motes already on their way before this time (ms of the journey): a turned-back journey's, finishing. */
   bornBefore?: number;
+  /** The share of motes drawn (1 all): a lower rendering quality draws a fixed, evenly spread subset. */
+  density?: number;
 }
 
 /** Where the top of the view is assumed to be when a drawing does not say (body heights above the feet). */
@@ -108,8 +110,11 @@ export const TRAIL_MS = 45;
 export function motesAt(kind: JourneyKind, t: number, silhouette: Silhouette, options: MoteOptions = {}): Mote[] {
   const ceiling = Math.max(1.4, options.ceiling ?? DEFAULT_CEILING);
   const bornBefore = options.bornBefore ?? Infinity;
+  const density = options.density ?? 1;
   const motes: Mote[] = [];
   for (let i = 0; i < MOTE_COUNT; i++) {
+    // The same motes at every frame (a stable subset), so a lower density thins the stream without flicker
+    if (density < 1 && hash(i, 99) >= density) continue;
     const m = kind === 'depart' ? departMote(i, t, silhouette, ceiling, bornBefore) : arriveMote(i, t, silhouette, ceiling, bornBefore);
     if (m && m.alpha > 0.01) motes.push(m);
   }

@@ -13,6 +13,7 @@ import { Home, Settings2, Volume2, VolumeX } from 'lucide-react';
 import { useSound } from '@/features/sound';
 import { useHomeExperience, type FromRoomState } from '@/lib/home-experience';
 import type { BlobbiAppearance } from '../lib/blobbi-appearance';
+import type { QualityLevel, QualityPreference } from '../lib/room-quality';
 import { cx } from '../lib/cx';
 
 interface RoomSettingsControlProps {
@@ -20,7 +21,11 @@ interface RoomSettingsControlProps {
   onChange: (appearance: BlobbiAppearance) => void;
   /** Why this Blobbi can only be drawn in 2D (an egg, V1/V2 art); null when 3D is available. */
   unavailable3d: string | null;
+  /** The room's rendering quality (`useRoomQuality`), when the room is drawn in 3D. */
+  quality?: { preference: QualityPreference; level: QualityLevel; onChange: (preference: QualityPreference) => void };
 }
+
+const QUALITY_WORD: Record<QualityLevel, string> = { high: 'High', balanced: 'Balanced', low: 'Low' };
 
 const OPTIONS: { value: BlobbiAppearance; title: string; detail: string }[] = [
   { value: '2d', title: '2D', detail: 'Original' },
@@ -29,7 +34,7 @@ const OPTIONS: { value: BlobbiAppearance; title: string; detail: string }[] = [
 
 const BACK_HOME: FromRoomState = { fromRoom: true };
 
-export function RoomAppearanceControl({ appearance, onChange, unavailable3d }: RoomSettingsControlProps) {
+export function RoomAppearanceControl({ appearance, onChange, unavailable3d, quality }: RoomSettingsControlProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -124,6 +129,23 @@ export function RoomAppearanceControl({ appearance, onChange, unavailable3d }: R
             {unavailable3d && <p className="px-1 text-[11px] leading-snug text-foreground/60" data-testid="room-appearance-note">{unavailable3d}</p>}
           </div>
 
+          {quality && (
+            <label className="room-settings-row" data-testid="room-quality">
+              <span className="flex-1 text-left">Graphics</span>
+              <select
+                className="room-settings-select"
+                value={quality.preference}
+                onChange={(e) => quality.onChange(e.target.value as QualityPreference)}
+                aria-label="Graphics quality"
+                data-testid="room-quality-select"
+              >
+                <option value="auto">Auto ({QUALITY_WORD[quality.level]})</option>
+                <option value="high">High</option>
+                <option value="balanced">Balanced</option>
+                <option value="low">Low (saves battery)</option>
+              </select>
+            </label>
+          )}
           <div className="room-settings-divider" aria-hidden />
           <button type="button" role="switch" aria-checked={sound.enabled} className="room-settings-row" onClick={() => sound.setEnabled(!sound.enabled)} data-testid="room-sound-toggle">
             {sound.enabled ? <Volume2 className="size-4" aria-hidden /> : <VolumeX className="size-4" aria-hidden />}

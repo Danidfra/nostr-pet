@@ -8,13 +8,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { parseModernBlobbiEvent, type BlobbiCompanion } from '@blobbi-kit/core';
 
-const built = vi.hoisted(() => ({ calls: [] as { morphology: unknown; seed: string }[], disposed: 0 }));
+const built = vi.hoisted(() => ({ calls: [] as { morphology: unknown; seed: string }[], disposed: 0, fail: false }));
 vi.mock('../lib/blobbi3d/model', async (importOriginal) => {
   const real = await importOriginal<typeof import('../lib/blobbi3d/model')>();
   return {
     ...real,
     buildBlobbiModel: (morphology: Parameters<typeof real.buildBlobbiModel>[0], seed: string) => {
       built.calls.push({ morphology, seed });
+      if (built.fail) throw new Error('no GPU memory');
       const model = real.buildBlobbiModel(morphology, seed);
       const dispose = model.dispose;
       model.dispose = () => {
@@ -29,7 +30,7 @@ vi.mock('../lib/blobbi3d/model', async (importOriginal) => {
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { blobbiEvent } from '@/test/fixtures';
 import { genomeOf, morphologyOf } from '../lib/blobbi3d/identity';
-import { useRoomActorModel, unavailable3dReason } from './useRoomActorModel';
+import { FAILED_3D, useRoomActorModel, unavailable3dReason } from './useRoomActorModel';
 import type { BlobbiAppearance } from '../lib/blobbi-appearance';
 
 function blobbi(stage: 'egg' | 'baby' | 'adult', generation: 'v1' | 'v2' | 'v3' = 'v3', extra: [string, string][] = []): BlobbiCompanion {
@@ -39,6 +40,7 @@ function blobbi(stage: 'egg' | 'baby' | 'adult', generation: 'v1' | 'v2' | 'v3' 
 beforeEach(() => {
   built.calls = [];
   built.disposed = 0;
+  built.fail = false;
 });
 
 describe('the room\'s 3D model', () => {
@@ -88,5 +90,22 @@ describe('the room\'s 3D model', () => {
     }
     expect(built.calls).toHaveLength(0);
     expect(unavailable3dReason({ stage: 'adult', visualGeneration: 'v3' }, true)).toBeNull();
+  });
+});
+
+describe('a 3D model that cannot be built', () => {
+  it('is reported as failed (the page falls back to 2D and says why), once, without a crash or a rebuild on every render', () => {
+    built.fail = true;
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const fern = blobbi('adult');
+    const { result, rerender } = renderHook(({ a }: { a: BlobbiAppearance }) => useRoomActorModel(fern, a), { initialProps: { a: '3d' as BlobbiAppearance } });
+    expect(result.current.model).toBeNull();
+    expect(result.current.failed).toBe(true);
+    expect(result.current.unavailable3d).toBe(FAILED_3D);
+    rerender({ a: '3d' });
+    rerender({ a: '2d' });
+    expect(built.calls).toHaveLength(1);
+    expect(result.current.failed).toBe(true);
+    errors.mockRestore();
   });
 });
