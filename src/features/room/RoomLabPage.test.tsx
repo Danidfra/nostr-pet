@@ -72,7 +72,8 @@ describe('the /room/3d-lab route', () => {
   it('shows three fixed identities as 2D drawings and 3D stages, front, side and back, with the stage controls', async () => {
     const before = storageKeys();
     renderAt('/room/3d-lab');
-    await waitFor(() => expect(screen.getByTestId('room-lab')).toBeInTheDocument());
+    // A lazily loaded route: under a full parallel run its chunk can take a while
+    await waitFor(() => expect(screen.getByTestId('room-lab')).toBeInTheDocument(), { timeout: 10_000 });
     for (const id of ['one', 'two', 'three']) expect(screen.getByTestId(`lab-identity-${id}`)).toBeInTheDocument();
     expect(screen.queryByTestId('lab-identity-mine')).toBeNull();
     const seed = screen.getByTestId('lab-seed').textContent;
@@ -113,7 +114,8 @@ describe('the /room/3d-lab route', () => {
 
   it('draws the comparison matrix on request: nine addresses as adults and babies, each the kit\'s drawing beside three 3D stills', async () => {
     renderAt('/room/3d-lab');
-    await waitFor(() => expect(screen.getByTestId('room-lab')).toBeInTheDocument());
+    // A lazily loaded route: under a full parallel run its chunk can take a while
+    await waitFor(() => expect(screen.getByTestId('room-lab')).toBeInTheDocument(), { timeout: 10_000 });
     expect(screen.queryByTestId('lab-matrix')).toBeNull();
     fireEvent.click(screen.getByTestId('lab-matrix-toggle'));
     const matrix = screen.getByTestId('lab-matrix');
