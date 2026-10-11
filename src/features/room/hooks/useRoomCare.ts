@@ -22,7 +22,11 @@
  *
  * Then the celebration waits for the authoritative result AND for the use
  * to have been visible a moment (`MIN_USE_MS`): the face, a hop, the stat
- * chips and the sound come from what the write actually changed. A failed
+ * chips and the sound come from what the write actually changed. Food and
+ * drink are eaten first, and only then: once the write has landed, the
+ * offer turns `eating` for a few bites (`EAT`), the munch playing with
+ * them, and the celebration follows the last bite. Nothing is shown eaten
+ * before the pipeline says it was. A failed
  * use leaves the item where it was with Retry (an explicit tap; an owned
  * spend resumes its own record rather than signing a new one) and Put away.
  *
@@ -50,8 +54,12 @@ export interface RoomOffer {
   name: string;
   /** Handed over, or lying on the floor of a room for the Blobbi to come to. */
   place: { kind: 'hand' } | { kind: 'floor'; x: number; z: number; roomId: RoomId };
-  phase: 'walking' | 'using' | 'failed';
+  /** On its way, being used (the write out), eaten (the write landed: food and drink only), or failed. */
+  phase: 'walking' | 'using' | 'eating' | 'failed';
   usingSince?: number;
+  /** Eating: when it began, and how many bites it takes. */
+  eatingSince?: number;
+  bites?: number;
   /** Why the use failed, in words the player can act on. */
   error?: string;
 }
@@ -63,6 +71,8 @@ export interface RoomCareFeedback {
 }
 
 interface UseRoomCareOptions {
+  /** Fewer, quicker bites when the player prefers less motion. */
+  reducedMotion?: boolean;
   blobbi: BlobbiCompanion;
   pubkey: string | undefined;
   updateCompanionEvent: (event: NostrEvent) => void;
@@ -98,12 +108,27 @@ export interface RoomCare {
 /** How long a notice stays. */
 const NOTICE_MS = 3_200;
 
-export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav, react, hop }: UseRoomCareOptions): RoomCare {
+/**
+ * Eating, once a use of food or drink has landed: bites of the home's munch (Ditto's chew cycle, 300 ms a
+ * bite: the mouth open on it, then closed), four for food and two sips for a drink; one quick bite under reduced
+ * motion. Everything else is used without eating.
+ */
+export const EAT = { biteMs: 300, openMs: 120, food: 4, drink: 2 } as const;
+
+export function bitesFor(action: string, reducedMotion: boolean): number {
+  if (action !== 'feed' && action !== 'boost') return 0;
+  if (reducedMotion) return 1;
+  return action === 'boost' ? EAT.drink : EAT.food;
+}
+
+export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav, react, hop, reducedMotion = false }: UseRoomCareOptions): RoomCare {
   const inventory = useHomeInventory({ pubkey, blobbi });
   const useItem = useUseItem({ pubkey, known: inventory.items, updateCompanionEvent, invalidate: refresh });
   const useStarter = useStarterUse({ pubkey, updateCompanionEvent, invalidate: refresh });
   const care = useCareActions({ pubkey, updateCompanionEvent, invalidate: refresh });
   const { play } = useSound();
+  const reducedMotionRef = useRef(false);
+  reducedMotionRef.current = reducedMotion;
 
   const [offer, setOfferState] = useState<RoomOffer | null>(null);
   const offerRef = useRef<RoomOffer | null>(null);
@@ -128,14 +153,14 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
   }, [notice]);
 
   const celebrate = useCallback(
-    (result: FeedbackResult) => {
+    (result: FeedbackResult, options: { soundPlayed?: boolean } = {}) => {
       feedbackKeyRef.current += 1;
       setFeedback({ result, key: feedbackKeyRef.current });
       react(reactionForCare(result.action, result.nextState));
       if (result.nextState === 'active') hop();
       // In the room an energy drink is sipped (the home keeps its cheer)
       const sound = result.action === 'boost' ? 'drink' : soundForCare(result.action, result.nextState);
-      if (sound) play(sound);
+      if (sound && !options.soundPlayed) play(sound);
     },
     [react, hop, play],
   );
@@ -210,8 +235,8 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
 
   const putAway = useCallback(() => {
     const current = offerRef.current;
-    // An item whose write is out cannot be taken back; only a waiting or failed one
-    if (!current || current.phase === 'using') return;
+    // An item whose write is out (or that is being eaten) cannot be taken back; only a waiting or failed one
+    if (!current || current.phase === 'using' || current.phase === 'eating') return;
     resetOwned();
     resetStarter();
     setOffer(null);
@@ -223,15 +248,28 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
     (r: ItemUseResult | StarterUseResult) => {
       const finish = () => {
         finishTimer.current = null;
+        const result: FeedbackResult = { action: r.action, name: r.name, statsChanged: r.statsChanged, xpGained: r.xpGained, nextState: 'active', itemName: r.item.name };
+        // Food and drink are eaten (now that the write has landed), bite by bite, the munch with them; then the celebration
+        const bites = r.alreadyApplied ? 0 : bitesFor(r.action, reducedMotionRef.current);
+        if (bites > 0 && offerRef.current) {
+          setOffer((o) => (o ? { ...o, phase: 'eating', eatingSince: Date.now(), bites } : o));
+          play(r.action === 'boost' ? 'drink' : 'eat');
+          finishTimer.current = setTimeout(() => {
+            finishTimer.current = null;
+            setOffer(null);
+            celebrate(result, { soundPlayed: true });
+          }, bites * EAT.biteMs);
+          return;
+        }
         setOffer(null);
         if (r.alreadyApplied) return;
-        celebrate({ action: r.action, name: r.name, statsChanged: r.statsChanged, xpGained: r.xpGained, nextState: 'active', itemName: r.item.name });
+        celebrate(result);
       };
       const remaining = MIN_USE_MS - (Date.now() - (offerRef.current?.usingSince ?? 0));
       if (remaining > 0) finishTimer.current = setTimeout(finish, remaining);
       else finish();
     },
-    [celebrate, setOffer],
+    [celebrate, setOffer, play],
   );
   useEffect(() => () => {
     if (finishTimer.current) clearTimeout(finishTimer.current);

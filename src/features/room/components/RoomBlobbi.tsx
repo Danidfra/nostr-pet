@@ -142,6 +142,7 @@ export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function R
         data-stage={blobbi.stage}
         data-generation={blobbi.visualGeneration}
         data-sleeping={isSleeping ? 'true' : 'false'}
+        data-expression={typeof expression === 'string' ? expression : JSON.stringify(expression)}
         // The room's walking tempo: the kit's walk cycle plays this many times faster here (index.css), and the
         // scene moves the Blobbi that much faster with it (room-pace.ts), so a planted foot keeps its spot.
         style={{ '--room-walk-tempo': walkTempoFor(blobbi.stage) } as CSSProperties}

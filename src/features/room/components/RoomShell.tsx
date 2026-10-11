@@ -94,6 +94,10 @@ export interface RoomControl {
   journeyPreview: (preview: { kind: JourneyKind; t: number; reduced: boolean } | null) => void;
 }
 
+/** How far a press must rub across the Blobbi before it is a stroke (px), and how far each further stroke is. */
+const PET_START_PX = 28;
+const PET_STROKE_PX = 70;
+
 /** A clip that keeps everything but the walls' outlines (holes, even-odd), in the drawing's own coordinates (its feet at 0,0). */
 function wallsClip(walls: { x: number; y: number }[][], at: { x: number; y: number }): string {
   const hole = (q: { x: number; y: number }[]) => `M ${q.map((p) => `${(p.x - at.x).toFixed(1)} ${(p.y - at.y).toFixed(1)}`).join(' L ')} Z`;
@@ -199,6 +203,11 @@ export interface RoomShellProps {
   /** A Blobbi was tapped (MAIN_BLOBBI for the user's). */
   onBlobbiTap?: (id: string) => void;
   /**
+   * The user's Blobbi stroked (a press that starts on it and rubs across it): `start` once the rub is clearly a
+   * stroke, `stroke` as it goes on (every so far of rubbing), `end` when the press lifts. A stroke is never also a tap.
+   */
+  onBlobbiPet?: (phase: 'start' | 'stroke' | 'end') => void;
+  /**
    * A Blobbi turned or set off or stopped: it faces where it walks and front
    * at rest, and walks or stands (MAIN_BLOBBI for the user's). Presentation
    * only; called when either changes, not per frame.
@@ -267,6 +276,7 @@ export function RoomShell({
   guests,
   onMeet,
   onBlobbiTap,
+  onBlobbiPet,
   onActorChange,
   pointerHandlers,
   floorThings,
@@ -522,7 +532,7 @@ export function RoomShell({
   }, []);
 
   // ─── Taps and drags in the room ───
-  const press = useRef<{ id: number; x: number; y: number; t: number; item: number | null; dragging: boolean } | null>(null);
+  const press = useRef<{ id: number; x: number; y: number; t: number; item: number | null; dragging: boolean; onBlobbi: boolean; rubbed: number; last: { x: number; y: number }; petting: boolean; strokeAt: number } | null>(null);
 
   const localPoint = (e: React.PointerEvent) => {
     const box = shellRef.current!.getBoundingClientRect();
@@ -535,13 +545,16 @@ export function RoomShell({
     const { x, y } = localPoint(e);
     const hit = scene.pick(x, y);
     const item = hit?.kind === 'item' ? hit.index : null;
-    press.current = { id: e.pointerId, x, y, t: performance.now(), item, dragging: false };
+    const onBlobbi = !editor && hit?.kind === 'actor' && hit.id === MAIN_BLOBBI && !!onBlobbiPet;
+    press.current = { id: e.pointerId, x, y, t: performance.now(), item, dragging: false, onBlobbi, rubbed: 0, last: { x, y }, petting: false, strokeAt: 0 };
+    // A press on the Blobbi may become a stroke: keep its moves even if the finger slides off a little
+    if (onBlobbi) (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     if (editor && item !== null) {
       // Grab right away, like picking something up
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       if (editor.selectedIndex !== item) editor.onSelect(item);
     }
-  }, [editor, sceneRef]);
+  }, [editor, sceneRef, onBlobbiPet]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const p = press.current;
@@ -551,6 +564,21 @@ export function RoomShell({
       const { x, y } = localPoint(e);
       setHover(e.buttons === 0 && !p && scene.overActor(x, y, MAIN_BLOBBI));
     }
+    // Petting: rubbing across the Blobbi (only the distance travelled over it counts)
+    if (p && p.id === e.pointerId && scene && p.onBlobbi) {
+      const { x, y } = localPoint(e);
+      if (scene.overActor(x, y, MAIN_BLOBBI)) p.rubbed += Math.hypot(x - p.last.x, y - p.last.y);
+      p.last = { x, y };
+      if (!p.petting && p.rubbed >= PET_START_PX) {
+        p.petting = true;
+        p.strokeAt = p.rubbed;
+        onBlobbiPet?.('start');
+      } else if (p.petting && p.rubbed - p.strokeAt >= PET_STROKE_PX) {
+        p.strokeAt = p.rubbed;
+        onBlobbiPet?.('stroke');
+      }
+      return;
+    }
     if (!p || p.id !== e.pointerId || !scene || !editor || p.item === null) return;
     const { x, y } = localPoint(e);
     if (!p.dragging) {
@@ -558,7 +586,7 @@ export function RoomShell({
       p.dragging = scene.beginDrag(p.item, p.x, p.y);
     }
     if (p.dragging) scene.dragTo(x, y);
-  }, [editor, sceneRef, blobbiName, setHover]);
+  }, [editor, sceneRef, blobbiName, setHover, onBlobbiPet]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     const p = press.current;
@@ -570,6 +598,11 @@ export function RoomShell({
     if (p.dragging) {
       const result = scene.endDrag();
       if (result?.valid) editor?.onMove(result.index, result.placement);
+      return;
+    }
+    // A stroke ends; it was never a tap
+    if (p.petting) {
+      onBlobbiPet?.('end');
       return;
     }
     const { x, y } = localPoint(e);
@@ -597,7 +630,7 @@ export function RoomShell({
     } else if (hit?.kind === 'floor') {
       scene.walkTo(hit.x, hit.z);
     }
-  }, [editor, sceneRef, furniturePlacements, onInteract, onPieceTap, onBlobbiTap, showNameForTap, hideNameForTap]);
+  }, [editor, sceneRef, furniturePlacements, onInteract, onPieceTap, onBlobbiTap, onBlobbiPet, showNameForTap, hideNameForTap]);
 
   const onPointerCancel = useCallback((e: React.PointerEvent) => {
     if (press.current?.id !== e.pointerId) return;
@@ -605,8 +638,9 @@ export function RoomShell({
       const result = sceneRef.current?.endDrag();
       if (result?.valid) editor?.onMove(result.index, result.placement);
     }
+    if (press.current.petting) onBlobbiPet?.('end');
     press.current = null;
-  }, [editor, sceneRef]);
+  }, [editor, sceneRef, onBlobbiPet]);
 
   return (
     <div

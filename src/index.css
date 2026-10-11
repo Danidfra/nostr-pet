@@ -1351,6 +1351,54 @@
     transform: translateX(-50%);
     filter: drop-shadow(0 2px 2px hsl(0 0% 0% / 0.2));
   }
+  /* Petted: a small heart rising off its head, a little to one side, and gone */
+  .room-pet-heart {
+    position: absolute;
+    left: 50%;
+    top: 12%;
+    font-size: calc(var(--anchor-px, 100) * var(--blobbi-tiles, 2) * 0.14px);
+    line-height: 1;
+    color: hsl(345 85% 66%);
+    text-shadow: 0 1px 2px hsl(0 0% 0% / 0.18);
+    pointer-events: none;
+    animation: room-pet-heart 900ms ease-out forwards;
+  }
+  .room-pet-heart[data-side='right'] {
+    --heart-x: 38%;
+  }
+  .room-pet-heart[data-side='left'] {
+    --heart-x: -138%;
+  }
+  @keyframes room-pet-heart {
+    from {
+      opacity: 0;
+      transform: translate(calc(var(--heart-x, 0%) * 0.6), 20%) scale(0.6);
+    }
+    25% {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+      transform: translate(var(--heart-x, 0%), -120%) scale(1.05);
+    }
+  }
+  /* Being eaten (only once the use has landed): a bite at a time, smaller with each, gone with the last */
+  .room-handed-item[data-phase='eating'],
+  .room-floor-item[data-phase='eating'] .room-floor-item__glyph {
+    animation: room-bites calc(var(--bites, 4) * 300ms) steps(var(--bites, 4), jump-end) forwards;
+  }
+  @keyframes room-bites {
+    from {
+      scale: 1;
+      rotate: 0deg;
+      opacity: 1;
+    }
+    to {
+      scale: 0;
+      rotate: -14deg;
+      opacity: 0.2;
+    }
+  }
   /* The user's Blobbi's name, over its head, on demand (RoomShell: hover, a tap, keyboard focus); unscaled so it stays readable */
   .room-blobbi-name {
     position: absolute;

@@ -90,6 +90,7 @@ const scene = vi.hoisted(() => {
     hops: 0,
     gestures: [] as string[],
     wanders: [] as boolean[],
+    faces: [] as unknown[],
   };
   const fake = {
     pick: (x: number, y: number) => {
@@ -109,6 +110,8 @@ const scene = vi.hoisted(() => {
     hop: () => { state.hops += 1; },
     playGesture: (_id: string, kind: string) => { state.gestures.push(kind); },
     setActorGaze: () => {},
+    setActorFace: (_id: string, face: unknown) => { state.faces.push(face); },
+    overActor: (x: number, y: number) => x > 150 && x < 250 && y > 220 && y < 320,
     setMainWanders: (on: boolean) => { state.wanders.push(on); },
     projectBlobbi: () => ({ x: 200, y: 320, pxPerTile: 40 }),
     projectFloor: () => ({ x: 200, y: 400, pxPerTile: 40 }),
@@ -195,6 +198,7 @@ beforeEach(async () => {
   scene.state.itemAt = null;
   scene.state.hops = 0;
   scene.state.gestures = [];
+  scene.state.faces = [];
   scene.state.wanders = [];
   localStorage.clear();
   event.mockClear();
@@ -286,6 +290,41 @@ describe('using an item in the room', () => {
     expect(screen.queryByTestId('room-handed-item')).toBeNull();
     await quiet();
     expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]);
+  });
+
+  it('food is eaten only once its use has landed: held while the write is out, then bite by bite, then the celebration', async () => {
+    renderRoom();
+    await ready();
+    await goTo('kitchen');
+    const phases: string[] = [];
+    const observer = new MutationObserver(() => {
+      const phase = document.querySelector('[data-testid="room-handed-item"]')?.getAttribute('data-phase');
+      if (phase && phases[phases.length - 1] !== phase) phases.push(phase);
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-phase'] });
+    fireEvent.click(focusOn('Apple', 'starter'));
+    await waitFor(() => expect(screen.getByTestId('room-handed-item')).toHaveAttribute('data-phase', 'eating'), { timeout: 3000 });
+    // By the first bite the state and its receipt are written: nothing was eaten before the pipeline said so
+    expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]);
+    // Still eating: no celebration yet
+    expect(screen.queryByTestId('care-status')?.textContent ?? '').not.toMatch(/Fed Brook/);
+    await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook with Apple/), { timeout: 3000 });
+    expect(screen.queryByTestId('room-handed-item')).toBeNull();
+    observer.disconnect();
+    expect(phases.filter((p) => p !== 'walking')).toEqual(['using', 'eating']);
+  });
+
+  it('food whose use is refused is never eaten: it stays held with Try again, and nothing is celebrated', async () => {
+    renderRoom();
+    await ready();
+    await goTo('kitchen');
+    relay.refuse = 5;
+    fireEvent.click(focusOn('Apple', 'starter'));
+    await waitFor(() => expect(screen.getByTestId('room-offer-failure')).toBeInTheDocument(), { timeout: 3000 });
+    await quiet();
+    expect(document.querySelector('[data-phase="eating"]')).toBeNull();
+    expect(screen.queryByTestId('care-hearts')).toBeNull();
+    relay.refuse = 0;
   });
 
   it('Use sets an owned toy down by the Blobbi; nothing is written while it walks; on arrival exactly one spend, the state and the receipt, and the count goes down', async () => {
@@ -504,6 +543,42 @@ describe('its life and its reactions', () => {
     fireEvent.pointerDown(layer, { pointerId: 4, isPrimary: true, clientX: 200, clientY: 280 });
     fireEvent.pointerUp(layer, { pointerId: 4, isPrimary: true, clientX: 200, clientY: 280 });
   };
+
+  /** A finger rubbing back and forth across the Blobbi. */
+  const stroke = (passes = 6) => {
+    const layer = screen.getByTestId('room-tap-layer');
+    fireEvent.pointerDown(layer, { pointerId: 5, isPrimary: true, pointerType: 'touch', clientX: 200, clientY: 280 });
+    for (let i = 0; i < passes; i++) fireEvent.pointerMove(layer, { pointerId: 5, isPrimary: true, pointerType: 'touch', clientX: i % 2 ? 160 : 240, clientY: 280 + (i % 3) });
+    fireEvent.pointerUp(layer, { pointerId: 5, isPrimary: true, pointerType: 'touch', clientX: 200, clientY: 282 });
+  };
+
+  it('a stroke across the Blobbi is petting: contentment (eyes closed, a smile), hearts, a wiggle; never a poke, a walk, a care or a write', async () => {
+    renderRoom();
+    await ready();
+    stroke(8);
+    expect(screen.getByTestId('room-pet-heart')).toBeInTheDocument();
+    // Contentment on the 3D model's face too: the kit's face with its eyes closed and a smile
+    expect(scene.state.faces).toContainEqual({ expression: {}, face: expect.objectContaining({ eyes: 'closed', mouth: 'smile' }) });
+    // Never a poke (no bounce or recoil), never a walk
+    expect(scene.state.gestures.every((g) => g === 'wiggle')).toBe(true);
+    expect(scene.state.walks).toHaveLength(0);
+    await quiet(300);
+    expect(relay.published).toEqual([]);
+    expect(attempts).toEqual([]);
+  });
+
+  it('a press that does not rub (a tap) is still the poke, and a stroke over nothing but the floor is not petting', async () => {
+    renderRoom();
+    await ready();
+    const layer = screen.getByTestId('room-tap-layer');
+    fireEvent.pointerDown(layer, { pointerId: 6, isPrimary: true, clientX: 420, clientY: 420 });
+    fireEvent.pointerMove(layer, { pointerId: 6, isPrimary: true, clientX: 300, clientY: 420 });
+    fireEvent.pointerUp(layer, { pointerId: 6, isPrimary: true, clientX: 300, clientY: 420 });
+    expect(screen.queryByTestId('room-pet-heart')).toBeNull();
+    tapBlobbi();
+    expect(scene.state.gestures).toEqual(['bounce']);
+    expect(screen.queryByTestId('room-pet-heart')).toBeNull();
+  });
 
   it('the room drives its life itself: the scene does not amble it about on its own', async () => {
     renderRoom();

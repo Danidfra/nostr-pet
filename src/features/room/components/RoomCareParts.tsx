@@ -5,7 +5,7 @@
  * pointer while an item is carried. Presentation only; the decisions are
  * `useRoomCare`'s.
  */
-import { forwardRef } from 'react';
+import { forwardRef, type CSSProperties } from 'react';
 import { RotateCcw, Undo2 } from 'lucide-react';
 
 import { ItemGlyph, type ItemGlyphModel } from '@/features/inventory';
@@ -17,7 +17,7 @@ import type { RoomCareFeedback, RoomOffer } from '../hooks/useRoomCare';
 /** An item on the floor: waiting for the Blobbi (it can be put back), being used (eaten, played with, lathered), or failed (the dock says why). */
 export function RoomFloorItem({ offer, glyph, onPutAway }: { offer: RoomOffer; glyph: ItemGlyphModel; onPutAway: () => void }) {
   return (
-    <div className="room-floor-item" data-phase={offer.phase} data-testid="room-floor-item">
+    <div className="room-floor-item" data-phase={offer.phase} data-testid="room-floor-item" style={{ '--bites': offer.bites ?? 4 } as CSSProperties}>
       <span className="room-floor-item__glyph">
         <ItemGlyph glyph={glyph} fill />
       </span>
@@ -53,17 +53,23 @@ export function RoomOfferFailure({ offer, onRetry, onPutAway }: { offer: RoomOff
  * head, hearts, the spoken result) sits on it as it does on the home, in 2D
  * or 3D. An item handed to it shows at its mouth while it is used.
  */
-export const RoomBlobbiOverlay = forwardRef<HTMLDivElement, { feedback: RoomCareFeedback | undefined; handed: { glyph: ItemGlyphModel; phase: RoomOffer['phase'] } | null }>(function RoomBlobbiOverlay({ feedback, handed }, ref) {
+export const RoomBlobbiOverlay = forwardRef<HTMLDivElement, { feedback: RoomCareFeedback | undefined; handed: { glyph: ItemGlyphModel; phase: RoomOffer['phase']; bites?: number } | null; heart?: number }>(function RoomBlobbiOverlay({ feedback, handed, heart = 0 }, ref) {
   return (
     <div ref={ref} className="room-blobbi-overlay" aria-live="off" data-testid="room-blobbi-box">
       {/* Lit while an item is carried over the Blobbi (the shell's data-drop, set without a render) */}
       <span className="room-drop-ring" aria-hidden />
       {handed && (
-        <span className="room-handed-item" data-phase={handed.phase} data-testid="room-handed-item">
+        <span className="room-handed-item" data-phase={handed.phase} data-testid="room-handed-item" style={{ '--bites': handed.bites ?? 4 } as CSSProperties}>
           <ItemGlyph glyph={handed.glyph} fill />
         </span>
       )}
       <CareFeedback result={feedback?.result} resultKey={feedback?.key ?? 0} />
+      {/* Petted: a small heart floats up (one per beat, re-keyed so each plays once) */}
+      {heart > 0 && (
+        <span key={heart} className="room-pet-heart" data-side={heart % 2 ? 'left' : 'right'} aria-hidden data-testid="room-pet-heart">
+          ♥
+        </span>
+      )}
     </div>
   );
 });

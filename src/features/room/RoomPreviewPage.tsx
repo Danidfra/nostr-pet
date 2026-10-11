@@ -37,7 +37,7 @@ import { RoomDecoratorOverlay, RoomDecoratorToolbar } from './components/RoomDec
 import { useRoomNavigation } from './hooks/useRoomNavigation';
 import { useRoomDecorator } from './hooks/useRoomDecorator';
 import { useRoomActorModel } from './hooks/useRoomActorModel';
-import { useRoomCare } from './hooks/useRoomCare';
+import { EAT, useRoomCare, type RoomOffer } from './hooks/useRoomCare';
 import { useRoomLife } from './hooks/useRoomLife';
 import { useSound, soundForPoke } from '@/features/sound';
 import { useReducedMotion } from '@/features/home/scene/SceneSettings';
@@ -66,6 +66,8 @@ import { walkSpeedFor } from './lib/room-pace';
 import { pickGaze } from './lib/room-gaze';
 import { useRoomMemory } from './hooks/useRoomMemory';
 import { useRoomTransitions } from './hooks/useRoomTransitions';
+import { useEatingPresentation } from './hooks/useEatingPresentation';
+import { usePetting } from './hooks/usePetting';
 import { useExpression } from '@/features/expression/react/useExpression';
 import { PRIORITY } from '@/features/expression/controller';
 import { proceduralFace, type ExpressionName } from '@/features/expression/faces';
@@ -265,7 +267,12 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
 
   // ─── Care: one adapter over the home's write paths ───
   const hop = useCallback(() => gesture('bounce'), [gesture]);
-  const care = useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav, react: reactions.react, hop });
+  const care = useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav, react: reactions.react, hop, reducedMotion });
+  // The playground's feeding: the same presentation with a pretend offer (nothing is used, nothing is written)
+  const [feedPreview, setFeedPreview] = useState<RoomOffer | null>(null);
+  const shownOffer = care.offer ?? feedPreview;
+  // Food taken: eager while the write is out, eaten bite by bite once it has landed (never before)
+  const eatingView = useEatingPresentation({ offer: shownOffer, controlRef, boxRef: actorRef, showFace, clearFace, reducedMotion });
 
   // What the strip shows: the room's own shelf, or what a piece of furniture opened (until the room changes)
   const [furnitureShelf, setFurnitureShelf] = useState<CareShelf | null>(null);
@@ -356,7 +363,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const markActivity = life.markActivity;
   // Its eyes: the pointer's when it has one, else what it is attending to, else where its own thoughts wander;
   // a glance the way it goes while walking (the 2D drawing; the 3D model turns its whole body)
-  const eyeOffset = pickGaze({ scripted: transitions.gaze, pointer: gaze.eyeOffset, attention, glance: life.glance, walking: motion === 'walking' ? { facing } : null });
+  const eyeOffset = pickGaze({ scripted: transitions.gaze ?? eatingView.gaze, pointer: gaze.eyeOffset, attention, glance: life.glance, walking: motion === 'walking' ? { facing } : null });
   // The 3D model turns its whole body as it walks, so its eyes rest then
   const gaze3d = isEgg || isSleeping || motion === 'walking' ? null : eyeOffset ?? null;
   useEffect(() => {
@@ -381,6 +388,18 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
     const sound = soundForPoke(reaction.mood);
     if (sound) play(sound);
   }, [markActivity, blobbi.stage, blobbi.state, stats, react, gesture, play, present]);
+
+  // Petting: a stroke across the Blobbi is a moment of contentment (nothing written, no stat changed)
+  const petting = usePetting({
+    enabled: present && !isEgg && !isSleeping && !care.busy && !transitioning && !decorator.editing && journeyPreview === null,
+    reducedMotion,
+    showFace,
+    clearFace,
+    gesture,
+    play,
+    markActivity,
+    stop: nav.stop,
+  });
 
   // Where it comes to rest is remembered for this room (not mid-walk, mid-scene, away, asleep or decorating)
   const rememberPosition = memory.rememberPosition;
@@ -434,7 +453,9 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   );
   // Its name, shown over its head on demand (hover, tap, keyboard focus), in 2D and 3D alike
   const nameTag = useMemo(() => ({ text: blobbi.name, color: toBlobbiVisual(blobbi).baseColor }), [blobbi]);
-  const handed = offer && offer.place.kind === 'hand' && offer.phase !== 'failed' && offerGlyph ? { glyph: offerGlyph, phase: offer.phase } : null;
+  const handedOffer = offer ?? feedPreview;
+  const handedGlyph = handedOffer ? handedOffer.choice.entry.item.glyph : null;
+  const handed = handedOffer && handedOffer.place.kind === 'hand' && handedOffer.phase !== 'failed' && handedGlyph ? { glyph: handedGlyph, phase: handedOffer.phase, bites: handedOffer.bites } : null;
   // The carousel's focus moving: the smallest tick
   const focusItem = useCallback((key: string) => {
     selectItem(key);
@@ -511,7 +532,8 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         onPieceTap={onPieceTap}
         onBlobbiTap={onBlobbiTap}
         floorThings={floorThings}
-        blobbiOverlay={<RoomBlobbiOverlay ref={gazeBoxRef} feedback={care.feedback} handed={handed} />}
+        blobbiOverlay={<RoomBlobbiOverlay ref={gazeBoxRef} feedback={care.feedback} handed={handed} heart={petting.heart} />}
+        onBlobbiPet={petting.onPet}
         blobbiName={nameTag}
         header={<RoomHeader name={blobbi.name} stage={blobbi.stage} />}
         statusHud={!isEgg && <RoomStatusHud stage={blobbi.stage} stats={projected?.stats} onGuide={isSleeping ? undefined : setChosenRoom} />}
@@ -566,6 +588,26 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
           onAppearance={setAppearance}
           onFace={(name) => (name ? showFace('playground', name, { priority: PRIORITY.journey + 1 }) : clearFace('playground'))}
           onRoom={setChosenRoom}
+          onFeed={() => {
+            const food = care.inventory.starters.find((s) => s.item.care?.action === 'feed');
+            if (!food || care.busy) return;
+            const base: RoomOffer = { key: -Date.now(), entryKey: 'preview', choice: { source: 'starter', entry: food }, name: food.item.name, place: { kind: 'hand' }, phase: 'using', usingSince: Date.now() };
+            setFeedPreview(base);
+            setTimeout(() => {
+              setFeedPreview({ ...base, phase: 'eating', eatingSince: Date.now(), bites: reducedMotion ? 1 : EAT.food });
+              play('eat');
+            }, 700);
+            setTimeout(() => {
+              setFeedPreview(null);
+              reactions.react('happy', 1600);
+              gesture('bounce');
+            }, 700 + (reducedMotion ? 1 : EAT.food) * EAT.biteMs);
+          }}
+          onPet={() => {
+            petting.onPet('start');
+            [400, 800, 1200, 1600].forEach((t) => setTimeout(() => petting.onPet('stroke'), t));
+            setTimeout(() => petting.onPet('end'), 1900);
+          }}
         />
       )}
     </div>
