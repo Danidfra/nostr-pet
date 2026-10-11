@@ -129,9 +129,41 @@ const EDIT_ELEVATION = (52 * Math.PI) / 180;
 /**
  * The room may overflow the stage sideways by this much to fill tall screens:
  * more at rest, for a closer view, and less while decorating, so the ends of
- * the walls can be reached.
+ * the walls can be reached. These are the most it may on a wide stage; a
+ * narrow one (a phone upright) allows less, see `sideOverflow`.
  */
 const SIDE_OVERFLOW = { rest: 1.5, edit: 1.3 };
+/** On a stage this narrow (width over height) the room may spill only `NARROW_OVERFLOW` past the sides. */
+const NARROW_ASPECT = 0.72;
+/** A wide stage (width at least its height) keeps the full overflow; between, it eases. */
+const WIDE_ASPECT = 1;
+const NARROW_OVERFLOW = 1.1;
+/** The user's zoom: no farther than this (a small object) and no nearer than the camera staying outside the room. */
+const ZOOM_MIN = 0.6;
+const ZOOM_MAX = 2.2;
+/**
+ * The camera keeps at least this far from the room's centre, in tiles: the open corner is G/√2 ≈ 0.71 G away along
+ * the floor and the camera sits above it, so at 0.9 G it is still outside the room and in front of everything.
+ */
+const ZOOM_KEEP_OUT = 0.9;
+/** How fast the view eases to a new zoom (buttons, a restored preference); a pinch follows the fingers at once. */
+const ZOOM_EASE = 9;
+
+/**
+ * How far past the stage's sides the room may spill, for this stage's
+ * shape: all of `most` on a wide stage, where the height decides the
+ * framing anyway; only a little on a narrow one (a phone upright), where
+ * the width decides it and the old allowance cut a quarter of the room off
+ * each side. Between the two it eases, so turning a phone does not jump.
+ */
+export function sideOverflow(stageWidth: number, frameHeight: number, most: number): number {
+  const aspect = stageWidth / Math.max(frameHeight, 1);
+  const least = Math.min(most, NARROW_OVERFLOW);
+  if (aspect <= NARROW_ASPECT) return least;
+  if (aspect >= WIDE_ASPECT) return most;
+  const t = (aspect - NARROW_ASPECT) / (WIDE_ASPECT - NARROW_ASPECT);
+  return least + (most - least) * t;
+}
 /** Pointer parallax, radians. */
 const PARALLAX = { az: 0.06, el: 0.035 };
 /** How fast the camera follows the pointer, and the room dims for sleep: the fraction of the way left per second is e^-rate. */
@@ -539,6 +571,9 @@ export class RoomScene {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera();
+  /** The user's zoom over the framing (1 = recommended), and what is shown now (eased toward it). */
+  private zoom = 1;
+  private zoomShown = 1;
   private raycaster = new THREE.Raycaster();
   private hemi = new THREE.HemisphereLight('#ffffff', '#eadfcd', 2.1);
   private key = new THREE.DirectionalLight('#fff4e2', 1.5);
@@ -727,6 +762,37 @@ export class RoomScene {
       rest: this.computeFit(ELEVATION, SIDE_OVERFLOW.rest, geometry.behindTop ?? 0),
       edit: this.computeFit(EDIT_ELEVATION, SIDE_OVERFLOW.edit, 0),
     };
+    // A new shape (the phone turned) keeps the user's zoom where it is still allowed
+    this.zoom = this.clampZoom(this.zoom);
+    this.zoomShown = this.clampZoom(this.zoomShown);
+    this.updateCamera();
+    this.requestRender();
+  }
+
+  /** The nearest the user may go here: the camera stays outside the room, whatever the stage. */
+  private maxZoom(): number {
+    return this.fits ? Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, this.fits.rest.distance / (G * ZOOM_KEEP_OUT))) : ZOOM_MAX;
+  }
+
+  private clampZoom(value: number): number {
+    return Math.min(this.maxZoom(), Math.max(ZOOM_MIN, Number.isFinite(value) ? value : 1));
+  }
+
+  /** The user's zoom and its limits for this stage. */
+  zoomLimits(): { min: number; max: number; value: number } {
+    return { min: ZOOM_MIN, max: this.maxZoom(), value: this.zoom };
+  }
+
+  /**
+   * Look nearer or farther: a factor over the framing, 1 for the recommended
+   * view. Eased in, unless `immediate` (a pinch follows the fingers). Held
+   * within this stage's limits; the room is always framed around its centre.
+   */
+  setZoom(value: number, immediate = false) {
+    const next = this.clampZoom(value);
+    if (next === this.zoom && (!immediate || this.zoomShown === next)) return;
+    this.zoom = next;
+    if (immediate || this.reducedMotion) this.zoomShown = next;
     this.updateCamera();
     this.requestRender();
   }
@@ -913,30 +979,34 @@ export class RoomScene {
    * the room fits (allowing a little sideways overflow), and the projection
    * offset that centers it there.
    */
-  private computeFit(el: number, overflow: number, behindTop: number): Fit {
+  /** The room's silhouette as seen from `distance` along `dir`, in the camera's tangent units: its extent and middle. */
+  private silhouetteBounds(dir: THREE.Vector3, distance: number): { x0: number; x1: number; y0: number; y1: number } {
+    const pts = this.silhouette();
+    const cam = this.target.add(dir.clone().multiplyScalar(distance));
+    const f = dir.clone().negate();
+    const r = new THREE.Vector3().crossVectors(f, new THREE.Vector3(0, 1, 0)).normalize();
+    const u = new THREE.Vector3().crossVectors(r, f);
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const p of pts) {
+      const v = p.clone().sub(cam);
+      const z = v.dot(f);
+      const tx = v.dot(r) / z;
+      const ty = v.dot(u) / z;
+      x0 = Math.min(x0, tx); x1 = Math.max(x1, tx);
+      y0 = Math.min(y0, ty); y1 = Math.max(y1, ty);
+    }
+    return { x0, x1, y0, y1 };
+  }
+
+  private computeFit(el: number, mostOverflow: number, behindTop: number): Fit {
     const g = this.geometry!;
     const k = (2 * Math.tan(FOV / 2)) / Math.max(g.height, 1);
     const frameHeight = g.stage.height + behindTop;
+    const overflow = sideOverflow(g.stage.width, frameHeight, mostOverflow);
     const availW = g.stage.width * overflow * k;
     const availH = frameHeight * 0.94 * k;
     const dir = this.viewDir(AZIMUTH, el);
-    const pts = this.silhouette();
-    const bounds = (d: number) => {
-      const cam = this.target.add(dir.clone().multiplyScalar(d));
-      const f = dir.clone().negate();
-      const r = new THREE.Vector3().crossVectors(f, new THREE.Vector3(0, 1, 0)).normalize();
-      const u = new THREE.Vector3().crossVectors(r, f);
-      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-      for (const p of pts) {
-        const v = p.clone().sub(cam);
-        const z = v.dot(f);
-        const tx = v.dot(r) / z;
-        const ty = v.dot(u) / z;
-        x0 = Math.min(x0, tx); x1 = Math.max(x1, tx);
-        y0 = Math.min(y0, ty); y1 = Math.max(y1, ty);
-      }
-      return { x0, x1, y0, y1 };
-    };
+    const bounds = (d: number) => this.silhouetteBounds(dir, d);
     let lo = G * 0.8;
     let hi = G * 40;
     for (let i = 0; i < 32; i++) {
@@ -955,9 +1025,16 @@ export class RoomScene {
     const e = easeInOut(this.editT);
     const lerp = (a: number, b: number) => a + (b - a) * e;
     const { rest, edit } = this.fits;
-    const distance = lerp(rest.distance, edit.distance);
-    const cx = lerp(rest.cx, edit.cx);
-    const cy = lerp(rest.cy, edit.cy);
+    // The user's zoom brings the camera nearer along its line of sight; the room stays framed around its centre
+    const zoom = this.zoomShown;
+    const distance = lerp(rest.distance, edit.distance) / zoom;
+    let cx = lerp(rest.cx, edit.cx);
+    let cy = lerp(rest.cy, edit.cy);
+    if (zoom !== 1) {
+      const b = this.silhouetteBounds(this.viewDir(AZIMUTH, lerp(ELEVATION, EDIT_ELEVATION)), distance);
+      cx = (b.x0 + b.x1) / 2;
+      cy = (b.y0 + b.y1) / 2;
+    }
     const k = rest.k;
     const el = lerp(ELEVATION, EDIT_ELEVATION) + this.parallax.y * PARALLAX.el;
     const az = AZIMUTH - this.parallax.x * PARALLAX.az;
@@ -2709,6 +2786,12 @@ export class RoomScene {
     const editTarget = this.editing ? 1 : 0;
     if (this.editT !== editTarget) {
       this.editT = Math.abs(editTarget - this.editT) < 0.01 ? editTarget : this.editT + (editTarget - this.editT) * Math.min(1, dt * 7);
+      animating = true;
+    }
+    if (this.zoomShown !== this.zoom) {
+      const dz = this.zoom - this.zoomShown;
+      this.zoomShown = Math.abs(dz) < 0.002 ? this.zoom : this.zoomShown + dz * easeBy(dt, ZOOM_EASE);
+      this.updateCamera();
       animating = true;
     }
     if (Math.abs(this.sleepTarget - this.sleeping) > 0.001) {

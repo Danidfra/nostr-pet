@@ -206,3 +206,10 @@ What the first attempt (2026-10-11) ran into, so it is not run into again:
    that the room returns (on iOS, possibly after a short fallback) with
    the Blobbi where it was.
 7. Turn the phone on its side, then decorate a piece and save it.
+8. The camera (2026-10-11): upright, the whole floor and the Blobbi are on
+   screen with only the walls' far ends past the edges; pinch in and out
+   (the Blobbi is not petted and the room does not change meanwhile),
+   then room settings → **View**: −, +, **Reset**; change rooms and turn
+   the phone with a zoom set: the factor stays, nothing jumps or is cut.
+   Pinch to the nearest the room allows: the camera stays outside the
+   walls.

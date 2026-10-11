@@ -60,6 +60,7 @@ import type { FurniturePlacement } from './lib/room-furniture';
 import { planDrop, planUse, shelfEntries, shelfKey, type CareShelf, type DropPlace, type RoomCareEntry } from './lib/room-care';
 import { RoomAppearanceControl } from './components/RoomAppearanceControl';
 import { useBlobbiAppearance } from './lib/blobbi-appearance';
+import { ZOOM_STEP, useRoomZoom } from './lib/room-zoom';
 import { useRoomSession } from './lib/room-session';
 import { roomStoreKey, type LoadStatus, type SaveStatus } from './lib/room-store';
 import { walkSpeedFor } from './lib/room-pace';
@@ -203,6 +204,8 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const [appearance, setAppearance] = useBlobbiAppearance();
   // How much the 3D room spends drawing itself: the player's choice, or chosen and adjusted for this device
   const quality = useRoomQuality();
+  // How close the room is looked at: this device's preference over the responsive framing
+  const zoom = useRoomZoom();
   const actor3d = useRoomActorModel(blobbi, appearance);
   // The 3D model could not be built here: the choice becomes 2D (kept), never switched back by itself
   useEffect(() => {
@@ -572,8 +575,10 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         statusHud={!isEgg && <RoomStatusHud stage={blobbi.stage} stats={projected?.stats} onGuide={isSleeping ? undefined : setChosenRoom} />}
         middleSlot={<RoomCareCards offer={offer} onRetry={care.retry} onPutAway={care.putAway} error={care.error} notice={care.notice ?? storeNotice} />}
         blobbiModel={actor3d.model}
-        hudEnd={<RoomAppearanceControl appearance={appearance} onChange={setAppearance} unavailable3d={actor3d.unavailable3d} quality={{ preference: quality.preference, level: quality.level, onChange: quality.setPreference }} />}
+        hudEnd={<RoomAppearanceControl appearance={appearance} onChange={setAppearance} unavailable3d={actor3d.unavailable3d} quality={{ preference: quality.preference, level: quality.level, onChange: quality.setPreference }} zoom={{ value: zoom.value, onIn: () => zoom.by(ZOOM_STEP), onOut: () => zoom.by(1 / ZOOM_STEP), onReset: zoom.reset }} />}
         quality={quality.settings}
+        zoom={zoom.value}
+        onZoom={zoom.set}
         notice={actor3d.failed ? actor3d.unavailable3d : null}
         onSlow={quality.onSlow}
         onGpu={quality.onGpu}

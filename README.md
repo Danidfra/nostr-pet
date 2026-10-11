@@ -113,6 +113,15 @@ Two things to know:
   the real room over a simulated Blobbi, with the dev tools' frames-per-second
   indicator on, and no account, key, relay, internet or write involved. The
   in-memory world does not mind plain HTTP.
+- **The room's camera** frames the room for the screen it has: on a wide
+  stage the height decides it and the room may spill past the sides (the
+  approved desktop view); on a phone upright the width decides it and the
+  whole floor stays on screen. Pinch with two fingers to look closer or
+  farther (a pinch is the camera's alone: never a stroke, a drag or a swipe),
+  use the wheel or a trackpad pinch on a desktop, or the room settings'
+  **View** row (−, +, Reset). The factor is remembered on this device
+  (`blobbi:room:zoom`), the same for every room, and survives turning the
+  phone within the new stage's limits.
 - **The room's dev tools** are one **Dev Tools** pill in the corner (dev
   builds with the flag). It opens a bottom sheet on a phone, a side panel on
   a wide screen, with one view at a time: Animations (the room transitions,

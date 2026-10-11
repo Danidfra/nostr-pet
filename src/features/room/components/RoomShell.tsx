@@ -165,6 +165,12 @@ export interface RoomShellProps {
   notice?: string | null;
   /** The rendering quality to draw the 3D room at, and the scene's reports for choosing it (`useRoomQuality`). */
   quality?: QualitySettings;
+  /**
+   * How close the room is looked at: a factor over the responsive framing (`useRoomZoom`), 1 by default. The
+   * shell holds the scene to it, and reports a pinch (two fingers on the room) or a wheel over it through `onZoom`.
+   */
+  zoom?: number;
+  onZoom?: (zoom: number) => void;
   onSlow?: () => void;
   onGpu?: (gpu: string | undefined) => void;
   /** How the next room shown arrives and where the Blobbi stands in it (`useRoomScene`'s `roomEntry`); unset, the full fold-in, the Blobbi hopping in. */
@@ -276,6 +282,8 @@ export function RoomShell({
   headerRoomId,
   roomEntry,
   quality,
+  zoom = 1,
+  onZoom,
   onSlow,
   onGpu,
   notice = null,
@@ -330,6 +338,11 @@ export function RoomShell({
   const notSwipeAt = useRef(-Infinity);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
+    // Two fingers are the camera's (a pinch), never a swipe
+    if (e.touches.length > 1) {
+      swipe.current = null;
+      return;
+    }
     if (swipe.current) return;
     // Drags that start on the dock must not switch rooms; nor do touches on chrome, nor stroking the Blobbi.
     if ((e.target as HTMLElement).closest?.('[data-room-drag], [data-room-header], [data-room-top], [data-room-bottom]')) return;
@@ -400,6 +413,10 @@ export function RoomShell({
 
   // ─── 3D diorama ───
   const sceneCanvasRef = useRef<HTMLCanvasElement>(null);
+  const tapLayerRef = useRef<HTMLDivElement>(null);
+  /** The zoom prop, readable from the stable callbacks. */
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
   const frontCanvasRef = useRef<HTMLCanvasElement>(null);
   const worldAnchorsRef = useRef<HTMLDivElement>(null);
   const uiAnchorsRef = useRef<HTMLDivElement>(null);
@@ -431,7 +448,7 @@ export function RoomShell({
   const updateAnchors = useCallback(() => {
     const scene = sceneHandle.current;
     const status = statusRef.current;
-    const flat = status === 'unavailable' && geometry ? flatProjector(geometry, blobbiTiles) : null;
+    const flat = status === 'unavailable' && geometry ? flatProjector(geometry, blobbiTiles, zoomRef.current) : null;
     for (const root of [worldAnchorsRef.current, uiAnchorsRef.current]) {
       root?.querySelectorAll<HTMLElement>('[data-anchor]').forEach((el) => {
         let anchor: ScreenAnchor | null = null;
@@ -505,6 +522,13 @@ export function RoomShell({
   useEffect(() => {
     if (status === 'ready') sceneRef.current?.setMainWanders?.(blobbiWanders);
   }, [status, sceneRef, blobbiWanders]);
+  // The zoom the page holds: eased in by the scene (a pinch sets it on the scene at once, then reports it up)
+  useEffect(() => {
+    if (status === 'ready') sceneRef.current?.setZoom?.(zoom);
+    else if (status === 'unavailable') updateAnchors();
+    // updateAnchors is a stable callback over refs; the flat room re-places on a zoom change only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, sceneRef, zoom]);
 
   // Anchored elements mount and unmount with React; place them right away
   useLayoutEffect(() => {
@@ -580,6 +604,47 @@ export function RoomShell({
 
   // ─── Taps and drags in the room ───
   const press = useRef<{ id: number; x: number; y: number; t: number; item: number | null; dragging: boolean; onBlobbi: boolean; rubbed: number; last: { x: number; y: number }; petting: boolean; strokeAt: number } | null>(null);
+  // ─── Two fingers on the room: the camera, nothing else ───
+  /** Every pointer down on the room right now, where it is. */
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  /** A pinch under way: how far apart the fingers started and the zoom then. */
+  const pinch = useRef<{ startDist: number; startZoom: number } | null>(null);
+  const fingerDistance = () => {
+    const [a, b] = [...pointers.current.values()];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+  };
+  /** Whatever one finger was doing ends: a stroke, a grabbed piece, a press; the fingers are the camera's now. */
+  const dropPress = useCallback(() => {
+    const p = press.current;
+    if (!p) return;
+    if (p.dragging) sceneRef.current?.cancelDrag?.();
+    if (p.petting) onBlobbiPet?.('end');
+    sceneRef.current?.pressItem?.(null);
+    press.current = null;
+  }, [sceneRef, onBlobbiPet]);
+  const applyPinch = useCallback(() => {
+    const pz = pinch.current;
+    const scene = sceneRef.current;
+    if (!pz || !scene || pz.startDist <= 0) return;
+    const next = pz.startZoom * (fingerDistance() / pz.startDist);
+    scene.setZoom?.(next, true);
+    onZoom?.(scene.zoomLimits?.().value ?? next);
+  }, [sceneRef, onZoom]);
+  // The wheel (and a trackpad's pinch, which arrives as a wheel with ctrl): nearer or farther, the page not scrolled
+  useEffect(() => {
+    const layer = tapLayerRef.current;
+    if (!layer) return;
+    const onWheel = (e: WheelEvent) => {
+      const scene = sceneRef.current;
+      if (!scene?.setZoom || !scene.zoomLimits) return;
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * (e.ctrlKey || e.metaKey ? 0.01 : 0.0012));
+      scene.setZoom(scene.zoomLimits().value * factor);
+      onZoom?.(scene.zoomLimits().value);
+    };
+    layer.addEventListener('wheel', onWheel, { passive: false });
+    return () => layer.removeEventListener('wheel', onWheel);
+  }, [sceneRef, onZoom, is3d]);
 
   const localPoint = (e: React.PointerEvent) => {
     const box = shellRef.current!.getBoundingClientRect();
@@ -588,8 +653,20 @@ export function RoomShell({
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     const scene = sceneRef.current;
-    if (!scene || !e.isPrimary) return;
-    const { x, y } = localPoint(e);
+    if (!scene) return;
+    const at = localPoint(e);
+    pointers.current.set(e.pointerId, at);
+    if (pointers.current.size >= 2) {
+      // A second finger: the camera, and only the camera, from here until both lift
+      dropPress();
+      swipe.current = null;
+      notSwipeAt.current = e.timeStamp;
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+      if (!pinch.current) pinch.current = { startDist: fingerDistance(), startZoom: scene.zoomLimits?.().value ?? zoomRef.current };
+      return;
+    }
+    if (!e.isPrimary) return;
+    const { x, y } = at;
     const hit = scene.pick(x, y);
     const item = hit?.kind === 'item' ? hit.index : null;
     const onBlobbi = !editor && hit?.kind === 'actor' && hit.id === MAIN_BLOBBI && !!onBlobbiPet;
@@ -604,9 +681,14 @@ export function RoomShell({
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       if (editor.selectedIndex !== item) editor.onSelect(item);
     }
-  }, [editor, sceneRef, onBlobbiPet]);
+  }, [editor, sceneRef, onBlobbiPet, dropPress]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, localPoint(e));
+    if (pinch.current) {
+      if (pointers.current.size >= 2) applyPinch();
+      return;
+    }
     const p = press.current;
     const scene = sceneRef.current;
     // A hovering pointer: over the Blobbi it shows its name; over a piece the piece answers (a lift, a ring if it
@@ -640,9 +722,15 @@ export function RoomShell({
       p.dragging = scene.beginDrag(p.item, p.x, p.y);
     }
     if (p.dragging) scene.dragTo(x, y);
-  }, [editor, sceneRef, blobbiName, setHover, onBlobbiPet]);
+  }, [editor, sceneRef, blobbiName, setHover, onBlobbiPet, applyPinch]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pinch.current) {
+      // The pinch ends when a finger lifts; the one left is not a tap, a stroke or a walk
+      if (pointers.current.size < 2) pinch.current = null;
+      return;
+    }
     const p = press.current;
     // Another finger lifting doesn't end this press
     if (!p || p.id !== e.pointerId) return;
@@ -688,6 +776,8 @@ export function RoomShell({
   }, [editor, sceneRef, furniturePlacements, onInteract, onPieceTap, onBlobbiTap, onBlobbiPet, showNameForTap, hideNameForTap]);
 
   const onPointerCancel = useCallback((e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pinch.current && pointers.current.size < 2) pinch.current = null;
     if (press.current?.id !== e.pointerId) return;
     // Taken away by the system (a call, a gesture of the OS): the piece goes back where it was
     if (press.current.dragging) sceneRef.current?.cancelDrag?.();
@@ -731,6 +821,7 @@ export function RoomShell({
       {/* Taps and drags in the room */}
       {is3d && (
         <div
+          ref={tapLayerRef}
           className={cx('room-tap-layer absolute inset-0 z-[4] touch-none', isEditing && 'cursor-grab active:cursor-grabbing')}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -954,11 +1045,11 @@ function RoomNavButton({ direction, label, onClick }: { direction: 'left' | 'rig
  * Stand-in projection with no room: the Blobbi in the middle of the stage, a
  * little larger than in the room, and floor spots spread around its feet.
  */
-function flatProjector(g: SceneGeometry, tiles: number) {
-  const size = Math.min(g.stage.height * 0.62, g.width * 0.72);
+function flatProjector(g: SceneGeometry, tiles: number, zoom = 1) {
+  const size = Math.min(g.stage.height * 0.62, g.width * 0.72) * zoom;
   const pxPerTile = size / tiles;
   const feet = { x: g.stage.left + g.stage.width / 2, y: g.stage.top + g.stage.height * 0.8 };
-  const spread = Math.min(g.width * 0.42, size * 0.9) / (ROOM_GRID / 2);
+  const spread = (Math.min(g.width * 0.42, size * 0.9) / (ROOM_GRID / 2)) * zoom;
   return {
     blobbi: (): ScreenAnchor => ({ ...feet, pxPerTile }),
     floor: (x: number, z: number): ScreenAnchor => ({

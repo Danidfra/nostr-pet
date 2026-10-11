@@ -1521,6 +1521,34 @@
     font-size: 1.1rem;
     line-height: 1;
   }
+  /* The settings menu's view row: nearer, farther, back to the recommended framing */
+  .room-zoom-button {
+    min-width: 2rem;
+    min-height: 2rem;
+    border-radius: 9999px;
+    background: hsl(var(--background) / 0.85);
+    border: 1px solid hsl(var(--border));
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+  .room-zoom-value {
+    min-width: 3.2em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8rem;
+  }
+  .room-zoom-reset {
+    min-height: 2rem;
+    padding: 0 0.6rem;
+    white-space: nowrap;
+    border-radius: 0.6rem;
+    background: hsl(var(--background) / 0.85);
+    border: 1px solid hsl(var(--border));
+    font-size: 0.78rem;
+  }
+  .room-zoom-reset:disabled {
+    opacity: 0.45;
+  }
   /* The settings menu's graphics choice: a native select, comfortable on a phone */
   .room-settings-select {
     min-height: 2rem;

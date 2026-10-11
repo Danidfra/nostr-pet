@@ -23,6 +23,8 @@ interface RoomSettingsControlProps {
   unavailable3d: string | null;
   /** The room's rendering quality (`useRoomQuality`), when the room is drawn in 3D. */
   quality?: { preference: QualityPreference; level: QualityLevel; onChange: (preference: QualityPreference) => void };
+  /** How close the room is looked at (`useRoomZoom`): nearer, farther, and back to the recommended view. */
+  zoom?: { value: number; onIn: () => void; onOut: () => void; onReset: () => void };
 }
 
 const QUALITY_WORD: Record<QualityLevel, string> = { high: 'High', balanced: 'Balanced', low: 'Low' };
@@ -34,7 +36,7 @@ const OPTIONS: { value: BlobbiAppearance; title: string; detail: string }[] = [
 
 const BACK_HOME: FromRoomState = { fromRoom: true };
 
-export function RoomAppearanceControl({ appearance, onChange, unavailable3d, quality }: RoomSettingsControlProps) {
+export function RoomAppearanceControl({ appearance, onChange, unavailable3d, quality, zoom }: RoomSettingsControlProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -145,6 +147,23 @@ export function RoomAppearanceControl({ appearance, onChange, unavailable3d, qua
                 <option value="low">Low (saves battery)</option>
               </select>
             </label>
+          )}
+          {zoom && (
+            <div className="room-settings-row" data-testid="room-zoom" role="group" aria-label="View">
+              <span className="flex-1 text-left">View</span>
+              <button type="button" className="room-zoom-button touch-hit" onClick={zoom.onOut} aria-label="Look from farther" data-testid="room-zoom-out">
+                −
+              </button>
+              <span className="room-zoom-value" aria-live="polite" data-testid="room-zoom-value">
+                {Math.round(zoom.value * 100)}%
+              </span>
+              <button type="button" className="room-zoom-button touch-hit" onClick={zoom.onIn} aria-label="Look closer" data-testid="room-zoom-in">
+                +
+              </button>
+              <button type="button" className="room-zoom-reset" onClick={zoom.onReset} disabled={Math.abs(zoom.value - 1) < 0.005} aria-label="Reset view" title="Back to the recommended view" data-testid="room-zoom-reset">
+                Reset
+              </button>
+            </div>
           )}
           <div className="room-settings-divider" aria-hidden />
           <button type="button" role="switch" aria-checked={sound.enabled} className="room-settings-row" onClick={() => sound.setEnabled(!sound.enabled)} data-testid="room-sound-toggle">
