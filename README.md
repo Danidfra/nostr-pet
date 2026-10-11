@@ -98,6 +98,43 @@ production build:
 | `?fixture=fresh` | an account with nothing in it: the real adoption flow, then the first Blobbi's automatic hatch. What it publishes is kept for the tab, so a reload finds the baby; Reset fixture empties it |
 | `?preview=bed\|tub` | the bed or the tub out on load, to look at proportions |
 
+A `?fixture=` link opened in a dev build **without** the flag is refused out
+loud (a banner names the flag) instead of quietly opening the real home.
+
+### Testing on a phone
+
+The dev server binds every interface (`server.host: "::"`), so a phone on
+the same Wi-Fi can open the Mac's address (Vite prints it as "Network").
+Two things to know:
+
+- **Fixtures need the flag.** With `VITE_BLOBBI_DEV_TOOLS=true` in
+  `.env.local` (or in front of `npm run dev`), open
+  `http://<mac-address>:8080/room?fixture=adult-v3&perf` (or `baby-v3`):
+  the real room over a simulated Blobbi, with the performance overlay, and
+  no account, key, relay, internet or write involved. The in-memory world
+  does not mind plain HTTP.
+- **A real account needs HTTPS (or localhost).** Browsers treat a plain
+  `http://192.168.x.x` page as insecure and withhold `crypto.randomUUID`
+  (and `crypto.subtle`, and the clipboard). nostrify's relay subscriptions
+  need `randomUUID`, so on such a page the home cannot read from relays;
+  it says so at once with a retry (`src/lib/relay-transport.ts`) instead
+  of looking for the Blobbi forever. Keys are still made and events still
+  sign (nostr-tools over `getRandomValues`), but nothing can be read back,
+  so a new account made there finds no Blobbi. For a real account on a
+  phone, serve over HTTPS with a certificate the phone trusts; the two
+  safe ways, neither of which puts a secret in the repo:
+  - **mkcert** (`brew install mkcert && mkcert -install`, then
+    `mkcert 192.168.1.4 localhost` and install the root on the phone as
+    mkcert's docs say), then
+    `BLOBBI_DEV_TLS_CERT=./192.168.1.4+1.pem BLOBBI_DEV_TLS_KEY=./192.168.1.4+1-key.pem npm run dev`
+    and open `https://192.168.1.4:8080/`;
+  - **Tailscale** (`tailscale serve --bg 8080`): a `https://<mac>.<tailnet>.ts.net`
+    address with a publicly valid certificate, reachable from the phone on
+    the same tailnet, nothing installed on the phone.
+
+  Never put a self-signed or production certificate in the repo, and never
+  work around the missing API with a weaker random source.
+
 **The Dev Lab** is the engineering surface for Blobbi work:
 
 ```bash
@@ -147,6 +184,11 @@ Copy `.env.example` to `.env.local`. The app reads exactly two variables:
 | --- | --- | --- |
 | `VITE_BLOBBI_ISLAND_URL` | no | where "Enter Blobbi Island" goes; must be an absolute `http(s)` URL, otherwise the default `https://island.blobbi.pet` is used |
 | `VITE_BLOBBI_DEV_TOOLS` | no | dev builds only; ignored by `vite build` |
+
+`vite.config.ts` also reads two plain (not `VITE_`) variables for the dev
+server only, `BLOBBI_DEV_TLS_CERT` and `BLOBBI_DEV_TLS_KEY`, paths to a
+certificate and key for HTTPS on the LAN (see "Testing on a phone"); the
+app itself never sees them.
 
 The contract is enforced by `src/__tests__/env-contract.test.ts`. The build
 is a static single-page app: `npm run build` writes `dist/` and copies

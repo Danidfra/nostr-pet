@@ -9,11 +9,13 @@
  * the name at once. The upload is Blossom through nostrify's uploader, to
  * the ecosystem's servers.
  */
+import { useContext } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { NSchema as n, type NostrEvent, type NostrMetadata } from '@nostrify/nostrify';
 import { BlossomUploader } from '@nostrify/nostrify/uploaders';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { DevFixtureContext } from '@/dev/DevFixtureContext';
 import { CLIENT_NAME } from '@/features/care/usePublishAdapter';
 import { BLOSSOM_SERVERS } from '@/config/blossom';
 import { mergeProfileMetadata, type ProfileFormInput } from './profile-plan';
@@ -26,6 +28,8 @@ export function useProfileSetup(pubkey: string | undefined) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
+  // The fixture world is in memory; an upload would be the one thing leaving the tab
+  const fixture = useContext(DevFixtureContext) !== null;
 
   const publish = useMutation<NostrEvent, Error, ProfileFormInput>({
     mutationFn: async (form) => {
@@ -51,6 +55,7 @@ export function useProfileSetup(pubkey: string | undefined) {
   const upload = useMutation<string, Error, File>({
     mutationFn: async (file) => {
       if (!user) throw new Error('Sign in first.');
+      if (fixture) throw new Error('Pictures are not uploaded in fixture mode.');
       if (!file.type.startsWith('image/')) throw new Error('Choose an image.');
       if (file.size > MAX_PICTURE_BYTES) throw new Error('Choose an image under 5 MB.');
       const uploader = new BlossomUploader({

@@ -27,6 +27,8 @@
  * never outlives a real reconnect) and re-runs the reads; the sockets
  * reconnect on their own when the reads open them.
  */
+import type { TransportBlock } from './relay-transport';
+
 export type RelayMark = 'unknown' | 'ok' | 'failing';
 export type HealthLevel = 'healthy' | 'degraded' | 'offline';
 
@@ -34,6 +36,12 @@ export interface RelayHealth {
   level: HealthLevel;
   online: boolean;
   relays: Record<string, RelayMark>;
+  /**
+   * Why no relay can be reached from this page at all, or null: decided
+   * once from the browser's APIs (`relay-transport.ts`), before any socket;
+   * no retry changes it. The home shows it instead of waiting.
+   */
+  blocked: TransportBlock | null;
 }
 
 /** The shape of an NRelay1 log entry the store cares about. */
@@ -64,13 +72,13 @@ export function resolveHealthLevel(online: boolean, relays: Record<string, Relay
   return failing === marks.length ? 'offline' : 'degraded';
 }
 
-export function createRelayHealthStore(appRelays: readonly string[], initialOnline = true): RelayHealthStore {
+export function createRelayHealthStore(appRelays: readonly string[], initialOnline = true, blocked: TransportBlock | null = null): RelayHealthStore {
   const relays: Record<string, RelayMark> = Object.fromEntries(appRelays.map((u) => [u, 'unknown' as RelayMark]));
   let online = initialOnline;
-  let snapshot: RelayHealth = { level: resolveHealthLevel(online, relays), online, relays: { ...relays } };
+  let snapshot: RelayHealth = { level: resolveHealthLevel(online, relays), online, relays: { ...relays }, blocked };
   const listeners = new Set<() => void>();
   const publish = () => {
-    snapshot = { level: resolveHealthLevel(online, relays), online, relays: { ...relays } };
+    snapshot = { level: resolveHealthLevel(online, relays), online, relays: { ...relays }, blocked };
     for (const l of listeners) l();
   };
   return {

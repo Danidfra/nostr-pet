@@ -94,7 +94,7 @@ export default function RoomPreviewPage() {
           {home.status === 'ready' && home.current ? (
             <BlobbiRoom key={`${home.pubkey ?? 'anon'}:${home.current.d}`} blobbi={home.current} pubkey={home.pubkey} updateCompanionEvent={home.updateCompanionEvent} refresh={home.refresh} />
           ) : (
-            <RoomMessage status={home.status} />
+            <RoomMessage status={home.status} error={home.error} onRetry={home.refresh} />
           )}
         </div>
       </div>
@@ -102,15 +102,22 @@ export default function RoomPreviewPage() {
   );
 }
 
-function RoomMessage({ status }: { status: ReturnType<typeof useHomeBlobbi>['status'] }) {
+/** Why the room has no Blobbi to show: a read still out, a failed one (with its cause and a retry), nobody signed in, nothing adopted. */
+function RoomMessage({ status, error, onRetry }: { status: ReturnType<typeof useHomeBlobbi>['status']; error: unknown; onRetry: () => void }) {
+  const failed = status === 'error';
   const text =
     status === 'signed-out' ? 'Sign in on the home screen to see your Blobbi in its room.'
     : status === 'empty' ? 'Adopt a Blobbi on the home screen first.'
-    : status === 'error' ? 'The relays did not answer.'
+    : failed ? (error instanceof Error && error.message ? error.message : 'The relays did not answer.')
     : 'Looking for your Blobbi…';
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center" role="status">
-      <p className="scene-text text-sm text-foreground/80">{text}</p>
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center" role={failed ? 'alert' : 'status'} data-testid="room-message" data-status={status}>
+      <p className="scene-text max-w-md text-sm text-foreground/80">{text}</p>
+      {failed && (
+        <button type="button" onClick={onRetry} className="onboard-btn !w-auto !px-4 !py-2 text-sm" data-testid="room-retry">
+          Try again
+        </button>
+      )}
       <Link to="/" className="onboard-btn onboard-btn--secondary !w-auto !px-4 !py-2 text-sm">
         <ArrowLeft className="h-4 w-4" aria-hidden />
         Home

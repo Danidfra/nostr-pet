@@ -1,10 +1,26 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
+/**
+ * Optional TLS for the dev server, for a REAL account on a phone: browsers
+ * give a plain-HTTP LAN address no `crypto.randomUUID`, which the relay
+ * connection needs (src/lib/relay-transport.ts). Point these at a cert the
+ * phone trusts (mkcert: README "Testing on a phone"); unset, the server is
+ * plain HTTP, which the in-memory `?fixture=` worlds do not mind.
+ */
+function devTls() {
+  const cert = process.env.BLOBBI_DEV_TLS_CERT;
+  const key = process.env.BLOBBI_DEV_TLS_KEY;
+  if (!cert || !key) return undefined;
+  return { cert: readFileSync(cert), key: readFileSync(key) };
+}
+
 export default defineConfig({
-  server: { host: "::", port: 8080 },
+  // "::" binds every interface (IPv6 any, with IPv4 on macOS), so a phone on the same Wi-Fi can open the Mac's address
+  server: { host: "::", port: 8080, https: devTls() },
   plugins: [react()],
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
   build: {

@@ -102,15 +102,41 @@ been run on an older iPhone and a budget Android with these results:
 
 ## Phone protocol
 
-1. On the computer, run `VITE_BLOBBI_DEV_TOOLS=true npx vite --host --port 8080`
-   and note the "Network" address.
+What the first attempt (2026-10-11) ran into, so it is not run into again:
+
+- **The fixture needs the dev-tools flag.** A server started without
+  `VITE_BLOBBI_DEV_TOOLS=true` ignores `?fixture=` and opens the real home,
+  which then looks for the signed-in account's Blobbi. A dev build now
+  says so in a banner instead of staying quiet (`fixture-refused` in
+  `App.tsx`).
+- **A real account cannot read relays over plain HTTP on a LAN address.**
+  `http://192.168.x.x:8080` is not a secure context; Safari (and Chrome)
+  withhold `crypto.randomUUID`, which nostrify's `NRelay1` uses to name
+  every subscription; the pool swallowed the error and the read never
+  ended: "Looking for your Blobbi…" forever. The home pool now refuses
+  such a page at once, with the cause and the way out, and any read no
+  relay answers in 15 s ends in an error with a retry
+  (`src/lib/relay-transport.ts`, `src/lib/home-pool.ts`). The fixture world
+  is in memory and is not affected. For a real account on a phone, serve
+  HTTPS (README, "Testing on a phone").
+- **The clipboard is withheld there too.** "Copy report" says so and
+  leaves the report in the text box; **Select all** selects it for the
+  long-press copy.
+
+1. On the computer, with `VITE_BLOBBI_DEV_TOOLS=true` in `.env.local`, run
+   `npm run dev` (the server binds every interface) and note the
+   "Network" address. Check the flag reached the page:
+   `curl -s http://localhost:8080/src/App.tsx | grep DEV_TOOLS`.
 2. On the phone, on the same Wi-Fi, open
-   `http://<that address>:8080/room?fixture=adult-v3&perf`.
+   `http://<that address>:8080/room?fixture=adult-v3&perf`
+   (and `baby-v3` for the baby). The simulated Blobbi shows at once, with
+   no account; a yellow banner means the flag is off.
 3. Leave it idle for 10 s, then tap **Record 10 s** in the performance
    panel. While it records, walk the Blobbi around, change rooms twice
    and pet it.
-4. Tap **Copy report**, or long-press the text box if the clipboard is
-   blocked, and paste it somewhere.
+4. Tap **Copy report**; on a plain-HTTP address the clipboard is withheld,
+   so tap **Select all** and long-press the text box to copy it, and paste
+   it somewhere.
 5. Repeat with Graphics set to High, Balanced and Low (room settings).
 6. Put the browser in the background for 30 s, come back, and check
    that the room returns (on iOS, possibly after a short fallback) with

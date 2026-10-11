@@ -6,6 +6,8 @@ import { useCurrentUser } from './useCurrentUser';
 import { useBlobbonautProfile } from './useBlobbonautProfile';
 import { selectCurrentBlobbi } from '@/lib/select-current-blobbi';
 import { useSetCurrentCompanion, type SetCurrentCompanionResult } from '@/features/care/useSetCurrentCompanion';
+import { useRelayHealth } from './useRelayHealth';
+import { RelayTransportError } from '@/lib/relay-transport';
 
 /**
  * Where the home stands, as one word the page switches on.
@@ -15,7 +17,8 @@ import { useSetCurrentCompanion, type SetCurrentCompanionResult } from '@/featur
  *   is still in flight.
  * - `empty`: the read completed and the player owns no modern Blobbi.
  * - `ready`: at least one modern Blobbi, and `current` is set.
- * - `error`: the collection read failed; `error` is set.
+ * - `error`: the collection read failed, or no relay can be reached from
+ *   this page at all (`RelayHealth.blocked`); `error` is set.
  */
 export type HomeBlobbiStatus = 'signed-out' | 'loading' | 'empty' | 'ready' | 'error';
 
@@ -73,6 +76,9 @@ export function useHomeBlobbi(): HomeBlobbi {
   const collection = useBlobbisCollection(undefined, pubkey);
   const profile = useBlobbonautProfile(pubkey);
   const setCurrentCompanion = useSetCurrentCompanion(pubkey);
+  // Decided before any read: a page that cannot open a relay subscription says so instead of looking forever.
+  const blocked = useRelayHealth().health.blocked;
+  const blockedError = useMemo(() => (blocked ? new RelayTransportError(blocked) : null), [blocked]);
 
   const [localSelection, setLocalSelection] = useState<string | undefined>(() => readLocalSelection(pubkey));
   useEffect(() => {
@@ -99,6 +105,7 @@ export function useHomeBlobbi(): HomeBlobbi {
 
   const status: HomeBlobbiStatus = (() => {
     if (!pubkey) return 'signed-out';
+    if (blockedError) return 'error';
     switch (collection.status) {
       case 'error':
         return 'error';
@@ -119,7 +126,7 @@ export function useHomeBlobbi(): HomeBlobbi {
     companions: collection.companions,
     current: status === 'ready' ? current : undefined,
     profile: profile.data,
-    error: collection.error,
+    error: blockedError ?? collection.error,
     select,
     selection: { isPending: setCurrentCompanion.isPending, result: setCurrentCompanion.data, error: setCurrentCompanion.error },
     refresh: collection.invalidate,

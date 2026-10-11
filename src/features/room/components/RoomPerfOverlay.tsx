@@ -17,7 +17,10 @@
  * A hidden or throttled tab draws few or no frames: the overlay says the
  * numbers are not representative instead of showing them as if they were.
  * "Record 10 s" gathers a short report (and copies it), for a phone where
- * there is no console to read.
+ * there is no console to read. Where the clipboard is withheld (Safari, or
+ * any browser on a plain-HTTP LAN address, where `navigator.clipboard` does
+ * not exist) the report stays on screen in a text box, and "Select all"
+ * selects it for the long-press copy.
  */
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { RoomControl } from './RoomShell';
@@ -45,6 +48,7 @@ export function RoomPerfOverlay({ controlRef, quality, mode }: Props) {
   const [recording, setRecording] = useState<{ until: number; window: Window } | null>(null);
   const [report, setReport] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const reportRef = useRef<HTMLTextAreaElement | null>(null);
 
   // The display's own frames, sampled here
   useEffect(() => {
@@ -125,11 +129,19 @@ export function RoomPerfOverlay({ controlRef, quality, mode }: Props) {
 
   const copy = useCallback(async (text: string) => {
     try {
+      if (!navigator.clipboard) throw new Error('no clipboard here');
       await navigator.clipboard.writeText(text);
       setCopied('copied');
     } catch {
-      setCopied('select and copy the text below');
+      setCopied('clipboard unavailable: select the text below and copy it');
     }
+  }, []);
+  // iOS Safari ignores select() on a read-only box; a range works
+  const selectAll = useCallback(() => {
+    const el = reportRef.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(0, el.value.length);
   }, []);
 
   return (
@@ -165,9 +177,14 @@ export function RoomPerfOverlay({ controlRef, quality, mode }: Props) {
         <button type="button" onClick={() => { const r = report ?? buildReport(null); setReport(r); void copy(r); }} data-testid="room-perf-copy">
           Copy report
         </button>
+        {report && (
+          <button type="button" onClick={selectAll} data-testid="room-perf-select">
+            Select all
+          </button>
+        )}
       </div>
-      {copied && <div>{copied}</div>}
-      {report && <textarea className="room-perf__report" readOnly value={report} rows={8} data-testid="room-perf-report" />}
+      {copied && <div data-testid="room-perf-copied">{copied}</div>}
+      {report && <textarea ref={reportRef} className="room-perf__report" readOnly value={report} rows={8} data-testid="room-perf-report" onFocus={selectAll} />}
     </div>
   );
 }

@@ -1,5 +1,7 @@
+import { useContext } from 'react';
 import { useNostr } from '@nostrify/react';
 import { NLogin, generateNostrConnectParams, generateNostrConnectURI, useNostrLogin, type NostrConnectParams, type NostrConnectStatus } from '@nostrify/react/login';
+import { DevFixtureContext } from '@/dev/DevFixtureContext';
 import { BASE_RELAYS } from '@/config/relays';
 import { CLIENT_NAME } from '@/features/care/usePublishAdapter';
 
@@ -14,11 +16,16 @@ import { CLIENT_NAME } from '@/features/care/usePublishAdapter';
  * store the way the ecosystem persists it; this app adds no storage of its
  * own for it, never logs it, never sends it to a relay and never puts it
  * in a URL (see features/onboarding/new-account.ts).
+ *
+ * In dev fixture mode the signed-in user is the fixture's, so the menu's
+ * sign-out and key backup must not reach the device's real login store:
+ * `logout` does nothing and there is no session key to show.
  */
 export function useLoginActions() {
   const { nostr } = useNostr();
   const { logins, addLogin, removeLogin } = useNostrLogin();
-  const current = logins[0];
+  const fixture = useContext(DevFixtureContext) !== null;
+  const current = fixture ? undefined : logins[0];
 
   return {
     /** NIP-46 "bunker://" remote signer. */

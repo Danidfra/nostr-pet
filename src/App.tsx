@@ -7,6 +7,7 @@ import { BLOBBI_RENDERER_STYLESHEET } from '@blobbi-kit/renderer';
 import { NostrProvider } from '@/components/NostrProvider';
 import { EnvironmentProvider } from '@/environment';
 import { SoundProvider } from '@/features/sound';
+import { RoomLoading } from '@/features/room/RoomLoading';
 import AppRouter from './AppRouter';
 
 /**
@@ -24,8 +25,16 @@ const DevLab = DEV_FIXTURES ? lazy(() => import('@/dev/DevLab')) : null;
 const DEV_LAB_PATH = '/dev';
 const devLabRequested = DEV_FIXTURES && typeof window !== 'undefined' && window.location.pathname.replace(/\/+$/, '') === DEV_LAB_PATH;
 /** Fixture mode: the Dev Lab page, or a `?fixture=` link. The query string (possibly empty) is what the dev module parses. */
-const fixtureMode = DEV_FIXTURES && typeof window !== 'undefined' && (devLabRequested || new URLSearchParams(window.location.search).has('fixture'));
+const fixtureRequested = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('fixture');
+const fixtureMode = DEV_FIXTURES && typeof window !== 'undefined' && (devLabRequested || fixtureRequested);
 const fixtureSearch = fixtureMode ? window.location.search : '';
+/**
+ * A dev build asked for a fixture without the dev-tools flag: say so, in the
+ * dev build only, instead of quietly opening the real home (whose relay read
+ * then looks like the fixture "not loading"). Production never reads this:
+ * `import.meta.env.DEV` is false there and the branch is gone.
+ */
+const FIXTURE_REFUSED = import.meta.env.DEV && fixtureRequested && !DEV_FIXTURES;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,7 +60,7 @@ const queryClient = new QueryClient({
 function Transport({ children }: { children: React.ReactNode }) {
   if (DevFixture && fixtureMode) {
     return (
-      <Suspense fallback={null}>
+      <Suspense fallback={<RoomLoading text="Opening the fixture…" />}>
         <DevFixture search={fixtureSearch} floatingPanel={!devLabRequested}>
           {children}
         </DevFixture>
@@ -59,6 +68,16 @@ function Transport({ children }: { children: React.ReactNode }) {
     );
   }
   return <NostrProvider>{children}</NostrProvider>;
+}
+
+/** Dev builds only: the fixture link was ignored because the flag is off, and how to turn it on. */
+function FixtureRefusedNotice() {
+  if (!FIXTURE_REFUSED) return null;
+  return (
+    <div role="alert" data-testid="fixture-refused" className="fixed inset-x-0 top-0 z-[1000] bg-amber-200 px-4 py-2 text-center text-xs text-amber-950">
+      <strong>?fixture= ignored:</strong> dev tools are off. Start Vite with <code>VITE_BLOBBI_DEV_TOOLS=true</code> (or put it in <code>.env.local</code>) and reload; the real home is shown instead.
+    </div>
+  );
 }
 
 export function App() {
@@ -69,6 +88,7 @@ export function App() {
           <QueryClientProvider client={queryClient}>
             <Transport>
               <style>{BLOBBI_RENDERER_STYLESHEET}</style>
+              <FixtureRefusedNotice />
               <BrowserRouter>
                 <AppRouter
                   devLab={
