@@ -72,9 +72,26 @@ function editorBinding(selected: number | null): RoomEditorBinding {
   return { selectedIndex: selected, onSelect: vi.fn(), onMove: vi.fn(), onInvalidChange: vi.fn(), toolbar: <div data-testid="toolbar" />, overlay: <div><div data-room-top>top</div><div data-room-bottom>tray</div></div> };
 }
 
-function Harness({ roomId, placements, editor, layout, model }: { roomId: RoomId; placements: readonly FurniturePlacement[]; editor?: RoomEditorBinding; layout?: ReturnType<typeof roomLayoutFor>; model?: ActorModel }) {
+function Harness({ roomId, placements, editor, layout, model, care }: { roomId: RoomId; placements: readonly FurniturePlacement[]; editor?: RoomEditorBinding; layout?: ReturnType<typeof roomLayoutFor>; model?: ActorModel; care?: { n: number } }) {
   return (
-    <RoomShell roomId={roomId} onChangeRoom={() => {}} isSleeping={false} blobbiStage={brook.stage} blobbiVisible roomLayout={layout ?? roomLayoutFor(roomId)} furniturePlacements={placements} editor={editor} stage={<div data-testid="stage" />} onDecorate={() => {}} blobbiModel={model ?? null}>
+    <RoomShell
+      roomId={roomId}
+      onChangeRoom={() => {}}
+      isSleeping={false}
+      blobbiStage={brook.stage}
+      blobbiVisible
+      roomLayout={layout ?? roomLayoutFor(roomId)}
+      furniturePlacements={placements}
+      editor={editor}
+      stage={<div data-testid="stage" />}
+      onDecorate={() => {}}
+      blobbiModel={model ?? null}
+      // What care puts in the room: an item on the floor, the feedback on the Blobbi, the dock's panel
+      floorThings={care ? [{ key: `item-${care.n}`, x: 2 + care.n * 0.1, z: 3, node: <span data-testid="floor-thing">{care.n}</span> }] : undefined}
+      blobbiOverlay={care ? <span data-testid="feedback">{care.n}</span> : undefined}
+      middleSlot={care ? <div data-testid="panel">{care.n}</div> : undefined}
+      decorateDisabled={care ? care.n % 2 === 1 : undefined}
+    >
       <div data-testid="dock">dock</div>
     </RoomShell>
   );
@@ -184,5 +201,22 @@ describe('RoomShell keeps one scene through decorating', () => {
     expect(drawing.style.display).toBe('');
     expect(model.dispose).not.toHaveBeenCalled();
     expect(s.disposed).toBe(false);
+  });
+
+  it('care in the room (items set down and taken up, feedback, the dock\'s panel, the busy decorate button) reaches the one scene without a new one, a dispose or a fold-in', async () => {
+    const home = roomFurnitureFor('home');
+    const { rerender } = render(<Harness roomId="home" placements={home} />);
+    await waitFor(() => expect(screen.getByTestId('room-shell')).toHaveAttribute('data-scene', 'ready'));
+    const s = scene();
+    const canvases = [...screen.getByTestId('room-shell').querySelectorAll('canvas')];
+    const mark = s.calls.length;
+    for (let n = 0; n < 6; n++) rerender(<Harness roomId="home" placements={home} care={{ n }} />);
+    rerender(<Harness roomId="home" placements={home} />);
+    expect(screen.queryByTestId('floor-thing')).toBeNull();
+    expect(made.scenes).toHaveLength(1);
+    expect(s.disposed).toBe(false);
+    expect(names(s, mark)).not.toContain('dispose');
+    expect(s.calls.slice(mark).filter((c) => c.name === 'setItems' && c.args[1] === true)).toEqual([]);
+    expect([...screen.getByTestId('room-shell').querySelectorAll('canvas')]).toEqual(canvases);
   });
 });

@@ -51,9 +51,16 @@ export function RoomOfferFailure({ offer, onRetry, onPutAway }: { offer: RoomOff
  * head, hearts, the spoken result) sits on it as it does on the home, in 2D
  * or 3D. An item handed to it shows at its mouth while it is used.
  */
-export function RoomBlobbiOverlay({ feedback, handed }: { feedback: RoomCareFeedback | undefined; handed: { glyph: ItemGlyphModel; phase: RoomOffer['phase'] } | null }) {
+export function RoomBlobbiOverlay({ feedback, handed, name }: { feedback: RoomCareFeedback | undefined; handed: { glyph: ItemGlyphModel; phase: RoomOffer['phase'] } | null; name?: { text: string; color: string | undefined } }) {
   return (
     <div className="room-blobbi-overlay" aria-live="off">
+      {/* The 2D drawing carries its own name tag; this one shows only while the 3D model stands in its place (the anchor's data-render) */}
+      {name && (
+        <span className="room-name-tag room-overlay-name" aria-hidden data-testid="room-overlay-name">
+          <span className="room-name-tag__dot" style={{ background: name.color }} />
+          {name.text}
+        </span>
+      )}
       {/* Lit while an item is carried over the Blobbi (the shell's data-drop, set without a render) */}
       <span className="room-drop-ring" aria-hidden />
       {handed && (

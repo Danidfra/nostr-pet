@@ -6,7 +6,7 @@
  * The ghost moves without React rendering.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useRoomItemDrag, DRAG_SLOP } from './useRoomItemDrag';
 
 function Harness({ onDrop, onTap, onHover, renders }: { onDrop: (k: string, x: number, y: number) => void; onTap: (k: string) => void; onHover?: (k: string, p: { x: number; y: number } | null) => void; renders: { n: number } }) {
@@ -116,5 +116,31 @@ describe('carrying an item into the room', () => {
     expect(onDrop).toHaveBeenCalledTimes(1);
     expect(clicked).not.toHaveBeenCalled();
     window.removeEventListener('click', clicked);
+  });
+
+  it('leaves no window listener behind, however a drag ends or if the strip goes mid-drag', () => {
+    const added = vi.spyOn(window, 'addEventListener');
+    const removed = vi.spyOn(window, 'removeEventListener');
+    const own = (spy: typeof added) => spy.mock.calls.filter(([type]) => ['pointermove', 'pointerup', 'pointercancel', 'blur', 'keydown'].includes(String(type))).length;
+    const { onDrop } = setup();
+    press('mouse');
+    move(150, 200);
+    up(150, 200);
+    press('mouse');
+    move(150, 200);
+    act(() => { window.dispatchEvent(new Event('blur')); });
+    press('mouse');
+    press('mouse');
+    up(100, 300);
+    expect(onDrop).toHaveBeenCalledTimes(1);
+    expect(own(added)).toBeGreaterThan(0);
+    expect(own(removed)).toBe(own(added));
+    // Unmounted while carrying: the listeners go with it
+    press('mouse');
+    move(150, 200);
+    cleanup();
+    expect(own(removed)).toBe(own(added));
+    added.mockRestore();
+    removed.mockRestore();
   });
 });

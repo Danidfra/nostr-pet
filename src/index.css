@@ -1394,6 +1394,17 @@
     transform: translateX(-50%);
     filter: drop-shadow(0 2px 2px hsl(0 0% 0% / 0.2));
   }
+  /* The name over a 3D Blobbi (the 2D drawing has its own); above the head, unscaled so it stays readable */
+  .room-overlay-name {
+    position: absolute;
+    left: 50%;
+    top: 10%;
+    transform: translate(-50%, -100%);
+    display: none;
+  }
+  [data-render='3d'] .room-overlay-name {
+    display: inline-flex;
+  }
   .room-drop-ring {
     position: absolute;
     left: 20%;

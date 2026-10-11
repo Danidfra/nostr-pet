@@ -26,6 +26,7 @@ import { useProjectedBlobbiState } from '@blobbi-kit/react';
 import type { BlobbiCompanion, NostrEvent } from '@blobbi-kit/core';
 
 import { useHomeBlobbi } from '@/hooks/useHomeBlobbi';
+import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { baselineExpression } from '@/features/home/scene/reactions';
 import { useGazePolicy } from '@/features/home/scene/useGazePolicy';
 import { useHoverCapable } from '@/features/home/scene/SceneSettings';
@@ -235,6 +236,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
       : []),
     [offer, offerGlyph, roomId, care.putAway],
   );
+  const nameTag = useMemo(() => ({ text: blobbi.name, color: toBlobbiVisual(blobbi).baseColor }), [blobbi]);
   const handed = offer && offer.place.kind === 'hand' && offer.phase !== 'failed' && offerGlyph ? { glyph: offerGlyph, phase: offer.phase } : null;
   const editor = useMemo((): RoomEditorBinding | undefined => {
     if (!decorator.editing || !draft || !layoutDraft) return undefined;
@@ -279,7 +281,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         decorateDisabled={care.busy}
         onInteract={onInteract}
         floorThings={floorThings}
-        blobbiOverlay={<RoomBlobbiOverlay feedback={care.feedback} handed={handed} />}
+        blobbiOverlay={<RoomBlobbiOverlay feedback={care.feedback} handed={handed} name={blobbi.stage === 'egg' ? undefined : nameTag} />}
         middleSlot={
           <RoomCarePanel
             blobbi={blobbi}
