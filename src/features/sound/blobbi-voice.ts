@@ -128,6 +128,20 @@ export const VOICE: Record<import('./sounds').BlobbiSoundId, Recipe> = {
   },
   /** It worked: the glad two pops, a little brighter, as the eyes open. */
   tada: { durationMs: 360, master: 0.3, lowpassHz: 2400, layers: [pop(0, 620, 720, 80, 0.11), pop(120, 760, 900, 110, 0.11), hum(20, [760, 880, 820], 220, 0.035)] },
+  /** Getting ready to jump: a low squeeze that rises a little, as it crouches. */
+  crouch: { durationMs: 260, master: 0.24, lowpassHz: 1600, layers: [hum(0, [260, 290, 330], 240, 0.05)] },
+  /** Off it goes: a springy pop that leaps up, and a little hum trailing after. */
+  jump: { durationMs: 300, master: 0.28, lowpassHz: 2200, layers: [pop(0, 360, 760, 120, 0.1), hum(50, [520, 720, 900], 200, 0.03)] },
+  /** Landing: a soft thump and a small bounce, never a crash. */
+  land: { durationMs: 200, master: 0.32, lowpassHz: 1200, layers: [pop(0, 250, 200, 100, 0.14), pop(80, 320, 270, 70, 0.05)] },
+  /** "!": two quick pops, up. */
+  surprise: { durationMs: 200, master: 0.28, lowpassHz: 2400, layers: [pop(0, 700, 920, 60, 0.08), pop(85, 920, 1100, 80, 0.07)] },
+  /** Falling out of view: a whistle that slides down, cartoon, not alarming. */
+  fall: { durationMs: 600, master: 0.22, lowpassHz: 2200, layers: [hum(0, [1050, 760, 400], 580, 0.04)] },
+  /** Coming out from behind the wall: "ta!", two bright pops. */
+  peek: { durationMs: 200, master: 0.26, lowpassHz: 2200, layers: [pop(0, 560, 680, 60, 0.08), pop(80, 700, 840, 90, 0.07)] },
+  /** Petted: a soft, low, contented purr, rising and falling. */
+  pet: { durationMs: 560, master: 0.22, lowpassHz: 1400, layers: [hum(0, [330, 370, 340], 420, 0.045), hum(150, [360, 400, 360], 380, 0.03)] },
   /** Evolve: the same run, one step further and longer. */
   evolve: { durationMs: 960, master: 0.38, lowpassHz: 2400, layers: [pop(0, 440, 520, 90, 0.11), pop(150, 560, 660, 90, 0.11), pop(300, 700, 840, 90, 0.11), pop(450, 880, 1040, 140, 0.12), hum(480, [1000, 1180, 1080], 440, 0.05)] },
 };

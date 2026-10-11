@@ -3,6 +3,7 @@
  * the player's choice, remembered on this device, switched without leaving
  * the room or changing anything about the Blobbi, and never published.
  */
+import { isRoomMemoryKey } from '@/features/room/lib/room-memory';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -158,7 +159,7 @@ describe('the Blobbi\'s appearance in the room', () => {
     await screen.findByTestId('room-blobbi-anchor');
     choose('3d');
     choose('2d');
-    expect(setItem.mock.calls.map((c) => c[0]).filter((k) => k !== 'test:login')).toEqual([APPEARANCE_STORAGE_KEY, APPEARANCE_STORAGE_KEY]);
+    expect(setItem.mock.calls.map((c) => c[0]).filter((k) => k !== 'test:login' && !isRoomMemoryKey(k))).toEqual([APPEARANCE_STORAGE_KEY, APPEARANCE_STORAGE_KEY]);
     expect(relay.published).toEqual([]);
     setItem.mockRestore();
   });

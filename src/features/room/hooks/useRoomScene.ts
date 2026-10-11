@@ -16,7 +16,7 @@ import type { BlobbiReach } from '../lib/room-geometry';
 import type { FurniturePlacement } from '../lib/room-furniture';
 import type { RoomLayout } from '../lib/room-layout';
 import { isOfficialFurnitureId, resolveFurniture } from '../lib/furniture-3d';
-import type { RoomScene, SceneGeometry, SceneItem } from '../lib/scene/RoomScene';
+import type { RoomIntro, RoomScene, SceneGeometry, SceneItem } from '../lib/scene/RoomScene';
 import type { ActorModel } from '../lib/blobbi3d/actor';
 import { MAIN_BLOBBI } from '../lib/room-geometry';
 import type { FurnitureModel } from './useFurnitureModels';
@@ -50,6 +50,12 @@ interface UseRoomSceneOptions {
   layout: RoomLayout | undefined;
   /** Changes when the room changes, so the room folds in again. */
   roomKey: string;
+  /**
+   * How the next room shown arrives (read when `roomKey` changes): its intro (the full fold-in on a first visit, a
+   * quick one when seen before, none on a reload) and where the user's Blobbi stands in it. Unset: the full fold-in
+   * with the Blobbi in the middle.
+   */
+  roomEntry?: { intro: RoomIntro; spawn: { x: number; z: number } | null };
   placements: readonly FurniturePlacement[] | undefined;
   models: Map<number, FurnitureModel>;
   /** Keep the object stable between renders. */
@@ -99,6 +105,8 @@ export function useRoomScene(options: UseRoomSceneOptions) {
     blobbi, blobbiModel = null, guests, editing, selected, onFrame, onInvalidChange, onMeet,
   } = options;
   const sceneRef = useRef<RoomScene | null>(null);
+  const roomEntryRef = useRef(options.roomEntry);
+  roomEntryRef.current = options.roomEntry;
   const [status, setStatus] = useState<RoomSceneStatus>(() => (webglAvailable() ? 'loading' : 'unavailable'));
   /** Contexts lost in a row; the room comes back on a fresh canvas a few times. */
   const losses = useRef(0);
@@ -219,9 +227,10 @@ export function useRoomScene(options: UseRoomSceneOptions) {
         placement,
       });
     });
-    const animate = shownRoom.current !== roomKey;
+    const changed = shownRoom.current !== roomKey;
     shownRoom.current = roomKey;
-    scene.setItems(items, animate);
+    const entry = roomEntryRef.current;
+    scene.setItems(items, changed ? (entry?.intro ?? 'build') : 'none', changed ? (entry ? entry.spawn : { x: 4.5, z: 4.5 }) : null);
   }, [ready, placements, models, roomKey, editing]);
 
   useEffect(() => {

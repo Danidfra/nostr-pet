@@ -32,6 +32,7 @@ import { resolveFurniture, type FurnitureInteraction } from '../lib/furniture-3d
 import type { FurniturePlacement } from '../lib/room-furniture';
 import type { ActorFrame, ActorGesture, ActorModel } from '../lib/blobbi3d/actor';
 import type { ProceduralFace } from '@/features/expression/faces';
+import type { ActorScript, RoomIntro } from '../lib/scene/RoomScene';
 import type { JourneyKind } from '@/features/teleport/timeline';
 import type { RoomLayout } from '../lib/room-layout';
 import { ROOM_GRID, blobbiBoxTiles, blobbiReachTiles, MAIN_BLOBBI } from '../lib/room-geometry';
@@ -73,10 +74,30 @@ export interface RoomControl {
   face: (face: ProceduralFace | null) => void;
   /** A choreographed pose of the 3D body (the 2D drawing poses itself), or null. */
   pose: (pose: ActorFrame['pose']) => void;
+  /** Hold the room's fold-in at a moment (a scrubber), or let it run (null). */
+  holdIntro: (ms: number | null) => void;
+  /** Draw a frame now, not on the next animation frame (a held moment, in a tab that may be hidden). */
+  render: () => void;
+  /** Whether this room can stage a scene with the Blobbi (a real scene, not a stand-in). */
+  canChoreograph: () => boolean;
+  /** Choreograph the user's Blobbi (a room transition), or let it go (back on the floor, inside the room). */
+  script: (script: ActorScript | null) => void;
+  /** Draw the back walls over the 2D Blobbi too, while it is behind one. */
+  wallsCover: (on: boolean) => void;
+  /** How high (tiles above the floor) a point over (x, z) can go before it leaves the top of the view. */
+  skyAt: (x: number, z: number) => number;
+  /** Where the user's Blobbi would stand for a floor point: the free spot nearest it, in the room on screen. */
+  standPointNear: (x: number, z: number) => { x: number; z: number };
   /** The journey under way (teleporting), for the scene to draw on the model and the shadow. */
   journey: (journey: { kind: JourneyKind; startedAt: number; reduced: boolean } | null) => void;
   /** Show a fixed moment of a journey and draw it at once (the development scrubber). */
   journeyPreview: (preview: { kind: JourneyKind; t: number; reduced: boolean } | null) => void;
+}
+
+/** A clip that keeps everything but the walls' outlines (holes, even-odd), in the drawing's own coordinates (its feet at 0,0). */
+function wallsClip(walls: { x: number; y: number }[][], at: { x: number; y: number }): string {
+  const hole = (q: { x: number; y: number }[]) => `M ${q.map((p) => `${(p.x - at.x).toFixed(1)} ${(p.y - at.y).toFixed(1)}`).join(' L ')} Z`;
+  return `path(evenodd, "M -9999 -9999 H 9999 V 9999 H -9999 Z ${walls.map(hole).join(' ')}")`;
 }
 
 /** Pointer events over the room, for a gaze policy (the home's `ScenePointerHandlers`). */
@@ -118,7 +139,12 @@ export interface RoomEditorBinding {
 }
 
 export interface RoomShellProps {
+  /** The room on screen. */
   roomId: RoomId;
+  /** The room the header names and steps from: the one asked for, before a transition has brought it on screen. */
+  headerRoomId?: RoomId;
+  /** How the next room shown arrives and where the Blobbi stands in it (`useRoomScene`'s `roomEntry`); unset, the full fold-in, the Blobbi hopping in. */
+  roomEntry?: { intro: RoomIntro; spawn: { x: number; z: number } | null };
   onChangeRoom: (roomId: RoomId) => void;
   isSleeping: boolean;
   /** Egg, baby or adult: sets its size in the room. */
@@ -214,6 +240,8 @@ const ROOM_ICON: Record<RoomId, LucideIcon> = { home: Home, kitchen: Refrigerato
 
 export function RoomShell({
   roomId,
+  headerRoomId,
+  roomEntry,
   onChangeRoom,
   isSleeping,
   blobbiStage,
@@ -250,10 +278,11 @@ export function RoomShell({
 }: RoomShellProps) {
   const isEditing = !!editor;
 
-  const goLeft = useCallback(() => onChangeRoom(neighbourRoom(roomId, 'left')), [onChangeRoom, roomId]);
-  const goRight = useCallback(() => onChangeRoom(neighbourRoom(roomId, 'right')), [onChangeRoom, roomId]);
-  const room = roomById(roomId);
-  const RoomIcon = ROOM_ICON[roomId];
+  const navRoom = headerRoomId ?? roomId;
+  const goLeft = useCallback(() => onChangeRoom(neighbourRoom(navRoom, 'left')), [onChangeRoom, navRoom]);
+  const goRight = useCallback(() => onChangeRoom(neighbourRoom(navRoom, 'right')), [onChangeRoom, navRoom]);
+  const room = roomById(navRoom);
+  const RoomIcon = ROOM_ICON[navRoom];
 
   // ─── Touch swipe between rooms ───
   const touchStartX = useRef<number | null>(null);
@@ -364,6 +393,10 @@ export function RoomShell({
             const hide = !!scene && scene.actorModelDrawn(MAIN_BLOBBI);
             drawing.style.display = hide ? 'none' : '';
             el.dataset.render = hide ? '3d' : '2d';
+            // Behind a back wall (a transition's scene): the drawing shows only outside the walls' outlines
+            const behind = !hide && !!scene && scene.behindWalls?.() === true;
+            const at = behind ? scene.projectBlobbi() : null;
+            drawing.style.clipPath = behind && at ? wallsClip(scene.wallsOnScreen(), at) : '';
           }
           // Without the scene (flat room) nobody walks, so everyone stands facing front
           const id = actor ?? MAIN_BLOBBI;
@@ -397,6 +430,7 @@ export function RoomShell({
     geometry,
     layout: roomLayout,
     roomKey: roomId,
+    roomEntry,
     placements: furniturePlacements,
     models,
     blobbi,
@@ -444,6 +478,13 @@ export function RoomShell({
       gaze: (offset) => sceneRef.current?.setActorGaze?.(MAIN_BLOBBI, offset),
       face: (face) => sceneRef.current?.setActorFace?.(MAIN_BLOBBI, face),
       pose: (pose) => sceneRef.current?.setActorPose?.(MAIN_BLOBBI, pose),
+      canChoreograph: () => typeof sceneRef.current?.setActorScript === 'function',
+      render: () => sceneRef.current?.renderNow?.(),
+      holdIntro: (ms) => sceneRef.current?.holdIntro?.(ms),
+      script: (script) => sceneRef.current?.setActorScript?.(MAIN_BLOBBI, script),
+      wallsCover: (on) => sceneRef.current?.setWallsCover?.(on),
+      skyAt: (x, z) => sceneRef.current?.skyAt?.(x, z) ?? 12,
+      standPointNear: (x, z) => sceneRef.current?.standPointNear?.(x, z) ?? { x, z },
       journey: (journey) => sceneRef.current?.setActorJourney?.(MAIN_BLOBBI, journey),
       journeyPreview: (preview) => {
         sceneRef.current?.setActorJourneyPreview?.(MAIN_BLOBBI, preview);
@@ -616,7 +657,7 @@ export function RoomShell({
             {/* The drawing, while no 3D model is on screen in its place (updateAnchors hides it once one is). Re-keyed per room: it hops in once the room has folded together */}
             {stage && (
               <div data-blobbi-2d>
-                <div key={is3d ? roomId : 'flat'} className={cx(is3d && 'room-enter')}>
+                <div key={is3d ? roomId : 'flat'} className={cx(is3d && !roomEntry && 'room-enter')}>
                   {stage}
                 </div>
               </div>
@@ -713,7 +754,7 @@ export function RoomShell({
             </div>
 
             <div className={cx('room-switcher flex items-center gap-1 p-1 rounded-full', hudVisible && 'pointer-events-auto')} data-testid="room-switcher">
-              <RoomNavButton direction="left" label={roomById(neighbourRoom(roomId, 'left')).label} onClick={goLeft} />
+              <RoomNavButton direction="left" label={roomById(neighbourRoom(navRoom, 'left')).label} onClick={goLeft} />
               <div className="flex flex-col items-center gap-[0.25em] min-w-[6.5em] px-[0.25em]">
                 <span className="flex items-center gap-[0.4em] text-[1em] font-semibold text-foreground" data-testid="room-label">
                   <RoomIcon className="size-[1.1em] text-muted-foreground" aria-hidden />
@@ -723,12 +764,12 @@ export function RoomShell({
                   {ROOM_ORDER.map((id) => (
                     <span
                       key={id}
-                      className={cx('h-[0.25em] rounded-full transition-all duration-300', id === roomId ? 'w-[0.8em] bg-primary' : 'w-[0.25em] bg-foreground/25')}
+                      className={cx('h-[0.25em] rounded-full transition-all duration-300', id === navRoom ? 'w-[0.8em] bg-primary' : 'w-[0.25em] bg-foreground/25')}
                     />
                   ))}
                 </span>
               </div>
-              <RoomNavButton direction="right" label={roomById(neighbourRoom(roomId, 'right')).label} onClick={goRight} />
+              <RoomNavButton direction="right" label={roomById(neighbourRoom(navRoom, 'right')).label} onClick={goRight} />
             </div>
 
             {/* The end slot, the size of the decorate button, so the switcher stays centred */}

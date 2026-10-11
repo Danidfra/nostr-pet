@@ -1194,6 +1194,19 @@
     width: auto;
     cursor: pointer;
   }
+  /* The animation playground sits below the teleport panel's button */
+  .playground-dev,
+  .playground-dev--closed {
+    top: 112px;
+  }
+  .playground-dev {
+    width: 260px;
+    max-height: calc(100vh - 130px);
+    overflow-y: auto;
+  }
+  .playground-dev button[data-active='true'] {
+    outline: 1px solid #c4b5fd;
+  }
   /* The 3D room's loading pulse (RoomLoading) */
   .room-loading-dot {
     width: 2.5rem;

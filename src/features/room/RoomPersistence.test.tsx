@@ -6,6 +6,7 @@
  * stored document that cannot be read shows the defaults with a word, and
  * none of it is published.
  */
+import { isRoomMemoryKey } from '@/features/room/lib/room-memory';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -86,7 +87,8 @@ function addAPlantAnd(finish: 'save' | 'cancel') {
 /** The Blobbi's own address d tag, as its event states it. */
 const dOf = (petId: string) => blobbiEvent(petId).tags.find((t) => t[0] === 'd')![1];
 const keyFor = (petId: string) => roomStoreKey(PUBKEY, dOf(petId));
-const storedKeys = () => Object.keys(localStorage).filter((k) => k.startsWith(ROOM_STORE_PREFIX));
+// The decorated rooms' documents (the room's memory of where the player was is its own, `room-memory.ts`)
+const storedKeys = () => Object.keys(localStorage).filter((k) => k.startsWith(ROOM_STORE_PREFIX) && !isRoomMemoryKey(k));
 
 function signedIn(petId = '0000000001') {
   currentUser.user = { pubkey: PUBKEY, signer: {} };

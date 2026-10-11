@@ -46,6 +46,7 @@ import type { EyeOffset } from '@/features/home/scene/gaze';
 import { usePresence } from '@/features/teleport/react/usePresence';
 import { journeyFrame } from '@/features/teleport/timeline';
 import { TeleportDevPanel } from './components/TeleportDevPanel';
+import { AnimationPlayground } from './components/AnimationPlayground';
 import { useRoomItemDrag } from './hooks/useRoomItemDrag';
 import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
 import { RoomHeader } from './components/RoomHeader';
@@ -63,6 +64,8 @@ import { useRoomSession } from './lib/room-session';
 import { roomStoreKey, type LoadStatus, type SaveStatus } from './lib/room-store';
 import { walkSpeedFor } from './lib/room-pace';
 import { pickGaze } from './lib/room-gaze';
+import { useRoomMemory } from './hooks/useRoomMemory';
+import { useRoomTransitions } from './hooks/useRoomTransitions';
 import { useExpression } from '@/features/expression/react/useExpression';
 import { PRIORITY } from '@/features/expression/controller';
 import { proceduralFace, type ExpressionName } from '@/features/expression/faces';
@@ -75,7 +78,6 @@ const RELIEF_MS = 1_800;
 /** How long its eyes stay on something the player touched. */
 const ATTENTION_MS = 1_600;
 /** When a 3D Blobbi's landing hop comes after a room change: as the room finishes folding in. */
-const ROOM_LANDING_MS = 700;
 /** How long the carousel pulses when a piece of furniture points at it (one turn of Ditto's guide pulse). */
 const PULSE_MS = 2_600;
 
@@ -131,17 +133,41 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const projected = useProjectedBlobbiState(blobbi);
   const isSleeping = blobbi.state === 'sleeping';
   const isEgg = blobbi.stage === 'egg';
-  // The room the player chose; a sleeper is in the bedroom whatever was chosen.
-  const [chosenRoom, setChosenRoom] = useState<RoomId>(DEFAULT_ROOM);
+  // What the room remembers on this device: the last room, where the Blobbi stood in each, the rooms seen built
+  const memory = useRoomMemory(pubkey, blobbi.d);
+  // The room the player chose (the last one, on a return); a sleeper is in the bedroom whatever was chosen.
+  const [chosenRoom, setChosenRoom] = useState<RoomId>(() => memory.initialRoom ?? DEFAULT_ROOM);
   const resolvedRoom = resolveRoom(chosenRoom, isSleeping);
+  useEffect(() => memory.rememberRoom(chosenRoom), [memory, chosenRoom]);
   // What each room shows this session: saved decorations, else the defaults.
   // Kept on this device for this player and this Blobbi; written on Save only
   const rooms = useRoomSession({ storageKey: roomStoreKey(pubkey, blobbi.d) });
   const storeNotice = useStoreNotice(rooms.persistence);
   const decorator = useRoomDecorator({ roomId: resolvedRoom, furniture: rooms.furnitureFor(resolvedRoom), layout: rooms.layoutFor(resolvedRoom), onSave: rooms.saveRoom });
-  // The room being decorated is pinned, so falling asleep meanwhile doesn't move the view out from under the draft.
-  const roomId = decorator.room ?? resolvedRoom;
   const nav = useRoomNavigation({ blobbi, editing: decorator.editing });
+  const actorRef = useRef<HTMLDivElement | null>(null);
+  // How the Blobbi gets from room to room: a scene (a first visit's spectacle, a quick return, now and then a
+  // surprise), the new room coming on screen part way through it. Everything it borrows is late-bound: it only
+  // calls these once the room is drawn.
+  const transitions = useRoomTransitions({
+    initialRoom: resolvedRoom,
+    controlRef: nav.shellProps.controlRef,
+    boxRef: actorRef,
+    memory,
+    canAct: () => canActRef.current,
+    reducedMotion: () => reduceMotionRef.current,
+    play: (sound) => play(sound),
+    showFace: (source, name, opts) => showFace(source, name, opts),
+    clearFace: (source) => clearFace(source),
+  });
+  const requestRoom = transitions.request;
+  useEffect(() => {
+    if (!decorator.editing) requestRoom(resolvedRoom);
+  }, [resolvedRoom, decorator.editing, requestRoom]);
+  // The room on screen (the room being decorated is pinned, so falling asleep meanwhile doesn't move the view out
+  // from under the draft); the header names the one asked for at once
+  const roomId = decorator.room ?? transitions.shownRoom;
+  const transitioning = transitions.transitioning;
   const { facing, motion } = nav;
   const baseline = useMemo(() => baselineExpression(blobbi, projected?.stats), [blobbi, projected?.stats]);
   // A care result's face for a moment (the 2D drawing's; the 3D model hops), then the baseline again
@@ -165,7 +191,6 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   // The eyes: on the pointer while standing with a face in view (the home's
   // gaze policy over the room's own element), a glance the way it goes while walking.
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const actorRef = useRef<HTMLDivElement | null>(null);
   // Where the eyes are, for the gaze: the Blobbi's art box on its feet, in 2D and 3D alike (the 2D drawing's own box
   // is folded away while the model stands in, and measuring it aimed the model's eyes from its feet)
   const gazeBoxRef = useRef<HTMLDivElement | null>(null);
@@ -212,6 +237,9 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   });
   const journey = presence.journey;
   const present = presence.state === 'present';
+  // Whether the Blobbi can play a room transition's scene: here, awake, hatched
+  const canActRef = useRef(false);
+  canActRef.current = present && !isEgg && !isSleeping;
   const absent = presence.state === 'absent';
   // Concentrating, eyes shut tight, the whole journey, until an arrival's "ta-da"
   const concentrating = journey !== null && !(journey.kind === 'arrive' && relievedFor === journey.startedAt);
@@ -295,8 +323,8 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const startDrag = drag.start;
   const onDragStart = useCallback((e: ReactPointerEvent, entry: RoomCareEntry) => {
     // Only into a 3D room, which can tell the Blobbi from the floor; without it, Use is the way
-    if (controlRef.current && present) startDrag(e, entry.key);
-  }, [controlRef, startDrag, present]);
+    if (controlRef.current && present && !transitioning) startDrag(e, entry.key);
+  }, [controlRef, startDrag, present, transitioning]);
   const onUse = useCallback((entry: RoomCareEntry) => {
     selectItem(entry.key);
     applyEntry(entry, planUse(entry.action, controlRef.current?.blobbiPosition() ?? null), roomId);
@@ -317,7 +345,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   }, [lifted, play]);
 
   // ─── Its own life, when nothing else is going on (useRoomLife) ───
-  const lifeEnabled = !isEgg && !isSleeping && !decorator.editing && !care.busy && drag.session === null && present && journeyPreview === null;
+  const lifeEnabled = !isEgg && !isSleeping && !decorator.editing && !care.busy && drag.session === null && present && journeyPreview === null && !transitioning;
   const life = useRoomLife({
     enabled: lifeEnabled,
     canWalk: nav.canWalk && !reducedMotion,
@@ -328,7 +356,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const markActivity = life.markActivity;
   // Its eyes: the pointer's when it has one, else what it is attending to, else where its own thoughts wander;
   // a glance the way it goes while walking (the 2D drawing; the 3D model turns its whole body)
-  const eyeOffset = pickGaze({ pointer: gaze.eyeOffset, attention, glance: life.glance, walking: motion === 'walking' ? { facing } : null });
+  const eyeOffset = pickGaze({ scripted: transitions.gaze, pointer: gaze.eyeOffset, attention, glance: life.glance, walking: motion === 'walking' ? { facing } : null });
   // The 3D model turns its whole body as it walks, so its eyes rest then
   const gaze3d = isEgg || isSleeping || motion === 'walking' ? null : eyeOffset ?? null;
   useEffect(() => {
@@ -354,21 +382,16 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
     if (sound) play(sound);
   }, [markActivity, blobbi.stage, blobbi.state, stats, react, gesture, play, present]);
 
-  // Going to another room: a soft swish; the 3D Blobbi gives a little hop as it lands (the drawing hops in by itself)
-  const firstRoom = useRef(true);
-  const has3d = actor3d.model !== null;
+  // Where it comes to rest is remembered for this room (not mid-walk, mid-scene, away, asleep or decorating)
+  const rememberPosition = memory.rememberPosition;
   useEffect(() => {
-    if (firstRoom.current) {
-      firstRoom.current = false;
-      return;
-    }
-    play('room');
-    if (!has3d) return;
-    const timer = setTimeout(() => gesture('bounce'), ROOM_LANDING_MS);
+    if (motion !== 'idle' || transitioning || !present || isSleeping || decorator.editing) return;
+    const timer = setTimeout(() => {
+      const at = controlRef.current?.blobbiPosition();
+      if (at) rememberPosition(roomId, at);
+    }, 500);
     return () => clearTimeout(timer);
-    // Only a change of room
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
+  }, [motion, transitioning, present, isSleeping, decorator.editing, roomId, rememberPosition, controlRef]);
 
   // Furniture: the bed rests or wakes; the fridge, the tub and the toy box open their items
   const bed = useMemo(() => {
@@ -469,6 +492,8 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
       <RoomShell
         roomId={roomId}
         onChangeRoom={setChosenRoom}
+        headerRoomId={decorator.room ?? resolvedRoom}
+        roomEntry={transitions.roomEntry}
         isSleeping={isSleeping}
         blobbiStage={blobbi.stage}
         blobbiWalkSpeed={walkSpeed}
@@ -479,7 +504,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         pointerHandlers={pointerHandlers}
         {...nav.shellProps}
         onDecorate={decorator.open}
-        decorateDisabled={care.busy || !present}
+        decorateDisabled={care.busy || !present || transitioning}
         // Its life is the app's (useRoomLife): it ambles only when nothing else is going on
         blobbiWanders={false}
         onInteract={onInteract}
@@ -526,13 +551,23 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
             highlight: pulse,
           } : null}
           offer={offer}
-          busy={care.busy || !present}
+          busy={care.busy || !present || transitioning}
           onRest={() => rest(bed)}
           restPending={care.restPending}
         />
       </RoomShell>
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
       {DEV_TELEPORT && <TeleportDevPanel presence={presence} preview={journeyPreview} onPreview={setJourneyPreview} />}
+      {DEV_TELEPORT && (
+        <AnimationPlayground
+          transitions={transitions}
+          roomId={roomId}
+          appearance={appearance}
+          onAppearance={setAppearance}
+          onFace={(name) => (name ? showFace('playground', name, { priority: PRIORITY.journey + 1 }) : clearFace('playground'))}
+          onRoom={setChosenRoom}
+        />
+      )}
     </div>
   );
 }

@@ -57,7 +57,7 @@ import {
 } from '../room-geometry';
 import type { WalkOutcome } from '@/features/home/scene/useBlobbiLocomotion';
 import type { BlobbiFacing } from '@blobbi-kit/renderer';
-import { facingAlongPath, facingBasis } from '../room-facing';
+import { facingAlongPath, facingBasis, facingForHeading } from '../room-facing';
 import type { ModelExtras } from './official-models';
 import { latheSegments } from './sno-builder';
 import { drawSurface, paperBump } from './paper-textures';
@@ -164,11 +164,28 @@ const LAMP_POOL = 3;
 /** Painted surfaces kept across room switches (5 rooms × 3 surfaces, plus slack). */
 const SURFACE_CACHE = 20;
 /** Fold-in timings (ms): floor unrolls, then the walls hinge up, then furniture pops. */
-const INTRO = { floor: [0, 420], left: [200, 760], right: [300, 860], furniture: 700 } as const;
+const INTRO = { floor: [0, 420], left: [200, 760], right: [300, 860], furniture: 700, stagger: 70, pop: 650 } as const;
+/**
+ * A room seen before comes back quickly: the same fold, brisk, its pieces up together. About 400 ms in all, so an
+ * ordinary change of room stays quick (the full fold-in is for a room's first visit).
+ */
+const QUICK_INTRO = { floor: [0, 170], left: [30, 240], right: [60, 270], furniture: 110, stagger: 16, pop: 280 } as const;
+
+/** How a room comes on screen: folding together for the first time, briskly when seen before, or simply there. */
+export type RoomIntro = 'build' | 'quick' | 'none';
+
+/** A choreographed place for a Blobbi (a transition's): where it is, how high, which way, and whether it walks. */
+export interface ActorScript {
+  x: number;
+  z: number;
+  /** Height of its feet above the floor (tiles); below zero, it has fallen off the floor. */
+  elev: number;
+  /** Yaw about +y (0 faces +z); the 2D drawing's facing follows. */
+  heading?: number;
+  walking?: boolean;
+}
 /** Faces meeting at more than this angle keep a hard edge. */
 const CREASE_ANGLE = (40 * Math.PI) / 180;
-const POP_DURATION = 650;
-const POP_STAGGER = 70;
 const POKE_DURATION = 420;
 /** Walking speed, tiles per second, for a Blobbi given none (Ditto's one speed); and the idle wander interval (ms). */
 const DEFAULT_WALK_SPEED = 2.2;
@@ -447,6 +464,8 @@ interface Actor {
   model: ActorModel | null;
   /** The model has been on a drawn frame (its shaders compiled): the DOM drawing may step aside. */
   modelDrawn: boolean;
+  /** A choreographed place (a room transition's), over its walk and its bounds, while set. */
+  script?: ActorScript | null;
   /** The face it wears in 3D (the kit's procedural face for an expression), or null for the neutral face. */
   face?: ProceduralFace | null;
   /** A choreographed pose of its 3D body (a crouch, a landing, a lean): see `ActorFrame.pose`. */
@@ -556,6 +575,11 @@ export class RoomScene {
   private introStart: number | null = null;
   /** The fold-in hasn't been drawn yet; it waits for the next shader compile. */
   private introPending = false;
+  private introTiming: { floor: readonly [number, number]; left: readonly [number, number]; right: readonly [number, number]; furniture: number; stagger: number; pop: number } = INTRO;
+  /** The back walls drawn over the 2D Blobbi too (it is behind one: a transition's). */
+  private wallsCover = false;
+  /** The fold-in held at this many ms (a development scrubber), or null to let it run. */
+  private introHeld: number | null = null;
   private folds?: { floor: THREE.Group; left: THREE.Group; right: THREE.Group };
 
   // Editing overlays
@@ -667,9 +691,14 @@ export class RoomScene {
 
   /**
    * Replace the furniture. Items whose key and model are unchanged keep their
-   * meshes and just move. `animate` plays the room's fold-in first.
+   * meshes and just move. `intro` says how the room comes on screen (its
+   * full fold-in, a quick one, or none); `spawn` where the user's Blobbi
+   * stands in it (its nearest free spot to that point; on the bed asleep),
+   * or null to leave it where it is.
    */
-  setItems(items: SceneItem[], animate: boolean) {
+  setItems(items: SceneItem[], intro: RoomIntro | boolean = 'none', spawn: { x: number; z: number } | null = null) {
+    const mode: RoomIntro = intro === true ? 'build' : intro === false ? 'none' : intro;
+    const timing = mode === 'quick' ? QUICK_INTRO : INTRO;
     const next = new Map(items.map((item) => [item.key, item]));
     for (const [key, built] of this.built) {
       const item = next.get(key);
@@ -680,10 +709,11 @@ export class RoomScene {
       }
     }
     // A newly shown room folds together first, then its furniture pops up
-    const intro = animate && !this.reducedMotion;
-    if (intro) {
+    const animating = mode !== 'none' && !this.reducedMotion;
+    if (animating) {
       this.introStart = performance.now();
       this.introPending = true;
+      this.introTiming = timing;
     }
     let order = 0;
     for (const item of items) {
@@ -694,18 +724,18 @@ export class RoomScene {
         existing.item = { ...item, placement, mount: mountFor(item, existing.raw) };
         this.rescale(existing);
         // Pieces the next room shares pop up with the rest
-        if (intro) existing.popStart = this.introStart! + INTRO.furniture + order++ * POP_STAGGER;
+        if (animating) existing.popStart = this.introStart! + timing.furniture + order++ * timing.stagger;
         continue;
       }
       const built = this.buildItem(item);
       this.needsCompile = true;
-      if (intro) built.popStart = this.introStart! + INTRO.furniture + order++ * POP_STAGGER;
+      if (animating) built.popStart = this.introStart! + timing.furniture + order++ * timing.stagger;
       this.built.set(item.key, built);
     }
     this.byIndex = new Map([...this.built.values()].map((b) => [b.item.index, b]));
     this.evictTemplates();
     this.layoutItems();
-    if (animate) this.spawnBlobbi();
+    if (spawn || (intro === true)) this.spawnBlobbi(spawn ?? undefined);
     this.syncClockTimer();
     this.requestRender();
   }
@@ -1172,6 +1202,7 @@ export class RoomScene {
 
   private canWander(actor: Actor): boolean {
     if (actor.id === MAIN && !this.mainWanders) return false;
+    if (actor.script) return false;
     return this.canWalk(actor) && !this.reducedMotion && !this.pendingWalks.has(actor.id);
   }
 
@@ -1269,7 +1300,9 @@ export class RoomScene {
 
   /** Whether a Blobbi is on its way somewhere (the user's by default). */
   isWalking(id = MAIN): boolean {
-    return (this.actors.get(id)?.path.length ?? 0) > 0;
+    const actor = this.actors.get(id);
+    if (actor?.script) return !!actor.script.walking;
+    return (actor?.path.length ?? 0) > 0;
   }
 
   /** Whether a Blobbi may be sent walking right now: not an egg, not asleep, not while decorating. */
@@ -1399,9 +1432,11 @@ export class RoomScene {
     }
   }
 
-  /** Put the Blobbi where it belongs on room entry: on the bed when asleep, else near the middle. */
-  private spawnBlobbi() {
+  /** Put the Blobbi where it belongs on room entry: on the bed when asleep, else at `at` (its nearest free spot), else near the middle. */
+  private spawnBlobbi(at?: { x: number; z: number }) {
     const b = this.actors.get(MAIN)!;
+    // A scene has it (a room transition): the scene puts it down where it belongs when it ends
+    if (b.script) return;
     b.path = [];
     b.hop = 0;
     const bed = this.sleepTarget === 1
@@ -1413,7 +1448,7 @@ export class RoomScene {
       b.z = clampToReach(midZ(bed.rect), b.reach);
       b.elev = bed.size.y * 0.55;
     } else {
-      this.standNear(b, 4.5, 4.5);
+      this.standNear(b, at?.x ?? 4.5, at?.z ?? 4.5);
       b.elev = 0;
     }
     // Coming into a room (or into bed) ends whatever walk was under way
@@ -1440,6 +1475,80 @@ export class RoomScene {
     if (this.reducedMotion) lamp.level = lamp.on ? 1 : 0;
     this.requestRender();
     return true;
+  }
+
+  /**
+   * Choreograph a Blobbi (a room transition): it stands, walks or flies
+   * where the script says, past the floor's edge or above the room if need
+   * be, its walk and its bounds set aside meanwhile. Cleared, it is put back
+   * on the floor at the free spot nearest where the script left it, inside
+   * the room's bounds, so a transition never leaves it anywhere invalid.
+   */
+  setActorScript(id: string, script: ActorScript | null) {
+    const actor = this.actors.get(id);
+    if (!actor) return;
+    if (script) {
+      if (!actor.script) {
+        actor.path = [];
+        this.settleWalk(id, 'stopped');
+      }
+      actor.script = script;
+      actor.x = script.x;
+      actor.z = script.z;
+      actor.elev = script.elev;
+      if (script.heading !== undefined) {
+        actor.heading = script.heading;
+        actor.facing = facingForHeading(Math.sin(script.heading), Math.cos(script.heading), FACING_BASIS, actor.facing);
+      }
+    } else if (actor.script) {
+      actor.script = null;
+      actor.elev = 0;
+      actor.facing = 'front';
+      actor.heading = AZIMUTH;
+      this.standNear(actor, Math.min(G, Math.max(0, actor.x)), Math.min(G, Math.max(0, actor.z)));
+    }
+    this.shadowsDirty = true;
+    this.requestRender();
+  }
+
+  /** Where a Blobbi would stand for a floor point (the free spot nearest it, clear of the walls and the furniture there now). */
+  standPointNear(x: number, z: number, id = MAIN): { x: number; z: number } {
+    const actor = this.actors.get(id);
+    if (!actor) return { x, z };
+    const [i, j] = this.nearestFreeTile(Math.min(G - 0.01, Math.max(0.01, x)), Math.min(G - 0.01, Math.max(0.01, z)), id);
+    return this.standPoint(actor, i, j);
+  }
+
+  /** Hold the room's fold-in at `ms` after it began (a development scrubber), or let it run again (null). */
+  holdIntro(ms: number | null) {
+    this.introHeld = ms;
+    if (ms !== null && this.introStart === null) this.introStart = performance.now() - ms;
+    this.requestRender();
+  }
+
+  /**
+   * The Blobbi is behind a back wall (a transition's scene): the 3D model is hidden by the wall as anything is, and
+   * the 2D drawing, which is drawn over the canvas, is clipped to everything outside the walls' outlines on screen
+   * (`wallsOnScreen`), so the wall hides it exactly as far as it is behind it.
+   */
+  setWallsCover(on: boolean) {
+    if (this.wallsCover === on) return;
+    this.wallsCover = on;
+    this.requestRender();
+  }
+
+  /** Whether the 2D Blobbi is behind a back wall now (`setWallsCover`). */
+  behindWalls(): boolean {
+    return this.wallsCover;
+  }
+
+  /** The two back walls' outlines on the canvas (each four points), for clipping what is behind them. */
+  wallsOnScreen(): { x: number; y: number }[][] {
+    const quads = [
+      [[0, 0, 0], [0, 0, G], [0, H, G], [0, H, 0]],
+      [[0, 0, 0], [G, 0, 0], [G, H, 0], [0, H, 0]],
+    ];
+    return quads.map((q) => q.map(([x, y, z]) => this.projectPoint(x, y, z) ?? { x: 0, y: 0 }));
   }
 
   /** The face a Blobbi's 3D model wears (the 2D drawing takes the same expression as a prop); null for the neutral face. */
@@ -1487,6 +1596,11 @@ export class RoomScene {
   private stepActors(dt: number): boolean {
     let moving = false;
     for (const b of this.actors.values()) {
+      // A choreographed Blobbi is where its script puts it (`setActorScript`)
+      if (b.script) {
+        moving = true;
+        continue;
+      }
       // Face where the walk is heading (a few waypoints ahead, so a staircase
       // path around furniture reads as one direction), front with no path.
       b.facing = facingAlongPath(b.x, b.z, b.path, b.facing, FACING_BASIS);
@@ -1567,7 +1681,7 @@ export class RoomScene {
         o.position.set(b.x, b.elev + b.hop, b.z);
         o.scale.setScalar(tiles / b.model.box);
         const sleeping = b.id === MAIN && this.sleepTarget === 1;
-        const motion = b.path.length ? 'walking' : b.isEgg || sleeping ? 'still' : 'idle';
+        const motion = b.script ? (b.script.walking ? 'walking' : 'idle') : b.path.length ? 'walking' : b.isEgg || sleeping ? 'still' : 'idle';
         // Seen from the open corner: it leans back from the camera by its stage's lean (`ROOM_LEAN`)
         if (b.model.update({ dt, motion, heading: b.heading, sleeping, viewAzimuth: AZIMUTH, gaze: b.gaze ?? undefined, journey: travel, face: b.face ?? null, pose: b.pose ?? null })) animating = true;
       }
@@ -1615,7 +1729,12 @@ export class RoomScene {
    * canvas (a little past it). The motes rise out through it and come in
    * from it, whatever the room's size, camera or where the Blobbi stands.
    */
-  private skyAbove(b: Actor): number {
+  /** The same for any floor point (tiles above the floor): how high a transition may send the Blobbi before it is out of view. */
+  skyAt(x: number, z: number): number {
+    return this.skyAbove({ x, z, elev: 0 } as Actor);
+  }
+
+  private skyAbove(b: Pick<Actor, 'x' | 'z' | 'elev'>): number {
     const p = new THREE.Vector3();
     const above = (y: number) => p.set(b.x, b.elev + y, b.z).project(this.camera).y;
     let lo = 0;
@@ -2306,6 +2425,7 @@ export class RoomScene {
     const phase = ([from, to]: readonly [number, number]) => Math.max(0, Math.min(1, (t - from) / (to - from)));
     const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
 
+    const INTRO = this.introTiming;
     const floor = easeOut(phase(INTRO.floor));
     folds.floor.scale.set(Math.max(0.001, floor), 1, Math.max(0.001, floor));
     folds.floor.visible = floor > 0.02;
@@ -2356,6 +2476,8 @@ export class RoomScene {
   private renderFrame() {
     if (!this.geometry || !this.layout || this.disposed) return;
     const now = performance.now();
+    // The fold-in's own clock: held by a scrubber, or running
+    const introNow = this.introHeld !== null && this.introStart !== null ? this.introStart + this.introHeld : now;
     // The first frame after a rest counts as one frame's worth
     const dt = Math.min(0.1, this.lastFrame ? (now - this.lastFrame) / 1000 : 1 / 60);
     this.lastFrame = now;
@@ -2417,7 +2539,7 @@ export class RoomScene {
       lamp.color.copy(source.color);
     });
 
-    if (this.applyIntro(now)) {
+    if (this.applyIntro(introNow)) {
       animating = true;
       this.shadowsDirty = true;
     }
@@ -2426,7 +2548,7 @@ export class RoomScene {
     for (const built of this.built.values()) {
       let sx = 1, sy = 1;
       if (built.popStart !== undefined) {
-        const t = (now - built.popStart) / POP_DURATION;
+        const t = (introNow - built.popStart) / this.introTiming.pop;
         if (t <= 0) {
           sy = 0.001;
           animating = true;

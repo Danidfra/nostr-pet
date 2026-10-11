@@ -28,9 +28,17 @@ export type BlobbiSoundId =
   | 'gather'
   | 'rise'
   | 'descend'
-  | 'tada';
+  | 'tada'
+  // Its moments in a room transition, and being petted
+  | 'crouch'
+  | 'jump'
+  | 'land'
+  | 'surprise'
+  | 'fall'
+  | 'peek'
+  | 'pet';
 
-export const BLOBBI_SOUNDS: readonly BlobbiSoundId[] = ['eat', 'clean', 'poke', 'happy', 'excited', 'upset', 'sleepy', 'hatch', 'evolve', 'drink', 'select', 'pickup', 'drop', 'room', 'knock', 'place', 'save', 'invalid', 'gather', 'rise', 'descend', 'tada'];
+export const BLOBBI_SOUNDS: readonly BlobbiSoundId[] = ['eat', 'clean', 'poke', 'happy', 'excited', 'upset', 'sleepy', 'hatch', 'evolve', 'drink', 'select', 'pickup', 'drop', 'room', 'knock', 'place', 'save', 'invalid', 'gather', 'rise', 'descend', 'tada', 'crouch', 'jump', 'land', 'surprise', 'fall', 'peek', 'pet'];
 
 /** @deprecated kept as an alias for the vocabulary type; the files are gone. */
 export type SoundId = BlobbiSoundId;

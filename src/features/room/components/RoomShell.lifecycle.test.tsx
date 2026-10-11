@@ -112,7 +112,7 @@ describe('RoomShell keeps one scene through decorating', () => {
     expect(s.canvas).toBe(canvases[0]);
     // The first show folds the room in
     const firstItems = s.calls.find((c) => c.name === 'setItems');
-    expect(firstItems?.args[1]).toBe(true);
+    expect(firstItems?.args[1]).toBe('build');
     const mark = s.calls.length;
 
     // Enter the editor with a draft copy of the room
@@ -122,7 +122,7 @@ describe('RoomShell keeps one scene through decorating', () => {
     expect(made.scenes).toHaveLength(1);
     expect(s.disposed).toBe(false);
     expect(canvases.every((c) => c.isConnected)).toBe(true);
-    for (const c of s.calls.slice(mark).filter((c) => c.name === 'setItems')) expect(c.args[1]).toBe(false); // no fold-in on an edit
+    for (const c of s.calls.slice(mark).filter((c) => c.name === 'setItems')) expect(c.args[1]).toBe('none'); // no fold-in on an edit
     expect(s.calls.slice(mark).find((c) => c.name === 'setEditing')?.args).toEqual([true, null]);
 
     // Select a piece, move it, add one, change the wallpaper
@@ -138,7 +138,7 @@ describe('RoomShell keeps one scene through decorating', () => {
     expect(made.scenes).toHaveLength(1);
     expect(s.disposed).toBe(false);
     expect(names(s, m2)).not.toContain('dispose');
-    for (const c of s.calls.slice(m2).filter((c) => c.name === 'setItems')) expect(c.args[1]).toBe(false);
+    for (const c of s.calls.slice(m2).filter((c) => c.name === 'setItems')) expect(c.args[1]).toBe('none');
     expect(s.calls.slice(m2).filter((c) => c.name === 'setEditing').map((c) => c.args)).toEqual(expect.arrayContaining([[true, 2], [true, added.length - 1]]));
     expect(s.calls.slice(m2).find((c) => c.name === 'setLayout')?.args[0]).toBe(wall);
 
@@ -147,7 +147,7 @@ describe('RoomShell keeps one scene through decorating', () => {
     rerender(<Harness roomId="home" placements={home} />);
     await waitFor(() => expect(names(s, m3)).toContain('setEditing'));
     expect(s.calls.slice(m3).find((c) => c.name === 'setEditing')?.args).toEqual([false, null]);
-    for (const c of s.calls.slice(m3).filter((c) => c.name === 'setItems')) expect(c.args[1]).toBe(false);
+    for (const c of s.calls.slice(m3).filter((c) => c.name === 'setItems')) expect(c.args[1]).toBe('none');
     expect(made.scenes).toHaveLength(1);
     expect(s.disposed).toBe(false);
     expect(canvases.every((c) => c.isConnected)).toBe(true);
@@ -164,7 +164,7 @@ describe('RoomShell keeps one scene through decorating', () => {
     const mark = s.calls.length;
     rerender(<Harness roomId="kitchen" placements={roomFurnitureFor('kitchen')} />);
     await waitFor(() => expect(names(s, mark)).toContain('setItems'));
-    expect(s.calls.slice(mark).find((c) => c.name === 'setItems')?.args[1]).toBe(true);
+    expect(s.calls.slice(mark).find((c) => c.name === 'setItems')?.args[1]).toBe('build');
     expect(s.calls.slice(mark).find((c) => c.name === 'setLayout')?.args[0]).toBe(roomLayoutFor('kitchen'));
     expect(made.scenes).toHaveLength(1);
     expect(s.disposed).toBe(false);

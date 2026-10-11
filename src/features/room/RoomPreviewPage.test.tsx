@@ -4,6 +4,7 @@
  * (facing front, in the living room, with the registry's label) when one is.
  * Nothing is published by opening it.
  */
+import { isRoomMemoryKey } from '@/features/room/lib/room-memory';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -117,8 +118,9 @@ describe('decorating on the /room preview (the 3D room stubbed as ready)', () =>
     await openDecorator();
     expect(screen.getByTestId('room-shell')).toHaveAttribute('data-room', 'home');
     expect(roomFurnitureFor('home').length).toBeGreaterThan(0);
-    // The only key written is the test harness's own login store; nothing of the room's
-    expect(setItem.mock.calls.map((c) => c[0]).filter((k) => k !== 'test:login')).toEqual([]);
+    // The only keys written are the test harness's own login store and the room's memory of where the player was
+    // (this device only, never Nostr); nothing of the room's decoration
+    expect(setItem.mock.calls.map((c) => c[0]).filter((k) => k !== 'test:login' && !isRoomMemoryKey(k))).toEqual([]);
     expect(relay.published).toHaveLength(0);
     await waitFor(() => expect(event).not.toHaveBeenCalled());
   });
