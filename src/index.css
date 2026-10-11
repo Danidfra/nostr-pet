@@ -1151,6 +1151,49 @@
     .stat-glow-attention { animation: stat-glow-pulse-attention 2s linear -999999s infinite; }
     .stat-glow-urgent { animation: stat-glow-pulse-urgent 2s linear -999999s infinite; }
   }
+  /* A journey around a 2D drawing (teleport/react/TeleportFrame2D): the drawing, and the motes' canvas reaching above it */
+  .teleport-2d {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  .teleport-2d__body {
+    width: 100%;
+    height: 100%;
+  }
+  .teleport-2d__motes {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    pointer-events: none;
+  }
+  /* Development only: the teleport preview's panel (TeleportDevPanel) */
+  .teleport-dev {
+    position: fixed;
+    left: 12px;
+    top: 72px;
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 230px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(20, 18, 32, 0.92);
+    color: #f5f3ff;
+    font: 12px ui-monospace, Menlo, monospace;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .teleport-dev button {
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.12);
+  }
+  .teleport-dev--closed {
+    width: auto;
+    cursor: pointer;
+  }
   /* The 3D room's loading pulse (RoomLoading) */
   .room-loading-dot {
     width: 2.5rem;

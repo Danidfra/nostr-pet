@@ -17,7 +17,10 @@
  */
 
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
-import { BlobbiRenderer, type BlobbiEmotion, type BlobbiFacing, type BlobbiMotion } from '@blobbi-kit/renderer';
+import { BlobbiRenderer, type BlobbiExpression, type BlobbiFacing, type BlobbiMotion } from '@blobbi-kit/renderer';
+import { TeleportFrame2D } from '@/features/teleport/react/TeleportFrame2D';
+import type { Journey } from '@/features/teleport/presence';
+import type { JourneyKind } from '@/features/teleport/timeline';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
@@ -31,8 +34,8 @@ interface RoomBlobbiProps {
   blobbi: BlobbiCompanion;
   /** Which way it faces, from where it walks in the room (the shell reports it). Default front. */
   facing?: BlobbiFacing;
-  /** The face it wears; the home's baseline when nothing is happening. */
-  expression?: BlobbiEmotion;
+  /** The face it wears (a preset, or the renderer's explicit parts); the home's baseline when nothing is happening. */
+  expression?: BlobbiExpression;
   /**
    * Body motion: `walking` while the room moves it (the renderer walks the
    * V3 adult on its legs and hops a baby, its own gaits), else the idle
@@ -45,6 +48,12 @@ interface RoomBlobbiProps {
   variant?: 'main' | 'guest';
   /** A body gesture to play (the home's): a new key plays it again. */
   gesture?: { kind: PokeGesture; key: number } | null;
+  /** A journey under way (teleporting): drawn around the canonical drawing, never in it. */
+  journey?: Journey | null;
+  /** Away (gone somewhere else): nothing is drawn. */
+  absent?: boolean;
+  /** A fixed moment of a journey to show (the development scrubber). */
+  journeyPreview?: { kind: JourneyKind; t: number; reduced?: boolean } | null;
 }
 
 /** Side of the Blobbi's art box before the room scales it. */
@@ -88,7 +97,7 @@ function Standing({ inset, nameTag, children }: { inset: number; nameTag?: React
   );
 }
 
-export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', motion, eyeOffset, variant = 'main', gesture }, ref) {
+export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', motion, eyeOffset, variant = 'main', gesture, journey = null, absent = false, journeyPreview = null }, ref) {
   const boxRef = useRef<HTMLDivElement>(null);
   useImperativeHandle(ref, () => boxRef.current as HTMLDivElement);
   // A gesture: the home's keyframes on this box around the renderer, composited over whatever it is doing
@@ -134,20 +143,23 @@ export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function R
         // scene moves the Blobbi that much faster with it (room-pace.ts), so a planted foot keeps its spot.
         style={{ '--room-walk-tempo': walkTempoFor(blobbi.stage) } as CSSProperties}
       >
-        <BlobbiRenderer
-          visual={visual}
-          instanceId={instanceId}
-          size="100%"
-          facing={facing}
-          motion={bodyMotion}
-          eyeOffset={isEgg || isSleeping ? undefined : eyeOffset}
-          expression={expression}
-          isSleeping={isSleeping}
-          sleepIndicator="none"
-          label={blobbi.name}
-          transparent
-          style={{ width: '100%', height: '100%' }}
-        />
+        {/* A journey is drawn around the kit's drawing (a mask, a glow, motes), never in it */}
+        <TeleportFrame2D journey={journey} absent={absent} preview={journeyPreview} fallbackTint={visual.baseColor}>
+          <BlobbiRenderer
+            visual={visual}
+            instanceId={instanceId}
+            size="100%"
+            facing={facing}
+            motion={bodyMotion}
+            eyeOffset={isEgg || isSleeping ? undefined : eyeOffset}
+            expression={expression}
+            isSleeping={isSleeping}
+            sleepIndicator="none"
+            label={blobbi.name}
+            transparent
+            style={{ width: '100%', height: '100%' }}
+          />
+        </TeleportFrame2D>
         {/* The one sleep cue, the home's own, as on the 2D home. */}
         {isSleeping && (
           <span aria-hidden className="room-blobbi__zzz scene-text animate-sparkle">

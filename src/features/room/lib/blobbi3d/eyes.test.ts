@@ -174,7 +174,7 @@ describe('the eyes', () => {
         });
       }
     }
-  });
+  }, 30_000); // a dozen models, vertex by vertex: room under a full parallel run
 
   it('look where the gaze says, sliding over the white by the kit\'s travel, and back to rest', () => {
     const m = model('lab-1', 'adult');

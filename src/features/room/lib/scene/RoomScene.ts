@@ -34,6 +34,7 @@ import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.j
 import type { SnoNode } from './sno-object';
 import { buildSnoObject } from './sno-three';
 import type { ActorGesture, ActorModel } from '../blobbi3d/actor';
+import { journeyDuration, journeyFrame, type JourneyFrame, type JourneyKind } from '@/features/teleport/timeline';
 
 import type { FurnitureInteraction, FurnitureMount } from '../furniture-3d';
 import type { FurniturePlacement } from '../room-furniture';
@@ -445,6 +446,10 @@ interface Actor {
   modelDrawn: boolean;
   /** Where its 3D eyes look, the kit's offset (-1..1 each way), when the app says (a glance, the pointer); null to rest. */
   gaze: { x: number; y: number } | null;
+  /** A journey under way (teleporting), from its presence controller. */
+  journey: { kind: JourneyKind; startedAt: number; reduced: boolean } | null;
+  /** A scrubbed moment of a journey to show instead (development). */
+  journeyPreview: { kind: JourneyKind; t: number; reduced: boolean } | null;
   caster: THREE.Mesh;
   contact: THREE.Mesh;
   /** Has said hello to the user's Blobbi since it last walked over. */
@@ -565,6 +570,8 @@ export class RoomScene {
 
   constructor(canvas: HTMLCanvasElement, fgCanvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    // A teleporting Blobbi's model is cut by a plane (teleport3d.ts); nothing else uses clipping, which costs nothing unset
+    this.renderer.localClippingEnabled = true;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     // Shadows re-render only when something that casts them moves
@@ -1119,7 +1126,7 @@ export class RoomScene {
     contact.rotation.x = -Math.PI / 2;
     contact.renderOrder = 1;
     this.scene.add(caster, contact);
-    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, speed: DEFAULT_WALK_SPEED, path: [], walked: 0, facing: 'front', heading: AZIMUTH, reach: { back: 0.5, front: 0.5 }, model: null, modelDrawn: false, gaze: null, caster, contact, met: false };
+    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, speed: DEFAULT_WALK_SPEED, path: [], walked: 0, facing: 'front', heading: AZIMUTH, reach: { back: 0.5, front: 0.5 }, model: null, modelDrawn: false, gaze: null, journey: null, journeyPreview: null, caster, contact, met: false };
     this.actors.set(id, actor);
     return actor;
   }
@@ -1497,15 +1504,25 @@ export class RoomScene {
   /** Place each Blobbi's shadow caster and contact shadow, and drive its 3D model if it has one. True while a model animates. */
   private placeActorProxies(dt: number): boolean {
     let animating = false;
+    const now = performance.now();
     for (const b of this.actors.values()) {
       const tiles = b.tiles;
       const width = tiles * 0.55;
       const height = tiles * 0.7;
-      b.caster.visible = b.visible;
+      // A journey under way (or a scrubbed moment of one): its frame, which the shadow and the model both follow
+      const travel = this.journeyFrameOf(b, now);
+      if (travel) {
+        animating = true;
+        // Its cast shadow goes with it: the shadow map is redrawn while it travels
+        this.shadowsDirty = true;
+      }
+      // The shadow goes with what is left of the body
+      const solid = travel ? travel.frame.cut * travel.frame.opacity : 1;
+      b.caster.visible = b.visible && solid > 0.35;
       b.caster.scale.set(width, height, width * 0.8);
       b.caster.position.set(b.x, b.elev + b.hop + height / 2, b.z);
-      b.contact.visible = b.visible;
-      const contact = width * Math.max(0.4, 1.15 - b.hop * 1.5);
+      b.contact.visible = b.visible && solid > 0.08;
+      const contact = width * Math.max(0.4, 1.15 - b.hop * 1.5) * (0.55 + 0.45 * solid);
       b.contact.scale.set(contact, contact * 0.85, 1);
       b.contact.position.set(b.x, b.elev + 0.06, b.z);
       if (b.model) {
@@ -1516,10 +1533,55 @@ export class RoomScene {
         const sleeping = b.id === MAIN && this.sleepTarget === 1;
         const motion = b.path.length ? 'walking' : b.isEgg || sleeping ? 'still' : 'idle';
         // Seen from the open corner: it leans back from the camera by its stage's lean (`ROOM_LEAN`)
-        if (b.model.update({ dt, motion, heading: b.heading, sleeping, viewAzimuth: AZIMUTH, gaze: b.gaze ?? undefined })) animating = true;
+        if (b.model.update({ dt, motion, heading: b.heading, sleeping, viewAzimuth: AZIMUTH, gaze: b.gaze ?? undefined, journey: travel })) animating = true;
       }
     }
     return animating;
+  }
+
+  /** A Blobbi's journey frame now (or the scrubbed one), or null when it is not travelling. */
+  private journeyFrameOf(b: Actor, now: number): { frame: JourneyFrame; kind: JourneyKind; t: number } | null {
+    if (b.journeyPreview) {
+      const { kind, t, reduced } = b.journeyPreview;
+      return { frame: journeyFrame(kind, t, reduced), kind, t };
+    }
+    if (!b.journey) return null;
+    const t = now - b.journey.startedAt;
+    // A little past its end, so the last frame (whole, or gone) is drawn before the model rests
+    if (t > journeyDuration(b.journey.kind, b.journey.reduced) + 120) {
+      b.journey = null;
+      return null;
+    }
+    return { frame: journeyFrame(b.journey.kind, t, b.journey.reduced), kind: b.journey.kind, t };
+  }
+
+  /**
+   * A Blobbi's journey (its presence controller's; `teleport/presence.ts`):
+   * the scene draws its frames on the 3D model and fades its shadow with it.
+   * The 2D drawing draws its own (`TeleportFrame2D`) from the same timeline.
+   */
+  setActorJourney(id: string, journey: { kind: JourneyKind; startedAt: number; reduced: boolean } | null) {
+    const actor = this.actors.get(id);
+    if (!actor) return;
+    actor.journey = journey;
+    // Leaving or arriving, it stands where it is
+    if (journey) this.stopWalk(id);
+    this.requestRender();
+  }
+
+  /** Show one fixed moment of a journey (a development scrubber), or stop showing one. */
+  setActorJourneyPreview(id: string, preview: { kind: JourneyKind; t: number; reduced: boolean } | null) {
+    const actor = this.actors.get(id);
+    if (!actor) return;
+    actor.journeyPreview = preview;
+    this.requestRender();
+  }
+
+  /** Draw a frame now, not on the next animation frame: a development scrubber's moment, in a tab that may be hidden. */
+  renderNow() {
+    if (this.frame) cancelAnimationFrame(this.frame);
+    this.frame = 0;
+    this.renderFrame();
   }
 
   /**

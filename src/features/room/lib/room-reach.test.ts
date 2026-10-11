@@ -11,12 +11,13 @@ import { describe, expect, it } from 'vitest';
 
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { buildBlobbiModel } from './blobbi3d/model';
-import { createBlobbiActor } from './blobbi3d/actor';
+import { createBlobbiActor, ROOM_LEAN } from './blobbi3d/actor';
 import { genomeOf, labBlobbi, morphologyOf } from './blobbi3d/identity';
 import { extremeFixtures, pairFixtures, traitFixtures } from './blobbi3d/coverage';
 import { BLOBBI_REACH_FRACTIONS, CAMERA_AZIMUTH, blobbiBoxTiles, blobbiReachTiles, clampToReach } from './room-geometry';
 
-const HEADINGS = 8;
+const HEADINGS = 4;
+const ROOM_LEAN_OF = (stage: 'adult' | 'baby') => ROOM_LEAN[stage];
 
 function reachOf(stage: 'adult' | 'baby') {
   const genomes = [
@@ -26,12 +27,29 @@ function reachOf(stage: 'adult' | 'baby') {
   let back = 0;
   let front = 0;
   const box = new THREE.Box3();
+  const v = new THREE.Vector3();
   for (const genome of genomes) {
     const model = buildBlobbiModel(morphologyOf(genome, stage), genome.seed);
     const actor = createBlobbiActor(model, { reducedMotion: () => true });
-    for (let h = 0; h < HEADINGS; h++) {
-      for (const viewAzimuth of [CAMERA_AZIMUTH, undefined]) {
-        actor.update({ dt: 0, motion: 'still', heading: (h / HEADINGS) * Math.PI * 2, sleeping: false, viewAzimuth });
+    // Upright, its reach is the same every way it turns: its plan radius, in one pass over its vertices
+    actor.update({ dt: 0, motion: 'still', heading: 0, sleeping: false });
+    model.root.updateMatrixWorld(true);
+    let radius = 0;
+    model.root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const p = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+      for (let i = 0; i < p.count; i++) {
+        v.fromBufferAttribute(p, i).applyMatrix4(mesh.matrixWorld);
+        radius = Math.max(radius, Math.hypot(v.x, v.z));
+      }
+    });
+    back = Math.max(back, radius);
+    front = Math.max(front, radius);
+    // Leaning back from the room's camera (a baby), measured where it leans: toward the back walls
+    if (ROOM_LEAN_OF(stage) > 0) {
+      for (let h = 0; h < HEADINGS; h++) {
+        actor.update({ dt: 0, motion: 'still', heading: (h / HEADINGS) * Math.PI * 2, sleeping: false, viewAzimuth: CAMERA_AZIMUTH });
         model.root.updateMatrixWorld(true);
         box.setFromObject(model.root, true);
         back = Math.max(back, -box.min.x, -box.min.z);

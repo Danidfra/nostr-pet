@@ -9,6 +9,7 @@ import type { BlobbiMotion } from '@blobbi-kit/renderer/procedural';
 import { createBlobbiActor, type ActorModel } from './actor';
 import type { BlobbiModel } from './model';
 import { yawForView } from './rig';
+import { journeyFrame, type JourneyKind } from '@/features/teleport/timeline';
 import { CAMERA_ELEVATION } from '../room-geometry';
 
 /** Where the stage's camera looks (model units), and from how far: alone, and beside the figurine. */
@@ -58,6 +59,8 @@ export class BlobbiStage {
   private motion: BlobbiMotion = 'idle';
   private sleeping = false;
   private lookAt: THREE.Vector3 | null = null;
+  /** A fixed moment of a journey to show (the lab's teleport preview). */
+  private journey: { kind: JourneyKind; t: number; reduced: boolean } | null = null;
   private heading = 0;
   private frame = 0;
   private last = 0;
@@ -76,6 +79,8 @@ export class BlobbiStage {
     canvas.style.height = '100%';
     this.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    // A teleporting model is cut by a plane (teleport3d.ts)
+    this.renderer.localClippingEnabled = true;
     host.appendChild(canvas);
     this.renderer.setPixelRatio(Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1));
     this.renderer.shadowMap.enabled = true;
@@ -152,6 +157,13 @@ export class BlobbiStage {
     this.requestFrame();
   }
 
+  /** Show one moment of a journey (leaving or arriving), or none. */
+  setJourney(journey: { kind: JourneyKind; t: number; reduced?: boolean } | null) {
+    this.journey = journey ? { ...journey, reduced: journey.reduced ?? false } : null;
+    this.renderFrame(0);
+    this.requestFrame();
+  }
+
   setSleeping(sleeping: boolean) {
     this.sleeping = sleeping;
     this.renderFrame(0);
@@ -223,7 +235,8 @@ export class BlobbiStage {
       }
       // The room's view sees it as the room does: leaning back from the camera (on +z here)
       const viewAzimuth = this.view === 'room' ? 0 : undefined;
-      if (this.actor.update({ dt, motion: this.motion, heading: this.heading, sleeping: this.sleeping, lookAt: this.lookAt, viewAzimuth })) animating = true;
+      const journey = this.journey ? { frame: journeyFrame(this.journey.kind, this.journey.t, this.journey.reduced), kind: this.journey.kind, t: this.journey.t } : null;
+      if (this.actor.update({ dt, motion: this.motion, heading: this.heading, sleeping: this.sleeping, lookAt: this.lookAt, viewAzimuth, journey })) animating = true;
       if (this.figurine) this.figurine.rotation.y = this.actor.object.rotation.y;
     }
     this.renderer.render(this.scene, this.camera);

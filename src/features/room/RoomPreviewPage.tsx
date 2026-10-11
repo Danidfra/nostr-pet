@@ -43,6 +43,10 @@ import { useSound, soundForPoke } from '@/features/sound';
 import { useReducedMotion } from '@/features/home/scene/SceneSettings';
 import { POKE_PATIENCE, pokeReaction, type PokeGesture } from '@/features/home/personality';
 import type { EyeOffset } from '@/features/home/scene/gaze';
+import type { BlobbiExpression } from '@blobbi-kit/renderer';
+import { usePresence } from '@/features/teleport/react/usePresence';
+import { journeyFrame } from '@/features/teleport/timeline';
+import { TeleportDevPanel } from './components/TeleportDevPanel';
 import { useRoomItemDrag } from './hooks/useRoomItemDrag';
 import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
 import { RoomHeader } from './components/RoomHeader';
@@ -61,6 +65,12 @@ import { roomStoreKey, type LoadStatus, type SaveStatus } from './lib/room-store
 import { walkSpeedFor } from './lib/room-pace';
 import { travelGaze } from './lib/room-gaze';
 
+/** The journey preview's controls: a development build with the dev tools only, never production. */
+const DEV_TELEPORT = import.meta.env.DEV && import.meta.env.VITE_BLOBBI_DEV_TOOLS === 'true';
+/** Concentrating on a journey: eyes shut tight, brows down, mouth set, cheeks flushed with the effort (the renderer's own parts). */
+const CONCENTRATE: BlobbiExpression = { eyes: 'closed', mouth: 'flat', brows: 'lowered', blush: 'strong' };
+/** How long the relieved, happy face lasts after an arrival. */
+const RELIEF_MS = 1_800;
 /** How long its eyes stay on something the player touched. */
 const ATTENTION_MS = 1_600;
 /** When a 3D Blobbi's landing hop comes after a room change: as the room finishes folding in. */
@@ -135,7 +145,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const baseline = useMemo(() => baselineExpression(blobbi, projected?.stats), [blobbi, projected?.stats]);
   // A care result's face for a moment (the 2D drawing's; the 3D model hops), then the baseline again
   const reactions = useReactionPolicy();
-  const expression = reactions.reaction ?? baseline;
+  const faceNow: BlobbiExpression = reactions.reaction ?? baseline;
   const layout = decorator.layoutDraft ?? rooms.layoutFor(roomId);
   const placements = decorator.draft ?? rooms.furnitureFor(roomId);
   const walkSpeed = useMemo(() => walkSpeedFor(blobbi.stage, blobbi.visualGeneration), [blobbi.stage, blobbi.visualGeneration]);
@@ -171,6 +181,38 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
     const timer = setTimeout(() => setAttention(null), ATTENTION_MS);
     return () => clearTimeout(timer);
   }, [attention]);
+
+  // ─── Where it is: here, leaving, away, arriving (a journey is presentation only; nothing is written) ───
+  const reduceMotionRef = useRef(reducedMotion);
+  reduceMotionRef.current = reducedMotion;
+  const [relievedFor, setRelievedFor] = useState<number | null>(null);
+  const presence = usePresence({
+    reducedMotion: () => reduceMotionRef.current,
+    onCue: (cue) => {
+      play(cue);
+      if (cue === 'tada') {
+        // "It worked!": eyes open, a relieved smile, a little hop
+        setRelievedFor(presence.controller.snapshot().journey?.startedAt ?? null);
+        reactions.react('happy', RELIEF_MS);
+        gesture('bounce');
+      }
+    },
+  });
+  const journey = presence.journey;
+  const present = presence.state === 'present';
+  const absent = presence.state === 'absent';
+  // Concentrating, eyes shut tight, the whole journey, until an arrival's "ta-da"
+  const concentrating = journey !== null && !(journey.kind === 'arrive' && relievedFor === journey.startedAt);
+  useEffect(() => {
+    controlRef.current?.journey(journey ? { kind: journey.kind, startedAt: journey.startedAt, reduced: journey.reduced } : null);
+  }, [controlRef, journey]);
+  // The development scrubber's moment, on both drawings at once
+  const [journeyPreview, setJourneyPreview] = useState<{ kind: 'depart' | 'arrive'; t: number; reduced: boolean } | null>(null);
+  useEffect(() => {
+    controlRef.current?.journeyPreview(journeyPreview);
+  }, [controlRef, journeyPreview]);
+  // A scrubbed moment shows the face that moment asks for
+  const previewFace = journeyPreview ? journeyFrame(journeyPreview.kind, journeyPreview.t, journeyPreview.reduced).face : null;
 
   // ─── Care: one adapter over the home's write paths ───
   const hop = useCallback(() => gesture('bounce'), [gesture]);
@@ -232,8 +274,8 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const startDrag = drag.start;
   const onDragStart = useCallback((e: ReactPointerEvent, entry: RoomCareEntry) => {
     // Only into a 3D room, which can tell the Blobbi from the floor; without it, Use is the way
-    if (controlRef.current) startDrag(e, entry.key);
-  }, [controlRef, startDrag]);
+    if (controlRef.current && present) startDrag(e, entry.key);
+  }, [controlRef, startDrag, present]);
   const onUse = useCallback((entry: RoomCareEntry) => {
     selectItem(entry.key);
     applyEntry(entry, planUse(entry.action, controlRef.current?.blobbiPosition() ?? null), roomId);
@@ -254,7 +296,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   }, [lifted, play]);
 
   // ─── Its own life, when nothing else is going on (useRoomLife) ───
-  const lifeEnabled = !isEgg && !isSleeping && !decorator.editing && !care.busy && drag.session === null;
+  const lifeEnabled = !isEgg && !isSleeping && !decorator.editing && !care.busy && drag.session === null && present && journeyPreview === null;
   const life = useRoomLife({
     enabled: lifeEnabled,
     canWalk: nav.canWalk && !reducedMotion,
@@ -279,7 +321,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
   const stats = projected?.stats;
   const react = reactions.react;
   const onBlobbiTap = useCallback((id: string) => {
-    if (id !== MAIN_BLOBBI) return;
+    if (id !== MAIN_BLOBBI || !present) return;
     markActivity();
     const now = Date.now();
     pokes.current = [...pokes.current.filter((t) => now - t < POKE_PATIENCE.windowMs), now];
@@ -289,7 +331,7 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
     gesture(reaction.gesture);
     const sound = soundForPoke(reaction.mood);
     if (sound) play(sound);
-  }, [markActivity, blobbi.stage, blobbi.state, stats, react, gesture, play]);
+  }, [markActivity, blobbi.stage, blobbi.state, stats, react, gesture, play, present]);
 
   // Going to another room: a soft swish; the 3D Blobbi gives a little hop as it lands (the drawing hops in by itself)
   const firstRoom = useRef(true);
@@ -409,13 +451,14 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         isSleeping={isSleeping}
         blobbiStage={blobbi.stage}
         blobbiWalkSpeed={walkSpeed}
-        blobbiVisible
+        // Away somewhere else: not in the room at all (no drawing, no shadow, nothing to tap)
+        blobbiVisible={!absent}
         roomLayout={layout}
         furniturePlacements={placements}
         pointerHandlers={pointerHandlers}
         {...nav.shellProps}
         onDecorate={decorator.open}
-        decorateDisabled={care.busy}
+        decorateDisabled={care.busy || !present}
         // Its life is the app's (useRoomLife): it ambles only when nothing else is going on
         blobbiWanders={false}
         onInteract={onInteract}
@@ -430,7 +473,20 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
         blobbiModel={actor3d.model}
         hudEnd={<RoomAppearanceControl appearance={appearance} onChange={setAppearance} unavailable3d={actor3d.unavailable3d} />}
         editor={editor}
-        stage={<RoomBlobbi ref={actorRef} blobbi={blobbi} facing={facing} motion={motion} eyeOffset={eyeOffset} expression={expression} gesture={gestureNow} />}
+        stage={
+          <RoomBlobbi
+            ref={actorRef}
+            blobbi={blobbi}
+            facing={facing}
+            motion={motion}
+            eyeOffset={concentrating ? undefined : eyeOffset}
+            expression={previewFace === 'concentrate' || (!journeyPreview && concentrating) ? CONCENTRATE : previewFace === 'relieved' ? 'happy' : faceNow}
+            gesture={gestureNow}
+            journey={journey}
+            absent={absent}
+            journeyPreview={journeyPreview}
+          />
+        }
       >
         <RoomBottomBar
           blobbi={blobbi}
@@ -449,12 +505,13 @@ function BlobbiRoom({ blobbi, pubkey, updateCompanionEvent, refresh }: BlobbiRoo
             highlight: pulse,
           } : null}
           offer={offer}
-          busy={care.busy}
+          busy={care.busy || !present}
           onRest={() => rest(bed)}
           restPending={care.restPending}
         />
       </RoomShell>
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
+      {DEV_TELEPORT && <TeleportDevPanel presence={presence} preview={journeyPreview} onPreview={setJourneyPreview} />}
     </div>
   );
 }

@@ -73,6 +73,8 @@ export interface BlobbiModel {
   surface: Surface;
   /** The model's extent at rest, in model units. */
   bounds: { width: number; height: number; depth: number };
+  /** Its body's middle colour (the baby's own palette for a baby): for anything drawn in its colours, like a journey's motes. */
+  tint: string;
   dispose(): void;
 }
 
@@ -586,6 +588,7 @@ export function buildBlobbiModel(morphology: BlobbiMorphology, seed = ''): Blobb
     gait: front.look.gait,
     surface,
     bounds: { width: size.x, height: size.y, depth: size.z },
+    tint: front.look.body === 'v1' ? palette.babyMid : palette.bodyMid,
     dispose: () => parts.dispose(),
   };
 }

@@ -24,6 +24,8 @@ import * as THREE from 'three';
 import { MOTION_DURATION, type BlobbiMotion } from '@blobbi-kit/renderer/procedural';
 import type { BlobbiModel } from './model';
 import { blinking, poseRig, turnToward } from './rig';
+import { createTeleport3D, type Teleport3D } from '@/features/teleport/three/teleport3d';
+import type { JourneyFrame, JourneyKind } from '@/features/teleport/timeline';
 
 export interface ActorFrame {
   /** Seconds since the last frame. */
@@ -42,6 +44,8 @@ export interface ActorFrame {
    * from that camera by its `lean`; absent, it stands upright.
    */
   viewAzimuth?: number;
+  /** A journey to draw (teleporting): the model comes apart or together, its eyes shut while it concentrates. */
+  journey?: { frame: JourneyFrame; kind: JourneyKind; t: number } | null;
 }
 
 /** Something the scene stands in a Blobbi's place and drives each frame. */
@@ -149,6 +153,9 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
   const restPosition = figure.position.clone();
   const restRotation = figure.rotation.clone();
   let playing: { kind: ActorGesture; startedAt: number } | null = null;
+  // A journey's effect on this model, made the first time one is drawn
+  let teleport: Teleport3D | null = null;
+  let travelling = false;
   /** Pose the figure for the gesture in progress; true while one is. */
   const poseGesture = (): boolean => {
     if (!playing) return false;
@@ -240,12 +247,22 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
         gaze.x = wanted.x;
         gaze.y = wanted.y;
       }
-      poseRig(model, { motion, phase, gaze, eyesClosed });
-      const gesturing = poseGesture();
+      const journey = frame.journey ?? null;
+      poseRig(model, { motion, phase, gaze, eyesClosed: eyesClosed || !!journey?.frame.eyesClosed });
+      // A journey owns the body (its squash); a gesture plays only once it is whole again (the arrival's hop)
+      const gesturing = journey && journey.frame.cut < 1 ? false : poseGesture();
+      if (journey) {
+        teleport ??= createTeleport3D({ root: model.root, figure: model.figure }, new THREE.Color(model.tint));
+        if (!gesturing) teleport.apply(journey.frame, journey.kind, journey.t);
+        travelling = true;
+      } else if (travelling) {
+        teleport?.rest();
+        travelling = false;
+      }
       const turning = Math.abs(Math.atan2(Math.sin(frame.heading - heading), Math.cos(frame.heading - heading))) > 0.002;
       const blinkChanged = eyesClosed !== lastEyes;
       lastEyes = eyesClosed;
-      return gesturing || motion !== 'still' || turning || blinkChanged || !settled || (!reduced && !frame.sleeping);
+      return travelling || gesturing || motion !== 'still' || turning || blinkChanged || !settled || (!reduced && !frame.sleeping);
     },
     gesture(kind) {
       // Reduced motion: no body gestures, as on the home
@@ -253,6 +270,9 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
       playing = { kind, startedAt: age };
     },
     gaze: () => ({ x: gaze.x, y: gaze.y }),
-    dispose: () => model.dispose(),
+    dispose: () => {
+      teleport?.dispose();
+      model.dispose();
+    },
   };
 }

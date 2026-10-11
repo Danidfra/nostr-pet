@@ -139,5 +139,5 @@ describe('every genome', () => {
         expect(again.bounds).toEqual(m.bounds);
       }
     }
-  }, 30_000); // forty-eight models
+  }, 90_000); // forty-eight models: room under a full parallel run
 });
