@@ -42,12 +42,15 @@ class FakeScene {
   projectItemTop() { return { x: 100, y: 150, pxPerTile: 30 }; }
   facingOf() { return 'front' as const; }
   isWalking() { return false; }
+  /** A model the scene was given counts as drawn: the frame that draws it is the fake's next. */
+  model: unknown = null;
+  actorModelDrawn() { return this.model !== null; }
   pick() { return null; }
   findSpot() { return { at: 'floor' as const, x: 2, y: 2 }; }
   floorAt() { return null; }
   requestWalk() { return Promise.resolve('refused' as const); }
   stopWalk() {}
-  setActorModel(id: string, model: unknown) { this.log('setActorModel', id, model); }
+  setActorModel(id: string, model: unknown) { this.model = model; this.log('setActorModel', id, model); }
 }
 vi.mock('../lib/scene/RoomScene', () => ({ RoomScene: FakeScene }));
 
@@ -155,7 +158,7 @@ describe('RoomShell keeps one scene through decorating', () => {
     await waitFor(() => expect(screen.getByTestId('room-shell')).toHaveAttribute('data-scene', 'unavailable'));
     expect(s.disposed).toBe(true);
   });
-  it('a 3D model given to the shell goes to the same scene in the Blobbi\'s place, and the DOM drawing steps aside', async () => {
+  it('a 3D model given to the shell goes to the same scene in the Blobbi\'s place, and the DOM drawing steps aside once it is drawn', async () => {
     const model = { object: {}, box: 1, pace: 1, gaze: () => ({ x: 0, y: 0 }), update: () => false, dispose: vi.fn() } as unknown as ActorModel & { dispose: ReturnType<typeof vi.fn> };
     const { rerender } = render(<Harness roomId="home" placements={roomFurnitureFor('home')} />);
     await waitFor(() => expect(screen.getByTestId('room-shell')).toHaveAttribute('data-scene', 'ready'));
@@ -165,11 +168,20 @@ describe('RoomShell keeps one scene through decorating', () => {
     rerender(<Harness roomId="home" placements={roomFurnitureFor('home')} model={model} />);
     await waitFor(() => expect(s.calls.some((c) => c.name === 'setActorModel' && c.args[1] === model)).toBe(true));
     expect(screen.getByTestId('room-shell')).toHaveAttribute('data-blobbi-render', '3d');
-    expect(screen.queryByTestId('room-blobbi-anchor')).toBeNull();
+    // The anchor stays (what follows the Blobbi, its facing and motion reports); only the drawing steps aside, once the model is on screen
+    const anchor = screen.getByTestId('room-blobbi-anchor');
+    const drawing = anchor.querySelector<HTMLElement>('[data-blobbi-2d]')!;
+    rerender(<Harness roomId="home" placements={roomFurnitureFor('home')} model={model} />);
+    expect(anchor).toHaveAttribute('data-render', '3d');
+    expect(drawing.style.display).toBe('none');
     expect(made.scenes).toHaveLength(1);
     rerender(<Harness roomId="home" placements={roomFurnitureFor('home')} />);
     await waitFor(() => expect(s.calls[s.calls.length - 1]).toEqual({ name: 'setActorModel', args: ['main', null] }));
-    expect(screen.getByTestId('room-blobbi-anchor')).toBeInTheDocument();
+    // The next frame (here, the next render) draws the room without the model and the drawing back, together
+    rerender(<Harness roomId="home" placements={roomFurnitureFor('home')} />);
+    expect(screen.getByTestId('room-blobbi-anchor')).toBe(anchor);
+    expect(anchor).toHaveAttribute('data-render', '2d');
+    expect(drawing.style.display).toBe('');
     expect(model.dispose).not.toHaveBeenCalled();
     expect(s.disposed).toBe(false);
   });

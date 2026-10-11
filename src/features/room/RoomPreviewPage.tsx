@@ -28,6 +28,9 @@ import { RoomBlobbi } from './components/RoomBlobbi';
 import { RoomDecoratorOverlay, RoomDecoratorToolbar } from './components/RoomDecorator';
 import { useRoomNavigation } from './hooks/useRoomNavigation';
 import { useRoomDecorator } from './hooks/useRoomDecorator';
+import { useRoomActorModel } from './hooks/useRoomActorModel';
+import { RoomAppearanceControl } from './components/RoomAppearanceControl';
+import { useBlobbiAppearance } from './lib/blobbi-appearance';
 import { useRoomSession } from './lib/room-session';
 import { walkSpeedFor } from './lib/room-pace';
 import { travelGaze } from './lib/room-gaze';
@@ -86,6 +89,9 @@ function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
   const layout = decorator.layoutDraft ?? rooms.layoutFor(roomId);
   const placements = decorator.draft ?? rooms.furnitureFor(roomId);
   const walkSpeed = useMemo(() => walkSpeedFor(blobbi.stage, blobbi.visualGeneration), [blobbi.stage, blobbi.visualGeneration]);
+  // How it is drawn: the kit's 2D (default) or the 3D model, this device's choice; one Blobbi, one walk, either way
+  const [appearance, setAppearance] = useBlobbiAppearance();
+  const actor3d = useRoomActorModel(blobbi, appearance);
 
   // The eyes: on the pointer while standing with a face in view (the home's
   // gaze policy over the room's own element), a glance the way it goes while walking.
@@ -138,6 +144,8 @@ function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
         pointerHandlers={pointerHandlers}
         {...nav.shellProps}
         onDecorate={decorator.open}
+        blobbiModel={actor3d.model}
+        hudEnd={<RoomAppearanceControl appearance={appearance} onChange={setAppearance} unavailable3d={actor3d.unavailable3d} />}
         editor={editor}
         stage={<RoomBlobbi ref={actorRef} blobbi={blobbi} facing={facing} motion={motion} eyeOffset={eyeOffset} expression={expression} />}
       >
@@ -148,7 +156,7 @@ function BlobbiRoom({ blobbi }: { blobbi: BlobbiCompanion }) {
           <div className="min-w-0 flex-1 text-center">
             <p className="truncate text-sm font-bold">{blobbi.name}</p>
             <p className="truncate text-[11px] text-foreground/70">
-              {STAGE_WORD[blobbi.stage]} · 3D room preview · {motion === 'walking' ? `walking, faces ${facing}` : 'standing'}
+              {STAGE_WORD[blobbi.stage]} · 3D room preview{actor3d.model ? ' · drawn in 3D' : ''} · {motion === 'walking' ? `walking, faces ${facing}` : 'standing'}
             </p>
           </div>
           <span className="size-[2.75em] shrink-0" aria-hidden />

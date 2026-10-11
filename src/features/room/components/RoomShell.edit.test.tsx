@@ -23,6 +23,7 @@ const fakeScene = vi.hoisted(() => ({
   requestWalk: vi.fn(async () => 'arrived'),
   stopWalk: vi.fn(),
   isWalking: vi.fn(() => false),
+  actorModelDrawn: vi.fn(() => false),
   facingOf: vi.fn(() => 'front'),
   projectBlobbi: vi.fn(() => ({ x: 200, y: 400, pxPerTile: 40 })),
   projectFloor: vi.fn(() => ({ x: 200, y: 400, pxPerTile: 40 })),

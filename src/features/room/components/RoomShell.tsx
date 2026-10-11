@@ -114,6 +114,14 @@ export interface RoomShellProps {
    * between renders; the caller owns and disposes it.
    */
   blobbiModel?: ActorModel | null;
+  /**
+   * What follows the user's Blobbi round the room whichever way it is drawn
+   * (care feedback): placed at its feet each frame, with `--anchor-px` and
+   * `--blobbi-tiles` set so it can rise to its head.
+   */
+  blobbiOverlay?: ReactNode;
+  /** The HUD's right-hand slot (opposite the decorate button). */
+  hudEnd?: ReactNode;
   /** Something over the room (an "away" card). */
   hero?: ReactNode;
   /** A bar above the room. */
@@ -178,6 +186,8 @@ export function RoomShell({
   blobbiWalkSpeed,
   blobbiVisible,
   blobbiModel = null,
+  blobbiOverlay,
+  hudEnd,
   stage,
   hero,
   header,
@@ -307,6 +317,13 @@ export function RoomShell({
         const { anchor: kind, x, z, index, actor } = el.dataset;
         if (kind === 'blobbi') {
           anchor = scene ? scene.projectBlobbi(actor) : actor ? null : flat?.blobbi() ?? null;
+          // The DOM drawing steps aside once the scene has drawn the 3D model in its place, never before
+          const drawing = actor ? null : el.querySelector<HTMLElement>('[data-blobbi-2d]');
+          if (drawing) {
+            const hide = !!scene && scene.actorModelDrawn(MAIN_BLOBBI);
+            drawing.style.display = hide ? 'none' : '';
+            el.dataset.render = hide ? '3d' : '2d';
+          }
           // Without the scene (flat room) nobody walks, so everyone stands facing front
           const id = actor ?? MAIN_BLOBBI;
           const facing: BlobbiFacing = scene ? scene.facingOf(id) : 'front';
@@ -486,17 +503,23 @@ export function RoomShell({
 
       {/* Things standing in the room, placed by the scene each frame */}
       <div ref={worldAnchorsRef} className="absolute inset-0 z-[5] pointer-events-none" aria-hidden={!stage}>
-        {stage && blobbiVisible && !blobbiModel && (
+        {(stage || blobbiOverlay) && blobbiVisible && (
           <div
             data-anchor="blobbi"
             data-testid="room-blobbi-anchor"
+            data-render="2d"
             className={cx('absolute left-0 top-0 transition-opacity duration-300', isEditing && 'opacity-40', status === 'loading' && 'invisible')}
             style={{ '--blobbi-tiles': blobbiTiles } as CSSProperties}
           >
-            {/* Re-keyed per room: the Blobbi hops in once the room has folded together */}
-            <div key={is3d ? roomId : 'flat'} className={cx(is3d && 'room-enter')}>
-              {stage}
-            </div>
+            {/* The drawing, while no 3D model is on screen in its place (updateAnchors hides it once one is). Re-keyed per room: it hops in once the room has folded together */}
+            {stage && (
+              <div data-blobbi-2d>
+                <div key={is3d ? roomId : 'flat'} className={cx(is3d && 'room-enter')}>
+                  {stage}
+                </div>
+              </div>
+            )}
+            {blobbiOverlay && !isEditing && <div className="absolute left-0 top-0" data-testid="room-blobbi-overlay">{blobbiOverlay}</div>}
           </div>
         )}
         {is3d && !isEditing && guests?.map((g) => (
@@ -583,8 +606,8 @@ export function RoomShell({
               <RoomNavButton direction="right" label={roomById(neighbourRoom(roomId, 'right')).label} onClick={goRight} />
             </div>
 
-            {/* Spacer the size of the decorate button, so the switcher stays centred */}
-            <div className="size-[2.75em] shrink-0" />
+            {/* The end slot, the size of the decorate button, so the switcher stays centred */}
+            <div className={cx('size-[2.75em] shrink-0', hudVisible && 'pointer-events-auto')}>{hudEnd}</div>
           </div>
 
           {statusHud && (

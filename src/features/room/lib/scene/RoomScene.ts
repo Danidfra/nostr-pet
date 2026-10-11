@@ -428,6 +428,8 @@ interface Actor {
   heading: number;
   /** A 3D model standing in for the DOM drawing, driven each frame (`blobbi3d/actor.ts`). */
   model: ActorModel | null;
+  /** The model has been on a drawn frame (its shaders compiled): the DOM drawing may step aside. */
+  modelDrawn: boolean;
   caster: THREE.Mesh;
   contact: THREE.Mesh;
   /** Has said hello to the user's Blobbi since it last walked over. */
@@ -1081,7 +1083,7 @@ export class RoomScene {
     contact.rotation.x = -Math.PI / 2;
     contact.renderOrder = 1;
     this.scene.add(caster, contact);
-    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, speed: DEFAULT_WALK_SPEED, path: [], walked: 0, facing: 'front', heading: AZIMUTH, model: null, caster, contact, met: false };
+    const actor: Actor = { id, x: 5.5, z: 5.5, elev: 0, hop: 0, visible: true, isEgg, tiles: 2.5, speed: DEFAULT_WALK_SPEED, path: [], walked: 0, facing: 'front', heading: AZIMUTH, model: null, modelDrawn: false, caster, contact, met: false };
     this.actors.set(id, actor);
     return actor;
   }
@@ -1442,6 +1444,7 @@ export class RoomScene {
     if (!actor || actor.model === model) return;
     if (actor.model) this.scene.remove(actor.model.object);
     actor.model = model;
+    actor.modelDrawn = false;
     actor.caster.castShadow = !model;
     if (model) {
       this.scene.add(model.object);
@@ -1449,6 +1452,16 @@ export class RoomScene {
     }
     this.shadowsDirty = true;
     this.requestRender();
+  }
+
+  /**
+   * Whether a Blobbi's 3D model is on screen yet: set, and drawn on a frame
+   * since (a new model's shaders compile first). Until then its DOM drawing
+   * stays, so switching to the model never leaves a frame with no Blobbi.
+   */
+  actorModelDrawn(id = MAIN): boolean {
+    const actor = this.actors.get(id);
+    return !!actor?.model && actor.modelDrawn;
   }
 
   /** The way a Blobbi is heading, for tests and for whoever draws it: yaw about +y, 0 facing +z. */
@@ -2242,6 +2255,8 @@ export class RoomScene {
     }
     this.camera.layers.set(0);
     this.renderer.render(this.scene, this.camera);
+    // A model on this frame is on screen: from here its DOM drawing may step aside (onFrame sees it at once)
+    for (const b of this.actors.values()) if (b.model) b.modelDrawn = true;
 
     this.onFrame?.();
     if (animating) this.requestRender();

@@ -141,7 +141,8 @@ describe('the /room/3d-lab route', () => {
     fireEvent.click(screen.getByTestId('lab-render-3d'));
     expect(screen.getByTestId('room-shell')).toBe(shell);
     expect(shell).toHaveAttribute('data-blobbi-render', '3d');
-    expect(screen.queryByTestId('room-blobbi-anchor')).toBeNull();
+    // No WebGL here: no model is ever drawn, so the drawing stays rather than leave the room empty
+    expect(screen.getByTestId('room-blobbi-anchor').querySelector('[data-blobbi-2d]')).not.toHaveStyle({ display: 'none' });
     fireEvent.click(screen.getByTestId('lab-render-2d'));
     expect(shell).toHaveAttribute('data-blobbi-render', '2d');
     expect(screen.getByTestId('room-blobbi-anchor')).toBeInTheDocument();
