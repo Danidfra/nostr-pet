@@ -1,0 +1,118 @@
+# The 3D room: release readiness (M9, 2026-10-11)
+
+The room stays **opt-in**. The classic home is the default and is not
+removed. Nothing about the room (position, decoration, quality,
+appearance, sound) is published to Nostr. See `NOSTR_PERSISTENCE.md`.
+
+This document records what M9 checked, what it fixed, and what is still
+open, by severity. "Verified" means a test or an inspection in a desktop
+browser, including phone-sized frames. **No real phone has been tested
+yet.** The steps for that are at the end.
+
+## Fixed in M9
+
+| Area | Was | Now |
+|---|---|---|
+| Landscape phone (568×320, 700×330) | the header, HUD and dock filled the height, so no room or Blobbi was visible | the HUD is one row, and the header, dock and decorating tiles are a size smaller; the room reaches up behind the HUD |
+| 320 px phone | the room name wrapped onto two lines | one line (the HUD is a size smaller under 360 px) |
+| Settings on a short screen | the panel ran off the bottom | it scrolls inside the screen |
+| Touch | a sideways stroke on the Blobbi also changed room | petting never changes room; a swipe follows its own finger |
+| Touch | a decorating drag cancelled by the system saved the move | the piece goes back |
+| Touch | a long press on a dock picture opened the iOS callout, which cancelled the drag; double tap zoomed | neither happens in the room |
+| Touch targets | room and carousel arrows, back, settings, decorate, note close: 28–38 px | a hit area of at least 44 px; the drawing is unchanged |
+| Petting | stopped from outside mid-stroke, the affectionate face stayed | it is cleared, and no timer outlives the room |
+| Lost WebGL context | the rebuilt scene put the Blobbi at a fixed spot, possibly inside furniture | it stands where it was, and the room does not fold in again |
+| Hidden tab mid-transition | on return, every remaining sound played at once | the scene ends when the page hides |
+| Reload or close | the last resting place could be lost (only written on unmount) | written when the page is hidden or closed |
+| Audio | the AudioContext kept running while hidden | suspended while hidden; resumed by the next sound or gesture |
+| 3D failure | a renderer that could not be created was retried | no retry this visit; a short note explains it |
+| 3D failure | a stalled load could leave the room loading for ever | after 15 s the simple room is shown, with a note |
+| 3D failure | a 3D Blobbi that could not be built crashed the page | the appearance switches to 2D, with a note |
+| Shadows | quality switched to `PCFSoftShadowMap`, which three 0.186 removed (it warned, fell back, and recompiled every material) | levels differ by shadow map size, or no cast shadows |
+| Overlay pass | the second canvas drew every frame | only while a DOM-drawn Blobbi is on screen |
+| StrictMode (dev) | the 3D model was disposed while still in use | disposal is deferred, and cancelled on a remount |
+| Keyboard | several room controls showed the browser's default outline | the app's focus ring |
+
+## Open issues, by severity
+
+### Major
+- **No real-device validation.** iOS Safari's WebGL memory limits,
+  context loss on backgrounding, and thermal throttling on budget Android
+  have only been reasoned about and tested with fakes. Run the phone
+  protocol below on at least one older iPhone (A12 or earlier) and one
+  budget Android before considering the room as a default.
+- **Decorating in landscape is cramped.** At 568×320 the room being
+  decorated is about 115 px tall. It is usable, but portrait is the
+  intended way to decorate.
+
+### Minor
+- **Safe areas are latent.** `index.html` has no `viewport-fit=cover`, so
+  every `env(safe-area-inset-*)` is 0, and Safari keeps the page inside
+  the safe area. This is correct today. If `viewport-fit=cover` is ever
+  added, the header needs a top inset and the landscape HUD and dock need
+  left and right insets.
+- **The first room can be marked seen before its build-up is watched.**
+  A 1.6 s timer marks it seen even while the 3D room is still loading, or
+  in 2D. The build-up is then not shown on a later visit.
+- **A slow first download** (three.js, about 790 kB uncompressed in the
+  room's chunk) on a poor connection can hit the 15 s load timeout. The
+  simple room is then shown for that visit.
+- **Auto quality never raises itself** (by design, to avoid switching back
+  and forth). A device that was slow once stays at the learned level
+  until the player picks a level by hand.
+- **The development playground's timers** are not cleared on unmount
+  (development only).
+
+### Performance (measured, desktop Chrome, adult V3, care room)
+
+| level | canvas pixels | main thread per frame | draw calls | triangles |
+|---|---|---|---|---|
+| high | 960×1074 (1.03 M) | 0.32 ms | 67 | 49.5 k |
+| balanced | 800×895 (0.72 M) | 0.21 ms | 67 | 49.5 k |
+| low | 640×716 (0.46 M) | 0.14 ms | 67 | 49.5 k |
+
+Triangles and draw calls do not change with quality on purpose: the
+Blobbi, its face and the furniture are always whole. What a level saves
+is GPU work per pixel: fewer pixels, a smaller or no shadow map, fewer
+lamps, fewer motes. GPU time cannot be measured from the page; the phone
+report's frame percentiles are the measure.
+
+Idle rendering is 30, 24 or 15 frames per second depending on the level,
+and nothing is drawn in a hidden tab. Repeated room changes, teleports,
+decorating, feeding and petting left the geometry, texture and program
+counts flat (checked in M8 and again in M9).
+
+### Differences from the classic home
+- The room needs WebGL for furniture and decorating. Without it, the
+  Blobbi, needs, carousel, care and petting all work, and decorating says
+  why it cannot.
+- V1/V2 art and eggs are drawn in 2D in the room. This is by design.
+
+## Recommendation
+
+Keep the room opt-in for now. It is functionally complete, recovers from
+every 3D failure we could produce, and stays local-only. The remaining
+risk is real phones: GPU memory, thermal throttling and Safari's context
+loss. Make the room the default only after the phone protocol below has
+been run on an older iPhone and a budget Android with these results:
+- the Auto level settles at balanced or above;
+- busy frames have a p95 under 33 ms;
+- no fallback note appears in ten minutes of normal play, with
+  backgrounding.
+
+## Phone protocol
+
+1. On the computer, run `VITE_BLOBBI_DEV_TOOLS=true npx vite --host --port 8080`
+   and note the "Network" address.
+2. On the phone, on the same Wi-Fi, open
+   `http://<that address>:8080/room?fixture=adult-v3&perf`.
+3. Leave it idle for 10 s, then tap **Record 10 s** in the performance
+   panel. While it records, walk the Blobbi around, change rooms twice
+   and pet it.
+4. Tap **Copy report**, or long-press the text box if the clipboard is
+   blocked, and paste it somewhere.
+5. Repeat with Graphics set to High, Balanced and Low (room settings).
+6. Put the browser in the background for 30 s, come back, and check
+   that the room returns (on iOS, possibly after a short fallback) with
+   the Blobbi where it was.
+7. Turn the phone on its side, then decorate a piece and save it.
