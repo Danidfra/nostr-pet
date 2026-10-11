@@ -22,7 +22,7 @@
  */
 import { useEffect, useRef, type ReactNode } from 'react';
 
-import { BLOB_SILHOUETTE, motesAt, type Silhouette } from '../particles';
+import { BLOB_SILHOUETTE, DEFAULT_CEILING, TRAIL_MS, moteLayers, motesAt, type MoteLayer, type Silhouette } from '../particles';
 import { readDrawingOutline, type DrawingOutline } from '../silhouette2d';
 import { journeyDuration, journeyFrame, type JourneyFace, type JourneyFrame, type JourneyKind } from '../timeline';
 import type { Journey } from '../presence';
@@ -42,8 +42,10 @@ interface TeleportFrame2DProps {
   children: ReactNode;
 }
 
-/** How far above the box the motes' canvas reaches, in box heights. */
-const HEADROOM = 1.6;
+/** How far each side of the box the motes' canvas reaches, in box widths (arrivals come in wide and converge). */
+const SIDE = 1;
+/** The page element whose top edge is the sky the motes leave through and come in from (else the window's top). */
+export const TELEPORT_SKY = '[data-teleport-sky]';
 /** The default outline before (or without) the drawing's own: feet and top as box fractions. */
 const DEFAULT_BOUNDS = { bottom: 0.08, top: 0.9 };
 
@@ -75,6 +77,17 @@ export function TeleportFrame2D({ journey, absent, preview = null, onFace, onHop
   callbacks.current = { onFace, onHop };
   const lastFace = useRef<JourneyFace | undefined>(undefined);
   const hopped = useRef<number | null>(null);
+  // A journey turned back hands its motes on: the one it replaced, and when
+  const previous = useRef<{ kind: JourneyKind; startedAt: number; endedAt: number } | null>(null);
+  const current = useRef<Journey | null>(null);
+  if (journey !== current.current) {
+    if (current.current && journey && journey.kind !== current.current.kind) {
+      previous.current = { kind: current.current.kind, startedAt: current.current.startedAt, endedAt: performance.now() };
+    } else if (!journey) {
+      previous.current = null;
+    }
+    current.current = journey;
+  }
 
   const active = journey !== null || preview !== null;
   const outlineKey = journey ? `${journey.kind}:${journey.startedAt}` : preview ? `preview:${preview.kind}` : 'none';
@@ -105,14 +118,18 @@ export function TeleportFrame2D({ journey, absent, preview = null, onFace, onHop
       return;
     }
     body.style.visibility = '';
-    sizeCanvas(canvas);
+    // How high the view's top is above its feet (body heights), measured once per journey: it stands still meanwhile
+    const sky = measureSky(body, outlineRef.current ?? DEFAULT_BOUNDS);
+    sizeCanvas(canvas, body, sky);
     let frameId = 0;
     const draw = () => {
       const kind = preview?.kind ?? journey!.kind;
       const reduced = preview?.reduced ?? journey?.reduced ?? false;
-      const t = preview ? preview.t : performance.now() - journey!.startedAt;
+      const now = performance.now();
+      const t = preview ? preview.t : now - journey!.startedAt;
       const frame = journeyFrame(kind, t, reduced);
-      paint(body, canvas, frame, kind, t, outlineRef.current, fallbackTint);
+      const layers = frame.motes ? moteLayers({ kind, t }, preview ? null : previous.current, now) : moteLayers(null, preview ? null : previous.current, now);
+      paint(body, canvas, frame, layers, sky, outlineRef.current, fallbackTint);
       if (frame.face !== lastFace.current) {
         lastFace.current = frame.face;
         callbacks.current.onFace?.(frame.face);
@@ -132,15 +149,43 @@ export function TeleportFrame2D({ journey, absent, preview = null, onFace, onHop
       <div ref={bodyRef} className="teleport-2d__body">
         {children}
       </div>
-      <canvas ref={canvasRef} className="teleport-2d__motes" aria-hidden style={{ height: `${(1 + HEADROOM) * 100}%` }} />
+      <canvas ref={canvasRef} className="teleport-2d__motes" aria-hidden />
     </div>
   );
 }
 
-function sizeCanvas(canvas: HTMLCanvasElement) {
-  const scale = Math.min(3, (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1) * 1.5);
-  const w = Math.max(1, Math.round(canvas.clientWidth * scale));
-  const h = Math.max(1, Math.round(canvas.clientHeight * scale));
+/** The view's top above the feet, in body heights (the sky element's top, or the window's), and a little past it. */
+function measureSky(body: HTMLElement, bounds: { bottom: number; top: number }): number {
+  if (typeof window === 'undefined' || typeof body.getBoundingClientRect !== 'function') return DEFAULT_CEILING;
+  const rect = body.getBoundingClientRect();
+  if (!(rect.height > 0)) return DEFAULT_CEILING;
+  const skyTop = (body.closest(TELEPORT_SKY) as HTMLElement | null)?.getBoundingClientRect().top ?? 0;
+  const feet = rect.bottom - bounds.bottom * rect.height;
+  const bodyPx = (bounds.top - bounds.bottom) * rect.height;
+  if (!(bodyPx > 0)) return DEFAULT_CEILING;
+  return Math.min(40, Math.max(1.4, (feet - skyTop) / bodyPx + 0.05));
+}
+
+/**
+ * The motes' canvas: from the feet up to past the sky, and a box width out
+ * each side; its pixels are the screen's (the box is scaled by the room, so
+ * its own CSS size says nothing of how big it is on screen).
+ */
+function sizeCanvas(canvas: HTMLCanvasElement, body: HTMLElement, sky: number) {
+  const bounds = DEFAULT_BOUNDS;
+  const heightBoxes = bounds.bottom + (sky + 0.6) * (bounds.top - bounds.bottom);
+  canvas.style.height = `${(heightBoxes * 100).toFixed(2)}%`;
+  canvas.style.width = `${(1 + 2 * SIDE) * 100}%`;
+  canvas.style.left = `${-SIDE * 100}%`;
+  canvas.dataset.boxes = heightBoxes.toFixed(4);
+  const rect = typeof body.getBoundingClientRect === 'function' ? body.getBoundingClientRect() : null;
+  const onScreen = rect && rect.width > 0 ? rect.width : canvas.clientWidth / (1 + 2 * SIDE);
+  const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
+  // Pixels of the screen, capped so a tall sky on a big screen stays a modest canvas (about 2.4 megapixels at most)
+  const area = Math.max(1, onScreen * (1 + 2 * SIDE) * onScreen * heightBoxes);
+  const scale = dpr * Math.min(1, Math.sqrt(2_400_000 / (area * dpr * dpr)));
+  const w = Math.max(1, Math.round(onScreen * (1 + 2 * SIDE) * scale));
+  const h = Math.max(1, Math.round(onScreen * heightBoxes * scale));
   if (canvas.width !== w) canvas.width = w;
   if (canvas.height !== h) canvas.height = h;
 }
@@ -157,18 +202,18 @@ function clearBody(body: HTMLDivElement) {
   body.style.opacity = '';
 }
 
-/** One frame of the effect: the body's mask, squash and glow, then the motes and the edge's light. */
-function paint(body: HTMLDivElement, canvas: HTMLCanvasElement, frame: JourneyFrame, kind: JourneyKind, t: number, outline: DrawingOutline | null, fallbackTint: string) {
+/** One frame of the effect: the body's mask, squash and glow, then the motes (with their trails) and the edge's light. */
+function paint(body: HTMLDivElement, canvas: HTMLCanvasElement, frame: JourneyFrame, layers: MoteLayer[], sky: number, outline: DrawingOutline | null, fallbackTint: string) {
   const bounds = outline ?? DEFAULT_BOUNDS;
   const silhouette: Silhouette = outline?.silhouette ?? BLOB_SILHOUETTE;
   const height = bounds.top - bounds.bottom;
   // The mask: opaque below the cut, clear above it, with a soft edge (box fractions from the bottom)
+  const at = bounds.bottom + frame.cut * height;
+  const soft = frame.edge * height;
   if (frame.cut >= 1) {
     body.style.maskImage = '';
     body.style.webkitMaskImage = '';
   } else {
-    const at = bounds.bottom + frame.cut * height;
-    const soft = frame.edge * height;
     const mask = `linear-gradient(to top, #000 0%, #000 ${((at - soft) * 100).toFixed(2)}%, transparent ${((at + soft * 0.15) * 100).toFixed(2)}%)`;
     body.style.maskImage = mask;
     body.style.webkitMaskImage = mask;
@@ -181,21 +226,25 @@ function paint(body: HTMLDivElement, canvas: HTMLCanvasElement, frame: JourneyFr
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!frame.motes && frame.edgeGlow <= 0) return;
+  if (layers.length === 0 && frame.edgeGlow <= 0) return;
   const W = canvas.width;
   const H = canvas.height;
-  const boxH = H / (1 + HEADROOM);
+  const boxes = Number(canvas.dataset.boxes) || 1;
+  const boxH = H / boxes;
+  const boxW = W / (1 + 2 * SIDE);
   // Body coordinates to canvas pixels: x across the box from its middle, y up from the feet
-  const px = (x: number) => (0.5 + x) * W;
+  const px = (x: number) => (SIDE + 0.5 + x) * boxW;
   const py = (y: number) => H - (bounds.bottom + y * height) * boxH;
   const tint = outline?.tint ?? fallbackTint;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  // The edge: a bright line where the body is coming apart (or together), as wide as the body there
+  // The edge: a bright line where the body is coming apart (or together), as wide as the body there, on the
+  // mask's own edge (the middle of its soft fade), so line and dissolve never part
   if (frame.edgeGlow > 0 && frame.cut > 0 && frame.cut < 1) {
-    const span = silhouette.span(frame.cut) ?? silhouette.span(Math.max(0, frame.cut - 0.03));
+    const edgeAt = (at - soft * 0.42 - bounds.bottom) / height;
+    const span = silhouette.span(edgeAt) ?? silhouette.span(Math.max(0, edgeAt - 0.03));
     if (span) {
-      const y = py(frame.cut);
+      const y = py(edgeAt);
       const x0 = px(span.left);
       const x1 = px(span.right);
       const thick = Math.max(1.5, boxH * 0.012);
@@ -212,22 +261,45 @@ function paint(body: HTMLDivElement, canvas: HTMLCanvasElement, frame: JourneyFr
       ctx.globalAlpha = 1;
     }
   }
-  if (frame.motes) {
-    const hot = sprite('rgba(255,252,240,1)');
-    const tinted = sprite(tint);
-    for (const m of motesAt(kind, t, silhouette)) {
-      const r = Math.max(1, m.size * W);
+  const hot = sprite('rgba(255,252,240,1)');
+  const tinted = sprite(tint);
+  for (const layer of layers) {
+    const now = motesAt(layer.kind, layer.t, silhouette, { ceiling: sky, bornBefore: layer.bornBefore });
+    const before = new Map(motesAt(layer.kind, layer.t - TRAIL_MS, silhouette, { ceiling: sky, bornBefore: layer.bornBefore }).map((m) => [m.index, m]));
+    for (const m of now) {
+      const r = Math.max(1, m.size * boxW);
       const x = px(m.x);
       const y = py(m.y);
+      const alpha = m.alpha * layer.fade;
+      // Its trail: a soft streak back along where it just came from, as long as it is fast
+      const was = before.get(m.index);
+      if (was) {
+        const tx = px(was.x);
+        const ty = py(was.y);
+        const len = Math.hypot(x - tx, y - ty);
+        if (len > r * 1.2) {
+          const g = ctx.createLinearGradient(tx, ty, x, y);
+          g.addColorStop(0, 'rgba(255,248,230,0)');
+          g.addColorStop(1, `rgba(255,248,230,${(0.55 * alpha).toFixed(3)})`);
+          ctx.strokeStyle = g;
+          ctx.lineWidth = r * 0.9;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
+      }
       if (tinted) {
         // A coloured halo, wide and soft, then the hot core
-        ctx.globalAlpha = Math.min(1, m.alpha * (1.1 - m.heat * 0.4));
+        ctx.globalAlpha = Math.min(1, alpha * (1.1 - m.heat * 0.4));
         ctx.drawImage(tinted, x - r * 2.4, y - r * 2.4, r * 4.8, r * 4.8);
       }
       if (hot) {
-        ctx.globalAlpha = m.alpha * (0.35 + 0.65 * m.heat);
+        ctx.globalAlpha = alpha * (0.35 + 0.65 * m.heat);
         ctx.drawImage(hot, x - r, y - r, r * 2, r * 2);
       }
+      ctx.globalAlpha = 1;
     }
   }
   ctx.restore();

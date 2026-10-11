@@ -74,16 +74,42 @@ describe('a journey on the 3D model', () => {
     expect(motes.visible).toBe(true);
     expect(motes.geometry.drawRange.count).toBeGreaterThan(10);
     expect(m.root.getObjectByName('teleport-cap')!.visible).toBe(true);
+    // The motes drag trails; its cast shadow is cut with it; what is cut open is lit inside, both sides drawn
+    expect(m.root.getObjectByName('teleport-trails')!.visible).toBe(true);
+    for (const mat of materials) expect(mat.clipShadows).toBe(true);
+    const sides = materials.filter((x) => x.type === 'MeshStandardMaterial').map((x) => x.side);
+    expect(sides.every((x) => x === THREE.DoubleSide)).toBe(true);
     // Whole again: no cut, no glow, the body its own size
     effect.rest();
     for (const mat of materials) expect(mat.clippingPlanes ?? null).toBeNull();
+    for (const mat of materials) expect(mat.clipShadows).toBe(false);
+    expect(materials.filter((x) => x.type === 'MeshStandardMaterial').every((x) => x.side === THREE.FrontSide)).toBe(true);
     expect(lit.emissive.equals(emissiveBefore)).toBe(true);
     expect(m.figure.scale.equals(scaleBefore)).toBe(true);
     expect(motes.visible).toBe(false);
     effect.dispose();
     expect(m.root.getObjectByName('teleport-motes')).toBeUndefined();
     expect(m.root.getObjectByName('teleport-cap')).toBeUndefined();
+    expect(m.root.getObjectByName('teleport-trails')).toBeUndefined();
     m.dispose();
+  });
+
+  it('sends its motes out through the sky it is given: higher with a higher sky', () => {
+    const highest = (skyY: number) => {
+      const m = model();
+      const effect = createTeleport3D({ root: m.root, figure: m.figure }, new THREE.Color(m.tint));
+      let top = -Infinity;
+      for (let t = DEPART.gather; t < DEPART.total; t += 50) {
+        effect.apply(journeyFrame('depart', t), 'depart', t, { skyY });
+        const g = (m.root.getObjectByName('teleport-motes') as THREE.Points).geometry;
+        const p = g.getAttribute('position');
+        for (let i = 0; i < g.drawRange.count; i++) top = Math.max(top, p.getY(i));
+      }
+      effect.dispose();
+      m.dispose();
+      return top;
+    };
+    expect(highest(12)).toBeGreaterThan(highest(3) * 2);
   });
 
   it('leaving keeps the part below the cut: the plane faces down the body, at the cut\'s height', () => {

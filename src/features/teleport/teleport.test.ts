@@ -8,8 +8,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ARRIVE, CUES, DEPART, REDUCED, arriveCutAt, departCutAt, journeyDuration, journeyFrame } from './timeline';
-import { BLOB_SILHOUETTE, MOTE_COUNT, motesAt } from './particles';
+import { ARRIVE, CUES, DEPART, REDUCED, arriveCutAt, departCutAt, journeyDuration, journeyFrame, journeyShadow } from './timeline';
+import { BLOB_SILHOUETTE, HANDOVER_MS, MOTE_COUNT, moteLayers, motesAt } from './particles';
 import { createPresenceController } from './presence';
 import { outlineFromAlpha } from './silhouette2d';
 
@@ -80,6 +80,54 @@ describe('the motes', () => {
     expect(high.length).toBeGreaterThan(0);
   });
 
+  it('leaving, they go all the way up and out through the top of the view, not a little way over the head', () => {
+    const ceiling = 7;
+    let highest = 0;
+    let fadedLow = 0;
+    for (let t = DEPART.gather; t <= DEPART.total + 40; t += 20) {
+      for (const m of motesAt('depart', t, BLOB_SILHOUETTE, { ceiling })) {
+        highest = Math.max(highest, m.y);
+        // A mote nearly faded out is one leaving: it should be high by then
+        if (m.index >= 10 && m.alpha < 0.15 && m.y < ceiling * 0.6) fadedLow++;
+      }
+    }
+    expect(highest).toBeGreaterThan(ceiling);
+    expect(fadedLow).toBe(0);
+    // And every one of them is gone by the end of the journey (nothing is left hanging when it is away)
+    expect(motesAt('depart', DEPART.total + 60, BLOB_SILHOUETTE, { ceiling })).toHaveLength(0);
+  });
+
+  it('arriving, the first come in from past the top of the view and the rest follow, staggered, down onto the body', () => {
+    const ceiling = 7;
+    const early = motesAt('arrive', 60, BLOB_SILHOUETTE, { ceiling });
+    expect(early.length).toBeGreaterThan(0);
+    expect(early.length).toBeLessThan(MOTE_COUNT / 3);
+    for (const m of early) expect(m.y).toBeGreaterThan(ceiling * 0.8);
+    // Streaming: through the arrival there are always some high up and some low down
+    const mid = motesAt('arrive', (ARRIVE.incoming + ARRIVE.form) / 2, BLOB_SILHOUETTE, { ceiling });
+    expect(mid.some((m) => m.y > ceiling * 0.5)).toBe(true);
+    expect(mid.some((m) => m.y < 1.2)).toBe(true);
+    // The last settle into the top of the head as it finishes forming
+    const last = motesAt('arrive', ARRIVE.form - 30, BLOB_SILHOUETTE, { ceiling });
+    expect(Math.max(...last.map((m) => m.y))).toBeLessThan(1.6);
+  });
+
+  it('turned back, the motes already on their way finish it and fade, and none are born after the turn', () => {
+    const turn = 1200;
+    const layers = moteLayers({ kind: 'arrive', t: 50 }, { kind: 'depart', startedAt: 0, endedAt: turn }, turn + 100);
+    expect(layers.map((l) => l.kind)).toEqual(['depart', 'arrive']);
+    expect(layers[0].fade).toBeGreaterThan(0);
+    expect(layers[0].fade).toBeLessThan(1);
+    // The handed-on layer has only motes born before the turn
+    const handed = motesAt('depart', turn + 100, BLOB_SILHOUETTE, { bornBefore: layers[0].bornBefore });
+    const all = motesAt('depart', turn + 100, BLOB_SILHOUETTE);
+    expect(handed.length).toBeLessThan(all.length);
+    expect(handed.length).toBeGreaterThan(0);
+    // Gone after the handover; no handover when there was nothing to hand on
+    expect(moteLayers({ kind: 'arrive', t: 500 }, { kind: 'depart', startedAt: 0, endedAt: turn }, turn + HANDOVER_MS + 1)).toHaveLength(1);
+    expect(moteLayers(null, null, 0)).toEqual([]);
+  });
+
   it('are drawn the same however often a moment is drawn (no randomness at draw time)', () => {
     expect(motesAt('depart', 1234, BLOB_SILHOUETTE)).toEqual(motesAt('depart', 1234, BLOB_SILHOUETTE));
   });
@@ -97,6 +145,36 @@ describe('the motes', () => {
     const head = outline.silhouette.span(1)!;
     expect(feet.right - feet.left).toBeGreaterThan(head.right - head.left);
     expect(outlineFromAlpha(new Uint8ClampedArray(size * size * 4), size)).toBeNull();
+  });
+});
+
+describe('the shadow', () => {
+  it('thins as it leaves and is gone when it is, comes back as it forms, and is whole outside a journey', () => {
+    expect(journeyShadow(null)).toBe(1);
+    const leaving = [0, 0.2, 0.4, 0.6, 0.8, 1].map((k) => journeyShadow(journeyFrame('depart', DEPART.gather + k * (DEPART.dissolve - DEPART.gather))));
+    for (let i = 1; i < leaving.length; i++) expect(leaving[i]).toBeLessThanOrEqual(leaving[i - 1]);
+    expect(leaving[0]).toBeGreaterThan(0.95);
+    expect(journeyShadow(journeyFrame('depart', DEPART.dissolve + 1))).toBe(0);
+    expect(journeyShadow(journeyFrame('arrive', 10))).toBe(0);
+    const forming = [0, 0.25, 0.5, 0.75, 1].map((k) => journeyShadow(journeyFrame('arrive', ARRIVE.incoming + k * (ARRIVE.form - ARRIVE.incoming))));
+    for (let i = 1; i < forming.length; i++) expect(forming[i]).toBeGreaterThanOrEqual(forming[i - 1]);
+    expect(journeyShadow(journeyFrame('arrive', ARRIVE.total))).toBe(1);
+    // Reduced motion: it fades with the body
+    expect(journeyShadow(journeyFrame('depart', REDUCED.total / 2, true))).toBeLessThan(1);
+  });
+
+  it('is continuous when a journey is turned back: the same visible amount casts the same shadow', () => {
+    vi.useFakeTimers();
+    const controller = createPresenceController({ clock: () => Date.now() });
+    controller.leave();
+    const t = DEPART.gather + (DEPART.dissolve - DEPART.gather) * 0.45;
+    vi.advanceTimersByTime(t);
+    const before = journeyShadow(journeyFrame('depart', controller.elapsed()!));
+    controller.enter();
+    const after = journeyShadow(journeyFrame('arrive', controller.elapsed()!));
+    expect(Math.abs(before - after)).toBeLessThan(0.03);
+    controller.dispose();
+    vi.useRealTimers();
   });
 });
 

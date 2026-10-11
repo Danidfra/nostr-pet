@@ -34,7 +34,9 @@ import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.j
 import type { SnoNode } from './sno-object';
 import { buildSnoObject } from './sno-three';
 import type { ActorGesture, ActorModel } from '../blobbi3d/actor';
-import { journeyDuration, journeyFrame, type JourneyFrame, type JourneyKind } from '@/features/teleport/timeline';
+import { journeyDuration, journeyFrame, journeyShadow, type JourneyFrame, type JourneyKind } from '@/features/teleport/timeline';
+import { moteLayers } from '@/features/teleport/particles';
+import type { Teleport3DOptions } from '@/features/teleport/three/teleport3d';
 
 import type { FurnitureInteraction, FurnitureMount } from '../furniture-3d';
 import type { FurniturePlacement } from '../room-furniture';
@@ -444,12 +446,18 @@ interface Actor {
   model: ActorModel | null;
   /** The model has been on a drawn frame (its shaders compiled): the DOM drawing may step aside. */
   modelDrawn: boolean;
+  /** Whether its model's meshes cast their shadows now (a reduced-motion fade turns them off as it crosses half). */
+  modelShadow?: boolean;
   /** Where its 3D eyes look, the kit's offset (-1..1 each way), when the app says (a glance, the pointer); null to rest. */
   gaze: { x: number; y: number } | null;
   /** A journey under way (teleporting), from its presence controller. */
   journey: { kind: JourneyKind; startedAt: number; reduced: boolean } | null;
   /** A scrubbed moment of a journey to show instead (development). */
   journeyPreview: { kind: JourneyKind; t: number; reduced: boolean } | null;
+  /** The journey it turned back from, whose motes finish their way for a moment (`moteLayers`). */
+  journeyBefore?: { kind: JourneyKind; startedAt: number; endedAt: number } | null;
+  /** The top of the view above where it stands, as a world height (measured when a journey starts). */
+  skyY?: number;
   caster: THREE.Mesh;
   contact: THREE.Mesh;
   /** Has said hello to the user's Blobbi since it last walked over. */
@@ -1516,15 +1524,22 @@ export class RoomScene {
         // Its cast shadow goes with it: the shadow map is redrawn while it travels
         this.shadowsDirty = true;
       }
-      // The shadow goes with what is left of the body
+      // The shadow goes with what is left of the body: the same share of it that is materialized (its height cut
+      // from the top, as the body dissolves and forms; its fade under reduced motion), eased, and gone with it
       const solid = travel ? travel.frame.cut * travel.frame.opacity : 1;
-      b.caster.visible = b.visible && solid > 0.35;
-      b.caster.scale.set(width, height, width * 0.8);
-      b.caster.position.set(b.x, b.elev + b.hop + height / 2, b.z);
-      b.contact.visible = b.visible && solid > 0.08;
-      const contact = width * Math.max(0.4, 1.15 - b.hop * 1.5) * (0.55 + 0.45 * solid);
+      const shade = journeyShadow(travel?.frame ?? null);
+      const castHeight = height * Math.max(0, solid);
+      b.caster.visible = b.visible && solid > 0.02;
+      b.caster.scale.set(width, Math.max(1e-3, castHeight), width * 0.8);
+      b.caster.position.set(b.x, b.elev + b.hop + castHeight / 2, b.z);
+      b.contact.visible = b.visible && shade > 0.01;
+      (b.contact.material as THREE.MeshBasicMaterial).opacity = shade;
+      const contact = width * Math.max(0.4, 1.15 - b.hop * 1.5) * (0.7 + 0.3 * shade);
       b.contact.scale.set(contact, contact * 0.85, 1);
       b.contact.position.set(b.x, b.elev + 0.06, b.z);
+      // A model casts its own shadow, cut with its body (teleport3d's clipping plane clips the shadow pass too); only
+      // a fade with no cut (reduced motion) needs it switched off, and only once, as it crosses half
+      if (b.model) this.modelCastsShadow(b, solid > 0.5 || (travel !== null && travel.frame.cut < 1 && solid > 0.02));
       if (b.model) {
         const o = b.model.object;
         o.visible = b.visible;
@@ -1539,20 +1554,58 @@ export class RoomScene {
     return animating;
   }
 
+  /** Whether a Blobbi's model casts its shadow; flipped only when it changes. */
+  private modelCastsShadow(b: Actor, on: boolean) {
+    if (!b.model || b.modelShadow === on) return;
+    b.modelShadow = on;
+    b.model.object.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.isMesh && mesh.userData.castsShadow !== false) {
+        if (mesh.userData.castsShadow === undefined) mesh.userData.castsShadow = mesh.castShadow;
+        if (mesh.userData.castsShadow) mesh.castShadow = on;
+      }
+    });
+    this.shadowsDirty = true;
+  }
+
   /** A Blobbi's journey frame now (or the scrubbed one), or null when it is not travelling. */
-  private journeyFrameOf(b: Actor, now: number): { frame: JourneyFrame; kind: JourneyKind; t: number } | null {
+  private journeyFrameOf(b: Actor, now: number): { frame: JourneyFrame; kind: JourneyKind; t: number; options: Teleport3DOptions } | null {
     if (b.journeyPreview) {
       const { kind, t, reduced } = b.journeyPreview;
-      return { frame: journeyFrame(kind, t, reduced), kind, t };
+      const frame = journeyFrame(kind, t, reduced);
+      return { frame, kind, t, options: { skyY: this.skyAbove(b), layers: frame.motes ? [{ kind, t, fade: 1 }] : [] } };
     }
     if (!b.journey) return null;
     const t = now - b.journey.startedAt;
     // A little past its end, so the last frame (whole, or gone) is drawn before the model rests
     if (t > journeyDuration(b.journey.kind, b.journey.reduced) + 120) {
       b.journey = null;
+      b.journeyBefore = null;
       return null;
     }
-    return { frame: journeyFrame(b.journey.kind, t, b.journey.reduced), kind: b.journey.kind, t };
+    const frame = journeyFrame(b.journey.kind, t, b.journey.reduced);
+    const layers = moteLayers(frame.motes ? { kind: b.journey.kind, t } : null, b.journeyBefore ?? null, now);
+    return { frame, kind: b.journey.kind, t, options: { skyY: b.skyY ?? this.skyAbove(b), layers } };
+  }
+
+  /**
+   * The top of the view above a Blobbi, as a world height: how high a point
+   * straight above where it stands can go before it leaves the top of the
+   * canvas (a little past it). The motes rise out through it and come in
+   * from it, whatever the room's size, camera or where the Blobbi stands.
+   */
+  private skyAbove(b: Actor): number {
+    const p = new THREE.Vector3();
+    const above = (y: number) => p.set(b.x, b.elev + y, b.z).project(this.camera).y;
+    let lo = 0;
+    let hi = 4;
+    while (above(hi) < 1.04 && hi < 512) hi *= 2;
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2;
+      if (above(mid) < 1.04) lo = mid;
+      else hi = mid;
+    }
+    return b.elev + hi;
   }
 
   /**
@@ -1563,9 +1616,14 @@ export class RoomScene {
   setActorJourney(id: string, journey: { kind: JourneyKind; startedAt: number; reduced: boolean } | null) {
     const actor = this.actors.get(id);
     if (!actor) return;
+    // Turned back mid-way: the motes already on their way finish it (`moteLayers`); ended or cancelled: none linger
+    actor.journeyBefore = actor.journey && journey && actor.journey.kind !== journey.kind ? { kind: actor.journey.kind, startedAt: actor.journey.startedAt, endedAt: performance.now() } : null;
     actor.journey = journey;
-    // Leaving or arriving, it stands where it is
-    if (journey) this.stopWalk(id);
+    // Leaving or arriving, it stands where it is, under the sky it is measured against
+    if (journey) {
+      this.stopWalk(id);
+      actor.skyY = this.skyAbove(actor);
+    }
     this.requestRender();
   }
 
@@ -1595,6 +1653,7 @@ export class RoomScene {
     if (actor.model) this.scene.remove(actor.model.object);
     actor.model = model;
     actor.modelDrawn = false;
+    actor.modelShadow = undefined;
     actor.caster.castShadow = !model;
     if (model) {
       this.scene.add(model.object);

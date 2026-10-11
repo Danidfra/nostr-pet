@@ -199,3 +199,16 @@ function reducedFrame(kind: JourneyKind, t: number): JourneyFrame {
     hop: false,
   };
 }
+
+/**
+ * How much of its shadow a Blobbi casts at a moment of a journey: the share
+ * of it that is materialized (what is left below the cut, times its fade),
+ * eased so the shadow thins and thickens softly. 1 outside a journey, 0
+ * when it is gone; the same at the same visible amount whichever way it is
+ * going, so a journey turned back mid-way keeps its shadow continuous.
+ */
+export function journeyShadow(frame: Pick<JourneyFrame, 'cut' | 'opacity'> | null): number {
+  if (!frame) return 1;
+  const solid = Math.min(1, Math.max(0, frame.cut * frame.opacity));
+  return solid * solid * (3 - 2 * solid);
+}

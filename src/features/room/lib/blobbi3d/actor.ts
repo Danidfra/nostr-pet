@@ -24,7 +24,7 @@ import * as THREE from 'three';
 import { MOTION_DURATION, type BlobbiMotion } from '@blobbi-kit/renderer/procedural';
 import type { BlobbiModel } from './model';
 import { blinking, poseRig, turnToward } from './rig';
-import { createTeleport3D, type Teleport3D } from '@/features/teleport/three/teleport3d';
+import { createTeleport3D, type Teleport3DOptions, type Teleport3D } from '@/features/teleport/three/teleport3d';
 import type { JourneyFrame, JourneyKind } from '@/features/teleport/timeline';
 
 export interface ActorFrame {
@@ -45,7 +45,7 @@ export interface ActorFrame {
    */
   viewAzimuth?: number;
   /** A journey to draw (teleporting): the model comes apart or together, its eyes shut while it concentrates. */
-  journey?: { frame: JourneyFrame; kind: JourneyKind; t: number } | null;
+  journey?: { frame: JourneyFrame; kind: JourneyKind; t: number; options?: Teleport3DOptions } | null;
 }
 
 /** Something the scene stands in a Blobbi's place and drives each frame. */
@@ -253,7 +253,7 @@ export function createBlobbiActor(model: BlobbiModel, options: ActorOptions = {}
       const gesturing = journey && journey.frame.cut < 1 ? false : poseGesture();
       if (journey) {
         teleport ??= createTeleport3D({ root: model.root, figure: model.figure }, new THREE.Color(model.tint));
-        if (!gesturing) teleport.apply(journey.frame, journey.kind, journey.t);
+        if (!gesturing) teleport.apply(journey.frame, journey.kind, journey.t, journey.options);
         travelling = true;
       } else if (travelling) {
         teleport?.rest();

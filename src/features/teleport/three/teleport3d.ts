@@ -16,7 +16,14 @@
  *              white-hot fading to the Blobbi's own colour; unclipped
  *   cap        a glowing cross-section where it is cut: a closed shell opened
  *              by a plane would show its inside from the room's camera; the
- *              cut shows the energy it is turning into instead
+ *              cut shows the energy it is turning into instead. The body's
+ *              cut gets a disc; every other part the plane opens (an arm, an
+ *              ear, a horn) shows its inside lit the same colour, because
+ *              while cut every material draws its back faces in that light
+ *   trails     each mote drags a short streak along where it just was
+ *   sky        the motes rise out through the top of the view and come in
+ *              from past it: the drawing says where that is (`skyY`, a
+ *              world height above the model, or `ceiling` in body heights)
  *   glow       an emissive lift on its lit materials while it gathers and forms
  *   squash     the figure scaled about the ground (the feet stay down)
  *
@@ -25,7 +32,7 @@
  * `dispose` frees the motes' GPU objects.
  */
 import * as THREE from 'three';
-import { MOTE_COUNT, motesAt, type Silhouette } from '../particles';
+import { DEFAULT_CEILING, MOTE_COUNT, TRAIL_MS, motesAt, type MoteLayer, type Silhouette } from '../particles';
 import type { JourneyFrame, JourneyKind } from '../timeline';
 
 export interface TeleportTarget3D {
@@ -35,9 +42,18 @@ export interface TeleportTarget3D {
   figure: THREE.Object3D;
 }
 
+export interface Teleport3DOptions {
+  /** The top of the view as a world height (the motes leave through it and come in from past it). */
+  skyY?: number;
+  /** Or the same as body heights above the feet. */
+  ceiling?: number;
+  /** The motes to draw, current and handed on (`moteLayers`); by default the current journey's only. */
+  layers?: MoteLayer[];
+}
+
 export interface Teleport3D {
   /** Draw a frame of a journey `t` ms in. */
-  apply(frame: JourneyFrame, kind: JourneyKind, t: number): void;
+  apply(frame: JourneyFrame, kind: JourneyKind, t: number, options?: Teleport3DOptions): void;
   /** No journey: the model exactly as it was. */
   rest(): void;
   dispose(): void;
@@ -104,11 +120,34 @@ function outlineOf(target: TeleportTarget3D) {
 interface Saved {
   material: THREE.Material;
   clippingPlanes: THREE.Plane[] | null;
+  clipShadows: boolean;
   transparent: boolean;
   opacity: number;
   emissive?: THREE.Color;
   emissiveIntensity?: number;
+  side: THREE.Side;
+  onBeforeCompile: THREE.Material['onBeforeCompile'];
+  customProgramCacheKey: THREE.Material['customProgramCacheKey'];
 }
+
+/** Materials whose shaders end in the standard dithering chunk can light their back faces (`litInside`). */
+const LIT_INSIDE = new Set(['MeshStandardMaterial', 'MeshPhysicalMaterial', 'MeshLambertMaterial', 'MeshPhongMaterial', 'MeshBasicMaterial', 'MeshToonMaterial']);
+
+const TRAIL_VERTEX = /* glsl */ `
+  attribute float aAlpha;
+  varying float vAlpha;
+  void main() {
+    vAlpha = aAlpha;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const TRAIL_FRAGMENT = /* glsl */ `
+  uniform vec3 uColor;
+  varying float vAlpha;
+  void main() {
+    gl_FragColor = vec4(uColor, vAlpha);
+  }
+`;
 
 const VERTEX = /* glsl */ `
   attribute float aSize;
@@ -150,8 +189,8 @@ export function createTeleport3D(target: TeleportTarget3D, tint: THREE.Color): T
   let active = false;
   const restScale = target.figure.scale.clone();
 
-  // The motes: the field and the edge ring in one buffer
-  const capacity = MOTE_COUNT + EDGE_POINTS;
+  // The motes: the field (current and handed-on) and the edge ring in one buffer
+  const capacity = MOTE_COUNT * 2 + EDGE_POINTS;
   const positions = new Float32Array(capacity * 3);
   const sizes = new Float32Array(capacity);
   const alphas = new Float32Array(capacity);
@@ -181,6 +220,38 @@ export function createTeleport3D(target: TeleportTarget3D, tint: THREE.Color): T
   };
   target.root.add(points);
 
+  // The trails: a streak per mote, from where it was a moment ago (bright) back to nothing
+  const trailPositions = new Float32Array(MOTE_COUNT * 2 * 2 * 3);
+  const trailAlphas = new Float32Array(MOTE_COUNT * 2 * 2);
+  const trailGeometry = new THREE.BufferGeometry();
+  trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3).setUsage(THREE.DynamicDrawUsage));
+  trailGeometry.setAttribute('aAlpha', new THREE.BufferAttribute(trailAlphas, 1).setUsage(THREE.DynamicDrawUsage));
+  trailGeometry.setDrawRange(0, 0);
+  const trailMaterial = new THREE.ShaderMaterial({
+    vertexShader: TRAIL_VERTEX,
+    fragmentShader: TRAIL_FRAGMENT,
+    uniforms: { uColor: { value: tint.clone().lerp(new THREE.Color(1, 0.98, 0.92), 0.65) } },
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const trails = new THREE.LineSegments(trailGeometry, trailMaterial);
+  trails.name = 'teleport-trails';
+  trails.frustumCulled = false;
+  trails.visible = false;
+  trails.renderOrder = 9;
+  target.root.add(trails);
+
+  // Inside, where any part is cut open: its back faces in the cut's light
+  const insideColor = { value: tint.clone().lerp(new THREE.Color(1, 1, 1), 0.6) };
+  const litInside: THREE.Material['onBeforeCompile'] = (shader) => {
+    shader.uniforms.uTeleportInside = insideColor;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'uniform vec3 uTeleportInside;\nvoid main() {')
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n  if (!gl_FrontFacing) gl_FragColor = vec4(uTeleportInside, gl_FragColor.a);');
+  };
+  let insideLit = false;
+
   // The cut's cap: a disc the size of the body where it is cut, lit from within
   const capGeometry = new THREE.CircleGeometry(1, 48);
   capGeometry.rotateX(-Math.PI / 2);
@@ -204,10 +275,14 @@ export function createTeleport3D(target: TeleportTarget3D, tint: THREE.Color): T
         saved.push({
           material: m,
           clippingPlanes: m.clippingPlanes,
+          clipShadows: m.clipShadows,
           transparent: m.transparent,
           opacity: m.opacity,
           emissive: std.emissive?.clone(),
           emissiveIntensity: std.emissiveIntensity,
+          side: m.side,
+          onBeforeCompile: m.onBeforeCompile,
+          customProgramCacheKey: m.customProgramCacheKey,
         });
       }
     });
@@ -218,14 +293,21 @@ export function createTeleport3D(target: TeleportTarget3D, tint: THREE.Color): T
     active = false;
     for (const s of saved) {
       s.material.clippingPlanes = s.clippingPlanes;
+      s.material.clipShadows = s.clipShadows;
       s.material.transparent = s.transparent;
       s.material.opacity = s.opacity;
       const std = s.material as THREE.MeshStandardMaterial;
       if (s.emissive && std.emissive) std.emissive.copy(s.emissive);
       if (s.emissiveIntensity !== undefined) std.emissiveIntensity = s.emissiveIntensity;
+      s.material.side = s.side;
+      s.material.onBeforeCompile = s.onBeforeCompile;
+      s.material.customProgramCacheKey = s.customProgramCacheKey;
       s.material.needsUpdate = true;
     }
     saved.length = 0;
+    insideLit = false;
+    trails.visible = false;
+    trailGeometry.setDrawRange(0, 0);
     target.figure.scale.copy(restScale);
     points.visible = false;
     cap.visible = false;
@@ -239,7 +321,7 @@ export function createTeleport3D(target: TeleportTarget3D, tint: THREE.Color): T
   const quaternion = new THREE.Quaternion();
 
   return {
-    apply(frame, kind, t) {
+    apply(frame, kind, t, options = {}) {
       begin();
       const o = outline!;
       const range = o.maxY - o.minY;
@@ -254,10 +336,24 @@ export function createTeleport3D(target: TeleportTarget3D, tint: THREE.Color): T
       target.root.localToWorld(at);
       plane.setFromNormalAndCoplanarPoint(up, at);
       const fading = frame.opacity < 1;
+      // While it is cut open, everything cut shows its inside lit (a program per material, cached across journeys)
+      const lightInside = frame.cut < 1;
+      if (lightInside !== insideLit) {
+        insideLit = lightInside;
+        for (const s of saved) {
+          if (!LIT_INSIDE.has(s.material.type)) continue;
+          s.material.side = lightInside ? THREE.DoubleSide : s.side;
+          s.material.onBeforeCompile = lightInside ? litInside : s.onBeforeCompile;
+          s.material.customProgramCacheKey = lightInside ? () => 'teleport-lit-inside' : s.customProgramCacheKey;
+          s.material.needsUpdate = true;
+        }
+      }
       for (const s of saved) {
         const wantPlanes = frame.cut < 1 ? [plane] : null;
         if ((s.material.clippingPlanes?.length ?? 0) !== (wantPlanes?.length ?? 0)) {
           s.material.clippingPlanes = wantPlanes;
+          // Its cast shadow is cut with it: the shadow map's own pass clips by the same plane, no pass more
+          s.material.clipShadows = wantPlanes !== null;
           s.material.needsUpdate = true;
         }
         if (fading !== s.material.transparent && !s.transparent) {
@@ -271,20 +367,45 @@ export function createTeleport3D(target: TeleportTarget3D, tint: THREE.Color): T
           std.emissiveIntensity = (s.emissiveIntensity ?? 1) * (1 - frame.glow) + 0.32 * frame.glow;
         }
       }
-      // The motes, then the edge's ring of light
+      // The sky, in body heights above the feet: from the world height the drawing gives, through the model's scale
+      let ceiling = options.ceiling ?? DEFAULT_CEILING;
+      if (options.skyY !== undefined) {
+        const feet = new THREE.Vector3(0, o.minY * frame.sy, 0);
+        target.root.localToWorld(feet);
+        const scale = target.root.matrixWorld.getMaxScaleOnAxis();
+        const bodyHeight = range * frame.sy * scale;
+        if (bodyHeight > 1e-6) ceiling = Math.max(1.4, (options.skyY - feet.y) / bodyHeight);
+      }
+      const layers = options.layers ?? (frame.motes ? [{ kind, t, fade: 1 }] : []);
+      // The motes (and their trails), then the edge's ring of light
       let n = 0;
-      if (frame.motes) {
-        for (const m of motesAt(kind, t, o.silhouette)) {
-          if (n >= MOTE_COUNT) break;
-          const d = o.depth(Math.min(1, Math.max(0, m.y)));
-          // In front of the body mostly, some round its sides: depth from its layer, toward the viewer's side
-          const z = d.minZ + (d.maxZ - d.minZ) * (0.55 + 0.45 * m.depth);
-          positions[n * 3] = m.x * frame.sx;
-          positions[n * 3 + 1] = (o.minY + m.y * range) * frame.sy;
-          positions[n * 3 + 2] = z;
+      let segments = 0;
+      const place = (m: { x: number; y: number; depth: number }, out: Float32Array, at: number) => {
+        const d = o.depth(Math.min(1, Math.max(0, m.y)));
+        // In front of the body mostly, some round its sides: depth from its layer, toward the viewer's side
+        out[at] = m.x * frame.sx;
+        out[at + 1] = (o.minY + m.y * range) * frame.sy;
+        out[at + 2] = d.minZ + (d.maxZ - d.minZ) * (0.55 + 0.45 * m.depth);
+      };
+      for (const layer of layers) {
+        const motes = motesAt(layer.kind, layer.t, o.silhouette, { ceiling, bornBefore: layer.bornBefore });
+        const before = new Map(motesAt(layer.kind, layer.t - TRAIL_MS, o.silhouette, { ceiling, bornBefore: layer.bornBefore }).map((m) => [m.index, m]));
+        for (const m of motes) {
+          if (n >= MOTE_COUNT * 2) break;
+          place(m, positions, n * 3);
           sizes[n] = m.size * 3.2;
-          alphas[n] = m.alpha;
+          alphas[n] = m.alpha * layer.fade;
           heats[n] = m.heat;
+          const was = before.get(m.index);
+          if (was && segments < MOTE_COUNT * 2) {
+            place(was, trailPositions, segments * 6);
+            trailPositions[segments * 6 + 3] = positions[n * 3];
+            trailPositions[segments * 6 + 4] = positions[n * 3 + 1];
+            trailPositions[segments * 6 + 5] = positions[n * 3 + 2];
+            trailAlphas[segments * 2] = 0;
+            trailAlphas[segments * 2 + 1] = 0.5 * m.alpha * layer.fade;
+            segments++;
+          }
           n++;
         }
       }
@@ -314,6 +435,10 @@ export function createTeleport3D(target: TeleportTarget3D, tint: THREE.Color): T
         }
       }
       geometry.setDrawRange(0, n);
+      trailGeometry.setDrawRange(0, segments * 2);
+      (trailGeometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+      (trailGeometry.getAttribute('aAlpha') as THREE.BufferAttribute).needsUpdate = true;
+      trails.visible = segments > 0;
       for (const name of ['position', 'aSize', 'aAlpha', 'aHeat']) (geometry.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
       points.visible = n > 0;
     },
@@ -322,8 +447,11 @@ export function createTeleport3D(target: TeleportTarget3D, tint: THREE.Color): T
       rest();
       target.root.remove(points);
       target.root.remove(cap);
+      target.root.remove(trails);
       geometry.dispose();
       material.dispose();
+      trailGeometry.dispose();
+      trailMaterial.dispose();
       capGeometry.dispose();
       capMaterial.dispose();
     },

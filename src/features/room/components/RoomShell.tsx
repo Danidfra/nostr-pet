@@ -564,6 +564,8 @@ export function RoomShell({
     <div
       ref={shellRef}
       className="room-shell relative flex flex-col flex-1 min-h-0 overflow-hidden select-none"
+      // The sky a teleport's motes leave through and come in from (TeleportFrame2D measures to its top edge)
+      data-teleport-sky
       data-testid="room-shell"
       data-room={roomId}
       data-scene={status}
