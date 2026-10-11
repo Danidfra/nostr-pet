@@ -223,7 +223,7 @@ export function RoomDevTools(props: RoomDevToolsProps) {
   };
 
   const pill = (
-    <div className="devtools__pills" data-testid="dev-tools-pills" onPointerDown={isolate} onPointerUp={isolate} onClick={isolate}>
+    <div className="devtools__pills" data-testid="dev-tools-pills" translate="no" onPointerDown={isolate} onPointerUp={isolate} onClick={isolate}>
       {fpsPill && <RoomPerfPill perf={perf} onOpen={() => openAt('performance')} />}
       {errors.length > 0 && (
         <button type="button" className="devtools__pill devtools__pill--error" onClick={() => openAt('performance')} data-testid="dev-tools-errors" aria-label={`${errors.length} runtime errors; open the dev tools`}>
@@ -248,6 +248,7 @@ export function RoomDevTools(props: RoomDevToolsProps) {
         data-testid="dev-tools"
         data-view={view}
         data-layout={narrow ? 'sheet' : 'side'}
+        translate="no"
         onPointerDown={isolate}
         onPointerMove={isolate}
         onPointerUp={isolate}
@@ -268,7 +269,7 @@ export function RoomDevTools(props: RoomDevToolsProps) {
           {views.map((v) => (
             <button key={v.id} type="button" className="devtools__tab" aria-pressed={view === v.id} onClick={() => setView(v.id)} data-testid={`dev-tools-tab-${v.id}`}>
               {v.label}
-              {v.id === 'performance' && errors.length > 0 ? ` ⚠${errors.length}` : ''}
+              {v.id === 'performance' && errors.length > 0 && <span> ⚠{errors.length}</span>}
             </button>
           ))}
         </nav>

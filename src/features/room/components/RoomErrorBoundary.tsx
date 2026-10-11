@@ -14,7 +14,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useBlobbiAppearance } from '../lib/blobbi-appearance';
-import { recordRuntimeError } from '../lib/runtime-errors';
+import { pageDiagnostics, recordRuntimeError } from '../lib/runtime-errors';
 
 interface Props {
   children: ReactNode;
@@ -64,7 +64,7 @@ interface CrashProps {
 /** What stands in the room's place: the cause, a way back, and the 2D drawing as the lighter retry. */
 function RoomCrash({ error, componentStack, onRetry }: CrashProps) {
   const [appearance, setAppearance] = useBlobbiAppearance();
-  const details = `${error.name}: ${error.message}\n${error.stack ?? ''}${componentStack ? `\n\ncomponent stack:${componentStack}` : ''}\n\n${navigator.userAgent}`;
+  const details = `${error.name}: ${error.message}\n${error.stack ?? ''}${componentStack ? `\n\ncomponent stack:${componentStack}` : ''}\n\n${pageDiagnostics()}`;
   const selectAll = (el: HTMLTextAreaElement | null) => {
     if (!el) return;
     el.focus();

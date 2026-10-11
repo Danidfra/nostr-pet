@@ -770,7 +770,7 @@ export function RoomShell({
                 {/* The name over its head, on demand only; the screen reader has it from the stand-in below */}
                 <span className="room-name-tag room-blobbi-name" data-shown={nameShown} aria-hidden data-testid="room-blobbi-name">
                   <span className="room-name-tag__dot" style={{ background: blobbiName.color }} />
-                  {blobbiName.text}
+                  <span>{blobbiName.text}</span>
                 </span>
                 {/* The Blobbi for the keyboard: focus shows the name; Enter says hello (a hop). Never in the pointer's way. */}
                 <button
@@ -860,7 +860,10 @@ export function RoomShell({
               <div className="flex flex-col items-center gap-[0.25em] min-w-[6.5em] px-[0.25em]">
                 <span className="flex items-center gap-[0.4em] whitespace-nowrap text-[1em] font-semibold text-foreground" data-testid="room-label">
                   <RoomIcon className="size-[1.1em] text-muted-foreground" aria-hidden />
-                  {room.label}
+                  {/* The name in its own element: the icon changes with the room and React inserts the new one before its next
+                      sibling; a page translator (Chrome's) moves bare text into a <font>, and inserting before a text node that
+                      is no longer here throws NotFoundError mid-commit (a white page without a boundary). An element stays. */}
+                  <span>{room.label}</span>
                 </span>
                 <span className="flex items-center gap-1" aria-hidden>
                   {ROOM_ORDER.map((id) => (

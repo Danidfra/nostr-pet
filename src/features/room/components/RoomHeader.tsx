@@ -25,7 +25,7 @@ export function RoomHeader({ name, stage }: { name: string; stage: BlobbiCompani
           <ArrowLeft />
         </Link>
         <p className="min-w-0 flex-1 truncate text-center text-[0.95em] font-semibold" data-testid="room-header-name">
-          {name}
+          <span>{name}</span>
           <span className="font-normal text-foreground/60"> · {STAGE_WORD[stage]}</span>
         </p>
         {/* The size of the back button, so the name stays centred */}

@@ -130,7 +130,7 @@ export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function R
         !isEgg && variant === 'guest' && (
           <span className="room-name-tag room-name-tag--guest">
             <span className="room-name-tag__dot" style={{ background: visual.baseColor }} aria-hidden />
-            {blobbi.name}
+            <span>{blobbi.name}</span>
           </span>
         )
       }

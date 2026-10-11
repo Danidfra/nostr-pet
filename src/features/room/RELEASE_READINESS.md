@@ -84,6 +84,38 @@ yet.** The steps for that are at the end.
   navigation held, freezing the room (now dropped). Whether the first of
   these is the phone's white screen is likely but unconfirmed: it was
   reasoned from code, not reproduced.
+- **The iPhone's real error (Chrome for iOS 155, iOS 26.6.2, 2026-10-11):**
+  `NotFoundError: The object can not be found here` from `insertBefore`
+  while React placed the kitchen's `Refrigerator` icon, with the room
+  error boundary catching it. Cause: the room switcher rendered the icon
+  beside the room's name as a bare text node. When the room changes, the
+  icon is a different component, so React inserts the new one "before" its
+  next sibling, that text node. Something outside React had moved the
+  text node out of the span (Chrome's page translation does exactly this:
+  it moves text into `<font>` elements; the page is `lang="en"`, so a
+  browser set to translate English does it on load). Inserting before a
+  node that is no longer a child throws, mid-commit. Fix (`RoomShell.tsx`,
+  `RoomHeader.tsx`, `RoomBlobbi.tsx`): text that sits beside an element
+  React swaps lives in its own `<span>`, so the insertion reference is an
+  element a translator leaves in place. `RoomTranslated.test.tsx` does
+  what the translator does (every text node into a `<font>`) and then
+  changes rooms, switches scenes rapidly, starts journeys and opens and
+  closes the dev tools; before the fix it failed with the same
+  `NotFoundError`. The dev tools themselves are `translate="no"`. The
+  error reports now say whether the page was translated or rewritten
+  (`<font>` count, `translated-ltr` class), so the next report settles it.
+- **Invisible Floor played as the quick change.** `RoomScene.tileFree`
+  (which the scene's walk checks along the way to an open edge) answered
+  "blocked" for a point on a tile boundary (two nearest tiles at the same
+  distance; the walk's samples land on boundaries) and for the Blobbi's own
+  tile (its actor counted as an obstacle). From the middle of every room,
+  where the Blobbi lands after each change, both edges read as blocked and
+  the gag fell back to the quick change, as it was designed to do when
+  furniture blocks every way. Now the tile under the point is asked
+  directly, furniture only (`RoomScene.tileFree.test.ts` measures every
+  default room: the gag from every free tile, the fallback kept for a
+  truly blocked room). The choreography itself is unchanged since its
+  approval.
 
 ### Performance (measured, desktop Chrome, adult V3, care room)
 

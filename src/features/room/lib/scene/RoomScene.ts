@@ -1718,11 +1718,15 @@ export class RoomScene {
     return [convexHull(points)];
   }
 
-  /** Whether the floor tile under a point is free of furniture (a scene's path checks it is not walking through a piece). */
+  /**
+   * Whether the floor tile under a point is free of furniture (a scene's path checks it is not walking through a
+   * piece). The tile itself is asked, not the nearest free one: a point on a tile boundary (the path's samples land
+   * on them) has two nearest tiles at the same distance, and the Blobbi's own tile is not furniture. Both used to
+   * read as blocked, and from the middle of the room every edge did, so the floor gag quietly became the quick change.
+   */
   tileFree(x: number, z: number): boolean {
     if (x < 0 || z < 0 || x >= G || z >= G) return true;
-    const [i, j] = this.nearestFreeTile(x, z);
-    return i === Math.floor(x) && j === Math.floor(z);
+    return !this.blockedTiles().has(Math.floor(x) * G + Math.floor(z));
   }
 
   /** The face a Blobbi's 3D model wears (the 2D drawing takes the same expression as a prop); null for the neutral face. */

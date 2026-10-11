@@ -53,8 +53,33 @@ export function subscribeRuntimeErrors(listener: () => void): () => void {
   };
 }
 
-/** The errors as one text, for a report. */
+/**
+ * What else a report should say about this page: the browser, the size,
+ * and whether something outside React is rewriting its DOM. A page
+ * translator (Chrome's) moves text nodes into `<font>` elements and marks
+ * the document `translated-ltr`/`translated-rtl`; a DOM React no longer
+ * owns is the usual cause of `NotFoundError` from `insertBefore`.
+ */
+export function pageDiagnostics(doc: Document | null = typeof document === 'undefined' ? null : document): string {
+  if (!doc) return 'page: no document';
+  const html = doc.documentElement;
+  const fonts = doc.querySelectorAll('font').length;
+  const translated = /translated-(ltr|rtl)/.test(html.className) || fonts > 0;
+  const nav = typeof navigator === 'undefined' ? null : navigator;
+  const win = typeof window === 'undefined' ? null : window;
+  return [
+    `page: lang=${html.lang || '?'}${html.className ? ` class="${html.className}"` : ''}`,
+    `translated or rewritten by something outside React: ${translated ? 'YES' : 'no'} (${fonts} <font> elements)`,
+    nav ? `browser: ${nav.userAgent}` : '',
+    win ? `viewport: ${win.innerWidth}x${win.innerHeight} @${win.devicePixelRatio}x, hidden: ${doc.hidden}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+/** The errors as one text, for a report, with what the page looks like underneath. */
 export function formatRuntimeErrors(list: readonly RuntimeError[] = errors): string {
-  if (list.length === 0) return 'No runtime errors on this page.';
-  return list.map((e) => `[${e.at}] ${e.kind}: ${e.message}${e.stack ? `\n${e.stack}` : ''}`).join('\n\n');
+  const head = pageDiagnostics();
+  if (list.length === 0) return `No runtime errors on this page.\n${head}`;
+  return `${head}\n\n${list.map((e) => `[${e.at}] ${e.kind}: ${e.message}${e.stack ? `\n${e.stack}` : ''}`).join('\n\n')}`;
 }
