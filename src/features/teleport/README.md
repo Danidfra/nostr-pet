@@ -102,6 +102,33 @@ coordinates.
 - Fade shadows.
 - Decide *when* to leave or enter.
 
+## 2b. Refinements (M8)
+
+- **The sky.** The motes leave through the top of the view and come in from
+  just past it.
+  - Each drawing measures where that is: the page in 2D (the
+    `[data-teleport-sky]` element's top), the room's camera in 3D
+    (`RoomScene.skyAbove`, by projection).
+  - `motesAt(kind, t, silhouette, { ceiling })` takes it in body heights.
+    The trajectories span the same share of the screen whatever the
+    viewport, camera, position or stage.
+  - Arrivals are staggered by when they land, so the stream is continuous.
+- **Trails.** Each mote drags a short streak (`TRAIL_MS`): a stroke in 2D,
+  one `LineSegments` buffer in 3D.
+- **Reversal without popping.** `moteLayers` hands the turned-back
+  journey's motes on: the ones already on their way finish their flight and
+  fade over `HANDOVER_MS`. None is born after the turn, so nothing is drawn
+  twice.
+- **The shadow.** `journeyShadow(frame)` is the materialized share, eased.
+  - The ground (contact) shadow fades by it, and the 2D cast-shadow proxy
+    is cut from the top.
+  - The 3D model's own cast shadow is clipped by the same plane
+    (`clipShadows`), with no extra pass.
+  - A reduced-motion fade switches it off once, as it crosses half.
+- **Parts cut open** (arms, ears, horns) show their inside lit while cut:
+  back faces drawn in the cut's light. The program is cached across
+  journeys.
+
 ## 3. Cross-app presence coordination (design only)
 
 The goal: one Blobbi is visibly in one place at a time. The places could be
