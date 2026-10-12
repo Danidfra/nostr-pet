@@ -131,6 +131,9 @@ Two things to know:
   around, blushes and hops. The room is the home for every player with a
   Blobbi; the classic home is in the room's menu. Launch findings and
   blockers: `src/features/room/RELEASE_READINESS.md`.
+  Deployment: `DEPLOYMENT.md`; the manual launch run: `LAUNCH_TEST_PLAN.md`;
+  worlds: `src/features/worlds/README.md`; the journey and progression:
+  `src/features/journey/README.md`.
 - **Things in the room (M10, M10.1).** Food is a dish set down in front of
   the Blobbi (or where you drop it), clear of its body: it notices, walks
   over, stands behind the dish with the food in front of it, and once the

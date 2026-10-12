@@ -5,7 +5,7 @@
  * and leaves the dock to the room's own bar; so does this.
  */
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Flame, Menu } from 'lucide-react';
+import { ArrowLeft, Flame, Globe2, Map as MapIcon, Menu } from 'lucide-react';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 
 import { ArcBackground } from './ArcBackground';
@@ -29,11 +29,15 @@ interface RoomHeaderProps {
   connection?: { level: HealthLevel; online: boolean; onRetry: () => void };
   /** The care streak, when there is one. */
   streak?: { days: number; bumpKey: number };
+  /** The worlds this Blobbi can travel to. */
+  onOpenWorlds?: () => void;
+  /** The journey: the chapters and what to do next. */
+  onOpenJourney?: () => void;
   /** Show the old way back to the classic home (legacy; the menu has it otherwise). */
   onBack?: boolean;
 }
 
-export function RoomHeader({ name, stage, onOpenBlobbi, onOpenMenu, connection, streak, onBack = false }: RoomHeaderProps) {
+export function RoomHeader({ name, stage, onOpenBlobbi, onOpenMenu, onOpenWorlds, onOpenJourney, connection, streak, onBack = false }: RoomHeaderProps) {
   const label = (
     <>
       <span>{name}</span>
@@ -48,6 +52,10 @@ export function RoomHeader({ name, stage, onOpenBlobbi, onOpenMenu, connection, 
           <Link to="/" state={BACK_HOME} className="room-header-back touch-hit" aria-label="Classic home" title="Classic home" data-testid="room-back">
             <ArrowLeft />
           </Link>
+        ) : onOpenWorlds ? (
+          <button type="button" onClick={onOpenWorlds} className="room-header-back touch-hit" aria-label="Worlds" title="Worlds" data-testid="room-worlds">
+            <Globe2 />
+          </button>
         ) : (
           // The room is the home: no way "back"; the menu keeps the classic home. The size of the menu button keeps the name centred.
           <span className="size-[2.25em] shrink-0" aria-hidden />
@@ -68,6 +76,11 @@ export function RoomHeader({ name, stage, onOpenBlobbi, onOpenMenu, connection, 
               <Flame className="h-4 w-4" aria-hidden />
               <span className="streak-pill__days">{streak.days}</span>
             </span>
+          )}
+          {onOpenJourney && (
+            <button type="button" onClick={onOpenJourney} className="room-header-back touch-hit" aria-label="Journey" title="Journey" data-testid="room-journey">
+              <MapIcon />
+            </button>
           )}
           {onOpenMenu ? (
             <button type="button" onClick={onOpenMenu} className="room-header-back touch-hit" aria-label="Menu" title="Menu" data-testid="room-menu">

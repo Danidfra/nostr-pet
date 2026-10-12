@@ -447,3 +447,48 @@ Checked by building and reading the bundle, the config and the code:
 21. **Sign-in that does not finish:** start an extension or bunker sign-in
     and do not approve: within a minute the screen says so and lets you
     try again.
+
+## M12: connected worlds, the journey, launch foundation (2026-10-12)
+
+### What changed
+- **Launch foundation:** a CSP (one source, a build-time meta tag and the
+  `vercel.json` header, kept equal by a test), security headers, SPA
+  fallback answering 200, immutable assets, a whole-app error boundary, a
+  test that markup in any Blobbi event field never reaches the DOM as
+  anything executable. See `DEPLOYMENT.md` and `LAUNCH_TEST_PLAN.md`.
+- **Worlds:** a globe in the room's header lists Island, Rumble and Farm
+  (checked addresses) and Pixel (coming soon, not a link). Travel is a
+  goodbye and the teleport's departure, then navigation; nothing travels.
+  `src/features/worlds/README.md`.
+- **Journey:** a map in the header opens four chapters derived from the
+  canonical record; one celebration per chapter per device; a second egg
+  only on the kit's level unlock, checked again at signing.
+  `src/features/journey/README.md`.
+- **Fixed:** the room accepted a hatch or evolve request without the kit's
+  readiness check.
+- **Night:** the welcome card was white text on white at night; it now uses
+  the theme.
+
+### Verified
+- Typecheck, lint, the full suite and the build.
+- Production build under the CSP (vite preview, desktop Chrome): welcome,
+  cast, key screen with no CSP violation and no console error.
+- Fixture room (CDP, Chrome): 390×844, 320×568 and 1280×800, reduced
+  motion: worlds sheet, departure and Stay, journey sheet; no horizontal
+  scroll.
+
+### Not verified
+- Anything on a real phone, and anything on the real deployment (headers,
+  fallback status, caching).
+- The 3D room, bunker and extension sign-in under the CSP.
+- An actual navigation to Island, Rumble or Farm from the departure (tests
+  use a navigation seam; the browser runs used Stay).
+- Visual and audio approval of the worlds, departure and journey.
+
+### Remaining launch blockers
+1. A real phone run of `LAUNCH_TEST_PLAN.md` on the deployed build.
+2. Deploy `vercel.json` (or the host's equivalent) and confirm with `curl -sI`.
+3. Real-device performance numbers (older iPhone, budget Android).
+4. The kit's production console logging (a kit change).
+5. Player XP is not awarded here, so additional eggs are reachable only
+   through XP earned in other Blobbi apps (an ecosystem decision).

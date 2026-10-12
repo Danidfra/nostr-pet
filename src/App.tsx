@@ -9,6 +9,7 @@ import { EnvironmentProvider } from '@/environment';
 import { SoundProvider } from '@/features/sound';
 import { RoomLoading } from '@/features/room/RoomLoading';
 import AppRouter from './AppRouter';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 
 /**
  * Dev fixture mode (`?fixture=egg|baby|adult|adult-v2|egg-v3|baby-v3|adult-v3|fresh`, with `&state=sleeping`,
@@ -82,29 +83,31 @@ function FixtureRefusedNotice() {
 
 export function App() {
   return (
-    <EnvironmentProvider>
-      <SoundProvider>
-        <NostrLoginProvider storageKey="nostr:login">
-          <QueryClientProvider client={queryClient}>
-            <Transport>
-              <style>{BLOBBI_RENDERER_STYLESHEET}</style>
-              <FixtureRefusedNotice />
-              <BrowserRouter>
-                <AppRouter
-                  devLab={
-                    DevLab && devLabRequested ? (
-                      <Suspense fallback={null}>
-                        <DevLab />
-                      </Suspense>
-                    ) : null
-                  }
-                />
-              </BrowserRouter>
-            </Transport>
-          </QueryClientProvider>
-        </NostrLoginProvider>
-      </SoundProvider>
-    </EnvironmentProvider>
+    <AppErrorBoundary>
+      <EnvironmentProvider>
+        <SoundProvider>
+          <NostrLoginProvider storageKey="nostr:login">
+            <QueryClientProvider client={queryClient}>
+              <Transport>
+                <style>{BLOBBI_RENDERER_STYLESHEET}</style>
+                <FixtureRefusedNotice />
+                <BrowserRouter>
+                  <AppRouter
+                    devLab={
+                      DevLab && devLabRequested ? (
+                        <Suspense fallback={null}>
+                          <DevLab />
+                        </Suspense>
+                      ) : null
+                    }
+                  />
+                </BrowserRouter>
+              </Transport>
+            </QueryClientProvider>
+          </NostrLoginProvider>
+        </SoundProvider>
+      </EnvironmentProvider>
+    </AppErrorBoundary>
   );
 }
 

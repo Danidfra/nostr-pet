@@ -3156,6 +3156,17 @@
       radial-gradient(90% 60% at 90% 90%, hsl(258 90% 92%) 0%, transparent 60%),
       linear-gradient(180deg, hsl(40 90% 96%), hsl(270 70% 95%));
   }
+  /* Night on the Island: the same world under a night sky */
+  .dark .welcome {
+    background:
+      radial-gradient(120% 70% at 50% 0%, hsl(250 45% 26%) 0%, transparent 60%),
+      radial-gradient(90% 60% at 15% 100%, hsl(300 40% 22%) 0%, transparent 60%),
+      radial-gradient(90% 60% at 90% 90%, hsl(240 45% 24%) 0%, transparent 60%),
+      linear-gradient(180deg, hsl(245 40% 14%), hsl(265 35% 18%));
+  }
+  .dark .welcome__cloud { background: hsl(240 30% 80% / 0.12); box-shadow: 30px 8px 0 -4px hsl(240 30% 80% / 0.1), -26px 10px 0 -6px hsl(240 30% 80% / 0.1); }
+  .dark .welcome-card__warning { background: hsl(35 60% 20%); color: hsl(40 90% 85%); }
+  .dark .app-crash { background: linear-gradient(180deg, hsl(245 40% 14%), hsl(265 35% 18%)); }
   .welcome__sky { position: absolute; inset: 0; pointer-events: none; }
   .welcome__cloud {
     position: absolute;
@@ -3235,10 +3246,12 @@
     gap: 0.9rem;
     border-radius: 1.75rem;
     padding: 1.4rem 1.25rem 1.25rem;
-    background: hsl(0 0% 100% / 0.86);
+    /* The theme's card, so night (the home's dark lighting) keeps the words readable */
+    background: hsl(var(--card) / 0.9);
+    color: hsl(var(--card-foreground));
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border: 1px solid hsl(0 0% 100% / 0.9);
+    border: 1px solid hsl(var(--border) / 0.6);
     box-shadow: 0 18px 40px -18px hsl(262 50% 35% / 0.35), 0 2px 6px hsl(262 50% 35% / 0.08);
   }
   .welcome-card__logo { height: 2.6rem; width: auto; margin: 0 auto; }
@@ -3449,4 +3462,121 @@
   @media (max-height: 420px) {
     .welcome__cast { display: none; }
   }
+}
+
+@layer components {
+  .app-crash {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: linear-gradient(180deg, hsl(40 90% 96%), hsl(270 70% 95%));
+  }
+  .app-crash__card { width: 100%; max-width: 24rem; text-align: center; }
+
+  /* ─── Worlds ─── */
+  .worlds-list { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; }
+  .world-card {
+    display: flex; width: 100%; align-items: center; gap: 0.75rem; text-align: left;
+    border-radius: 1.25rem; padding: 0.6rem 0.75rem 0.6rem 0.6rem;
+    background: hsl(var(--card)); color: hsl(var(--card-foreground));
+    border: 1px solid hsl(var(--border) / 0.6);
+    box-shadow: 0 2px 0 hsl(var(--foreground) / 0.06);
+    transition: transform 140ms ease;
+  }
+  button.world-card:active { transform: scale(0.98); }
+  button.world-card:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+  .world-card--soon { opacity: 0.72; }
+  .world-card__sky {
+    display: grid; place-items: center; flex-shrink: 0; width: 3.25rem; height: 3.25rem; border-radius: 1rem;
+    color: hsl(0 0% 100% / 0.95); box-shadow: inset 0 -6px 0 hsl(0 0% 0% / 0.06);
+  }
+  .world-card__sky svg { width: 1.5rem; height: 1.5rem; filter: drop-shadow(0 1px 1px hsl(0 0% 0% / 0.2)); }
+  .world-card__text { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+  .world-card__name { font-weight: 700; font-size: 0.95rem; }
+  .world-card__tagline { font-size: 0.8rem; color: hsl(var(--muted-foreground)); }
+  .world-card__badge {
+    flex-shrink: 0; border-radius: 9999px; padding: 0.25rem 0.6rem; font-size: 0.72rem; font-weight: 700;
+    background: hsl(var(--foreground) / 0.08); color: hsl(var(--muted-foreground));
+  }
+  .world-card__badge--go { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+  .worlds-note, .journey-note { margin-top: 0.9rem; font-size: 0.75rem; color: hsl(var(--muted-foreground)); text-align: center; }
+
+  .departure-card, .chapter-toast {
+    position: fixed; left: 50%; z-index: 60; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 0.6rem;
+    width: min(calc(100% - 2rem), 26rem);
+    border-radius: 1.25rem; padding: 0.6rem 0.7rem;
+    background: hsl(var(--card)); color: hsl(var(--card-foreground));
+    border: 1px solid hsl(var(--border) / 0.6);
+    box-shadow: 0 10px 30px hsl(var(--foreground) / 0.15);
+  }
+  .departure-card { bottom: calc(6.5rem + env(safe-area-inset-bottom)); }
+  .departure-card__sky { flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 9999px; }
+  .departure-card__text { flex: 1; min-width: 0; font-size: 0.85rem; font-weight: 600; }
+  .departure-card__actions { display: flex; flex-shrink: 0; gap: 0.35rem; }
+  .departure-card__btn {
+    border-radius: 9999px; padding: 0.4rem 0.8rem; font-size: 0.8rem; font-weight: 700;
+    background: hsl(var(--foreground) / 0.08); min-height: 2.25rem;
+  }
+  .departure-card__btn--go { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+  .departure-card--failed { border-color: hsl(var(--destructive) / 0.4); }
+
+  .chapter-toast { top: calc(4.5rem + env(safe-area-inset-top)); animation: chapter-toast-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .chapter-toast--still { animation: none; }
+  .chapter-toast__icon { flex-shrink: 0; width: 1.5rem; height: 1.5rem; color: hsl(45 95% 50%); }
+  .chapter-toast__text { display: flex; flex: 1; min-width: 0; flex-direction: column; }
+  .chapter-toast__title { font-weight: 700; font-size: 0.88rem; }
+  .chapter-toast__opens { font-size: 0.75rem; color: hsl(var(--muted-foreground)); }
+  .chapter-toast__ok {
+    flex-shrink: 0; border-radius: 9999px; padding: 0.4rem 0.8rem; min-height: 2.25rem; font-size: 0.8rem; font-weight: 700;
+    background: hsl(var(--primary)); color: hsl(var(--primary-foreground));
+  }
+  @keyframes chapter-toast-in {
+    from { opacity: 0; transform: translate(-50%, -0.75rem) scale(0.92); }
+    to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  }
+
+  /* ─── Journey ─── */
+  .journey-chapters { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; }
+  .journey-chapter {
+    border-radius: 1.25rem; padding: 0.7rem 0.8rem;
+    background: hsl(var(--card)); color: hsl(var(--card-foreground));
+    border: 1px solid hsl(var(--border) / 0.6);
+  }
+  .journey-chapter--current { border-color: hsl(var(--primary) / 0.55); box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12); }
+  .journey-chapter--locked { opacity: 0.6; }
+  .journey-chapter__head { display: flex; align-items: center; gap: 0.6rem; }
+  .journey-chapter__number {
+    display: grid; place-items: center; flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 9999px;
+    font-weight: 800; font-size: 0.9rem; background: hsl(var(--foreground) / 0.08);
+  }
+  .journey-chapter--current .journey-chapter__number { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+  .journey-chapter--done .journey-chapter__number { background: hsl(145 60% 45%); color: white; }
+  .journey-chapter__number svg { width: 1rem; height: 1rem; }
+  .journey-chapter__titles { display: flex; flex: 1; min-width: 0; flex-direction: column; }
+  .journey-chapter__title { font-weight: 700; font-size: 0.92rem; }
+  .journey-chapter__story { font-size: 0.78rem; color: hsl(var(--muted-foreground)); }
+  .journey-chapter__count { flex-shrink: 0; font-size: 0.75rem; font-weight: 700; color: hsl(var(--muted-foreground)); }
+  .journey-chapter__opens { margin-top: 0.5rem; font-size: 0.75rem; color: hsl(var(--muted-foreground)); }
+  .journey-objectives { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.7rem; }
+  .journey-objective { display: flex; align-items: flex-start; gap: 0.55rem; }
+  .journey-objective__mark { flex-shrink: 0; margin-top: 0.1rem; color: hsl(var(--muted-foreground)); }
+  .journey-objective__mark svg { width: 1.1rem; height: 1.1rem; }
+  .journey-objective--done .journey-objective__mark { color: hsl(145 60% 42%); }
+  .journey-objective__text { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 0.15rem; }
+  .journey-objective__title { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.86rem; font-weight: 600; }
+  .journey-objective--done .journey-objective__title { color: hsl(var(--muted-foreground)); }
+  .journey-objective__device svg { width: 0.8rem; height: 0.8rem; color: hsl(var(--muted-foreground)); }
+  .journey-objective__hint { font-size: 0.76rem; color: hsl(var(--muted-foreground)); }
+  .journey-objective__go {
+    flex-shrink: 0; align-self: center; border-radius: 9999px; padding: 0.35rem 0.7rem; min-height: 2.25rem;
+    display: inline-flex; align-items: center;
+    font-size: 0.75rem; font-weight: 700; background: hsl(var(--primary) / 0.14); color: hsl(var(--primary));
+  }
+  .journey-progress { position: relative; display: block; height: 1rem; margin-top: 0.2rem; border-radius: 9999px; background: hsl(var(--foreground) / 0.08); overflow: hidden; }
+  .journey-progress__bar { position: absolute; inset: 0 auto 0 0; border-radius: 9999px; background: hsl(var(--primary) / 0.55); }
+  .journey-progress__count { position: relative; display: block; text-align: center; font-size: 0.68rem; font-weight: 700; line-height: 1rem; }
 }

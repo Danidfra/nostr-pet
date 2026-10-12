@@ -41,6 +41,8 @@ interface AdoptionFlowProps {
    * gets the full intro.
    */
   brief?: boolean;
+  /** Another egg, for a player who already has Blobbis (the kit's level unlock allows it; checked again before signing). */
+  additional?: boolean;
 }
 
 const STEP_COPY = { idle: '', checking: 'Checking your relays…', egg: 'Signing your egg…', profile: 'Noting it in your profile…' } as const;
@@ -51,11 +53,11 @@ const STEP_COPY = { idle: '', checking: 'Checking your relays…', egg: 'Signing
  * generated once and is the source of truth for what gets published; nothing
  * is regenerated between the picture the player saw and the event.
  */
-export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refresh, brief = false }: AdoptionFlowProps) {
-  const [screen, setScreen] = useState<'intro' | 'egg'>(brief ? 'egg' : 'intro');
+export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refresh, brief = false, additional = false }: AdoptionFlowProps) {
+  const [screen, setScreen] = useState<'intro' | 'egg'>(brief || additional ? 'egg' : 'intro');
   const [preview, setPreview] = useState<EggPreview | null>(null);
   const [nameInput, setNameInput] = useState('');
-  const adoption = useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refresh });
+  const adoption = useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refresh, additional });
 
   useEffect(() => {
     if (screen === 'egg' && !preview) setPreview(newEggPreview(pubkey));
@@ -82,6 +84,17 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
     );
   }
 
+  if (result?.kind === 'limit') {
+    return (
+      <div className="welcome-card text-center" data-testid="adoption-limit" role="status">
+        <p className="welcome-card__title">Not quite yet</p>
+        <p className="text-sm text-muted-foreground">
+          Your Blobbonaut level allows {result.max} Blobbi{result.max === 1 ? '' : 's'}, and you have {result.count}. A new egg can join at the next unlock.
+        </p>
+      </div>
+    );
+  }
+
   // A player who just came through the welcome goes straight to their egg: the why was said there
   if (screen === 'intro' && !brief) {
     return (
@@ -102,7 +115,7 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
 
   return (
     <form onSubmit={submit} className="welcome-card adopt text-center" data-testid="adoption-egg" data-brief={brief ? 'true' : 'false'} aria-busy={adoption.isPending}>
-      <h2 className="welcome-card__title">{brief ? 'Here is your egg' : 'Your egg'}</h2>
+      <h2 className="welcome-card__title">{additional ? 'A new egg' : brief ? 'Here is your egg' : 'Your egg'}</h2>
       <AdoptionEgg companion={companion} d={preview?.d} pending={adoption.isPending} />
       <p className="text-sm text-muted-foreground">Nobody else has this one: its colours and shape come from your key. Give it a name, or keep "{DEFAULT_EGG_NAME}" for now.</p>
       <div className="text-left">
@@ -142,13 +155,17 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
           {adoption.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
           {adoption.isPending ? STEP_COPY[adoption.step] || 'Adopting…' : adoption.error ? 'Try again' : 'Adopt'}
         </button>
-        {!brief && (
+        {!brief && !additional && (
           <button type="button" className="text-sm font-semibold text-muted-foreground underline" onClick={() => setScreen('intro')} disabled={adoption.isPending} data-testid="adoption-back">
             Back
           </button>
         )}
       </div>
-      <p className="text-[11px] text-muted-foreground">Adopting saves the egg to your account (two signatures). Your first egg hatches right after, in its new home.</p>
+      <p className="text-[11px] text-muted-foreground" data-testid="adoption-footnote">
+        {additional
+          ? 'Adopting saves the egg to your account (two signatures). This egg hatches once its incubation tasks are done: its details list them.'
+          : 'Adopting saves the egg to your account (two signatures). Your first egg hatches right after, in its new home.'}
+      </p>
     </form>
   );
 }

@@ -3,6 +3,24 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import type { Plugin } from "vite";
+import { CSP_META } from "./src/config/content-security-policy";
+
+/**
+ * The production page carries its Content-Security-Policy itself, as a
+ * `<meta>` (src/config/content-security-policy.ts), so it holds on any host.
+ * Build only: the dev server injects inline scripts (React refresh) that the
+ * policy would block.
+ */
+function contentSecurityPolicy(): Plugin {
+  return {
+    name: "blobbi-csp",
+    apply: "build",
+    transformIndexHtml(html) {
+      return html.replace("<head>", `<head>\n    <meta http-equiv="Content-Security-Policy" content="${CSP_META}" />`);
+    },
+  };
+}
 
 /**
  * Optional TLS for the dev server, for a REAL account on a phone: browsers
@@ -21,7 +39,7 @@ function devTls() {
 export default defineConfig({
   // "::" binds every interface (IPv6 any, with IPv4 on macOS), so a phone on the same Wi-Fi can open the Mac's address
   server: { host: "::", port: 8080, https: devTls() },
-  plugins: [react()],
+  plugins: [react(), contentSecurityPolicy()],
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
   build: {
     rollupOptions: {

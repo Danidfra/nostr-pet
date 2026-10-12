@@ -120,8 +120,8 @@ describe('decorating on the /room preview (the 3D room stubbed as ready)', () =>
     expect(screen.getByTestId('room-shell')).toHaveAttribute('data-room', 'home');
     expect(roomFurnitureFor('home').length).toBeGreaterThan(0);
     // The only keys written are the test harness's own login store and the room's memory of where the player was
-    // (this device only, never Nostr); nothing of the room's decoration
-    expect(setItem.mock.calls.map((c) => c[0]).filter((k) => k !== 'test:login' && !isRoomMemoryKey(k))).toEqual([]);
+    // (this device only, never Nostr) and the journey's device record (a cuddle, a nap, chapters celebrated); nothing of the room's decoration
+    expect(setItem.mock.calls.map((c) => c[0]).filter((k) => k !== 'test:login' && !isRoomMemoryKey(k) && !k.startsWith('blobbi:journey:'))).toEqual([]);
     expect(relay.published).toHaveLength(0);
     await waitFor(() => expect(event).not.toHaveBeenCalled());
   });

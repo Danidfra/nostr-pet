@@ -159,7 +159,7 @@ describe('the Blobbi\'s appearance in the room', () => {
     await screen.findByTestId('room-blobbi-anchor');
     choose('3d');
     choose('2d');
-    expect(setItem.mock.calls.map((c) => c[0]).filter((k) => k !== 'test:login' && !isRoomMemoryKey(k))).toEqual([APPEARANCE_STORAGE_KEY, APPEARANCE_STORAGE_KEY]);
+    expect(setItem.mock.calls.map((c) => c[0]).filter((k) => k !== 'test:login' && !isRoomMemoryKey(k) && !k.startsWith('blobbi:journey:'))).toEqual([APPEARANCE_STORAGE_KEY, APPEARANCE_STORAGE_KEY]);
     expect(relay.published).toEqual([]);
     setItem.mockRestore();
   });

@@ -66,6 +66,16 @@ import { RoomErrorBoundary } from './components/RoomErrorBoundary';
 import { useRoomItemDrag } from './hooks/useRoomItemDrag';
 import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
 import { RoomHeader } from './components/RoomHeader';
+import { WorldsSheet } from '@/features/worlds/WorldsSheet';
+import { useWorldDeparture } from '@/features/worlds/useWorldDeparture';
+import { DepartureCard } from '@/features/worlds/DepartureCard';
+import { useJourney } from '@/features/journey/useJourney';
+import { JourneySheet } from '@/features/journey/JourneySheet';
+import { ChapterToast } from '@/features/journey/ChapterToast';
+import type { ObjectiveAction } from '@/features/journey/journey';
+import type { LifecycleTask } from '@/features/lifecycle';
+import { AdoptionFlow } from '@/features/adoption/AdoptionFlow';
+import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import { RoomStatusHud } from './components/RoomStatusHud';
 import { RoomBlobbiOverlay, RoomDragGhost, RoomFloorItem } from './components/RoomCareParts';
 import { useReactionPolicy } from '@/features/home/scene/useReactionPolicy';
@@ -183,6 +193,9 @@ interface BlobbiRoomProps {
   refresh: () => void;
   connection?: { level: HealthLevel; online: boolean; onRetry: () => void };
 }
+
+/** No growing-up tasks (the journey's list when the Blobbi is not on its way to growing up). */
+const NO_TASKS: readonly LifecycleTask[] = [];
 
 /** How long a first Blobbi's egg is simply there before its hatch begins by itself (the classic home's lead). */
 const FIRST_HATCH_LEAD_MS = 1_400;
@@ -372,6 +385,21 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const lifecycle = useLifecycle({ blobbi, profile, pubkey, updateCompanionEvent, invalidate: refresh });
   const firstBlobbi = useFirstBlobbiHatch({ blobbi, companions, pubkey });
   const lifecyclePending = lifecycle.pending;
+  // The journey: chapters derived from the canonical record (and a cuddle and a nap remembered on this device)
+  const evolveTasks = lifecycle.view.process === 'evolving' ? lifecycle.view.tasks : NO_TASKS;
+  const journeyBook = useJourney({ pubkey, companions, current: blobbi, profile, evolveTasks });
+  const [journeyOpen, setJourneyOpen] = useState(false);
+  const [worldsOpen, setWorldsOpen] = useState(false);
+  const [adoptOpen, setAdoptOpen] = useState(false);
+  const { noteCare, noteNapped } = journeyBook;
+  const careFeedbackKey = care.feedback?.key;
+  const careFeedbackAction = care.feedback?.result.action;
+  useEffect(() => {
+    if (careFeedbackKey !== undefined && careFeedbackAction) noteCare(careFeedbackAction);
+  }, [careFeedbackKey, careFeedbackAction, noteCare]);
+  useEffect(() => {
+    if (isSleeping) noteNapped();
+  }, [isSleeping, noteNapped]);
   const ceremonyView = useMemo(
     () => ({ phase: lifecyclePending === 'hatch' || lifecyclePending === 'evolve' ? ('publishing' as const) : ('idle' as const), kind: lifecyclePending === 'hatch' || lifecyclePending === 'evolve' ? lifecyclePending : null, error: lifecycle.error, dismiss: lifecycle.clearError }),
     [lifecyclePending, lifecycle.error, lifecycle.clearError],
@@ -408,17 +436,22 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   useEffect(() => {
     if (lifecycleError && /already hatched/i.test(lifecycleError)) refresh();
   }, [lifecycleError, refresh]);
+  const lifecycleNext = lifecycle.view.next;
   const startCeremony = useCallback(
     async (kind: CeremonyKind) => {
       if (ceremonyRunning.current || blobbi.state !== 'active') return;
+      // The kit's rules, as on the classic home: an egg hatches when its incubation is done (the account's first egg
+      // needs none, confirmed with the relays before the write); a baby grows up when its tasks are done
       if (kind === 'hatch') {
         if (blobbi.stage !== 'egg') return;
+        if (!firstBlobbi.qualifies && lifecycleNext !== 'hatch') return;
         ceremonyRunning.current = true;
         setSheetOpen(false);
         setMenuOpen(false);
         setTheater(true);
         return;
       }
+      if (lifecycleNext !== 'evolve') return;
       ceremonyRunning.current = true;
       try {
         const landed = await evolve();
@@ -431,7 +464,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         ceremonyRunning.current = false;
       }
     },
-    [blobbi.state, blobbi.stage, evolve, play, showFace, gesture],
+    [blobbi.state, blobbi.stage, firstBlobbi.qualifies, lifecycleNext, evolve, play, showFace, gesture],
   );
   // The account's first egg hatches by itself, once per egg, a moment after it is on screen and the room is quiet
   const autoHatchDue = firstBlobbi.qualifies && blobbi.state === 'active' && !!profile && care.offer === null && interactions.activity === null && !transitions.transitioning && !theater;
@@ -587,6 +620,32 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     // A hand on it stops a walk: a scene on its way to something ends there, the item goes back
     stop: nav.stop,
   });
+  const { notePetted } = journeyBook;
+  useEffect(() => {
+    if (petting.petting) notePetted();
+  }, [petting.petting, notePetted]);
+
+  // ─── Travel: the Blobbi says goodbye and dissolves (the teleport's own departure), then the page goes ───
+  const departure = useWorldDeparture({ presence, canAct: present && !isEgg && !isSleeping, reducedMotion, showFace, clearFace, gesture, play });
+  const travelBusy = care.busy || theater || lifecycle.pending !== null || decorator.editing || transitioning;
+  const travel = useCallback(
+    (world: Parameters<typeof departure.go>[0]) => {
+      // A write still out finishes here first: leaving mid-signature could lose it
+      if (travelBusy) {
+        play('invalid');
+        care.notify('One moment: something is still being saved.');
+        return;
+      }
+      if (departure.go(world)) setWorldsOpen(false);
+    },
+    [travelBusy, departure, play, care],
+  );
+  const onJourneyAction = useCallback((action: ObjectiveAction) => {
+    setJourneyOpen(false);
+    if (action.kind === 'room') setChosenRoom(action.room);
+    else if (action.kind === 'details') setSheetOpen(true);
+    else if (action.kind === 'adopt') setAdoptOpen(true);
+  }, []);
 
   // Where it comes to rest is remembered for this room (not mid-walk, mid-scene, away, asleep or decorating)
   const rememberPosition = memory.rememberPosition;
@@ -735,7 +794,18 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         blobbiOverlay={<RoomBlobbiOverlay ref={gazeBoxRef} feedback={care.feedback} handed={null} heart={petting.heart} />}
         onBlobbiPet={petting.onPet}
         blobbiName={nameTag}
-        header={<RoomHeader name={blobbi.name} stage={blobbi.stage} onOpenBlobbi={() => setSheetOpen(true)} onOpenMenu={() => setMenuOpen(true)} connection={connection} streak={streak} />}
+        header={
+          <RoomHeader
+            name={blobbi.name}
+            stage={blobbi.stage}
+            onOpenBlobbi={() => setSheetOpen(true)}
+            onOpenMenu={() => setMenuOpen(true)}
+            onOpenWorlds={() => setWorldsOpen(true)}
+            onOpenJourney={() => setJourneyOpen(true)}
+            connection={connection}
+            streak={streak}
+          />
+        }
         statusHud={!isEgg && <RoomStatusHud stage={blobbi.stage} stats={projected?.stats} onGuide={isSleeping ? undefined : setChosenRoom} />}
         middleSlot={<RoomCareCards offer={offer} onRetry={interactions.retry} onPutAway={care.putAway} error={care.error} notice={care.notice ?? storeNotice} />}
         blobbiModel={actor3d.model}
@@ -791,6 +861,21 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       {streakMoment?.milestone && <StreakMoment change={streakMoment} onDone={dismissStreakMoment} reducedMotion={reducedMotion} />}
       {theater && <HatchTheater blobbi={blobbi} perform={performHatch} error={hatchError ?? lifecycleError} reducedMotion={reducedMotion} play={play} onDone={endTheater} />}
       <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} inRoom />
+      <WorldsSheet open={worldsOpen} onClose={() => setWorldsOpen(false)} blobbi={blobbi} onTravel={travel} />
+      <JourneySheet open={journeyOpen} onClose={() => setJourneyOpen(false)} chapters={journeyBook.chapters} onAction={onJourneyAction} />
+      {pubkey && (
+        <GameOverlay open={adoptOpen} onClose={() => setAdoptOpen(false)} title="Another Blobbi" testId="room-adopt-sheet">
+          {journeyBook.canAdoptMore ? (
+            <AdoptionFlow pubkey={pubkey} updateCompanionEvent={updateCompanionEvent} refresh={refresh} additional />
+          ) : (
+            <p className="text-center text-sm text-muted-foreground" data-testid="room-adopt-locked">
+              Your Blobbonaut level allows {journeyBook.maxBlobbis} Blobbi{journeyBook.maxBlobbis === 1 ? '' : 's'} for now. A second egg can join at level 5.
+            </p>
+          )}
+        </GameOverlay>
+      )}
+      {departure.phase !== 'idle' && departure.world && <DepartureCard phase={departure.phase} world={departure.world} name={blobbi.name} onStay={departure.cancel} onRetry={() => departure.go({ ...departure.world!, open: true })} />}
+      {journeyBook.celebrate && <ChapterToast chapter={journeyBook.chapters.find((c) => c.id === journeyBook.celebrate)!} onDone={journeyBook.dismissCelebration} play={play} reducedMotion={reducedMotion} />}
       <RoomBlobbiSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}

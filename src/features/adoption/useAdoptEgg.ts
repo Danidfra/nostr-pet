@@ -18,14 +18,16 @@
 import { useCallback, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
-import { KIND_BLOBBI_STATE, fetchFreshBlobbonautProfile, getSelectedBlobbiKey, parseBlobbonautEvent, type BlobbonautProfile, type NostrEvent } from '@blobbi-kit/core';
+import { KIND_BLOBBI_STATE, fetchFreshBlobbonautProfile, getSelectedBlobbiKey, getUnlocks, xpToLevel, parseBlobbonautEvent, type BlobbonautProfile, type NostrEvent } from '@blobbi-kit/core';
 import { usePublishAdapter } from '@/features/care/usePublishAdapter';
 import { timeoutSignal } from '@/lib/abort';
 import { eggTemplate, isOwnedBlobbiEvent, profileTemplate, type EggPreview } from './adoption-plan';
 
 export type AdoptionResult =
   | { kind: 'adopted'; egg: NostrEvent; profile: NostrEvent | null; profileError: string | null }
-  | { kind: 'existing'; count: number };
+  | { kind: 'existing'; count: number }
+  /** Another egg asked for, but the kit's unlock for the profile's level does not allow one more. */
+  | { kind: 'limit'; count: number; max: number };
 
 interface UseAdoptEggOptions {
   pubkey: string | undefined;
@@ -34,11 +36,19 @@ interface UseAdoptEggOptions {
   updateCompanionEvent: (event: NostrEvent) => void;
   /** Re-read the collection (and the profile) from the relays. */
   refresh: () => void;
+  /**
+   * Another egg for a player who already has Blobbis: allowed only while the
+   * collection is under the kit's `getUnlocks(level).maxBlobbis` for the
+   * level of a FRESH profile read (kind 11125 `xp`), checked again right
+   * before signing. Without it (the first adoption), any Blobbi owned stops
+   * the adoption, as before.
+   */
+  additional?: boolean;
 }
 
 const PREFLIGHT_TIMEOUT_MS = 6_000;
 
-export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refresh }: UseAdoptEggOptions) {
+export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refresh, additional = false }: UseAdoptEggOptions) {
   const { nostr } = useNostr();
   const publisher = usePublishAdapter();
   const queryClient = useQueryClient();
@@ -52,10 +62,15 @@ export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refre
 
       setStep('checking');
       const owned = (await nostr.query([{ kinds: [KIND_BLOBBI_STATE], authors: [pubkey] }], { signal: timeoutSignal(PREFLIGHT_TIMEOUT_MS) })).filter(isOwnedBlobbiEvent);
-      if (owned.length > 0) {
+      if (owned.length > 0 && !additional) {
         return { kind: 'existing', count: owned.length };
       }
       const profile = await fetchFreshBlobbonautProfile(nostr, pubkey);
+      if (additional) {
+        const max = getUnlocks(xpToLevel(profile?.xp ?? 0)).maxBlobbis;
+        const count = new Set(owned.map((e) => e.tags.find(([n]) => n === 'd')?.[1])).size;
+        if (count >= max) return { kind: 'limit', count, max };
+      }
 
       setStep('egg');
       const egg = await publisher.publish(eggTemplate(preview));
