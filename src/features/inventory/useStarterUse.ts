@@ -15,6 +15,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { KIND_BLOBBI_STATE, buildBlobbiAddress, fetchFreshEvent, isModernBlobbiEvent, parseModernBlobbiEvent, type BlobbiStats, type NostrEvent } from '@blobbi-kit/core';
 import { usePublishAdapter } from '@/features/care/usePublishAdapter';
+import { countCareForMissions } from '@/features/progression/daily-xp';
 import { tallyCareInteraction } from '@/features/lifecycle/mission-tally';
 import { itemUsability, type HomeItem, type ItemAction } from './item-model';
 import { planItemUse } from './item-use-plan';
@@ -67,6 +68,8 @@ export function useStarterUse({ pubkey, updateCompanionEvent, invalidate }: UseS
       const plan = planItemUse(companion, item, null, now, { evolution: tallyCareInteraction(companion, pubkey) });
       const event = await publisher.publish(plan.event);
       updateCompanionEvent(event);
+      // Landed: today's missions count it
+      countCareForMissions(pubkey, item.care.action);
       void publisher.publish(plan.interaction).catch(() => {
         /* the receipt is informational */
       });

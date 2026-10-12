@@ -24,9 +24,11 @@ const APPEARANCE_ICON = { island: Sunrise, day: Sun, night: Moon } as const;
 
 /**
  * The game menu: a screen over the home with a few large controls, not a
- * settings list. The way out to the Island first, then sound and lighting
- * as big toggles, then the account (who, how signed in, sign out, and the
- * key backup for a secret-key session).
+ * settings list. On the classic home the way out to the Island first; in the
+ * room the Island is one of the Worlds (the globe in the header), so the menu
+ * does not repeat it (M12.1). Then sound and lighting as big toggles, then
+ * the account (who, how signed in, sign out, and the key backup for a
+ * secret-key session).
  */
 export function MenuSheet({ open, onClose, inRoom = false }: MenuSheetProps) {
   const env = useEnvironment();
@@ -39,16 +41,18 @@ export function MenuSheet({ open, onClose, inRoom = false }: MenuSheetProps) {
   return (
     <GameOverlay open={open} onClose={onClose} title="Menu" testId="menu-sheet" size="medium">
       <div className="menu">
-        <a href={BLOBBI_ISLAND_URL} target="_blank" rel="noopener noreferrer" data-testid="enter-island" className="menu-tile menu-tile--hero">
-          <span className="menu-tile__icon">
-            <MapIcon className="h-7 w-7" aria-hidden />
-          </span>
-          <span className="menu-tile__text">
-            <span className="menu-tile__title">Blobbi Island</span>
-            <span className="menu-tile__sub">The wider world, in a new tab. The same Blobbi goes with you. Or use the door.</span>
-          </span>
-          <ExternalLink className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
-        </a>
+        {!inRoom && (
+          <a href={BLOBBI_ISLAND_URL} target="_blank" rel="noopener noreferrer" data-testid="enter-island" className="menu-tile menu-tile--hero">
+            <span className="menu-tile__icon">
+              <MapIcon className="h-7 w-7" aria-hidden />
+            </span>
+            <span className="menu-tile__text">
+              <span className="menu-tile__title">Blobbi Island</span>
+              <span className="menu-tile__sub">The wider world, in a new tab. The same Blobbi goes with you. Or use the door.</span>
+            </span>
+            <ExternalLink className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+          </a>
+        )}
 
         {user && (
           <section className="menu-section" aria-labelledby="menu-room">

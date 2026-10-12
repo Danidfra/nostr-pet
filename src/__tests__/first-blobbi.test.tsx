@@ -138,6 +138,18 @@ function incubatingEgg(visualGeneration: BlobbiVisualGeneration, interactions = 
   return { ...base, content: serializeEvolutionContent('', missions) };
 }
 
+/**
+ * The player begins the first hatch (M12.1): ready at once, never begun by itself. Proves nothing is written while
+ * the egg waits (longer than the old automatic lead), then taps Hatch!.
+ */
+async function tapHatch() {
+  const writes = relay.published.length;
+  await pause(LONG_ENOUGH_MS);
+  expect(relay.published).toHaveLength(writes);
+  expect(screen.queryByTestId('hatch-caption')).toBeNull();
+  await userEvent.click(await screen.findByTestId('action-hatch'));
+}
+
 async function adoptFromScratch(name = 'Pip') {
   renderHome();
   await userEvent.click(await screen.findByTestId('adoption-start'));
@@ -162,8 +174,8 @@ beforeEach(() => {
   event.mockClear();
 });
 
-describe('A fresh account: the first Blobbi hatches by itself', () => {
-  it('adopt → the egg is in the room → the hatch runs with no missions and no further tap → a V3 baby, same identity', { timeout: 20_000 }, async () => {
+describe('A fresh account: the first Blobbi is ready to hatch at once, and the player begins it', () => {
+  it('adopt → the egg is in the room, waiting → one tap on Hatch! → the hatch runs with no missions → a V3 baby, same identity', { timeout: 20_000 }, async () => {
     const egg = await adoptFromScratch();
     expect(getTagValue(egg.tags, 'stage')).toBe('egg');
     expect(getTagValue(egg.tags, VISUAL_GENERATION_TAG)).toBe('v3');
@@ -174,7 +186,9 @@ describe('A fresh account: the first Blobbi hatches by itself', () => {
     expect(screen.queryByTestId('hatch-caption')).toBeNull();
     expect(published(KIND_BLOBBI_STATE)).toHaveLength(1);
 
-    // Then, untouched, the hatch: said in words while it runs, and ONE more kind 31124.
+    // It waits for the player: nothing begins, nothing is written, until the tap.
+    await tapHatch();
+    // The hatch: said in words while it runs, and ONE more kind 31124.
     const caption = await screen.findByTestId('hatch-caption', {}, HATCH);
     expect(caption).toHaveAttribute('role', 'status');
     expect(caption).toHaveTextContent(/stirring|cracking|almost|hatching/i);
@@ -218,6 +232,7 @@ describe('A fresh account: the first Blobbi hatches by itself', () => {
 
   it('a reload after the hatch shows the same baby and writes nothing', { timeout: 20_000 }, async () => {
     const egg = await adoptFromScratch();
+    await tapHatch();
     await waitFor(() => expect(published(KIND_BLOBBI_STATE)).toHaveLength(2), HATCH);
     await waitFor(() => expect(drawing()).toHaveAttribute('data-blobbi-stage', 'baby'), HATCH);
     const before = creature();
@@ -252,6 +267,7 @@ describe('The rule is about the account, not about the generation', () => {
       relay.all = [kind0(), egg, profileEvent({ has: [D], currentCompanion: D })];
       renderHome();
       await waitFor(() => expect(drawing()).toHaveAttribute('data-blobbi-stage', 'egg'));
+      await tapHatch();
       await waitFor(() => expect(published(KIND_BLOBBI_STATE)).toHaveLength(1), HATCH);
       const baby = published(KIND_BLOBBI_STATE)[0];
       expect(getTagValue(baby.tags, 'stage')).toBe('baby');
@@ -296,6 +312,8 @@ describe('An account that already raised a Blobbi: a later egg keeps the normal 
     renderHome();
     await waitFor(() => expect(drawing()).toHaveAttribute('data-blobbi-stage', 'egg'));
     relay.onlyInCollectionReads = [legacyShapeEvent()];
+    // The player asks; the relays are read right before any write, and they say this is not the first Blobbi
+    await tapHatch();
     await pause(LONG_ENOUGH_MS);
     expect(relay.published).toHaveLength(0);
     expect(screen.queryByTestId('hatch-caption')).toBeNull();
@@ -314,7 +332,8 @@ describe('When the relays do not cooperate', () => {
     renderHome();
     await waitFor(() => expect(drawing()).toHaveAttribute('data-blobbi-stage', 'egg'));
     relay.collectionReadsFail = true;
-    await pause(5_000); // the lead, then every retry of the read
+    await tapHatch();
+    await pause(5_000); // every retry of the read
     expect(relay.published).toHaveLength(0);
     expect(screen.queryByTestId('hatch-caption')).toBeNull();
     expect(screen.queryByTestId('ceremony-error')).toBeNull();
@@ -340,6 +359,8 @@ describe('When the relays do not cooperate', () => {
     relay.all = [kind0(), incubatingEgg('v3'), profileEvent({ has: [D], currentCompanion: D })];
     relay.publishFails = true;
     renderHome();
+    await waitFor(() => expect(drawing()).toHaveAttribute('data-blobbi-stage', 'egg'));
+    await tapHatch();
     await waitFor(() => expect(screen.getByTestId('ceremony-error')).toHaveTextContent(/relay rejected/), HATCH);
     expect(drawing()).toHaveAttribute('data-blobbi-stage', 'egg');
     expect(screen.queryByTestId('hatch-caption')).toBeNull();
@@ -374,6 +395,7 @@ describe('The hatch on screen', () => {
     renderHome({ reducedMotion: true });
     await waitFor(() => expect(drawing()).toHaveAttribute('data-blobbi-stage', 'egg'));
     const watch = beatsSeen();
+    await userEvent.click(await screen.findByTestId('action-hatch'));
     const captions = new Set<string>();
     const rocks = new Set<string | null>();
     let burst = false;
@@ -402,6 +424,7 @@ describe('The hatch on screen', () => {
     renderHome({ reducedMotion: false });
     await waitFor(() => expect(drawing()).toHaveAttribute('data-blobbi-stage', 'egg'));
     const watch = beatsSeen();
+    await userEvent.click(await screen.findByTestId('action-hatch'));
     const rocks: string[] = [];
     const bursts: string[] = [];
     const sampler = setInterval(() => {

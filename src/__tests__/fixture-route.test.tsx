@@ -23,6 +23,9 @@ async function openApp(url: string, flag: 'true' | 'off' = 'true') {
   vi.stubEnv('VITE_BLOBBI_DEV_TOOLS', flag);
   window.history.replaceState({}, '', url);
   vi.resetModules();
+  // A fresh graph re-creates the test seams in their app state: set them as the test setup does for every suite
+  (await import('@/features/room/lib/room-arrival')).setRoomArrivalEnabled(false);
+  (await import('@/features/progression/daily-xp-switch')).setDailyXpEnabled(false);
   const { default: App } = await import('@/App');
   return render(<App />);
 }

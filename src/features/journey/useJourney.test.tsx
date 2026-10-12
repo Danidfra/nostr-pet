@@ -19,9 +19,13 @@ let receipts: NostrEvent[] = [];
 const query = vi.fn(async (filters: NostrFilter[]) => (filters.some((f) => f.kinds?.includes(KIND_BLOBBI_INTERACTION)) ? receipts : []));
 const pool = { query } as unknown as NPool;
 
-function receipt(action: 'feed' | 'play' | 'clean', n: number): NostrEvent {
+/** A receipt, `daysAgo` local days before now (all on one past day by default, never today). */
+function receipt(action: 'feed' | 'play' | 'clean', n: number, daysAgo = 3): NostrEvent {
   const t = buildInteractionEventTemplate({ ownerPubkey: PUBKEY, blobbiDTag: D, action, source: 'blobbi-home' });
-  return { ...t, id: String(n).padStart(64, '0'), pubkey: PUBKEY, created_at: 1_760_000_000 + n, sig: '0'.repeat(128) };
+  const at = new Date();
+  at.setDate(at.getDate() - daysAgo);
+  at.setHours(12, 0, n, 0);
+  return { ...t, id: String(n).padStart(64, '0'), pubkey: PUBKEY, created_at: Math.floor(at.getTime() / 1000), sig: '0'.repeat(128) };
 }
 
 function wrapper() {
@@ -33,10 +37,10 @@ function wrapper() {
   );
 }
 
-const baby = (careStreak: number): UseJourneyOptions => ({
+const baby = (): UseJourneyOptions => ({
   pubkey: PUBKEY,
   companions: [{ stage: 'baby' }],
-  current: { stage: 'baby', progressionState: 'none', careStreak },
+  current: { stage: 'baby', progressionState: 'none' },
   profile: null,
   evolveTasks: [],
 });
@@ -49,26 +53,39 @@ beforeEach(() => {
 describe('the journey hook', () => {
   it('counts care from the receipts, and celebrates a chapter finished after the first look, once', async () => {
     receipts = [receipt('feed', 1), receipt('play', 2), receipt('clean', 3)];
-    const hook = renderHook((props: UseJourneyOptions) => useJourney(props), { wrapper: wrapper(), initialProps: baby(1) });
+    const hook = renderHook((props: UseJourneyOptions) => useJourney(props), { wrapper: wrapper(), initialProps: baby() });
     await waitFor(() => expect(hook.result.current.chapters.find((c) => c.id === 'first-steps')!.objectives.find((o) => o.id === 'feed')!.done).toBe(true));
     // First look on this device: chapter 1 was already done; recorded quietly
     await waitFor(() => expect(parseJourneyRecord(localStorage.getItem(journeyStoreKey(PUBKEY)))).toMatchObject({ seeded: true, celebrated: ['beginning'] }));
     expect(hook.result.current.celebrate).toBeNull();
-    // Day two of care lands: chapter 2 is finished now, celebrated
-    hook.rerender(baby(2));
+    // All that care was on one day: "Two days together" is half done
+    expect(hook.result.current.chapters.find((c) => c.id === 'first-steps')!.objectives.find((o) => o.id === 'two-days')!.progress).toEqual({ current: 1, required: 2 });
+    // Care lands today, a second day: chapter 2 is finished now, celebrated
+    act(() => hook.result.current.noteCare('feed'));
     await waitFor(() => expect(hook.result.current.celebrate).toBe('first-steps'));
     act(() => hook.result.current.dismissCelebration());
     expect(parseJourneyRecord(localStorage.getItem(journeyStoreKey(PUBKEY))).celebrated).toEqual(['beginning', 'first-steps']);
     hook.unmount();
-    // A reload: the same facts, no celebration again
-    const again = renderHook((props: UseJourneyOptions) => useJourney(props), { wrapper: wrapper(), initialProps: baby(2) });
+    // A reload: the same facts (today's care is on the relays now, as its receipt), no celebration again
+    receipts = [...receipts, receipt('feed', 4, 0)];
+    const again = renderHook((props: UseJourneyOptions) => useJourney(props), { wrapper: wrapper(), initialProps: baby() });
     await waitFor(() => expect(again.result.current.chapters.find((c) => c.id === 'first-steps')!.status).toBe('done'));
     await act(() => new Promise((r) => setTimeout(r, 50)));
     expect(again.result.current.celebrate).toBeNull();
   });
 
+  it('two different days finish "Two days together", however far apart; one day today says to come back another day', async () => {
+    receipts = [receipt('feed', 1, 9), receipt('play', 2, 2)];
+    const apart = renderHook((props: UseJourneyOptions) => useJourney(props), { wrapper: wrapper(), initialProps: baby() });
+    await waitFor(() => expect(apart.result.current.chapters.flatMap((c) => c.objectives).find((o) => o.id === 'two-days')!.status).toBe('done'));
+    apart.unmount();
+    receipts = [receipt('feed', 3, 0)];
+    const today = renderHook((props: UseJourneyOptions) => useJourney(props), { wrapper: wrapper(), initialProps: baby() });
+    await waitFor(() => expect(today.result.current.chapters.flatMap((c) => c.objectives).find((o) => o.id === 'two-days')!.status).toBe('waiting'));
+  });
+
   it('care landed in this session counts before the relays catch up', async () => {
-    const hook = renderHook((props: UseJourneyOptions) => useJourney(props), { wrapper: wrapper(), initialProps: baby(0) });
+    const hook = renderHook((props: UseJourneyOptions) => useJourney(props), { wrapper: wrapper(), initialProps: baby() });
     await waitFor(() => expect(query).toHaveBeenCalled());
     act(() => hook.result.current.noteCare('medicine'));
     act(() => hook.result.current.noteCare('feed'));
@@ -79,7 +96,7 @@ describe('the journey hook', () => {
   });
 
   it('the cuddle and the nap are kept on this device, per player', async () => {
-    const hook = renderHook((props: UseJourneyOptions) => useJourney(props), { wrapper: wrapper(), initialProps: baby(0) });
+    const hook = renderHook((props: UseJourneyOptions) => useJourney(props), { wrapper: wrapper(), initialProps: baby() });
     act(() => {
       hook.result.current.notePetted();
       hook.result.current.noteNapped();
@@ -90,7 +107,7 @@ describe('the journey hook', () => {
 
   it('only the kit\'s unlock lets another egg join: level from the profile\'s XP', () => {
     const profile = (xp: number) => ({ xp }) as UseJourneyOptions['profile'];
-    const at = (xp: number) => renderHook(() => useJourney({ ...baby(0), profile: profile(xp) }), { wrapper: wrapper() }).result.current;
+    const at = (xp: number) => renderHook(() => useJourney({ ...baby(), profile: profile(xp) }), { wrapper: wrapper() }).result.current;
     expect(at(0)).toMatchObject({ canAdoptMore: false, maxBlobbis: 1 });
     expect(at(849)).toMatchObject({ canAdoptMore: false, maxBlobbis: 1 });
     expect(at(850)).toMatchObject({ canAdoptMore: true, maxBlobbis: 2, level: 5 });

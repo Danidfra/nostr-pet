@@ -6,7 +6,7 @@
  * signing) that does not hatch by itself, and an egg that is not the
  * account's first never hatched without its incubation.
  */
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -27,6 +27,9 @@ const signer = {
   },
 };
 const currentUser = vi.hoisted(() => ({ user: undefined as { pubkey: string; signer: unknown } | undefined }));
+import { getTodayDateString, totalDailyXp, writeDailyToStorage } from '@blobbi-kit/react';
+import { setDailyXpEnabled } from '@/features/progression/daily-xp-switch';
+
 vi.mock('@/hooks/useCurrentUser', () => ({
   useCurrentUser: () => ({ user: currentUser.user, users: currentUser.user ? [currentUser.user] : [] }),
 }));
@@ -72,7 +75,8 @@ const receipt = (d: string, action: 'feed' | 'play' | 'clean', n: number): Nostr
   ...buildInteractionEventTemplate({ ownerPubkey: PUBKEY, blobbiDTag: d, action, source: 'blobbi-home' }),
   id: String(n).padStart(64, 'c'),
   pubkey: PUBKEY,
-  created_at: 1_760_000_000 + n,
+  // A day apart each: care on different days, as "Two days together" counts it
+  created_at: 1_760_000_000 + n * 86_400,
   sig: '0'.repeat(128),
 });
 const published = (kind: number) => relay.published.filter((e) => e.kind === kind);
@@ -108,6 +112,22 @@ describe('worlds from the room', () => {
     expect(within(sheet).getByTestId('worlds-note')).toHaveTextContent(/key never travels/);
   });
 
+  it('the Island is one door, the Worlds one: the menu in the room no longer repeats it, and keeps the rest (M12.1)', async () => {
+    relay.all = [brook(), profileEvent({ currentCompanion: getTagValue(brook().tags, 'd') })];
+    renderRoom();
+    await userEvent.click(await screen.findByTestId('room-menu'));
+    const menu = await screen.findByTestId('menu-sheet');
+    expect(within(menu).queryByTestId('enter-island')).toBeNull();
+    expect(within(menu).queryByText('Blobbi Island')).toBeNull();
+    // The rest of the menu stays: the classic home, and the account
+    expect(within(menu).getByTestId('open-classic')).toBeInTheDocument();
+    expect(within(menu).getByRole('heading', { name: /account/i })).toBeInTheDocument();
+    // The Worlds door still leads to the Island
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(await screen.findByTestId('room-worlds'));
+    expect(within(await screen.findByTestId('worlds-sheet')).getByTestId('world-island')).toHaveAttribute('data-open', 'true');
+  });
+
   it('a world chosen: the Blobbi says goodbye; Stay keeps it home and nothing navigates or is written', async () => {
     relay.all = [brook()];
     renderRoom();
@@ -137,8 +157,8 @@ describe('the journey in the room', () => {
     expect(relay.published).toHaveLength(0);
   });
 
-  it('care given anywhere (kind 1124) and a two-day streak finish chapter 2', async () => {
-    const b = brook({ care_streak: '2' });
+  it('care given anywhere (kind 1124), on two different days (not in a row needed), finishes chapter 2', async () => {
+    const b = brook();
     const d = getTagValue(b.tags, 'd')!;
     relay.all = [b, receipt(d, 'feed', 1), receipt(d, 'play', 2), receipt(d, 'clean', 3)];
     renderRoom();
@@ -156,11 +176,13 @@ describe('the journey in the room', () => {
 
 describe('a second egg', () => {
   it('opens at level 5, is checked again before signing, lands as an egg that does not hatch by itself', async () => {
-    const b = brook({ care_streak: '2' });
+    const b = brook();
     const d = getTagValue(b.tags, 'd')!;
     relay.all = [b, receipt(d, 'feed', 1), receipt(d, 'play', 2), receipt(d, 'clean', 3), profileEvent({ currentCompanion: d, has: [d], xp: 900 })];
     renderRoom();
     await userEvent.click(await screen.findByTestId('room-journey'));
+    // Offered at the top of the Journey whatever the chapter, and in chapter 4's own objective
+    expect(await screen.findByTestId('journey-adopt')).toBeInTheDocument();
     await userEvent.click(await screen.findByTestId('objective-second-egg-go'));
     const sheet = await screen.findByTestId('room-adopt-sheet');
     expect(within(sheet).getByText('A new egg', { selector: 'h2' })).toBeInTheDocument();
@@ -182,7 +204,7 @@ describe('a second egg', () => {
   }, 15_000);
 
   it('a level that is no longer there refuses, and nothing is signed', async () => {
-    const b = brook({ care_streak: '2' });
+    const b = brook();
     const d = getTagValue(b.tags, 'd')!;
     relay.all = [b, receipt(d, 'feed', 1), receipt(d, 'play', 2), receipt(d, 'clean', 3), profileEvent({ currentCompanion: d, has: [d], xp: 900 })];
     renderRoom();
@@ -210,4 +232,46 @@ describe('hatching in the room keeps the kit\'s rules', () => {
     expect(screen.queryByTestId('hatch-theater')).toBeNull();
     expect(relay.published).toHaveLength(0);
   }, 10_000);
+});
+
+describe("today's missions in the room (M12.1)", () => {
+  beforeAll(() => setDailyXpEnabled(true));
+  afterAll(() => setDailyXpEnabled(false));
+
+  it('a care that finishes the day pays its XP once, with the kit\'s numbers; a reload pays nothing more', async () => {
+    const b = brook();
+    const d = getTagValue(b.tags, 'd')!;
+    relay.all = [b, profileEvent({ currentCompanion: d, has: [d], xp: 100 })];
+    // A day one meal short of done (the kit's store, as a morning of care would leave it)
+    const day = { date: getTodayDateString(), rerolls: 3, daily: [{ id: 'feed_1', target: 1, count: 0 }, { id: 'clean_1', target: 1, count: 1 }, { id: 'interact_3', target: 3, count: 2 }] };
+    writeDailyToStorage(day, PUBKEY);
+    const first = renderRoom();
+    await screen.findByTestId('room-shell', {}, { timeout: 4000 });
+    for (let i = 0; i < 5 && screen.getByTestId('room-shell').dataset.room !== 'kitchen'; i++) await userEvent.click(screen.getByTestId('room-nav-right'));
+    // Something to eat, used where it stands (no 3D room here)
+    for (let i = 0; i < 8; i++) {
+      const id = screen.getByTestId('room-item-use').getAttribute('data-item-id') ?? '';
+      if (/food|apple|burger|pizza|cake|sushi|snack|meal/i.test(id) && !/drink|energy|soda/i.test(id)) break;
+      await userEvent.click(screen.getByTestId('room-item-next'));
+    }
+    await userEvent.click(screen.getByTestId('room-item-use'));
+    await waitFor(() => expect(published(KIND_BLOBBONAUT_PROFILE)).toHaveLength(1), { timeout: 6000 });
+    const award = published(KIND_BLOBBONAUT_PROFILE)[0];
+    const done = { ...day, daily: [{ id: 'feed_1', target: 1, count: 1 }, { id: 'clean_1', target: 1, count: 1 }, { id: 'interact_3', target: 3, count: 3 }] };
+    expect(Number(getTagValue(award.tags, 'xp'))).toBe(100 + totalDailyXp(done));
+    expect(getTagValue(award.tags, 'level')).toBe('2');
+    expect(award.tags).toContainEqual(['has', d]);
+    // The Journey says so
+    await userEvent.click(screen.getByTestId('room-journey'));
+    await waitFor(() => expect(screen.getByTestId('journey-today-award')).toHaveTextContent(`+${totalDailyXp(done)} XP today`));
+    expect(screen.getByTestId('journey-level')).toHaveTextContent('Blobbonaut level 2');
+    first.unmount();
+    // A reload: the profile holds the day paid; nothing more is written however long it stays open
+    renderRoom();
+    await screen.findByTestId('room-shell', {}, { timeout: 4000 });
+    await userEvent.click(screen.getByTestId('room-journey'));
+    await waitFor(() => expect(screen.getByTestId('journey-today-award')).toHaveTextContent(/already yours/));
+    await new Promise((r) => setTimeout(r, 500));
+    expect(published(KIND_BLOBBONAUT_PROFILE)).toHaveLength(1);
+  }, 20_000);
 });

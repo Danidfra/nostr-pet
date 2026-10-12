@@ -124,4 +124,53 @@ describe('the baby\'s first moments', () => {
     for (const t of [0, 500, 1_000, 2_000, 3_000]) expect(revealMoment(t, true).hop).toBe(false);
     expect(revealMoment(2_000, true).caption).toBe('home');
   });
+
+});
+
+describe('the hatch theatre, invited (M12.1): the player begins it', () => {
+  it('presents the egg and waits, writing nothing, however long; a tap on the egg begins it; a second tap changes nothing', async () => {
+    const perform = vi.fn(async () => true);
+    const play = vi.fn();
+    const onDone = vi.fn();
+    // StrictMode: effects mount, unmount and mount again, as in the dev build
+    render(
+      <StrictMode>
+        <HatchTheater blobbi={egg} perform={perform} reducedMotion={false} play={play} onDone={onDone} timings={FAST} invite />
+      </StrictMode>,
+    );
+    const theater = screen.getByTestId('hatch-theater');
+    expect(theater).toHaveAttribute('data-beat', 'ready');
+    expect(theater).toHaveAccessibleName('Pip is ready to hatch');
+    expect(screen.getByTestId('hatch-theater-caption')).toHaveTextContent('Ready to hatch?');
+    expect(screen.getByTestId('hatch-theater-actor')).toHaveAttribute('data-ready', 'true');
+    await act(() => new Promise((r) => setTimeout(r, 900)));
+    expect(theater).toHaveAttribute('data-beat', 'ready');
+    expect(theater).toHaveAttribute('data-phase', 'idle');
+    expect(perform).not.toHaveBeenCalled();
+
+    const tap = screen.getByTestId('hatch-theater-egg');
+    fireEvent.click(tap);
+    fireEvent.click(tap);
+    expect(play).toHaveBeenCalledWith('poke');
+    expect(screen.queryByTestId('hatch-theater-invite')).toBeNull();
+    await waitFor(() => expect(theater).toHaveAttribute('data-phase', 'revealing'), { timeout: 3000 });
+    expect(perform).toHaveBeenCalledTimes(1);
+  });
+
+  it('Hatch! begins it; Later ends the theatre with nothing written', async () => {
+    const perform = vi.fn(async () => true);
+    const first = stage(egg, perform, { invite: true });
+    fireEvent.click(screen.getByTestId('hatch-theater-not-yet'));
+    expect(first.onDone).toHaveBeenCalledWith(false);
+    expect(perform).not.toHaveBeenCalled();
+    first.view.unmount();
+
+    const second = stage(egg, perform, { invite: true, reducedMotion: true });
+    expect(second.theater()).toHaveAttribute('data-reduced', 'true');
+    expect(second.theater()).toHaveAttribute('data-beat', 'ready');
+    fireEvent.click(screen.getByTestId('hatch-theater-start'));
+    await waitFor(() => expect(perform).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    // Reduced motion: the tap's wobble is not played
+    expect(screen.getByTestId('hatch-theater-actor')).not.toHaveAttribute('data-wobble');
+  });
 });

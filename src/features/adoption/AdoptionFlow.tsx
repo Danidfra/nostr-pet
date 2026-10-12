@@ -55,20 +55,29 @@ const STEP_COPY = { idle: '', checking: 'Checking your relays…', egg: 'Signing
  */
 export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refresh, brief = false, additional = false }: AdoptionFlowProps) {
   const [screen, setScreen] = useState<'intro' | 'egg'>(brief || additional ? 'egg' : 'intro');
-  const [preview, setPreview] = useState<EggPreview | null>(null);
+  // The egg exists from the moment its screen does: made with the screen (never in an effect after it), so the first
+  // frame of the egg screen already draws it and Adopt never sits under an empty pedestal
+  const [preview, setPreview] = useState<EggPreview | null>(() => (brief || additional ? safePreview(pubkey) : null));
   const [nameInput, setNameInput] = useState('');
   const adoption = useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refresh, additional });
-
+  const openEgg = () => {
+    setPreview((p) => (p && p.ownerPubkey === pubkey ? p : safePreview(pubkey)));
+    setScreen('egg');
+  };
+  // Another account signed in under the same screen: an egg is only ever made for the key that will sign it
+  const stale = preview !== null && preview.ownerPubkey !== pubkey;
   useEffect(() => {
-    if (screen === 'egg' && !preview) setPreview(newEggPreview(pubkey));
-  }, [screen, preview, pubkey]);
+    if (stale) setPreview(safePreview(pubkey));
+  }, [stale, pubkey]);
 
   const name = normalizeBlobbiName(nameInput);
-  const companion = useMemo(() => (preview ? previewCompanion(renamePreview(preview, name.ok ? name.name : DEFAULT_EGG_NAME)) : null), [preview, name]);
+  const companion = useMemo(() => (preview && !stale ? previewCompanion(renamePreview(preview, name.ok ? name.name : DEFAULT_EGG_NAME)) : null), [preview, stale, name]);
+  // The egg could not be made or drawn here: said so, with a way on (a new egg), never an Adopt over nothing
+  const eggMissing = screen === 'egg' && !stale && companion === null;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!preview || !name.ok || adoption.isPending) return;
+    if (!preview || !companion || !name.ok || adoption.isPending) return;
     adoption.reset();
     adoption.adopt(renamePreview(preview, name.name));
   };
@@ -103,7 +112,7 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
         <h2 className="welcome-card__title">No Blobbi lives here yet</h2>
         <WhatIsBlobbi />
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <button type="button" className="lifecycle-pill !animate-none" onClick={() => setScreen('egg')} data-testid="adoption-start">
+          <button type="button" className="lifecycle-pill !animate-none" onClick={openEgg} data-testid="adoption-start">
             <Egg className="h-4 w-4" aria-hidden />
             Adopt an egg
           </button>
@@ -116,7 +125,7 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
   return (
     <form onSubmit={submit} className="welcome-card adopt text-center" data-testid="adoption-egg" data-brief={brief ? 'true' : 'false'} aria-busy={adoption.isPending}>
       <h2 className="welcome-card__title">{additional ? 'A new egg' : brief ? 'Here is your egg' : 'Your egg'}</h2>
-      <AdoptionEgg companion={companion} d={preview?.d} pending={adoption.isPending} />
+      <AdoptionEgg companion={companion} d={companion ? preview?.d : undefined} pending={adoption.isPending} missing={eggMissing} onAnother={() => setPreview(safePreview(pubkey))} />
       <p className="text-sm text-muted-foreground">Nobody else has this one: its colours and shape come from your key. Give it a name, or keep "{DEFAULT_EGG_NAME}" for now.</p>
       <div className="text-left">
         <label htmlFor="egg-name" className="block text-sm font-medium">
@@ -151,7 +160,7 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
         </p>
       )}
       <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-        <button type="submit" className="lifecycle-pill !animate-none" disabled={!preview || !name.ok || adoption.isPending} data-testid="adoption-adopt">
+        <button type="submit" className="lifecycle-pill !animate-none" disabled={!preview || !companion || !name.ok || adoption.isPending} data-testid="adoption-adopt">
           {adoption.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
           {adoption.isPending ? STEP_COPY[adoption.step] || 'Adopting…' : adoption.error ? 'Try again' : 'Adopt'}
         </button>
@@ -164,7 +173,7 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
       <p className="text-[11px] text-muted-foreground" data-testid="adoption-footnote">
         {additional
           ? 'Adopting saves the egg to your account (two signatures). This egg hatches once its incubation tasks are done: its details list them.'
-          : 'Adopting saves the egg to your account (two signatures). Your first egg hatches right after, in its new home.'}
+          : 'Adopting saves the egg to your account (two signatures). Your first egg is ready to hatch as soon as it is home: you choose the moment.'}
       </p>
     </form>
   );
@@ -176,26 +185,48 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
  * It is the canonical drawing of the very egg that will be published (the
  * preview is the event), not a stand-in.
  */
-function AdoptionEgg({ companion, d, pending }: { companion: ReturnType<typeof previewCompanion>; d: string | undefined; pending: boolean }) {
+function AdoptionEgg({ companion, d, pending, missing, onAnother }: { companion: ReturnType<typeof previewCompanion>; d: string | undefined; pending: boolean; missing: boolean; onAnother: () => void }) {
   const { play } = useSound();
   const [wobble, setWobble] = useState(0);
   return (
-    <div className="adopt__stage" data-testid="adoption-preview" data-d={d} data-pending={pending ? 'true' : undefined}>
+    <div className="adopt__stage" data-testid="adoption-preview" data-d={d} data-pending={pending ? 'true' : undefined} data-drawn={companion ? 'true' : 'false'}>
       <span className="adopt__light" aria-hidden />
       <span className="adopt__pedestal" aria-hidden />
-      <button
-        type="button"
-        className="adopt__egg"
-        data-wobble={wobble % 2}
-        key={wobble}
-        onClick={() => {
-          setWobble((w) => w + 1);
-          play('poke');
-        }}
-        aria-label="Your egg. Tap it."
-      >
-        {companion && <BlobbiRenderer visual={toBlobbiVisual(companion)} instanceId={`adopt-${companion.d}`} size="100%" eggCrack="none" transparent style={{ width: '100%', height: '100%' }} />}
-      </button>
+      {companion && (
+        <div className="adopt__frame">
+          <button
+            type="button"
+            className="adopt__egg"
+            data-wobble={wobble % 2}
+            key={wobble}
+            onClick={() => {
+              setWobble((w) => w + 1);
+              play('poke');
+            }}
+            aria-label="Your egg. Tap it."
+            data-testid="adoption-egg-art"
+          >
+            <BlobbiRenderer visual={toBlobbiVisual(companion)} instanceId={`adopt-${companion.d}`} size="100%" eggCrack="none" transparent style={{ width: '100%', height: '100%' }} />
+          </button>
+        </div>
+      )}
+      {missing && (
+        <div className="adopt__missing" role="alert" data-testid="adoption-egg-missing">
+          <p>Your egg did not appear.</p>
+          <button type="button" className="onboard-btn onboard-btn--secondary !w-auto !px-4 !py-2 text-sm" onClick={onAnother} data-testid="adoption-egg-retry">
+            Try another egg
+          </button>
+        </div>
+      )}
     </div>
   );
+}
+
+/** A new egg for this key, or null if one could not be made here (the screen says so and offers another). */
+function safePreview(pubkey: string): EggPreview | null {
+  try {
+    return newEggPreview(pubkey);
+  } catch {
+    return null;
+  }
 }

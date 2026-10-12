@@ -46,9 +46,9 @@ export function WelcomeScreen({ onCreate, onExisting }: { onCreate: () => void; 
       <h1 className="welcome-card__title">A little creature, waiting to hatch</h1>
       <p className="welcome-card__lead">Adopt an egg. Watch it hatch. Feed it, play with it and make its home cozy as it grows.</p>
       <ul className="welcome-card__points" aria-label="What you can do">
-        <li><Egg aria-hidden /> One of a kind, from the moment it is an egg</li>
-        <li><Heart aria-hidden /> It notices you, eats, plays and naps</li>
-        <li><Home aria-hidden /> A home with rooms to walk and decorate</li>
+        <li><Egg aria-hidden /> One of a kind</li>
+        <li><Heart aria-hidden /> Eats, plays and naps</li>
+        <li><Home aria-hidden /> Rooms to decorate</li>
       </ul>
       {blocked && (
         <p role="alert" className="welcome-card__warning" data-testid="welcome-blocked">

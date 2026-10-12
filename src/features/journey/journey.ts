@@ -8,13 +8,17 @@
  *
  *   NOSTR (canonical, every device, every Blobbi app):
  *     owned / hatched / adults     the player's kind 31124 collection (stages)
- *     care streak                  the Blobbi's `care_streak` tag
  *     fed / played / bathed /      the player's kind 1124 interaction receipts
  *       medicine / drink           (`action` tag), written by every care here
  *                                  and in the other Blobbi apps
+ *     days of care                 the local calendar days those receipts were
+ *                                  made on (any two days: never "in a row", so
+ *                                  a day off never undoes anything)
  *     evolution missions           the kit's own evolve tasks for this Blobbi
  *                                  (`useEvolveTasks`: the canonical rule)
- *     Blobbonaut level             the kind 11125 `xp` tag → `xpToLevel`
+ *     Blobbonaut level             the kind 11125 `xp` tag → `xpToLevel`, earned
+ *                                  with the kit's daily missions (here too
+ *                                  since M12.1: `features/progression`)
  *     how many Blobbis allowed     the kit's `getUnlocks(level).maxBlobbis`
  *   DEVICE (this browser only; a nice touch, never a gate):
  *     first cuddle                 a stroke that became petting (petting is never written)
@@ -38,12 +42,21 @@ export type ObjectiveAction =
   | { kind: 'adopt' }
   | { kind: 'link'; href: string; label: string };
 
+/**
+ * Where an objective stands, for the player: finished; started (some progress); there to do; done for today and
+ * waiting for another day (time, not effort, is what is missing); or in a chapter not opened yet.
+ */
+export type ObjectiveStatus = 'done' | 'in-progress' | 'available' | 'waiting' | 'locked';
+
 export interface Objective {
   id: string;
   title: string;
   /** How to do it, in a sentence. */
   hint: string;
   done: boolean;
+  status: ObjectiveStatus;
+  /** What the wait is for, when it is waiting on time. */
+  waitingFor?: string;
   /** Counted progress, when it has a count. */
   progress?: { current: number; required: number };
   source: ObjectiveSource;
@@ -66,9 +79,11 @@ export interface JourneyFacts {
   /** Stages of every Blobbi the player owns. */
   stages: readonly ('egg' | 'baby' | 'adult')[];
   /** The Blobbi in the room now. */
-  current: { stage: 'egg' | 'baby' | 'adult'; progressionState: string; careStreak?: number };
+  current: { stage: 'egg' | 'baby' | 'adult'; progressionState: string };
   /** Kinds of care the player has ever given (kind 1124 actions), any Blobbi, any app. Undefined while unknown. */
   careGiven: ReadonlySet<CareAction> | undefined;
+  /** The distinct local calendar days the player gave care on (kind 1124 receipts), and whether today is one. */
+  careDays?: { count: number; today: boolean };
   device: { petted: boolean; napped: boolean };
   /** The kit's evolve tasks for the current Blobbi, when it is a baby on its way to growing up. */
   evolveTasks: readonly LifecycleTask[];
@@ -81,6 +96,10 @@ export interface JourneyFacts {
 /** XP needed for the level the second Blobbi opens at (`getUnlocks`: level 5 → two Blobbis). */
 export const SECOND_BLOBBI_LEVEL = 5;
 export const SECOND_BLOBBI_XP = 850;
+/** Days of care for "Two days together": any two different days, never "in a row". */
+export const CARE_DAYS_NEEDED = 2;
+
+type Draft = Omit<Objective, 'status'>;
 
 export function buildJourney(f: JourneyFacts): Chapter[] {
   const owned = f.stages.length;
@@ -89,29 +108,32 @@ export function buildJourney(f: JourneyFacts): Chapter[] {
   const cared = (a: CareAction) => !!f.careGiven?.has(a);
   const careKnown = f.careGiven !== undefined;
 
-  const beginning: Objective[] = [
+  const beginning: Draft[] = [
     { id: 'adopt', title: 'Adopt an egg', hint: 'Every Blobbi starts as an egg that is only yours.', done: owned >= 1, source: 'nostr' },
-    { id: 'hatch', title: 'Watch it hatch', hint: 'Your first egg hatches by itself, in its new home.', done: hatched >= 1, source: 'nostr' },
+    { id: 'hatch', title: 'Watch it hatch', hint: 'Your first egg is ready at once: tap it in its new home when you want to watch it hatch.', done: hatched >= 1, source: 'nostr' },
     { id: 'cuddle', title: 'A first cuddle', hint: 'Stroke your Blobbi with a finger (or the mouse) and see how it likes it.', done: f.device.petted, source: 'device' },
   ];
 
-  const firstSteps: Objective[] = [
+  const days = f.careDays?.count ?? 0;
+  const firstSteps: Draft[] = [
     { id: 'feed', title: 'First meal', hint: 'In the kitchen, give it something to eat.', done: careKnown && cared('feed'), source: 'nostr', action: { kind: 'room', room: 'kitchen' } },
     { id: 'play', title: 'Playtime', hint: 'In the living room, give it a toy. The ball is a favourite.', done: careKnown && cared('play'), source: 'nostr', action: { kind: 'room', room: 'home' } },
     { id: 'clean', title: 'Bath time', hint: 'In the care room, a little soap goes a long way.', done: careKnown && cared('clean'), source: 'nostr', action: { kind: 'room', room: 'care' } },
     { id: 'nap', title: 'Sweet dreams', hint: 'In the bedroom, tap the bed or Sleep. Wake it when it is rested.', done: f.device.napped, source: 'device', action: { kind: 'room', room: 'rest' } },
     {
-      id: 'streak',
+      id: 'two-days',
       title: 'Two days together',
-      hint: 'Care for your Blobbi on two days in a row.',
-      done: (f.current.careStreak ?? 0) >= 2,
-      progress: { current: Math.min(2, f.current.careStreak ?? 0), required: 2 },
+      hint: 'Care for your Blobbi on two different days. They do not have to be in a row, and a day off never undoes it.',
+      done: days >= CARE_DAYS_NEEDED,
+      progress: { current: Math.min(CARE_DAYS_NEEDED, days), required: CARE_DAYS_NEEDED },
       source: 'nostr',
+      // Cared for today and still a day short: nothing more to do today but come back
+      waitingFor: days < CARE_DAYS_NEEDED && f.careDays?.today ? 'Done for today! Any care on another day finishes it.' : undefined,
     },
   ];
 
   const evolving = f.current.stage === 'baby' && f.current.progressionState === 'evolving';
-  const growing: Objective[] = [
+  const growing: Draft[] = [
     {
       id: 'start-growing',
       title: 'Ready to grow',
@@ -121,7 +143,7 @@ export function buildJourney(f: JourneyFacts): Chapter[] {
       action: { kind: 'details' },
     },
     ...(evolving && adults === 0
-      ? f.evolveTasks.map<Objective>((t) => ({
+      ? f.evolveTasks.map<Draft>((t) => ({
           id: `evolve:${t.id}`,
           title: t.name,
           hint: t.description,
@@ -134,11 +156,11 @@ export function buildJourney(f: JourneyFacts): Chapter[] {
     { id: 'grown', title: 'All grown up', hint: 'With every growing-up task done, evolve it from its details.', done: adults >= 1, source: 'nostr', action: { kind: 'details' } },
   ];
 
-  const family: Objective[] = [
+  const family: Draft[] = [
     {
       id: 'level',
       title: `Blobbonaut level ${SECOND_BLOBBI_LEVEL}`,
-      hint: 'Your Blobbonaut level comes from XP earned in the daily missions of the Blobbi apps that have them. This home does not award XP yet.',
+      hint: "XP comes from Today's missions (at the top of this page), here or in any Blobbi app that has them. Finishing a day's three pays their XP and a bonus.",
       done: f.level >= SECOND_BLOBBI_LEVEL || owned >= 2,
       progress: { current: Math.min(f.xp ?? 0, SECOND_BLOBBI_XP), required: SECOND_BLOBBI_XP },
       source: 'nostr',
@@ -154,7 +176,7 @@ export function buildJourney(f: JourneyFacts): Chapter[] {
     { id: 'second-hatch', title: 'Hatch it', hint: 'A second egg hatches when its incubation tasks are done (its details list them).', done: hatched >= 2, source: 'nostr', action: { kind: 'details' } },
   ];
 
-  const raw: Omit<Chapter, 'status'>[] = [
+  const raw: (Omit<Chapter, 'status' | 'objectives'> & { objectives: Draft[] })[] = [
     { id: 'beginning', number: 1, title: 'A New Beginning', story: 'An egg, a home, and the very first hello.', objectives: beginning, opens: 'Chapter 2: First Steps' },
     { id: 'first-steps', number: 2, title: 'First Steps', story: 'Learn what makes your Blobbi happy.', objectives: firstSteps, opens: 'Chapter 3: Growing Together' },
     { id: 'growing', number: 3, title: 'Growing Together', story: 'Help your baby grow into an adult.', objectives: growing, opens: 'Chapter 4: A Bigger Family' },
@@ -166,13 +188,23 @@ export function buildJourney(f: JourneyFacts): Chapter[] {
   let currentFound = false;
   return raw.map((c) => {
     const complete = c.objectives.every((o) => o.done || o.source === 'device');
-    if (complete && !currentFound) return { ...c, status: 'done' as const };
-    if (!currentFound) {
+    let status: Chapter['status'];
+    if (complete && !currentFound) status = 'done';
+    else if (!currentFound) {
       currentFound = true;
-      return { ...c, status: 'current' as const };
-    }
-    return { ...c, status: complete ? ('done' as const) : ('locked' as const) };
+      status = 'current';
+    } else status = complete ? 'done' : 'locked';
+    return { ...c, status, objectives: c.objectives.map((o) => ({ ...o, status: objectiveStatus(o, status) })) };
   });
+}
+
+/** Where one objective stands, in its chapter. */
+function objectiveStatus(o: Draft, chapter: Chapter['status']): ObjectiveStatus {
+  if (o.done) return 'done';
+  if (chapter === 'locked') return 'locked';
+  if (o.waitingFor) return 'waiting';
+  if (o.progress && o.progress.current > 0) return 'in-progress';
+  return 'available';
 }
 
 /** The chapter the player is on (the first not finished), or null when every chapter is done. */

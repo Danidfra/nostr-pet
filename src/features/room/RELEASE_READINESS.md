@@ -492,3 +492,69 @@ Checked by building and reading the bundle, the config and the code:
 4. The kit's production console logging (a kit change).
 5. Player XP is not awarded here, so additional eggs are reachable only
    through XP earned in other Blobbi apps (an ecosystem decision).
+
+## M12.1: progression, onboarding, arrival and UX polish (2026-10-12)
+
+### What changed
+- **Player XP here** (`src/features/progression/README.md`): the kit's daily
+  missions, counted from care that landed and kept on the profile by the kit;
+  the day's award written once, the kit's event, checked against the fresh
+  profile ("a profile holding today finished has been paid"). No new kind,
+  tag or number. Journey shows level, XP and today's three (swap for the
+  Ditto-only ones).
+- **Journey**: "Two days together" is any two different days of care (1124
+  receipts' days), never reset; objectives say Done / In progress / To do /
+  Come back later / Locked; locked chapters list what is inside; **Adopt an
+  egg** at the top whenever the kit's unlock allows.
+- **Welcome** fits one screen at 320×568, 375×667, 390×844, 430×932 and
+  desktop (the cast gives, the card never does; chips instead of a list);
+  very large text scrolls, nothing is cut.
+- **Egg**: laid out from the renderer's measured geometry (base at 90.2% of
+  its square): centred in the glow, standing on the pedestal; made with the
+  screen (never an empty first frame); a missing egg says so and offers
+  another, with Adopt off.
+- **Hatch**: the player begins it: the theatre presents the egg and waits
+  (Ready to hatch? / Hatch! / Later); Later leaves a pill in the room, and a
+  tap on the egg asks again. The classic home no longer auto-hatches either.
+- **Arrival**: entering the room is the teleport's arrival (decided once per
+  mount; never for an egg or a sleeper; after the room is on screen).
+- **Zoom**: 100% is the former 80% view; limits unchanged (75–275%); saved
+  preferences keep their framing (moved to `blobbi:room:zoom:v2`).
+- **Menu**: no Island entry in the room's menu (Worlds has it).
+- **Dock**: three items on phones from 300 px.
+- **Found and fixed during the pass:** the arrival's status listener had
+  replaced the navigation's (`nav.shellProps.onStatusChange`), so the Blobbi
+  would never have walked; caught by the room care suite, now composed and
+  pinned by `RoomArrival.test.tsx`.
+
+### Verified
+- Typecheck, lint, the full suite (167 files, 1223 tests, `--maxWorkers=50%`),
+  the production build.
+- Headless Chrome (fake relays that never publish anywhere): the welcome at
+  six sizes and at 150% text; the egg's geometry at 320, 390 and desktop;
+  the first-load egg in 6 throttled runs and 3,000 random identities (never
+  missing); the dock at 280–1280; the invited hatch with and without reduced
+  motion (waits; Later; pill; one story; no arrival after the birth); the
+  arrival sequence (away → arrive → here, no replay on sheets); the zoom
+  default against the old 80% (0.2% / 3.1% of pixels differ, the Blobbi
+  mid-arrival) and the old default carried over to 125%.
+
+### Not verified
+- The missing egg on first load was **not reproduced** (desktop Chromium
+  only); its likely field cause (an iPhone) remains to be checked on one.
+- Anything on a real phone; Safari; the real deployment.
+- The daily award against real relays and alongside Ditto on the same day.
+- Visual and audio approval of the invitation, the arrival on every entry,
+  the new zoom on desktop (it is farther there too), the Journey's new parts.
+- The dock is disabled while the Blobbi arrives (about 3 s on a room seen
+  before, about 5 s on a first visit's build): to be judged on a phone.
+
+### Remaining launch blockers
+1. A real phone run of `LAUNCH_TEST_PLAN.md` on the deployed build (now with
+   the egg-on-first-try, invited hatch, arrival, zoom and daily XP steps).
+2. Deploy `vercel.json` (or the host's equivalent) and confirm with `curl -sI`.
+3. Real-device performance numbers (older iPhone, budget Android).
+4. The kit's production console logging (a kit change).
+5. Ditto pays a finished day again on every reload (in-memory guard); the
+   kit's `useAwardDailyXp` should apply the same fresh-profile rule. Not a
+   Standalone blocker, but players using both apps can be overpaid by Ditto.

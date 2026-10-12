@@ -13,6 +13,7 @@ import {
   type NostrEvent,
 } from '@blobbi-kit/core';
 
+import { countCareForMissions, countSleepForMissions } from '@/features/progression/daily-xp';
 import { usePublishAdapter } from './usePublishAdapter';
 import { availableCareActions, planCareAction, type CareAction } from './care-plan';
 import { tallyCareInteraction } from '@/features/lifecycle/mission-tally';
@@ -77,6 +78,10 @@ export function useCareActions({ pubkey, updateCompanionEvent, invalidate }: Use
 
       const event = await publisher.publish(plan.event);
       updateCompanionEvent(event);
+      // Landed: today's missions count it (a rest only when it put the Blobbi to bed)
+      if (action === 'rest') {
+        if (plan.nextState === 'sleeping') countSleepForMissions(pubkey);
+      } else countCareForMissions(pubkey, action);
 
       if (plan.interaction) {
         // Best-effort log of the interaction (kind 1124), as every other host does.

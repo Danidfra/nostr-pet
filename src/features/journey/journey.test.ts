@@ -10,8 +10,9 @@ import { buildJourney, currentChapter, newlyFinished, nextObjective, type CareAc
 
 const base: JourneyFacts = {
   stages: ['baby'],
-  current: { stage: 'baby', progressionState: 'none', careStreak: 0 },
+  current: { stage: 'baby', progressionState: 'none' },
   careGiven: new Set<CareAction>(),
+  careDays: { count: 0, today: false },
   device: { petted: false, napped: false },
   evolveTasks: [],
   xp: 0,
@@ -35,7 +36,7 @@ describe('the journey', () => {
     expect(objective(hatched, 'cuddle').done).toBe(false);
     expect(objective(facts({ device: { petted: true, napped: false } }), 'cuddle').done).toBe(true);
     // Chapter 2: the canonical things done, the nap not: done all the same
-    const cared = facts({ careGiven: new Set<CareAction>(['feed', 'play', 'clean']), current: { stage: 'baby', progressionState: 'none', careStreak: 2 } });
+    const cared = facts({ careGiven: new Set<CareAction>(['feed', 'play', 'clean']), current: { stage: 'baby', progressionState: 'none' }, careDays: { count: 2, today: false } });
     expect(status(cared)['first-steps']).toBe('done');
     expect(objective(cared, 'nap').done).toBe(false);
   });
@@ -49,9 +50,31 @@ describe('the journey', () => {
     expect(objective(fed, 'feed').action).toEqual({ kind: 'room', room: 'kitchen' });
   });
 
-  it('the streak counts up to two from the Blobbi\'s own care_streak', () => {
-    expect(objective(facts({ current: { stage: 'baby', progressionState: 'none', careStreak: 1 } }), 'streak').progress).toEqual({ current: 1, required: 2 });
-    expect(objective(facts({ current: { stage: 'baby', progressionState: 'none', careStreak: 9 } }), 'streak')).toMatchObject({ done: true, progress: { current: 2, required: 2 } });
+  it('two days together: any two different days of care (not in a row), never undone by a day off', () => {
+    const one = objective(facts({ careDays: { count: 1, today: false } }), 'two-days');
+    expect(one).toMatchObject({ done: false, status: 'in-progress', progress: { current: 1, required: 2 } });
+    expect(one.hint).toMatch(/do not have to be in a row/);
+    // Cared for today, a day short: nothing more to do today, says so
+    const today = objective(facts({ careDays: { count: 1, today: true } }), 'two-days');
+    expect(today.status).toBe('waiting');
+    expect(today.waitingFor).toMatch(/another day/);
+    // Two days, however far apart (the receipts' days: a gap of a week is still two days)
+    expect(objective(facts({ careDays: { count: 2, today: false } }), 'two-days')).toMatchObject({ done: true, status: 'done', progress: { current: 2, required: 2 } });
+    expect(objective(facts({ careDays: { count: 9, today: true } }), 'two-days')).toMatchObject({ done: true, status: 'done', waitingFor: undefined });
+    expect(objective(facts({ careDays: undefined }), 'two-days')).toMatchObject({ done: false, status: 'available' });
+  });
+
+  it('every objective says where it stands: done, in progress, to do, waiting on time, or locked in a closed chapter', () => {
+    const f = facts({ stages: ['egg'], current: { stage: 'egg', progressionState: 'incubating' } });
+    const chapters = buildJourney(f);
+    expect(chapters[0].objectives.map((o) => [o.id, o.status])).toEqual([['adopt', 'done'], ['hatch', 'available'], ['cuddle', 'available']]);
+    for (const c of chapters.slice(1)) for (const o of c.objectives) expect(o.status).toBe('locked');
+    expect(objective(facts({ stages: ['adult'], current: { stage: 'adult', progressionState: 'none' }, careGiven: new Set<CareAction>(['feed', 'play', 'clean']), careDays: { count: 2, today: false }, xp: 300, level: 3 }), 'level').status).toBe('in-progress');
+  });
+
+  it('the level objective points at the daily missions that earn it, here as anywhere', () => {
+    expect(objective(facts(), 'level').hint).toMatch(/Today's missions/);
+    expect(objective(facts(), 'level').hint).not.toMatch(/does not award/);
   });
 
   it('growing up lists the kit\'s own evolve tasks while the baby is evolving, with their links', () => {
@@ -60,18 +83,18 @@ describe('the journey', () => {
       { id: 'edit_profile', name: 'Edit your profile', description: 'On Ditto.', current: 0, required: 1, completed: false, link: { href: 'https://ditto.pub/settings/profile', label: 'Open Ditto' } },
     ] as LifecycleTask[];
     const cared = { careGiven: new Set<CareAction>(['feed', 'play', 'clean']) };
-    const f = facts({ ...cared, current: { stage: 'baby', progressionState: 'evolving', careStreak: 2 }, evolveTasks: tasks });
+    const f = facts({ ...cared, current: { stage: 'baby', progressionState: 'evolving' }, careDays: { count: 2, today: false }, evolveTasks: tasks });
     const chapter = currentChapter(buildJourney(f))!;
     expect(chapter.id).toBe('growing');
     expect(chapter.objectives.map((o) => o.id)).toEqual(['start-growing', 'evolve:interactions', 'evolve:edit_profile', 'grown']);
     expect(objective(f, 'evolve:interactions').progress).toEqual({ current: 5, required: 21 });
     expect(objective(f, 'evolve:edit_profile').action).toEqual({ kind: 'link', href: 'https://ditto.pub/settings/profile', label: 'Open Ditto' });
     // Not evolving: no tasks shown, the way to start it
-    expect(buildJourney(facts({ ...cared, current: { stage: 'baby', progressionState: 'none', careStreak: 2 }, evolveTasks: tasks })).find((c) => c.id === 'growing')!.objectives.map((o) => o.id)).toEqual(['start-growing', 'grown']);
+    expect(buildJourney(facts({ ...cared, current: { stage: 'baby', progressionState: 'none' }, careDays: { count: 2, today: false }, evolveTasks: tasks })).find((c) => c.id === 'growing')!.objectives.map((o) => o.id)).toEqual(['start-growing', 'grown']);
   });
 
   it('the second egg opens only when the kit\'s unlock allows another Blobbi, never from the journey itself', () => {
-    const adult = { stages: ['adult'] as const, current: { stage: 'adult' as const, progressionState: 'none', careStreak: 3 }, careGiven: new Set<CareAction>(['feed', 'play', 'clean']) };
+    const adult = { stages: ['adult'] as const, current: { stage: 'adult' as const, progressionState: 'none' }, careDays: { count: 3, today: false }, careGiven: new Set<CareAction>(['feed', 'play', 'clean']) };
     const locked = facts({ ...adult, stages: ['adult'], xp: 300, level: 3, maxBlobbis: 1 });
     expect(currentChapter(buildJourney(locked))?.id).toBe('family');
     expect(objective(locked, 'second-egg').action).toBeUndefined();
@@ -87,7 +110,7 @@ describe('the journey', () => {
   });
 
   it('the same facts give the same chapters; each finished chapter is celebrated once', () => {
-    const f = facts({ careGiven: new Set<CareAction>(['feed', 'play', 'clean']), current: { stage: 'baby', progressionState: 'none', careStreak: 2 } });
+    const f = facts({ careGiven: new Set<CareAction>(['feed', 'play', 'clean']), current: { stage: 'baby', progressionState: 'none' }, careDays: { count: 2, today: false } });
     expect(buildJourney(f)).toEqual(buildJourney(f));
     const fresh = newlyFinished(buildJourney(f), new Set());
     expect(fresh).toEqual(['beginning', 'first-steps']);

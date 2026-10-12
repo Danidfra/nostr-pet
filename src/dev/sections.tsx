@@ -30,10 +30,10 @@ export function AccountSection({ controller }: { controller: FixtureController }
       <button type="button" aria-pressed={account === 'established'} onClick={() => controller.setAccount('established')} data-testid="dev-account-established" title="An older adult is in the world: the fixture is a later Blobbi, and an egg keeps its missions">
         raised one before
       </button>
-      <button type="button" aria-pressed={account === 'first'} onClick={() => controller.setAccount('first')} data-testid="dev-account-first" title="Nothing before it: a fixture egg is the account's first Blobbi and hatches by itself">
+      <button type="button" aria-pressed={account === 'first'} onClick={() => controller.setAccount('first')} data-testid="dev-account-first" title="Nothing before it: a fixture egg is the account's first Blobbi and is ready to hatch with no missions">
         first Blobbi
       </button>
-      <span className="dev-panel__hint">a first Blobbi's egg hatches by itself, no missions</span>
+      <span className="dev-panel__hint">a first Blobbi's egg is ready to hatch, no missions</span>
     </div>
   );
 }

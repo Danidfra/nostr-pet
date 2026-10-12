@@ -3,7 +3,9 @@
  *
  *   care given    a read of the player's kind 1124 receipts (any Blobbi, any
  *                 Blobbi app), plus what landed in this session before the
- *                 read catches up
+ *                 read catches up: which kinds of care, and on which local
+ *                 calendar days (two different days finish "Two days
+ *                 together"; never "in a row", so a day off undoes nothing)
  *   level         the Blobbonaut profile's XP (kind 11125), the kit's levels
  *   device        `blobbi:journey:v1:<pubkey>` in this browser: a first
  *                 cuddle, a nap, which chapters were celebrated here
@@ -25,6 +27,11 @@ import { buildJourney, newlyFinished, type CareAction, type Chapter, type Chapte
 const READ_TIMEOUT_MS = 8_000;
 const STORE_VERSION = 1;
 const ACTIONS: readonly CareAction[] = ['feed', 'play', 'clean', 'medicate', 'boost'];
+
+/** A moment's local calendar day (YYYY-MM-DD), the way the kit's streak and daily missions count days. */
+export function localDay(at: Date): string {
+  return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
+}
 
 export interface JourneyDeviceRecord {
   petted: boolean;
@@ -75,7 +82,7 @@ function writeRecord(key: string, record: JourneyDeviceRecord) {
 export interface UseJourneyOptions {
   pubkey: string | undefined;
   companions: readonly Pick<BlobbiCompanion, 'stage'>[];
-  current: Pick<BlobbiCompanion, 'stage' | 'progressionState' | 'careStreak'>;
+  current: Pick<BlobbiCompanion, 'stage' | 'progressionState'>;
   profile: BlobbonautProfile | null | undefined;
   evolveTasks: readonly LifecycleTask[];
 }
@@ -118,11 +125,15 @@ export function useJourney({ pubkey, companions, current, profile, evolveTasks }
     queryFn: async () => {
       const events = await nostr.query([{ kinds: [KIND_BLOBBI_INTERACTION], authors: [pubkey!], limit: 500 }], { signal: timeoutSignal(READ_TIMEOUT_MS) });
       const seen = new Set<CareAction>();
+      const days = new Set<string>();
       for (const event of events) {
         const parsed = parseInteractionEvent(event);
-        if (parsed && (ACTIONS as readonly string[]).includes(parsed.action)) seen.add(parsed.action as CareAction);
+        if (parsed && (ACTIONS as readonly string[]).includes(parsed.action)) {
+          seen.add(parsed.action as CareAction);
+          days.add(localDay(new Date(event.created_at * 1000)));
+        }
       }
-      return [...seen];
+      return { actions: [...seen], days: [...days] };
     },
   });
   const [session, setSession] = useState<CareAction[]>([]);
@@ -131,15 +142,22 @@ export function useJourney({ pubkey, companions, current, profile, evolveTasks }
     if (!(ACTIONS as readonly string[]).includes(a)) return;
     setSession((s) => (s.includes(a) ? s : [...s, a]));
   }, []);
-  const careGiven = useMemo(() => (care.data || session.length ? new Set<CareAction>([...(care.data ?? []), ...session]) : care.isError ? new Set<CareAction>() : undefined), [care.data, care.isError, session]);
+  const careGiven = useMemo(() => (care.data || session.length ? new Set<CareAction>([...(care.data?.actions ?? []), ...session]) : care.isError ? new Set<CareAction>() : undefined), [care.data, care.isError, session]);
+  // The days care was given on: the receipts' days, and today when care landed in this session
+  const today = localDay(new Date());
+  const careDays = useMemo(() => {
+    const days = new Set(care.data?.days ?? []);
+    if (session.length) days.add(today);
+    return { count: days.size, today: days.has(today) };
+  }, [care.data, session.length, today]);
 
   const xp = profile?.xp;
   const level = xpToLevel(xp ?? 0);
   const maxBlobbis = getUnlocks(level).maxBlobbis;
   const stages = useMemo(() => companions.map((c) => c.stage), [companions]);
   const chapters = useMemo(
-    () => buildJourney({ stages, current: { stage: current.stage, progressionState: current.progressionState, careStreak: current.careStreak }, careGiven, device: { petted: record.petted, napped: record.napped }, evolveTasks, xp, level, maxBlobbis }),
-    [stages, current.stage, current.progressionState, current.careStreak, careGiven, record.petted, record.napped, evolveTasks, xp, level, maxBlobbis],
+    () => buildJourney({ stages, current: { stage: current.stage, progressionState: current.progressionState }, careGiven, careDays, device: { petted: record.petted, napped: record.napped }, evolveTasks, xp, level, maxBlobbis }),
+    [stages, current.stage, current.progressionState, careGiven, careDays, record.petted, record.napped, evolveTasks, xp, level, maxBlobbis],
   );
 
   // Celebrations: once per chapter per device; the first look on a device records what is already done, quietly

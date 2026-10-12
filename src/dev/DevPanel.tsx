@@ -66,7 +66,7 @@ export function DevPanel({ controller, embedded = false }: { controller: Fixture
           <DevPanelBody key={blobbi.d} controller={controller} home={{ blobbi, profile: home.profile, pubkey: home.pubkey, updateCompanionEvent: home.updateCompanionEvent, refresh: home.refresh }} />
         ) : (
           <div className="dev-panel__body dev-panel__hint" data-testid="dev-no-blobbi">
-            {home.status === 'empty' ? 'This account owns no Blobbi yet: adopt one in the app. It will be its first Blobbi, so its egg hatches by itself.' : `Fixture loading (${home.status})…`}
+            {home.status === 'empty' ? 'This account owns no Blobbi yet: adopt one in the app. It will be its first Blobbi, so its egg is ready to hatch at once.' : `Fixture loading (${home.status})…`}
           </div>
         ))}
     </aside>

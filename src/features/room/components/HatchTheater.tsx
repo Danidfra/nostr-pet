@@ -17,6 +17,13 @@
  *
  * Reduced motion: no rocking, no hops, no burst; the shell's drawings, the
  * faces and the words tell it, quicker. Sound only when the player turned it on.
+ *
+ * The player begins it (M12.1). With `invite`, the theatre presents the egg
+ * under its light and waits: the egg stirs, a tap makes it wobble, and it asks
+ * "Ready to hatch?". Only a tap on the egg or on Hatch starts the story (and
+ * with it, later, the one write); Later puts it off with nothing written.
+ * Without `invite` (the player already pressed Hatch elsewhere) it begins as
+ * soon as the room has darkened.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BlobbiRenderer, type BlobbiVisualEffect } from '@blobbi-kit/renderer';
@@ -39,11 +46,16 @@ export interface HatchTheaterProps {
   play: (sound: BlobbiSoundId) => void;
   /** The theatre is over: hatched (into the room), or put off until later (the egg stays an egg). */
   onDone: (hatched: boolean) => void;
+  /** Present the egg and wait for the player to begin (a tap on the egg or Hatch); otherwise begin by itself. */
+  invite?: boolean;
   /** Test seam: the beats' pace (the theatre's own, or its reduced-motion pace, otherwise). */
   timings?: CeremonyTimings;
 }
 
-export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDone, timings }: HatchTheaterProps) {
+/** How soon the story begins once the player asked (a breath for the tap's own wobble). */
+const ASKED_LEAD_MS = 260;
+
+export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDone, invite = false, timings }: HatchTheaterProps) {
   const latest = useRef({ perform, onDone, play });
   latest.current = { perform, onDone, play };
   const [revealAt, setRevealAt] = useState<number | null>(null);
@@ -59,13 +71,27 @@ export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDo
   });
   const { start, phase, step, dismiss } = ceremony;
 
-  // The room darkens, then the egg is presented and the story begins. No "started" flag of its own: the ceremony
-  // ignores a start while one runs, and a flag set in an effect would block the re-run StrictMode makes (the timer
-  // of the first run is cleared by its cleanup), so the hatch would never begin
+  // Whether the player has asked for the hatch: at once when they pressed Hatch elsewhere; on an invitation, only by a
+  // tap on the egg or on Hatch. State, not a ref: a repeated tap sets the same value, and StrictMode's re-run of the
+  // effect below starts the same story (the ceremony ignores a start while one runs)
+  const [asked, setAsked] = useState<'auto' | 'tap' | null>(invite ? null : 'auto');
+  const [wobble, setWobble] = useState(0);
+  const ask = () => {
+    if (asked) return;
+    setWobble((w) => w + 1);
+    latest.current.play('poke');
+    setAsked('tap');
+  };
+
+  // The room darkens, then the egg is presented and, once asked, the story begins. No "started" flag of its own: the
+  // ceremony ignores a start while one runs, and a flag set in an effect would block the re-run StrictMode makes (the
+  // timer of the first run is cleared by its cleanup), so the hatch would never begin
   useEffect(() => {
-    const timer = setTimeout(() => start('hatch'), reducedMotion ? 150 : VEIL_MS);
+    if (!asked) return;
+    const lead = asked === 'tap' ? ASKED_LEAD_MS : reducedMotion ? 150 : VEIL_MS;
+    const timer = setTimeout(() => start('hatch'), lead);
     return () => clearTimeout(timer);
-  }, [start, reducedMotion]);
+  }, [asked, start, reducedMotion]);
 
   // A crack is heard as it appears; the light gathering, as it gathers
   const lastStep = useRef(0);
@@ -113,13 +139,16 @@ export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDo
   }, [phase]);
 
   const presentation = hatchOnScreen(ceremony.presentation.hatch, blobbi.stage);
-  const beat = phase === 'failed' ? 'failed' : presentation?.beat ?? 'presenting';
+  // Waiting for the player: presented, stirring, asking
+  const ready = asked === null && phase === 'idle';
+  const beat = phase === 'failed' ? 'failed' : ready ? 'ready' : presentation?.beat ?? 'presenting';
   const showBaby = blobbi.stage !== 'egg' && phase === 'revealing';
   const effects: readonly BlobbiVisualEffect[] = useMemo(() => (showBaby && !reducedMotion ? [{ id: 'golden-sparkles', intensity: 0.9 }] : []), [showBaby, reducedMotion]);
   const visual = useMemo(() => toBlobbiVisual(blobbi), [blobbi]);
   const caption =
     phase === 'failed' ? null
     : showBaby && moment ? (moment.caption === 'none' ? null : moment.caption === 'hatched' ? `${blobbi.name} has hatched!` : `Welcome home, ${blobbi.name}`)
+    : ready ? 'Ready to hatch?'
     : beat === 'stirring' ? 'Something is moving inside…'
     : beat === 'cracking' ? 'The shell is cracking…'
     : beat === 'breaking' ? 'Almost…'
@@ -127,12 +156,21 @@ export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDo
     : null;
 
   return (
-    <div className="hatch-theater" data-testid="hatch-theater" data-beat={beat} data-phase={phase} data-reduced={reducedMotion ? 'true' : undefined} role="dialog" aria-modal="true" aria-label={`${blobbi.name} is hatching`}>
+    <div className="hatch-theater" data-testid="hatch-theater" data-beat={beat} data-phase={phase} data-reduced={reducedMotion ? 'true' : undefined} role="dialog" aria-modal="true" aria-label={ready ? `${blobbi.name} is ready to hatch` : `${blobbi.name} is hatching`}>
       <div className="hatch-theater__veil" aria-hidden />
       <div className="hatch-theater__light" aria-hidden />
       <div className="hatch-theater__stage">
         <div className="hatch-theater__burst" data-burst={presentation?.burst ?? 'none'} aria-hidden />
-        <div className="hatch-theater__actor" data-rock={reducedMotion ? 0 : presentation?.rock ?? 0} data-hop={moment?.hop && !reducedMotion ? 'true' : undefined} data-testid="hatch-theater-actor" data-stage={showBaby ? blobbi.stage : 'egg'}>
+        <div
+          className="hatch-theater__actor"
+          key={wobble}
+          data-rock={reducedMotion ? 0 : presentation?.rock ?? 0}
+          data-hop={moment?.hop && !reducedMotion ? 'true' : undefined}
+          data-ready={ready ? 'true' : undefined}
+          data-wobble={wobble > 0 && !reducedMotion ? 'true' : undefined}
+          data-testid="hatch-theater-actor"
+          data-stage={showBaby ? blobbi.stage : 'egg'}
+        >
           <BlobbiRenderer
             visual={visual}
             instanceId={`hatch-${blobbi.d}`}
@@ -147,10 +185,24 @@ export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDo
           />
         </div>
         <span className="hatch-theater__shadow" aria-hidden />
+        {ready && <button type="button" className="hatch-theater__tap" onClick={ask} aria-label={`Hatch ${blobbi.name}`} data-testid="hatch-theater-egg" />}
       </div>
       <p className="hatch-theater__caption" role="status" aria-live="polite" data-testid="hatch-theater-caption">
         {caption ?? ' '}
       </p>
+      {ready && (
+        <div className="hatch-theater__invite" data-testid="hatch-theater-invite">
+          <p className="hatch-theater__hint">Tap your egg when you are ready. It only happens once!</p>
+          <div className="hatch-theater__choices">
+            <button type="button" className="onboard-btn onboard-btn--secondary" onClick={() => latest.current.onDone(false)} data-testid="hatch-theater-not-yet">
+              Later
+            </button>
+            <button type="button" className="onboard-btn onboard-btn--primary" onClick={ask} data-testid="hatch-theater-start">
+              <Sparkles className="h-4 w-4" aria-hidden /> Hatch!
+            </button>
+          </div>
+        </div>
+      )}
       {phase === 'publishing' && (
         <p className="hatch-theater__note" data-testid="hatch-theater-writing">
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Saving the hatch to your account

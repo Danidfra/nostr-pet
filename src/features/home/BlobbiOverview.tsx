@@ -1,3 +1,4 @@
+import { useDailyXp } from '@/features/progression/useDailyXp';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useProjectedBlobbiState } from '@blobbi-kit/react';
 import { getStatStatus, getVisibleStats, type BlobbiCompanion, type BlobbonautProfile, type NostrEvent } from '@blobbi-kit/core';
@@ -61,12 +62,6 @@ const DEV_PREVIEW: StageObjectKind | null = DEV_LIFECYCLE_TOOLS && typeof window
   const v = new URLSearchParams(window.location.search).get('preview');
   return v === 'bed' || v === 'tub' ? v : null;
 })() : null;
-
-/**
- * How long a first Blobbi's egg is simply there, in its nest, before its
- * hatch begins by itself: long enough to be seen as an egg.
- */
-const FIRST_HATCH_LEAD_MS = 1_400;
 
 /** What a hatch is doing, in words: the ceremony reads without any animation. */
 function hatchCaption(beat: HatchBeat, name: string): string {
@@ -336,9 +331,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const dismissStreakMoment = useCallback(() => setStreakMoment(null), []);
 
   // The first Blobbi of the account (first-blobbi.ts): its egg hatches without
-  // the missions, and by itself. Decided from the collection, confirmed
+  // the missions, when the player taps Hatch!. Decided from the collection, confirmed
   // against the relays right before the ceremony; the hatch is the same kit
   // transition every hatch is. Later eggs keep the mission gate below.
+  // Today's missions keep counting and paying on the classic home too (shown in the room's Journey)
+  useDailyXp({ pubkey, companions, profile });
   const firstBlobbi = useFirstBlobbiHatch({ blobbi, companions, pubkey });
   const confirmFirstBlobbi = firstBlobbi.confirm;
   const ceremonyStart = ceremony.start;
@@ -371,26 +368,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     },
     [blobbi.state, lifecycle.view.next, ceremonyStart, firstBlobbi.qualifies, startFirstHatch],
   );
-  // By itself, once per visit: a moment after the egg is on screen and the
-  // home is quiet (no item on its way, no care write out). A hatch that
-  // failed is not retried behind the player's back; the Hatch button stays,
-  // and the next visit tries again because the egg still qualifies.
-  const homeQuiet = offer === null && stage?.phase !== 'walking' && care.pendingAction == null;
-  const autoHatchDue = firstBlobbi.qualifies && blobbi.state === 'active' && !!profile && homeQuiet;
-  const autoHatchTriedRef = useRef(false);
-  // "Once" is once per egg: a Blobbi that is no longer an egg has nothing left to try
-  // (only a dev fixture ever turns one back into an egg, and then it is a new try).
-  useEffect(() => {
-    if (blobbi.stage !== 'egg') autoHatchTriedRef.current = false;
-  }, [blobbi.stage]);
-  useEffect(() => {
-    if (!autoHatchDue || autoHatchTriedRef.current) return;
-    const timer = setTimeout(() => {
-      autoHatchTriedRef.current = true;
-      void startFirstHatch();
-    }, FIRST_HATCH_LEAD_MS);
-    return () => clearTimeout(timer);
-  }, [autoHatchDue, startFirstHatch]);
+  // The player begins the hatch (M12.1): the first egg is ready at once (no missions), and the Hatch! button in the
+  // dock is how it starts. Nothing hatches because the home mounted.
   const devForce = DEV_LIFECYCLE_TOOLS
     ? (kind: CeremonyKind) => {
         setBlobbiSheetOpen(false);

@@ -34,14 +34,34 @@ soon" and is never a link. One departure at a time; Stay cancels before
 navigation; reduced motion skips the wave; a Blobbi that cannot act (egg,
 asleep) leaves at once. Travel waits while a write is out.
 
+## Coming home (M12.1, implemented)
+
+Entering the room is now an **arrival**: on opening the app, a reload, coming
+back from the classic home, or coming back from another Blobbi app. The
+Blobbi gathers from motes, forms, and lands with its "ta-da", through the
+room's one presence controller (`usePresence` started `absent`, then
+`enter()`). It is the mirror of the departure above: same machine, same
+timeline, same drawings. Rules (`src/features/room/lib/room-arrival.ts`):
+
+- decided once when the room mounts, never replayed by a re-render;
+- it plays once the room is on screen: after a first visit's fold-in, or a
+  short beat for a room seen before or the flat room without WebGL;
+- an egg never arrives (its first moment is the hatch theatre, and the birth
+  goes straight into the room), and neither does a sleeper (it is in its bed);
+- a change of room is a room transition, not an arrival;
+- reduced motion gets the presence's short fade.
+
+This is a **visual convention only**. Nothing is written and nothing is read
+about where the Blobbi was. See below for what real presence would need.
+
 ## What is NOT implemented, on purpose
 
 - **No key sharing** between subdomains (no postMessage, no cookie on
   `.blobbi.pet`, no URL parameter). A secret key in a URL ends in history,
   logs and referrers.
 - **No shared session backend.** Each app keeps its own login.
-- **No presence protocol.** The Blobbi does not "arrive" anywhere: Island
-  shows it because Island reads the same 31124 event.
+- **No presence protocol.** The Blobbi's arrival in the room is a picture,
+  not a fact: Island shows it because Island reads the same 31124 event.
 - **No new event kinds.**
 
 ## If presence is wanted later

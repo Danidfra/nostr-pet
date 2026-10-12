@@ -45,6 +45,7 @@ import {
 } from '@nostr-games/inventory';
 
 import { CLIENT_NAME, usePublishAdapter, type HomePublisher } from '@/features/care/usePublishAdapter';
+import { countCareForMissions } from '@/features/progression/daily-xp';
 import { tallyCareInteraction } from '@/features/lifecycle/mission-tally';
 import { timeoutSignal } from '@/lib/abort';
 import { deriveBalances, effectiveQuantity, uniqueEvents } from './inventory-state';
@@ -187,6 +188,8 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
       }
       updateStatus(pubkey, record.spendId, 'applied');
       updateCompanionEvent(event);
+      // Landed (and not one already applied): today's missions count it
+      countCareForMissions(pubkey, item.care.action);
 
       void publisher.publish(plan.interaction).catch(() => {
         /* the receipt is informational */

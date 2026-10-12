@@ -1,7 +1,8 @@
 /**
  * Ditto's `ItemCarousel` (`ditto/src/blobbi/rooms/components/ItemCarousel.tsx`):
  * a single-focus carousel. One item in the middle, big; round arrows either
- * side; from `sm` up, the neighbours as small previews you can tap. Fixed
+ * side; the neighbours as small previews you can tap (Ditto shows them from
+ * `sm` up; here from 300 px, so a phone shows three items too, M12.1). Fixed
  * slot sizes, so switching items never reflows the bar. The classes are
  * Ditto's; the structure is Ditto's.
  *
@@ -59,7 +60,13 @@ const ARROW_CLASS = cx(
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
 );
 
-const PREVIEW_CLASS = 'hidden sm:flex items-center justify-center size-[2.6em] shrink-0 rounded-full select-none opacity-60 hover:opacity-90 transition-opacity duration-200';
+/**
+ * The neighbours either side, as on desktop: three items in view wherever the dock has the width (every phone from
+ * 300 px; measured at 320 to 390 the carousel needs about two thirds of the dock). Narrower than that, the one item in
+ * the middle with its arrows. The hit area is the arrows' 44 px (`touch-hit`); where a preview's and its arrow's
+ * overlap, both step the same way.
+ */
+const PREVIEW_CLASS = 'touch-hit hidden min-[300px]:flex items-center justify-center size-[2.6em] shrink-0 rounded-full select-none opacity-60 hover:opacity-90 transition-opacity duration-200';
 
 /** An item's picture as Ditto draws it: an emoji bare, at the size of the text around it; an image or icon in a 1em box. */
 export function ItemIcon({ glyph }: { glyph: ItemGlyphModel }) {

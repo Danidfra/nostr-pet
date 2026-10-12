@@ -114,7 +114,7 @@ afterEach(() => {
 });
 
 describe('a new visitor', () => {
-  it('welcome → a key, backed up → the egg → adopted → the room is the home → the first egg hatches as theatre, once → the baby in its room', async () => {
+  it('welcome → a key, backed up → the egg → adopted → the room is the home → the egg presented, waiting for the player → tapped (twice) → hatched as theatre, once → the baby in its room', async () => {
     renderApp('/');
     // The welcome: real Blobbis, what to do, and two doors; no key yet, nothing read about anyone
     const welcome = await screen.findByTestId('onboarding-welcome');
@@ -141,11 +141,21 @@ describe('a new visitor', () => {
     expect(published(KIND_BLOBBI_STATE)).toHaveLength(1);
     expect(getTagValue(published(KIND_BLOBBI_STATE)[0].tags, 'd')).toBe(d);
 
-    // Into the room, where the first egg hatches by itself: the theatre over it
+    // Into the room, where the first egg is presented in the theatre and waits for the player: ready, never begun by itself
     await inRoom();
     expect(roomStage()).toBe('egg');
     const theater = await screen.findByTestId('hatch-theater', {}, { timeout: 8000 });
     expect(within(theater).getByTestId('hatch-theater-actor').querySelector('[data-blobbi-renderer]')).toHaveAttribute('data-blobbi-stage', 'egg');
+    expect(theater).toHaveAttribute('data-beat', 'ready');
+    expect(screen.getByTestId('hatch-theater-caption')).toHaveTextContent('Ready to hatch?');
+    await act(() => new Promise((r) => setTimeout(r, 2500)));
+    expect(theater).toHaveAttribute('data-beat', 'ready');
+    expect(hatches()).toHaveLength(0);
+    // The player taps the egg, and again in their excitement: one story, one write
+    await userEvent.click(screen.getByTestId('hatch-theater-egg'));
+    expect(screen.queryByTestId('hatch-theater-egg')).toBeNull();
+    expect(screen.queryByTestId('hatch-theater-start')).toBeNull();
+    await userEvent.click(screen.getByTestId('hatch-theater-actor'));
     // One hatch, of this very Blobbi: same address
     await waitFor(() => expect(hatches()).toHaveLength(1), { timeout: 8000 });
     expect(getTagValue(hatches()[0].tags, 'd')).toBe(d);
@@ -198,6 +208,7 @@ describe('when the hatch does not land', () => {
     renderApp('/');
     await inRoom();
     await screen.findByTestId('hatch-theater', {}, { timeout: 8000 });
+    await userEvent.click(screen.getByTestId('hatch-theater-start'));
     const failed = await screen.findByTestId('hatch-theater-failed', {}, { timeout: 8000 });
     expect(failed).toHaveTextContent(/did not hatch yet/);
     expect(screen.getByTestId('hatch-theater-actor')).toHaveAttribute('data-stage', 'egg');
@@ -209,27 +220,63 @@ describe('when the hatch does not land', () => {
     expect(screen.queryByTestId('hatch-theater')).toBeNull();
     expect(roomStage()).toBe('egg');
     expect(hatches()).toHaveLength(0);
-    // Not offered again by itself this visit
+    // Not offered again by itself this visit: the room keeps a quiet invitation, and the player can come back to it
     await act(() => new Promise((r) => setTimeout(r, 2500)));
     expect(screen.queryByTestId('hatch-theater')).toBeNull();
+    await userEvent.click(screen.getByTestId('room-hatch-invite'));
+    expect(await screen.findByTestId('hatch-theater')).toHaveAttribute('data-beat', 'ready');
+    expect(event.mock.calls.filter(([e]) => (e as NostrEvent).kind === KIND_BLOBBI_STATE).length).toBe(tries);
   }, 30_000);
 
-  it('a "refresh" before the write has left: the next visit plays the theatre again and writes the hatch once in all', async () => {
+  it('Later on the invitation writes nothing; the room invites; a tap on the egg in the room asks again', async () => {
+    signedInWithExtension();
+    relay.all = [anEgg(), profileEvent({ currentCompanion: EGG_D, has: [EGG_D] })];
+    renderApp('/');
+    await inRoom();
+    await screen.findByTestId('hatch-theater', {}, { timeout: 8000 });
+    await userEvent.click(screen.getByTestId('hatch-theater-not-yet'));
+    expect(screen.queryByTestId('hatch-theater')).toBeNull();
+    expect(await screen.findByTestId('room-hatch-invite')).toHaveTextContent(/Ready to hatch/);
+    await act(() => new Promise((r) => setTimeout(r, 2500)));
+    expect(screen.queryByTestId('hatch-theater')).toBeNull();
+    expect(relay.published).toEqual([]);
+    // A tap on the egg itself (the keyboard's stand-in for it here) is the way back to the moment
+    await userEvent.click(screen.getByTestId('room-blobbi-focus'));
+    expect(await screen.findByTestId('hatch-theater')).toHaveAttribute('data-beat', 'ready');
+    expect(relay.published).toEqual([]);
+    await userEvent.click(screen.getByTestId('hatch-theater-start'));
+    await waitFor(() => expect(hatches()).toHaveLength(1), { timeout: 8000 });
+    await waitFor(() => expect(screen.queryByTestId('hatch-theater')).toBeNull(), { timeout: 8000 });
+    expect(screen.queryByTestId('room-hatch-invite')).toBeNull();
+    expect(roomStage()).toBe('baby');
+  }, 30_000);
+
+  it('a "refresh" before the tap, and another in the middle of the cracks: each next visit presents the egg again, waiting; the hatch is written once in all', async () => {
     signedInWithExtension();
     relay.all = [anEgg(), profileEvent({ currentCompanion: EGG_D, has: [EGG_D] })];
     const first = renderApp('/');
     await inRoom();
     await screen.findByTestId('hatch-theater', {}, { timeout: 8000 });
-    // Gone before the shell even cracked (a reload, the tab closed)
+    // Gone before the player even tapped (a reload, the tab closed)
     first.unmount();
+    cleanup();
+    expect(hatches()).toHaveLength(0);
+    const second = renderApp('/');
+    await inRoom();
+    expect(await screen.findByTestId('hatch-theater', {}, { timeout: 8000 })).toHaveAttribute('data-beat', 'ready');
+    await userEvent.click(screen.getByTestId('hatch-theater-start'));
+    // Gone again mid-story, while the shell cracks and before the write
+    await waitFor(() => expect(screen.getByTestId('hatch-theater')).toHaveAttribute('data-beat', 'cracking'), { timeout: 8000 });
+    second.unmount();
     cleanup();
     expect(hatches()).toHaveLength(0);
     renderApp('/');
     await inRoom();
-    await screen.findByTestId('hatch-theater', {}, { timeout: 8000 });
+    expect(await screen.findByTestId('hatch-theater', {}, { timeout: 8000 })).toHaveAttribute('data-beat', 'ready');
+    await userEvent.click(screen.getByTestId('hatch-theater-start'));
     await waitFor(() => expect(hatches()).toHaveLength(1), { timeout: 8000 });
     await waitFor(() => expect(screen.queryByTestId('hatch-theater')).toBeNull(), { timeout: 8000 });
     await act(() => new Promise((r) => setTimeout(r, 2000)));
     expect(hatches()).toHaveLength(1);
-  }, 40_000);
+  }, 60_000);
 });
