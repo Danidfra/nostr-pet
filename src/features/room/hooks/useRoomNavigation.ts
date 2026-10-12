@@ -41,8 +41,8 @@ export interface RoomNavigation {
   canWalk: boolean;
   /** Walk to the free tile nearest a floor point (tiles). Replaces a walk in progress. */
   walkTo: (x: number, z: number) => Promise<WalkOutcome>;
-  /** Walk up to something on the floor and stand just in front of it, in view. Replaces a walk in progress. */
-  approach: (x: number, z: number) => Promise<WalkOutcome>;
+  /** Walk up to something on the floor and stand by it (`clear`: the thing's size, kept clear of). Replaces a walk in progress. */
+  approach: (x: number, z: number, clear?: number) => Promise<WalkOutcome>;
   /** Stop where it stands; a walk in progress resolves `stopped`. */
   stop: () => void;
   /** Hand these to the shell. */
@@ -75,9 +75,9 @@ export function useRoomNavigation({ blobbi, editing = false }: UseRoomNavigation
     const control = controlRef.current;
     return control ? control.walkTo(x, z) : Promise.resolve('refused');
   }, []);
-  const approach = useCallback((x: number, z: number): Promise<WalkOutcome> => {
+  const approach = useCallback((x: number, z: number, clear?: number): Promise<WalkOutcome> => {
     const control = controlRef.current;
-    return control ? control.approach(x, z) : Promise.resolve('refused');
+    return control ? control.approach(x, z, clear) : Promise.resolve('refused');
   }, []);
   const stop = useCallback(() => {
     controlRef.current?.stop();

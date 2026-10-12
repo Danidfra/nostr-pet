@@ -447,8 +447,8 @@ describe('dragging an item into the room', () => {
     expect(shell()).not.toHaveAttribute('data-drop');
     expect(screen.queryByTestId('room-handed-item')).toBeNull();
     expect(screen.getByTestId('room-floor-item')).toBeInTheDocument();
-    // At its feet, toward the viewer
-    expect(dish()).toMatchObject({ x: expect.closeTo(4.78, 1), z: expect.closeTo(4.78, 1) });
+    // In front of it, toward the viewer, clear of its body (an adult reaches 1.27 tiles; the dish 0.62)
+    expect(dish()).toMatchObject({ x: expect.closeTo(5.45, 1), z: expect.closeTo(5.45, 1) });
     await awaitWalk();
     settleWalk('arrived');
     await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });

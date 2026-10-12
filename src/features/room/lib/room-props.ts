@@ -25,6 +25,8 @@ export interface PropGlyph {
 export interface RoomProp {
   id: string;
   kind: RoomPropKind;
+  /** A dish: the official item's `d`, for its model (`scene/food-models.ts`); without one the dish shows the item's picture. */
+  itemId?: string;
   /** Where it was set down (tiles). A ball rolls on from here; the scene owns its motion after that. */
   x: number;
   z: number;
@@ -34,7 +36,14 @@ export interface RoomProp {
   bites?: { taken: number; of: number };
   /** On its way out (eaten up, put away, played out): it shrinks and fades, and the owner removes it after `PROP_LEAVE_MS`. */
   leaving?: boolean;
+  /** Leaving upward (picked up by the Blobbi): it lifts as it goes. */
+  lifted?: boolean;
 }
+
+/** How far each prop spreads from its centre (tiles): what a Blobbi keeps clear of it when it comes to it. */
+export const PROP_RADIUS: Readonly<Record<RoomPropKind, number>> = { dish: 0.62, ball: 0.36 };
+/** The room between a Blobbi's body and a thing it comes to (tiles). */
+export const PROP_GAP = 0.12;
 
 /** How long a leaving prop takes to be gone. */
 export const PROP_LEAVE_MS = 480;

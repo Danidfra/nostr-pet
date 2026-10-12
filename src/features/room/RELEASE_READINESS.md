@@ -287,3 +287,49 @@ code:
     game. Nothing loud, nothing the same twice.
 13. **The header:** the name opens the details sheet (Items inside), ☰ the
     menu with **Classic home**.
+
+
+## M10.1: food and toy polish (2026-10-11)
+
+- **The food is modelled** (`scene/food-models.ts`): apple, burger, pizza
+  slice, cake slice, sushi (two nigiri) and the energy drink, each a few
+  primitives in flat paper colours, chosen by the official item's `d`
+  (`FOOD_MODELS`); a food with no model (a partner's produce) keeps its
+  picture on the plate. Bites are clipping planes, one per bite, kept from
+  the start and moved into place (no shader recompile mid-meal): the
+  apple shows white flesh where a bite was, the burger its layers, the
+  slices shorten from the tip, the nigiri go half at a time; the drink
+  shrinks sip by sip. Crumbs come out on the plate; the food jolts a
+  little with each bite; the last bite leaves the plate, which goes.
+- **The overlap is fixed at the approach** (`RoomScene.standClearOf`): a
+  Blobbi coming to a thing with a size stands its own reach plus the
+  thing's radius plus a gap away from it, on the far side from the camera
+  when that tile is free (the thing in front of it), else toward where it
+  came from, else round the sides, never on the thing's tile; the walk's
+  last step is that exact spot. A used item is set down 2.05 tiles in
+  front (an adult's reach and a dish), so Use needs no step back. The old
+  approach (the bed, with no size) is unchanged; the 2D home is untouched.
+- **The ball is put away** (`useRoomInteractions`): after a game it lies
+  in the room; a tap is a free game (two nudges, no write, no chips);
+  untouched for `TOY_IDLE_MS` (28 s) the Blobbi walks to it, picks it up
+  (it lifts and shrinks into its hands, `pickup`, a glad hop) when it can
+  walk, else it fades; a change of room or decorating clears it at once;
+  a tap or a game restarts the clock. The physics are untouched.
+- **Cost:** a dish is a plate, a rim, six crumb discs and the model's 5–14
+  meshes, one standard material per colour; a ball unchanged. Nothing
+  simulates while nothing moves. Draw calls per dish: about 10–20 while
+  it is on the floor.
+
+### Phone protocol, continued
+
+14. **The foods (2026-10-11):** in the kitchen, give each of the six: a
+    red apple with a stem and leaf, a burger with its layers, a pizza
+    slice with pepperoni, a slice of cake with a cherry, two nigiri, a blue
+    can with a bolt. Each sits on a plate (the can on the floor) in front
+    of the Blobbi, which stands behind it, never on it; each bite takes a
+    piece out of it (the apple shows its flesh), crumbs appear, the last
+    bite leaves the plate, which goes. Try a baby fixture too
+    (`baby-v3`): it stands nearer.
+15. **The ball after the game:** leave it half a minute: the Blobbi walks
+    to it, picks it up and it is gone. Tap it before that: another game,
+    without chips. Change rooms with it lying there: gone.

@@ -59,8 +59,11 @@ export interface RoomControl {
   floorAt: (clientX: number, clientY: number) => { x: number; z: number } | null;
   /** Walk the user's Blobbi to the free tile nearest a floor point; resolves how the walk ended. */
   walkTo: (x: number, z: number) => Promise<WalkOutcome>;
-  /** Walk the user's Blobbi up to something on the floor, standing just in front of it; resolves how the walk ended. */
-  approach: (x: number, z: number) => Promise<WalkOutcome>;
+  /**
+   * Walk the user's Blobbi up to something on the floor and stand by it; with `clear` (the thing's own size, tiles)
+   * it stands its body's reach and that clear of it, the thing in front of it, never under it.
+   */
+  approach: (x: number, z: number, clear?: number) => Promise<WalkOutcome>;
   /** Stop the user's Blobbi where it stands; a walk in progress resolves `stopped`. */
   stop: () => void;
   /** What is under a screen point (a Blobbi, a piece, the floor), as a tap would find it. */
@@ -576,7 +579,7 @@ export function RoomShell({
         return box ? sceneRef.current?.floorAt(clientX - box.left, clientY - box.top) ?? null : null;
       },
       walkTo: (x, z) => sceneRef.current?.requestWalk(MAIN_BLOBBI, x, z, 'to') ?? Promise.resolve('refused'),
-      approach: (x, z) => sceneRef.current?.requestWalk(MAIN_BLOBBI, x, z, 'approach') ?? Promise.resolve('refused'),
+      approach: (x, z, clear) => sceneRef.current?.requestWalk(MAIN_BLOBBI, x, z, 'approach', clear) ?? Promise.resolve('refused'),
       stop: () => sceneRef.current?.stopWalk(MAIN_BLOBBI),
       pickAt: (clientX, clientY) => {
         const box = shellRef.current?.getBoundingClientRect();

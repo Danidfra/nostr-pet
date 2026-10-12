@@ -93,8 +93,8 @@ export function planUse(_action: ItemAction, blobbiAt: { x: number; z: number } 
 /** The middle of the floor, where an item goes when the Blobbi's place is unknown (the simple room). */
 const MIDDLE = { x: ROOM_GRID / 2 - 0.5, z: ROOM_GRID / 2 - 0.5 } as const;
 
-/** How far in front of the Blobbi (tiles, toward the open corner) a used item is set down. */
-export const SET_DOWN_OFFSET = 1.1;
+/** How far in front of the Blobbi (tiles, toward the open corner) a used item is set down: clear of an adult's body, so it stands and eats where it is. */
+export const SET_DOWN_OFFSET = 2.05;
 /** How close to a wall an item may lie (tiles). */
 const FLOOR_MARGIN = 0.6;
 

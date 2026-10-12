@@ -66,6 +66,7 @@ import { recordRuntimeError } from '../runtime-errors';
 import { PROP_ENTER_MS, PROP_LEAVE_MS, glyphKey, type RoomProp } from '../room-props';
 import { BALL, ballAt, ballResting, kickBall, stepBall, type BallState } from '../ball-physics';
 import { biteFood, drawBallSkin, drawFood, loadFoodImage } from './prop-art';
+import { buildFoodModel, disposeFoodModel, foodModelFor, type FoodModel } from './food-models';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -316,6 +317,10 @@ function easeInOut(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 }
 
+function easeOut(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
 function shared<T extends { userData: Record<string, unknown> }>(value: T): T {
   value.userData.shared = true;
   return value;
@@ -560,8 +565,24 @@ interface BuiltProp {
   leavingAt?: number;
   /** Drawn over the page's Blobbi this frame (nearer the camera than it). */
   front: boolean;
-  /** A dish: the food picture, whole and as bitten, on a plane standing on the plate. */
-  dish?: { food: THREE.Mesh; texture: THREE.CanvasTexture; whole: HTMLCanvasElement | null; glyph: string; bites: number; image?: 'loading' | 'done' };
+  /**
+   * A dish: the food. A modelled food (`food-models.ts`) is eaten by clipping planes, one per bite, kept from the
+   * start and moved into place as the bites are taken (no shader recompiles), with crumbs on the plate; any other
+   * food is its picture on a plane standing on the plate, bitten in the picture.
+   */
+  dish?: {
+    food: THREE.Object3D;
+    model: FoodModel | null;
+    planes: THREE.Plane[];
+    crumbs: THREE.Mesh[];
+    texture?: THREE.CanvasTexture;
+    whole: HTMLCanvasElement | null;
+    glyph: string;
+    bites: number;
+    image?: 'loading' | 'done';
+    /** When the last bite was taken, for the little jolt. */
+    biteAt?: number;
+  };
   /** A ball: its motion, the mesh that rolls, and the soft shadow under it. */
   ball?: { state: BallState; mesh: THREE.Mesh; contact: THREE.Mesh; resting: boolean };
 }
@@ -1427,22 +1448,50 @@ export class RoomScene {
       // Set down from a hand's height: it drops and bounces once
       built.ball = { state: ballAt(prop.x, prop.z, this.reducedMotion ? 0 : 0.7), mesh, contact, resting: this.reducedMotion };
     } else {
-      const plate = new THREE.Mesh(this.dishGeometry, this.dishMaterial);
-      plate.position.y = DISH_HEIGHT / 2;
-      plate.castShadow = true;
-      plate.receiveShadow = true;
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(DISH_RADIUS * 0.96, DISH_HEIGHT * 0.35, 8, 36), this.dishRimMaterial);
-      rim.rotation.x = Math.PI / 2;
-      rim.position.y = DISH_HEIGHT;
-      const texture = new THREE.CanvasTexture(document.createElement('canvas'));
-      texture.colorSpace = THREE.SRGBColorSpace;
-      const food = new THREE.Mesh(new THREE.PlaneGeometry(FOOD_SIZE, FOOD_SIZE), new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.08, depthWrite: true, side: THREE.DoubleSide }));
-      // Standing on the plate, facing the camera, leaning back a touch so it reads as sitting on it
-      food.position.y = DISH_HEIGHT + FOOD_SIZE * 0.42;
-      food.rotation.y = CAMERA_AZIMUTH;
-      food.rotateX(-0.22);
-      root.add(plate, rim, food);
-      built.dish = { food, texture, whole: null, glyph: '', bites: -1 };
+      const kind = prop.itemId ? foodModelFor(prop.itemId) : null;
+      const model = kind ? buildFoodModel(kind) : null;
+      const onPlate = model ? model.plate : true;
+      if (onPlate) {
+        const plate = new THREE.Mesh(this.dishGeometry, this.dishMaterial);
+        plate.position.y = DISH_HEIGHT / 2;
+        plate.castShadow = true;
+        plate.receiveShadow = true;
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(DISH_RADIUS * 0.96, DISH_HEIGHT * 0.35, 8, 36), this.dishRimMaterial);
+        rim.rotation.x = Math.PI / 2;
+        rim.position.y = DISH_HEIGHT;
+        root.add(plate, rim);
+      }
+      // Crumbs, a few, hidden until the bites bring them out
+      const crumbs: THREE.Mesh[] = [];
+      const crumbMaterial = new THREE.MeshStandardMaterial({ color: model?.crumb ?? new THREE.Color('#e2c79a'), roughness: 0.8 });
+      for (let i = 0; i < 6; i++) {
+        const crumb = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.02, 7), crumbMaterial);
+        crumb.visible = false;
+        crumb.position.set(Math.cos(i * 2.1 + 0.4) * DISH_RADIUS * (0.55 + 0.2 * ((i * 7) % 3) / 2), (onPlate ? DISH_HEIGHT : 0) + 0.01, Math.sin(i * 2.1 + 0.4) * DISH_RADIUS * (0.55 + 0.2 * ((i * 5) % 3) / 2));
+        crumb.rotation.y = i;
+        root.add(crumb);
+        crumbs.push(crumb);
+      }
+      if (model) {
+        model.root.position.y = onPlate ? DISH_HEIGHT : 0;
+        // One clipping plane per possible bite, out of the way until its bite is taken (a plane count that never
+        // changes means no shader recompile mid-meal); a food that shrinks instead has none
+        const planes = model.bites.map(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 1e3));
+        for (const material of model.materials) material.clippingPlanes = planes;
+        root.add(model.root);
+        built.dish = { food: model.root, model, planes, crumbs, whole: null, glyph: '', bites: -1 };
+        this.needsCompile = true;
+      } else {
+        const texture = new THREE.CanvasTexture(document.createElement('canvas'));
+        texture.colorSpace = THREE.SRGBColorSpace;
+        const food = new THREE.Mesh(new THREE.PlaneGeometry(FOOD_SIZE, FOOD_SIZE), new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.08, depthWrite: true, side: THREE.DoubleSide }));
+        // Standing on the plate, facing the camera, leaning back a touch so it reads as sitting on it
+        food.position.y = DISH_HEIGHT + FOOD_SIZE * 0.42;
+        food.rotation.y = CAMERA_AZIMUTH;
+        food.rotateX(-0.22);
+        root.add(food);
+        built.dish = { food, model: null, planes: [], crumbs, texture, whole: null, glyph: '', bites: -1 };
+      }
       this.updateDish(built);
     }
     this.propGroup.add(root);
@@ -1450,10 +1499,46 @@ export class RoomScene {
     this.needsCompile = true;
   }
 
-  /** Redraw a dish's food when what it shows or how much is eaten changed; a vetted image replaces the emoji when it arrives. */
+  /**
+   * A dish's food as eaten so far: a modelled food has its bites cut out (the planes moved into place, from the
+   * directions the camera sees) or shrinks sip by sip, crumbs coming out on the plate; a pictured food is redrawn
+   * with bites out of the picture (a vetted image replaces the emoji when it arrives). Gone with the last bite.
+   */
   private updateDish(built: BuiltProp) {
     const dish = built.dish;
     if (!dish) return;
+    const taken = built.prop.bites?.taken ?? 0;
+    const of = built.prop.bites?.of ?? 4;
+    if (dish.model) {
+      if (dish.bites === taken) return;
+      if (taken > Math.max(0, dish.bites)) dish.biteAt = performance.now();
+      dish.bites = taken;
+      const model = dish.model;
+      const centre = (model.root.userData.centre as THREE.Vector3 | undefined) ?? new THREE.Vector3();
+      const world = model.root.getWorldPosition(new THREE.Vector3()).add(centre);
+      if (model.bites.length > 0) {
+        // Bites are spread over the cuts: fewer bites than cuts take them in order, more than cuts finish early
+        const cuts = Math.min(model.bites.length, Math.round((taken / Math.max(1, of)) * model.bites.length));
+        model.bites.forEach((cut, i) => {
+          const plane = dish.planes[i];
+          if (i < cuts) {
+            plane.normal.copy(cut.u).negate();
+            plane.constant = cut.u.dot(world) + cut.reach - cut.depth;
+          } else {
+            plane.normal.set(0, 1, 0);
+            plane.constant = 1e3;
+          }
+        });
+      } else {
+        // A drink: smaller with each sip
+        const left = Math.max(0.3, 1 - (taken / Math.max(1, of)) * 0.75);
+        model.root.scale.setScalar(model.scale * left);
+      }
+      dish.crumbs.forEach((crumb, i) => { crumb.visible = i < Math.min(dish.crumbs.length, taken * 2) && taken < of; });
+      model.root.visible = taken < of;
+      this.shadowsDirty = true;
+      return;
+    }
     const glyph = built.prop.food ?? {};
     const key = glyphKey(glyph);
     if (dish.glyph !== key || !dish.whole) {
@@ -1473,25 +1558,29 @@ export class RoomScene {
         });
       }
     }
-    const taken = built.prop.bites?.taken ?? 0;
-    const of = built.prop.bites?.of ?? 4;
     if (dish.bites === taken) return;
+    if (taken > Math.max(0, dish.bites)) dish.biteAt = performance.now();
     dish.bites = taken;
     const picture = dish.whole ? (taken > 0 ? biteFood(dish.whole, taken, of) : dish.whole) : null;
-    if (picture) {
+    if (picture && dish.texture) {
       dish.texture.image = picture;
       dish.texture.needsUpdate = true;
       dish.food.visible = taken < of;
     } else {
-      // No 2D canvas here: a plain disc of food colour stands in
+      // No 2D canvas here: nothing to draw the food with
       dish.food.visible = false;
     }
+    dish.crumbs.forEach((crumb, i) => { crumb.visible = i < Math.min(dish.crumbs.length, taken * 2) && taken < of; });
   }
 
   private removeProp(id: string) {
     const built = this.props.get(id);
     if (!built) return;
     this.propGroup.remove(built.root);
+    if (built.dish?.model) {
+      built.root.remove(built.dish.model.root);
+      disposeFoodModel(built.dish.model);
+    }
     // Shared geometries and textures stay; the plane, torus, their materials and the food texture go
     built.root.traverse((child) => {
       const mesh = child as THREE.Mesh;
@@ -1557,13 +1646,38 @@ export class RoomScene {
       const entering = this.reducedMotion ? 1 : Math.min(1, (now - built.enteredAt) / PROP_ENTER_MS);
       let scale = entering < 1 ? easeOutBack(entering) : 1;
       if (entering < 1) animating = true;
+      let lift = 0;
       if (built.leavingAt !== undefined) {
         const k = this.reducedMotion ? 1 : Math.min(1, (now - built.leavingAt) / PROP_LEAVE_MS);
         scale *= 1 - easeInOut(k);
+        // Picked up: it goes up as it goes
+        if (built.prop.lifted) lift = easeOut(k) * 0.9;
         if (k < 1) animating = true;
       }
       built.root.scale.setScalar(Math.max(0.001, scale));
       built.root.visible = scale > 0.01;
+      // A bite: the food jolts a little and settles
+      const dish = built.dish;
+      if (dish?.biteAt !== undefined) {
+        const k = (now - dish.biteAt) / 260;
+        if (k < 1 && !this.reducedMotion) {
+          const j = Math.sin(k * Math.PI) * (1 - k);
+          dish.food.rotation.z = j * 0.14;
+          dish.food.position.x = j * 0.05;
+          animating = true;
+        } else {
+          dish.food.rotation.z = 0;
+          dish.food.position.x = 0;
+          dish.biteAt = undefined;
+        }
+      }
+      if (built.ball) {
+        void lift;
+      } else if (entering < 1) {
+        // A dish set down comes from a little above the floor
+        built.root.position.y = (1 - entering) * 0.35 + lift;
+        this.shadowsDirty = true;
+      } else built.root.position.y = lift;
       if (built.ball) {
         const ball = built.ball;
         if (!ball.resting) {
@@ -1576,22 +1690,18 @@ export class RoomScene {
           } else animating = true;
           this.shadowsDirty = true;
         }
-        this.placeBall(built);
-      } else if (entering < 1) {
-        // A dish set down comes from a little above the floor
-        built.root.position.y = (1 - entering) * 0.35;
-        this.shadowsDirty = true;
-      } else built.root.position.y = 0;
+        this.placeBall(built, lift);
+      }
     }
     return animating;
   }
 
   /** Put a ball's mesh where its state says, rolled by how far it has gone, its shadow under it. */
-  private placeBall(built: BuiltProp) {
+  private placeBall(built: BuiltProp, lift = 0) {
     const ball = built.ball;
     if (!ball) return;
     const s = ball.state;
-    built.root.position.set(s.x, 0, s.z);
+    built.root.position.set(s.x, lift, s.z);
     ball.mesh.position.y = BALL.radius + s.elev;
     // Rolling: turned about the axis across its travel by the distance over its radius
     const speed = Math.hypot(s.vx, s.vz);
@@ -1601,9 +1711,9 @@ export class RoomScene {
       ball.mesh.quaternion.copy(target);
     }
     // Off the floor, the shadow stays under it and shrinks
-    const lift = Math.min(1, s.elev / 0.8);
-    ball.contact.scale.set(BALL.radius * 2.6 * (1 - lift * 0.4), BALL.radius * 2.3 * (1 - lift * 0.4), 1);
-    (ball.contact.material as THREE.MeshBasicMaterial).opacity = 0.9 - lift * 0.5;
+    const hop = Math.min(1, s.elev / 0.8);
+    ball.contact.scale.set(BALL.radius * 2.6 * (1 - hop * 0.4), BALL.radius * 2.3 * (1 - hop * 0.4), 1);
+    (ball.contact.material as THREE.MeshBasicMaterial).opacity = 0.9 - hop * 0.5;
   }
 
   /** Props nearer the camera than a Blobbi drawn by the page go on the overlay pass, so they are drawn over it. */
@@ -1785,13 +1895,16 @@ export class RoomScene {
    * the Blobbi is taken straight there and the walk has arrived. Never
    * rejects, and never stays pending once the walk is over.
    */
-  requestWalk(id: string, x: number, z: number, how: 'to' | 'approach' = 'to'): Promise<WalkOutcome> {
+  requestWalk(id: string, x: number, z: number, how: 'to' | 'approach' = 'to', clear?: number): Promise<WalkOutcome> {
     const actor = this.actors.get(id);
     if (!actor || !this.canWalk(actor)) return Promise.resolve('refused');
-    const [i, j] = how === 'approach' ? this.nearestFreeTile(x - 0.6, z - 0.6, id) : this.nearestFreeTile(x, z, id);
+    // Coming to a thing with a size (a dish, a ball): stand its reach and the thing's clear of it, on the far side
+    // from the camera when that is free, so the thing is in front of it and never under it
+    const spot = how === 'approach' && clear !== undefined ? this.standClearOf(actor, x, z, clear + actor.reach.front) : null;
+    const [i, j] = spot ? spot.tile : how === 'approach' ? this.nearestFreeTile(x - 0.6, z - 0.6, id) : this.nearestFreeTile(x, z, id);
     // Whatever walk was requested before is being replaced, whether or not this one starts
     this.settleWalk(id, 'replaced');
-    if (!this.walkToTile(actor, i, j)) return Promise.resolve('refused');
+    if (!this.walkToTile(actor, i, j, spot?.at)) return Promise.resolve('refused');
     if (!actor.path.length) {
       // Already standing there, or taken straight there under reduced motion
       this.arrive(actor);
@@ -1828,7 +1941,35 @@ export class RoomScene {
     this.walkToTile(actor, i, j);
   }
 
-  private walkToTile(b: Actor, ti: number, tj: number): boolean {
+  /**
+   * Where a Blobbi stands to be `distance` from a thing at (x, z): behind it (away from the camera, so the thing
+   * is in front of it), else toward where the Blobbi is now, else round the sides; the first of these on a free
+   * tile that is not the thing's own, kept clear of the walls. Null when none is (the plain approach then).
+   */
+  private standClearOf(actor: Actor, x: number, z: number, distance: number): { at: { x: number; z: number }; tile: [number, number] } | null {
+    const toward = { x: actor.x - x, z: actor.z - z };
+    const len = Math.hypot(toward.x, toward.z);
+    const back = { x: -Math.SQRT1_2, z: -Math.SQRT1_2 };
+    const candidates = [back, ...(len > 0.3 ? [{ x: toward.x / len, z: toward.z / len }] : []), { x: -1, z: 0 }, { x: 0, z: -1 }, { x: Math.SQRT1_2, z: -Math.SQRT1_2 }, { x: -Math.SQRT1_2, z: Math.SQRT1_2 }, { x: Math.SQRT1_2, z: Math.SQRT1_2 }];
+    const blocked = this.blockedTiles(actor.tiles * BODY_HALF_WIDTH * 0.5);
+    const own = Math.floor(x) * G + Math.floor(z);
+    for (const d of candidates) {
+      const at = { x: clampToReach(x + d.x * distance, actor.reach), z: clampToReach(z + d.z * distance, actor.reach) };
+      const ti = Math.floor(at.x);
+      const tj = Math.floor(at.z);
+      if (ti < 0 || tj < 0 || ti >= G || tj >= G) continue;
+      const key = ti * G + tj;
+      if (key === own || blocked.has(key)) continue;
+      // Clamped into a wall it may have come too near: not this way
+      if (Math.hypot(at.x - x, at.z - z) < distance * 0.8) continue;
+      // Another Blobbi standing there
+      if ([...this.actors.values()].some((o) => o.id !== actor.id && o.visible && Math.floor(o.x) === ti && Math.floor(o.z) === tj)) continue;
+      return { at, tile: [ti, tj] };
+    }
+    return null;
+  }
+
+  private walkToTile(b: Actor, ti: number, tj: number, exact?: { x: number; z: number }): boolean {
     const start = [Math.min(G - 1, Math.max(0, Math.floor(b.x))), Math.min(G - 1, Math.max(0, Math.floor(b.z)))];
     const key = (i: number, j: number) => i * G + j;
     const search = (blocked: Set<number>) => {
@@ -1860,7 +2001,9 @@ export class RoomScene {
     b.elev = 0;
     this.shadowsDirty = true;
     this.requestRender();
-    const end = this.standPoint(b, ti, tj);
+    const end = exact ?? this.standPoint(b, ti, tj);
+    // Going to an exact spot on the tile: the last step is that spot, not the tile's centre
+    if (exact && path.length) path[path.length - 1] = { ...end };
     // Two tiles clamped to one point make one step
     while (path.length > 1 && path[path.length - 1].x === path[path.length - 2].x && path[path.length - 1].z === path[path.length - 2].z) path.pop();
     if (path.length && Math.abs(path[0].x - b.x) < 1e-6 && Math.abs(path[0].z - b.z) < 1e-6) path.shift();
@@ -3033,7 +3176,6 @@ export class RoomScene {
     if (!folds) return false;
     const t = this.introStart === null ? Infinity : now - this.introStart;
     const phase = ([from, to]: readonly [number, number]) => Math.max(0, Math.min(1, (t - from) / (to - from)));
-    const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
 
     const INTRO = this.introTiming;
     const floor = easeOut(phase(INTRO.floor));

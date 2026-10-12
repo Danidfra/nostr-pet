@@ -122,14 +122,19 @@ Two things to know:
   **View** row (−, +, Reset). The factor is remembered on this device
   (`blobbi:room:zoom`), the same for every room, and survives turning the
   phone within the new stage's limits.
-- **Things in the room (M10).** Food is a dish set down in front of the
-  Blobbi (or where you drop it): it notices, walks over, and once the use
-  has landed (never before) eats it bite by bite, the food on the dish
-  going down with each bite, then "mmm" and the stat chips; the dish is the
-  item's own picture, so an apple is an apple. The ball is a ball: set down,
-  it drops in and bounces; the Blobbi comes, nudges it rolling (it bounces
-  off walls and furniture), chases it and nudges it again, three times; it
-  stays in the room for the visit, and a tap sends it rolling again. One
+- **Things in the room (M10, M10.1).** Food is a dish set down in front of
+  the Blobbi (or where you drop it), clear of its body: it notices, walks
+  over, stands behind the dish with the food in front of it, and once the
+  use has landed (never before) eats it bite by bite, a bite cut out of the
+  food with each (crumbs on the plate), then "mmm" and the stat chips. The
+  official foods are small papercraft objects (an apple, a burger, a slice
+  of pizza, a slice of cake, two nigiri, a can); any other food keeps its
+  picture on the plate. The ball is a ball: set down, it drops in and
+  bounces; the Blobbi comes, nudges it rolling (it bounces off walls and
+  furniture), chases it and nudges it again, three times. It lies in the
+  room a while after: a tap is another game (free); left alone for half a
+  minute the Blobbi picks it up and it is gone, and a change of room or
+  decorating clears it. One
   scene plays at a time: a change of room, a teleport, another item or a
   hand on the Blobbi ends it with everything given back (a write already
   out finishes, and stands). A room counts as seen only once its build has

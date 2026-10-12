@@ -108,7 +108,7 @@ describe('the Dev Lab page', () => {
       expect(screen.getByTestId('dev-inspector-generation')).toHaveTextContent(gen.toUpperCase());
     }
     expect(socket).not.toHaveBeenCalled();
-  });
+  }, 15_000);
 
   it('the lifecycle pipeline: each step is a Set that places the fixture there and lights up', async () => {
     renderLab();

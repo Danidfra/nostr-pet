@@ -57,7 +57,7 @@ describe('useRoomNavigation', () => {
     settle('arrived');
     expect(await walk).toBe('arrived');
     const stop = result.current.approach(5, 5);
-    expect(control.approach).toHaveBeenCalledWith(5, 5);
+    expect(control.approach).toHaveBeenCalledWith(5, 5, undefined);
     result.current.stop();
     expect(await stop).toBe('stopped');
   });

@@ -43,7 +43,7 @@ import type { RoomNavigation } from './useRoomNavigation';
 import { EAT, bitesFor, type RoomCare, type UseOutcome } from './useRoomCare';
 import type { EatingMoment } from './useEatingPresentation';
 import { Interrupted, createDirector, type CancelReason, type Run } from '../lib/room-interaction';
-import { PROP_LEAVE_MS, propGlyphFor, propKindFor, type RoomProp } from '../lib/room-props';
+import { PROP_GAP, PROP_LEAVE_MS, PROP_RADIUS, propGlyphFor, propKindFor, type RoomProp, type RoomPropKind } from '../lib/room-props';
 import { kickDirection } from '../lib/ball-physics';
 import { gazeToward } from '../lib/room-gaze';
 import type { DropPlan, RoomCareEntry } from '../lib/room-care';
@@ -57,8 +57,10 @@ export const NOTICE_MS = 480;
 const AFTER_GLANCE_MS = 700;
 /** Where the eyes go while it eats: on the dish at its feet. */
 const ON_THE_DISH: EyeOffset = { x: 0, y: 0.65 };
-/** The ball: how hard it is nudged (tiles/s), how many times, and how long it may roll before it is chased anyway. */
-export const PLAY = { kicks: 3, power: [3.2, 4.4] as const, rollMaxMs: 2_400, tapPower: 2.8 } as const;
+/** The ball: how hard it is nudged (tiles/s), how many times, how long it may roll before it is chased anyway, and how many nudges a replay has. */
+export const PLAY = { kicks: 3, power: [3.2, 4.4] as const, rollMaxMs: 2_400, tapPower: 2.8, replayKicks: 2 } as const;
+/** How long a ball lies untouched after a game before it is put away (ms). */
+export const TOY_IDLE_MS = 28_000;
 /** A pretend write (the development previews) takes this long to "land". */
 const PRETEND_WRITE_MS = 600;
 
@@ -79,6 +81,8 @@ export interface UseRoomInteractionsOptions {
   play: (sound: BlobbiSoundId) => void;
   /** Where its stats come from for a pretend result (the previews). */
   random?: () => number;
+  /** How long a ball lies untouched before it is put away (`TOY_IDLE_MS`). */
+  toyIdleMs?: number;
 }
 
 export interface RoomInteractions {
@@ -94,7 +98,7 @@ export interface RoomInteractions {
   offer: (entry: RoomCareEntry, plan: DropPlan, roomId: RoomId) => boolean;
   /** Try a failed use again, with its scene from the write on (the player's tap). */
   retry: () => void;
-  /** A prop was tapped (a ball: it is sent rolling; the Blobbi looks). */
+  /** A prop was tapped (a ball: the Blobbi plays with it again, free; busy, it only looks as it rolls). */
   onPropTap: (id: string) => void;
   /** The development previews: the whole scene with a pretend write (nothing used, nothing written). */
   preview: (kind: 'feed' | 'ball', item: HomeItem) => void;
@@ -109,9 +113,14 @@ interface Subject {
   x: number;
   z: number;
   dry: boolean;
+  /** The thing it becomes in the room, for the distance kept from it. */
+  prop: RoomPropKind | null;
 }
 
 const FACE = 'interaction';
+
+/** What a Blobbi keeps clear of a thing it comes to: the thing's size and a little room (its own reach the scene adds). */
+const clearFor = (kind: RoomPropKind | null) => (kind ? PROP_RADIUS[kind] + PROP_GAP : undefined);
 
 export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomInteractions {
   const { care, roomId, present, enabled, reducedMotion } = options;
@@ -122,6 +131,9 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
   const gazeRef = useRef<EyeOffset | null>(null);
   const [activity, setActivity] = useState<InteractionKind | null>(null);
   const [eating, setEating] = useState<EatingMoment | null>(null);
+  /** The ball lying in the room after a game, and when it was last touched. */
+  const toy = useRef<{ id: string; touchedAt: number } | null>(null);
+  const [toyTouched, setToyTouched] = useState(0);
   const leaveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const director = useMemo(() => createDirector({ onError: (error, name) => recordRuntimeError('error', error instanceof Error ? error : new Error(`${name}: ${String(error)}`)) }), []);
@@ -191,7 +203,7 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
     });
     await run.wait(NOTICE_MS);
     if (!o.nav.canWalk) return true;
-    const outcome = await run.until(o.nav.approach(subject.x, subject.z));
+    const outcome = await run.until(o.nav.approach(subject.x, subject.z, clearFor(subject.prop)));
     if (outcome === 'arrived') return true;
     // Replaced, stopped (a hand on it, a change of room) or refused: nothing is used, the item goes back
     if (!subject.dry) o.care.clear(subject.key);
@@ -272,7 +284,7 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
   }, [face, setGaze, updateProp, removeProp, leaveProp, settle]);
 
   /** The ball game: nudge, watch it roll, chase, again; then pleased. */
-  const playBall = useCallback(async (run: Run, subject: Subject, ballId: string, outcome: UseOutcome) => {
+  const playBall = useCallback(async (run: Run, subject: Subject, ballId: string, outcome: UseOutcome, kicksWanted: number = PLAY.kicks, quiet = false) => {
     const o = live.current;
     if (outcome.kind === 'failed') {
       face(null);
@@ -280,7 +292,7 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
       return;
     }
     const alreadyApplied = !subject.dry && !!outcome.result?.alreadyApplied;
-    const kicks = alreadyApplied || run.cancelled ? 0 : o.reducedMotion ? 1 : PLAY.kicks;
+    const kicks = alreadyApplied || run.cancelled ? 0 : o.reducedMotion ? 1 : kicksWanted;
     const control = () => live.current.controlRef.current;
     // The play has landed: a game cut short still ends its offer, so nothing is left busy
     let finished = false;
@@ -325,23 +337,80 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
       o.play('chirp');
       const there = control()?.propPosition(ballId);
       if (!there || !o.nav.canWalk) break;
-      const walk = await run.until(o.nav.approach(there.x, there.z));
+      const walk = await run.until(o.nav.approach(there.x, there.z, clearFor('ball')));
       if (walk !== 'arrived') break;
     }
     unwatch();
     face(null);
     finished = true;
     if (!subject.dry) o.care.finish(subject.key, { feedback: outcome.feedback, alreadyApplied });
-    else o.care.celebrate(outcome.feedback);
-    // The ball stays in the room for the visit
+    else if (!quiet) o.care.celebrate(outcome.feedback);
+    else {
+      // A free game: glad, with no chips (nothing changed)
+      face('excited');
+      o.play('excited');
+    }
+    // The ball lies in the room a while: a tap plays again; left alone, it is put away
+    toy.current = { id: ballId, touchedAt: Date.now() };
+    setToyTouched((n) => n + 1);
     await settle(run);
   }, [face, setGaze, lookAt, settle]);
+
+  /** Playing again with the ball already in the room: no write, fewer nudges, the same game. */
+  const replayScene = useCallback((ballId: string) => async (run: Run) => {
+    const o = live.current;
+    const at = o.controlRef.current?.propPosition(ballId);
+    if (!at) return;
+    const subject: Subject = { key: -Date.now(), item: { itemId: 'blobbi:toy:ball', name: 'Ball', care: { action: 'play', effects: {}, stages: [] } } as unknown as HomeItem, name: 'Ball', x: at.x, z: at.z, dry: true, prop: 'ball' };
+    toy.current = { id: ballId, touchedAt: Date.now() };
+    if (!(await noticeAndApproach(run, subject))) return;
+    face('excited');
+    const feedback: FeedbackResult = { action: 'play', name: o.blobbiName, statsChanged: {}, xpGained: 0, nextState: 'active', itemName: 'Ball' };
+    // A free game is not celebrated with chips: only the play itself
+    await playBall(run, subject, ballId, { kind: 'landed', result: null as never, feedback }, PLAY.replayKicks, true);
+  }, [noticeAndApproach, face, playBall]);
+
+  /** The ball put away: the Blobbi comes to it, picks it up (it lifts and shrinks into its hands), and is pleased. */
+  const putAwayScene = useCallback((ballId: string) => async (run: Run) => {
+    const o = live.current;
+    const at = o.controlRef.current?.propPosition(ballId);
+    if (!at) {
+      removeProp(ballId);
+      return;
+    }
+    const subject: Subject = { key: -Date.now(), item: { itemId: 'blobbi:toy:ball', name: 'Ball' } as unknown as HomeItem, name: 'Ball', x: at.x, z: at.z, dry: true, prop: 'ball' };
+    face('curious');
+    lookAt(at);
+    run.cleanup(() => {
+      face(null);
+      setGaze(null);
+    });
+    await run.wait(NOTICE_MS * 0.6);
+    if (o.nav.canWalk) {
+      const outcome = await run.until(o.nav.approach(subject.x, subject.z, clearFor('ball')));
+      if (outcome !== 'arrived') {
+        // Could not get there: it goes by itself
+        leaveProp(ballId);
+        return;
+      }
+    }
+    o.gesture('bounce');
+    o.play('pickup');
+    updateProp(ballId, { leaving: true, lifted: true });
+    const timer = setTimeout(() => removeProp(ballId), PROP_LEAVE_MS);
+    run.cleanup(() => clearTimeout(timer));
+    await run.wait(PROP_LEAVE_MS);
+    removeProp(ballId);
+    face('happy');
+    await run.wait(500);
+    await settle(run);
+  }, [face, lookAt, setGaze, leaveProp, updateProp, removeProp, settle]);
 
   // ─── The scenes ───
   const feedScene = useCallback((subject: Subject, from: 'start' | 'write') => async (run: Run) => {
     const dishId = `dish-${subject.key}`;
     if (from === 'start') {
-      addProp({ id: dishId, kind: 'dish', x: subject.x, z: subject.z, food: propGlyphFor(subject.item), bites: { taken: 0, of: bitesFor(subject.item.care?.action ?? 'feed', live.current.reducedMotion) } });
+      addProp({ id: dishId, kind: 'dish', itemId: subject.item.itemId, x: subject.x, z: subject.z, food: propGlyphFor(subject.item), bites: { taken: 0, of: bitesFor(subject.item.care?.action ?? 'feed', live.current.reducedMotion) } });
       live.current.play('drop');
       if (!(await noticeAndApproach(run, subject))) {
         removeProp(dishId);
@@ -410,7 +479,7 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
     if (!o.present || !o.enabled || plan.kind !== 'set-down') return false;
     const placed = o.care.place(entry, plan, room);
     if (!placed) return false;
-    runScene({ key: placed.key, item: entry.choice.entry.item, name: entry.name, x: plan.x, z: plan.z, dry: false }, 'start');
+    runScene({ key: placed.key, item: entry.choice.entry.item, name: entry.name, x: plan.x, z: plan.z, dry: false, prop: propKindFor(entry.choice.entry.item) }, 'start');
     return true;
   }, [runScene]);
 
@@ -418,15 +487,15 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
     const o = live.current;
     const current = o.care.offer;
     if (!current || current.phase !== 'failed') return;
-    runScene({ key: current.key, item: current.choice.entry.item, name: current.name, x: current.place.x, z: current.place.z, dry: false }, 'write');
+    runScene({ key: current.key, item: current.choice.entry.item, name: current.name, x: current.place.x, z: current.place.z, dry: false, prop: propKindFor(current.choice.entry.item) }, 'write');
   }, [runScene]);
 
   const preview = useCallback((kind: 'feed' | 'ball', item: HomeItem) => {
     const o = live.current;
     const at = o.controlRef.current?.blobbiPosition() ?? { x: 3.5, z: 3.5 };
-    const d = 1.1 / Math.SQRT2;
+    const d = 2.05 / Math.SQRT2;
     const spot = { x: Math.min(7.4, at.x + d), z: Math.min(7.4, at.z + d) };
-    const subject: Subject = { key: -Date.now(), item, name: item.name, x: spot.x, z: spot.z, dry: true };
+    const subject: Subject = { key: -Date.now(), item, name: item.name, x: spot.x, z: spot.z, dry: true, prop: kind === 'ball' ? 'ball' : 'dish' };
     if (kind === 'ball') {
       setActivity('playing');
       const run = director.start('playing', ballScene(subject, 'start'));
@@ -440,11 +509,23 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
 
   const onPropTap = useCallback((id: string) => {
     const o = live.current;
-    if (!id.startsWith('ball-') || director.current() || !o.present) return;
+    if (!id.startsWith('ball-') || !o.present) return;
     const c = o.controlRef.current;
     const ball = c?.propPosition(id);
     const at = c?.blobbiPosition();
     if (!c || !ball) return;
+    if (toy.current?.id === id) {
+      toy.current = { id, touchedAt: Date.now() };
+      setToyTouched((n) => n + 1);
+    }
+    // Free: it plays again (no write). Busy with something: the ball only rolls and it looks.
+    if (!director.current() && o.enabled && o.nav.canWalk) {
+      setActivity('playing');
+      const run = director.start('playing', replayScene(id));
+      void run.ended.then(() => { if (director.current() === null) setActivity(null); });
+      return;
+    }
+    if (director.current()) return;
     // Sent rolling away from the Blobbi (or any way, from the middle); it looks after it
     const dir = at ? kickDirection(ball, at, (o.random?.() ?? Math.random()) * 2 - 1) : { x: 1, z: 1 };
     if (!c.kickProp(id, dir, PLAY.tapPower)) return;
@@ -459,9 +540,38 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
       clearInterval(watching);
       setGaze(null);
     }, 1_100);
-  }, [director, lookAt, setGaze]);
+  }, [director, lookAt, setGaze, replayScene]);
 
   const cancel = useCallback((reason: CancelReason) => director.cancel(reason), [director]);
+
+  // ─── The ball left lying: put away after a while, gone with the room or with decorating ───
+  const toyIdleMs = options.toyIdleMs ?? TOY_IDLE_MS;
+  useEffect(() => {
+    const current = toy.current;
+    if (!current) return;
+    const due = Math.max(0, current.touchedAt + toyIdleMs - Date.now());
+    const timer = setTimeout(() => {
+      const t = toy.current;
+      if (!t || t.id !== current.id) return;
+      const o = live.current;
+      // Still played with (a tap started a game): wait again from its end
+      if (director.current()) {
+        toy.current = { ...t, touchedAt: Date.now() };
+        setToyTouched((n) => n + 1);
+        return;
+      }
+      toy.current = null;
+      if (!props.some((p) => p.id === t.id)) return;
+      if (o.present && o.enabled && o.nav.canWalk) {
+        setActivity('playing');
+        const run = director.start('tidying', putAwayScene(t.id));
+        void run.ended.then(() => { if (director.current() === null) setActivity(null); });
+      } else leaveProp(t.id);
+    }, due);
+    return () => clearTimeout(timer);
+    // The toy and when it was last touched decide the wait; the props list only says whether it is still there
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toyTouched, toyIdleMs, director, putAwayScene, leaveProp]);
 
   // ─── What ends a scene from outside ───
   // A change of room: the scene ends, a waiting item goes back, every prop goes with the room
@@ -471,6 +581,7 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
     firstRoom.current = roomId;
     director.cancel('room');
     live.current.care.clear();
+    toy.current = null;
     clearAllProps();
   }, [roomId, director, clearAllProps]);
   // Gone (a teleport) or asleep: the scene ends; so when something else owns the Blobbi (decorating)
@@ -478,8 +589,15 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
     if (!present) director.cancel('teleport');
   }, [present, director]);
   useEffect(() => {
-    if (!enabled) director.cancel('disabled');
-  }, [enabled, director]);
+    if (enabled) return;
+    director.cancel('disabled');
+    // Decorating, a transition: a ball left lying goes (quietly), so nothing of a game is in the way
+    const t = toy.current;
+    if (t) {
+      toy.current = null;
+      leaveProp(t.id);
+    }
+  }, [enabled, director, leaveProp]);
   useEffect(() => () => director.cancel('unmount'), [director]);
   // A dish whose offer is gone (put away, taken back) goes too, unless it is already on its way out
   const offerKey = care.offer?.key ?? null;

@@ -295,7 +295,7 @@ describe('a scene interrupted', () => {
     expect(middle()).toBeEnabled();
   });
 
-  it('after the game, a tap on the ball sends it rolling and the Blobbi looks; nothing is written', async () => {
+  it('after the game, a tap on the ball is another game, free: it comes, nudges it twice and chases it; nothing is written', async () => {
     renderRoom();
     await screen.findByTestId('room-bar', {}, { timeout: 5000 });
     fireEvent.click(focusOn('Ball', 'starter'));
@@ -309,9 +309,12 @@ describe('a scene interrupted', () => {
     const written = relay.published.length;
     fireEvent.pointerDown(layer(), { pointerId: 8, isPrimary: true, pointerType: 'touch', clientX: 270, clientY: 410 });
     fireEvent.pointerUp(layer(), { pointerId: 8, isPrimary: true, pointerType: 'touch', clientX: 270, clientY: 410 });
-    expect(scene.state.kicks).toHaveLength(4);
+    // It notices (curious), goes to it, and nudges it twice more
     await waitFor(() => expect(face()).toMatch(/surprised":0\.55/));
+    await waitFor(() => expect(scene.state.kicks).toHaveLength(5), { timeout: 8000 });
     await quiet(300);
     expect(relay.published).toHaveLength(written);
-  }, 15_000);
+    expect(screen.queryByTestId('room-floor-item')).toBeNull();
+    expect(ball()).toBeDefined();
+  }, 20_000);
 });
