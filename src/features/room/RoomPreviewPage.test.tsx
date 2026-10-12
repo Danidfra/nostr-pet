@@ -57,11 +57,10 @@ beforeEach(() => {
 });
 
 describe('the /room preview', () => {
-  it('is served in every build, and asks a signed-out visitor to sign in on the home', async () => {
+  it('is served in every build, and sends a signed-out visitor to the welcome at the root', async () => {
     renderAt('/room');
-    expect(await screen.findByTestId('room-preview')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(/sign in/i);
-    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/');
+    expect(await screen.findByTestId('onboarding-welcome')).toBeInTheDocument();
+    expect(screen.queryByTestId('room-preview')).toBeNull();
   });
 
   it('shows the signed-in player\'s Blobbi in the living room, facing front, and publishes nothing', async () => {
@@ -76,7 +75,9 @@ describe('the /room preview', () => {
     // Its name is not left over its head: it shows on demand
     expect(screen.getByTestId('room-blobbi-name')).toHaveAttribute('data-shown', 'false');
     expect(screen.getByRole('button', { name: 'Brook, your Blobbi' })).toBeInTheDocument();
-    expect(screen.getByTestId('room-back')).toHaveAttribute('href', '/');
+    // The room is the home: its menu, not a back arrow, holds the classic home
+    expect(screen.queryByTestId('room-back')).toBeNull();
+    expect(screen.getByTestId('room-menu')).toBeInTheDocument();
     expect(relay.published.filter((e) => e.kind === KIND_BLOBBI_STATE)).toHaveLength(0);
     expect(relay.published).toHaveLength(0);
   });

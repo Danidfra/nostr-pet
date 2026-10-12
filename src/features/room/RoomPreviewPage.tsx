@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useProjectedBlobbiState } from '@blobbi-kit/react';
 import type { BlobbiCompanion, NostrEvent } from '@blobbi-kit/core';
@@ -38,6 +38,7 @@ import { StreakMoment } from '@/features/home/StreakMoment';
 import { describeMood } from '@/features/home/mood';
 import type { StatItem } from '@/features/home/BlobbiStatusPanel';
 import { RoomBlobbiSheet } from './components/RoomBlobbiSheet';
+import { HatchTheater } from './components/HatchTheater';
 import { soundForReveal } from '@/features/sound';
 import { baselineExpression } from '@/features/home/scene/reactions';
 import { useGazePolicy } from '@/features/home/scene/useGazePolicy';
@@ -129,6 +130,9 @@ export default function RoomPreviewPage() {
                 connection={connection}
               />
             </RoomErrorBoundary>
+          ) : home.status === 'signed-out' || home.status === 'empty' ? (
+            // The room is the home; the way in (the welcome, an account, the egg) is at the root
+            <Navigate to="/" replace />
           ) : (
             <RoomMessage status={home.status} error={home.error} onRetry={home.refresh} />
           )}
@@ -375,13 +379,49 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const { hatch, evolve } = lifecycle;
   const confirmFirstBlobbi = firstBlobbi.confirm;
   const ceremonyRunning = useRef(false);
+  // A hatch is the theatre (`HatchTheater`): it owns the beats, the one write and the reveal
+  const [theater, setTheater] = useState(false);
+  const [hatchError, setHatchError] = useState<string | null>(null);
+  const performHatch = useCallback(async (): Promise<boolean> => {
+    setHatchError(null);
+    lifecycle.clearError();
+    // The first egg's shortcut (no missions) only once the relays confirm it is still the first; fails closed
+    if (firstBlobbi.qualifies && !(await confirmFirstBlobbi())) {
+      setHatchError('Your egg could not be confirmed with the relays yet.');
+      return false;
+    }
+    return hatch();
+  }, [firstBlobbi.qualifies, confirmFirstBlobbi, hatch, lifecycle]);
+  const endTheater = useCallback(
+    (hatched: boolean) => {
+      setTheater(false);
+      ceremonyRunning.current = false;
+      if (hatched) {
+        gesture('bounce');
+        showFace('reveal', 'happy', { priority: PRIORITY.journey, durationMs: REVEAL_MS });
+      }
+    },
+    [gesture, showFace],
+  );
+  // Hatched elsewhere meanwhile (another device): the kit refused a second hatch; the collection catches up
+  const lifecycleError = lifecycle.error?.message ?? null;
+  useEffect(() => {
+    if (lifecycleError && /already hatched/i.test(lifecycleError)) refresh();
+  }, [lifecycleError, refresh]);
   const startCeremony = useCallback(
     async (kind: CeremonyKind) => {
       if (ceremonyRunning.current || blobbi.state !== 'active') return;
+      if (kind === 'hatch') {
+        if (blobbi.stage !== 'egg') return;
+        ceremonyRunning.current = true;
+        setSheetOpen(false);
+        setMenuOpen(false);
+        setTheater(true);
+        return;
+      }
       ceremonyRunning.current = true;
       try {
-        if (kind === 'hatch' && firstBlobbi.qualifies && !(await confirmFirstBlobbi())) return;
-        const landed = await (kind === 'hatch' ? hatch() : evolve());
+        const landed = await evolve();
         if (!landed) return;
         setSheetOpen(false);
         play(soundForReveal(kind));
@@ -391,10 +431,10 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         ceremonyRunning.current = false;
       }
     },
-    [blobbi.state, firstBlobbi.qualifies, confirmFirstBlobbi, hatch, evolve, play, showFace, gesture],
+    [blobbi.state, blobbi.stage, evolve, play, showFace, gesture],
   );
   // The account's first egg hatches by itself, once per egg, a moment after it is on screen and the room is quiet
-  const autoHatchDue = firstBlobbi.qualifies && blobbi.state === 'active' && !!profile && care.offer === null && interactions.activity === null && !transitions.transitioning;
+  const autoHatchDue = firstBlobbi.qualifies && blobbi.state === 'active' && !!profile && care.offer === null && interactions.activity === null && !transitions.transitioning && !theater;
   const autoHatchTried = useRef(false);
   useEffect(() => {
     if (blobbi.stage !== 'egg') autoHatchTried.current = false;
@@ -675,8 +715,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         isSleeping={isSleeping}
         blobbiStage={blobbi.stage}
         blobbiWalkSpeed={walkSpeed}
-        // Away somewhere else: not in the room at all (no drawing, no shadow, nothing to tap)
-        blobbiVisible={!absent}
+        // Away somewhere else, or on the hatch theatre's stage: not in the room at all (no drawing, no shadow, nothing to tap)
+        blobbiVisible={!absent && !theater}
         roomLayout={layout}
         furniturePlacements={placements}
         pointerHandlers={pointerHandlers}
@@ -749,6 +789,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       </RoomShell>
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
       {streakMoment?.milestone && <StreakMoment change={streakMoment} onDone={dismissStreakMoment} reducedMotion={reducedMotion} />}
+      {theater && <HatchTheater blobbi={blobbi} perform={performHatch} error={hatchError ?? lifecycleError} reducedMotion={reducedMotion} play={play} onDone={endTheater} />}
       <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} inRoom />
       <RoomBlobbiSheet
         open={sheetOpen}

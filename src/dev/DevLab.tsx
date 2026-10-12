@@ -84,7 +84,8 @@ export default function DevLab() {
         )}
       </aside>
       <main className="dev-lab__stage" ref={stageRef} data-testid="dev-lab-stage">
-        <Home />
+        {/* The Dev Lab drives the classic home's scene controller: it stays there, whatever the device prefers */}
+        <Home classic />
         {overlay && <DebugOverlay scene={controller.scene()} stageRoot={stageRoot} />}
       </main>
     </div>

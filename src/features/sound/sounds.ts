@@ -40,6 +40,8 @@ export type BlobbiSoundId =
   // A ball struck, and landing
   | 'kick'
   | 'bounce'
+  // An egg's shell giving, crack by crack
+  | 'crack'
   // A Blobbi travelling, cue by cue: gathering itself and rising away; coming down and settling, then glad
   | 'gather'
   | 'rise'
@@ -54,7 +56,7 @@ export type BlobbiSoundId =
 
 export const BLOBBI_SOUNDS: readonly BlobbiSoundId[] = [
   'curious', 'poke', 'happy', 'excited', 'chirp', 'bite', 'eat', 'yum', 'pet', 'upset', 'sleepy', 'surprise', 'hatch', 'evolve', 'clean', 'drink',
-  'select', 'pickup', 'drop', 'room', 'knock', 'place', 'save', 'invalid', 'kick', 'bounce',
+  'select', 'pickup', 'drop', 'room', 'knock', 'place', 'save', 'invalid', 'kick', 'bounce', 'crack',
   'gather', 'rise', 'descend', 'tada', 'crouch', 'jump', 'land', 'fall', 'peek',
 ];
 

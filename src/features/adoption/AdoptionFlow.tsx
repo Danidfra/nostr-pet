@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useSound } from '@/features/sound';
 import { Egg, Loader2, MapPin, Sparkles } from 'lucide-react';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import type { NostrEvent } from '@blobbi-kit/core';
@@ -17,7 +18,7 @@ export function WhatIsBlobbi() {
       </li>
       <li>
         <Sparkles className="h-4 w-4" aria-hidden />
-        <span>It lives on Nostr, under your own key: no account here, nothing to lose.</span>
+        <span>It is yours: it lives on Nostr under your own key, and only that key can care for it.</span>
       </li>
       <li>
         <MapPin className="h-4 w-4" aria-hidden />
@@ -51,7 +52,7 @@ const STEP_COPY = { idle: '', checking: 'Checking your relays…', egg: 'Signing
  * is regenerated between the picture the player saw and the event.
  */
 export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refresh, brief = false }: AdoptionFlowProps) {
-  const [screen, setScreen] = useState<'intro' | 'egg'>('intro');
+  const [screen, setScreen] = useState<'intro' | 'egg'>(brief ? 'egg' : 'intro');
   const [preview, setPreview] = useState<EggPreview | null>(null);
   const [nameInput, setNameInput] = useState('');
   const adoption = useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refresh });
@@ -81,12 +82,13 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
     );
   }
 
-  if (screen === 'intro') {
+  // A player who just came through the welcome goes straight to their egg: the why was said there
+  if (screen === 'intro' && !brief) {
     return (
-      <div className="home-glass mx-auto w-full max-w-md space-y-4 rounded-3xl p-6 text-center" data-testid="adoption-intro" data-brief={brief ? 'true' : 'false'}>
+      <div className="welcome-card text-center" data-testid="adoption-intro" data-brief="false">
         <Egg className="mx-auto h-12 w-12 text-primary" aria-hidden />
-        <h2 className="text-xl font-semibold">{brief ? 'Adopt your first egg' : 'No Blobbi lives here yet'}</h2>
-        {brief ? <p className="text-sm text-muted-foreground">Your home is ready. An egg is one of a kind, hatches as you care for it, and is yours on Nostr from the first moment.</p> : <WhatIsBlobbi />}
+        <h2 className="welcome-card__title">No Blobbi lives here yet</h2>
+        <WhatIsBlobbi />
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <button type="button" className="lifecycle-pill !animate-none" onClick={() => setScreen('egg')} data-testid="adoption-start">
             <Egg className="h-4 w-4" aria-hidden />
@@ -99,12 +101,10 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
   }
 
   return (
-    <form onSubmit={submit} className="home-glass mx-auto w-full max-w-md space-y-4 rounded-3xl p-6 text-center" data-testid="adoption-egg" aria-busy={adoption.isPending}>
-      <h2 className="text-xl font-semibold">Your egg</h2>
-      <div className="mx-auto h-36 w-36" data-testid="adoption-preview" data-d={preview?.d}>
-        {companion && <BlobbiRenderer visual={toBlobbiVisual(companion)} instanceId={`adopt-${companion.d}`} size="100%" eggCrack="none" transparent style={{ width: '100%', height: '100%' }} />}
-      </div>
-      <p className="text-sm text-muted-foreground">Every egg is one of a kind: its colours come from your key and this moment. Name it now, or later.</p>
+    <form onSubmit={submit} className="welcome-card adopt text-center" data-testid="adoption-egg" data-brief={brief ? 'true' : 'false'} aria-busy={adoption.isPending}>
+      <h2 className="welcome-card__title">{brief ? 'Here is your egg' : 'Your egg'}</h2>
+      <AdoptionEgg companion={companion} d={preview?.d} pending={adoption.isPending} />
+      <p className="text-sm text-muted-foreground">Nobody else has this one: its colours and shape come from your key. Give it a name, or keep "{DEFAULT_EGG_NAME}" for now.</p>
       <div className="text-left">
         <label htmlFor="egg-name" className="block text-sm font-medium">
           Name
@@ -142,11 +142,43 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
           {adoption.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
           {adoption.isPending ? STEP_COPY[adoption.step] || 'Adopting…' : adoption.error ? 'Try again' : 'Adopt'}
         </button>
-        <button type="button" className="text-sm font-semibold text-muted-foreground underline" onClick={() => setScreen('intro')} disabled={adoption.isPending} data-testid="adoption-back">
-          Back
-        </button>
+        {!brief && (
+          <button type="button" className="text-sm font-semibold text-muted-foreground underline" onClick={() => setScreen('intro')} disabled={adoption.isPending} data-testid="adoption-back">
+            Back
+          </button>
+        )}
       </div>
-      <p className="text-[11px] text-muted-foreground">Two signatures: the egg, then a note in your Blobbonaut profile. Your first egg hatches a moment later: that is a third.</p>
+      <p className="text-[11px] text-muted-foreground">Adopting saves the egg to your account (two signatures). Your first egg hatches right after, in its new home.</p>
     </form>
+  );
+}
+
+/**
+ * The egg itself, presented: on a little lit pedestal, rocking now and then as
+ * if something inside stirs; a tap makes it wobble (and coo, with sound on).
+ * It is the canonical drawing of the very egg that will be published (the
+ * preview is the event), not a stand-in.
+ */
+function AdoptionEgg({ companion, d, pending }: { companion: ReturnType<typeof previewCompanion>; d: string | undefined; pending: boolean }) {
+  const { play } = useSound();
+  const [wobble, setWobble] = useState(0);
+  return (
+    <div className="adopt__stage" data-testid="adoption-preview" data-d={d} data-pending={pending ? 'true' : undefined}>
+      <span className="adopt__light" aria-hidden />
+      <span className="adopt__pedestal" aria-hidden />
+      <button
+        type="button"
+        className="adopt__egg"
+        data-wobble={wobble % 2}
+        key={wobble}
+        onClick={() => {
+          setWobble((w) => w + 1);
+          play('poke');
+        }}
+        aria-label="Your egg. Tap it."
+      >
+        {companion && <BlobbiRenderer visual={toBlobbiVisual(companion)} instanceId={`adopt-${companion.d}`} size="100%" eggCrack="none" transparent style={{ width: '100%', height: '100%' }} />}
+      </button>
+    </div>
   );
 }

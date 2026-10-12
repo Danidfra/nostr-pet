@@ -6,6 +6,9 @@
  * duplicated; failures are honest and retryable without a new identity.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The classic home (legacy since M11, when the room became the home): these tests follow the way in to it; `m11-way-in.test.tsx` follows it into the room
+vi.mock('@/lib/home-experience', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/home-experience')>()), readExperience: () => 'classic' as const }));
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -106,7 +109,10 @@ describe('First run', () => {
   it('signed out: says what a Blobbi is before asking for anything', async () => {
     currentUser.user = undefined;
     renderHome();
-    expect(await screen.findByRole('list', { name: /what a blobbi is/i })).toHaveTextContent(/hatches from an egg/);
+    // What a Blobbi is, in a breath, with real Blobbis drawn by the kit, before anything is asked
+    expect(await screen.findByRole('list', { name: /what you can do/i })).toHaveTextContent(/hatch|one of a kind/i);
+    expect(screen.getByTestId('welcome-cast').querySelectorAll('[data-blobbi-renderer]').length).toBeGreaterThanOrEqual(3);
+    expect(screen.queryByText(/nostr/i, { selector: 'h1, h2, .welcome-card__lead' })).toBeNull();
     expect(screen.getByTestId('onboarding-create')).toBeInTheDocument();
     expect(screen.getByTestId('onboarding-existing')).toBeInTheDocument();
   });

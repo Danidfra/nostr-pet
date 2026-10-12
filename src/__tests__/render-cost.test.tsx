@@ -4,6 +4,9 @@
  * are memoized, so a walk re-renders them zero times.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The classic home (legacy since M11, when the room became the home): these are its own tests, so it is the one opened
+vi.mock('@/lib/home-experience', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/home-experience')>()), readExperience: () => 'classic' as const }));
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';

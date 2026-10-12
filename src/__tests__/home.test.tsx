@@ -4,6 +4,9 @@
  * ignored, status values from shared projected state, and the Island exit.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The classic home (legacy since M11, when the room became the home): these are its own tests, so it is the one opened
+vi.mock('@/lib/home-experience', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/home-experience')>()), readExperience: () => 'classic' as const }));
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -99,7 +102,7 @@ describe('Home: signed out', () => {
     expect(await screen.findByTestId('onboarding-welcome')).toBeInTheDocument();
     expect(islandLink()).toHaveAttribute('href', DEFAULT_BLOBBI_ISLAND_URL);
     await userEvent.click(screen.getByTestId('onboarding-existing'));
-    expect(await screen.findByRole('heading', { name: /sign in to see your blobbi/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in with extension/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/bunker address/i)).toBeInTheDocument();
     expect(screen.getByTestId('login-signer-app')).toBeInTheDocument();
@@ -130,18 +133,16 @@ describe('Home: loading, error, empty', () => {
   it('shows the empty home when the player owns no Blobbi: the profile step first (no kind 0), adoption after it', async () => {
     renderHome();
     await userEvent.click(await screen.findByTestId('profile-skip'));
-    // The profile step was this session's: the intro is brief, one purpose.
-    expect(await screen.findByRole('heading', { name: /adopt your first egg/i })).toBeInTheDocument();
-    // Adoption happens here now (see adoption.test.tsx); the Island stays one tap away.
-    expect(screen.getByTestId('adoption-start')).toBeInTheDocument();
-    expect(islandLink()).toHaveAttribute('href', DEFAULT_BLOBBI_ISLAND_URL);
+    // The profile step was this session's: straight to the egg, one purpose.
+    expect(await screen.findByRole('heading', { name: /here is your egg/i })).toBeInTheDocument();
+    expect(screen.getByTestId('adoption-adopt')).toBeInTheDocument();
   });
 
   it('treats a player with only legacy events as owning no Blobbi', async () => {
     relay.state = [legacyMarkerEvent('0000000007'), legacyShapeEvent()];
     renderHome();
     await userEvent.click(await screen.findByTestId('profile-skip'));
-    expect(await screen.findByRole('heading', { name: /adopt your first egg/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /here is your egg/i })).toBeInTheDocument();
     expect(screen.queryByText('Old')).toBeNull();
     expect(screen.queryByText('Older')).toBeNull();
   });

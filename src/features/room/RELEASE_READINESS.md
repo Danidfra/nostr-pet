@@ -333,3 +333,117 @@ code:
 15. **The ball after the game:** leave it half a minute: the Blobbi walks
     to it, picks it up and it is gone. Tap it before that: another game,
     without chips. Change rooms with it lying there: gone.
+
+
+## M11: first impressions, the hatch theatre, the room as the home (2026-10-12)
+
+### What changed
+- **The room is the home.** `DEFAULT_EXPERIENCE` is `room`: a signed-in
+  player with a Blobbi opens in the room; signed out or with no Blobbi,
+  `/room` sends them to the way in at `/`. The classic home stays in the
+  repository and reachable: the room's menu has **Classic home**, its own
+  menu leads back, and a player who switched **Open in your room** off
+  keeps it. The room's header has no back arrow any more (one home).
+- **The welcome** (`onboarding/WelcomeStage.tsx`, `welcome-cast.ts`): a warm
+  sky, three Blobbis drawn by the kit's renderer from fixed made-up keys
+  (never signed or published), one line of what Blobbi is, **Adopt my
+  Blobbi** and **I have an account**. Nostr is explained only under "How
+  does it work?". A page that cannot reach relays (plain HTTP, no Web
+  Crypto) says so here, before a key is made.
+- **The key screen** explains the key as a house key in plain words, says
+  there is no reset or recovery, and the checkbox says so too. A browser
+  without secure randomness gets a message instead of a crash.
+- **Sign-in** never waits forever: an extension or bunker that does not
+  answer in 60 s ends with a message and the buttons back (`sign-in.ts`);
+  a refusal reads as "cancelled".
+- **Adoption** goes straight to the egg after the welcome: the real egg
+  (the preview is the published event) on a lit pedestal, stirring now and
+  then, wobbling when tapped. A returning player who lands without a
+  Blobbi still gets the full intro.
+- **The hatch theatre** (`components/HatchTheater.tsx`, `lib/hatch-theater.ts`)
+  replaces the room's quick reveal: the room darkens, the egg is presented
+  under a light, stirs, cracks three times (the renderer's own shell
+  drawings, a crack sound each), holds still, and light gathers while the
+  hatch is written. Only after the write has landed does the light clear on
+  the baby (the same Blobbi from the collection), which looks left and
+  right, notices the player, blushes, hops, and is welcomed home.
+  The beats and the single write are the lifecycle ceremony's; the kit's
+  hatch re-reads the Blobbi and refuses one already hatched.
+
+### Reliability of the hatch
+| Situation | What happens | Covered by |
+|---|---|---|
+| The write is refused | The egg stays an egg; the theatre says why; **Try again** writes once more; **Later** closes it; nothing retries by itself | `HatchTheater.test.tsx`, `m11-way-in.test.tsx` |
+| Reload before the write | The next visit plays the theatre again; one hatch in all | `m11-way-in.test.tsx` |
+| Reload after the write, before the reveal | The player comes back to the baby without the reveal; no second write | reasoning plus the hatched-elsewhere test |
+| Hatched on another device | The kit refuses a second hatch ("already hatched"); the room refreshes | `m11-way-in.test.tsx` |
+| Asked twice | One write (the ceremony ignores a second start) | `HatchTheater.test.tsx` |
+| StrictMode (dev) | Found in the browser: the start guard blocked the remount; removed, with a regression test that failed before the fix | `HatchTheater.test.tsx` |
+| Reduced motion | No rock, hop or burst; the shell drawings, faces and words, quicker | `HatchTheater.test.tsx` |
+
+### Launch-readiness audit (findings, not claims)
+Checked by building and reading the bundle, the config and the code:
+
+- **Dev code and fixtures are not in the production bundle.** `npm run build`
+  then a search of `dist/assets` for the fixture world, its names, the
+  dev panel, the dev-tools flag, the room's dev tools and perf overlay,
+  the 3D lab, the test pubkey, any `nsec1…` and the dev TLS variables:
+  none found. `/dev` renders Not found in production. The env-contract test
+  keeps the gate in place.
+- **No secrets in the bundle.** No private key, no token, no source maps.
+  The only keys in it are the welcome cast's three made-up public keys.
+- **Randomness.** Secret keys come from nostr-tools' `generateSecretKey`
+  and egg ids from the kit's `generatePetId10`; both use
+  `crypto.getRandomValues`. `Math.random` is used only for animation
+  choices.
+- **Key storage is unchanged.** A secret-key login is kept by nostrify's
+  login store in `localStorage` (`nostr:login`), as Ditto and Island keep
+  it. That is plain text readable by any script on the origin; any XSS
+  would expose it. This is an existing property of the ecosystem's login
+  model, not new in M11, and signers (extension, bunker, signer app) avoid
+  it. The tests check the key never reaches a relay payload, a filter, the
+  URL or a log.
+- **Console noise from the kit.** `@blobbi-kit/react`'s collection hook logs
+  its query filters (public keys) and counts in production. No secrets, but
+  noisy; it must be fixed in the kit, which this app does not modify.
+- **Relays** baked in: `relay.ditto.pub`, `relay.primal.net`,
+  `relay.nostr.band`, `relay.dreamith.to` (hints). Island link:
+  `https://island.blobbi.pet`. No other environment is read in production.
+- **Hosting is not described in the repo.** The build copies `index.html` to
+  `404.html` (a static-host SPA fallback) but there is no host config: no
+  security headers or Content-Security-Policy are defined anywhere in the
+  repository. What the production host sends is unverified.
+- **Bundle size:** the entry chunk is 254 kB (82 kB gzip); the room's chunk,
+  with three.js, is 827 kB (235 kB gzip) and is now on the main path for
+  every player with a Blobbi.
+- **No real-device performance data** has been reported for any milestone.
+
+### Remaining launch blockers
+1. A real phone run of the real way in, on the production host over HTTPS,
+   with a new account: welcome, key, egg, room, theatre, baby. Everything
+   above is tests, fixtures and desktop Chrome.
+2. Real-device performance: the room now loads for every player with a
+   Blobbi; a Record 10 s report from an older iPhone and a budget Android.
+3. The production host's headers (CSP, framing) and its SPA fallback,
+   checked on the real deployment.
+4. Visual and audio approval of the welcome, the egg and the theatre.
+
+### Phone protocol, continued (M11)
+16. **A new visitor** (a private window, the production URL over HTTPS):
+    the welcome shows three Blobbis, the line, **Adopt my Blobbi** and
+    **I have an account** without scrolling, also on a small phone; tap a
+    Blobbi (it hops). "How does it work?" opens the Nostr note.
+17. **Adopt my Blobbi:** the key screen: save the key (copy or file); the
+    button stays off until the box is ticked. Skip the profile. The egg
+    stands lit on its pedestal; tap it (it wobbles). Name it, **Adopt**.
+18. **The room:** it opens by itself; a moment later the room darkens and
+    the egg is presented: stirring, three cracks, a still breath, light, then
+    the baby looks left and right, at you, blushes, hops; **Go home** or wait.
+    Check the baby in the room is the same one, and there is one hatch.
+19. **Interrupt it:** reload during the cracks: it plays again, one hatch.
+    Turn on reduced motion: no rocking, no hops, the words carry it.
+20. **A returning player:** sign in on a second device: the room, no
+    onboarding. Room menu → **Classic home** works and leads back.
+21. **Sign-in that does not finish:** start an extension or bunker sign-in
+    and do not approve: within a minute the screen says so and lets you
+    try again.

@@ -157,6 +157,8 @@ export const VOICE: Record<import('./sounds').BlobbiSoundId, Recipe> = {
   invalid: { durationMs: 190, master: 0.26, lowpassHz: 1300, layers: [hum(0, [300, 260, 240], 160, 0.05)] },
   /** A ball struck: a soft round "bop", low and short, with the tick of the toe on it. */
   kick: { durationMs: 140, master: 0.3, lowpassHz: 1500, variation: { pitch: 1, time: 0.05 }, layers: [pop(0, 210, 140, 90, 0.12), pop(0, 820, 420, 26, 0.045)] },
+  /** A crack in an egg's shell: a small dry tick and a smaller one after it, never sharp. */
+  crack: { durationMs: 150, master: 0.26, lowpassHz: 2000, variation: { pitch: 1.5, time: 0.05 }, layers: [pop(0, 1400, 700, 30, 0.07), pop(55, 1100, 560, 35, 0.045), pop(0, 300, 220, 60, 0.05)] },
   /** A ball landing or meeting a wall: a smaller bop. */
   bounce: { durationMs: 100, master: 0.24, lowpassHz: 1400, variation: { pitch: 1.5 }, layers: [pop(0, 250, 170, 60, 0.09)] },
 

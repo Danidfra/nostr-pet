@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
+import { Menu } from 'lucide-react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useHomeBlobbi } from '@/hooks/useHomeBlobbi';
 import { BlobbiOverview } from '@/features/home/BlobbiOverview';
-import { HomeEmpty, HomeError, HomeLoading, HomeSignedOut } from '@/features/home/HomeStates';
+import { HomeError, HomeLoading } from '@/features/home/HomeStates';
+import { WelcomeStage } from '@/features/onboarding/WelcomeStage';
 import { GameShell, HudTop, MenuSheet } from '@/features/home/shell';
 import { OnboardingFlow } from '@/features/onboarding';
 import { useRelayHealth } from '@/hooks/useRelayHealth';
@@ -14,11 +16,14 @@ import { ROOM_PATH, cameFromRoom, readExperience } from '@/lib/home-experience';
  * the home even when it is empty or waiting. Signed out and empty are the
  * onboarding's: welcome, account, profile, adoption, in front of the room.
  *
- * A player who chose to open on the 3D room (the menu; never chosen for
- * them) is taken there once they have a Blobbi, except when they have just
- * come back from it: the classic home is always one tap away.
+ * The room is the home (M11): a player with a Blobbi is taken there, unless
+ * they chose the classic home in its menu, or have just come back from the
+ * room on purpose (its menu's Classic home): the legacy home stays reachable.
+ * Signed out or with no Blobbi yet, this is the way in: the welcome stage,
+ * the account, the egg; adopting lands the player in the room, where the
+ * first egg hatches.
  */
-export default function Home() {
+export default function Home({ classic = false }: { classic?: boolean } = {}) {
   const home = useHomeBlobbi();
   const [menuOpen, setMenuOpen] = useState(false);
   // Connection health for the HUD: a retry forgets past failures and re-reads.
@@ -30,7 +35,8 @@ export default function Home() {
   }, [reset, refresh]);
   const connection = useMemo(() => ({ level: health.level, online: health.online, onRetry: retry }), [health.level, health.online, retry]);
   const location = useLocation();
-  const [opensOnRoom] = useState(() => readExperience() === 'room');
+  const [opensOnRoom] = useState(() => !classic && readExperience() === 'room');
+  const signedOutOrEmpty = home.status === 'signed-out' || home.status === 'empty';
 
   if (opensOnRoom && home.status === 'ready' && home.current && !cameFromRoom(location.state)) {
     return <Navigate to={ROOM_PATH} replace />;
@@ -63,16 +69,26 @@ export default function Home() {
 
   return (
     <GameShell
-      top={<HudTop onOpenMenu={() => setMenuOpen(true)} connection={connection} />}
+      top={signedOutOrEmpty ? <WelcomeTop onOpenMenu={() => setMenuOpen(true)} /> : <HudTop onOpenMenu={() => setMenuOpen(true)} connection={connection} />}
       scene={
         <>
-          {home.status === 'signed-out' && <HomeSignedOut>{onboarding}</HomeSignedOut>}
+          {signedOutOrEmpty && <WelcomeStage>{onboarding}</WelcomeStage>}
           {home.status === 'loading' && <HomeLoading />}
           {home.status === 'error' && <HomeError error={home.error} onRetry={home.refresh} />}
-          {home.status === 'empty' && <HomeEmpty>{onboarding}</HomeEmpty>}
         </>
       }
       overlays={<MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} />}
     />
+  );
+}
+
+/** Over the welcome: only the menu (sound, lighting), out of the way; the logo is on the card. */
+function WelcomeTop({ onOpenMenu }: { onOpenMenu: () => void }) {
+  return (
+    <header className="welcome-top" data-testid="hud-top">
+      <button type="button" className="hud-icon-button" onClick={onOpenMenu} aria-label="Menu" data-testid="menu-button">
+        <Menu className="h-5 w-5" aria-hidden />
+      </button>
+    </header>
   );
 }

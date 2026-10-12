@@ -122,6 +122,15 @@ Two things to know:
   **View** row (−, +, Reset). The factor is remembered on this device
   (`blobbi:room:zoom`), the same for every room, and survives turning the
   phone within the new stage's limits.
+- **The way in and the hatch (M11).** A new visitor sees the welcome
+  (three real Blobbis, **Adopt my Blobbi**, **I have an account**), makes a
+  key and saves it, gets their egg (the real one, on a lit pedestal) and
+  adopts it; the app then opens in the room, where the first egg hatches as
+  a short piece of theatre: the room darkens, the egg cracks, light covers
+  the hatch while it is written, and only then the baby appears, looks
+  around, blushes and hops. The room is the home for every player with a
+  Blobbi; the classic home is in the room's menu. Launch findings and
+  blockers: `src/features/room/RELEASE_READINESS.md`.
 - **Things in the room (M10, M10.1).** Food is a dish set down in front of
   the Blobbi (or where you drop it), clear of its body: it notices, walks
   over, stands behind the dish with the food in front of it, and once the

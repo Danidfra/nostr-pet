@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { toDataURL } from 'qrcode';
-import { ArrowLeft, Copy, Egg, FileUp, ImagePlus, KeyRound, Loader2, ShieldCheck, Smartphone, Sparkles, UserRound } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Copy, Egg, FileUp, Heart, Home, ImagePlus, KeyRound, Loader2, ShieldCheck, Smartphone, Sparkles, UserRound } from 'lucide-react';
 import type { NostrConnectParams, NostrConnectStatus } from '@nostrify/react/login';
 import type { NostrMetadata } from '@nostrify/nostrify';
-import { WhatIsBlobbi } from '@/features/adoption';
 import { EnterIslandButton } from '@/features/home/EnterIslandButton';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { KeyBackup } from './KeyBackup';
 import { createNewAccount, isNsec, readNsecFromText, type NewAccount } from './new-account';
+import { checkRelayTransport } from '@/lib/relay-transport';
+import { signInMessage, withTimeout } from './sign-in';
 import { PROFILE_ABOUT_MAX, PROFILE_NAME_MAX, checkProfileForm, profileFormFrom, type ProfileFormInput } from './profile-plan';
 
 function Card({ children, testId, busy }: { children: React.ReactNode; testId: string; busy?: boolean }) {
   return (
-    <section className="home-glass mx-auto w-full max-w-md space-y-4 rounded-3xl p-6" data-testid={testId} aria-busy={busy}>
+    <section className="welcome-card" data-testid={testId} aria-busy={busy}>
       {children}
     </section>
   );
@@ -29,29 +30,53 @@ function BackButton({ onClick, label = 'Back' }: { onClick: () => void; label?: 
 
 /* ─── Welcome ─────────────────────────────────────────────────────────── */
 
+/**
+ * The first screen: what a Blobbi is, in one breath, and two doors. A new
+ * visitor's door says what they will do (adopt), not what an account is; the
+ * key is explained on the next screen, when it exists. A returning player's
+ * door is right under it. Nostr is named only on request. A page that cannot
+ * reach the network (plain HTTP on a LAN address, no Web Crypto) says so
+ * here, before anyone makes a key it could not use.
+ */
 export function WelcomeScreen({ onCreate, onExisting }: { onCreate: () => void; onExisting: () => void }) {
+  const [blocked] = useState(() => checkRelayTransport());
   return (
-    <Card testId="onboarding-welcome">
-      <div className="space-y-1 text-center">
-        <h1 className="text-2xl font-bold sm:text-3xl">The home of your Blobbi</h1>
-        <p className="text-sm text-muted-foreground">A small companion that lives on Nostr, under your own key.</p>
-      </div>
-      <WhatIsBlobbi />
-      <div className="space-y-2">
-        <button type="button" className="onboard-btn onboard-btn--primary" onClick={onCreate} data-testid="onboarding-create">
+    <section className="welcome-card" data-testid="onboarding-welcome">
+      <img src="/blobbilogo.svg" alt="Blobbi" className="welcome-card__logo" width={148} height={48} />
+      <h1 className="welcome-card__title">A little creature, waiting to hatch</h1>
+      <p className="welcome-card__lead">Adopt an egg. Watch it hatch. Feed it, play with it and make its home cozy as it grows.</p>
+      <ul className="welcome-card__points" aria-label="What you can do">
+        <li><Egg aria-hidden /> One of a kind, from the moment it is an egg</li>
+        <li><Heart aria-hidden /> It notices you, eats, plays and naps</li>
+        <li><Home aria-hidden /> A home with rooms to walk and decorate</li>
+      </ul>
+      {blocked && (
+        <p role="alert" className="welcome-card__warning" data-testid="welcome-blocked">
+          <AlertTriangle aria-hidden /> {blocked.message}
+        </p>
+      )}
+      <div className="welcome-card__actions">
+        <button type="button" className="onboard-btn onboard-btn--primary welcome-card__primary" onClick={onCreate} data-testid="onboarding-create">
           <Sparkles className="h-4 w-4" aria-hidden />
-          Create an account
+          Adopt my Blobbi
         </button>
         <button type="button" className="onboard-btn onboard-btn--secondary" onClick={onExisting} data-testid="onboarding-existing">
           <KeyRound className="h-4 w-4" aria-hidden />
-          I already have a Nostr account
+          I have an account
         </button>
       </div>
-      <p className="text-center text-xs text-muted-foreground">One Nostr account is one identity across Blobbi, Blobbi Island and Ditto.</p>
-      <div className="flex justify-center">
-        <EnterIslandButton variant="secondary" />
-      </div>
-    </Card>
+      <p className="welcome-card__fine">Free, no email. Your Blobbi belongs to your own key.</p>
+      <details className="welcome-card__more" data-testid="welcome-what-is-nostr">
+        <summary>How does it work?</summary>
+        <p>
+          Blobbi runs on Nostr, an open network where your account is a key you hold, not a password on our server. The same key and the same Blobbi work in
+          Blobbi Island and Ditto. If you already use Nostr, sign in with it.
+        </p>
+        <div className="mt-2 flex justify-center">
+          <EnterIslandButton variant="secondary" />
+        </div>
+      </details>
+    </section>
   );
 }
 
@@ -65,7 +90,28 @@ export function WelcomeScreen({ onCreate, onExisting }: { onCreate: () => void; 
  */
 export function CreateAccountScreen({ onBack, onCreated }: { onBack: () => void; onCreated: () => void }) {
   const login = useLoginActions();
-  const [account] = useState<NewAccount>(() => createNewAccount());
+  // The key comes from the browser's secure randomness (nostr-tools); a browser without it cannot make one, and says so
+  const [made] = useState<{ account: NewAccount } | { error: string }>(() => {
+    try {
+      return { account: createNewAccount() };
+    } catch {
+      return { error: 'This browser cannot make a secure key here. Open Blobbi over https in an up-to-date browser, or sign in with an account you already have.' };
+    }
+  });
+  if ('error' in made) {
+    return (
+      <Card testId="onboarding-create-account">
+        <BackButton onClick={onBack} />
+        <p role="alert" className="text-sm text-destructive" data-testid="create-account-unsupported">
+          {made.error}
+        </p>
+      </Card>
+    );
+  }
+  return <CreateAccountKey account={made.account} onBack={onBack} onCreated={onCreated} login={login} />;
+}
+
+function CreateAccountKey({ account, onBack, onCreated, login }: { account: NewAccount; onBack: () => void; onCreated: () => void; login: ReturnType<typeof useLoginActions> }) {
   const [backedUp, setBackedUp] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,23 +130,26 @@ export function CreateAccountScreen({ onBack, onCreated }: { onBack: () => void;
     <Card testId="onboarding-create-account">
       <BackButton onClick={onBack} />
       <div className="space-y-1">
-        <h2 className="text-xl font-semibold">Your new account</h2>
+        <h2 className="text-xl font-semibold">First, your key</h2>
         <p className="text-sm text-muted-foreground">
-          This is a Nostr account: a key pair made on this device. Your public id is <code className="break-all text-xs" data-testid="new-npub">{account.npub}</code>.
+          Your Blobbi needs a home that belongs to you. Instead of a password, you get a <strong>secret key</strong>: it was just made on this device, and nobody else has it, not even us.
         </p>
       </div>
       <div className="rounded-2xl border border-amber-400/60 bg-amber-50/80 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100" role="note" data-testid="key-warning">
-        <p className="font-semibold">The secret key below is your account.</p>
+        <p className="font-semibold">Keep it like a house key.</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs">
-          <li>Whoever has it controls the account. Never share it or paste it into a website you do not trust.</li>
-          <li>There is no password reset. If you lose it, you may lose access to this account and your Blobbi for good.</li>
-          <li>Save it now: copy it into a password manager, or download the backup file.</li>
+          <li>It is the only way back in on a new phone or after clearing this browser. There is no reset and no recovery email.</li>
+          <li>Whoever has it can use your account. Never share it, and never paste it into a site you do not trust.</li>
+          <li>Save it now: a password manager, or the backup file below.</li>
         </ul>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Your public id (fine to share): <code className="break-all" data-testid="new-npub">{account.npub}</code>
+      </p>
       <KeyBackup nsec={account.nsec} revealed onBackedUp={() => setBackedUp(true)} />
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5 h-4 w-4" data-testid="key-saved" />
-        <span>I have saved my secret key somewhere safe.</span>
+        <span>I saved my secret key somewhere safe. I understand it cannot be recovered without it.</span>
       </label>
       {!backedUp && confirmed && (
         <p className="text-xs text-muted-foreground" data-testid="key-saved-hint">
@@ -108,8 +157,8 @@ export function CreateAccountScreen({ onBack, onCreated }: { onBack: () => void;
         </p>
       )}
       <button type="button" className="onboard-btn onboard-btn--primary" onClick={finish} disabled={!confirmed} data-testid="onboarding-continue">
-        <ShieldCheck className="h-4 w-4" aria-hidden />
-        Continue
+        <Egg className="h-4 w-4" aria-hidden />
+        Continue to my egg
       </button>
       <p className="text-xs text-muted-foreground">
         On this device the key is kept by the sign-in store, the same one Blobbi Island and Ditto use. You can see it again from the menu, under Account.
@@ -122,6 +171,9 @@ export function CreateAccountScreen({ onBack, onCreated }: { onBack: () => void;
     </Card>
   );
 }
+
+/** How long a signer (an extension, a bunker) may take to answer before the screen says so and lets the player try again. */
+const SIGNER_TIMEOUT_MS = 60_000;
 
 /* ─── Existing account ─────────────────────────────────────────────────── */
 
@@ -165,7 +217,7 @@ export function ExistingAccountScreen({ onBack }: { onBack?: () => void }) {
     try {
       await action();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign-in failed.');
+      setError(signInMessage(err));
     } finally {
       setBusy(null);
     }
@@ -175,7 +227,7 @@ export function ExistingAccountScreen({ onBack }: { onBack?: () => void }) {
     event.preventDefault();
     if (!bunkerValid) return;
     void run('bunker', async () => {
-      await login.bunker(bunkerUri.trim());
+      await withTimeout(login.bunker(bunkerUri.trim()), SIGNER_TIMEOUT_MS, 'The signer did not answer. Check it is online and approve Blobbi there, then try again.');
       setBunkerUri('');
     });
   };
@@ -206,12 +258,12 @@ export function ExistingAccountScreen({ onBack }: { onBack?: () => void }) {
       {onBack && <BackButton onClick={onBack} />}
       <div className="space-y-1">
         <h2 className="text-xl font-semibold" id="login-heading">
-          Sign in to see your Blobbi
+          Welcome back
         </h2>
-        <p className="text-sm text-muted-foreground">Use a Nostr signer if you have one: your key stays with it.</p>
+        <p className="text-sm text-muted-foreground">Sign in with the Nostr account your Blobbi lives under. A signer keeps your key with it, which is safest.</p>
       </div>
 
-      <button type="button" onClick={() => void run('extension', () => login.extension())} disabled={!extensionAvailable || busy !== null} className="onboard-btn onboard-btn--primary" data-testid="login-extension">
+      <button type="button" onClick={() => void run('extension', () => withTimeout(login.extension(), SIGNER_TIMEOUT_MS, 'The extension did not answer. Open it, approve Blobbi, then try again.'))} disabled={!extensionAvailable || busy !== null} className="onboard-btn onboard-btn--primary" data-testid="login-extension">
         <ShieldCheck className="h-4 w-4" aria-hidden />
         {busy === 'extension' ? 'Signing in…' : 'Sign in with extension'}
       </button>
@@ -255,7 +307,7 @@ export function ExistingAccountScreen({ onBack }: { onBack?: () => void }) {
       </details>
 
       {error && (
-        <p role="alert" className="text-center text-sm text-destructive">
+        <p role="alert" className="text-center text-sm text-destructive" data-testid="login-error">
           {error}
         </p>
       )}

@@ -1,18 +1,15 @@
 /**
- * Which home the app opens on: the classic home (the default, for now) or
- * the 3D room (beta). A preference of this device, chosen by the player in
- * the menu, never set for them: nobody is moved to the room without asking.
- * The classic home stays one tap away from the room, and the room one tap
- * away from the classic home, whatever is chosen.
- *
- * Flip `DEFAULT_EXPERIENCE` to make the room the default once it is
- * approved; nothing else changes.
+ * Which home the app opens on: the room (the default since M11) or the
+ * classic home (legacy, kept during the rollout). A preference of this
+ * device: a player who chose the classic home in its menu keeps it; everyone
+ * else opens in the room. The classic home stays one tap away in the room's
+ * menu, and the room one tap away in the classic home's.
  */
 import { useCallback, useState } from 'react';
 
 export type HomeExperience = 'classic' | 'room';
 
-export const DEFAULT_EXPERIENCE: HomeExperience = 'classic';
+export const DEFAULT_EXPERIENCE: HomeExperience = 'room';
 
 export const EXPERIENCE_STORAGE_KEY = 'blobbi:home:experience';
 

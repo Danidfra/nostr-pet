@@ -7,7 +7,7 @@
  * art and for an egg; and none of it publishes.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
 import { NostrLoginProvider } from '@nostrify/react/login';
@@ -67,38 +67,44 @@ beforeEach(() => {
 afterEach(() => localStorage.clear());
 
 describe('the room in the app', () => {
-  it('the classic home is the default; nobody is moved to the room', async () => {
-    expect(DEFAULT_EXPERIENCE).toBe('classic');
-    expect(readExperience()).toBe('classic');
-    for (const junk of ['3d', '', null, 'ROOM']) expect(parseExperience(junk)).toBe('classic');
+  it('the room is the home: a player with a Blobbi opens in it, with nothing stored; junk in the preference is the room too', async () => {
+    expect(DEFAULT_EXPERIENCE).toBe('room');
+    expect(readExperience()).toBe('room');
+    for (const junk of ['3d', '', null, 'ROOM']) expect(parseExperience(junk)).toBe('room');
     signedInWith();
     renderAt('/');
-    await onClassicHome();
-    expect(screen.queryByTestId('room-shell')).toBeNull();
+    await inRoom();
+    // One home: no way "back" in the header; the classic home is the menu's
+    expect(screen.queryByTestId('room-back')).toBeNull();
+    expect(relay.published).toEqual([]);
   });
 
-  it('the menu opens the room, in any build, and offers to open in it; choosing writes only that preference', async () => {
+  it('the classic home stays reachable: the room\'s menu opens it without bouncing back, and its own menu leads back to the room', async () => {
     signedInWith();
     renderAt('/');
+    await inRoom();
+    fireEvent.click(screen.getByTestId('room-menu'));
+    expect(screen.getByTestId('open-classic')).toHaveAttribute('href', '/');
+    fireEvent.click(screen.getByTestId('open-classic'));
     await onClassicHome();
+    expect(screen.queryByTestId('room-shell')).toBeNull();
     fireEvent.click(screen.getByTestId('menu-button'));
     expect(screen.getByTestId('open-room')).toHaveAttribute('href', '/room');
-    fireEvent.click(screen.getByTestId('room-first-toggle'));
-    expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('room');
     expect(screen.getByTestId('room-first-toggle')).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(screen.getByTestId('open-room'));
     await inRoom();
     expect(relay.published).toEqual([]);
   });
 
-  it('a player who chose the room opens in it; its way back stays on the classic home, and so does the settings link', async () => {
+  it('a player who chose the classic home keeps it: they open there, and the switch brings the room back', async () => {
     signedInWith();
-    localStorage.setItem(EXPERIENCE_STORAGE_KEY, 'room');
+    localStorage.setItem(EXPERIENCE_STORAGE_KEY, 'classic');
     renderAt('/');
-    await inRoom();
-    fireEvent.click(screen.getByTestId('room-back'));
     await onClassicHome();
     expect(screen.queryByTestId('room-shell')).toBeNull();
+    fireEvent.click(screen.getByTestId('menu-button'));
+    fireEvent.click(screen.getByTestId('room-first-toggle'));
+    expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('room');
   });
 
   it('the room\'s settings switch the preference back, and their Classic home link does not bounce', async () => {
@@ -114,11 +120,13 @@ describe('the room in the app', () => {
     await onClassicHome();
   });
 
-  it('a signed-out visitor who once chose the room stays with the onboarding on the home', async () => {
-    localStorage.setItem(EXPERIENCE_STORAGE_KEY, 'room');
+  it('a signed-out visitor gets the welcome, at / and at /room alike', async () => {
     renderAt('/');
-    expect((await screen.findAllByText(/blobbi/i)).length).toBeGreaterThan(0);
+    expect(await screen.findByTestId('onboarding-welcome')).toBeInTheDocument();
     expect(screen.queryByTestId('room-shell')).toBeNull();
+    cleanup();
+    renderAt('/room');
+    expect(await screen.findByTestId('onboarding-welcome')).toBeInTheDocument();
   });
 
   it('without WebGL the room still works: the Blobbi stands in it, its needs show, the carousel uses items; decorating says why it cannot', async () => {

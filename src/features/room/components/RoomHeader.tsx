@@ -29,9 +29,11 @@ interface RoomHeaderProps {
   connection?: { level: HealthLevel; online: boolean; onRetry: () => void };
   /** The care streak, when there is one. */
   streak?: { days: number; bumpKey: number };
+  /** Show the old way back to the classic home (legacy; the menu has it otherwise). */
+  onBack?: boolean;
 }
 
-export function RoomHeader({ name, stage, onOpenBlobbi, onOpenMenu, connection, streak }: RoomHeaderProps) {
+export function RoomHeader({ name, stage, onOpenBlobbi, onOpenMenu, connection, streak, onBack = false }: RoomHeaderProps) {
   const label = (
     <>
       <span>{name}</span>
@@ -42,9 +44,14 @@ export function RoomHeader({ name, stage, onOpenBlobbi, onOpenMenu, connection, 
     <div className="room-header relative z-10" data-testid="room-header">
       <ArcBackground variant="down" />
       <div className="relative flex min-h-[3.25em] items-center gap-[0.5em] px-3 pb-[0.4em] pt-[0.25em]">
-        <Link to="/" state={BACK_HOME} className="room-header-back touch-hit" aria-label="Classic home" title="Classic home" data-testid="room-back">
-          <ArrowLeft />
-        </Link>
+        {onBack ? (
+          <Link to="/" state={BACK_HOME} className="room-header-back touch-hit" aria-label="Classic home" title="Classic home" data-testid="room-back">
+            <ArrowLeft />
+          </Link>
+        ) : (
+          // The room is the home: no way "back"; the menu keeps the classic home. The size of the menu button keeps the name centred.
+          <span className="size-[2.25em] shrink-0" aria-hidden />
+        )}
         {onOpenBlobbi ? (
           <button type="button" onClick={onOpenBlobbi} className="room-header-name min-w-0 flex-1 truncate text-center text-[0.95em] font-semibold" aria-label={`${name}, ${STAGE_WORD[stage]}. Open details`} data-testid="room-header-name">
             {label}

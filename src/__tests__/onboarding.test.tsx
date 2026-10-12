@@ -6,6 +6,9 @@
  * middle; and the secret never in a relay payload, a URL or a log.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The classic home (legacy since M11, when the room became the home): these tests follow the way in to it; `m11-way-in.test.tsx` follows it into the room
+vi.mock('@/lib/home-experience', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/home-experience')>()), readExperience: () => 'classic' as const }));
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -97,8 +100,8 @@ describe('Creating an account', () => {
     await screen.findByTestId('onboarding-welcome');
     await userEvent.click(screen.getByTestId('onboarding-create'));
     const card = await screen.findByTestId('onboarding-create-account');
-    expect(within(card).getByTestId('key-warning')).toHaveTextContent(/controls the account/);
-    expect(within(card).getByTestId('key-warning')).toHaveTextContent(/lose access/);
+    expect(within(card).getByTestId('key-warning')).toHaveTextContent(/can use your account/);
+    expect(within(card).getByTestId('key-warning')).toHaveTextContent(/no reset and no recovery/);
     const nsec = within(card).getByTestId('nsec-box').textContent!;
     expect(nsec).toMatch(/^nsec1[a-z0-9]{58}$/);
     const pubkey = getPublicKey(nip19.decode(nsec).data as Uint8Array);
@@ -134,12 +137,11 @@ describe('Creating an account', () => {
     expect(getTagValue(kind0.tags, 'client')).toBe('Blobbi');
 
     // Then adoption, the existing flow, with the new name suggested for the Blobbonaut profile.
-    // The welcome already said what a Blobbi is: the intro is brief, one purpose.
-    const intro = await screen.findByTestId('adoption-intro');
-    expect(intro).toHaveAttribute('data-brief', 'true');
-    expect(within(intro).queryByRole('list', { name: /what a blobbi is/i })).toBeNull();
-    expect(intro).toHaveTextContent(/Adopt your first egg/);
-    await userEvent.click(screen.getByTestId('adoption-start'));
+    // The welcome already said what a Blobbi is: straight to the egg, no second intro.
+    const egg = await screen.findByTestId('adoption-egg');
+    expect(egg).toHaveAttribute('data-brief', 'true');
+    expect(screen.queryByTestId('adoption-intro')).toBeNull();
+    expect(egg).toHaveTextContent(/Here is your egg/);
     await screen.findByTestId('adoption-preview');
     await userEvent.click(screen.getByTestId('adoption-adopt'));
     await waitFor(() => expect(published(KIND_BLOBBI_STATE)).toHaveLength(1));
@@ -173,7 +175,7 @@ describe('Creating an account', () => {
     await userEvent.click(screen.getByTestId('onboarding-continue'));
     await screen.findByTestId('onboarding-profile');
     await userEvent.click(screen.getByTestId('profile-skip'));
-    await screen.findByTestId('adoption-intro');
+    await screen.findByTestId('adoption-egg');
     expect(published(0)).toHaveLength(0);
     expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '[]')).toHaveLength(1);
   });
@@ -219,6 +221,7 @@ describe('An existing account', () => {
     await userEvent.upload(screen.getByTestId('login-nsec-file-input'), file);
     await waitFor(() => expect(screen.getByTestId('login-nsec-input')).toHaveValue(account.nsec));
     await userEvent.click(screen.getByTestId('login-nsec'));
+    // A returning player who owns no Blobbi yet: the full intro (the sign-in is a page of its own)
     await screen.findByTestId('adoption-intro');
     expect(screen.queryByTestId('onboarding-profile')).toBeNull();
     nothingLeaked(account.nsec);
@@ -237,7 +240,7 @@ describe('An existing account', () => {
     await userEvent.click(within(profile).getByTestId('profile-save'));
     await waitFor(() => expect(published(0)).toHaveLength(1));
     expect(JSON.parse(published(0)[0].content)).toEqual({ nip05: 'dana@x.test', picture: 'https://x.test/p.png', name: 'Dana', display_name: 'Dana' });
-    await screen.findByTestId('adoption-intro');
+    await screen.findByTestId('adoption-egg');
   });
 
   it('a refresh in the middle lands on the same step: the login is kept, the profile step comes back until it is done', async () => {
@@ -251,9 +254,9 @@ describe('An existing account', () => {
     await userEvent.type(screen.getByTestId('profile-name'), 'Dana');
     await userEvent.click(screen.getByTestId('profile-save'));
     await waitFor(() => expect(published(0)).toHaveLength(1));
-    await screen.findByTestId('adoption-intro');
+    // Done with the profile this session: straight to the egg
+    await screen.findByTestId('adoption-egg');
     // The kind 0 is now on the relay: another refresh goes to adoption directly, with the full intro (no welcome this session).
-    screen.getByTestId('adoption-intro');
     cleanup();
     renderHome();
     const again = await screen.findByTestId('adoption-intro');

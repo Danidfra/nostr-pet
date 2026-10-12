@@ -5,6 +5,9 @@
  * contributes nothing and the others serve, covered in relays.test.tsx).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The classic home (legacy since M11, when the room became the home): these are its own tests, so it is the one opened
+vi.mock('@/lib/home-experience', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/home-experience')>()), readExperience: () => 'classic' as const }));
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

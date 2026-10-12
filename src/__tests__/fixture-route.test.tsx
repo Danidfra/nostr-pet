@@ -143,25 +143,23 @@ describe('the fixture route', () => {
     fireEvent.click(screen.getByTestId('dev-tools-close'));
     expect(socket).not.toHaveBeenCalled();
     expect(localStorage.getItem('nostr:login')).toBe(STORED_LOGIN);
-    // Back on the classic home, the fixture user is the one in the menu, and signing out there touches no real login
-    fireEvent.click(screen.getByTestId('room-back'));
-    await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
-    fireEvent.click(screen.getByRole('button', { name: /menu/i }));
+    // The room's menu: the fixture user is the one in it, and signing out there touches no real login
+    fireEvent.click(screen.getByTestId('room-menu'));
     const signOut = await screen.findByTestId('sign-out');
     expect(screen.getByTestId('login-type')).toHaveTextContent('');
     expect(screen.queryByTestId('key-backup-section')).toBeNull();
     fireEvent.click(signOut);
     await new Promise((r) => setTimeout(r, 50));
     expect(localStorage.getItem('nostr:login')).toBe(STORED_LOGIN);
-    expect(screen.getByTestId('blobbi-actor')).toBeInTheDocument();
+    expect(screen.getByTestId('room-shell')).toBeInTheDocument();
   });
 
   it('without the dev-tools flag the link is refused out loud and the real home shows signed out; no fixture, no socket', async () => {
     await openApp('/room?fixture=adult-v3&perf', 'off');
     const notice = await screen.findByTestId('fixture-refused');
     expect(notice).toHaveTextContent(/VITE_BLOBBI_DEV_TOOLS=true/);
-    const message = await screen.findByTestId('room-message');
-    expect(message).toHaveAttribute('data-status', 'signed-out');
+    // The real app, signed out: the welcome (a /room link sends a visitor there)
+    expect(await screen.findByTestId('onboarding-welcome')).toBeInTheDocument();
     expect(screen.queryByTestId('room-blobbi-anchor')).toBeNull();
     expect(screen.queryByTestId('room-perf')).toBeNull();
     expect(socket).not.toHaveBeenCalled();
@@ -169,8 +167,7 @@ describe('the fixture route', () => {
 
   it('with the flag on but no fixture asked for, the real app runs and nothing is said', async () => {
     await openApp('/room');
-    const message = await screen.findByTestId('room-message');
-    expect(message).toHaveAttribute('data-status', 'signed-out');
+    expect(await screen.findByTestId('onboarding-welcome', {}, { timeout: 8000 })).toBeInTheDocument();
     expect(screen.queryByTestId('fixture-refused')).toBeNull();
     expect(screen.queryByTestId('dev-panel')).toBeNull();
   });

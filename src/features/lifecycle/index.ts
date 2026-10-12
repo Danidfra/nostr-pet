@@ -1,7 +1,7 @@
 export { useLifecycle } from './useLifecycle';
 export type { Lifecycle, LifecycleAction } from './useLifecycle';
 export { useLifecycleCeremony, ceremonyPresentation, hatchOnScreen, CEREMONY_TIMINGS, REDUCED_CEREMONY_TIMINGS } from './useLifecycleCeremony';
-export type { CeremonyKind, CeremonyPhase, CeremonyState, CeremonyPresentation, HatchBeat, HatchPresentation, LifecycleCeremony } from './useLifecycleCeremony';
+export type { CeremonyKind, CeremonyPhase, CeremonyState, CeremonyPresentation, CeremonyTimings, HatchBeat, HatchPresentation, LifecycleCeremony } from './useLifecycleCeremony';
 export { decideFirstBlobbi, hasHatchedBlobbi, holdsBlobbi } from './first-blobbi';
 export type { FirstBlobbiDecision, OwnedBlobbi } from './first-blobbi';
 export { useFirstBlobbiHatch } from './useFirstBlobbiHatch';
