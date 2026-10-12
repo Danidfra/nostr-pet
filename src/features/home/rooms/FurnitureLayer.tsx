@@ -54,7 +54,7 @@ function FurnitureLayerImpl({ placements, interactive = false, onUse, stateOf, d
         } as CSSProperties;
         return (
           <div key={`${placement.id}#${index}`} className="furniture-anchor" style={style} data-testid={`furniture-${placement.id}`} data-furniture={placement.id} data-layer={placement.layer} data-index={index} data-state={state} data-use={def.use?.kind}>
-            {def.shadow && def.shadow !== 'none' && <span aria-hidden className={`furniture-shadow furniture-shadow--${def.shadow}`} />}
+            {def.shadow && def.shadow !== 'none' && <span aria-hidden className={def.shadow === 'wide' ? 'furniture-shadow furniture-shadow--wide' : 'furniture-shadow'} />}
             <button
               type="button"
               className="furniture"

@@ -33,6 +33,27 @@ interface JourneySheetProps {
 
 const ACTION_LABEL: Record<Exclude<ObjectiveAction['kind'], 'link'>, string> = { room: 'Go there', details: 'Open details', adopt: 'Adopt an egg' };
 const STATUS_LABEL: Record<ObjectiveStatus, string> = { done: 'Done', 'in-progress': 'In progress', available: 'To do', waiting: 'Come back later', locked: 'Locked' };
+// Full class names, never built from a template: Tailwind keeps a component class's rule only if its name appears
+// whole in the source (the status chips shipped without their colours before M12.2)
+const STATUS_CLASS: Record<ObjectiveStatus, string> = {
+  done: 'journey-status journey-status--done',
+  'in-progress': 'journey-status journey-status--in-progress',
+  available: 'journey-status journey-status--available',
+  waiting: 'journey-status journey-status--waiting',
+  locked: 'journey-status journey-status--locked',
+};
+const OBJECTIVE_CLASS: Record<ObjectiveStatus, string> = {
+  done: 'journey-objective journey-objective--done',
+  'in-progress': 'journey-objective journey-objective--in-progress',
+  available: 'journey-objective journey-objective--available',
+  waiting: 'journey-objective journey-objective--waiting',
+  locked: 'journey-objective journey-objective--locked',
+};
+const CHAPTER_CLASS: Record<Chapter['status'], string> = {
+  done: 'journey-chapter journey-chapter--done',
+  current: 'journey-chapter journey-chapter--current',
+  locked: 'journey-chapter journey-chapter--locked',
+};
 
 function StatusMark({ status }: { status: ObjectiveStatus }) {
   if (status === 'done') return <Check />;
@@ -43,7 +64,7 @@ function StatusMark({ status }: { status: ObjectiveStatus }) {
 
 function ObjectiveRow({ o, onAction, live }: { o: Objective; onAction: (a: ObjectiveAction) => void; live: boolean }) {
   return (
-    <li className={`journey-objective journey-objective--${o.status} ${o.done ? 'journey-objective--done' : ''}`} data-testid={`objective-${o.id}`} data-done={o.done} data-status={o.status}>
+    <li className={OBJECTIVE_CLASS[o.status]} data-testid={`objective-${o.id}`} data-done={o.done} data-status={o.status}>
       <span className="journey-objective__mark" aria-hidden>
         <StatusMark status={o.status} />
       </span>
@@ -55,7 +76,7 @@ function ObjectiveRow({ o, onAction, live }: { o: Objective; onAction: (a: Objec
               <Smartphone aria-hidden />
             </span>
           )}
-          <span className={`journey-status journey-status--${o.status}`} data-testid={`objective-${o.id}-status`}>
+          <span className={STATUS_CLASS[o.status]} data-testid={`objective-${o.id}-status`}>
             {STATUS_LABEL[o.status]}
           </span>
         </span>
@@ -211,7 +232,7 @@ export function JourneySheet({ open, onClose, chapters, onAction, progress, dail
         {chapters.map((c) => {
           const done = c.objectives.filter((o) => o.done).length;
           return (
-            <li key={c.id} className={`journey-chapter journey-chapter--${c.status}`} data-testid={`chapter-${c.id}`} data-status={c.status}>
+            <li key={c.id} className={CHAPTER_CLASS[c.status]} data-testid={`chapter-${c.id}`} data-status={c.status}>
               <div className="journey-chapter__head">
                 <span className="journey-chapter__number" aria-hidden>
                   {c.status === 'done' ? <Check /> : c.status === 'locked' ? <Lock /> : c.number}

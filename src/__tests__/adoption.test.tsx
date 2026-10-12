@@ -109,12 +109,15 @@ describe('First run', () => {
   it('signed out: says what a Blobbi is before asking for anything', async () => {
     currentUser.user = undefined;
     renderHome();
-    // What a Blobbi is, in a breath, with real Blobbis drawn by the kit, before anything is asked
-    expect(await screen.findByRole('list', { name: /what you can do/i })).toHaveTextContent(/hatch|one of a kind/i);
+    // Real Blobbis drawn by the kit and one line, before anything is asked (M12.2: a scene, not a page to read)
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(/little friend is waiting/i);
     expect(screen.getByTestId('welcome-cast').querySelectorAll('[data-blobbi-renderer]').length).toBeGreaterThanOrEqual(3);
     expect(screen.queryByText(/nostr/i, { selector: 'h1, h2, .welcome-card__lead' })).toBeNull();
     expect(screen.getByTestId('onboarding-create')).toBeInTheDocument();
     expect(screen.getByTestId('onboarding-existing')).toBeInTheDocument();
+    // What a Blobbi is: one tap away, for whoever asks
+    await userEvent.click(screen.getByTestId('welcome-what-is-nostr'));
+    expect(screen.getByRole('list', { name: /what you can do/i })).toHaveTextContent(/one of a kind/i);
   });
 
   it('adopts: intro, a unique egg with a name, the 31124 then one 11125, and the egg in the room', async () => {

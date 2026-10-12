@@ -3145,29 +3145,52 @@
 
 /* ─── M11: the way in (welcome, adoption) and the hatch theatre ─────────────────────────────── */
 @layer components {
-  /* The welcome's world: a warm sky behind everything, the cast, the card */
+  /* ─── M12.2: the welcome as a little world ───────────────────────────────────────────────────────
+     A column the size of the game surface: the world (sky, sun, clouds, hills) behind, the step in front.
+     The welcome step is a scene and a band: the band (the invitation and the two doors) takes what it needs,
+     the scene takes the rest and sizes its Blobbi from its own height (container units), so a short screen
+     shows a smaller Blobbi, never a page to scroll. Scrolling is only a fallback for very large text. */
   .welcome {
+    --meadow: hsl(96 52% 84%);
+    --meadow-deep: hsl(102 42% 76%);
+    --meadow-ink: hsl(140 30% 18%);
+    --meadow-soft: hsl(140 18% 32%);
     position: absolute;
     inset: 0;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
     background:
       radial-gradient(120% 70% at 50% 0%, hsl(45 100% 96%) 0%, transparent 60%),
-      radial-gradient(90% 60% at 15% 100%, hsl(330 90% 92%) 0%, transparent 60%),
-      radial-gradient(90% 60% at 90% 90%, hsl(258 90% 92%) 0%, transparent 60%),
-      linear-gradient(180deg, hsl(40 90% 96%), hsl(270 70% 95%));
+      radial-gradient(90% 60% at 15% 90%, hsl(330 90% 93%) 0%, transparent 60%),
+      linear-gradient(180deg, hsl(40 95% 95%), hsl(275 70% 94%) 70%);
   }
   /* Night on the Island: the same world under a night sky */
   .dark .welcome {
+    --meadow: hsl(150 24% 20%);
+    --meadow-deep: hsl(155 26% 16%);
+    --meadow-ink: hsl(45 60% 92%);
+    --meadow-soft: hsl(45 25% 78%);
     background:
       radial-gradient(120% 70% at 50% 0%, hsl(250 45% 26%) 0%, transparent 60%),
-      radial-gradient(90% 60% at 15% 100%, hsl(300 40% 22%) 0%, transparent 60%),
-      radial-gradient(90% 60% at 90% 90%, hsl(240 45% 24%) 0%, transparent 60%),
+      radial-gradient(90% 60% at 15% 90%, hsl(300 40% 22%) 0%, transparent 60%),
       linear-gradient(180deg, hsl(245 40% 14%), hsl(265 35% 18%));
   }
   .dark .welcome__cloud { background: hsl(240 30% 80% / 0.12); box-shadow: 30px 8px 0 -4px hsl(240 30% 80% / 0.1), -26px 10px 0 -6px hsl(240 30% 80% / 0.1); }
+  .dark .welcome__sun { background: radial-gradient(circle, hsl(50 80% 85% / 0.22), hsl(260 60% 70% / 0.08) 40%, transparent 65%); }
   .dark .welcome-card__warning { background: hsl(35 60% 20%); color: hsl(40 90% 85%); }
   .dark .app-crash { background: linear-gradient(180deg, hsl(245 40% 14%), hsl(265 35% 18%)); }
-  .welcome__sky { position: absolute; inset: 0; pointer-events: none; }
+  .welcome__world { position: absolute; inset: 0; pointer-events: none; }
+  .welcome__sun {
+    position: absolute;
+    top: -18%;
+    left: 50%;
+    width: min(130vw, 760px);
+    aspect-ratio: 1;
+    translate: -50% 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, hsl(45 100% 88% / 0.95), hsl(40 100% 86% / 0.4) 32%, transparent 64%);
+  }
   .welcome__cloud {
     position: absolute;
     border-radius: 9999px;
@@ -3175,9 +3198,9 @@
     filter: blur(1px);
     box-shadow: 30px 8px 0 -4px hsl(0 0% 100% / 0.7), -26px 10px 0 -6px hsl(0 0% 100% / 0.65);
   }
-  .welcome__cloud--a { top: 8%; left: 8%; width: 90px; height: 34px; animation: welcome-drift 26s ease-in-out infinite alternate; }
-  .welcome__cloud--b { top: 18%; right: 6%; width: 70px; height: 26px; animation: welcome-drift 32s ease-in-out infinite alternate-reverse; }
-  .welcome__cloud--c { top: 3%; right: 34%; width: 54px; height: 20px; opacity: 0.7; animation: welcome-drift 38s ease-in-out infinite alternate; }
+  .welcome__cloud--a { top: 11%; left: 6%; width: 90px; height: 34px; animation: welcome-drift 26s ease-in-out infinite alternate; }
+  .welcome__cloud--b { top: 21%; right: 5%; width: 70px; height: 26px; animation: welcome-drift 32s ease-in-out infinite alternate-reverse; }
+  .welcome__cloud--c { top: 5%; right: 36%; width: 54px; height: 20px; opacity: 0.7; animation: welcome-drift 38s ease-in-out infinite alternate; }
   .welcome__spark {
     position: absolute;
     width: 8px;
@@ -3187,65 +3210,229 @@
     background: hsl(45 100% 70%);
     animation: welcome-twinkle 3.2s ease-in-out infinite;
   }
-  .welcome__spark--a { top: 12%; left: 30%; }
-  .welcome__spark--b { top: 26%; right: 22%; animation-delay: -1.1s; background: hsl(330 90% 80%); }
-  .welcome__spark--c { top: 6%; left: 62%; animation-delay: -2.2s; background: hsl(258 90% 82%); }
-  .welcome__scroll {
+  .welcome__spark--a { top: 15%; left: 28%; }
+  .welcome__spark--b { top: 30%; right: 18%; animation-delay: -1.1s; background: hsl(330 90% 80%); }
+  .welcome__spark--c { top: 8%; left: 64%; animation-delay: -2.2s; background: hsl(258 90% 82%); }
+  /* Two soft hills: a far one, and the meadow the steps stand on */
+  .welcome__hill { position: absolute; bottom: 0; border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+  .welcome__hill--back { left: -40%; right: 10%; height: 44%; background: linear-gradient(hsl(118 40% 84%), hsl(118 35% 78%)); opacity: 0.75; }
+  .welcome__hill--front { left: -20%; right: -20%; height: 26%; background: linear-gradient(var(--meadow), var(--meadow-deep)); }
+  .dark .welcome__hill--back { background: linear-gradient(hsl(160 22% 24%), hsl(160 22% 19%)); }
+  .welcome__content { position: relative; z-index: 1; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* ─── The welcome step: a scene and a band ─── */
+  .wscene {
     position: relative;
-    height: 100%;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    /* One screen, not a page: the cast and the card centred together; scrolling is only the fallback for a very small
-       screen or very large text, never the design */
-    justify-content: center;
-    padding: calc(3rem + env(safe-area-inset-top)) 1rem calc(1rem + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    /* the fallback for very large text only: at normal sizes the band is small and the scene gives way */
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
-  /* The cast is the part that gives: as tall as there is room for (within limits), the card always whole */
-  .welcome__cast {
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    gap: 0.25rem;
-    flex: 0 1 180px;
-    min-height: 84px;
-    max-height: 200px;
-    margin: 0 0 -0.5rem;
-  }
-  /* Each member as tall as its drawing (the renderer draws in a square), standing on the cast's floor: its shadow under
-     its feet however tall the cast is; a short cast shrinks it */
-  .welcome__member {
+  .wscene__stage {
     position: relative;
-    width: clamp(84px, 27vw, 150px);
+    /* over the meadow's crest: the Blobbis stand on it, their feet a little in the grass */
+    z-index: 1;
+    flex: 1 1 auto;
+    min-height: 11rem;
+    /* the Blobbi's size comes from here: its own height, whatever the phone and its browser bars leave */
+    container-type: size;
+    /* the friends at the sides may reach past the edges: clipped, never a sideways scroll */
+    overflow-x: clip;
+    --hero: min(30vh, 220px);
+  }
+  @supports (container-type: size) {
+    .wscene__stage { --hero: clamp(6.5rem, min(100cqh - 7rem, 64cqw), 19rem); }
+  }
+  .wscene__logo { position: absolute; top: calc(0.8rem + env(safe-area-inset-top)); left: 1rem; height: 2rem; width: auto; z-index: 2; }
+  .wscene__friend {
+    position: absolute;
+    bottom: -1.1rem;
+    width: calc(var(--hero) * 0.52);
     aspect-ratio: 1;
-    max-height: 100%;
     border: 0;
     padding: 0;
     background: none;
     cursor: pointer;
-    animation: welcome-bob 3.9s ease-in-out infinite;
+    animation: welcome-bob 4.2s ease-in-out infinite;
     -webkit-tap-highlight-color: transparent;
   }
-  .welcome__member[data-stage='egg'] { width: clamp(62px, 19vw, 112px); max-height: 78%; }
-  .welcome__member[data-stage='adult'] { width: clamp(92px, 31vw, 170px); }
-  .welcome__member[data-hop='0'] > :first-child { animation: welcome-hop 520ms ease-out; }
-  .welcome__member[data-hop='1'] > :first-child { animation: welcome-hop-b 520ms ease-out; }
-  .welcome__shadow {
+  .wscene__friend--left { right: calc(50% + var(--hero) * 0.3); animation-delay: -1.4s; }
+  .wscene__friend--right { left: calc(50% + var(--hero) * 0.34); width: calc(var(--hero) * 0.38); animation-delay: -2.6s; }
+  /* The egg waits on a little glow: the friend who is waiting for someone */
+  .wscene__friend[data-stage='egg']::before {
+    content: '';
     position: absolute;
-    left: 22%;
-    right: 22%;
-    bottom: 2%;
-    height: 12%;
-    border-radius: 50%;
-    background: radial-gradient(ellipse, hsl(260 40% 30% / 0.1), transparent 70%);
+    inset: 10% -20% -6%;
     z-index: -1;
+    border-radius: 50%;
+    background: radial-gradient(ellipse 50% 45% at 50% 60%, hsl(45 100% 85% / 0.9), transparent 70%);
+    animation: adopt-glow 4s ease-in-out infinite;
   }
-  .welcome__card { position: relative; width: 100%; max-width: 26rem; flex: none; }
-  /* On the player's own egg, the cast steps aside: that egg is the one that matters now */
-  .welcome:has(.adopt) .welcome__cast { display: none; }
-  .welcome:has(.adopt) .welcome__scroll { justify-content: center; }
+  .wscene__friend[data-hop='0'] > :first-child { animation: welcome-hop 520ms ease-out; }
+  .wscene__friend[data-hop='1'] > :first-child { animation: welcome-hop-b 520ms ease-out; }
+  .wscene__friend-shadow, .whero__shadow {
+    position: absolute;
+    left: 24%;
+    right: 24%;
+    bottom: 4%;
+    height: 9%;
+    z-index: -1;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, hsl(130 30% 25% / 0.22), transparent 70%);
+  }
+  .wscene__band {
+    position: relative;
+    isolation: isolate;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.6rem 1.25rem calc(0.75rem + env(safe-area-inset-bottom));
+    background: linear-gradient(var(--meadow), var(--meadow-deep));
+    color: var(--meadow-ink);
+    /* its crest is wider than the screen: clipped at the sides, free above */
+    overflow-x: clip;
+  }
+  /* The meadow's soft crest the Blobbis stand on */
+  .wscene__band::before {
+    content: '';
+    position: absolute;
+    left: -25%;
+    right: -25%;
+    top: -2rem;
+    height: 4.5rem;
+    z-index: -1;
+    border-radius: 50%;
+    background: var(--meadow);
+  }
+  .wscene__title {
+    max-width: 22rem;
+    text-align: center;
+    font-size: clamp(1.15rem, 1.5vh + 0.85rem, 1.5rem);
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    animation: hatch-fade 600ms ease-out 900ms both;
+  }
+  .wscene__actions { display: grid; gap: 0.5rem; width: 100%; max-width: 22rem; }
+  .wscene__about {
+    min-height: 2.5rem;
+    padding-inline: 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--meadow-soft);
+    text-decoration: underline dotted 1.5px;
+    text-underline-offset: 3px;
+  }
+  .welcome-about__points { margin-bottom: 0.75rem; }
+  .welcome-about__points { grid-template-columns: 1fr; }
+  .welcome-about__points li { flex-direction: row; justify-content: flex-start; text-align: left; font-size: 0.85rem; }
+  .welcome-about__text { margin-top: 0.6rem; font-size: 0.88rem; color: hsl(var(--muted-foreground)); }
+
+  /* ─── The Blobbi who welcomes you (WelcomeHero) ─── */
+  .whero { position: relative; }
+  .whero--hero {
+    position: absolute;
+    left: 50%;
+    /* the crest is highest in the middle (2rem over the band): it stands on its top */
+    bottom: -1.55rem;
+    width: var(--hero);
+    height: var(--hero);
+    translate: -50% 0;
+    z-index: 1;
+  }
+  .whero__body {
+    position: absolute;
+    inset: 0;
+    display: block;
+    border: 0;
+    padding: 0;
+    background: none;
+    border-radius: 45%;
+    cursor: pointer;
+    transform-origin: 50% 90%;
+    animation: whero-breathe 3.6s ease-in-out infinite;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .whero__body:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
+  .whero__body > div, .whero__body > svg { display: block; width: 100%; height: 100%; }
+  .whero__body[data-move='shy-hop'][data-beat='0'] { animation: whero-shy 640ms ease-out; }
+  .whero__body[data-move='shy-hop'][data-beat='1'] { animation: whero-shy-b 640ms ease-out; }
+  .whero__body[data-move='hop'][data-beat='0'] { animation: welcome-hop 560ms ease-out 2; }
+  .whero__body[data-move='hop'][data-beat='1'] { animation: welcome-hop-b 560ms ease-out 2; }
+  .whero__body[data-move='wiggle'][data-beat='0'] { animation: whero-wiggle 700ms ease-in-out; }
+  .whero__body[data-move='wiggle'][data-beat='1'] { animation: whero-wiggle-b 700ms ease-in-out; }
+  /* What it says: a little bubble over its head */
+  .whero__bubble {
+    position: absolute;
+    left: 50%;
+    bottom: 86%;
+    z-index: 2;
+    width: max-content;
+    max-width: min(15rem, 80vw);
+    padding: 0.45rem 0.85rem;
+    border-radius: 1rem;
+    background: hsl(0 0% 100% / 0.95);
+    color: hsl(260 35% 22%);
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-align: center;
+    box-shadow: 0 8px 20px -10px hsl(260 50% 30% / 0.45);
+    translate: -50% 0;
+    transform-origin: 50% 100%;
+    opacity: 0;
+    scale: 0.85;
+    transition: opacity 220ms ease-out, scale 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
+    pointer-events: none;
+  }
+  .whero__bubble::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    width: 12px;
+    height: 12px;
+    translate: -50% -55%;
+    rotate: 45deg;
+    background: inherit;
+    border-radius: 2px;
+  }
+  .whero__bubble[data-shown='true'] { opacity: 1; scale: 1; }
+  .dark .whero__bubble { background: hsl(250 30% 22% / 0.95); color: hsl(45 60% 92%); }
+  .whero[data-reduced='true'] .whero__bubble { transition: none; }
+  /* A guide: small, at the side of a step, its bubble beside it */
+  .whero--guide { width: 4.6rem; height: 4.6rem; flex: none; }
+  .whero--guide .whero__bubble { left: 100%; bottom: 46%; translate: 0.35rem 0; max-width: min(14rem, calc(100vw - 7.5rem)); font-size: 0.85rem; transform-origin: 0 100%; }
+  .whero--guide .whero__bubble::after { left: 0; top: auto; bottom: 0.55rem; translate: -40% 0; }
+
+  /* ─── A later step: the guide, then the card, the card scrolling inside itself when it must ─── */
+  .welcome-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding-top: calc(3.1rem + env(safe-area-inset-top));
+  }
+  .welcome-panel > .whero--guide { margin-left: max(1rem, calc(50% - 13rem)); }
+  .welcome-panel__scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.35rem 1rem calc(1rem + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .welcome-panel__card { width: 100%; max-width: 26rem; margin-block: 0 auto; }
+  /* The egg in the world: its card a little more see-through, so the pedestal reads as part of the meadow */
+  .welcome-panel .welcome-card.adopt { background: hsl(var(--card) / 0.7); }
 
   /* The card every step of the way in sits on */
   .welcome-card {
@@ -3526,27 +3713,26 @@
   @keyframes hatch-hop { 0% { translate: 0 0; scale: 1 1; } 20% { scale: 1.08 0.9; } 50% { translate: 0 -12%; scale: 0.94 1.07; } 100% { translate: 0 0; scale: 1 1; } }
   @keyframes hatch-fade { from { opacity: 0; translate: 0 6px; } to { opacity: 1; translate: 0 0; } }
 
+  @keyframes whero-breathe { 0%, 100% { scale: 1 1; rotate: 0deg; } 40% { scale: 1.015 0.985; } 70% { scale: 0.99 1.02; rotate: 0deg; } 80% { rotate: -2.5deg; } 90% { rotate: 1.5deg; } }
+  @keyframes whero-shy { 0% { translate: 0 0; } 30% { translate: 0 -5%; rotate: -4deg; } 60% { translate: 0 0; rotate: 3deg; } 100% { rotate: 0deg; } }
+  @keyframes whero-shy-b { 0% { translate: 0 0; } 30% { translate: 0 -5%; rotate: -4deg; } 60% { translate: 0 0; rotate: 3deg; } 100% { rotate: 0deg; } }
+  @keyframes whero-wiggle { 0%, 100% { rotate: 0deg; scale: 1; } 20% { rotate: -8deg; scale: 1.04; } 40% { rotate: 7deg; } 60% { rotate: -5deg; translate: 0 -6%; } 80% { rotate: 3deg; translate: 0 0; } }
+  @keyframes whero-wiggle-b { 0%, 100% { rotate: 0deg; scale: 1; } 20% { rotate: -8deg; scale: 1.04; } 40% { rotate: 7deg; } 60% { rotate: -5deg; translate: 0 -6%; } 80% { rotate: 3deg; translate: 0 0; } }
+
   @media (prefers-reduced-motion: reduce) {
-    .welcome__cloud, .welcome__spark, .welcome__member, .welcome__member > :first-child,
+    .welcome__cloud, .welcome__spark, .wscene__friend, .wscene__friend > :first-child, .wscene__friend::before, .whero__body, .wscene__title,
     .adopt__light, .adopt__egg, .hatch-theater__actor {
       animation: none !important;
     }
   }
-  /* A short phone (an SE, a phone with its browser bars out): the list gives way so both doors are on the first screen */
-  @media (max-height: 720px) {
-    .welcome__scroll { padding-top: calc(2.6rem + env(safe-area-inset-top)); }
-    .welcome__cast { min-height: 72px; }
-    .welcome-card { gap: 0.6rem; padding-top: 1rem; }
-    .welcome-card__logo { height: 2rem; }
-    .welcome-card__title { font-size: 1.3rem; }
-    .welcome-card__lead { font-size: 0.9rem; }
-  }
-  /* The smallest phones (an SE): the chips give way so both doors stay on the first screen */
-  @media (max-height: 600px) {
-    .welcome-card__points { display: none; }
-  }
-  @media (max-height: 420px) {
-    .welcome__cast { display: none; }
+  /* A landscape phone: the scene is a strip, so the Blobbi stands beside the doors rather than over them */
+  @media (max-height: 480px) and (min-width: 600px) {
+    .wscene { flex-direction: row; align-items: stretch; }
+    .wscene__stage { flex: 1 1 50%; min-height: 0; overflow: clip; }
+    .whero--hero { bottom: 0.2rem; }
+    .wscene__friend { bottom: 0.2rem; }
+    .wscene__band { flex: 0 0 min(24rem, 50%); justify-content: center; background: transparent; }
+    .wscene__band::before { display: none; }
   }
 }
 

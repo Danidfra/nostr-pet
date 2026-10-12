@@ -3,7 +3,15 @@ import { toDataURL } from 'qrcode';
 import { AlertTriangle, ArrowLeft, Copy, Egg, FileUp, Heart, Home, ImagePlus, KeyRound, Loader2, ShieldCheck, Smartphone, Sparkles, UserRound } from 'lucide-react';
 import type { NostrConnectParams, NostrConnectStatus } from '@nostrify/react/login';
 import type { NostrMetadata } from '@nostrify/nostrify';
+import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import { EnterIslandButton } from '@/features/home/EnterIslandButton';
+import { GameOverlay } from '@/features/home/shell/GameOverlay';
+import { toBlobbiVisual } from '@/lib/blobbi-visual';
+import { useSound } from '@/features/sound';
+import { StagePanel } from './WelcomeStage';
+import { WelcomeHero } from './WelcomeHero';
+import { INVITATION } from './welcome-hero';
+import { welcomeCast } from './welcome-cast';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { KeyBackup } from './KeyBackup';
 import { createNewAccount, isNsec, readNsecFromText, type NewAccount } from './new-account';
@@ -11,11 +19,21 @@ import { checkRelayTransport } from '@/lib/relay-transport';
 import { signInMessage, withTimeout } from './sign-in';
 import { PROFILE_ABOUT_MAX, PROFILE_NAME_MAX, checkProfileForm, profileFormFrom, type ProfileFormInput } from './profile-plan';
 
+/** What the little guide says beside each step: friendly, never instead of the step's own plain words. */
+const GUIDE_LINES: Record<string, string> = {
+  'onboarding-create-account': 'This little key opens my home!',
+  'onboarding-existing-account': 'Welcome back! I missed you.',
+  'onboarding-profile': 'What should I call you?',
+};
+
+/** A step of the way in: the card, in the welcome's world, with the Blobbi guide beside it. */
 function Card({ children, testId, busy }: { children: React.ReactNode; testId: string; busy?: boolean }) {
   return (
-    <section className="welcome-card" data-testid={testId} aria-busy={busy}>
-      {children}
-    </section>
+    <StagePanel line={GUIDE_LINES[testId] ?? 'Hello again!'}>
+      <section className="welcome-card" data-testid={testId} aria-busy={busy}>
+        {children}
+      </section>
+    </StagePanel>
   );
 }
 
@@ -31,52 +49,100 @@ function BackButton({ onClick, label = 'Back' }: { onClick: () => void; label?: 
 /* ─── Welcome ─────────────────────────────────────────────────────────── */
 
 /**
- * The first screen: what a Blobbi is, in one breath, and two doors. A new
- * visitor's door says what they will do (adopt), not what an account is; the
- * key is explained on the next screen, when it exists. A returning player's
- * door is right under it. Nostr is named only on request. A page that cannot
- * reach the network (plain HTTP on a LAN address, no Web Crypto) says so
- * here, before anyone makes a key it could not use.
+ * The first screen (M12.2): not a page about Blobbi but a little scene with
+ * one in it. A Blobbi notices you ("Oh! You're here!"), follows you with its
+ * eyes and answers a tap; a grown-up friend and an egg wait beside it. Under
+ * it, one line ("A little friend is waiting for you.") and two doors, there
+ * from the first frame: Meet your Blobbi (a new key, then the egg) and
+ * Welcome back! (an account you have). What Blobbi and Nostr are is one tap
+ * away, in a sheet, for whoever asks. A page that cannot reach the network
+ * (plain HTTP on a LAN address, no Web Crypto) says so here, before anyone
+ * makes a key it could not use.
+ *
+ * Laid out from the viewport down: the band (the line and the doors) takes
+ * what it needs and the scene takes the rest, the Blobbi sized from the
+ * scene's own height, so a short phone shows a smaller Blobbi, never a page
+ * to scroll.
  */
 export function WelcomeScreen({ onCreate, onExisting }: { onCreate: () => void; onExisting: () => void }) {
   const [blocked] = useState(() => checkRelayTransport());
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [hero, egg, grownUp] = welcomeCast();
   return (
-    <section className="welcome-card" data-testid="onboarding-welcome">
-      <img src="/blobbilogo.svg" alt="Blobbi" className="welcome-card__logo" width={148} height={48} />
-      <h1 className="welcome-card__title">A little creature, waiting to hatch</h1>
-      <p className="welcome-card__lead">Adopt an egg. Watch it hatch. Feed it, play with it and make its home cozy as it grows.</p>
-      <ul className="welcome-card__points" aria-label="What you can do">
-        <li><Egg aria-hidden /> One of a kind</li>
-        <li><Heart aria-hidden /> Eats, plays and naps</li>
-        <li><Home aria-hidden /> Rooms to decorate</li>
-      </ul>
-      {blocked && (
-        <p role="alert" className="welcome-card__warning" data-testid="welcome-blocked">
-          <AlertTriangle aria-hidden /> {blocked.message}
-        </p>
-      )}
-      <div className="welcome-card__actions">
-        <button type="button" className="onboard-btn onboard-btn--primary welcome-card__primary" onClick={onCreate} data-testid="onboarding-create">
-          <Sparkles className="h-4 w-4" aria-hidden />
-          Adopt my Blobbi
-        </button>
-        <button type="button" className="onboard-btn onboard-btn--secondary" onClick={onExisting} data-testid="onboarding-existing">
-          <KeyRound className="h-4 w-4" aria-hidden />
-          I have an account
+    <section className="wscene" data-testid="onboarding-welcome" aria-labelledby="welcome-title">
+      {/* The scene: the Blobbi who welcomes you, with a friend and an egg that is waiting for someone */}
+      <div className="wscene__stage" data-testid="welcome-cast">
+        <img src="/blobbilogo.svg" alt="Blobbi" className="wscene__logo" width={148} height={48} />
+        {grownUp && <SceneFriend blobbi={grownUp} where="left" />}
+        {hero && <WelcomeHero blobbi={hero} />}
+        {egg && <SceneFriend blobbi={egg} where="right" />}
+      </div>
+      {/* The invitation and the two doors, there from the first frame: nobody waits for an animation */}
+      <div className="wscene__band">
+        <h1 id="welcome-title" className="wscene__title">
+          {INVITATION}
+        </h1>
+        {blocked && (
+          <p role="alert" className="welcome-card__warning" data-testid="welcome-blocked">
+            <AlertTriangle aria-hidden /> {blocked.message}
+          </p>
+        )}
+        <div className="wscene__actions">
+          <button type="button" className="onboard-btn onboard-btn--primary welcome-card__primary" onClick={onCreate} data-testid="onboarding-create">
+            <Sparkles className="h-4 w-4" aria-hidden />
+            Meet your Blobbi
+          </button>
+          <button type="button" className="onboard-btn onboard-btn--secondary" onClick={onExisting} aria-describedby="welcome-back-hint" data-testid="onboarding-existing">
+            <KeyRound className="h-4 w-4" aria-hidden />
+            Welcome back!
+          </button>
+          <span id="welcome-back-hint" className="sr-only">
+            I already have an account
+          </span>
+        </div>
+        <button type="button" className="wscene__about" onClick={() => setAboutOpen(true)} data-testid="welcome-what-is-nostr">
+          What is Blobbi?
         </button>
       </div>
-      <p className="welcome-card__fine">Free, no email. Your Blobbi belongs to your own key.</p>
-      <details className="welcome-card__more" data-testid="welcome-what-is-nostr">
-        <summary>How does it work?</summary>
-        <p>
+      <GameOverlay open={aboutOpen} onClose={() => setAboutOpen(false)} title="What is Blobbi?" testId="welcome-about">
+        <ul className="welcome-card__points welcome-about__points" aria-label="What you can do">
+          <li><Egg aria-hidden /> One of a kind, from the moment it is an egg</li>
+          <li><Heart aria-hidden /> It notices you, eats, plays and naps</li>
+          <li><Home aria-hidden /> A home with rooms to walk and decorate</li>
+        </ul>
+        <p className="welcome-about__text">Free, with no email. Your Blobbi belongs to your own key, a little like a house key that only you hold.</p>
+        <p className="welcome-about__text">
           Blobbi runs on Nostr, an open network where your account is a key you hold, not a password on our server. The same key and the same Blobbi work in
-          Blobbi Island and Ditto. If you already use Nostr, sign in with it.
+          Blobbi Island and Ditto. If you already use Nostr, choose Welcome back! and sign in with it.
         </p>
-        <div className="mt-2 flex justify-center">
+        <div className="mt-3 flex justify-center">
           <EnterIslandButton variant="secondary" />
         </div>
-      </details>
+      </GameOverlay>
     </section>
+  );
+}
+
+/** A friend in the scene: hops when tapped (and coos, with sound on). Decoration with a small surprise, not a control. */
+function SceneFriend({ blobbi, where }: { blobbi: ReturnType<typeof welcomeCast>[number]; where: 'left' | 'right' }) {
+  const { play } = useSound();
+  const [hop, setHop] = useState(0);
+  return (
+    <button
+      type="button"
+      className={where === 'left' ? 'wscene__friend wscene__friend--left' : 'wscene__friend wscene__friend--right'}
+      data-stage={blobbi.stage}
+      data-hop={hop > 0 ? hop % 2 : undefined}
+      onClick={() => {
+        setHop((h) => h + 1);
+        play(blobbi.stage === 'egg' ? 'poke' : 'happy');
+      }}
+      aria-label={blobbi.stage === 'egg' ? 'An egg, waiting for someone' : `${blobbi.name}, a grown-up Blobbi`}
+      tabIndex={-1}
+    >
+      <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`welcome-${blobbi.d}`} size="100%" eggCrack="none" transparent style={{ width: '100%', height: '100%' }} expression={blobbi.stage === 'egg' ? undefined : 'happy'} />
+      <span className="wscene__friend-shadow" aria-hidden />
+    </button>
   );
 }
 
@@ -130,13 +196,13 @@ function CreateAccountKey({ account, onBack, onCreated, login }: { account: NewA
     <Card testId="onboarding-create-account">
       <BackButton onClick={onBack} />
       <div className="space-y-1">
-        <h2 className="text-xl font-semibold">First, your key</h2>
+        <h2 className="text-xl font-semibold">Your Blobbi’s house key</h2>
         <p className="text-sm text-muted-foreground">
-          Your Blobbi needs a home that belongs to you. Instead of a password, you get a <strong>secret key</strong>: it was just made on this device, and nobody else has it, not even us.
+          This little key opens your Blobbi’s home. Keep it safe! It is a <strong>secret key</strong>, made just now on this device: nobody else has it, not even us. It is your account, instead of a password.
         </p>
       </div>
       <div className="rounded-2xl border border-amber-400/60 bg-amber-50/80 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100" role="note" data-testid="key-warning">
-        <p className="font-semibold">Keep it like a house key.</p>
+        <p className="font-semibold">If you lose it, you lose your Blobbi’s home for good.</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs">
           <li>It is the only way back in on a new phone or after clearing this browser. There is no reset and no recovery email.</li>
           <li>Whoever has it can use your account. Never share it, and never paste it into a site you do not trust.</li>
@@ -158,7 +224,7 @@ function CreateAccountKey({ account, onBack, onCreated, login }: { account: NewA
       )}
       <button type="button" className="onboard-btn onboard-btn--primary" onClick={finish} disabled={!confirmed} data-testid="onboarding-continue">
         <Egg className="h-4 w-4" aria-hidden />
-        Continue to my egg
+        On to my egg!
       </button>
       <p className="text-xs text-muted-foreground">
         On this device the key is kept by the sign-in store, the same one Blobbi Island and Ditto use. You can see it again from the menu, under Account.

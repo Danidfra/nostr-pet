@@ -28,7 +28,7 @@ export function NeedBubbles({ items, max = 2 }: NeedBubblesProps) {
       {needs.map(({ stat, status }) => {
         const Icon = ICON[stat];
         return (
-          <span key={stat} role="listitem" className={`need-bubble need-bubble--${status}`} aria-label={`${WORD[stat]}${status === 'critical' ? ', urgently' : ''}`} data-testid={`need-${stat}`} data-status={status}>
+          <span key={stat} role="listitem" className={status === 'critical' ? 'need-bubble need-bubble--critical' : 'need-bubble'} aria-label={`${WORD[stat]}${status === 'critical' ? ', urgently' : ''}`} data-testid={`need-${stat}`} data-status={status}>
             <Icon className="h-3.5 w-3.5" aria-hidden />
           </span>
         );

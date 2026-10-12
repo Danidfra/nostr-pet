@@ -100,7 +100,10 @@ describe('Home: signed out', () => {
     currentUser.user = undefined;
     renderHome();
     expect(await screen.findByTestId('onboarding-welcome')).toBeInTheDocument();
+    // The Island is in "What is Blobbi?" (M12.2: the first screen is the scene and its two doors)
+    await userEvent.click(screen.getByTestId('welcome-what-is-nostr'));
     expect(islandLink()).toHaveAttribute('href', DEFAULT_BLOBBI_ISLAND_URL);
+    await userEvent.keyboard('{Escape}');
     await userEvent.click(screen.getByTestId('onboarding-existing'));
     expect(await screen.findByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in with extension/i })).toBeInTheDocument();

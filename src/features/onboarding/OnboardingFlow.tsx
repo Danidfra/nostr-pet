@@ -5,6 +5,7 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { resolveOnboardingStep, type OnboardingStep } from './onboarding-steps';
 import { CreateAccountScreen, ExistingAccountScreen, ProfileSetupScreen, WelcomeScreen } from './screens';
 import { useProfileSetup } from './useProfileSetup';
+import { StagePanel } from './WelcomeStage';
 
 interface OnboardingFlowProps {
   /** The signed-in pubkey, or undefined while signed out. */
@@ -64,12 +65,17 @@ export function OnboardingFlow({ pubkey, hasBlobbi, updateCompanionEvent, refres
     case 'existing':
       return <ExistingAccountScreen onBack={() => setChoice(null)} />;
     case 'loading':
-      return <>{loading}</>;
+      return <StagePanel line="Just a moment…">{loading}</StagePanel>;
     case 'profile':
       return <ProfileSetupScreen existing={author.data?.metadata} onSave={saveProfile} onSkip={skipProfile} onUpload={uploadPicture} pending={profileSetup.publish.isPending} error={profileSetup.publish.error} />;
     case 'adopt':
       // Brief when the welcome was seen this session (a door was chosen or a profile step done); full for a returning player landing here.
-      return pubkey ? <AdoptionFlow pubkey={pubkey} suggestedName={author.data?.metadata?.name || author.data?.metadata?.display_name || undefined} updateCompanionEvent={updateCompanionEvent} refresh={refresh} brief={choice !== null || newAccount || profileDone} /> : null;
+      // The egg in the same world: the guide who welcomed you points at it (the adoption itself is unchanged)
+      return pubkey ? (
+        <StagePanel line="Look! Your very own egg!">
+          <AdoptionFlow pubkey={pubkey} suggestedName={author.data?.metadata?.name || author.data?.metadata?.display_name || undefined} updateCompanionEvent={updateCompanionEvent} refresh={refresh} brief={choice !== null || newAccount || profileDone} />
+        </StagePanel>
+      ) : null;
     case 'home':
       return null;
   }

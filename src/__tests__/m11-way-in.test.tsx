@@ -118,7 +118,7 @@ describe('a new visitor', () => {
     renderApp('/');
     // The welcome: real Blobbis, what to do, and two doors; no key yet, nothing read about anyone
     const welcome = await screen.findByTestId('onboarding-welcome');
-    expect(within(welcome).getByRole('heading', { level: 1 })).toHaveTextContent(/hatch/i);
+    expect(within(welcome).getByRole('heading', { level: 1 })).toHaveTextContent(/little friend is waiting/i);
     expect(screen.getByTestId('welcome-cast').querySelectorAll('[data-blobbi-renderer]').length).toBe(3);
     expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '[]')).toHaveLength(0);
     expect(relay.published).toHaveLength(0);

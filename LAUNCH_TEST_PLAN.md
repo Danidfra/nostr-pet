@@ -16,11 +16,16 @@ deployment.**
 
 ## 1. A new visitor (private window)
 
-1. Open the root. The welcome shows three Blobbis, one line, three small
-   chips, **Adopt my Blobbi** and **I have an account**, with no scrolling
-   (try 320×568, 375×667, 390×844 and a desktop; on the smallest phone the
-   chips step aside). With the OS text size at its largest it may scroll,
-   but nothing is cut off.
+1. Open the root. The welcome is a little scene, not a page: a Blobbi says
+   "Oh! You're here!" (a friend and a glowing egg beside it), then "A little
+   friend is waiting for you." with **Meet your Blobbi** and **Welcome back!**
+   (both usable at once). **No scrolling**, in Safari with its bars showing,
+   portrait and landscape; on the smallest phone the Blobbi is just smaller.
+   Move the mouse or touch the screen: it looks there. Tap it three times:
+   shy, giggly, overjoyed, each its own hop and line. **What is Blobbi?**
+   opens a sheet (what it is, Nostr, the Island). With the OS text size at its
+   largest the scene may scroll inside itself, but nothing is cut off and the
+   page itself never scrolls. Reduced motion: no hops or bobbing, same words.
 2. Open the console (desktop): no CSP violations, no errors.
 3. **Adopt my Blobbi** → the key screen. Save the key (copy or download);
    the button stays off until the box is ticked.

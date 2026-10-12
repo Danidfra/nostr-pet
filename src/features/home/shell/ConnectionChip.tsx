@@ -22,7 +22,7 @@ export function ConnectionChip({ level, online, onRetry, busy = false }: Connect
   const label = !online ? 'Offline' : offline ? 'Relays unreachable' : 'Some relays down';
   const title = !online ? 'Your device is offline. Care will not reach the relays until it is back.' : offline ? 'No application relay is answering. What you see may be out of date.' : 'Some application relays are not answering. Reads and writes go through the rest.';
   return (
-    <span className={`conn-chip conn-chip--${level}`} role="status" aria-live="polite" title={title} data-testid="connection-chip" data-level={level}>
+    <span className={level === 'offline' ? 'conn-chip conn-chip--offline' : 'conn-chip conn-chip--degraded'} role="status" aria-live="polite" title={title} data-testid="connection-chip" data-level={level}>
       {!online ? <WifiOff className="h-3.5 w-3.5" aria-hidden /> : <CloudOff className="h-3.5 w-3.5" aria-hidden />}
       <span className="conn-chip__label">{label}</span>
       <button type="button" className="conn-chip__retry" onClick={onRetry} disabled={busy} aria-label="Try the relays again" data-testid="connection-retry">

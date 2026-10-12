@@ -558,3 +558,51 @@ Checked by building and reading the bundle, the config and the code:
 5. Ditto pays a finished day again on every reload (in-memory guard); the
    kit's `useAwardDailyXp` should apply the same fresh-profile rule. Not a
    Standalone blocker, but players using both apps can be overpaid by Ditto.
+
+## M12.2: the welcome as a little world (2026-10-12)
+
+### What changed
+- **Welcome scene** (`onboarding/WelcomeStage.tsx`, `screens.tsx`
+  `WelcomeScreen`, `WelcomeHero.tsx`, `welcome-hero.ts`): a full-screen world
+  (sky, sun, clouds, meadow; CSS only) with a Blobbi drawn by the kit that
+  greets the visitor, follows the pointer or a touch with its eyes, blinks,
+  and answers taps in turn (shy, giggle, joy); a grown-up friend and a glowing
+  egg beside it. One line and two doors (**Meet your Blobbi**, **Welcome
+  back!**) from the first frame; "What is Blobbi?" in a sheet.
+- **Later steps** (key, sign-in, profile, egg, loading) stand in the same
+  world as panels with the Blobbi as a small guide saying one line. The key
+  screen leads with "This little key opens your Blobbi's home. Keep it safe!"
+  and keeps every warning (no reset, no recovery, never share), now headed
+  "If you lose it, you lose your Blobbi's home for good." No logic changed.
+- **Why it still scrolled:** the M12.1 welcome was a stack of fixed heights
+  (~640 px at 390 wide) in a container allowed to scroll, measured against
+  device screen sizes; Safari shows a page in far less (bars: ~660 px on a
+  390×844 iPhone, ~553 on an SE 2, ~460 on a first SE), so real phones tipped
+  over. The new layout starts from the viewport: the band takes what it
+  needs, the scene the rest, and the Blobbi is sized from the scene's own
+  height (container query units, a `vh` fallback). The document itself never
+  scrolled (checked).
+- **Found and fixed:** component classes whose modifier was built at runtime
+  (`journey-status--${…}`, `conn-chip--${…}`, `need-bubble--${…}`,
+  `furniture-shadow--${…}`) had their rules dropped from production CSS by
+  Tailwind's content scan: the Journey's chapter and status styles, the
+  connection chip's colours, a critical need bubble never shipped. They are
+  literal names now; `css-class-names.test.ts` guards it.
+
+### Verified
+- Typecheck, lint, the full suite (169 files, 1230 tests, half the workers),
+  the production build; the production build under its CSP (vite preview):
+  no violation, no error.
+- Headless Chrome, fake relays: no page or scene scroll, no sideways scroll,
+  the heading and both doors in view at 320×568, 375×667, 390×844, 430×932,
+  1280×800 and at Safari's visible sizes 320×460, 375×553, 390×664, 430×740,
+  and landscape 844×390 and 667×375; at 150% text on 390×664 still none;
+  larger text scrolls the scene (never the page) with every control reachable.
+  Day and night looks; eyes, blink, the three reactions, keyboard focus kept;
+  the key, profile and egg steps with no page scroll at 390×664, 320×460 and
+  desktop.
+
+### Not verified
+- **Real iPhone Safari** (bars appearing and hiding while scrolling, the
+  home indicator, the keyboard on the name field) and any real device.
+- Visual and audio approval of the scene, the reactions and the guide.

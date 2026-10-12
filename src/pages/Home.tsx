@@ -82,7 +82,7 @@ export default function Home({ classic = false }: { classic?: boolean } = {}) {
   );
 }
 
-/** Over the welcome: only the menu (sound, lighting), out of the way; the logo is on the card. */
+/** Over the welcome: only the menu (sound, lighting), out of the way; the logo is in the scene. */
 function WelcomeTop({ onOpenMenu }: { onOpenMenu: () => void }) {
   return (
     <header className="welcome-top" data-testid="hud-top">
