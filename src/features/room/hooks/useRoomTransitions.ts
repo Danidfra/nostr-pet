@@ -18,6 +18,13 @@
  * the sounds (the cues). Driven by animation frames; a hidden tab skips to
  * the end, so nothing is ever left half way. Unmounting mid-scene leaves the
  * Blobbi standing on the floor.
+ *
+ * A room counts as seen only once its build (the full fold-in, a first
+ * visit's) has played to its end in front of the player: the scene reports
+ * that (`RoomScene.onIntroDone`, the shell's `onRoomBuilt`) and the page
+ * marks the memory. Nothing here marks a room seen: a scene cut short, a
+ * build the page was hidden for, or a room shown with no 3D at all leaves
+ * the room unseen, and its build plays next time.
  */
 import { useCallback, useEffect, useRef, useState, type MutableRefObject, type RefObject } from 'react';
 
@@ -36,8 +43,8 @@ const MIDDLE: FloorPoint = { x: ROOM_GRID / 2 + 0.5, z: ROOM_GRID / 2 + 0.5 };
 const RAPID_MS = 700;
 
 export interface RoomTransitionMemory {
+  /** Whether the room's build has played to its end in front of the player (the page marks it, from the scene's word). */
   seen: (room: RoomId) => boolean;
-  markSeen: (room: RoomId) => void;
   positionIn: (room: RoomId) => FloorPoint | null;
   rememberPosition: (room: RoomId, at: FloorPoint) => void;
 }
@@ -124,13 +131,6 @@ export function useRoomTransitions(options: UseRoomTransitionsOptions): RoomTran
   const shownRef = useRef(initialRoom);
   const forced = useRef<{ kind: TransitionKind; intro?: RoomIntro; holdAt?: number } | null>(null);
 
-  // The first room, once built in front of the player, is remembered as seen
-  useEffect(() => {
-    const room = shownRef.current;
-    const timer = setTimeout(() => opts.current.memory.markSeen(room), 1600);
-    return () => clearTimeout(timer);
-  }, []);
-
   const pose2d = useCallback((pose: { sx: number; sy: number; pitch: number; roll: number } | null) => {
     const box = opts.current.boxRef.current;
     if (!box) return;
@@ -169,7 +169,6 @@ export function useRoomTransitions(options: UseRoomTransitionsOptions): RoomTran
     pose2d(null);
     opts.current.clearFace('transition');
     lastEnd.current = performance.now();
-    if (run.choreo.intro === 'build' || run.firstVisit) opts.current.memory.markSeen(run.room);
     const at = control?.blobbiPosition();
     if (at) opts.current.memory.rememberPosition(run.room, at);
     if (!silent) {

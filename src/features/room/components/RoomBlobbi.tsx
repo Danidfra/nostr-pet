@@ -17,7 +17,7 @@
  */
 
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
-import { BlobbiRenderer, type BlobbiExpression, type BlobbiFacing, type BlobbiMotion } from '@blobbi-kit/renderer';
+import { BlobbiRenderer, type BlobbiExpression, type BlobbiFacing, type BlobbiMotion, type BlobbiVisualEffect, type NormalizedAccessoryPlacement } from '@blobbi-kit/renderer';
 import { TeleportFrame2D } from '@/features/teleport/react/TeleportFrame2D';
 import type { Journey } from '@/features/teleport/presence';
 import type { JourneyKind } from '@/features/teleport/timeline';
@@ -57,6 +57,10 @@ interface RoomBlobbiProps {
   moteDensity?: number;
   /** A fixed moment of a journey to show (the development scrubber). */
   journeyPreview?: { kind: JourneyKind; t: number; reduced?: boolean } | null;
+  /** What the Island dressed it in, for this facing (read-only; `useWornEquipment`). */
+  accessories?: readonly NormalizedAccessoryPlacement[];
+  /** Worn visual effects around it. */
+  effects?: readonly BlobbiVisualEffect[];
 }
 
 /** Side of the Blobbi's art box before the room scales it. */
@@ -100,7 +104,7 @@ function Standing({ inset, nameTag, children }: { inset: number; nameTag?: React
   );
 }
 
-export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', motion, eyeOffset, variant = 'main', gesture, journey = null, absent = false, journeyPreview = null, moteDensity = 1 }, ref) {
+export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function RoomBlobbi({ blobbi, facing = 'front', expression = 'neutral', motion, eyeOffset, variant = 'main', gesture, journey = null, absent = false, journeyPreview = null, moteDensity = 1, accessories, effects }, ref) {
   const boxRef = useRef<HTMLDivElement>(null);
   useImperativeHandle(ref, () => boxRef.current as HTMLDivElement);
   // A gesture: the home's keyframes on this box around the renderer, composited over whatever it is doing
@@ -159,6 +163,8 @@ export const RoomBlobbi = forwardRef<HTMLDivElement, RoomBlobbiProps>(function R
             motion={bodyMotion}
             eyeOffset={isEgg || isSleeping ? undefined : limitGaze(eyeOffset, gazeReach)}
             expression={expression}
+            accessories={accessories}
+            effects={effects}
             isSleeping={isSleeping}
             sleepIndicator="none"
             label={blobbi.name}

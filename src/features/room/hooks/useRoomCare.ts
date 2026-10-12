@@ -9,28 +9,27 @@
  *   starter  `useStarterUse`  31124 → 1124, nothing spent
  *   rest     `useCareActions` 31124 → 1124 (sleep or wake)
  *
- * and their guards stand: one use at a time (`use` returns false while one
- * is in flight), a fresh 31124 and a fresh balance read right before any
- * signature, an ambiguous publish never retried by itself. What this adds
- * is the room's choreography around them, the home's `offerItem` in 3D:
+ * and their guards stand: one use at a time, a fresh 31124 and a fresh
+ * balance read right before any signature, an ambiguous publish never
+ * retried by itself. What this adds is the room's bookkeeping of an item
+ * on its way to the Blobbi (`RoomOffer`), in four moments the room's
+ * interaction director (`useRoomInteractions`) plays out around it:
  *
- *   hand      food or drink given to the Blobbi: the use starts at once;
- *   set down  anything else (or food set on the floor): it lies there, the
- *             Blobbi walks to it (`approach`), and only on ARRIVAL does the
- *             use start. A walk replaced, stopped (a room switch, a tap
- *             elsewhere) or refused uses nothing and the item goes back.
+ *   place     the item is set down in the room (`walking`): nothing is used;
+ *             it can still be taken back (`putAway`) or replaced
+ *   begin     the Blobbi has reached it: the semantic use starts (`using`)
+ *             and `begin` resolves when it has landed (never before), or
+ *             failed; a landed use was visible at least `MIN_USE_MS`
+ *   eating    food and drink, once landed: bite by bite (`eating`), the
+ *             director's choreography, nothing more written
+ *   finish    the offer is cleared and the result celebrated: the face, a
+ *             hop, the stat chips and the sound come from what the write
+ *             actually changed. Nothing is shown eaten or celebrated before
+ *             the pipeline says it was.
  *
- * Then the celebration waits for the authoritative result AND for the use
- * to have been visible a moment (`MIN_USE_MS`): the face, a hop, the stat
- * chips and the sound come from what the write actually changed. Food and
- * drink are eaten first, and only then: once the write has landed, the
- * offer turns `eating` for a few bites (`EAT`), the munch playing with
- * them, and the celebration follows the last bite. Nothing is shown eaten
- * before the pipeline says it was. A failed
- * use leaves the item where it was with Retry (an explicit tap; an owned
- * spend resumes its own record rather than signing a new one) and Put away.
- *
- * Selecting, dragging, hovering, walking and putting away write nothing.
+ * A failed use leaves the item where it was with Retry (an explicit tap; an
+ * owned spend resumes its own record rather than signing a new one) and Put
+ * away. Selecting, placing, walking and putting away write nothing.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BlobbiCompanion, NostrEvent } from '@blobbi-kit/core';
@@ -52,9 +51,9 @@ export interface RoomOffer {
   entryKey: string;
   choice: CareChoice;
   name: string;
-  /** Handed over, or lying on the floor of a room for the Blobbi to come to. */
-  place: { kind: 'hand' } | { kind: 'floor'; x: number; z: number; roomId: RoomId };
-  /** On its way, being used (the write out), eaten (the write landed: food and drink only), or failed. */
+  /** Where it lies in the room, for the Blobbi to come to. */
+  place: { kind: 'floor'; x: number; z: number; roomId: RoomId };
+  /** Set down and waited for, being used (the write out), eaten (the write landed: food and drink only), or failed. */
   phase: 'walking' | 'using' | 'eating' | 'failed';
   usingSince?: number;
   /** Eating: when it began, and how many bites it takes. */
@@ -64,6 +63,11 @@ export interface RoomOffer {
   error?: string;
 }
 
+export type UseResult = ItemUseResult | StarterUseResult;
+
+/** How a begun use ended: landed (with what it did), or failed (the offer stays, with Retry and Put away). */
+export type UseOutcome = { kind: 'landed'; result: UseResult; feedback: FeedbackResult } | { kind: 'failed'; error: string };
+
 export interface RoomCareFeedback {
   result: FeedbackResult;
   /** Changes with each result, so the chips replay. */
@@ -71,8 +75,6 @@ export interface RoomCareFeedback {
 }
 
 interface UseRoomCareOptions {
-  /** Fewer, quicker bites when the player prefers less motion. */
-  reducedMotion?: boolean;
   blobbi: BlobbiCompanion;
   pubkey: string | undefined;
   updateCompanionEvent: (event: NostrEvent) => void;
@@ -86,12 +88,23 @@ interface UseRoomCareOptions {
 export interface RoomCare {
   inventory: HomeInventory;
   offer: RoomOffer | null;
-  /** Something is on its way or being written: no second use, no decorating. */
+  /** A write is out or being eaten: no second use, no decorating. */
   busy: boolean;
-  /** Use an entry the way a drop or the Use button planned. False when it could not start (busy, not usable, nowhere to go). */
-  use: (entry: RoomCareEntry, plan: DropPlan, roomId: RoomId) => boolean;
-  /** Try a failed use again (the player's tap; never by itself). */
-  retry: () => void;
+  /**
+   * Set an item down in the room for the Blobbi (`walking`); nothing is used. Null when it cannot be placed (a
+   * write is out, the item is not usable, nowhere to put it). An item already waiting is replaced.
+   */
+  place: (entry: RoomCareEntry, plan: DropPlan, roomId: RoomId) => RoomOffer | null;
+  /** Start the semantic use of a placed offer; resolves when it has landed (visible at least `MIN_USE_MS`) or failed. */
+  begin: (key: number) => Promise<UseOutcome>;
+  /** Food and drink, landed: now being eaten, in so many bites. */
+  startEating: (key: number, bites: number) => void;
+  /** The offer is over: cleared, and its result celebrated (the chips, the face, the hop, the sound). */
+  finish: (key: number, outcome?: { feedback: FeedbackResult; alreadyApplied?: boolean; soundPlayed?: boolean }) => void;
+  /** Take a waiting or failed offer back (a cancelled walk, a change of room, Put away); nothing is used. */
+  clear: (key?: number) => void;
+  /** Try a failed use again (the player's tap; never by itself). Resolves like `begin`. */
+  retry: () => Promise<UseOutcome> | null;
   /** Take a failed or waiting item back; nothing is used. */
   putAway: () => void;
   /** Sleep (walking to the bed first, when one is given) or wake. */
@@ -103,6 +116,8 @@ export interface RoomCare {
   notice: string | null;
   /** Say something short (why an item cannot be used now). */
   notify: (text: string) => void;
+  /** The celebration alone (the dev previews, which write nothing). */
+  celebrate: (result: FeedbackResult, options?: { soundPlayed?: boolean }) => void;
 }
 
 /** How long a notice stays. */
@@ -121,14 +136,12 @@ export function bitesFor(action: string, reducedMotion: boolean): number {
   return action === 'boost' ? EAT.drink : EAT.food;
 }
 
-export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav, react, hop, reducedMotion = false }: UseRoomCareOptions): RoomCare {
+export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav, react, hop }: UseRoomCareOptions): RoomCare {
   const inventory = useHomeInventory({ pubkey, blobbi });
   const useItem = useUseItem({ pubkey, known: inventory.items, updateCompanionEvent, invalidate: refresh });
   const useStarter = useStarterUse({ pubkey, updateCompanionEvent, invalidate: refresh });
   const care = useCareActions({ pubkey, updateCompanionEvent, invalidate: refresh });
   const { play } = useSound();
-  const reducedMotionRef = useRef(false);
-  reducedMotionRef.current = reducedMotion;
 
   const [offer, setOfferState] = useState<RoomOffer | null>(null);
   const offerRef = useRef<RoomOffer | null>(null);
@@ -158,7 +171,7 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
       setFeedback({ result, key: feedbackKeyRef.current });
       react(reactionForCare(result.action, result.nextState));
       if (result.nextState === 'active') hop();
-      // In the room an energy drink is sipped (the home keeps its cheer)
+      // In the room an energy drink is sipped (the home keeps its cheer); food's munch and play's cheer are the director's
       const sound = result.action === 'boost' ? 'drink' : soundForCare(result.action, result.nextState);
       if (sound && !options.soundPlayed) play(sound);
     },
@@ -171,105 +184,125 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
   const resetOwned = useItem.reset;
   const resetStarter = useStarter.reset;
 
-  /** The semantic use, from an offer that has reached the Blobbi. */
+  /** Who waits for the begun use of an offer to land or fail. */
+  const outcomes = useRef(new Map<number, (outcome: UseOutcome) => void>());
+  const settleOutcome = useCallback((key: number, outcome: UseOutcome) => {
+    const waiting = outcomes.current.get(key);
+    outcomes.current.delete(key);
+    waiting?.(outcome);
+  }, []);
+
   const begin = useCallback(
-    (key: number) => {
+    (key: number): Promise<UseOutcome> => {
       const current = offerRef.current;
-      if (!current || current.key !== key) return;
-      setOffer({ ...current, phase: 'using', usingSince: Date.now(), error: undefined });
-      const request = { blobbiD: liveBlobbi.current.d };
-      const started = current.choice.source === 'owned' ? startOwned({ ...request, entry: current.choice.entry }) : startStarter({ ...request, entry: current.choice.entry });
-      if (!started) setOffer((o) => (o && o.key === key ? { ...o, phase: 'failed', error: 'Another use is still finishing. Try again in a moment.' } : o));
+      if (!current || current.key !== key) return Promise.resolve({ kind: 'failed', error: 'That item is no longer here.' });
+      return new Promise<UseOutcome>((resolve) => {
+        outcomes.current.set(key, resolve);
+        setOffer({ ...current, phase: 'using', usingSince: Date.now(), error: undefined });
+        const request = { blobbiD: liveBlobbi.current.d };
+        const started = current.choice.source === 'owned' ? startOwned({ ...request, entry: current.choice.entry }) : startStarter({ ...request, entry: current.choice.entry });
+        if (!started) {
+          const error = 'Another use is still finishing. Try again in a moment.';
+          setOffer((o) => (o && o.key === key ? { ...o, phase: 'failed', error } : o));
+          settleOutcome(key, { kind: 'failed', error });
+        }
+      });
     },
-    [setOffer, startOwned, startStarter],
+    [setOffer, startOwned, startStarter, settleOutcome],
   );
 
-  const busy = offer !== null || useItem.isPending || useStarter.isPending || care.isPending;
+  const writing = offer !== null && (offer.phase === 'using' || offer.phase === 'eating');
+  const busy = writing || useItem.isPending || useStarter.isPending || care.isPending;
   const busyRef = useRef(busy);
   busyRef.current = busy;
 
-  const use = useCallback(
-    (entry: RoomCareEntry, plan: DropPlan, roomId: RoomId): boolean => {
-      // One at a time: a double tap, a second drop or a repeated pointer event finds this already set
-      if (busyRef.current || offerRef.current || plan.kind === 'cancel' || !entry.usable) return false;
-      busyRef.current = true;
+  const clear = useCallback(
+    (key?: number) => {
+      const current = offerRef.current;
+      if (!current || (key !== undefined && current.key !== key)) return;
+      // An item whose write is out (or that is being eaten) cannot be taken back; only a waiting or failed one
+      if (current.phase === 'using' || current.phase === 'eating') return;
+      resetOwned();
+      resetStarter();
+      outcomes.current.delete(current.key);
+      setOffer(null);
+    },
+    [resetOwned, resetStarter, setOffer],
+  );
+
+  const place = useCallback(
+    (entry: RoomCareEntry, plan: DropPlan, roomId: RoomId): RoomOffer | null => {
+      if (plan.kind === 'cancel' || !entry.usable) return null;
+      // One at a time: a write out, a double tap or a repeated pointer event finds this already set
+      const current = offerRef.current;
+      if (busyRef.current || useItem.isPending || useStarter.isPending || care.isPending) return null;
+      if (current && (current.phase === 'using' || current.phase === 'eating')) return null;
+      // An item waiting (or failed) is replaced by the next one chosen; the same item again is already there
+      if (current && current.entryKey === entry.key && current.phase === 'walking') return null;
+      if (current) clear(current.key);
       resetOwned();
       resetStarter();
       setNotice(null);
       const key = ++offerKeyRef.current;
-      const base = { key, entryKey: entry.key, choice: entry.choice, name: entry.name };
-      if (plan.kind === 'hand') {
-        setOffer({ ...base, place: { kind: 'hand' }, phase: 'walking' });
-        begin(key);
-        return true;
-      }
-      const place = { kind: 'floor' as const, x: plan.x, z: plan.z, roomId };
-      setOffer({ ...base, place, phase: 'walking' });
-      if (!navRef.current.canWalk) {
-        // Nobody walks here (no 3D room, an egg): the item is used where it is set down, as on the home
-        begin(key);
-        return true;
-      }
-      void navRef.current.approach(plan.x, plan.z).then((outcome) => {
-        if (offerRef.current?.key !== key) return;
-        if (outcome === 'arrived') {
-          begin(key);
-          return;
-        }
-        // Replaced, stopped or refused: nothing was used, the item goes back
-        setOffer(null);
-        if (outcome === 'refused') setNotice(`${liveBlobbi.current.name} can't get to that spot.`);
-      });
-      return true;
+      const next: RoomOffer = { key, entryKey: entry.key, choice: entry.choice, name: entry.name, place: { kind: 'floor', x: plan.x, z: plan.z, roomId }, phase: 'walking' };
+      setOffer(next);
+      return next;
     },
-    [begin, resetOwned, resetStarter, setOffer],
+    [clear, resetOwned, resetStarter, setOffer, useItem.isPending, useStarter.isPending, care.isPending],
   );
 
-  const retry = useCallback(() => {
+  const startEating = useCallback(
+    (key: number, bites: number) => {
+      setOffer((o) => (o && o.key === key ? { ...o, phase: 'eating', eatingSince: Date.now(), bites } : o));
+    },
+    [setOffer],
+  );
+
+  const finish = useCallback(
+    (key: number, outcome?: { feedback: FeedbackResult; alreadyApplied?: boolean; soundPlayed?: boolean }) => {
+      const current = offerRef.current;
+      if (current && current.key === key) {
+        outcomes.current.delete(key);
+        setOffer(null);
+      }
+      if (!outcome || outcome.alreadyApplied) return;
+      celebrate(outcome.feedback, { soundPlayed: outcome.soundPlayed });
+    },
+    [celebrate, setOffer],
+  );
+
+  const retry = useCallback((): Promise<UseOutcome> | null => {
     const current = offerRef.current;
-    if (!current || current.phase !== 'failed') return;
+    if (!current || current.phase !== 'failed') return null;
     resetOwned();
     resetStarter();
-    begin(current.key);
+    return begin(current.key);
   }, [begin, resetOwned, resetStarter]);
 
-  const putAway = useCallback(() => {
-    const current = offerRef.current;
-    // An item whose write is out (or that is being eaten) cannot be taken back; only a waiting or failed one
-    if (!current || current.phase === 'using' || current.phase === 'eating') return;
-    resetOwned();
-    resetStarter();
-    setOffer(null);
-  }, [resetOwned, resetStarter, setOffer]);
+  const putAway = useCallback(() => clear(), [clear]);
 
-  // The result: celebrated once the write landed and the use has shown for a moment
+  // The result: handed to whoever began the use, once the write landed and the use has shown for a moment
   const finishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onUseResult = useCallback(
-    (r: ItemUseResult | StarterUseResult) => {
-      const finish = () => {
+    (r: UseResult) => {
+      const current = offerRef.current;
+      if (!current) return;
+      const key = current.key;
+      const land = () => {
         finishTimer.current = null;
-        const result: FeedbackResult = { action: r.action, name: r.name, statsChanged: r.statsChanged, xpGained: r.xpGained, nextState: 'active', itemName: r.item.name };
-        // Food and drink are eaten (now that the write has landed), bite by bite, the munch with them; then the celebration
-        const bites = r.alreadyApplied ? 0 : bitesFor(r.action, reducedMotionRef.current);
-        if (bites > 0 && offerRef.current) {
-          setOffer((o) => (o ? { ...o, phase: 'eating', eatingSince: Date.now(), bites } : o));
-          play(r.action === 'boost' ? 'drink' : 'eat');
-          finishTimer.current = setTimeout(() => {
-            finishTimer.current = null;
-            setOffer(null);
-            celebrate(result, { soundPlayed: true });
-          }, bites * EAT.biteMs);
-          return;
+        const feedback: FeedbackResult = { action: r.action, name: r.name, statsChanged: r.statsChanged, xpGained: r.xpGained, nextState: 'active', itemName: r.item.name };
+        if (outcomes.current.has(key)) settleOutcome(key, { kind: 'landed', result: r, feedback });
+        else {
+          // Nobody is waiting (the director is gone): the offer ends here, celebrated unless it had already landed before
+          setOffer((o) => (o && o.key === key ? null : o));
+          if (!r.alreadyApplied) celebrate(feedback);
         }
-        setOffer(null);
-        if (r.alreadyApplied) return;
-        celebrate(result);
       };
-      const remaining = MIN_USE_MS - (Date.now() - (offerRef.current?.usingSince ?? 0));
-      if (remaining > 0) finishTimer.current = setTimeout(finish, remaining);
-      else finish();
+      const remaining = MIN_USE_MS - (Date.now() - (current.usingSince ?? 0));
+      if (remaining > 0) finishTimer.current = setTimeout(land, remaining);
+      else land();
     },
-    [celebrate, setOffer, play],
+    [celebrate, setOffer, settleOutcome],
   );
   useEffect(() => () => {
     if (finishTimer.current) clearTimeout(finishTimer.current);
@@ -281,8 +314,11 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
   const itemError = useItem.error ?? useStarter.error;
   useEffect(() => {
     if (!itemError) return;
-    setOffer((o) => (o && o.phase === 'using' ? { ...o, phase: 'failed', error: itemError.message } : o));
-  }, [itemError, setOffer]);
+    const current = offerRef.current;
+    if (!current || current.phase !== 'using') return;
+    setOffer({ ...current, phase: 'failed', error: itemError.message });
+    settleOutcome(current.key, { kind: 'failed', error: itemError.message });
+  }, [itemError, setOffer, settleOutcome]);
 
   // ─── Rest ───
   const perform = care.perform;
@@ -311,7 +347,11 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
     inventory,
     offer,
     busy: busy || restWalking,
-    use,
+    place,
+    begin,
+    startEating,
+    finish,
+    clear,
     retry,
     putAway,
     rest,
@@ -320,6 +360,7 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
     error: care.error,
     notice,
     notify: setNotice,
+    celebrate,
   };
 }
 

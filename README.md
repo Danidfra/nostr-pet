@@ -122,6 +122,21 @@ Two things to know:
   **View** row (−, +, Reset). The factor is remembered on this device
   (`blobbi:room:zoom`), the same for every room, and survives turning the
   phone within the new stage's limits.
+- **Things in the room (M10).** Food is a dish set down in front of the
+  Blobbi (or where you drop it): it notices, walks over, and once the use
+  has landed (never before) eats it bite by bite, the food on the dish
+  going down with each bite, then "mmm" and the stat chips; the dish is the
+  item's own picture, so an apple is an apple. The ball is a ball: set down,
+  it drops in and bounces; the Blobbi comes, nudges it rolling (it bounces
+  off walls and furniture), chases it and nudges it again, three times; it
+  stays in the room for the visit, and a tap sends it rolling again. One
+  scene plays at a time: a change of room, a teleport, another item or a
+  hand on the Blobbi ends it with everything given back (a write already
+  out finishes, and stands). A room counts as seen only once its build has
+  played whole in front of you; a build cut short plays again next time.
+  The header's name opens the Blobbi's details (numbers, lifecycle, your
+  other Blobbis, the whole inventory) and the ☰ the game menu (sound,
+  lighting, account, the classic home).
 - **The room's dev tools** are one **Dev Tools** pill in the corner (dev
   builds with the flag). It opens a bottom sheet on a phone, a side panel on
   a wide screen, with one view at a time: Animations (the room transitions,

@@ -24,6 +24,8 @@ const scene = vi.hoisted(() => {
     position: { x: 3.5, z: 3.5 },
     scripts: [] as ({ x: number; z: number; elev: number } | null)[],
     items: [] as { intro: unknown; spawn: unknown }[],
+    /** The scene's word that the build of the room on screen played to its end (the test gives it). */
+    built: null as ((key: string) => void) | null,
   };
   const fake = {
     pick: () => ({ kind: 'floor' as const, x: 3, z: 3 }),
@@ -65,9 +67,10 @@ const scene = vi.hoisted(() => {
 });
 vi.mock('@/features/room/hooks/useRoomScene', () => ({
   // The shell's scene: the room swap is what `setItems` would be handed, recorded with how it arrives
-  useRoomScene: (options: { roomKey: string; roomEntry?: { intro: unknown; spawn: unknown } }) => {
+  useRoomScene: (options: { roomKey: string; roomEntry?: { intro: unknown; spawn: unknown }; onRoomBuilt?: (key: string) => void }) => {
     const last = scene.state.items[scene.state.items.length - 1] as { key?: string } | undefined;
     if (last?.key !== options.roomKey) scene.state.items.push({ key: options.roomKey, intro: options.roomEntry?.intro, spawn: options.roomEntry?.spawn } as never);
+    scene.state.built = options.onRoomBuilt ?? null;
     return { status: 'ready', sceneRef: { current: scene.fake } };
   },
   webglAvailable: () => false,
@@ -115,8 +118,12 @@ beforeEach(() => {
   scene.state.position = { x: 3.5, z: 3.5 };
   scene.state.scripts = [];
   scene.state.items = [];
+  scene.state.built = null;
   localStorage.clear();
 });
+const seen = () => (JSON.parse(localStorage.getItem(roomIntroKey(PUBKEY, D)) ?? '{"rooms":[]}') as { rooms: string[] }).rooms;
+/** The scene says the room on screen has been built in front of the player. */
+const buildDone = (key: string) => act(() => { scene.state.built?.(key); });
 const spies: { mockRestore: () => void }[] = [];
 const randomly = (value: number) => spies.push(vi.spyOn(Math, 'random').mockReturnValue(value));
 afterEach(() => {
@@ -144,7 +151,57 @@ describe('changing rooms', () => {
     expect(scene.state.scripts.some((s) => s && s.elev > 10)).toBe(true);
     await waitFor(() => expect(screen.getByRole('button', { name: /decorate this room/i })).toBeEnabled());
     expect(relay.published).toEqual([]);
-    expect(JSON.parse(localStorage.getItem(roomIntroKey(PUBKEY, D))!).rooms).toContain('rest');
+    // The scene ended, but the room is not seen until its build has played to its end in front of the player
+    expect(seen()).not.toContain('rest');
+    buildDone('rest');
+    expect(seen()).toContain('rest');
+    // Back and forth again: a room seen built comes back quickly, with no spectacle
+    go(/living room/);
+    await waitFor(() => expect(room()).toBe('home'), { timeout: 3000 });
+    await waitFor(() => expect(scene.state.scripts[scene.state.scripts.length - 1]).toBeNull(), { timeout: 5000 });
+    const before = scene.state.scripts.length;
+    randomly(0.9); // nothing theatrical
+    go(/bedroom/);
+    await waitFor(() => expect(room()).toBe('rest'), { timeout: 2000 });
+    expect(scene.state.items[scene.state.items.length - 1]).toMatchObject({ key: 'rest', intro: 'quick' });
+    await waitFor(() => expect(scene.state.scripts[scene.state.scripts.length - 1]).toBeNull(), { timeout: 3000 });
+    expect(scene.state.scripts.slice(before).some((s) => s && s.elev > 10)).toBe(false);
+  }, 20_000);
+
+  it('the first room is seen only once the scene says it was built; a build cut short (the next room before it is done) leaves the room unseen, so it builds next time', async () => {
+    randomly(0.1);
+    renderRoom();
+    await screen.findByTestId('room-bar');
+    expect(room()).toBe('home');
+    expect(scene.state.items[0]).toMatchObject({ key: 'home', intro: 'build' });
+    await act(() => new Promise((r) => setTimeout(r, 1800)));
+    // Time alone marks nothing
+    expect(seen()).toEqual([]);
+    buildDone('home');
+    expect(seen()).toEqual(['home']);
+    // Off to the bedroom, and on to the closet before the bedroom's build has played
+    go(/bedroom/);
+    await waitFor(() => expect(room()).toBe('rest'), { timeout: 3000 });
+    go(/closet/);
+    await waitFor(() => expect(room()).toBe('closet'), { timeout: 3000 });
+    buildDone('closet');
+    await waitFor(() => expect(scene.state.scripts[scene.state.scripts.length - 1]).toBeNull(), { timeout: 5000 });
+    expect(seen()).toEqual(['closet', 'home']);
+    // The bedroom builds again on the next visit (its full introduction)
+    go(/bedroom/);
+    await waitFor(() => expect(scene.state.items[scene.state.items.length - 1]).toMatchObject({ key: 'rest', intro: 'build' }), { timeout: 5000 });
+    expect(relay.published).toEqual([]);
+  }, 20_000);
+
+  it('a room seen built survives a reload: it is simply there, and the others still build', async () => {
+    localStorage.setItem(roomIntroKey(PUBKEY, D), JSON.stringify({ rooms: ['home'] }));
+    renderRoom();
+    await screen.findByTestId('room-bar');
+    expect(scene.state.items[0]).toMatchObject({ key: 'home', intro: 'none' });
+    randomly(0.1);
+    go(/kitchen/);
+    await waitFor(() => expect(room()).toBe('kitchen'), { timeout: 3000 });
+    expect(scene.state.items[scene.state.items.length - 1]).toMatchObject({ key: 'kitchen', intro: 'build' });
   }, 15_000);
 
   it('a hurried player: the next room cuts the scene short and comes quickly; the Blobbi is never left scripted', async () => {

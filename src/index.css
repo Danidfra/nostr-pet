@@ -1590,6 +1590,18 @@
     background: hsl(var(--primary) / 0.15);
     color: hsl(var(--primary));
   }
+  /* The name in the header is a button into the Blobbi's details: no button chrome of its own */
+  .room-header-name {
+    border: 0;
+    padding: 0 0.25em;
+    background: none;
+    color: inherit;
+    font: inherit;
+    border-radius: 0.5em;
+  }
+  .room-header-name:hover {
+    background: hsl(var(--foreground) / 0.06);
+  }
   .room-header-back {
     display: flex;
     align-items: center;
@@ -1677,6 +1689,65 @@
     border: 1px solid hsl(var(--border) / 0.5);
     color: hsl(var(--foreground) / 0.75);
     pointer-events: auto;
+  }
+  /* The room's props drawn by the page (the simple room): a dish and its food, a ball on its shadow */
+  .room-prop {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    animation: room-item-set-down 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .room-prop[data-leaving='true'] {
+    animation: room-prop-leave 480ms ease-in forwards;
+  }
+  @keyframes room-prop-leave {
+    to { transform: scale(0.2); opacity: 0; }
+  }
+  .room-prop__plate {
+    position: absolute;
+    left: calc(var(--anchor-px, 60) * -0.65px);
+    bottom: calc(var(--anchor-px, 60) * -0.12px);
+    width: calc(var(--anchor-px, 60) * 1.3px);
+    height: calc(var(--anchor-px, 60) * 0.46px);
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 40%, #fbf7f0 0%, #f1eadf 70%, #d9ccb8 100%);
+    box-shadow: 0 2px 3px hsl(0 0% 0% / 0.18);
+  }
+  .room-prop__food {
+    position: absolute;
+    left: calc(var(--anchor-px, 60) * -0.45px);
+    bottom: calc(var(--anchor-px, 60) * 0.05px);
+    width: calc(var(--anchor-px, 60) * 0.9px);
+    height: calc(var(--anchor-px, 60) * 0.9px);
+    transform-origin: 50% 100%;
+    transform: scale(calc(0.35 + 0.65 * var(--left, 1)));
+    transition: transform 160ms ease-out;
+    filter: drop-shadow(0 2px 2px hsl(0 0% 0% / 0.2));
+  }
+  .room-prop--ball {
+    border: 0;
+    padding: 0;
+    background: none;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  .room-prop__shadow {
+    position: absolute;
+    left: calc(var(--anchor-px, 60) * -0.4px);
+    bottom: calc(var(--anchor-px, 60) * -0.08px);
+    width: calc(var(--anchor-px, 60) * 0.8px);
+    height: calc(var(--anchor-px, 60) * 0.28px);
+    border-radius: 50%;
+    background: radial-gradient(ellipse, hsl(0 0% 0% / 0.3) 0%, hsl(0 0% 0% / 0) 70%);
+  }
+  .room-prop__ball {
+    position: absolute;
+    left: calc(var(--anchor-px, 60) * -0.36px);
+    bottom: calc(var(--anchor-px, 60) * 0.02px);
+    width: calc(var(--anchor-px, 60) * 0.72px);
+    height: calc(var(--anchor-px, 60) * 0.72px);
   }
   @keyframes room-item-set-down {
     from { transform: translateY(-40%) scale(0.6); opacity: 0; }

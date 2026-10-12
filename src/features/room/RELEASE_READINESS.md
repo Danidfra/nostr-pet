@@ -213,3 +213,77 @@ What the first attempt (2026-10-11) ran into, so it is not run into again:
    the phone with a zoom set: the factor stays, nothing jumps or is cut.
    Pinch to the nearest the room allows: the camera stays outside the
    walls.
+
+
+## M10: living room and interaction polish (2026-10-11)
+
+What changed, and what it means for the default:
+
+- **The room has what the classic home has.** The header's name opens the
+  Blobbi's details (`RoomBlobbiSheet`: condition, progression, lifecycle
+  with hatch and evolve through the same kit transitions, the other
+  Blobbis, the whole inventory); the ☰ opens the game menu (`MenuSheet`,
+  with Classic home in place of the room tile); worn accessories draw on
+  the 2D Blobbi; the streak pill and the connection chip are in the header;
+  the first egg hatches by itself as on the classic home. What the room
+  still does not have: the classic home's hatch *ceremony* (the egg
+  cracking beat by beat; the room's reveal is a face, a hop and a sound),
+  the door to the Island (the menu's tile stands in), and worn accessories
+  on the 3D model.
+- **Food and a ball are things in the room** (`room-props.ts`, the scene's
+  props, `ball-physics.ts`), and every scene runs through one runner
+  (`room-interaction.ts`, `useRoomInteractions`) that is cancelled by a
+  change of room, a teleport, another item, a hand on the Blobbi or the
+  page put away, with everything given back. The write adapter
+  (`useRoomCare`) no longer choreographs.
+- **A room is seen only once built in front of the player**
+  (`RoomScene.onIntroDone` → `onRoomBuilt` → `markSeen`); the earlier 1.6 s
+  timer is gone (the minor issue above is closed).
+- **The voice** has vibrato and per-playing variation; new sounds for
+  curiosity, a bite, satisfaction, play and the ball. Rendered offline
+  (`scratchpad/voice-levels.mjs`): no recipe peaks above 0.05 of full
+  scale, no fundamental above 2.2 kHz. **Whether it sounds right is for a
+  listener to say**; nothing here was heard.
+
+### Ready to be the default?
+
+**Not yet; it stays opt-in** (`DEFAULT_EXPERIENCE` in
+`src/lib/home-experience.ts` is the one flip). What is missing is not
+code:
+
+1. **No real-device performance data.** The iPhone run reported the room
+   working; no performance report (Dev Tools → Performance → Record 10 s)
+   was pasted back. The criteria above (Auto settles at balanced or above,
+   busy p95 under 33 ms, no fallback note in ten minutes) are unmeasured.
+   The props add a sphere, a plate and one small texture; the ball is
+   stepped only while it rolls.
+2. **Visual and audio approval** of the feeding, the ball game, the first
+   visit's build and the voice (below).
+3. **The hatch ceremony.** A first Blobbi's egg hatching in the room is a
+   reveal, not the classic home's ceremony; whether that is acceptable for
+   a new player's first minute is a product call.
+
+### Phone protocol, continued
+
+9. **Feeding (2026-10-11):** in the kitchen, tap **Give** on the apple (or
+   drag it onto the floor, farther away). A dish with the apple appears,
+   the Blobbi looks at it, walks to it, is eager, then eats it in four
+   bites (the apple loses a piece with each, the chew is heard), "mmm", the
+   chips, the dish goes, a glance at you. Change rooms mid-meal: the room
+   changes, nothing is left behind, the dock is usable; the feed counted
+   once.
+10. **The ball:** in the living room, tap **Use** on the ball. It drops in
+    and bounces; the Blobbi comes, nudges it (a bop), watches it roll,
+    chases it, three times; then glad. Tap the ball afterwards: it rolls,
+    the Blobbi looks. Pet the Blobbi while it walks to the ball: the walk
+    stops, the ball goes back, nothing is written.
+11. **First visit:** a room never visited builds itself (floor, walls, the
+    furniture popping up). Change rooms *before* it finishes: next time the
+    room builds again. Let one finish: next time it comes back quickly.
+    Put the app in the background mid-build: on return it builds again
+    from the start.
+12. **Sound on:** curious "hmm?" when something is set down, a chew per
+    bite, "mmm" after, the purr while petting, chirps and bops in the ball
+    game. Nothing loud, nothing the same twice.
+13. **The header:** the name opens the details sheet (Items inside), ☰ the
+    menu with **Classic home**.

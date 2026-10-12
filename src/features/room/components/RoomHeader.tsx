@@ -5,10 +5,12 @@
  * and leaves the dock to the room's own bar; so does this.
  */
 import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Flame, Menu } from 'lucide-react';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 
 import { ArcBackground } from './ArcBackground';
+import { ConnectionChip } from '@/features/home/shell/ConnectionChip';
+import type { HealthLevel } from '@/lib/relay-health';
 import type { FromRoomState } from '@/lib/home-experience';
 
 /** The way back says where it came from, so a player who opens in the room is not sent straight back to it. */
@@ -16,7 +18,26 @@ const BACK_HOME: FromRoomState = { fromRoom: true };
 
 const STAGE_WORD: Record<BlobbiCompanion['stage'], string> = { egg: 'Egg', baby: 'Baby', adult: 'Adult' };
 
-export function RoomHeader({ name, stage }: { name: string; stage: BlobbiCompanion['stage'] }) {
+interface RoomHeaderProps {
+  name: string;
+  stage: BlobbiCompanion['stage'];
+  /** The name opens the Blobbi's details (its numbers, its lifecycle, the other Blobbis, the items). */
+  onOpenBlobbi?: () => void;
+  /** The game menu (sound, lighting, the account, the way to the classic home). */
+  onOpenMenu?: () => void;
+  /** Connection health; the chip shows only when it is not healthy. */
+  connection?: { level: HealthLevel; online: boolean; onRetry: () => void };
+  /** The care streak, when there is one. */
+  streak?: { days: number; bumpKey: number };
+}
+
+export function RoomHeader({ name, stage, onOpenBlobbi, onOpenMenu, connection, streak }: RoomHeaderProps) {
+  const label = (
+    <>
+      <span>{name}</span>
+      <span className="font-normal text-foreground/60"> · {STAGE_WORD[stage]}</span>
+    </>
+  );
   return (
     <div className="room-header relative z-10" data-testid="room-header">
       <ArcBackground variant="down" />
@@ -24,12 +45,32 @@ export function RoomHeader({ name, stage }: { name: string; stage: BlobbiCompani
         <Link to="/" state={BACK_HOME} className="room-header-back touch-hit" aria-label="Classic home" title="Classic home" data-testid="room-back">
           <ArrowLeft />
         </Link>
-        <p className="min-w-0 flex-1 truncate text-center text-[0.95em] font-semibold" data-testid="room-header-name">
-          <span>{name}</span>
-          <span className="font-normal text-foreground/60"> · {STAGE_WORD[stage]}</span>
-        </p>
-        {/* The size of the back button, so the name stays centred */}
-        <span className="size-[2.25em] shrink-0" aria-hidden />
+        {onOpenBlobbi ? (
+          <button type="button" onClick={onOpenBlobbi} className="room-header-name min-w-0 flex-1 truncate text-center text-[0.95em] font-semibold" aria-label={`${name}, ${STAGE_WORD[stage]}. Open details`} data-testid="room-header-name">
+            {label}
+          </button>
+        ) : (
+          <p className="min-w-0 flex-1 truncate text-center text-[0.95em] font-semibold" data-testid="room-header-name">
+            {label}
+          </p>
+        )}
+        <span className="flex shrink-0 items-center gap-[0.35em]">
+          {connection && <ConnectionChip level={connection.level} online={connection.online} onRetry={connection.onRetry} />}
+          {streak && streak.days > 0 && (
+            <span key={streak.bumpKey} className={`streak-pill ${streak.bumpKey > 0 ? 'streak-pill--bump' : ''}`} aria-label={`Care streak: ${streak.days} day${streak.days === 1 ? '' : 's'}`} title="Care streak" data-testid="room-streak-pill" data-days={streak.days}>
+              <Flame className="h-4 w-4" aria-hidden />
+              <span className="streak-pill__days">{streak.days}</span>
+            </span>
+          )}
+          {onOpenMenu ? (
+            <button type="button" onClick={onOpenMenu} className="room-header-back touch-hit" aria-label="Menu" title="Menu" data-testid="room-menu">
+              <Menu />
+            </button>
+          ) : (
+            // The size of the back button, so the name stays centred
+            <span className="size-[2.25em] shrink-0" aria-hidden />
+          )}
+        </span>
       </div>
     </div>
   );

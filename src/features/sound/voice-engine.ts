@@ -13,20 +13,26 @@
  *                  envelope (fast linear attack, hold, exponential release
  *                  to near-silence), all scheduled against `currentTime`
  *                  so the whole recipe is sample-accurate and needs no
- *                  timers; the chain is layers → lowpass → dry + delay/wet
- *                  → master → destination, as in Ditto's munch
+ *                  timers; a layer's vibrato is a slow oscillator feeding
+ *                  the pitch (so many cents either way); the chain is
+ *                  layers → lowpass → dry + delay/wet → master →
+ *                  destination, as in Ditto's munch
+ *   variation      a `Variant` (from `variantOf`) scales every pitch and
+ *                  every time, so one recipe is a slightly different noise
+ *                  each playing
  *   cleanup        nodes disconnect when the last oscillator ends
  *   failure        never throws; a page without Web Audio plays nothing
  *
  * `createContext` is a seam so tests can hand in a recording fake.
  */
-import type { Recipe } from './blobbi-voice';
+import type { Recipe, Variant } from './blobbi-voice';
 
 const SILENCE = 0.0001;
+const NO_VARIANT: Variant = { pitch: 1, time: 1 };
 
 export interface VoiceEngine {
-  /** Play a recipe now. Returns false when nothing could be scheduled. */
-  play: (recipe: Recipe) => boolean;
+  /** Play a recipe now, varied as given (or as written). Returns false when nothing could be scheduled. */
+  play: (recipe: Recipe, variant?: Variant) => boolean;
   /** Whether a context has been created yet (tests, and the "unlocked" question). */
   hasContext: () => boolean;
   /** Resume a suspended context from a user gesture, creating none. */
@@ -47,13 +53,16 @@ export function createVoiceEngine(createContext: () => AudioContext | null = def
     return ctx;
   };
 
-  const play = (recipe: Recipe): boolean => {
+  const play = (recipe: Recipe, variant: Variant = NO_VARIANT): boolean => {
     try {
       const ac = context();
       if (!ac) return false;
       if (ac.state === 'suspended') void ac.resume().catch(() => {});
       const now = ac.currentTime;
-      const end = now + recipe.durationMs / 1000;
+      const pitch = variant.pitch > 0 ? variant.pitch : 1;
+      const time = variant.time > 0 ? variant.time : 1;
+      const seconds = (ms: number) => (ms / 1000) * time;
+      const end = now + seconds(recipe.durationMs);
 
       const lowpass = ac.createBiquadFilter();
       lowpass.type = 'lowpass';
@@ -67,7 +76,7 @@ export function createVoiceEngine(createContext: () => AudioContext | null = def
       wet.gain.setValueAtTime(0.12, now);
       const master = ac.createGain();
       master.gain.setValueAtTime(recipe.master, now);
-      master.gain.setValueAtTime(recipe.master, now + (recipe.durationMs / 1000) * 0.82);
+      master.gain.setValueAtTime(recipe.master, now + seconds(recipe.durationMs) * 0.82);
       master.gain.exponentialRampToValueAtTime(SILENCE, end);
       lowpass.connect(dry);
       lowpass.connect(delay);
@@ -80,28 +89,42 @@ export function createVoiceEngine(createContext: () => AudioContext | null = def
       let last: OscillatorNode | null = null;
       let lastEnd = now;
       for (const layer of recipe.layers) {
-        const start = now + layer.offsetMs / 1000;
-        const stop = start + layer.durationMs / 1000;
+        const start = now + seconds(layer.offsetMs);
+        const stop = start + seconds(layer.durationMs);
         const osc = ac.createOscillator();
         osc.type = layer.wave;
-        osc.frequency.setValueAtTime(layer.hz[0], start);
+        osc.frequency.setValueAtTime(layer.hz[0] * pitch, start);
         if (layer.hz.length === 3) {
-          osc.frequency.exponentialRampToValueAtTime(layer.hz[1], start + (layer.durationMs / 1000) * 0.42);
-          osc.frequency.exponentialRampToValueAtTime(layer.hz[2], stop);
+          osc.frequency.exponentialRampToValueAtTime(layer.hz[1] * pitch, start + seconds(layer.durationMs) * 0.42);
+          osc.frequency.exponentialRampToValueAtTime(layer.hz[2] * pitch, stop);
         } else {
-          osc.frequency.exponentialRampToValueAtTime(layer.hz[1], stop);
+          osc.frequency.exponentialRampToValueAtTime(layer.hz[1] * pitch, stop);
         }
         const gain = ac.createGain();
-        const attack = (layer.attackMs ?? 6) / 1000;
+        const attack = seconds(layer.attackMs ?? 6);
         gain.gain.setValueAtTime(SILENCE, start);
         gain.gain.linearRampToValueAtTime(layer.gain, start + attack);
-        gain.gain.setValueAtTime(layer.gain, start + (layer.durationMs / 1000) * (layer.hold ?? 0.35));
+        gain.gain.setValueAtTime(layer.gain, start + seconds(layer.durationMs) * (layer.hold ?? 0.35));
         gain.gain.exponentialRampToValueAtTime(SILENCE, stop);
         osc.connect(gain);
         gain.connect(lowpass);
         osc.start(start);
         osc.stop(stop);
         nodes.push(osc, gain);
+        // The waver: a slow sine, scaled to so many cents of the layer's own pitch, added to its frequency
+        if (layer.vibrato && layer.vibrato.cents > 0 && layer.vibrato.hz > 0) {
+          const lfo = ac.createOscillator();
+          lfo.type = 'sine';
+          lfo.frequency.setValueAtTime(layer.vibrato.hz, start);
+          const depth = ac.createGain();
+          const middle = (layer.hz.length === 3 ? layer.hz[1] : (layer.hz[0] + layer.hz[1]) / 2) * pitch;
+          depth.gain.setValueAtTime(middle * (Math.pow(2, layer.vibrato.cents / 1200) - 1), start);
+          lfo.connect(depth);
+          depth.connect(osc.frequency);
+          lfo.start(start);
+          lfo.stop(stop);
+          nodes.push(lfo, depth);
+        }
         if (stop >= lastEnd) {
           lastEnd = stop;
           last = osc;

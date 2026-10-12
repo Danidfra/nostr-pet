@@ -1,4 +1,4 @@
-import { Armchair, Check, ChevronRight, ExternalLink, LogOut, Map as MapIcon, Moon, Sun, Sunrise, Volume2, VolumeX } from 'lucide-react';
+import { Armchair, Check, ChevronRight, ExternalLink, House, LogOut, Map as MapIcon, Moon, Sun, Sunrise, Volume2, VolumeX } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { GameOverlay } from './GameOverlay';
 import { useEnvironment } from '@/environment';
@@ -8,12 +8,17 @@ import { useLoginActions } from '@/hooks/useLoginActions';
 import { shortNpub } from '@/lib/format';
 import { BLOBBI_ISLAND_URL, DITTO_BLOBBI_URL } from '@/config/ecosystem';
 import { KeyBackup } from '@/features/onboarding/KeyBackup';
-import { ROOM_PATH, useHomeExperience } from '@/lib/home-experience';
+import { ROOM_PATH, useHomeExperience, type FromRoomState } from '@/lib/home-experience';
 
 interface MenuSheetProps {
   open: boolean;
   onClose: () => void;
+  /** Opened from the 3D room: the way to the classic home is offered instead of the way to the room. */
+  inRoom?: boolean;
 }
+
+/** The way back from the room says where it came from, so a player who opens in the room is not sent straight back. */
+const BACK_HOME: FromRoomState = { fromRoom: true };
 
 const APPEARANCE_ICON = { island: Sunrise, day: Sun, night: Moon } as const;
 
@@ -23,7 +28,7 @@ const APPEARANCE_ICON = { island: Sunrise, day: Sun, night: Moon } as const;
  * as big toggles, then the account (who, how signed in, sign out, and the
  * key backup for a secret-key session).
  */
-export function MenuSheet({ open, onClose }: MenuSheetProps) {
+export function MenuSheet({ open, onClose, inRoom = false }: MenuSheetProps) {
   const env = useEnvironment();
   const sound = useSound();
   const { user, metadata } = useCurrentUser();
@@ -50,16 +55,29 @@ export function MenuSheet({ open, onClose }: MenuSheetProps) {
             <h3 id="menu-room" className="menu-section__title">
               The new room <span className="menu-beta">Beta</span>
             </h3>
-            <Link to={ROOM_PATH} onClick={onClose} data-testid="open-room" className="menu-tile">
-              <span className="menu-tile__icon">
-                <Armchair className="h-6 w-6" aria-hidden />
-              </span>
-              <span className="menu-tile__text">
-                <span className="menu-tile__title">Visit the 3D room</span>
-                <span className="menu-tile__sub">Rooms to walk around, decorate and care in. The same Blobbi, the same care.</span>
-              </span>
-              <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
-            </Link>
+            {inRoom ? (
+              <Link to="/" state={BACK_HOME} onClick={onClose} data-testid="open-classic" className="menu-tile">
+                <span className="menu-tile__icon">
+                  <House className="h-6 w-6" aria-hidden />
+                </span>
+                <span className="menu-tile__text">
+                  <span className="menu-tile__title">Classic home</span>
+                  <span className="menu-tile__sub">The home as it was. The same Blobbi, the same care; the room is one tap away again.</span>
+                </span>
+                <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
+              </Link>
+            ) : (
+              <Link to={ROOM_PATH} onClick={onClose} data-testid="open-room" className="menu-tile">
+                <span className="menu-tile__icon">
+                  <Armchair className="h-6 w-6" aria-hidden />
+                </span>
+                <span className="menu-tile__text">
+                  <span className="menu-tile__title">Visit the 3D room</span>
+                  <span className="menu-tile__sub">Rooms to walk around, decorate and care in. The same Blobbi, the same care.</span>
+                </span>
+                <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
+              </Link>
+            )}
             <button type="button" role="switch" aria-checked={opensOnRoom} onClick={() => setExperience(opensOnRoom ? 'classic' : 'room')} data-testid="room-first-toggle" className={`menu-tile ${opensOnRoom ? 'menu-tile--on' : ''}`}>
               <span className="menu-tile__text">
                 <span className="menu-tile__title">Open in the room</span>

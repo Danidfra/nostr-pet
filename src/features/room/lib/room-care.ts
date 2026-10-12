@@ -64,34 +64,34 @@ export function shelfEntries(shelf: CareShelf, inventory: Pick<HomeInventory, 's
   return [...starters, ...owned];
 }
 
-/** Food and drink are handed to the Blobbi; everything else is set down for it to come to. */
-export { isHandFed };
+/** Food and drink are eaten (bite by bite, once their use has landed); everything else is used in place. */
+export { isHandFed as isEaten, isHandFed };
 
 /** Where a drop lands, from what the room reports under the point. */
 export type DropPlace = { kind: 'blobbi' } | { kind: 'floor'; x: number; z: number } | { kind: 'nowhere' };
 
 /**
- * What letting an item go somewhere means, by what it is: food or drink on
- * the Blobbi is handed over at once; anything else on the Blobbi is set
- * down at its feet; anything on the floor is set down there for it to walk
- * to. Off the floor (a wall, the chrome): nothing, the item goes back.
+ * What letting an item go somewhere means: anything let go on the Blobbi is
+ * set down at its feet (food on a dish in front of it, a toy beside it);
+ * anything on the floor is set down there, for it to walk to. Off the floor
+ * (a wall, the chrome): nothing, the item goes back. Every item is a thing in
+ * the room the Blobbi comes to; nothing is handed over in mid-air.
  */
-export type DropPlan = { kind: 'hand' } | { kind: 'set-down'; x: number; z: number } | { kind: 'cancel' };
+export type DropPlan = { kind: 'set-down'; x: number; z: number } | { kind: 'cancel' };
 
-export function planDrop(action: ItemAction, place: DropPlace, blobbiAt: { x: number; z: number } | null): DropPlan {
+export function planDrop(_action: ItemAction, place: DropPlace, blobbiAt: { x: number; z: number } | null): DropPlan {
   if (place.kind === 'nowhere') return { kind: 'cancel' };
-  if (place.kind === 'blobbi') {
-    if (isHandFed(action)) return { kind: 'hand' };
-    return blobbiAt ? { kind: 'set-down', ...setDownNear(blobbiAt) } : { kind: 'hand' };
-  }
+  if (place.kind === 'blobbi') return { kind: 'set-down', ...setDownNear(blobbiAt ?? MIDDLE) };
   return { kind: 'set-down', x: clampFloor(place.x), z: clampFloor(place.z) };
 }
 
-/** The explicit Use (no drag): food handed over; anything else set down just in front of the Blobbi, toward the viewer. */
-export function planUse(action: ItemAction, blobbiAt: { x: number; z: number } | null): DropPlan {
-  if (isHandFed(action) || !blobbiAt) return { kind: 'hand' };
-  return { kind: 'set-down', ...setDownNear(blobbiAt) };
+/** The explicit Use (no drag): set down just in front of the Blobbi, toward the viewer (in front of the middle when nobody knows where it stands). */
+export function planUse(_action: ItemAction, blobbiAt: { x: number; z: number } | null): DropPlan {
+  return { kind: 'set-down', ...setDownNear(blobbiAt ?? MIDDLE) };
 }
+
+/** The middle of the floor, where an item goes when the Blobbi's place is unknown (the simple room). */
+const MIDDLE = { x: ROOM_GRID / 2 - 0.5, z: ROOM_GRID / 2 - 0.5 } as const;
 
 /** How far in front of the Blobbi (tiles, toward the open corner) a used item is set down. */
 export const SET_DOWN_OFFSET = 1.1;

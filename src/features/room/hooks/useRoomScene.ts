@@ -82,6 +82,10 @@ interface UseRoomSceneOptions {
   /** Called after every rendered frame. */
   onFrame: () => void;
   onInvalidChange?: (invalid: Set<number>) => void;
+  /** The room's full fold-in (a first visit's build) played to its end in front of the player, for this `roomKey`. */
+  onRoomBuilt?: (roomKey: string) => void;
+  /** A rolling prop (a ball) came to rest. */
+  onPropRest?: (id: string) => void;
 }
 
 /** Lost contexts recovered from before giving up on the room. */
@@ -131,9 +135,9 @@ export function useRoomScene(options: UseRoomSceneOptions) {
   const [gaveUp, setGaveUp] = useState<'slow' | 'unsupported' | null>(null);
 
   // Latest callbacks, read by the scene without re-subscribing
-  const callbacks = useRef({ onFrame, onInvalidChange, onMeet, onSlow: options.onSlow, onGpu: options.onGpu });
+  const callbacks = useRef({ onFrame, onInvalidChange, onMeet, onSlow: options.onSlow, onGpu: options.onGpu, onRoomBuilt: options.onRoomBuilt, onPropRest: options.onPropRest });
   useEffect(() => {
-    callbacks.current = { onFrame, onInvalidChange, onMeet, onSlow: options.onSlow, onGpu: options.onGpu };
+    callbacks.current = { onFrame, onInvalidChange, onMeet, onSlow: options.onSlow, onGpu: options.onGpu, onRoomBuilt: options.onRoomBuilt, onPropRest: options.onPropRest };
   });
 
   // Create the scene once three has loaded
@@ -169,6 +173,11 @@ export function useRoomScene(options: UseRoomSceneOptions) {
         scene.onInvalidChange = (invalid) => callbacks.current.onInvalidChange?.(invalid);
         scene.onMeet = (id) => callbacks.current.onMeet?.(id);
         scene.onSlow = () => callbacks.current.onSlow?.();
+        // The build reports on the room it was set up for (the key the items were last handed over with)
+        scene.onIntroDone = () => {
+          if (shownRoom.current !== null) callbacks.current.onRoomBuilt?.(shownRoom.current);
+        };
+        scene.onPropRest = (id) => callbacks.current.onPropRest?.(id);
         if (qualityRef.current) scene.setQuality(qualityRef.current);
         sceneRef.current = scene;
         // A scene made again (after a lost context) puts the Blobbi back where it stood, without folding the room in again

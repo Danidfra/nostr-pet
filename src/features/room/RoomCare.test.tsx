@@ -93,8 +93,14 @@ const scene = vi.hoisted(() => {
     faces: [] as unknown[],
     hovers: [] as string[],
     presses: [] as (number | null)[],
+    props: [] as { id: string; kind: string; x: number; z: number; bites?: { taken: number; of: number }; leaving?: boolean }[],
+    kicks: [] as { id: string; power: number }[],
   };
   const fake = {
+    setProps(props: typeof state.props) { state.props = props; },
+    kickProp(id: string, _dir: unknown, power: number) { state.kicks.push({ id, power }); return true; },
+    propPosition: (id: string) => (state.props.some((p) => p.id === id) ? { x: 5.5, z: 5.5 } : null),
+    propResting: () => true,
     pick: (x: number, y: number) => {
       if (x > 150 && x < 250 && y > 220 && y < 320) return { kind: 'actor' as const, id: 'main' };
       if (y < 0) return null;
@@ -173,7 +179,7 @@ const goTo = async (room: string) => {
   expect(shell()).toHaveAttribute('data-room', room);
 };
 async function ready() {
-  await screen.findByTestId('room-bar');
+  await screen.findByTestId('room-bar', {}, { timeout: 5000 });
   // The owned items are in once the inventory has been read
   await waitFor(() => expect(carouselItems().some((i) => i.source === 'owned')).toBe(true));
 }
@@ -210,10 +216,16 @@ beforeEach(async () => {
   scene.state.hovers = [];
   scene.state.presses = [];
   scene.state.wanders = [];
+  scene.state.props = [];
+  scene.state.kicks = [];
   localStorage.clear();
   event.mockClear();
 });
 afterEach(() => localStorage.clear());
+/** The Blobbi notices what was set down (a beat), then sets off: the walk the test settles. */
+const awaitWalk = () => waitFor(() => expect(scene.state.walks).toHaveLength(1), { timeout: 2000 });
+const dish = () => scene.state.props.find((p) => p.kind === 'dish');
+const ball = () => scene.state.props.find((p) => p.kind === 'ball');
 
 describe('the room\'s items', () => {
   it('each room offers its own in Ditto\'s carousel: toys here, food and drink in the kitchen, soap and medicine in the care room; Sleep in the bedroom; owned items counted, starters free', async () => {
@@ -268,7 +280,7 @@ describe('the room\'s items', () => {
   it('an item that cannot be used now stays in the carousel, dimmed; tapping it says why and uses nothing', async () => {
     relay.all = [blobbiEvent('0000000001', { name: 'Brook', stage: 'egg', state: 'active', visualGeneration: 'v3', createdAt: NOW - 120 }), ...definitions(), ...stock()];
     renderRoom();
-    await screen.findByTestId('room-bar');
+    await screen.findByTestId('room-bar', {}, { timeout: 5000 });
     await goTo('kitchen');
     const apple = focusOn('Apple', 'starter');
     expect(apple).toHaveAttribute('data-usable', 'false');
@@ -280,7 +292,7 @@ describe('the room\'s items', () => {
 });
 
 describe('using an item in the room', () => {
-  it('Give hands a starter to the Blobbi at once: one 31124 and its 1124, however often it is pressed, then the home\'s feedback on the Blobbi', async () => {
+  it('Give sets a starter down on a dish in front of the Blobbi; it notices and comes; on arrival one 31124 and its 1124, however often it was pressed; then it eats bite by bite, and the home\'s feedback follows', async () => {
     renderRoom();
     await ready();
     await goTo('kitchen');
@@ -289,67 +301,92 @@ describe('using an item in the room', () => {
     fireEvent.click(give);
     fireEvent.click(give);
     fireEvent.click(give);
-    expect(screen.getByTestId('room-handed-item')).toBeInTheDocument();
-    expect(give).toBeDisabled();
+    // The apple is a thing in the room: on a dish, whole, where the Blobbi will come to it
+    expect(screen.getByTestId('room-floor-item')).toHaveAttribute('data-phase', 'walking');
+    expect(screen.getByTestId('room-floor-item')).toHaveAttribute('data-physical', 'true');
+    expect(screen.queryByTestId('room-handed-item')).toBeNull();
+    expect(dish()).toMatchObject({ kind: 'dish', bites: { taken: 0, of: 4 } });
+    expect(scene.state.props.filter((p) => p.kind === 'dish')).toHaveLength(1);
     expect(screen.getByRole('button', { name: /decorate this room/i })).toBeDisabled();
+    // Nothing is written while it notices and walks
+    await awaitWalk();
+    expect(relay.published).toEqual([]);
+    settleWalk('arrived');
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });
+    // Eaten only now: the dish empties bite by bite
+    await waitFor(() => expect(screen.getByTestId('room-floor-item')).toHaveAttribute('data-phase', 'eating'), { timeout: 3000 });
+    await waitFor(() => expect(dish()?.bites?.taken).toBe(4), { timeout: 3000 });
     await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook with Apple/), { timeout: 3000 });
     expect(within(screen.getByTestId('room-blobbi-overlay')).getByTestId('care-hearts')).toBeInTheDocument();
-    // The celebration's glad bounce, played by whichever drawing stands in the room
+    // The celebration's glad bounce, played by whichever drawing stands in the room; the dish goes
     expect(scene.state.gestures).toEqual(['bounce']);
-    expect(screen.queryByTestId('room-handed-item')).toBeNull();
+    expect(screen.queryByTestId('room-floor-item')).toBeNull();
+    await waitFor(() => expect(dish()).toBeUndefined(), { timeout: 2000 });
     await quiet();
     expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]);
   });
 
-  it('food is eaten only once its use has landed: held while the write is out, then bite by bite, then the celebration', async () => {
+  it('food is eaten only once its use has landed: waited for, then held while the write is out, then bite by bite, then the celebration', async () => {
     renderRoom();
     await ready();
     await goTo('kitchen');
     const phases: string[] = [];
     const observer = new MutationObserver(() => {
-      const phase = document.querySelector('[data-testid="room-handed-item"]')?.getAttribute('data-phase');
+      const phase = document.querySelector('[data-testid="room-floor-item"]')?.getAttribute('data-phase');
       if (phase && phases[phases.length - 1] !== phase) phases.push(phase);
     });
     observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-phase'] });
     fireEvent.click(focusOn('Apple', 'starter'));
-    await waitFor(() => expect(screen.getByTestId('room-handed-item')).toHaveAttribute('data-phase', 'eating'), { timeout: 3000 });
+    await awaitWalk();
+    settleWalk('arrived');
+    await waitFor(() => expect(screen.getByTestId('room-floor-item')).toHaveAttribute('data-phase', 'eating'), { timeout: 3000 });
     // By the first bite the state and its receipt are written: nothing was eaten before the pipeline said so
     expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]);
+    expect(dish()?.bites?.taken).toBeLessThan(4);
     // Still eating: no celebration yet
     expect(screen.queryByTestId('care-status')?.textContent ?? '').not.toMatch(/Fed Brook/);
     await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook with Apple/), { timeout: 3000 });
-    expect(screen.queryByTestId('room-handed-item')).toBeNull();
+    expect(screen.queryByTestId('room-floor-item')).toBeNull();
     observer.disconnect();
-    expect(phases.filter((p) => p !== 'walking')).toEqual(['using', 'eating']);
+    expect(phases).toEqual(['walking', 'using', 'eating']);
   });
 
-  it('food whose use is refused is never eaten: it stays held with Try again, and nothing is celebrated', async () => {
+  it('food whose use is refused is never eaten: the dish stays, whole, with Try again, and nothing is celebrated', async () => {
     renderRoom();
     await ready();
     await goTo('kitchen');
     relay.refuse = 5;
     fireEvent.click(focusOn('Apple', 'starter'));
+    await awaitWalk();
+    settleWalk('arrived');
     await waitFor(() => expect(screen.getByTestId('room-offer-failure')).toBeInTheDocument(), { timeout: 3000 });
     await quiet();
     expect(document.querySelector('[data-phase="eating"]')).toBeNull();
     expect(screen.queryByTestId('care-hearts')).toBeNull();
+    expect(dish()).toMatchObject({ bites: { taken: 0, of: 4 } });
+    expect(dish()?.leaving).toBeFalsy();
     relay.refuse = 0;
   });
 
-  it('Use sets an owned toy down by the Blobbi; nothing is written while it walks; on arrival exactly one spend, the state and the receipt, and the count goes down', async () => {
+  it('Use sets an owned ball down by the Blobbi; nothing is written while it notices and walks; on arrival exactly one spend, the state and the receipt, and the count goes down; then it plays: three nudges, the ball stays', async () => {
     renderRoom();
     await ready();
     fireEvent.click(focusOn('Ball', 'owned'));
     expect(screen.getByTestId('room-floor-item')).toHaveAttribute('data-phase', 'walking');
-    expect(scene.state.walks).toHaveLength(1);
+    expect(ball()).toBeDefined();
+    await awaitWalk();
     await quiet();
     expect(relay.published).toEqual([]);
+    // From here every chase after the ball arrives by itself
+    scene.state.autoArrive = true;
     settleWalk('arrived');
     await waitFor(() => expect(screen.getByTestId('room-floor-item')).toHaveAttribute('data-phase', 'using'));
     await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
+    await waitFor(() => expect(scene.state.kicks).toHaveLength(3), { timeout: 6000 });
     await waitFor(() => expect(focusOn('Ball', 'owned')).toHaveTextContent('×1'), { timeout: 4000 });
     await waitFor(() => expect(screen.queryByTestId('room-floor-item')).toBeNull(), { timeout: 3000 });
+    expect(ball()).toBeDefined();
+    expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]);
   });
 
   it('a walk that is stopped, replaced or refused uses nothing: the item goes back (a refusal says so)', async () => {
@@ -358,12 +395,29 @@ describe('using an item in the room', () => {
     for (const outcome of ['stopped', 'replaced', 'refused'] as const) {
       fireEvent.click(focusOn('Ball', 'starter'));
       expect(screen.getByTestId('room-floor-item')).toBeInTheDocument();
+      await awaitWalk();
       settleWalk(outcome);
       await waitFor(() => expect(screen.queryByTestId('room-floor-item')).toBeNull());
+      await waitFor(() => expect(ball()).toBeUndefined());
     }
     expect(screen.getByTestId('room-care-notice')).toHaveTextContent(/can't get to/);
     await quiet();
     expect(relay.published).toEqual([]);
+  });
+
+  it('choosing another item while one is waited for replaces it: the first goes back, the second is the one used', async () => {
+    renderRoom();
+    await ready();
+    await goTo('kitchen');
+    fireEvent.click(focusOn('Apple', 'starter'));
+    expect(dish()).toBeDefined();
+    const firstKey = dish()!.id;
+    fireEvent.click(focusOn('Apple', 'owned'));
+    await waitFor(() => expect(scene.state.props.filter((p) => p.kind === 'dish')).toHaveLength(1));
+    expect(dish()!.id).not.toBe(firstKey);
+    await awaitWalk();
+    settleWalk('arrived');
+    await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
   });
 
   it('a room switch on the way stops the walk: nothing is used', async () => {
@@ -383,7 +437,7 @@ describe('using an item in the room', () => {
 });
 
 describe('dragging an item into the room', () => {
-  it('food let go on the Blobbi is handed over and used at once; the ring lights while it is over the Blobbi', async () => {
+  it('food let go on the Blobbi is set down on a dish at its feet, and used once it has stepped to it; the ring lights while it is over the Blobbi', async () => {
     renderRoom();
     await ready();
     await goTo('kitchen');
@@ -391,8 +445,12 @@ describe('dragging an item into the room', () => {
     expect(shell()).toHaveAttribute('data-drop', 'blobbi');
     act(() => { window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7, clientX: 200, clientY: 280 })); });
     expect(shell()).not.toHaveAttribute('data-drop');
-    expect(screen.getByTestId('room-handed-item')).toBeInTheDocument();
-    expect(scene.state.walks).toHaveLength(0);
+    expect(screen.queryByTestId('room-handed-item')).toBeNull();
+    expect(screen.getByTestId('room-floor-item')).toBeInTheDocument();
+    // At its feet, toward the viewer
+    expect(dish()).toMatchObject({ x: expect.closeTo(4.78, 1), z: expect.closeTo(4.78, 1) });
+    await awaitWalk();
+    settleWalk('arrived');
     await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
   });
 
@@ -401,9 +459,12 @@ describe('dragging an item into the room', () => {
     await ready();
     dragTile(focusOn('Ball', 'starter'), 300, 360);
     expect(screen.getByTestId('room-floor-item')).toBeInTheDocument();
+    expect(ball()).toMatchObject({ x: 5, z: 6 });
+    await awaitWalk();
     expect(scene.state.walks[0]).toMatchObject({ x: 5, z: 6 });
     await quiet(200);
     expect(relay.published).toEqual([]);
+    scene.state.autoArrive = true;
     settleWalk('arrived');
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });
   });
@@ -440,6 +501,8 @@ describe('when a use fails', () => {
     await ready();
     await goTo('kitchen');
     fireEvent.click(focusOn('Apple', 'starter'));
+    await awaitWalk();
+    settleWalk('arrived');
     await screen.findByTestId('room-offer-failure', {}, { timeout: 3000 });
     const tries = attempts.length;
     await quiet(1200);
@@ -448,6 +511,9 @@ describe('when a use fails', () => {
     fireEvent.click(screen.getByTestId('room-offer-retry'));
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });
     await waitFor(() => expect(screen.queryByTestId('room-offer-failure')).toBeNull());
+    // And then it is eaten, as it would have been the first time
+    await waitFor(() => expect(dish()?.bites?.taken).toBe(4), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook/), { timeout: 3000 });
   });
 
   it('an owned spend whose publish is ambiguous stops; Try again sends the SAME signed spend, never a second one', async () => {
@@ -456,6 +522,8 @@ describe('when a use fails', () => {
     await ready();
     await goTo('kitchen');
     fireEvent.click(focusOn('Apple', 'owned'));
+    await awaitWalk();
+    settleWalk('arrived');
     await screen.findByTestId('room-offer-failure', {}, { timeout: 4000 });
     const first = attempts.filter((e) => e.kind === KIND_GAME_INVENTORY_SPEND);
     expect(first).toHaveLength(1);
@@ -473,9 +541,12 @@ describe('when a use fails', () => {
     await ready();
     await goTo('kitchen');
     fireEvent.click(focusOn('Apple', 'starter'));
+    await awaitWalk();
+    settleWalk('arrived');
     fireEvent.click(await screen.findByTestId('room-offer-put-away', {}, { timeout: 3000 }));
     expect(screen.queryByTestId('room-offer-failure')).toBeNull();
     expect(middle()).toBeEnabled();
+    await waitFor(() => expect(dish()).toBeUndefined());
     await quiet();
     expect(relay.published).toEqual([]);
   });
@@ -558,6 +629,8 @@ describe('2D and 3D, one Blobbi, one care', () => {
     expect(shell()).toHaveAttribute('data-blobbi-render', '3d');
     await goTo('kitchen');
     fireEvent.click(focusOn('Apple', 'starter'));
+    await awaitWalk();
+    settleWalk('arrived');
     // Back to 2D while the write is out
     fireEvent.click(screen.getByTestId('room-settings-toggle'));
     fireEvent.click(screen.getByTestId('room-appearance-2d'));

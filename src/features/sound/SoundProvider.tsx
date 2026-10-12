@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { VOICE } from './blobbi-voice';
+import { VOICE, variantOf } from './blobbi-voice';
 import { SOUND_STORAGE_KEY, type BlobbiSoundId } from './sounds';
 import { createVoiceEngine, type VoiceEngine } from './voice-engine';
 
@@ -48,9 +48,11 @@ interface SoundProviderProps {
   children: ReactNode;
   /** Test seam: the engine to play through (a fake AudioContext behind it). */
   engine?: VoiceEngine;
+  /** Test seam: the numbers each playing's variation is drawn from (`Math.random` otherwise). */
+  random?: () => number;
 }
 
-export function SoundProvider({ children, engine }: SoundProviderProps) {
+export function SoundProvider({ children, engine, random = Math.random }: SoundProviderProps) {
   const [enabled, setEnabledState] = useState<boolean>(() => readStored());
   const engineRef = useRef<VoiceEngine | null>(engine ?? null);
   const getEngine = useCallback(() => {
@@ -92,12 +94,14 @@ export function SoundProvider({ children, engine }: SoundProviderProps) {
       if (last !== undefined && now - last < REPEAT_GAP_MS) return;
       lastPlayed.current.set(id, now);
       try {
-        getEngine().play(VOICE[id]);
+        // A little different each time (`Recipe.variation`), so a creature is not a sample bank
+        const recipe = VOICE[id];
+        getEngine().play(recipe, variantOf(recipe, random(), random()));
       } catch {
         /* silence is fine */
       }
     },
-    [enabled, getEngine],
+    [enabled, getEngine, random],
   );
 
   const setEnabled = useCallback((value: boolean) => {

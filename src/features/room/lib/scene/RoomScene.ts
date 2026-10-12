@@ -63,6 +63,9 @@ import type { ModelExtras } from './official-models';
 import { latheSegments } from './sno-builder';
 import { drawSurface, paperBump } from './paper-textures';
 import { recordRuntimeError } from '../runtime-errors';
+import { PROP_ENTER_MS, PROP_LEAVE_MS, glyphKey, type RoomProp } from '../room-props';
+import { BALL, ballAt, ballResting, kickBall, stepBall, type BallState } from '../ball-physics';
+import { biteFood, drawBallSkin, drawFood, loadFoodImage } from './prop-art';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -107,6 +110,7 @@ export interface ScreenAnchor {
 export type PickResult =
   | { kind: 'actor'; id: string }
   | { kind: 'item'; index: number }
+  | { kind: 'prop'; id: string }
   | { kind: 'floor'; x: number; z: number }
   | null;
 
@@ -547,6 +551,26 @@ interface Actor {
   met: boolean;
 }
 
+/** A prop (`room-props.ts`) as the scene has built it. */
+interface BuiltProp {
+  prop: RoomProp;
+  root: THREE.Group;
+  /** When it was set down, for the drop-in; when it began leaving, for the fade. */
+  enteredAt: number;
+  leavingAt?: number;
+  /** Drawn over the page's Blobbi this frame (nearer the camera than it). */
+  front: boolean;
+  /** A dish: the food picture, whole and as bitten, on a plane standing on the plate. */
+  dish?: { food: THREE.Mesh; texture: THREE.CanvasTexture; whole: HTMLCanvasElement | null; glyph: string; bites: number; image?: 'loading' | 'done' };
+  /** A ball: its motion, the mesh that rolls, and the soft shadow under it. */
+  ball?: { state: BallState; mesh: THREE.Mesh; contact: THREE.Mesh; resting: boolean };
+}
+
+/** The size of a dish and its food, tiles. */
+const DISH_RADIUS = 0.62;
+const DISH_HEIGHT = 0.07;
+const FOOD_SIZE = 1.3;
+
 interface Fit {
   distance: number;
   /** Vertical center of the frame the room is fitted in, CSS px. */
@@ -656,7 +680,21 @@ export class RoomScene {
   private perf = { frames: 0, idleFrames: 0, cpuMs: 0, cpuSamples: [] as number[] };
   private lastFrameAt = 0;
   private onVisibility = () => {
-    if (!document.hidden) this.requestRender();
+    if (document.hidden) {
+      // A build under way is not being watched: it is played again from the start when the page is back
+      if (this.introStart !== null && this.introMode === 'build' && this.introHeld === null) this.introInterrupted = true;
+      return;
+    }
+    if (this.introInterrupted) {
+      // The build plays again whole: the fold from its start, every piece popping up after it
+      this.introInterrupted = false;
+      const now = performance.now();
+      this.introStart = now;
+      let order = 0;
+      for (const built of this.built.values()) built.popStart = now + this.introTiming.furniture + order++ * this.introTiming.stagger;
+      this.shadowsDirty = true;
+    }
+    this.requestRender();
   };
   /** The fold-in held at this many ms (a development scrubber), or null to let it run. */
   private introHeld: number | null = null;
@@ -676,6 +714,23 @@ export class RoomScene {
   private halo = shared(haloTexture());
   private casterGeometry = shared(new THREE.SphereGeometry(0.5, 16, 12));
   private casterMaterial = shared(new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+
+  // Props: a dish of food, a ball (`room-props.ts`); the ball's motion is the scene's (`ball-physics.ts`)
+  private props = new Map<string, BuiltProp>();
+  private propGroup = new THREE.Group();
+  private ballSkin?: THREE.CanvasTexture | null;
+  private ballGeometry = shared(new THREE.SphereGeometry(BALL.radius, 24, 18));
+  private dishGeometry = shared(new THREE.CylinderGeometry(DISH_RADIUS, DISH_RADIUS * 0.86, DISH_HEIGHT, 28));
+  private dishMaterial = shared(new THREE.MeshStandardMaterial({ color: '#f7f2ea', roughness: 0.6 }));
+  private dishRimMaterial = shared(new THREE.MeshStandardMaterial({ color: '#d9ccb8', roughness: 0.7 }));
+  /** Called when a rolling ball comes to rest. */
+  onPropRest?: (id: string) => void;
+  /** Called when the room's full fold-in (a first visit's build) has played to its end in front of the player. */
+  onIntroDone?: () => void;
+  /** How the room on screen came in; what `onIntroDone` reports on. */
+  private introMode: RoomIntro = 'none';
+  /** The fold-in was under way when the page was hidden: it plays again from the start when the page is back. */
+  private introInterrupted = false;
 
   /** Called when a visiting Blobbi walks up to the user's Blobbi. */
   onMeet?: (id: string) => void;
@@ -723,7 +778,7 @@ export class RoomScene {
     this.key.shadow.normalBias = 0.05;
     for (const light of [this.hemi, this.key]) light.layers.enableAll();
     this.key.shadow.camera.layers.enableAll();
-    this.scene.add(this.hemi, this.key, this.key.target, this.room, this.furniture, this.overlay);
+    this.scene.add(this.hemi, this.key, this.key.target, this.room, this.furniture, this.overlay, this.propGroup);
     for (let i = 0; i < LAMP_POOL; i++) {
       const lamp = new THREE.PointLight('#ffd9a0', 0, G * 0.9, 1.6);
       lamp.layers.enableAll();
@@ -828,10 +883,14 @@ export class RoomScene {
     }
     // A newly shown room folds together first, then its furniture pops up
     const animating = mode !== 'none' && !this.reducedMotion;
+    this.introMode = animating ? mode : 'none';
+    this.introInterrupted = false;
     if (animating) {
       this.introStart = performance.now();
       this.introPending = true;
       this.introTiming = timing;
+      // Set up while the page is hidden (a room change the player did not see end): the fold-in waits to be watched
+      if (typeof document !== 'undefined' && document.hidden && mode === 'build') this.introInterrupted = true;
     }
     let order = 0;
     for (const item of items) {
@@ -942,12 +1001,15 @@ export class RoomScene {
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.onVisibility);
     // The models are the caller's: out of the scene before it is torn down
     for (const actor of this.actors.values()) if (actor.model) this.scene.remove(actor.model.object);
+    for (const id of [...this.props.keys()]) this.removeProp(id);
     disposeObject(this.scene);
     for (const value of [
       this.trimMaterial, this.shellMaterial, this.edgeMaterial, this.okMaterial, this.badMaterial, this.quad,
       ...this.handMaterials.values(), ...this.pools.screen, ...this.pools.picture, this.furnitureMaterial,
       this.contactTexture, this.halo, this.casterGeometry, this.casterMaterial,
+      this.ballGeometry, this.dishGeometry, this.dishMaterial, this.dishRimMaterial,
     ]) value.dispose();
+    this.ballSkin?.dispose();
     this.bump?.dispose();
     for (const material of this.surfaces.values()) disposeSurface(material);
     for (const template of this.templates.values()) this.disposeTemplate(template);
@@ -1127,6 +1189,13 @@ export class RoomScene {
       if (box && sx > box.x0 && sx < box.x1 && sy > box.y0 && sy < box.y1) return { kind: 'actor', id: a.id };
     }
     const ray = this.ray(sx, sy);
+    // A prop (a ball, a dish) is small: a finger's worth round it counts, nearest the camera first
+    const props = [...this.props.values()].filter((p) => !p.prop.leaving).sort((a, b) => this.propAt(b).x + this.propAt(b).z - (this.propAt(a).x + this.propAt(a).z));
+    for (const p of props) {
+      const at = this.propAt(p);
+      const r = p.prop.kind === 'ball' ? BALL.radius * 1.9 : DISH_RADIUS * 1.15;
+      if (ray.intersectsSphere(new THREE.Sphere(new THREE.Vector3(at.x, at.elev + r * 0.6, at.z), r))) return { kind: 'prop', id: p.prop.id };
+    }
     let best: { index: number; d: number; flat: boolean } | null = null;
     const hit = new THREE.Vector3();
     for (const built of this.built.values()) {
@@ -1301,6 +1370,256 @@ export class RoomScene {
       if (!blocked) return { at: 'floor', x: s.x, y: s.z };
     }
     return null;
+  }
+
+  // ─── Props: a dish of food, a ball ────────────────────────────────────────
+
+  /**
+   * The props in the room (`room-props.ts`), by id: new ones are built and
+   * drop in where they were set down, ones no longer listed go, and a dish's
+   * bites redraw its food. A ball keeps its own place once it rolls; its
+   * `x`/`z` in the prop is only where it was set down.
+   */
+  setProps(props: readonly RoomProp[]) {
+    const now = performance.now();
+    const ids = new Set(props.map((p) => p.id));
+    for (const id of [...this.props.keys()]) if (!ids.has(id)) this.removeProp(id);
+    for (const prop of props) {
+      const existing = this.props.get(prop.id);
+      if (!existing) {
+        this.buildProp(prop, now);
+        continue;
+      }
+      if (existing.prop.kind !== prop.kind) {
+        this.removeProp(prop.id);
+        this.buildProp(prop, now);
+        continue;
+      }
+      if (prop.leaving && existing.leavingAt === undefined) existing.leavingAt = now;
+      if (!prop.leaving) existing.leavingAt = undefined;
+      existing.prop = prop;
+      if (existing.dish) this.updateDish(existing);
+    }
+    this.shadowsDirty = true;
+    this.requestRender();
+  }
+
+  private buildProp(prop: RoomProp, now: number) {
+    const root = new THREE.Group();
+    root.position.set(prop.x, 0, prop.z);
+    const built: BuiltProp = { prop, root, enteredAt: now, front: false };
+    if (prop.kind === 'ball') {
+      if (this.ballSkin === undefined) {
+        const skin = drawBallSkin();
+        this.ballSkin = skin ? shared(new THREE.CanvasTexture(skin)) : null;
+        if (this.ballSkin) this.ballSkin.colorSpace = THREE.SRGBColorSpace;
+      }
+      const material = new THREE.MeshStandardMaterial({ roughness: 0.7, metalness: 0, ...(this.ballSkin ? { map: this.ballSkin } : { color: '#f0d9c0' }) });
+      const mesh = new THREE.Mesh(this.ballGeometry, material);
+      mesh.castShadow = true;
+      mesh.position.y = BALL.radius;
+      const contact = new THREE.Mesh(this.quad, new THREE.MeshBasicMaterial({ map: this.contactTexture, transparent: true, depthWrite: false, opacity: 0.9 }));
+      contact.rotation.x = -Math.PI / 2;
+      contact.renderOrder = 1;
+      contact.position.y = 0.012;
+      contact.scale.set(BALL.radius * 2.6, BALL.radius * 2.3, 1);
+      root.add(mesh, contact);
+      // Set down from a hand's height: it drops and bounces once
+      built.ball = { state: ballAt(prop.x, prop.z, this.reducedMotion ? 0 : 0.7), mesh, contact, resting: this.reducedMotion };
+    } else {
+      const plate = new THREE.Mesh(this.dishGeometry, this.dishMaterial);
+      plate.position.y = DISH_HEIGHT / 2;
+      plate.castShadow = true;
+      plate.receiveShadow = true;
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(DISH_RADIUS * 0.96, DISH_HEIGHT * 0.35, 8, 36), this.dishRimMaterial);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = DISH_HEIGHT;
+      const texture = new THREE.CanvasTexture(document.createElement('canvas'));
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const food = new THREE.Mesh(new THREE.PlaneGeometry(FOOD_SIZE, FOOD_SIZE), new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.08, depthWrite: true, side: THREE.DoubleSide }));
+      // Standing on the plate, facing the camera, leaning back a touch so it reads as sitting on it
+      food.position.y = DISH_HEIGHT + FOOD_SIZE * 0.42;
+      food.rotation.y = CAMERA_AZIMUTH;
+      food.rotateX(-0.22);
+      root.add(plate, rim, food);
+      built.dish = { food, texture, whole: null, glyph: '', bites: -1 };
+      this.updateDish(built);
+    }
+    this.propGroup.add(root);
+    this.props.set(prop.id, built);
+    this.needsCompile = true;
+  }
+
+  /** Redraw a dish's food when what it shows or how much is eaten changed; a vetted image replaces the emoji when it arrives. */
+  private updateDish(built: BuiltProp) {
+    const dish = built.dish;
+    if (!dish) return;
+    const glyph = built.prop.food ?? {};
+    const key = glyphKey(glyph);
+    if (dish.glyph !== key || !dish.whole) {
+      dish.glyph = key;
+      dish.whole = drawFood(glyph);
+      dish.bites = -1;
+      if (glyph.url && dish.image === undefined) {
+        dish.image = 'loading';
+        void loadFoodImage(glyph.url).then((img) => {
+          if (this.disposed || !this.props.has(built.prop.id) || dish.glyph !== key) return;
+          dish.image = 'done';
+          if (!img) return;
+          dish.whole = drawFood(glyph, img);
+          dish.bites = -1;
+          this.updateDish(built);
+          this.requestRender();
+        });
+      }
+    }
+    const taken = built.prop.bites?.taken ?? 0;
+    const of = built.prop.bites?.of ?? 4;
+    if (dish.bites === taken) return;
+    dish.bites = taken;
+    const picture = dish.whole ? (taken > 0 ? biteFood(dish.whole, taken, of) : dish.whole) : null;
+    if (picture) {
+      dish.texture.image = picture;
+      dish.texture.needsUpdate = true;
+      dish.food.visible = taken < of;
+    } else {
+      // No 2D canvas here: a plain disc of food colour stands in
+      dish.food.visible = false;
+    }
+  }
+
+  private removeProp(id: string) {
+    const built = this.props.get(id);
+    if (!built) return;
+    this.propGroup.remove(built.root);
+    // Shared geometries and textures stay; the plane, torus, their materials and the food texture go
+    built.root.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      if (!mesh.geometry.userData.shared) mesh.geometry.dispose();
+      const materials: THREE.Material[] = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const material of materials) {
+        if (material.userData.shared) continue;
+        const map = (material as THREE.MeshBasicMaterial).map;
+        if (map && !map.userData.shared) map.dispose();
+        material.dispose();
+      }
+    });
+    this.props.delete(id);
+    this.shadowsDirty = true;
+  }
+
+  /** Where a prop is now (a ball where it has rolled to), tiles, and its height off the floor. */
+  private propAt(built: BuiltProp): { x: number; z: number; elev: number } {
+    if (built.ball) return { x: built.ball.state.x, z: built.ball.state.z, elev: built.ball.state.elev };
+    return { x: built.prop.x, z: built.prop.z, elev: 0 };
+  }
+
+  /** Where a prop is (tiles), or null when there is none by that id. */
+  propPosition(id: string): { x: number; z: number } | null {
+    const built = this.props.get(id);
+    if (!built) return null;
+    const at = this.propAt(built);
+    return { x: at.x, z: at.z };
+  }
+
+  /** Whether a prop is still (a ball that has stopped rolling; a dish always). */
+  propResting(id: string): boolean {
+    const built = this.props.get(id);
+    return !built || !built.ball || built.ball.resting;
+  }
+
+  /** Kick a ball: off in `dir` at `power` tiles/s with a little hop. False for anything that is not a ball. */
+  kickProp(id: string, dir: { x: number; z: number }, power: number): boolean {
+    const built = this.props.get(id);
+    if (!built?.ball || built.prop.leaving) return false;
+    if (this.reducedMotion) {
+      // No roll to watch: it is simply over there, a short way off
+      const len = Math.hypot(dir.x, dir.z) || 1;
+      const to = stepBall({ ...built.ball.state, vx: (dir.x / len) * power, vz: (dir.z / len) * power }, 0.5, (x, z) => this.tileFree(x, z)).state;
+      built.ball.state = { ...to, vx: 0, vz: 0, vy: 0, elev: 0 };
+      built.ball.resting = true;
+      this.placeBall(built);
+      this.shadowsDirty = true;
+      this.requestRender();
+      return true;
+    }
+    built.ball.state = kickBall(built.ball.state, dir, power);
+    built.ball.resting = false;
+    this.requestRender();
+    return true;
+  }
+
+  /** The props' motion this frame: a set-down dropping in, a leaving one shrinking away, a ball rolling. True while any moves. */
+  private stepProps(dt: number, now: number): boolean {
+    let animating = false;
+    for (const built of this.props.values()) {
+      const entering = this.reducedMotion ? 1 : Math.min(1, (now - built.enteredAt) / PROP_ENTER_MS);
+      let scale = entering < 1 ? easeOutBack(entering) : 1;
+      if (entering < 1) animating = true;
+      if (built.leavingAt !== undefined) {
+        const k = this.reducedMotion ? 1 : Math.min(1, (now - built.leavingAt) / PROP_LEAVE_MS);
+        scale *= 1 - easeInOut(k);
+        if (k < 1) animating = true;
+      }
+      built.root.scale.setScalar(Math.max(0.001, scale));
+      built.root.visible = scale > 0.01;
+      if (built.ball) {
+        const ball = built.ball;
+        if (!ball.resting) {
+          const step = stepBall(ball.state, dt, (x, z) => this.tileFree(x, z));
+          ball.state = step.state;
+          if (ballResting(step.state)) {
+            ball.resting = true;
+            ball.state = { ...step.state, vx: 0, vz: 0, vy: 0, elev: 0 };
+            this.onPropRest?.(built.prop.id);
+          } else animating = true;
+          this.shadowsDirty = true;
+        }
+        this.placeBall(built);
+      } else if (entering < 1) {
+        // A dish set down comes from a little above the floor
+        built.root.position.y = (1 - entering) * 0.35;
+        this.shadowsDirty = true;
+      } else built.root.position.y = 0;
+    }
+    return animating;
+  }
+
+  /** Put a ball's mesh where its state says, rolled by how far it has gone, its shadow under it. */
+  private placeBall(built: BuiltProp) {
+    const ball = built.ball;
+    if (!ball) return;
+    const s = ball.state;
+    built.root.position.set(s.x, 0, s.z);
+    ball.mesh.position.y = BALL.radius + s.elev;
+    // Rolling: turned about the axis across its travel by the distance over its radius
+    const speed = Math.hypot(s.vx, s.vz);
+    if (speed > 1e-6) {
+      const axis = new THREE.Vector3(s.vz / speed, 0, -s.vx / speed);
+      const target = new THREE.Quaternion().setFromAxisAngle(axis, s.rolled / BALL.radius);
+      ball.mesh.quaternion.copy(target);
+    }
+    // Off the floor, the shadow stays under it and shrinks
+    const lift = Math.min(1, s.elev / 0.8);
+    ball.contact.scale.set(BALL.radius * 2.6 * (1 - lift * 0.4), BALL.radius * 2.3 * (1 - lift * 0.4), 1);
+    (ball.contact.material as THREE.MeshBasicMaterial).opacity = 0.9 - lift * 0.5;
+  }
+
+  /** Props nearer the camera than a Blobbi drawn by the page go on the overlay pass, so they are drawn over it. */
+  private classifyPropsFront(domDrawn: boolean): boolean {
+    let any = false;
+    const actors = domDrawn ? [...this.actors.values()].filter((a) => a.visible && !(a.model && a.modelDrawn)) : [];
+    for (const built of this.props.values()) {
+      const at = this.propAt(built);
+      const front = actors.some((b) => at.x + at.z > b.x + b.z + BODY_DEPTH * 0.6);
+      if (front !== built.front) {
+        built.front = front;
+        setFront(built.root, front);
+      }
+      any ||= front;
+    }
+    return any;
   }
 
   // ─── Blobbis ──────────────────────────────────────────────────────────────
@@ -1674,7 +1993,8 @@ export class RoomScene {
       this.hovered = index;
       this.requestRender();
     }
-    return hit?.kind ?? null;
+    // A prop can be tapped like a piece: the pointer says so the same way
+    return hit?.kind === 'prop' ? 'item' : hit?.kind ?? null;
   }
 
   /** A piece pressed (a finger or button down on it), or none: it gives a little until released. */
@@ -2732,6 +3052,20 @@ export class RoomScene {
     return playing;
   }
 
+  /**
+   * The build (a first visit's full fold-in) has played to its end in front
+   * of the player: the floor and walls folded up and every piece popped up,
+   * not held by a scrubber, not skipped in a hidden tab. Reported once; a
+   * quick fold-in is not an introduction and reports nothing.
+   */
+  private checkIntroDone() {
+    if (this.introMode !== 'build' || this.introPending || this.introStart !== null || this.introHeld !== null || this.introInterrupted) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
+    for (const built of this.built.values()) if (built.popStart !== undefined) return;
+    this.introMode = 'none';
+    this.onIntroDone?.();
+  }
+
   requestRender() {
     if (this.disposed || this.frame || this.compiling) return;
     // New materials compile off the main thread first (KHR_parallel_shader_compile);
@@ -2900,9 +3234,11 @@ export class RoomScene {
       built.root.visible = sy > 0.05;
     }
 
+    this.checkIntroDone();
     this.placeHoverRing();
     if (this.stepActors(dt)) animating = true;
     if (this.placeActorProxies(dt)) animating = true;
+    if (this.stepProps(dt, now)) animating = true;
     this.updateClocks();
 
     // Furniture in front of the Blobbi is also drawn to the overlay canvas, over it.
@@ -2912,7 +3248,7 @@ export class RoomScene {
     // Only a Blobbi drawn by the page (the 2D drawing, a visitor) needs furniture drawn over it; a 3D model is
     // hidden by depth like anything else, so with none drawn by the page the second pass is skipped altogether
     const domDrawn = [...this.actors.values()].some((a) => a.visible && !(a.model && a.modelDrawn));
-    const hasFront = domDrawn ? this.classifyFront() : this.clearFront();
+    const hasFront = (domDrawn ? this.classifyFront() : this.clearFront()) || this.classifyPropsFront(domDrawn);
     if (ctx) {
       ctx.clearRect(0, 0, this.fgCanvas.width, this.fgCanvas.height);
       if (hasFront) {

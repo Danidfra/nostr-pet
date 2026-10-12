@@ -85,8 +85,9 @@ describe('what a drop or a Use means', () => {
 
   it('food and drink on the Blobbi are handed over; anything else on it is set down at its feet', () => {
     expect(isHandFed('feed') && isHandFed('boost')).toBe(true);
-    expect(planDrop('feed', { kind: 'blobbi' }, at)).toEqual({ kind: 'hand' });
-    expect(planDrop('boost', { kind: 'blobbi' }, at)).toEqual({ kind: 'hand' });
+    // Food on the Blobbi is set down at its feet too: a dish it eats from, never food in mid-air
+    expect(planDrop('feed', { kind: 'blobbi' }, at)).toEqual({ kind: 'set-down', ...setDownNear(at) });
+    expect(planDrop('boost', { kind: 'blobbi' }, at)).toEqual({ kind: 'set-down', ...setDownNear(at) });
     expect(planDrop('play', { kind: 'blobbi' }, at)).toEqual({ kind: 'set-down', ...setDownNear(at) });
     expect(planDrop('clean', { kind: 'blobbi' }, at)).toEqual({ kind: 'set-down', ...setDownNear(at) });
   });
@@ -98,11 +99,12 @@ describe('what a drop or a Use means', () => {
   });
 
   it('Use without a drag: food handed over, anything else set down just in front of the Blobbi, always inside the room', () => {
-    expect(planUse('feed', at)).toEqual({ kind: 'hand' });
+    expect(planUse('feed', at)).toEqual({ kind: 'set-down', ...setDownNear(at) });
     const set = planUse('play', at);
     expect(set.kind).toBe('set-down');
     // No 3D room to walk in: everything is handed over, as the home does without walking
-    expect(planUse('clean', null)).toEqual({ kind: 'hand' });
+    // Nobody knows where it stands (the simple room): in front of the middle
+    expect(planUse('clean', null)).toEqual({ kind: 'set-down', ...setDownNear({ x: ROOM_GRID / 2 - 0.5, z: ROOM_GRID / 2 - 0.5 }) });
     for (const p of [{ x: 7.6, z: 7.6 }, { x: 0.2, z: 7.9 }, { x: 4, z: 4 }]) {
       const s = setDownNear(p);
       expect(s.x).toBeGreaterThanOrEqual(0.6);

@@ -44,3 +44,16 @@ export function pickGaze(wants: GazeWants): EyeOffset | undefined {
   if (wants.walking) return travelGaze(wants.walking.facing);
   return wants.pointer ?? wants.attention ?? wants.glance ?? undefined;
 }
+
+/**
+ * A look from where the Blobbi stands toward a point on the floor (a dish, a
+ * ball): across the screen is x - z from the camera's corner, so the eyes go
+ * that way; nearer the camera than it is lower on screen, so the eyes go
+ * down, else a little up.
+ */
+export function gazeToward(from: { x: number; z: number }, to: { x: number; z: number }): EyeOffset {
+  const across = (to.x - to.z) - (from.x - from.z);
+  const nearer = to.x + to.z > from.x + from.z;
+  const distance = Math.hypot(to.x - from.x, to.z - from.z);
+  return { x: Math.max(-0.85, Math.min(0.85, across * 0.3)), y: nearer ? Math.min(0.75, 0.35 + distance * 0.12) : -0.1 };
+}

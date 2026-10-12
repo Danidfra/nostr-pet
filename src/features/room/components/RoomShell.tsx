@@ -40,6 +40,8 @@ import { ROOM_GRID, blobbiBoxTiles, blobbiReachTiles, MAIN_BLOBBI } from '../lib
 import { useFurnitureModels } from '../hooks/useFurnitureModels';
 import { useRoomScene, type RoomSceneFailure, type RoomSceneStatus } from '../hooks/useRoomScene';
 import type { PickResult, RoomScene, SceneGeometry, ScreenAnchor, SpotQuery } from '../lib/scene/RoomScene';
+import type { RoomProp } from '../lib/room-props';
+import { RoomFlatProp } from './RoomProps';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -99,6 +101,14 @@ export interface RoomControl {
   journey: (journey: { kind: JourneyKind; startedAt: number; reduced: boolean } | null) => void;
   /** Show a fixed moment of a journey and draw it at once (the development scrubber). */
   journeyPreview: (preview: { kind: JourneyKind; t: number; reduced: boolean } | null) => void;
+  /** Kick a ball prop off in a direction (tiles) at a speed (tiles/s); false when there is no such ball. */
+  kickProp: (id: string, dir: { x: number; z: number }, power: number) => boolean;
+  /** Where a prop is now (a ball where it has rolled to), or null. */
+  propPosition: (id: string) => { x: number; z: number } | null;
+  /** Whether a prop is still (a ball at rest). */
+  propResting: (id: string) => boolean;
+  /** Resolves when a rolling prop comes to rest (at once when it is still, or gone). */
+  whenPropRests: (id: string) => Promise<void>;
 }
 
 /** What the simple room says about why it is simple. */
@@ -242,6 +252,15 @@ export interface RoomShellProps {
   /** Pointer events over the room, for the gaze. */
   pointerHandlers?: RoomPointerHandlers;
   floorThings?: RoomFloorThing[];
+  /**
+   * Physical things in the room (`room-props.ts`): a dish of food, a ball. The 3D scene builds them among the
+   * furniture (depth, shadows, a ball that rolls); the simple room draws them on the floor. Keep the array stable.
+   */
+  props?: readonly RoomProp[];
+  /** A prop was tapped. */
+  onPropTap?: (id: string) => void;
+  /** The room's full fold-in (a first visit's build) played to its end in front of the player. */
+  onRoomBuilt?: (roomId: RoomId) => void;
   /** Tapping a piece of furniture that does something. */
   onInteract?: (interaction: FurnitureInteraction, index: number) => void;
   /** Any piece tapped outside decorating (before `onInteract`), and whether it was a lamp switched. */
@@ -316,6 +335,9 @@ export function RoomShell({
   onActorChange,
   pointerHandlers,
   floorThings,
+  props,
+  onPropTap,
+  onRoomBuilt,
   editor,
   controlRef,
   onDecorate,
@@ -440,6 +462,10 @@ export function RoomShell({
   /** The state last reported per Blobbi, so the callback fires on changes only. */
   const actorStatesRef = useRef(new Map<string, RoomActorState>());
   const onActorChangeRef = useRef(onActorChange);
+  /** Who waits for a rolling prop to come to rest (`whenPropRests`). */
+  const propRests = useRef(new Map<string, (() => void)[]>());
+  const onRoomBuiltRef = useRef(onRoomBuilt);
+  onRoomBuiltRef.current = onRoomBuilt;
   useEffect(() => {
     onActorChangeRef.current = onActorChange;
   });
@@ -512,6 +538,12 @@ export function RoomShell({
     selected: editor?.selectedIndex ?? null,
     onFrame: updateAnchors,
     onInvalidChange: editor?.onInvalidChange,
+    onRoomBuilt: (key) => onRoomBuiltRef.current?.(key as RoomId),
+    onPropRest: (id) => {
+      const waiting = propRests.current.get(id);
+      propRests.current.delete(id);
+      waiting?.forEach((resolve) => resolve());
+    },
   });
   statusRef.current = status;
   sceneHandle.current = status === 'ready' ? sceneRef.current : null;
@@ -571,9 +603,37 @@ export function RoomShell({
         sceneRef.current?.setActorJourneyPreview?.(MAIN_BLOBBI, preview);
         sceneRef.current?.renderNow?.();
       },
+      kickProp: (id, dir, power) => sceneRef.current?.kickProp?.(id, dir, power) ?? false,
+      propPosition: (id) => sceneRef.current?.propPosition?.(id) ?? null,
+      propResting: (id) => sceneRef.current?.propResting?.(id) ?? true,
+      whenPropRests: (id) => {
+        const scene = sceneRef.current;
+        if (!scene?.propResting || scene.propResting(id)) return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          const waiting = propRests.current.get(id) ?? [];
+          waiting.push(resolve);
+          propRests.current.set(id, waiting);
+        });
+      },
     } : null;
     return () => { controlRef.current = null; };
   }, [is3d, controlRef, sceneRef]);
+
+  // The props, mirrored into the scene; gone with it. Whoever waits for one that is gone is let go.
+  useEffect(() => {
+    if (!is3d) return;
+    sceneRef.current?.setProps?.(props ?? []);
+    const ids = new Set((props ?? []).map((p) => p.id));
+    for (const [id, waiting] of [...propRests.current]) {
+      if (ids.has(id)) continue;
+      propRests.current.delete(id);
+      waiting.forEach((resolve) => resolve());
+    }
+  }, [is3d, props, sceneRef]);
+  useEffect(() => () => {
+    for (const waiting of propRests.current.values()) waiting.forEach((resolve) => resolve());
+    propRests.current.clear();
+  }, []);
 
   // ─── The name: shown while hovered, for a moment after a tap, while focused; never left up ───
   const [nameBy, setNameBy] = useState({ hover: false, tap: false, focus: false });
@@ -764,6 +824,10 @@ export function RoomShell({
     }
     // A tap anywhere else puts the name away
     hideNameForTap();
+    if (hit?.kind === 'prop') {
+      onPropTap?.(hit.id);
+      return;
+    }
     if (hit?.kind === 'item') {
       scene.poke(hit.index);
       const lamp = scene.toggleLamp(hit.index);
@@ -773,7 +837,7 @@ export function RoomShell({
     } else if (hit?.kind === 'floor') {
       scene.walkTo(hit.x, hit.z);
     }
-  }, [editor, sceneRef, furniturePlacements, onInteract, onPieceTap, onBlobbiTap, onBlobbiPet, showNameForTap, hideNameForTap]);
+  }, [editor, sceneRef, furniturePlacements, onInteract, onPieceTap, onBlobbiTap, onBlobbiPet, onPropTap, showNameForTap, hideNameForTap]);
 
   const onPointerCancel = useCallback((e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId);
@@ -895,6 +959,12 @@ export function RoomShell({
         {status !== 'loading' && floorThings?.map((t) => (
           <div key={t.key} data-anchor="floor" data-x={t.x} data-z={t.z} className="absolute left-0 top-0">
             {t.node}
+          </div>
+        ))}
+        {/* Without the 3D room, the props are drawings on the floor (the scene draws them itself otherwise) */}
+        {status === 'unavailable' && props?.map((p) => (
+          <div key={p.id} data-anchor="floor" data-x={p.x} data-z={p.z} className="absolute left-0 top-0">
+            <RoomFlatProp prop={p} onTap={onPropTap} />
           </div>
         ))}
       </div>

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { BLOBBI_SOUNDS } from './sounds';
-import { VOICE } from './blobbi-voice';
+import { BLOBBI_SOUNDS, VOICE_SOUNDS } from './sounds';
+import { VOICE, variantOf } from './blobbi-voice';
 import { createVoiceEngine } from './voice-engine';
 import { soundForCare, soundForPoke, soundForReveal } from './sound-policy';
 import { fakeAudioContext } from '@/test/fake-audio';
 
 describe('the voice recipes', () => {
-  it('are short, quiet, made of the two building blocks, and every sound in the vocabulary has one', () => {
+  it('are short, quiet, soft (sines and triangles under a lowpass, nothing shrill), and every sound in the vocabulary has one', () => {
     for (const id of BLOBBI_SOUNDS) {
       const r = VOICE[id];
       expect(r.durationMs, id).toBeLessThanOrEqual(1_300);
@@ -16,14 +16,48 @@ describe('the voice recipes', () => {
       for (const l of r.layers) {
         expect(['sine', 'triangle']).toContain(l.wave);
         expect(l.offsetMs + l.durationMs, `${id} layer inside the sound`).toBeLessThanOrEqual(r.durationMs);
-        expect(l.gain).toBeLessThanOrEqual(0.14);
-        for (const hz of l.hz) expect(hz).toBeGreaterThanOrEqual(200);
-        for (const hz of l.hz) expect(hz).toBeLessThanOrEqual(1_200);
+        expect(l.gain, id).toBeLessThanOrEqual(0.14);
+        // Fundamentals stay in a small creature's range; the ball's bop is the one low thing
+        for (const hz of l.hz) expect(hz, id).toBeGreaterThanOrEqual(110);
+        for (const hz of l.hz) expect(hz, id).toBeLessThanOrEqual(2_200);
+        if (l.vibrato) {
+          expect(l.vibrato.hz, id).toBeLessThanOrEqual(10);
+          expect(l.vibrato.cents, id).toBeLessThanOrEqual(45);
+        }
       }
     }
   });
 
-  it('eat is Ditto’s munch: four chews of open pop, hum and close smack, each softer than the last', () => {
+  it('the voice is one creature: every vocal sound has a wavering coo (a sine with vibrato) or a peep, and varies a little each time; the room\'s sounds do not vary', () => {
+    for (const id of VOICE_SOUNDS) {
+      const r = VOICE[id];
+      if (id === 'eat' || id === 'gather' || id === 'rise' || id === 'descend') continue; // the munch and the journey cues keep their fixed shapes
+      expect(r.variation, id).toBeDefined();
+      expect(r.variation!.pitch ?? 0, id).toBeGreaterThan(0);
+      expect(r.variation!.pitch ?? 0, id).toBeLessThanOrEqual(1.5);
+      expect(r.variation!.time ?? 0, id).toBeLessThanOrEqual(0.12);
+      expect(r.layers.some((l) => l.wave === 'sine'), id).toBe(true);
+    }
+    for (const id of ['select', 'pickup', 'drop', 'room', 'knock', 'place', 'save', 'invalid'] as const) expect(VOICE[id].variation).toBeUndefined();
+    // Contentment and satisfaction waver (the purr, the "mmm"); a question lifts at its end
+    expect(VOICE.pet.layers.some((l) => l.vibrato && l.vibrato.cents >= 30)).toBe(true);
+    expect(VOICE.yum.layers.some((l) => l.vibrato)).toBe(true);
+    const curious = VOICE.curious.layers[0];
+    expect(curious.hz[curious.hz.length - 1]).toBeGreaterThan(curious.hz[0]);
+    // Displeasure and sleepiness fall
+    for (const id of ['upset', 'sleepy'] as const) {
+      const first = VOICE[id].layers[0];
+      expect(first.hz[first.hz.length - 1]).toBeLessThan(first.hz[0]);
+    }
+    // Gladness and excitement rise
+    for (const id of ['happy', 'excited', 'chirp'] as const) {
+      const peeps = VOICE[id].layers.filter((l) => l.hz.length === 2);
+      expect(peeps.length).toBeGreaterThan(0);
+      for (const p of peeps) expect(p.hz[1]).toBeGreaterThanOrEqual(p.hz[0]);
+    }
+  });
+
+  it('eat is Ditto’s munch: four chews of open pop, hum and close smack, each softer than the last; a bite is one of them', () => {
     const eat = VOICE.eat;
     expect(eat.layers).toHaveLength(12);
     expect(eat.durationMs).toBe(1_240);
@@ -34,6 +68,20 @@ describe('the voice recipes', () => {
     expect(hums[0].hz).toEqual([740, 840, 680]);
     expect(eat.lowpassHz).toBe(1_900);
     expect(eat.master).toBe(0.38);
+    expect(VOICE.bite.durationMs).toBe(300);
+    expect(VOICE.bite.layers).toHaveLength(3);
+    expect(VOICE.bite.layers.map((l) => l.hz[0])).toEqual([520, 740, 400]);
+  });
+
+  it('a variant is a small pitch factor and time factor within the recipe\'s variation, and none for a recipe without one', () => {
+    expect(variantOf({}, 0.1, 0.9)).toEqual({ pitch: 1, time: 1 });
+    const v = variantOf({ variation: { pitch: 1, time: 0.1 } }, 1, 0);
+    expect(v.pitch).toBeCloseTo(Math.pow(2, 1 / 12), 6);
+    expect(v.time).toBeCloseTo(0.9, 6);
+    const middle = variantOf({ variation: { pitch: 1, time: 0.1 } }, 0.5, 0.5);
+    expect(middle).toEqual({ pitch: 1, time: 1 });
+    const low = variantOf({ variation: { pitch: 2 } }, 0, 0.5);
+    expect(low.pitch).toBeCloseTo(Math.pow(2, -2 / 12), 6);
   });
 });
 
@@ -66,12 +114,13 @@ describe('the voice engine', () => {
     expect(engine.play(VOICE.poke)).toBe(true);
     expect(created).toBe(1);
     expect(ctx.resumes).toBe(1);
+    const before = ctx.nodes.filter((n) => n.kind === 'osc').length;
     engine.play(VOICE.eat);
     expect(created).toBe(1);
     // The munch: 12 oscillators, each with its gain; one lowpass, one delay, dry, wet, master.
     const oscs = ctx.nodes.filter((n) => n.kind === 'osc');
-    expect(oscs.length).toBe(2 + 12);
-    const eatOscs = oscs.slice(2);
+    expect(oscs.length).toBe(before + 12);
+    const eatOscs = oscs.slice(before);
     expect(eatOscs.map((o) => o.type).filter((t) => t === 'triangle')).toHaveLength(4);
     const first = eatOscs[0];
     expect(first.started).toBe(10);
@@ -94,6 +143,25 @@ describe('the voice engine', () => {
     expect(typeof last.onended).toBe('function');
     last.onended!();
     expect(filter.disconnected).toBe(true);
+  });
+
+  it('a vibrato is a slow oscillator into the layer\'s pitch, so many cents of it; a variant scales every pitch and time', () => {
+    const ctx = fakeAudioContext('running');
+    const engine = createVoiceEngine(() => ctx as unknown as AudioContext);
+    engine.play(VOICE.pet, { pitch: 2, time: 2 });
+    const oscs = ctx.nodes.filter((n) => n.kind === 'osc');
+    const voice = VOICE.pet.layers;
+    const lfos = oscs.filter((o) => o.connections[0]?.kind === 'gain' && o.connections[0].connections[0] !== undefined && !('kind' in (o.connections[0].connections[0] as object)));
+    expect(lfos).toHaveLength(voice.filter((l) => l.vibrato).length);
+    const first = oscs[0];
+    // Twice the pitch, twice the time
+    expect(first.frequency!.events[0]).toEqual(['set', voice[0].hz[0] * 2, 10]);
+    expect(first.stopped).toBeCloseTo(10 + (voice[0].durationMs / 1000) * 2, 5);
+    const lfo = lfos[0];
+    expect(lfo.frequency!.events[0][1]).toBe(voice[0].vibrato!.hz);
+    const depth = lfo.connections[0];
+    const middle = voice[0].hz[1] * 2;
+    expect(depth.gain!.events[0][1]).toBeCloseTo(middle * (Math.pow(2, voice[0].vibrato!.cents / 1200) - 1), 6);
   });
 
   it('never throws: no Web Audio means no sound, a broken node means no sound', () => {

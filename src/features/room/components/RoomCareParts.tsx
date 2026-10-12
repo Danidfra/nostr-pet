@@ -14,13 +14,19 @@ import { cx } from '../lib/cx';
 import { ROOM_CONTROL_SURFACE } from '../lib/room-ui';
 import type { RoomCareFeedback, RoomOffer } from '../hooks/useRoomCare';
 
-/** An item on the floor: waiting for the Blobbi (it can be put back), being used (eaten, played with, lathered), or failed (the dock says why). */
-export function RoomFloorItem({ offer, glyph, onPutAway }: { offer: RoomOffer; glyph: ItemGlyphModel; onPutAway: () => void }) {
+/**
+ * An item on the floor: waiting for the Blobbi (it can be put back), being used (eaten, played with, lathered), or
+ * failed (the dock says why). A `physical` item (a dish, a ball) is drawn by the room itself as a thing among the
+ * furniture; only its Put away button is drawn here, where the thing is.
+ */
+export function RoomFloorItem({ offer, glyph, onPutAway, physical = false }: { offer: RoomOffer; glyph: ItemGlyphModel; onPutAway: () => void; physical?: boolean }) {
   return (
-    <div className="room-floor-item" data-phase={offer.phase} data-testid="room-floor-item" style={{ '--bites': offer.bites ?? 4 } as CSSProperties}>
-      <span className="room-floor-item__glyph">
-        <ItemGlyph glyph={glyph} fill />
-      </span>
+    <div className="room-floor-item" data-phase={offer.phase} data-physical={physical ? 'true' : undefined} data-testid="room-floor-item" style={{ '--bites': offer.bites ?? 4 } as CSSProperties}>
+      {!physical && (
+        <span className="room-floor-item__glyph">
+          <ItemGlyph glyph={glyph} fill />
+        </span>
+      )}
       {offer.phase === 'walking' && (
         <button type="button" className="room-floor-item__cancel" onClick={onPutAway} aria-label={`Put ${offer.name} away`} data-testid="room-floor-item-cancel">
           <Undo2 className="size-3" aria-hidden />

@@ -20,7 +20,17 @@ vi.mock('@/hooks/useCurrentUser', () => ({
   useCurrentUser: () => ({ user: currentUser.user, users: currentUser.user ? [currentUser.user] : [] }),
 }));
 const scene = vi.hoisted(() => ({
+  state: { props: [] as { id: string; kind: string; bites?: { taken: number; of: number }; leaving?: boolean }[], kicks: 0 },
   fake: {
+    setProps(props: { id: string; kind: string; bites?: { taken: number; of: number }; leaving?: boolean }[]) {
+      scene.state.props = props;
+    },
+    kickProp() {
+      scene.state.kicks += 1;
+      return true;
+    },
+    propPosition: (id: string) => (scene.state.props.some((p) => p.id === id) ? { x: 5, z: 5 } : null),
+    propResting: () => true,
     pick: () => ({ kind: 'floor' as const, x: 3, z: 3 }),
     floorAt: () => ({ x: 3, z: 3 }),
     requestWalk: () => Promise.resolve('arrived' as const),
@@ -80,9 +90,12 @@ beforeEach(() => {
   currentUser.user = { pubkey: PUBKEY, signer: {} };
   relay.all = [blobbiEvent('0000000001', { name: 'Brook', stage: 'adult', state: 'active', visualGeneration: 'v3' })];
   relay.published = [];
+  scene.state.props = [];
+  scene.state.kicks = 0;
   localStorage.clear();
 });
 afterEach(() => localStorage.clear());
+const dish = () => scene.state.props.find((p) => p.kind === 'dish');
 
 /** Every face the drawing wears from now on, in order. */
 function watchFaces() {
@@ -97,20 +110,22 @@ function watchFaces() {
 }
 
 describe('the animation playground', () => {
-  it('feeding: eager first, then bites (mouth open, then closed, eyes shut), then glad; the food goes bite by bite; nothing written', async () => {
+  it('feeding: a dish appears, it notices (curious) and is eager, then bites (mouth open, then closed, eyes shut) take the food down, then glad; the dish goes; nothing written', async () => {
     renderRoom();
     await screen.findByTestId('room-bar');
     fireEvent.click(screen.getByTestId('dev-tools-open'));
     fireEvent.click(screen.getByTestId('dev-tools-tab-animations'));
     const watch = watchFaces();
     fireEvent.click(screen.getByTestId('playground-feed'));
-    expect(screen.getByTestId('room-handed-item')).toHaveAttribute('data-phase', 'using');
-    await waitFor(() => expect(screen.getByTestId('room-handed-item')).toHaveAttribute('data-phase', 'eating'), { timeout: 2000 });
-    await waitFor(() => expect(screen.queryByTestId('room-handed-item')).toBeNull(), { timeout: 3000 });
+    // The food is a thing in the room, on a dish, whole
+    expect(dish()).toMatchObject({ bites: { taken: 0, of: 4 } });
+    await waitFor(() => expect(dish()?.bites?.taken).toBe(4), { timeout: 4000 });
+    await waitFor(() => expect(dish()).toBeUndefined(), { timeout: 3000 });
     await act(() => new Promise((r) => setTimeout(r, 300)));
     watch.stop();
     const faces = watch.faces.join(' ');
-    // Eager (eased into "excited"), then the bites, alternating, then glad
+    // Curious, then eager (eased into "excited"), then the bites, alternating, then glad
+    expect(faces).toMatch(/surprised":0\.55/);
     expect(faces).toMatch(/excited/);
     const open = watch.faces.filter((f) => f.includes('"mouth":"open"')).length;
     const closed = watch.faces.filter((f) => f.includes('"mouth":"grin"')).length;
@@ -119,7 +134,23 @@ describe('the animation playground', () => {
     expect(watch.faces.findIndex((f) => f.includes('"mouth":"open"'))).toBeGreaterThan(watch.faces.findIndex((f) => f.includes('excited')));
     expect(watch.faces[watch.faces.length - 1]).toMatch(/happy/);
     expect(relay.published).toEqual([]);
-  }, 10_000);
+  }, 12_000);
+
+  it('the ball: it drops into the room, the Blobbi comes, nudges it three times (a bop each), chasing it between; glad after; the ball stays; nothing written', async () => {
+    renderRoom();
+    await screen.findByTestId('room-bar');
+    fireEvent.click(screen.getByTestId('dev-tools-open'));
+    fireEvent.click(screen.getByTestId('dev-tools-tab-animations'));
+    const watch = watchFaces();
+    fireEvent.click(screen.getByTestId('playground-ball'));
+    expect(scene.state.props.find((p) => p.kind === 'ball')).toBeDefined();
+    await waitFor(() => expect(scene.state.kicks).toBe(3), { timeout: 6000 });
+    await waitFor(() => expect(watch.faces[watch.faces.length - 1]).toMatch(/excited/), { timeout: 3000 });
+    await act(() => new Promise((r) => setTimeout(r, 900)));
+    watch.stop();
+    expect(scene.state.props.find((p) => p.kind === 'ball')).toBeDefined();
+    expect(relay.published).toEqual([]);
+  }, 12_000);
 
   it('petting: contentment and a heart; faces by name; nothing written', async () => {
     renderRoom();

@@ -99,6 +99,8 @@ export interface RoomDevToolsProps {
   /** Play the eating animation and the petting reaction, presentation only. */
   onFeed: () => void;
   onPet: () => void;
+  /** The ball game, with a pretend write (nothing used, nothing written). */
+  onBall?: () => void;
   presence: Presence;
   preview: JourneyPreview | null;
   onPreview: (preview: JourneyPreview | null) => void;
@@ -135,7 +137,7 @@ function useRuntimeErrors() {
 const isolate = (e: PointerEvent | React.MouseEvent | React.TouchEvent) => e.stopPropagation();
 
 export function RoomDevTools(props: RoomDevToolsProps) {
-  const { transitions, roomId, onRoom, appearance, onAppearance, unavailable3d, quality, onFace, onFeed, onPet, presence, preview, onPreview, controlRef, mode, perfOnOpen = false } = props;
+  const { transitions, roomId, onRoom, appearance, onAppearance, unavailable3d, quality, onFace, onFeed, onPet, onBall, presence, preview, onPreview, controlRef, mode, perfOnOpen = false } = props;
   const narrow = useMatches(NARROW_QUERY);
   const short = useMatches(SHORT_QUERY);
   const [open, setOpen] = useState(false);
@@ -350,6 +352,18 @@ export function RoomDevTools(props: RoomDevToolsProps) {
                   >
                     Petting
                   </button>
+                  {onBall && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onBall();
+                        watch();
+                      }}
+                      data-testid="playground-ball"
+                    >
+                      Ball
+                    </button>
+                  )}
                 </div>
               </Group>
               <div className="devtools__row">

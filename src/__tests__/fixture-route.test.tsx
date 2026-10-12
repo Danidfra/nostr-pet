@@ -91,6 +91,37 @@ describe('the fixture route', () => {
     expect(noLogins()).toBe(true);
   });
 
+  it('feeding and playing in the fixture are simulated whole (the dish, the bites, the ball) with no socket, no fetch and no key; the writes land in the fixture world only', async () => {
+    await openApp('/room?fixture=adult-v3');
+    await inRoom();
+    const shell = screen.getByTestId('room-shell');
+    // The living room offers toys: the ball
+    const use = await screen.findByTestId('room-item-use');
+    for (let i = 0; i < 6 && !/Ball/.test(use.getAttribute('aria-label') ?? ''); i++) fireEvent.click(screen.getByTestId('room-item-next'));
+    expect(screen.getByTestId('room-item-use')).toHaveAccessibleName(/Ball/);
+    fireEvent.click(screen.getByTestId('room-item-use'));
+    // Set down as a thing in the room; without WebGL (jsdom) it is a drawing on the floor
+    await screen.findByTestId('room-floor-item');
+    // Nobody walks in the simple room: the play is written at once, into the fixture's pool, and celebrated
+    await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Elder/), { timeout: 6000 });
+    expect(socket).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(randomCalls).toBe(0);
+    // The kitchen: the apple, on a dish, eaten
+    fireEvent.click(screen.getByTestId('room-nav-left'));
+    await waitFor(() => expect(shell).toHaveAttribute('data-room', 'kitchen'));
+    const give = await screen.findByTestId('room-item-use');
+    for (let i = 0; i < 8 && !/Apple/.test(give.getAttribute('aria-label') ?? ''); i++) fireEvent.click(screen.getByTestId('room-item-next'));
+    fireEvent.click(screen.getByTestId('room-item-use'));
+    await screen.findByTestId('room-floor-item');
+    await waitFor(() => expect(screen.getByTestId('room-floor-item')).toHaveAttribute('data-phase', 'eating'), { timeout: 6000 });
+    await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Elder/), { timeout: 6000 });
+    expect(socket).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(noLogins()).toBe(true);
+    for (const key of Object.keys(localStorage)) expect(key).toMatch(/^(blobbi[:-]|nostr:login$)/);
+  }, 30_000);
+
   it('opens a simulated baby V3 the same way', async () => {
     await openApp('/room?fixture=baby-v3&perf');
     await inRoom();
