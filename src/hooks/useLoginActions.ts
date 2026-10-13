@@ -2,6 +2,7 @@ import { useContext } from 'react';
 import { useNostr } from '@nostrify/react';
 import { NLogin, generateNostrConnectParams, generateNostrConnectURI, useNostrLogin, type NostrConnectParams, type NostrConnectStatus } from '@nostrify/react/login';
 import { DevFixtureContext } from '@/dev/DevFixtureContext';
+import { GuestUserContext } from '@/features/guest/guest-context';
 import { BASE_RELAYS } from '@/config/relays';
 import { CLIENT_NAME } from '@/features/care/usePublishAdapter';
 
@@ -25,6 +26,8 @@ export function useLoginActions() {
   const { nostr } = useNostr();
   const { logins, addLogin, removeLogin } = useNostrLogin();
   const fixture = useContext(DevFixtureContext) !== null;
+  // A guest (M14) has no login: nothing to sign out of, no session key to show; saving is the guest feature's own flow
+  const guest = useContext(GuestUserContext) !== null && logins.length === 0;
   const current = fixture ? undefined : logins[0];
 
   return {
@@ -61,8 +64,8 @@ export function useLoginActions() {
       const login = NLogin.fromNsec(nsec);
       addLogin(login);
     },
-    /** How the current session signed in, for the menu. */
-    loginType: current?.type ?? null,
+    /** How the current session signed in, for the menu; `'guest'` while a guest plays without an account. */
+    loginType: guest ? ('guest' as const) : (current?.type ?? null),
     /** The secret key of an nsec session, for the backup step in the menu; null for signer logins. */
     sessionNsec: current?.type === 'nsec' ? current.data.nsec : null,
     /** Sign out the current user. */

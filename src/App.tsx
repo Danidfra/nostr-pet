@@ -5,6 +5,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { BLOBBI_RENDERER_STYLESHEET } from '@blobbi-kit/renderer';
 
 import { NostrProvider } from '@/components/NostrProvider';
+import { GuestProvider, GuestTransport } from '@/features/guest';
 import { EnvironmentProvider } from '@/environment';
 import { SoundProvider } from '@/features/sound';
 import { RoomLoading } from '@/features/room/RoomLoading';
@@ -68,7 +69,12 @@ function Transport({ children }: { children: React.ReactNode }) {
       </Suspense>
     );
   }
-  return <NostrProvider>{children}</NostrProvider>;
+  // A guest (M14) plays over the guest world, with the relays underneath for what is not the guest's
+  return (
+    <NostrProvider>
+      <GuestTransport>{children}</GuestTransport>
+    </NostrProvider>
+  );
 }
 
 /** Dev builds only: the fixture link was ignored because the flag is off, and how to turn it on. */
@@ -87,23 +93,25 @@ export function App() {
       <EnvironmentProvider>
         <SoundProvider>
           <NostrLoginProvider storageKey="nostr:login">
-            <QueryClientProvider client={queryClient}>
-              <Transport>
-                <style>{BLOBBI_RENDERER_STYLESHEET}</style>
-                <FixtureRefusedNotice />
-                <BrowserRouter>
-                  <AppRouter
-                    devLab={
-                      DevLab && devLabRequested ? (
-                        <Suspense fallback={null}>
-                          <DevLab />
-                        </Suspense>
-                      ) : null
-                    }
-                  />
-                </BrowserRouter>
-              </Transport>
-            </QueryClientProvider>
+            <GuestProvider>
+              <QueryClientProvider client={queryClient}>
+                <Transport>
+                  <style>{BLOBBI_RENDERER_STYLESHEET}</style>
+                  <FixtureRefusedNotice />
+                  <BrowserRouter>
+                    <AppRouter
+                      devLab={
+                        DevLab && devLabRequested ? (
+                          <Suspense fallback={null}>
+                            <DevLab />
+                          </Suspense>
+                        ) : null
+                      }
+                    />
+                  </BrowserRouter>
+                </Transport>
+              </QueryClientProvider>
+            </GuestProvider>
           </NostrLoginProvider>
         </SoundProvider>
       </EnvironmentProvider>

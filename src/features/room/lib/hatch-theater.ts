@@ -75,3 +75,30 @@ export function tapCaption(taps: number): string {
   if (taps === 3) return 'Almost there… one more!';
   return 'Here it comes…';
 }
+
+/*
+ * Nothing in the theatre waits forever (M14). The write itself is bounded by
+ * its parts (the relay reads and the publish each have a deadline, the signer
+ * has one too), and the theatre keeps its own ceiling over all of them. After
+ * the write landed, the baby is expected from the collection at once (the
+ * app's own write goes straight into the cache); should it not come, the
+ * theatre asks the relays again, and then says what happened and offers a
+ * way on, never a caption that stays.
+ */
+
+/** The theatre's own ceiling on the write, over every deadline inside it. */
+export const PERFORM_TIMEOUT_MS = 70_000;
+/** After the write landed: how long the baby may take to appear before the collection is re-read. */
+export const REVEAL_WAIT_MS = 6_000;
+/** After that re-read: how long before the theatre stops waiting and says so. */
+export const RECOVER_WAIT_MS = 9_000;
+/** While the write is out: when the caption first says the relays are slow, and when it says more. */
+export const SLOW_WRITE_MS = 6_000;
+export const VERY_SLOW_WRITE_MS = 20_000;
+
+/** What the theatre says while the write is out, by how long it has been out. */
+export function writingCaption(elapsedMs: number): string {
+  if (elapsedMs >= VERY_SLOW_WRITE_MS) return 'The relays are slow today. Still saving…';
+  if (elapsedMs >= SLOW_WRITE_MS) return 'Here it comes… saving takes a moment.';
+  return tapCaption(TAPS_TO_HATCH);
+}

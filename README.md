@@ -40,11 +40,19 @@ The app never asks for your secret key by hand and never sends it anywhere.
   A throwaway client key lives in memory for the handshake; your own key
   stays in the signer app.
 - **Bunker address** (NIP-46 `bunker://`): paste one from a remote signer.
-- **A new account**: a fresh key generated on your device, shown once and
-  gated behind a backup step, then a Nostr profile and your first egg.
+- **No account yet** (M14): a new visitor plays first. **Meet your Blobbi!**
+  gives them an egg on this device, as a guest: nothing is signed, nothing
+  is sent, no login is stored. The key the Blobbi will belong to is reserved
+  with the egg (a V3 Blobbi's look is derived from its owner's key, so this
+  is the only way it can later be published as the same Blobbi) and is given
+  to the player, shown once and gated behind the backup step, only when they
+  choose **Save my Blobbi**; then an optional Nostr profile, and the Blobbi
+  and the Blobbonaut profile are published under that key.
 
 Local-key accounts and remote signers are kept apart in the session store
-and told apart in the interface, so you always know which you are using.
+and told apart in the interface, so you always know which you are using. A
+guest Blobbi on a device never merges into an account signed into on it:
+the player is told once and chooses (`src/features/guest/`).
 
 ## Nostr events used
 
@@ -122,9 +130,10 @@ Two things to know:
   **View** row (−, +, Reset). The factor is remembered on this device
   (`blobbi:room:zoom`), the same for every room, and survives turning the
   phone within the new stage's limits.
-- **The way in and the hatch (M11).** A new visitor sees the welcome
-  (three real Blobbis, **Adopt my Blobbi**, **I have an account**), makes a
-  key and saves it, gets their egg (the real one, on a lit pedestal) and
+- **The way in and the hatch (M11, M14).** A new visitor sees the welcome
+  (three real Blobbis, **Meet your Blobbi!**, **I already have an
+  account**), gets their egg at once as a guest (the real one, on a lit
+  pedestal; the key comes later, when they choose to save) and
   adopts it; the app then opens in the 2D home (M13), where the first egg
   hatches under the player's taps as a short piece of theatre (M12.3): the
   home darkens, each tap cracks the shell, the hatch is written, and only

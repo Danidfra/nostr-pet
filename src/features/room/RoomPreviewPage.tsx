@@ -67,6 +67,7 @@ import { useRoomItemDrag } from './hooks/useRoomItemDrag';
 import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
 import { RoomHeader } from './components/RoomHeader';
 import { WorldsSheet } from '@/features/worlds/WorldsSheet';
+import { useGuest, useGuestUi } from '@/features/guest';
 import { useWorldDeparture } from '@/features/worlds/useWorldDeparture';
 import { DepartureCard } from '@/features/worlds/DepartureCard';
 import { useJourney } from '@/features/journey/useJourney';
@@ -426,6 +427,10 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const journeyBook = useJourney({ pubkey, companions, current: blobbi, profile, evolveTasks });
   // Today's missions: the ecosystem's daily missions, the XP they pay written once per day (`features/progression`)
   const daily = useDailyXp({ pubkey, companions, profile });
+  // A guest's room (M14): the worlds and another egg wait for a saved Blobbi; the menu offers the save
+  const guest = useGuest();
+  const guestUi = useGuestUi();
+  const guestActive = guest.mode === 'active';
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [worldsOpen, setWorldsOpen] = useState(false);
   const [adoptOpen, setAdoptOpen] = useState(false);
@@ -921,9 +926,30 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       </RoomShell>
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
       {streakMoment?.milestone && <StreakMoment change={streakMoment} onDone={dismissStreakMoment} reducedMotion={reducedMotion} />}
-      {theater && <HatchTheater blobbi={blobbi} perform={performHatch} error={hatchError ?? lifecycleError} reducedMotion={reducedMotion} play={play} onDone={endTheater} />}
+      {theater && (
+        <HatchTheater
+          blobbi={blobbi}
+          perform={performHatch}
+          error={hatchError ?? lifecycleError}
+          reducedMotion={reducedMotion}
+          play={play}
+          onDone={endTheater}
+          onRecover={refresh}
+          savingNote={guestActive ? 'Keeping the hatch on this device' : undefined}
+        />
+      )}
       <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} inRoom />
-      <WorldsSheet open={worldsOpen} onClose={() => setWorldsOpen(false)} blobbi={blobbi} onTravel={travel} />
+      <WorldsSheet
+        open={worldsOpen}
+        onClose={() => setWorldsOpen(false)}
+        blobbi={blobbi}
+        onTravel={travel}
+        guest={guestActive}
+        onSave={() => {
+          setWorldsOpen(false);
+          guestUi.requestSave();
+        }}
+      />
       <JourneySheet
         open={journeyOpen}
         onClose={() => setJourneyOpen(false)}
@@ -933,7 +959,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         daily={daily}
         canAdoptMore={journeyBook.canAdoptMore}
       />
-      {pubkey && (
+      {pubkey && !guestActive && (
         <GameOverlay open={adoptOpen} onClose={() => setAdoptOpen(false)} title="Another Blobbi" testId="room-adopt-sheet">
           {journeyBook.canAdoptMore ? (
             <AdoptionFlow pubkey={pubkey} updateCompanionEvent={updateCompanionEvent} refresh={refresh} additional />

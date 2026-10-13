@@ -786,3 +786,35 @@ apex 307 and http 308 to `https://www.`. Missing assets were 200 HTML
   (tooling). Elsewhere: the kit's production query logging (noise, the
   public key and filters, no secrets) and same-second `created_at`; Ditto's
   repeated daily XP.
+
+## M14: play first, save later (2026-10-13)
+
+- **A newcomer is a guest.** Meet your Blobbi! opens a guest record on this
+  device (`blobbi:guest:v1`); the egg comes at once, hatches under the
+  player's taps and is cared for, all on the device: no login stored,
+  nothing signed, nothing offered to a relay, the guest's pubkey never asked
+  of one. I already have an account is the way in for returning players.
+- **The key is reserved, not hidden.** A V3 Blobbi is its address, so the key
+  the Blobbi will belong to is made with the egg and used for nothing but the
+  address until the player chooses to save; then it is given through the
+  M12.3 key scene (facts, copy or download, the acknowledgement). Under an
+  account the player already has, the guest Blobbi cannot keep its look: it
+  stays on the device, said once, never merged; removing it is asked twice.
+- **Saving is resumable and idempotent.** The stage is remembered before the
+  sign-in; each event is checked on the relays before it is published; a
+  refusal stops with Try again and the record in place; the record goes only
+  once the relays hold both (or at the next mount, after a confirmed save).
+- **Not published at the save:** the guest days' kind 1124 receipts. The care
+  is in the 31124 tags (stats, streak, experience) and travels; the Journey's
+  "days together" starts at the save. A kit-level carry of receipts would be
+  the only way around it (not changed from here).
+- **The hatch never waits forever.** Signer timeout (45 s), a ceiling over the
+  write (70 s) → Try again; after a landed write, 6 s for the baby, a re-read,
+  9 s more, then "saved but not showing" with Check again and Reload. The
+  real-iPhone "Here it comes…" matched the M13-fixed relay-lag path; this
+  closes every remaining unbounded wait.
+- **Verified:** typecheck, lint, the full suite at half the workers, the
+  production build; ten end-to-end scenarios over the real providers and real
+  nsec signing (`m14-play-first.test.tsx`).
+- **Not verified:** any real device. The guest path and the save on a real
+  iPhone are the next `LAUNCH_TEST_PLAN.md` run (section 1b).

@@ -376,6 +376,60 @@ picker, matrix sets (identities, every trait, pairs, gene bounds), and the
 coverage table. The kit gives a baby no tail (its development is 0), so
 none is drawn.
 
+## Milestone 14: play first, save later (guest mode)
+
+A newcomer meets their Blobbi before any account exists: welcome → the egg
+(on this device) → the hatch under their taps → care → one invitation to
+save → the key, a profile, the Blobbi published. `src/features/guest/`.
+
+**Identity.** A V3 Blobbi is its address: the kit derives its whole look
+from `SHA-256(domain ‖ owner pubkey ‖ d)` and no tag carries a seed. So the
+only way a guest Blobbi can later be published as the very same Blobbi is
+for its owner's key to exist before the egg does. The key is RESERVED when
+the guest egg is made (`reserveGuestIdentity`, the same primitive as any new
+account's) and used for nothing but the address while the player is a guest:
+no event is signed with it, none is sent, it never enters the login store, a
+log, a URL or a request. It is given to the player, with the facts about it,
+only when they choose to save (`SaveCeremony` → `KeyGift`, the M12.3 key
+scene unchanged). Under an account the player already has, the guest Blobbi
+cannot keep its look (a different key is a different Blobbi): it is kept on
+the device, said once (`GuestConflictSheet`), never merged.
+
+**The guest world.** One versioned document, `blobbi:guest:v1`
+(`guest-store.ts`): the identity, the records (the Blobbi's 31124, the
+11125, the 1124 receipts, in event shape but UNSIGNED, `sig: ''`), the care
+count, the invitation's rest, the save's stage, the accounts told. Read
+defensively (an unreadable record is quarantined, never deleted); written
+whole on every change; a browser that refuses storage keeps it in memory and
+the player is told. `guest-world.ts` answers filters as a relay would.
+
+**The transport.** `GuestTransport` (inside `NostrProvider`, while a guest
+plays) hands the app a composite pool (`guest-pool.ts`): a filter whose
+authors are all the guest is answered from the guest world; anything else
+goes to the real pool (and is answered empty if it fails); a guest record is
+stored locally and never offered upstream; an unsigned record never leaves.
+`useCurrentUser` reads the guest after the dev fixture and before the login
+store (a login always wins). Every kit hook runs unchanged.
+
+**Limits.** One Blobbi. Evolving waits for a saved Blobbi (its missions are
+Ditto's), said in the details instead of a button; the worlds are "Save to
+visit"; the Island door is the way to save; no owned items, no kind 0, no
+sign out. Daily XP and the Journey run over the guest world and travel in the
+11125 at the save.
+
+**Saving** (`guest-migration.ts`, `SaveCeremony.tsx`): intro → key (the stage
+is remembered before the sign-in, so a refresh resumes) → profile (optional,
+the existing kind 0 path) → the Blobbi then the profile, each from a template
+of the record (tags verbatim, `created_at` now), each checked against the
+relays first (found: not published again) → read back → done. The record
+stays until the relays hold both; a refusal stops with Try again; a refresh
+after a landed save is confirmed by the home at mount (`useFinishSave`).
+Not published: the guest days' 1124 receipts (the care is in the 31124 tags).
+
+**The hatch never waits forever** (`HatchTheater`): a signer timeout in the
+publish adapter, a ceiling over the write, a bounded wait for the baby, a
+re-read, then an honest "saved but not showing" with Check again and Reload.
+
 ## Milestone 13: MVP release readiness (M11)
 
 The pass that turns the M10 home into something that can be put in front

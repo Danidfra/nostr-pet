@@ -1,4 +1,5 @@
-import { Armchair, Check, ChevronRight, ExternalLink, House, LogOut, Map as MapIcon, Moon, Sun, Sunrise, Volume2, VolumeX } from 'lucide-react';
+import { Armchair, Check, ChevronRight, ExternalLink, House, KeyRound, LogOut, Map as MapIcon, Moon, Sparkles, Sun, Sunrise, Volume2, VolumeX } from 'lucide-react';
+import { DEVICE_ONLY_LINE, NO_STORAGE_LINE, useGuestSnapshot, useGuestUi } from '@/features/guest';
 import { Link } from 'react-router-dom';
 import { GameOverlay } from './GameOverlay';
 import { useEnvironment } from '@/environment';
@@ -39,11 +40,52 @@ export function MenuSheet({ open, onClose, inRoom = false }: MenuSheetProps) {
   const { logout, sessionNsec, loginType } = useLoginActions();
   const [experience, setExperience] = useHomeExperience();
   const opensOnRoom = experience === 'room';
+  // A guest (M14): the Blobbi lives on this device; the account block is the way to save it, or to sign in
+  const guest = loginType === 'guest';
+  const guestUi = useGuestUi();
+  const guestSnapshot = useGuestSnapshot();
+  const saveBegun = !!guestSnapshot.doc?.migration;
+  const ask = (what: 'save' | 'sign-in') => {
+    onClose();
+    if (what === 'save') guestUi.requestSave();
+    else guestUi.requestSignIn();
+  };
 
   return (
     <GameOverlay open={open} onClose={onClose} title="Menu" testId="menu-sheet" size="medium">
       <div className="menu">
-        {!inRoom && (
+        {guest && (
+          <section className="menu-section" aria-labelledby="menu-guest" data-testid="menu-guest">
+            <h3 id="menu-guest" className="menu-section__title">
+              Your Blobbi
+            </h3>
+            <p className="menu-section__hint" data-testid="menu-guest-line">
+              {guestSnapshot.storageOk ? DEVICE_ONLY_LINE : NO_STORAGE_LINE}
+            </p>
+            <button type="button" onClick={() => ask('save')} data-testid="menu-save-blobbi" className="menu-tile menu-tile--hero">
+              <span className="menu-tile__icon">
+                <Sparkles className="h-7 w-7" aria-hidden />
+              </span>
+              <span className="menu-tile__text">
+                <span className="menu-tile__title">{saveBegun ? 'Finish saving my Blobbi' : 'Save my Blobbi'}</span>
+                <span className="menu-tile__sub">A key only you hold, a home on Nostr, and the door to Blobbi Island and the other worlds. The very same Blobbi.</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
+            </button>
+            <button type="button" onClick={() => ask('sign-in')} data-testid="menu-sign-in" className="menu-tile">
+              <span className="menu-tile__icon">
+                <KeyRound className="h-6 w-6" aria-hidden />
+              </span>
+              <span className="menu-tile__text">
+                <span className="menu-tile__title">I already have an account</span>
+                <span className="menu-tile__sub">Sign in with the Nostr account your Blobbis live under. The guest Blobbi stays on this device.</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
+            </button>
+          </section>
+        )}
+
+        {!inRoom && !guest && (
           <a href={BLOBBI_ISLAND_URL} target="_blank" rel="noopener noreferrer" data-testid="enter-island" className="menu-tile menu-tile--hero">
             <span className="menu-tile__icon">
               <MapIcon className="h-7 w-7" aria-hidden />
@@ -146,7 +188,7 @@ export function MenuSheet({ open, onClose, inRoom = false }: MenuSheetProps) {
           </div>
         </section>
 
-        {user && (
+        {user && !guest && (
           <section className="menu-section" aria-labelledby="menu-account">
             <h3 id="menu-account" className="menu-section__title">
               Account

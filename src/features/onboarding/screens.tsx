@@ -23,15 +23,15 @@ const GUIDE_LINES: Record<string, string> = {
   'onboarding-existing-account': 'Welcome back! I missed you.',
 };
 
-/** A step of the way in: the card, in the welcome's world, with the Blobbi guide beside it. */
-function Card({ children, testId, busy }: { children: React.ReactNode; testId: string; busy?: boolean }) {
-  return (
-    <StagePanel line={GUIDE_LINES[testId] ?? 'Hello again!'}>
-      <section className="welcome-card" data-testid={testId} aria-busy={busy}>
-        {children}
-      </section>
-    </StagePanel>
+/** A step of the way in: the card, in the welcome's world, with the Blobbi guide beside it. `plain`: the card alone (inside another surface). */
+function Card({ children, testId, busy, plain = false }: { children: React.ReactNode; testId: string; busy?: boolean; plain?: boolean }) {
+  const card = (
+    <section className={plain ? 'space-y-4' : 'welcome-card'} data-testid={testId} aria-busy={busy}>
+      {children}
+    </section>
   );
+  if (plain) return card;
+  return <StagePanel line={GUIDE_LINES[testId] ?? 'Hello again!'}>{card}</StagePanel>;
 }
 
 function BackButton({ onClick, label = 'Back' }: { onClick: () => void; label?: string }) {
@@ -87,14 +87,14 @@ export function WelcomeScreen({ onCreate, onExisting }: { onCreate: () => void; 
         <div className="wscene__actions">
           <button type="button" className="onboard-btn onboard-btn--primary welcome-card__primary" onClick={onCreate} data-testid="onboarding-create">
             <Sparkles className="h-4 w-4" aria-hidden />
-            Meet your Blobbi
+            Meet your Blobbi!
           </button>
           <button type="button" className="onboard-btn onboard-btn--secondary" onClick={onExisting} aria-describedby="welcome-back-hint" data-testid="onboarding-existing">
             <KeyRound className="h-4 w-4" aria-hidden />
-            Welcome back!
+            I already have an account
           </button>
           <span id="welcome-back-hint" className="sr-only">
-            I already have an account
+            Welcome back: sign in with the Nostr account your Blobbi lives under
           </span>
         </div>
         <button type="button" className="wscene__about" onClick={() => setAboutOpen(true)} data-testid="welcome-what-is-nostr">
@@ -107,10 +107,10 @@ export function WelcomeScreen({ onCreate, onExisting }: { onCreate: () => void; 
           <li><Heart aria-hidden /> It notices you, eats, plays and naps</li>
           <li><Home aria-hidden /> A home with rooms to walk and decorate</li>
         </ul>
-        <p className="welcome-about__text">Free, with no email. Your Blobbi belongs to your own key, a little like a house key that only you hold.</p>
+        <p className="welcome-about__text">Free, with no email, and you can start right away: your first Blobbi lives on this device until you choose to save it.</p>
         <p className="welcome-about__text">
-          Blobbi runs on Nostr, an open network where your account is a key you hold, not a password on our server. The same key and the same Blobbi work in
-          Blobbi Island and Ditto. If you already use Nostr, choose Welcome back! and sign in with it.
+          Saving gives your Blobbi a home on Nostr, an open network where your account is a key you hold, not a password on our server. The same key and the
+          same Blobbi then work in Blobbi Island and Ditto. If you already use Nostr, choose I already have an account and sign in with it.
         </p>
         <div className="mt-3 flex justify-center">
           <EnterIslandButton variant="secondary" />
@@ -169,7 +169,7 @@ function readFileText(file: File): Promise<string> {
  * keep the key out of this app; a secret key (pasted or the backup file)
  * is there for accounts made here or elsewhere without a signer.
  */
-export function ExistingAccountScreen({ onBack }: { onBack?: () => void }) {
+export function ExistingAccountScreen({ onBack, plain = false }: { onBack?: () => void; plain?: boolean }) {
   const login = useLoginActions();
   const [bunkerUri, setBunkerUri] = useState('');
   const [nsecInput, setNsecInput] = useState('');
@@ -225,7 +225,7 @@ export function ExistingAccountScreen({ onBack }: { onBack?: () => void }) {
   };
 
   return (
-    <Card testId="onboarding-existing-account" busy={busy !== null}>
+    <Card testId="onboarding-existing-account" busy={busy !== null} plain={plain}>
       {onBack && <BackButton onClick={onBack} />}
       <div className="space-y-1">
         <h2 className="text-xl font-semibold" id="login-heading">

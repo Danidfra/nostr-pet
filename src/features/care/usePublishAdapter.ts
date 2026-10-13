@@ -41,6 +41,29 @@ export interface HomePublisher extends PublishAdapter {
 
 /** How long a relay gets to answer a publish before it counts as silent. */
 export const PUBLISH_TIMEOUT_MS = 8_000;
+/**
+ * How long a signer may take. An nsec signs at once; an extension or a
+ * remote signer (NIP-46) asks the player, who may be away, or may never be
+ * asked if the signer is offline. A write that waits on it forever would
+ * leave every screen above it waiting forever (M14: the theatre's "Here it
+ * comes…"), so it ends here with a reason, and the screen offers Try again.
+ */
+export const SIGN_TIMEOUT_MS = 45_000;
+
+export class SignTimeoutError extends Error {
+  constructor() {
+    super('Your signer did not answer. Check it is open and approve Blobbi there, then try again.');
+    this.name = 'SignTimeoutError';
+  }
+}
+
+export function withSignTimeout<T>(signing: Promise<T>, ms: number = SIGN_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new SignTimeoutError()), ms);
+  });
+  return Promise.race([signing, late]).finally(() => clearTimeout(timer));
+}
 
 /**
  * The thinnest `PublishAdapter` over the app's Nostr transport: sign with the
@@ -58,7 +81,7 @@ export function usePublishAdapter(): HomePublisher {
     const sign = async (template: PublishEventTemplate): Promise<NostrEvent> => {
       if (!user) throw new Error('Sign in to do that.');
       const unsigned = finalizeTemplate(template);
-      const event = await user.signer.signEvent(unsigned);
+      const event = await withSignTimeout(user.signer.signEvent(unsigned));
       if (event.pubkey !== user.pubkey) {
         throw new Error('The signer answered for a different account.');
       }

@@ -71,6 +71,47 @@ deployment.**
    before). Reload at the root: still the room. Room menu → **2D home**;
    reload: the 2D home. "Open in 3D" in either menu matches the choice.
 
+## 1b. A new visitor as a guest, and saving (M14; real iPhone first)
+
+Private window, nothing stored, a real relay set. Note times.
+
+1. Welcome: **Meet your Blobbi!** → the egg at once (no key screen). The
+   footnote says the egg stays on this device. Name it; Adopt. Expected:
+   the 2D home with the egg on its nest within a second; nothing in
+   Safari's console about a relay for the guest; no `nostr:login` in
+   storage; `blobbi:guest:v1` present (Settings → Advanced → Website Data
+   is enough to see the origin has data).
+2. The theatre opens by itself; four taps; the baby. Expected: the note
+   under the light reads "Keeping the hatch on this device"; never "Here it
+   comes…" for longer than a blink; the baby where the egg lay.
+3. Feed (the starter apple). After it lands and the home is quiet (about
+   3 s): the bubble "<name> loves being with you. Want to take them on
+   adventures?" → **Maybe later**. Expected: it goes; it does not come back
+   this visit; the menu shows **Save my Blobbi** and the device-only line;
+   no Sign out, no key, no Island link.
+4. Close Safari fully; reopen. Expected: the same baby, same name, same
+   colours; no welcome.
+5. Menu → the worlds (3D room → globe): every open world says **Save to
+   visit**; tapping one opens the save. Back out with **Maybe later**.
+6. Menu → **Save my Blobbi** → **Let's do it**. The key scene: the line
+   "born from this key"; the four facts; **Copy key** then the checkbox,
+   then **Save <name>!**. Expected: the profile step (skip it) → the
+   connecting scene, both steps ticked within a few seconds, "<name> is
+   connected!" → **Back to <name>**. Expected: the same Blobbi (compare a
+   screenshot from step 4), the menu now shows the account (secret key on
+   this device), Blobbi Island opens from the menu and the door.
+7. On another device (or Ditto / Island with the copied key): the Blobbi
+   is there, same colours, same name, a baby.
+8. Airplane mode, then step 6 from a fresh guest: Expected: "<step> did
+   not reach the relays", the Blobbi still on the device, **Try again**
+   after airplane mode is off completes it with no second Blobbi.
+9. A fresh guest, egg adopted; menu → **I already have an account** → sign
+   in with a key that owns a Blobbi. Expected: that account's home, the
+   sheet "A Blobbi lives on this device" once, **Keep it here**; sign out →
+   the guest egg is back.
+10. Reduced motion on (Settings → Accessibility → Motion): steps 1 to 6
+    again, faster, nothing rocks; the words tell it.
+
 ## 2. The room (after choosing it: menu → Explore in 3D)
 
 1. Reload with a hatched, awake Blobbi: the room appears, then the Blobbi

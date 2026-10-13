@@ -40,9 +40,9 @@ describe('the welcome scene', () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByTestId('onboarding-existing'));
     expect(onExisting).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('onboarding-create')).toHaveTextContent('Meet your Blobbi');
-    expect(screen.getByTestId('onboarding-existing')).toHaveTextContent('Welcome back!');
-    expect(screen.getByTestId('onboarding-existing')).toHaveAccessibleDescription(/already have an account/);
+    expect(screen.getByTestId('onboarding-create')).toHaveTextContent('Meet your Blobbi!');
+    expect(screen.getByTestId('onboarding-existing')).toHaveTextContent('I already have an account');
+    expect(screen.getByTestId('onboarding-existing')).toHaveAccessibleDescription(/Welcome back/);
   });
 
   it('the greeting settles, then each tap brings the next reaction in turn, with its hop', () => {

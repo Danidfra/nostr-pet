@@ -16,9 +16,16 @@ interface WorldsSheetProps {
   onClose: () => void;
   blobbi: BlobbiCompanion;
   onTravel: (world: World & { open: boolean }) => void;
+  /**
+   * A guest's Blobbi (M14) exists on this device only: no world can know it
+   * yet. The worlds are shown as what is to come, each card the way to save
+   * (`onSave`), never a broken door.
+   */
+  guest?: boolean;
+  onSave?: () => void;
 }
 
-export function WorldsSheet({ open, onClose, blobbi, onTravel }: WorldsSheetProps) {
+export function WorldsSheet({ open, onClose, blobbi, onTravel, guest = false, onSave }: WorldsSheetProps) {
   const list = worlds();
   return (
     <GameOverlay
@@ -45,12 +52,16 @@ export function WorldsSheet({ open, onClose, blobbi, onTravel }: WorldsSheetProp
                 <span className="world-card__name">{w.name}</span>
                 <span className="world-card__tagline">{w.tagline}</span>
               </span>
-              <span className={`world-card__badge ${w.open ? 'world-card__badge--go' : ''}`}>{w.open ? 'Visit' : 'Coming soon'}</span>
+              <span className={`world-card__badge ${w.open && !guest ? 'world-card__badge--go' : ''}`}>{w.open ? (guest ? 'Save to visit' : 'Visit') : 'Coming soon'}</span>
             </>
           );
           return (
             <li key={w.id}>
-              {w.open ? (
+              {w.open && guest ? (
+                <button type="button" className="world-card world-card--guest" onClick={onSave} data-testid={`world-${w.id}`} data-open="false" data-guest="true" aria-label={`${w.name}: save your Blobbi to visit. ${w.tagline}`}>
+                  {body}
+                </button>
+              ) : w.open ? (
                 <button type="button" className="world-card" onClick={() => onTravel(w)} data-testid={`world-${w.id}`} data-open="true" aria-label={`Visit ${w.name}. ${w.tagline}`}>
                   {body}
                 </button>
@@ -64,7 +75,9 @@ export function WorldsSheet({ open, onClose, blobbi, onTravel }: WorldsSheetProp
         })}
       </ul>
       <p className="worlds-note" data-testid="worlds-note">
-        Each world is its own app. Your key never travels: the other world asks you to sign in there, the way you signed in here.
+        {guest
+          ? `${blobbi.name} lives on this device for now, so no world knows it yet. Save your Blobbi and these doors open: the same Blobbi, under a key only you hold.`
+          : 'Each world is its own app. Your key never travels: the other world asks you to sign in there, the way you signed in here.'}
       </p>
     </GameOverlay>
   );

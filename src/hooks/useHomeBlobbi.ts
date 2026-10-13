@@ -10,6 +10,7 @@ import { useSetCurrentCompanion, type SetCurrentCompanionResult } from '@/featur
 import { useRelayHealth } from './useRelayHealth';
 import { RelayTransportError } from '@/lib/relay-transport';
 import { keepCollectionCanonical, markLocalWrite } from '@/lib/canonical-cache';
+import { useGuestUser } from '@/features/guest/useGuest';
 
 /**
  * Where the home stands, as one word the page switches on.
@@ -82,8 +83,10 @@ export function useHomeBlobbi(): HomeBlobbi {
   const profile = useBlobbonautProfile(pubkey);
   const setCurrentCompanion = useSetCurrentCompanion(pubkey);
   // Decided before any read: a page that cannot open a relay subscription says so instead of looking forever.
+  // A guest's world is on this device (M14): no relay is needed for it, so a page that cannot reach one still plays.
+  const guest = useGuestUser() !== null;
   const blocked = useRelayHealth().health.blocked;
-  const blockedError = useMemo(() => (blocked ? new RelayTransportError(blocked) : null), [blocked]);
+  const blockedError = useMemo(() => (blocked && !guest ? new RelayTransportError(blocked) : null), [blocked, guest]);
 
   const [localSelection, setLocalSelection] = useState<string | undefined>(() => readLocalSelection(pubkey));
   useEffect(() => {

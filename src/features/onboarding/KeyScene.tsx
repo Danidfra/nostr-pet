@@ -59,7 +59,7 @@ export function CreateAccountScreen({ onBack }: { onBack: () => void }) {
 }
 
 /** The darkened world, the light, the motes, the way back: the stage the key is given on. */
-function KeyStage({ onBack, children }: { onBack: () => void; children: ReactNode }) {
+export function KeyStage({ onBack, headline = KEY_HEADLINE, intro, children }: { onBack: () => void; headline?: string; intro?: ReactNode; children: ReactNode }) {
   const reduced = useReducedMotion();
   return (
     <section className="keyscene" data-testid="onboarding-create-account" data-reduced={reduced ? 'true' : undefined} aria-labelledby="key-title">
@@ -80,8 +80,9 @@ function KeyStage({ onBack, children }: { onBack: () => void; children: ReactNod
             <KeyRound className="keyscene__icon" strokeWidth={1.8} />
           </div>
           <h2 id="key-title" className="keyscene__title">
-            {KEY_HEADLINE}
+            {headline}
           </h2>
+          {intro}
           {children}
         </div>
       </div>
@@ -89,7 +90,27 @@ function KeyStage({ onBack, children }: { onBack: () => void; children: ReactNod
   );
 }
 
-function KeyGift({ account, onBack, signIn }: { account: NewAccount; onBack: () => void; signIn: (nsec: string) => void }) {
+export interface KeyGiftProps {
+  account: NewAccount;
+  onBack: () => void;
+  /** Signs in with the key once the backup is acknowledged. The one place the key leaves this screen. */
+  signIn: (nsec: string) => void;
+  /** The way in: "Continue to my egg!". Saving a guest Blobbi (M14) says where it goes instead. */
+  continueLabel?: string;
+  headline?: string;
+  /** A line before the facts: for a guest, why there is a key at all. */
+  intro?: ReactNode;
+  /** Under the Continue button; the default says where the key can be seen again. */
+  aside?: string;
+}
+
+/**
+ * The key, given: the facts, the key, the ways to keep it, the acknowledgement,
+ * then sign-in. Shared by the way in (a fresh key) and by saving a guest
+ * Blobbi (the key reserved when its egg was made): the words differ, the
+ * facts, the backup and the acknowledgement never do.
+ */
+export function KeyGift({ account, onBack, signIn, continueLabel = 'Continue to my egg!', headline, intro, aside = 'You can see your key again later in the menu, under Account.' }: KeyGiftProps) {
   const { play } = useSound();
   const [kept, setKept] = useState<KeyKeeping | null>(null);
   const [copied, setCopied] = useState(false);
@@ -141,7 +162,7 @@ function KeyGift({ account, onBack, signIn }: { account: NewAccount; onBack: () 
   };
 
   return (
-    <KeyStage onBack={onBack}>
+    <KeyStage onBack={onBack} headline={headline} intro={intro}>
       <ul className="keyscene__facts" role="note" aria-label="About your secret key" data-testid="key-warning">
         <li>
           This is your <strong>secret key</strong>: your account, instead of a password.
@@ -180,9 +201,9 @@ function KeyGift({ account, onBack, signIn }: { account: NewAccount; onBack: () 
           </label>
           <button type="button" className="onboard-btn onboard-btn--primary" onClick={finish} disabled={!confirmed} data-testid="onboarding-continue">
             <Egg className="h-4 w-4" aria-hidden />
-            Continue to my egg!
+            {continueLabel}
           </button>
-          <p className="keyscene__aside">You can see your key again later in the menu, under Account.</p>
+          <p className="keyscene__aside">{aside}</p>
         </div>
       )}
       {error && (

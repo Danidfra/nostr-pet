@@ -18,6 +18,12 @@ interface LifecyclePanelProps {
   devForce?: (kind: CeremonyKind) => void;
   /** Inside a sheet: no glass container of its own. */
   embedded?: boolean;
+  /**
+   * A guest's Blobbi (M14): the evolution missions are the ecosystem's (themes
+   * and colour moments made in Ditto), which no guest world can hold, so
+   * evolving waits for a saved Blobbi. Said gently, under the missions.
+   */
+  guest?: boolean;
 }
 
 function TaskRow({ task }: { task: LifecycleTask }) {
@@ -58,7 +64,7 @@ function TaskRow({ task }: { task: LifecycleTask }) {
  * invents a rule. Hatch and evolve start a ceremony in the scene; the
  * semantic write happens inside it, only once, and only after the build-up.
  */
-export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, firstBlobbi = false, devForce, embedded = false }: LifecyclePanelProps) {
+export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, firstBlobbi = false, devForce, embedded = false, guest = false }: LifecyclePanelProps) {
   const { view: kitView, pending, error, clearError } = lifecycle;
   // A first Blobbi's egg skips the missions: the panel shows the hatch and nothing that leads up to it.
   const first = firstBlobbi && kitView.stage === 'egg';
@@ -116,8 +122,14 @@ export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, firstBlo
       {view.next === 'start-incubation' && (
         <p className="mt-1 text-sm text-muted-foreground">Start incubating to begin the missions that lead to hatching.</p>
       )}
-      {view.next === 'start-evolution' && (
+      {view.next === 'start-evolution' && !guest && (
         <p className="mt-1 text-sm text-muted-foreground">Start evolution to begin the missions that lead to the adult form.</p>
+      )}
+      {guest && view.stage === 'baby' && (
+        <p className="mt-1 text-sm text-muted-foreground" data-testid="lifecycle-guest-note">
+          Growing up takes adventures in the wider world (themes and colour moments made in Ditto), which a Blobbi on this device cannot reach yet. Save {name} from
+          the menu whenever you like; the missions are waiting there.
+        </p>
       )}
       {view.next === 'grown' && <p className="mt-1 text-sm text-muted-foreground">The adult form came from the same seed it was born with.</p>}
 
@@ -142,13 +154,13 @@ export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, firstBlo
             )}
           </>
         )}
-        {view.next === 'start-evolution' && (
+        {view.next === 'start-evolution' && !guest && (
           <button type="button" className={primary} disabled={busy} onClick={() => void lifecycle.startEvolution()} data-testid="lifecycle-start-evolution">
             {pending === 'start-evolution' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
             Start evolution
           </button>
         )}
-        {(view.next === 'evolve-tasks' || view.next === 'evolve') && (
+        {(view.next === 'evolve-tasks' || view.next === 'evolve') && !guest && (
           <>
             <button type="button" className={primary} disabled={busy || !view.ready} onClick={() => onCeremony('evolve')} data-testid="lifecycle-evolve" aria-disabled={busy || !view.ready}>
               <Sparkles className="h-4 w-4" aria-hidden />

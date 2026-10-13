@@ -37,6 +37,8 @@ import {
 import { ActionBar, BlobbiSheet, CareOptions, GameShell, HudTop, MenuSheet } from './shell';
 import { StreakMoment } from './StreakMoment';
 import { HatchTheater } from '@/features/room/components/HatchTheater';
+import { INVITE_DELAY_MS, inviteDue, useGuest, useGuestUi } from '@/features/guest';
+import { GuestInvite } from '@/features/guest/GuestInvite';
 import type { HealthLevel } from '@/lib/relay-health';
 
 interface BlobbiOverviewProps {
@@ -623,6 +625,37 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const busyWithObject = offer !== null || stage?.phase === 'walking';
   const streakForHud = useMemo(() => ({ days: blobbi.careStreak ?? 0, bumpKey: streakBump }), [blobbi.careStreak, streakBump]);
 
+  // A guest's home (M14): once the hatched Blobbi has really been cared for and the home is quiet, one small
+  // invitation to save it, once per visit; Maybe later rests it for a day. The menu keeps the way at all times.
+  const guest = useGuest();
+  const guestUi = useGuestUi();
+  const guestActive = guest.mode === 'active';
+  const [invite, setInvite] = useState(false);
+  const invitedThisVisit = useRef(false);
+  const careCount = guest.doc?.care.count ?? 0;
+  const inviteDismissedAt = guest.doc?.invite.dismissedAt ?? null;
+  const saveBegun = !!guest.doc?.migration;
+  const homeQuiet = !busyWithObject && !theater && !inCeremony && pendingAction === null && !blobbiSheetOpen && !menuOpen && !itemsOpen && !sleeping;
+  useEffect(() => {
+    if (!guestActive || invite || invitedThisVisit.current || !homeQuiet) return;
+    if (!inviteDue({ hatched: !isEgg, careCount, dismissedAt: inviteDismissedAt, migrationBegun: saveBegun, now: Date.now() })) return;
+    const timer = setTimeout(() => {
+      invitedThisVisit.current = true;
+      setInvite(true);
+    }, INVITE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [guestActive, invite, homeQuiet, isEgg, careCount, inviteDismissedAt, saveBegun]);
+  const requestSave = guestUi.requestSave;
+  const dismissInvite = guest.dismissInvite;
+  const inviteSave = useCallback(() => {
+    setInvite(false);
+    requestSave();
+  }, [requestSave]);
+  const inviteLater = useCallback(() => {
+    setInvite(false);
+    dismissInvite();
+  }, [dismissInvite]);
+
   return (
     <GameShell
       top={<HudTop blobbi={blobbi} mood={mood} statItems={statItems} streak={streakForHud} onOpenBlobbi={openBlobbiSheet} onOpenMenu={() => setMenuOpen(true)} connection={connection} />}
@@ -642,12 +675,28 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                 state={doorPrompt ? 'open' : 'closed'}
                 onTap={interactive && !busyWithObject ? goToDoor : undefined}
                 aside={
-                  doorPrompt && (
+                  doorPrompt &&
+                  (guestActive ? (
+                    // A guest's Blobbi is not known on the Island yet: the door is the way to save, never a dead link
+                    <button
+                      type="button"
+                      className="door-prompt lifecycle-pill !animate-none"
+                      data-testid="door-prompt"
+                      data-guest="true"
+                      onClick={() => {
+                        setDoorPrompt(false);
+                        requestSave();
+                      }}
+                    >
+                      <MapPin className="h-4 w-4" aria-hidden />
+                      Save to visit the Island
+                    </button>
+                  ) : (
                     <a href={BLOBBI_ISLAND_URL} target="_blank" rel="noopener noreferrer" className="door-prompt lifecycle-pill !animate-none" data-testid="door-prompt" onClick={() => setDoorPrompt(false)}>
                       <MapPin className="h-4 w-4" aria-hidden />
                       Go to the Island
                     </a>
-                  )
+                  ))
                 }
               >
                 <DoorArt open={doorPrompt} />
@@ -717,6 +766,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                 </p>
               )}
               {streakMoment?.milestone && <StreakMoment change={streakMoment} onDone={dismissStreakMoment} reducedMotion={reducedMotion} />}
+              {invite && guestActive && <GuestInvite name={blobbi.name} onSave={inviteSave} onLater={inviteLater} reducedMotion={reducedMotion} />}
             </>
           }
         >
@@ -751,7 +801,18 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       }
       overlays={
         <>
-          {theater && <HatchTheater blobbi={blobbi} perform={performHatch} error={hatchError ?? lifecycleErrorMessage} reducedMotion={reducedMotion} play={play} onDone={endTheater} />}
+          {theater && (
+            <HatchTheater
+              blobbi={blobbi}
+              perform={performHatch}
+              error={hatchError ?? lifecycleErrorMessage}
+              reducedMotion={reducedMotion}
+              play={play}
+              onDone={endTheater}
+              onRecover={refresh}
+              savingNote={guestActive ? 'Keeping the hatch on this device' : undefined}
+            />
+          )}
           <BlobbiSheet
             open={blobbiSheetOpen}
             onClose={() => setBlobbiSheetOpen(false)}
@@ -769,6 +830,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             onCeremony={startCeremony}
             firstBlobbi={firstBlobbi.qualifies}
             devForce={devForce}
+            guest={guestActive}
           />
           <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} />
           <InventorySheet
