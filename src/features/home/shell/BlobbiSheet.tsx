@@ -1,5 +1,5 @@
 import type { BlobbiCompanion, BlobbonautProfile } from '@blobbi-kit/core';
-import { Moon, Snowflake, Sparkles } from 'lucide-react';
+import { ChevronRight, Map as MapIcon, Moon, Snowflake, Sparkles } from 'lucide-react';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { GameOverlay } from './GameOverlay';
@@ -23,6 +23,8 @@ interface BlobbiSheetProps {
   onCeremony: (kind: CeremonyKind) => void;
   /** This egg is the account's first Blobbi: it hatches without missions. */
   firstBlobbi?: boolean;
+  /** The Journey (chapters, today's missions, the level): the Blobbi's progression, from here (M14.1). */
+  onOpenJourney?: () => void;
   devForce?: (kind: CeremonyKind) => void;
   /** A guest's Blobbi (M14): evolving waits for a saved Blobbi; the panel says so instead of offering it. */
   guest?: boolean;
@@ -50,7 +52,7 @@ function Chip({ children, testId, tone = 'neutral' }: { children: React.ReactNod
  * exact numbers, progression, the lifecycle missions, and the other
  * Blobbis. The home shows only what matters at a glance; this is the rest.
  */
-export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, devForce, guest = false }: BlobbiSheetProps) {
+export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, devForce, guest = false, onOpenJourney }: BlobbiSheetProps) {
   const portrait = (
     <span className="overlay-portrait" aria-hidden>
       <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`details-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
@@ -94,6 +96,18 @@ export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, c
           </div>
         </section>
 
+        {onOpenJourney && (
+          <button type="button" className="menu-tile" onClick={onOpenJourney} data-testid="sheet-journey">
+            <span className="menu-tile__icon">
+              <MapIcon className="h-6 w-6" aria-hidden />
+            </span>
+            <span className="menu-tile__text">
+              <span className="menu-tile__title">Journey</span>
+              <span className="menu-tile__sub">Chapters, today’s missions and your Blobbonaut level.</span>
+            </span>
+            <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
+          </button>
+        )}
         <LifecyclePanel name={blobbi.name} lifecycle={lifecycle} ceremony={ceremony} onCeremony={onCeremony} firstBlobbi={firstBlobbi} devForce={devForce} embedded guest={guest} />
 
         {companions.length > 1 && (

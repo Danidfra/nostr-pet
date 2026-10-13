@@ -145,6 +145,9 @@ export interface GuestUi {
   requestSave: () => void;
   requestSignIn: () => void;
   clearRequest: () => void;
+  /** A save landed on this visit: the guest's status pill becomes "Saved to Nostr" for the rest of it (M14.1). */
+  saved: boolean;
+  markSaved: () => void;
 }
-const NO_UI: GuestUi = { request: null, requestSave: () => {}, requestSignIn: () => {}, clearRequest: () => {} };
+const NO_UI: GuestUi = { request: null, requestSave: () => {}, requestSignIn: () => {}, clearRequest: () => {}, saved: false, markSaved: () => {} };
 export const GuestUiContext = createContext<GuestUi>(NO_UI);

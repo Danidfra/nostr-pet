@@ -149,6 +149,19 @@ Private window, nothing stored, a real relay set, sound on the phone.
    nothing bursts out all at once.
 10. After saving (1b, step 6): ☰ → **Account** tile → the Account screen
     with the profile form, the key backup and Sign out.
+11. The top of both homes: the name **Pip** in the middle of the screen, not
+    a button; left of it **On this device** (a guest); nothing covers the
+    name in portrait or landscape. Tap **On this device**: the explanation,
+    **Maybe later**. After saving: **Saved to Nostr** in its place.
+12. The dock's **Pip** button (bottom left, both homes): the stage track
+    Egg · Baby · Adult, the numbers, **Journey**; ☰ → **Worlds** (a guest
+    sees "Save to visit"), **What is Blobbi?**. No globe or map in the room's
+    header; no Blobbi button in the top bar.
+13. Pip's sheet → **Start evolution** (a guest too). Feed, play, bathe: the
+    care card counts up; the themes and colour moments say "adventure
+    elsewhere · optional". Reload: still evolving, the count kept. (The
+    twenty-one actions take a while; on a second phone signed in with the
+    same key the same count shows.)
 
 ## 2. The room (after choosing it: menu → Explore in 3D)
 

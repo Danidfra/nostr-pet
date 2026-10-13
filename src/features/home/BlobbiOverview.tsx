@@ -42,6 +42,12 @@ import { StreakMoment } from './StreakMoment';
 import { HatchTheater } from '@/features/room/components/HatchTheater';
 import { INVITE_DELAY_MS, inviteDue, useGuest, useGuestUi } from '@/features/guest';
 import { GuestInvite } from '@/features/guest/GuestInvite';
+import { GuestStatusPill, GuestStatusSheet, SavedPill } from '@/features/guest/GuestStatus';
+import { useJourney } from '@/features/journey/useJourney';
+import { JourneySheet } from '@/features/journey/JourneySheet';
+import type { ObjectiveAction } from '@/features/journey/journey';
+import { WorldsSheet } from '@/features/worlds/WorldsSheet';
+import type { LifecycleTask } from '@/features/lifecycle';
 import type { HealthLevel } from '@/lib/relay-health';
 
 interface BlobbiOverviewProps {
@@ -123,6 +129,8 @@ export function BlobbiOverview(props: BlobbiOverviewProps) {
   // over from the previous one.
   return <BlobbiHome key={props.blobbi.d} {...props} />;
 }
+
+const NO_TASKS: readonly LifecycleTask[] = [];
 
 function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompanionEvent, refresh, connection }: BlobbiOverviewProps) {
   const projected = useProjectedBlobbiState(blobbi);
@@ -350,7 +358,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // right before the write; the hatch is the same kit transition every hatch
   // is. Later eggs keep the mission gate below.
   // Today's missions keep counting and paying on the classic home too (shown in the room's Journey)
-  useDailyXp({ pubkey, companions, profile });
+  // Today's missions and the day's award (one instance: a second would pay twice); the Journey shows them (M14.1)
+  const daily = useDailyXp({ pubkey, companions, profile });
   const firstBlobbi = useFirstBlobbiHatch({ blobbi, companions, pubkey });
   const confirmFirstBlobbi = firstBlobbi.confirm;
   const ceremonyStart = ceremony.start;
@@ -667,10 +676,38 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [dismissInvite]);
   // The one switch between the two homes (M14.1), upper right; the first 3D asks first
   const modeSwitch = useModeSwitch();
+  // The guest's status, by the name (M14.1): a word, and a short explanation on tap; "Saved to Nostr" once a save landed
+  const [statusOpen, setStatusOpen] = useState(false);
+  const leading = guestActive ? <GuestStatusPill onOpen={() => setStatusOpen(true)} /> : guestUi.saved ? <SavedPill /> : null;
+  // The Journey and the worlds, from the Blobbi's sheet and the menu (M14.1): the same screens the 3D room has
+  const [journeyOpen, setJourneyOpen] = useState(false);
+  const [worldsOpen, setWorldsOpen] = useState(false);
+  const evolveTasks = lifecycle.view.process === 'evolving' ? lifecycle.view.tasks : NO_TASKS;
+  const journeyBook = useJourney({ pubkey, companions, current: blobbi, profile, evolveTasks });
+  const { noteCare, noteNapped, notePetted } = journeyBook;
+  useEffect(() => {
+    if (feedback) noteCare(feedback.action);
+  }, [feedback, noteCare]);
+  useEffect(() => {
+    if (sleeping) noteNapped();
+  }, [sleeping, noteNapped]);
+  useEffect(() => {
+    if (resultKey > 0 && !sleeping) notePetted();
+    // A cuddle is remembered by the room; here the first landed care stands in for it (the 2D home has no stroke)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultKey]);
+  const onJourneyAction = useCallback(
+    (action: ObjectiveAction) => {
+      setJourneyOpen(false);
+      if (action.kind === 'room') selectVerb(action.room === 'kitchen' ? 'feed' : action.room === 'home' ? 'play' : action.room === 'care' ? 'clean' : 'rest');
+      else if (action.kind === 'details') setBlobbiSheetOpen(true);
+    },
+    [selectVerb],
+  );
 
   return (
     <GameShell
-      top={<HudTop blobbi={blobbi} mood={mood} statItems={statItems} streak={streakForHud} onOpenBlobbi={openBlobbiSheet} onOpenMenu={() => setMenuOpen(true)} connection={connection} />}
+      top={<HudTop blobbi={blobbi} streak={streakForHud} onOpenMenu={() => setMenuOpen(true)} connection={connection} leading={leading} />}
       corner={<ModeToggle mode={modeSwitch.mode} onChoose={modeSwitch.choose} />}
       scene={
         <HomeScene
@@ -798,6 +835,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           onLifecycle={startCeremony}
           disabled={inCeremony || busyWithObject}
           floorBackground={surfaceBackground(HOME_SPACE.room.surfaces.floor)}
+          blobbi={blobbi}
+          mood={mood}
+          statItems={statItems}
+          onOpenBlobbi={openBlobbiSheet}
           options={
             selectedVerb && options.length > 0 ? (
               <CareOptions
@@ -845,8 +886,29 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             firstBlobbi={firstBlobbi.qualifies}
             devForce={devForce}
             guest={guestActive}
+            onOpenJourney={() => {
+              setBlobbiSheetOpen(false);
+              setJourneyOpen(true);
+            }}
           />
-          <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} />
+          <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} onOpenWorlds={() => setWorldsOpen(true)} />
+          <JourneySheet open={journeyOpen} onClose={() => setJourneyOpen(false)} chapters={journeyBook.chapters} onAction={onJourneyAction} progress={{ xp: profile?.xp, level: journeyBook.level }} daily={daily} canAdoptMore={false} />
+          <WorldsSheet
+            open={worldsOpen}
+            onClose={() => setWorldsOpen(false)}
+            blobbi={blobbi}
+            guest={guestActive}
+            onSave={() => {
+              setWorldsOpen(false);
+              requestSave();
+            }}
+            onTravel={(world) => {
+              // No key travels: the other world asks for its own sign-in; a new tab keeps the home as it is
+              if (world.url) window.open(world.url, '_blank', 'noopener');
+              setWorldsOpen(false);
+            }}
+          />
+          <GuestStatusSheet open={statusOpen && guestActive} onClose={() => setStatusOpen(false)} name={blobbi.name} onSave={requestSave} storageOk={guest.storageOk} />
           <InventorySheet
             open={itemsOpen}
             onClose={() => setItemsOpen(false)}

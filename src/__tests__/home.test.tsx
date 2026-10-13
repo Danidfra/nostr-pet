@@ -181,10 +181,11 @@ describe('Home: one Blobbi', () => {
     await userEvent.keyboard('{Escape}');
 
     await openMenu();
-    const link = islandLink();
-    expect(link).toHaveAttribute('href', DEFAULT_BLOBBI_ISLAND_URL);
-    expect(link).toHaveAttribute('target', '_blank');
-    expect(link.getAttribute('rel')).toContain('noopener');
+    // The Island is one of the Worlds since M14.1 (menu → Worlds); the door in the room is the other way
+    await userEvent.click(screen.getByTestId('menu-worlds'));
+    const island = await screen.findByTestId('world-island');
+    expect(island.tagName).toBe('BUTTON');
+    expect(island).toHaveAttribute('data-open', 'true');
   });
 
   it('shows the sleeping state and an egg-stage stat set', async () => {

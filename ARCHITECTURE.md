@@ -506,6 +506,50 @@ every other one at the first tap): it asks the context to resume, once at
 a time, and plays nothing until it runs; the next pointer or key event
 resumes it. No new audio library.
 
+**The top, the dock and the menus, once more (second pass).** The Blobbi's
+name stands in the middle of the top of both homes, display only (`HudTop`,
+`RoomHeader`); the only door to everything about the Blobbi is the dock's
+Blobbi button, bottom left in both homes (the 2D dock gained one, with the
+needs' dots under it), and the Blobbi's sheet holds its stage, numbers,
+lifecycle, the other Blobbis and the Journey (`sheet-journey`). The worlds
+are the menu's (`menu-worlds`, the Worlds sheet in both homes; the 2D home
+opens a world in a new tab, the room sends the Blobbi off as before), and
+so is What is Blobbi? (`menu-about`, the welcome's sheet). The room's header
+lost its globe and map; the 2D menu lost the Island tile (the door in the
+room stays). The 2D home runs the Journey and today's missions now (one
+`useDailyXp`, as before: a second instance would pay twice).
+
+**The guest's status, visible.** A pill by the name, "On this device"
+(`GuestStatusPill`), opens a short explanation (`GuestStatusSheet`): kept in
+this browser only, nothing sent to the relays, clearing the browser or
+losing the device may erase it, saving makes a Nostr account that can be
+visited from another device and known to the worlds, playing on without one
+is fine, and saving is a beginning, not a vault; Save my Blobbi or Maybe
+later. After a landed save the pill reads "Saved to Nostr" for the visit
+(`GuestUi.saved`); the relays' health is the connection dot, a different
+thing. The save's intro leads with the reason to save: visiting the Blobbi
+from another device.
+
+**The lifecycle lives here.** The kit's mission sets pair the care tally
+with adventures made in other apps (themes in Ditto, colour moments on
+espy, a profile tab). Standalone's rule (`homeMissionsDone`,
+`lifecycle-view.ts`): the transition is open once every mission that can
+be done here is complete; the adventures elsewhere are shown as optional
+("adventure elsewhere · optional", with their links). The transition itself
+is the kit's hook and the canonical event, the same on every device; what
+is Standalone's is when the home offers it, as the first egg's hatch
+already was (M12.1). A guest's Blobbi grows up on this device the same
+way (the guest world holds the evolving record; nothing is published). The
+lifecycle panel is a stage track (Egg → Baby → Adult), one line about what
+to do next, the missions as cards with a counted bar, then the one button.
+Device-local lifecycle state, checked: the kit keeps a session copy of the
+evolution missions in `localStorage` but hydrates it from the kind 31124
+content, where the care tally is written with every care action
+(`mission-tally.ts`), so another device rebuilds the same progress from the
+relays (`m14-1-reliability.test.tsx` does, from fresh storage); the
+Journey's "first cuddle", "a nap" and which chapters were celebrated are
+device-local on purpose and gate nothing.
+
 **The reserved secret, confined.** The security audit of the guest identity
 (`src/features/guest/SECURITY.md`: threat model, findings, the sealed
 storage and NIP-49 backup designs, what needs approval) found the reserved

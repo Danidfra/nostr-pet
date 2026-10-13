@@ -101,22 +101,29 @@ export function WelcomeScreen({ onCreate, onExisting }: { onCreate: () => void; 
           What is Blobbi?
         </button>
       </div>
-      <GameOverlay open={aboutOpen} onClose={() => setAboutOpen(false)} title="What is Blobbi?" testId="welcome-about">
-        <ul className="welcome-card__points welcome-about__points" aria-label="What you can do">
-          <li><Egg aria-hidden /> One of a kind, from the moment it is an egg</li>
-          <li><Heart aria-hidden /> It notices you, eats, plays and naps</li>
-          <li><Home aria-hidden /> A home with rooms to walk and decorate</li>
-        </ul>
-        <p className="welcome-about__text">Free, with no email, and you can start right away: your first Blobbi lives on this device until you choose to save it.</p>
-        <p className="welcome-about__text">
-          Saving gives your Blobbi a home on Nostr, an open network where your account is a key you hold, not a password on our server. The same key and the
-          same Blobbi then work in Blobbi Island and Ditto. If you already use Nostr, choose I already have an account and sign in with it.
-        </p>
-        <div className="mt-3 flex justify-center">
-          <EnterIslandButton variant="secondary" />
-        </div>
-      </GameOverlay>
+      <AboutBlobbiSheet open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </section>
+  );
+}
+
+/** What Blobbi is, in a sheet: the welcome's "What is Blobbi?" and the menu's About (M14.1), one and the same. */
+export function AboutBlobbiSheet({ open, onClose, testId = 'welcome-about' }: { open: boolean; onClose: () => void; testId?: string }) {
+  return (
+    <GameOverlay open={open} onClose={onClose} title="What is Blobbi?" testId={testId}>
+      <ul className="welcome-card__points welcome-about__points" aria-label="What you can do">
+        <li><Egg aria-hidden /> One of a kind, from the moment it is an egg</li>
+        <li><Heart aria-hidden /> It notices you, eats, plays and naps</li>
+        <li><Home aria-hidden /> A home with rooms to walk and decorate</li>
+      </ul>
+      <p className="welcome-about__text">Free, with no email, and you can start right away: your first Blobbi lives on this device until you choose to save it.</p>
+      <p className="welcome-about__text">
+        Saving gives your Blobbi a home on Nostr, an open network where your account is a key you hold, not a password on our server. The same key and the
+        same Blobbi then work in Blobbi Island and Ditto. If you already use Nostr, choose I already have an account and sign in with it.
+      </p>
+      <div className="mt-3 flex justify-center">
+        <EnterIslandButton variant="secondary" />
+      </div>
+    </GameOverlay>
   );
 }
 

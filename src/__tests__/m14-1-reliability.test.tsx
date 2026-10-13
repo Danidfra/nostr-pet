@@ -20,6 +20,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { MemoryRouter } from 'react-router-dom';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { KIND_BLOBBI_INTERACTION, KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, getTagValue, updateBlobbiTags } from '@blobbi-kit/core';
+import { serializeEvolutionContent } from '@blobbi-kit/core/missions';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 
 import AppRouter from '@/AppRouter';
@@ -34,6 +35,8 @@ import { finalizeTemplate } from '@/features/care/usePublishAdapter';
 import { NEWBORN_STATS } from '@/features/lifecycle/newborn';
 import { TAPS_TO_HATCH, TAP_SETTLE_MS } from '@/features/room/lib/hatch-theater';
 import { EXPERIENCE_STORAGE_KEY, ROOM_INTRO_STORAGE_KEY } from '@/lib/home-experience';
+import { GUEST_STATUS_LINE, SAVED_STATUS_LINE } from '@/features/guest/GuestStatus';
+import { createEvolveMissions } from '@blobbi-kit/react';
 import { chooseCare } from '@/test/care-ui';
 
 const LOGIN_KEY = 'nostr:login';
@@ -118,6 +121,9 @@ beforeEach(() => {
   window.localStorage.clear();
   query.mockClear();
   event.mockClear();
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => {} } });
+  Object.assign(URL, { createObjectURL: () => 'blob:fake', revokeObjectURL: () => {} });
+  HTMLAnchorElement.prototype.click = () => {};
 });
 afterEach(() => cleanup());
 
@@ -223,5 +229,164 @@ describe('M14.1: the first minutes', () => {
     expect(writes[0].pubkey).toBe(pubkey);
     expect(relay.published.filter((e) => e.kind === KIND_BLOBBONAUT_PROFILE)).toHaveLength(0);
     expect(screen.queryByTestId('streak-pill')).toBeNull();
+  }, 40_000);
+});
+
+describe('M14.1: the top, the dock, the menus', () => {
+  it('the name stands in the middle of the top, display only; the Blobbi button is the dock\'s; the top has no second door to the details', async () => {
+    await seedGuest();
+    renderApp('/');
+    await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
+    const name = screen.getByTestId('hud-name');
+    expect(name.tagName).toBe('P');
+    expect(name).toHaveTextContent('Pip');
+    expect(name.querySelector('button')).toBeNull();
+    expect(within(screen.getByTestId('hud-top')).queryByRole('button', { name: /open details/i })).toBeNull();
+    // The dock's Blobbi button (bottom left) is the door, with the name, the mood and the needs
+    const chip = screen.getByTestId('blobbi-chip');
+    expect(chip.tagName).toBe('BUTTON');
+    expect(screen.getByTestId('action-bar')).toContainElement(chip);
+    expect(within(chip).getByTestId('condition-dots')).toBeInTheDocument();
+    await userEvent.click(chip);
+    const sheet = await screen.findByTestId('blobbi-sheet');
+    expect(within(sheet).getByTestId('stage-track')).toHaveAttribute('data-stage', 'baby');
+    // The Journey is the Blobbi's (its sheet), the worlds are the menu's; neither is a button up top
+    await userEvent.click(within(sheet).getByTestId('sheet-journey'));
+    expect(await screen.findByTestId('journey-sheet')).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByTestId('menu-button'));
+    const menu = await screen.findByTestId('menu-sheet');
+    expect(within(menu).queryByTestId('enter-island')).toBeNull();
+    expect(within(menu).getByTestId('menu-about')).toBeInTheDocument();
+    await userEvent.click(within(menu).getByTestId('menu-worlds'));
+    const worlds = await screen.findByTestId('worlds-sheet');
+    expect(within(worlds).getByTestId('world-island')).toHaveAttribute('data-guest', 'true');
+  }, 30_000);
+
+  it('in the room the name is centred and display only too; worlds and journey are reached the same way; no top buttons for them', async () => {
+    await seedGuest();
+    window.localStorage.setItem(EXPERIENCE_STORAGE_KEY, 'room');
+    renderApp('/room');
+    await screen.findByTestId('room-shell', {}, { timeout: 8000 });
+    const name = screen.getByTestId('room-header-name');
+    expect(name.tagName).toBe('P');
+    expect(name).toHaveTextContent('Pip');
+    expect(screen.queryByTestId('room-worlds')).toBeNull();
+    expect(screen.queryByTestId('room-journey')).toBeNull();
+    await userEvent.click(screen.getByTestId('room-bar-blobbi'));
+    const sheet = await screen.findByTestId('room-blobbi-sheet');
+    expect(within(sheet).getByTestId('stage-track')).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByTestId('sheet-journey'));
+    expect(await screen.findByTestId('journey-sheet')).toBeInTheDocument();
+  }, 30_000);
+});
+
+describe('M14.1: the guest\'s status', () => {
+  it('a guest sees "On this device" by the name; tapping it explains, offers Save my Blobbi and Maybe later, and never interrupts by itself', async () => {
+    await seedGuest();
+    renderApp('/');
+    await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
+    const pill = screen.getByTestId('guest-status');
+    expect(pill).toHaveTextContent(GUEST_STATUS_LINE);
+    expect(screen.queryByTestId('guest-status-sheet')).toBeNull();
+    await userEvent.click(pill);
+    const sheet = await screen.findByTestId('guest-status-sheet');
+    const text = within(sheet).getByTestId('guest-status-text');
+    expect(text).toHaveTextContent(/lives in this browser only/);
+    expect(text).toHaveTextContent(/Nostr relays/);
+    expect(text).toHaveTextContent(/may erase it/);
+    expect(text).toHaveTextContent(/another device/);
+    expect(text).toHaveTextContent(/keep playing here without an account/);
+    expect(text).toHaveTextContent(/not a vault/);
+    await userEvent.click(within(sheet).getByTestId('guest-status-later'));
+    expect(screen.queryByTestId('guest-status-sheet')).toBeNull();
+    await userEvent.click(screen.getByTestId('guest-status'));
+    await userEvent.click(within(await screen.findByTestId('guest-status-sheet')).getByTestId('guest-status-save'));
+    const intro = await screen.findByTestId('save-intro');
+    expect(intro).toHaveTextContent(/visit Pip from another device/);
+    expect(within(intro).getByTestId('save-intro-benefit')).toHaveTextContent(/take your adventures with you/);
+    await userEvent.click(screen.getByTestId('save-later'));
+    expect(screen.getByTestId('guest-status')).toBeInTheDocument();
+    expect(screen.queryByTestId('saved-status')).toBeNull();
+    expect(relay.published).toEqual([]);
+  }, 30_000);
+
+  it('after a landed save the status becomes "Saved to Nostr" for the visit, and the connection dot is a different thing', async () => {
+    await seedGuest({ cared: 1 });
+    renderApp('/');
+    await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
+    await userEvent.click(screen.getByTestId('guest-status'));
+    await userEvent.click(within(await screen.findByTestId('guest-status-sheet')).getByTestId('guest-status-save'));
+    await screen.findByTestId('save-intro');
+    await userEvent.click(screen.getByTestId('save-go'));
+    await screen.findByTestId('nsec-box');
+    await userEvent.click(screen.getByTestId('nsec-copy'));
+    await userEvent.click(screen.getByTestId('key-saved'));
+    await userEvent.click(screen.getByTestId('onboarding-continue'));
+    await userEvent.click(await screen.findByTestId('save-profile-skip'));
+    await userEvent.click(await screen.findByTestId('save-done', {}, { timeout: 15000 }));
+    await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
+    expect(screen.queryByTestId('guest-status')).toBeNull();
+    expect(await screen.findByTestId('saved-status')).toHaveTextContent(SAVED_STATUS_LINE);
+    expect(screen.queryByTestId('connection-chip')).toBeNull();
+    expect(relay.published.filter((e) => e.kind === KIND_BLOBBI_STATE)).toHaveLength(1);
+  }, 60_000);
+});
+
+describe('M14.1: the lifecycle lives here, and comes back from the relays', () => {
+  it('a guest starts evolution on this device, cares, and a reload finds it still evolving with the care counted, nothing published', async () => {
+    await seedGuest();
+    const first = renderApp('/');
+    await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
+    await userEvent.click(screen.getByTestId('blobbi-chip'));
+    const sheet = await screen.findByTestId('blobbi-sheet');
+    await userEvent.click(within(sheet).getByTestId('lifecycle-start-evolution'));
+    await waitFor(() => expect(within(sheet).getByTestId('lifecycle-panel')).toHaveAttribute('data-next', 'evolve-tasks'), { timeout: 8000 });
+    expect(within(sheet).getByTestId('lifecycle-task-interactions')).toHaveAttribute('data-here', 'true');
+    expect(within(sheet).getByTestId('lifecycle-task-create_themes')).toHaveAttribute('data-here', 'false');
+    await userEvent.keyboard('{Escape}');
+    await chooseCare('feed');
+    await waitFor(() => expect(guestDoc()!.events.some((e) => e.kind === KIND_BLOBBI_INTERACTION)).toBe(true), { timeout: 8000 });
+    first.unmount();
+    cleanup();
+    renderApp('/');
+    await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
+    await userEvent.click(screen.getByTestId('blobbi-chip'));
+    const again = await screen.findByTestId('blobbi-sheet');
+    await waitFor(() => expect(within(again).getByTestId('lifecycle-panel')).toHaveAttribute('data-next', 'evolve-tasks'), { timeout: 8000 });
+    await waitFor(() => expect(within(again).getByTestId('lifecycle-task-interactions')).toHaveTextContent('1/21'), { timeout: 8000 });
+    expect(relay.published).toEqual([]);
+  }, 60_000);
+
+  it('a registered Blobbi evolving on another device is rebuilt here from its canonical record alone: fresh storage, the relays, the care counted, Evolve open once the care is done', async () => {
+    const sk = generateSecretKey();
+    const pubkey = getPublicKey(sk);
+    window.localStorage.setItem(LOGIN_KEY, JSON.stringify([{ id: `nsec:${pubkey}`, type: 'nsec', pubkey, createdAt: new Date().toISOString(), data: { nsec: nip19.nsecEncode(sk) } }]));
+    const preview = newEggPreview(pubkey, 'Brook', Math.floor(Date.now() / 1000) - 6000);
+    const signer = localRecordSigner(pubkey);
+    const missions = createEvolveMissions().map((m) => (m.id === 'interactions' && 'count' in m ? { ...m, count: 21 } : m));
+    const egg = eggTemplate(preview);
+    const baby = {
+      ...egg,
+      tags: updateBlobbiTags(egg.tags, { stage: 'baby', state: 'active', progression_state: 'evolving', progression_started_at: String(Math.floor(Date.now() / 1000) - 3000), hunger: '90', happiness: '90', health: '100', hygiene: '90', energy: '90' }),
+      content: serializeEvolutionContent(JSON.stringify({}), missions),
+    };
+    const state = await signer.signEvent(finalizeTemplate({ ...baby, created_at: Math.floor(Date.now() / 1000) - 60 }));
+    const profile = await signer.signEvent(finalizeTemplate(profileTemplate({ ownerPubkey: pubkey, profile: null, d: preview.d, suggestedName: 'Blobbonaut' })));
+    relay.all = [{ ...state, sig: '0'.repeat(128) }, { ...profile, sig: '0'.repeat(128) }];
+    renderApp('/');
+    await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
+    await userEvent.click(screen.getByTestId('blobbi-chip'));
+    const sheet = await screen.findByTestId('blobbi-sheet');
+    const panel = within(sheet).getByTestId('lifecycle-panel');
+    await waitFor(() => expect(within(sheet).getByTestId('lifecycle-task-interactions')).toHaveAttribute('data-completed', 'true'), { timeout: 8000 });
+    expect(within(sheet).getByTestId('lifecycle-task-interactions')).toHaveTextContent('21/21');
+    // The adventures elsewhere are shown, optional; the care done here opens the evolution
+    expect(within(sheet).getByTestId('lifecycle-task-create_themes')).toHaveAttribute('data-completed', 'false');
+    await waitFor(() => expect(panel).toHaveAttribute('data-ready', 'true'), { timeout: 8000 });
+    expect(panel).toHaveAttribute('data-next', 'evolve');
+    expect(within(sheet).getByTestId('lifecycle-evolve')).toBeEnabled();
+    expect(within(sheet).getByTestId('stage-track')).toHaveAttribute('data-stage', 'baby');
+    expect(relay.published).toEqual([]);
   }, 40_000);
 });

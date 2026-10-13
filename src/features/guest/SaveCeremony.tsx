@@ -37,7 +37,7 @@ import { usePublishAdapter } from '@/features/care/usePublishAdapter';
 import { KeyGift, KeyStage } from '@/features/onboarding/KeyScene';
 import { ProfileForm } from '@/features/onboarding/screens';
 import { useProfileSetup } from '@/features/onboarding/useProfileSetup';
-import { useGuest } from './useGuest';
+import { useGuest, useGuestUi } from './useGuest';
 import { guestBlobbiEvent } from './guest-world';
 import { runGuestMigration, verifyGuestMigration, MIGRATION_STEPS, type MigrationProgress, type MigrationStep, type StepState } from './guest-migration';
 import type { GuestDocument } from './guest-store';
@@ -100,16 +100,19 @@ function IntroStep({ name, blobbi, reduced, onGo, onLater }: { name: string; blo
   }, [play]);
   return (
     <Scene reduced={reduced} testId="save-intro" blobbi={blobbi} label={`Save ${name}`}>
-      <h2 className="savescene__title">Let’s give {name} a place in the wider world.</h2>
+      <h2 className="savescene__title">Want to visit {name} from another device?</h2>
+      <p className="savescene__text" data-testid="save-intro-benefit">
+        Save your friend and take your adventures with you: {name} gets a home on Nostr, under a key only you hold, and is there wherever you sign in with it.
+      </p>
       <ul className="savescene__points" aria-label="What saving does">
         <li>
-          <Sparkles aria-hidden /> {name} keeps the colours, the name and everything you have shared: the very same Blobbi.
+          <Sparkles aria-hidden /> {name} keeps the colours, the name and the stage you have reached: the very same Blobbi.
         </li>
         <li>
-          <Globe2 aria-hidden /> A key only you hold opens the door to Blobbi Island and the other worlds.
+          <Globe2 aria-hidden /> The connected worlds (Blobbi Island, Rumble, Nostr Farm) can know {name} by that key.
         </li>
         <li>
-          <Check aria-hidden /> Free, no email. You get the key, you keep it safe, and {name} is yours wherever you sign in.
+          <Check aria-hidden /> Free, no email. You keep the key safe; what is written on Nostr is what travels with you.
         </li>
       </ul>
       <div className="savescene__actions">
@@ -254,6 +257,10 @@ function ConnectStep({ doc, name, blobbi, reduced, updateCompanionEvent, onDone 
     if (latest.current.doc.migration?.stage === 'done') guest.clear();
     onDone();
   }, [guest, onDone]);
+  const { markSaved } = useGuestUi();
+  useEffect(() => {
+    if (run.state === 'done') markSaved();
+  }, [run.state, markSaved]);
 
   useEffect(() => {
     void start();

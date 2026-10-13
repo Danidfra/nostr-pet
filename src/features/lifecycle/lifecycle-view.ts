@@ -102,6 +102,22 @@ export function eggCrackForProgress(completed: number, total: number, ready: boo
   return 'none';
 }
 
+/**
+ * Standalone's rule (M14.1): a Blobbi grows up on its care alone. The kit's
+ * mission sets pair the care tally with adventures made in other apps (a
+ * theme in Ditto, a colour moment on espy, a profile tab); here those are
+ * optional, and the transition is open once every mission that can be done
+ * here (the care tally, a stat kept up: the ones with no link elsewhere) is
+ * complete.
+ * The transition itself is the kit's (`useBlobbiHatch` / `useBlobbiEvolve`,
+ * the canonical event, the same on every device); only when the home
+ * offers it is this app's, as the first egg's hatch already was.
+ */
+export function homeMissionsDone(tasks: readonly LifecycleTask[]): boolean {
+  const here = tasks.filter((t) => !t.link);
+  return here.length > 0 && here.every((t) => t.completed);
+}
+
 export interface BuildLifecycleViewInput {
   companion: Pick<BlobbiCompanion, 'stage' | 'progressionState'>;
   hatch: TaskSource;
@@ -129,7 +145,7 @@ export function buildLifecycleView({ companion, hatch, evolve, dittoUrl }: Build
     : [];
   const completed = tasks.filter((t) => t.completed).length;
   const total = tasks.length;
-  const ready = !!active && source.allCompleted && total > 0;
+  const ready = !!active && total > 0 && (source.allCompleted || homeMissionsDone(tasks));
 
   let next: LifecycleNext;
   if (stage === 'adult') next = 'grown';

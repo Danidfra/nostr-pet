@@ -163,11 +163,13 @@ Two things to know:
   hand on the Blobbi ends it with everything given back (a write already
   out finishes, and stands). A room counts as seen only once its build has
   played whole in front of you; a build cut short plays again next time.
-  The header's name (and the dock's left button) opens the Blobbi's
-  details (numbers, lifecycle, your other Blobbis, the whole inventory); the
-  dock's right button decorates the room; the ☰ is the game menu (the
-  account, the room's settings, sound, lighting). The 2D/3D switch in the
+  The name at the top is just the name; the dock's left button (the Blobbi)
+  opens its details (the stage track, the numbers, the lifecycle, the
+  Journey, your other Blobbis, the whole inventory); the dock's right button
+  decorates the room; the ☰ is the game menu (the account, the worlds, the
+  room's settings, sound, lighting, what Blobbi is). The 2D/3D switch in the
   upper right of both homes is the way between them, and remembers itself.
+  A guest's Blobbi says "On this device" by its name until it is saved.
 - **The room's dev tools** are one **Dev Tools** pill in the corner (dev
   builds with the flag). It opens a bottom sheet on a phone, a side panel on
   a wide screen, with one view at a time: Animations (the room transitions,

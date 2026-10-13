@@ -69,6 +69,7 @@ import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
 import { RoomHeader } from './components/RoomHeader';
 import { WorldsSheet } from '@/features/worlds/WorldsSheet';
 import { useGuest, useGuestUi } from '@/features/guest';
+import { GuestStatusPill, GuestStatusSheet, SavedPill } from '@/features/guest/GuestStatus';
 import { useWorldDeparture } from '@/features/worlds/useWorldDeparture';
 import { DepartureCard } from '@/features/worlds/DepartureCard';
 import { useJourney } from '@/features/journey/useJourney';
@@ -444,6 +445,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const modeSwitch = useModeSwitch();
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [worldsOpen, setWorldsOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
   const [adoptOpen, setAdoptOpen] = useState(false);
   const { noteCare, noteNapped } = journeyBook;
   const careFeedbackKey = care.feedback?.key;
@@ -879,10 +881,9 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           <RoomHeader
             name={blobbi.name}
             stage={blobbi.stage}
-            onOpenBlobbi={() => setSheetOpen(true)}
             onOpenMenu={() => setMenuOpen(true)}
-            onOpenWorlds={() => setWorldsOpen(true)}
-            onOpenJourney={() => setJourneyOpen(true)}
+            // The guest's status by the name (M14.1); "Saved to Nostr" once a save landed on this visit
+            leading={guestActive ? <GuestStatusPill onOpen={() => setStatusOpen(true)} /> : guestUi.saved ? <SavedPill /> : null}
             // A guest's world is on this device: the relays' health is not its business (M14)
             connection={guestActive ? undefined : connection}
             streak={streak}
@@ -973,10 +974,12 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           savingNote={guestActive ? 'Keeping the hatch on this device' : undefined}
         />
       )}
+      <GuestStatusSheet open={statusOpen && guestActive} onClose={() => setStatusOpen(false)} name={blobbi.name} onSave={guestUi.requestSave} storageOk={guest.storageOk} />
       <MenuSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         inRoom
+        onOpenWorlds={() => setWorldsOpen(true)}
         roomSettings={
           <RoomSettings
             appearance={appearance}
@@ -1041,6 +1044,11 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           setItemsOpen(true);
         }}
         usableItemCount={usableItemCount}
+        onOpenJourney={() => {
+          setSheetOpen(false);
+          setJourneyOpen(true);
+        }}
+        guest={guestActive}
       />
       <InventorySheet
         open={itemsOpen}

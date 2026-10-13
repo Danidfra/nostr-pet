@@ -834,6 +834,13 @@ apex 307 and http 308 to `https://www.`. Missing assets were 200 HTML
 - **First minutes:** a newborn's needs are 80 to 88 (health 100), the flame
   lights only after real care; the fridge opens over the room; the closet
   says Coming soon; sound is on by default, off stays off.
+- **Second pass:** the name centred and display-only at the top of both
+  homes; the dock's Blobbi button is the one door to the details, the
+  Journey inside it; Worlds and What is Blobbi? in the menu; the guest's
+  "On this device" pill with its explanation and "Saved to Nostr" after a
+  save; the lifecycle (hatch and evolve) opens on the missions doable here,
+  the adventures elsewhere optional, for guests too; the 2D home runs the
+  Journey and today's missions.
 - **The reserved secret:** audited (`src/features/guest/SECURITY.md`); it
   no longer rides in app state (one accessor, the save's key step); the
   record on disk is unchanged. Sealed storage and a verified NIP-49 backup

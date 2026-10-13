@@ -159,7 +159,8 @@ describe('entering the room', () => {
     fireEvent.click(screen.getByTestId('room-menu'));
     await screen.findByTestId('menu-sheet');
     fireEvent.keyDown(document, { key: 'Escape' });
-    fireEvent.click(screen.getByTestId('room-journey'));
+    fireEvent.click(screen.getByTestId('room-bar-blobbi'));
+    fireEvent.click(screen.getByTestId('sheet-journey'));
     await wait(ARRIVAL_LEAD_MS + 500);
     expect(scene.state.journeys.filter((j) => j === 'arrive')).toHaveLength(1);
     expect(teleport()).toBe('none');

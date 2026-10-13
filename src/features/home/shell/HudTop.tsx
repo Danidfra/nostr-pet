@@ -1,62 +1,40 @@
 import { Flame, Menu } from 'lucide-react';
-import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
-import { toBlobbiVisual } from '@/lib/blobbi-visual';
-import type { StatItem } from '../BlobbiStatusPanel';
+import type { ReactNode } from 'react';
 import { ConnectionChip } from './ConnectionChip';
 import type { HealthLevel } from '@/lib/relay-health';
 
 interface HudTopProps {
-  /** The current Blobbi, when one is shown. */
+  /** The current Blobbi, when one is shown: its name stands in the middle of the top. */
   blobbi?: BlobbiCompanion;
-  /** One short line: the mood. */
-  mood?: string;
-  /** The stage's stats with their status, for the condition dots. */
-  statItems?: readonly StatItem[];
   /** The streak, and whether it just went up (animates). */
   streak?: { days: number; bumpKey: number };
-  onOpenBlobbi?: () => void;
   onOpenMenu: () => void;
   /** Connection health; the chip shows only when it is not healthy. */
   connection?: { level: HealthLevel; online: boolean; onRetry: () => void };
+  /** Something small on the left (the guest's "On this device", the saved mark). */
+  leading?: ReactNode;
 }
 
-const STAGE_WORD: Record<BlobbiCompanion['stage'], string> = { egg: 'Egg', baby: 'Baby', adult: 'Adult' };
-const STAT_WORD: Record<StatItem['stat'], string> = { hunger: 'food', happiness: 'joy', hygiene: 'clean', energy: 'energy', health: 'health' };
-
 /**
- * The top of the HUD: on the left the Blobbi's chip (portrait, name, stage
- * and mood, and one small dot per stat coloured by the kit's status) that
- * opens its sheet with the exact numbers; on the right the streak, when
- * there is one, and the menu. Nothing else lives up here, so the room
- * keeps the screen. Root is pointer-transparent; only the controls take
- * taps.
+ * The top of the HUD (M14.1): the Blobbi's name in the middle of the screen,
+ * display only, readable over any room; on the right the streak, when there
+ * is one, the connection dot or chip, and the menu; on the left whatever the
+ * home wants to say in a word (a guest's status). Everything about the
+ * Blobbi (its numbers, its stage, the other Blobbis, its lifecycle) is the
+ * dock's Blobbi button, bottom left, so nothing up here is a door to it.
+ * Root is pointer-transparent; only the controls take taps.
  */
-export function HudTop({ blobbi, mood, statItems = [], streak, onOpenBlobbi, onOpenMenu, connection }: HudTopProps) {
+export function HudTop({ blobbi, streak, onOpenMenu, connection, leading }: HudTopProps) {
   return (
     <header className="hud-top" data-testid="hud-top">
+      <span className="hud-top__left">{leading}</span>
       {blobbi ? (
-        <button type="button" className="blobbi-chip" onClick={onOpenBlobbi} data-testid="blobbi-chip" aria-label={`${blobbi.name}: ${STAGE_WORD[blobbi.stage]}${mood ? `, ${mood}` : ''}. Open details`}>
-          <span className="blobbi-chip__portrait" aria-hidden>
-            <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`chip-${blobbi.d}`} size={30} isSleeping={blobbi.state === 'sleeping'} transparent />
-          </span>
-          <span className="min-w-0 text-left">
-            <span className="block truncate text-sm font-bold leading-tight">{blobbi.name}</span>
-            <span className="block truncate text-[11px] leading-tight text-foreground/70">
-              {STAGE_WORD[blobbi.stage]}
-              {mood ? ` · ${mood}` : ''}
-            </span>
-            {statItems.length > 0 && (
-              <span className="cond-dots" aria-hidden data-testid="condition-dots">
-                {statItems.map((item) => (
-                  <span key={item.stat} className={`cond-dot cond-dot--${item.status}`} title={`${STAT_WORD[item.stat]} ${Math.round(item.value)}`} data-stat={item.stat} data-status={item.status} />
-                ))}
-              </span>
-            )}
-          </span>
-        </button>
+        <p className="hud-name" data-testid="hud-name" aria-live="polite">
+          <span className="hud-name__text">{blobbi.name}</span>
+        </p>
       ) : (
-        <a href="/" className="blobbi-chip" aria-label="Blobbi home">
+        <a href="/" className="hud-name hud-name--logo" aria-label="Blobbi home">
           <img src="/blobbilogo.svg" alt="Blobbi" className="h-7 w-auto" />
         </a>
       )}

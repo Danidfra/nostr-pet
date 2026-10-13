@@ -97,7 +97,8 @@ describe('worlds from the room', () => {
   it('lists the open worlds as buttons and the upcoming one as a label, never a link', async () => {
     relay.all = [brook(), profileEvent({ currentCompanion: getTagValue(brook().tags, 'd') })];
     renderRoom();
-    await userEvent.click(await screen.findByTestId('room-worlds'));
+    await userEvent.click(await screen.findByTestId('room-menu'));
+    await userEvent.click(await screen.findByTestId('menu-worlds'));
     const sheet = await screen.findByTestId('worlds-sheet');
     for (const id of ['island', 'rumble', 'farm']) {
       const card = within(sheet).getByTestId(`world-${id}`);
@@ -124,14 +125,16 @@ describe('worlds from the room', () => {
     expect(within(menu).getByRole('heading', { name: /account/i })).toBeInTheDocument();
     // The Worlds door still leads to the Island
     await userEvent.keyboard('{Escape}');
-    await userEvent.click(await screen.findByTestId('room-worlds'));
+    await userEvent.click(await screen.findByTestId('room-menu'));
+    await userEvent.click(await screen.findByTestId('menu-worlds'));
     expect(within(await screen.findByTestId('worlds-sheet')).getByTestId('world-island')).toHaveAttribute('data-open', 'true');
   });
 
   it('a world chosen: the Blobbi says goodbye; Stay keeps it home and nothing navigates or is written', async () => {
     relay.all = [brook()];
     renderRoom();
-    await userEvent.click(await screen.findByTestId('room-worlds'));
+    await userEvent.click(await screen.findByTestId('room-menu'));
+    await userEvent.click(await screen.findByTestId('menu-worlds'));
     await userEvent.click(await screen.findByTestId('world-island'));
     expect(screen.queryByTestId('worlds-sheet')).toBeNull();
     const card = await screen.findByTestId('departure-card');
@@ -146,7 +149,8 @@ describe('the journey in the room', () => {
   it('derives the chapters from the record, and "Go there" takes the player to the right room', async () => {
     relay.all = [brook()];
     renderRoom();
-    await userEvent.click(await screen.findByTestId('room-journey'));
+    await userEvent.click(await screen.findByTestId('room-bar-blobbi'));
+    await userEvent.click(await screen.findByTestId('sheet-journey'));
     const sheet = await screen.findByTestId('journey-sheet');
     await waitFor(() => expect(within(sheet).getByTestId('chapter-first-steps')).toHaveAttribute('data-status', 'current'));
     expect(within(sheet).getByTestId('chapter-beginning')).toHaveAttribute('data-status', 'done');
@@ -162,7 +166,8 @@ describe('the journey in the room', () => {
     const d = getTagValue(b.tags, 'd')!;
     relay.all = [b, receipt(d, 'feed', 1), receipt(d, 'play', 2), receipt(d, 'clean', 3)];
     renderRoom();
-    await userEvent.click(await screen.findByTestId('room-journey'));
+    await userEvent.click(await screen.findByTestId('room-bar-blobbi'));
+    await userEvent.click(await screen.findByTestId('sheet-journey'));
     const sheet = await screen.findByTestId('journey-sheet');
     // An adult: chapter 3 done too; the family chapter is the current one
     await waitFor(() => expect(within(sheet).getByTestId('chapter-first-steps')).toHaveAttribute('data-status', 'done'));
@@ -180,7 +185,8 @@ describe('a second egg', () => {
     const d = getTagValue(b.tags, 'd')!;
     relay.all = [b, receipt(d, 'feed', 1), receipt(d, 'play', 2), receipt(d, 'clean', 3), profileEvent({ currentCompanion: d, has: [d], xp: 900 })];
     renderRoom();
-    await userEvent.click(await screen.findByTestId('room-journey'));
+    await userEvent.click(await screen.findByTestId('room-bar-blobbi'));
+    await userEvent.click(await screen.findByTestId('sheet-journey'));
     // Offered at the top of the Journey whatever the chapter, and in chapter 4's own objective
     expect(await screen.findByTestId('journey-adopt')).toBeInTheDocument();
     await userEvent.click(await screen.findByTestId('objective-second-egg-go'));
@@ -208,7 +214,8 @@ describe('a second egg', () => {
     const d = getTagValue(b.tags, 'd')!;
     relay.all = [b, receipt(d, 'feed', 1), receipt(d, 'play', 2), receipt(d, 'clean', 3), profileEvent({ currentCompanion: d, has: [d], xp: 900 })];
     renderRoom();
-    await userEvent.click(await screen.findByTestId('room-journey'));
+    await userEvent.click(await screen.findByTestId('room-bar-blobbi'));
+    await userEvent.click(await screen.findByTestId('sheet-journey'));
     await userEvent.click(await screen.findByTestId('objective-second-egg-go'));
     const sheet = await screen.findByTestId('room-adopt-sheet');
     // Meanwhile the profile on the relays says level 1 (another app, a stale view here)
@@ -262,14 +269,16 @@ describe("today's missions in the room (M12.1)", () => {
     expect(getTagValue(award.tags, 'level')).toBe('2');
     expect(award.tags).toContainEqual(['has', d]);
     // The Journey says so
-    await userEvent.click(screen.getByTestId('room-journey'));
+    await userEvent.click(await screen.findByTestId('room-bar-blobbi'));
+    await userEvent.click(await screen.findByTestId('sheet-journey'));
     await waitFor(() => expect(screen.getByTestId('journey-today-award')).toHaveTextContent(`+${totalDailyXp(done)} XP today`));
     expect(screen.getByTestId('journey-level')).toHaveTextContent('Blobbonaut level 2');
     first.unmount();
     // A reload: the profile holds the day paid; nothing more is written however long it stays open
     renderRoom();
     await screen.findByTestId('room-shell', {}, { timeout: 4000 });
-    await userEvent.click(screen.getByTestId('room-journey'));
+    await userEvent.click(await screen.findByTestId('room-bar-blobbi'));
+    await userEvent.click(await screen.findByTestId('sheet-journey'));
     await waitFor(() => expect(screen.getByTestId('journey-today-award')).toHaveTextContent(/already yours/));
     await new Promise((r) => setTimeout(r, 500));
     expect(published(KIND_BLOBBONAUT_PROFILE)).toHaveLength(1);

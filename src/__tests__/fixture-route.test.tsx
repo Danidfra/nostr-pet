@@ -88,10 +88,12 @@ describe('the fixture route', () => {
     fireEvent.click(screen.getByTestId('room-nav-left'));
     await waitFor(() => expect(shell).toHaveAttribute('data-room', 'home'));
     // The journey (it reads the fixture's receipts) and the worlds (nothing is fetched to list them) stay inside the fixture
-    fireEvent.click(screen.getByTestId('room-journey'));
+    fireEvent.click(screen.getByTestId('room-bar-blobbi'));
+    fireEvent.click(screen.getByTestId('sheet-journey'));
     expect(await screen.findByTestId('journey-sheet')).toBeInTheDocument();
     fireEvent.keyDown(screen.getByTestId('journey-sheet'), { key: 'Escape' });
-    fireEvent.click(screen.getByTestId('room-worlds'));
+    fireEvent.click(screen.getByTestId('room-menu'));
+    fireEvent.click(screen.getByTestId('menu-worlds'));
     expect(await screen.findByTestId('worlds-sheet')).toBeInTheDocument();
     fireEvent.keyDown(screen.getByTestId('worlds-sheet'), { key: 'Escape' });
     await new Promise((r) => setTimeout(r, 100));

@@ -413,13 +413,14 @@ describe('M14: play first', () => {
     expect(relay.published).toEqual([]);
   }, 30_000);
 
-  it('guest limits: evolving waits for a saved Blobbi, said in the details, never offered as a button', async () => {
+  it('a guest\'s Blobbi grows up here: evolution is offered on this device, and the details say saving keeps every step', async () => {
     await seedGuest({ hatched: true, cared: 0 });
     renderApp('/');
     await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
     await userEvent.click(screen.getByTestId('blobbi-chip'));
     const sheet = await screen.findByTestId('blobbi-sheet');
-    expect(within(sheet).getByTestId('lifecycle-guest-note')).toHaveTextContent(/Save Pip/);
-    expect(within(sheet).queryByTestId('lifecycle-start-evolution')).toBeNull();
+    expect(within(sheet).getByTestId('lifecycle-guest-note')).toHaveTextContent(/saving Pip/i);
+    // Since M14.1 a guest's Blobbi grows up here too: evolution is offered, on this device
+    expect(within(sheet).getByTestId('lifecycle-start-evolution')).toBeEnabled();
   }, 30_000);
 });

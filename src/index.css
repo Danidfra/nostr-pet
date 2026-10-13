@@ -4384,3 +4384,139 @@
     .fridge, .fridge-backdrop { animation: none; }
   }
 }
+
+/* ─── M14.1 (second pass): the name in the middle, the dock's Blobbi button, the guest's status, the stage track ─── */
+@layer components {
+  /* The Blobbi's name, centred on the screen above both homes, display only */
+  .hud-top { justify-content: space-between; }
+  .hud-top__left { display: flex; align-items: center; min-width: 2.75rem; pointer-events: auto; }
+  .hud-name {
+    position: absolute;
+    left: 50%;
+    top: calc(0.5rem + env(safe-area-inset-top, 0px));
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    height: 2.75rem;
+    max-width: 42%;
+    padding: 0 1rem;
+    border-radius: 9999px;
+    background: hsl(var(--card) / 0.85);
+    border: 1px solid hsl(var(--border) / 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 6px 20px -12px hsl(var(--foreground) / 0.5);
+    color: hsl(var(--foreground));
+    font-weight: 800;
+    font-size: 1rem;
+    pointer-events: none;
+  }
+  .hud-name__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hud-name--logo { pointer-events: auto; }
+  @media (max-width: 359px) { .hud-name { max-width: 36%; font-size: 0.9rem; padding: 0 0.7rem; } }
+
+  .room-header-name {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 48%;
+    margin: 0;
+    padding: 0 0.25em;
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-size: 0.95em;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+  }
+  .room-header-name:hover { background: none; }
+  .room-header-name__stage { font-weight: 400; color: hsl(var(--foreground) / 0.6); }
+
+  /* The dock's Blobbi button (2D): the portrait where the care verbs begin. Six items now: on a phone the row
+     tightens rather than squeezing any of them (every verb keeps its size) */
+  .dock-row { display: flex; align-items: flex-start; justify-content: center; gap: 0.25rem; }
+  .dock-row .verb { flex: none; }
+  .verb--blobbi { margin-right: 0.35rem; }
+  @media (max-width: 480px) {
+    .dock-row .verb-row { gap: 0.45rem; padding: 0.1rem 0.4rem 0; }
+    .dock-row .verb { width: 3.1rem; }
+    .dock-row .verb__disc { width: 2.7rem; height: 2.7rem; }
+    .verb--blobbi { margin-right: 0.15rem; }
+  }
+  @media (max-width: 359px) {
+    .dock-row .verb-row { gap: 0.3rem; padding: 0.1rem 0.25rem 0; }
+    .dock-row .verb { width: 2.8rem; }
+    .dock-row .verb__disc { width: 2.5rem; height: 2.5rem; }
+    .dock-row .verb__label { font-size: 0.66rem; }
+  }
+  .verb__disc--portrait { background: hsl(var(--card) / 0.9); }
+  .dock-portrait { display: block; width: 2.3rem; height: 2.3rem; }
+  @media (max-width: 480px) { .dock-portrait { width: 2.1rem; height: 2.1rem; } }
+  @media (max-width: 359px) { .dock-portrait { width: 1.9rem; height: 1.9rem; } }
+
+  /* The guest's status pill, by the name; "Saved to Nostr" after a save */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    height: 2rem;
+    padding: 0 0.7rem 0 0.55rem;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    background: hsl(var(--card) / 0.85);
+    border: 1px solid hsl(var(--border) / 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: hsl(var(--foreground) / 0.85);
+    pointer-events: auto;
+  }
+  .status-pill svg { width: 0.9rem; height: 0.9rem; flex: none; }
+  .status-pill--guest { color: hsl(35 80% 30%); border-color: hsl(40 90% 55% / 0.7); }
+  .status-pill--guest:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--card)), 0 0 0 4px hsl(var(--ring)); }
+  .status-pill--saved { color: hsl(150 60% 25%); border-color: hsl(150 60% 45% / 0.7); }
+  @media (max-width: 359px) { .status-pill span { display: none; } .status-pill { padding: 0 0.55rem; } }
+  .room-header .status-pill { font-size: 0.68em; height: 2.1em; }
+
+  .guest-status { display: flex; flex-direction: column; gap: 0.8rem; padding-top: 0.25rem; }
+  .guest-status__lead { font-size: 1rem; font-weight: 700; }
+  .guest-status__points { display: flex; flex-direction: column; gap: 0.45rem; padding-left: 1.1rem; list-style: disc; font-size: 0.88rem; line-height: 1.4; }
+  .guest-status__fine { font-size: 0.75rem; color: hsl(var(--muted-foreground)); }
+  .guest-status__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+
+  /* Egg → Baby → Adult */
+  .stage-track { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.25rem; margin: 0 0 0.25rem; padding: 0; list-style: none; position: relative; }
+  .stage-track::before { content: ''; position: absolute; left: 12%; right: 12%; top: 0.95rem; height: 2px; background: hsl(var(--foreground) / 0.12); }
+  .stage-track__step { position: relative; display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: 0.3rem; }
+  .stage-track__dot { display: inline-flex; width: 1.9rem; height: 1.9rem; align-items: center; justify-content: center; border-radius: 9999px; background: hsl(var(--card)); border: 2px solid hsl(var(--foreground) / 0.15); color: hsl(var(--foreground) / 0.5); }
+  .stage-track__dot svg { width: 0.9rem; height: 0.9rem; }
+  .stage-track__step--past .stage-track__dot { background: hsl(var(--primary) / 0.15); border-color: hsl(var(--primary) / 0.5); color: hsl(var(--primary)); }
+  .stage-track__step--now .stage-track__dot { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); box-shadow: 0 0 0 4px hsl(var(--primary) / 0.18); }
+  .stage-track__label { font-size: 0.72rem; font-weight: 700; color: hsl(var(--foreground) / 0.6); }
+  .stage-track__step--now .stage-track__label { color: hsl(var(--foreground)); }
+  @media (prefers-reduced-motion: no-preference) {
+    .stage-track__step--now .stage-track__dot { animation: stage-glow 2.4s ease-in-out infinite; }
+  }
+  @keyframes stage-glow { 0%, 100% { box-shadow: 0 0 0 4px hsl(var(--primary) / 0.18); } 50% { box-shadow: 0 0 0 7px hsl(var(--primary) / 0.1); } }
+
+  .missions { display: flex; flex-direction: column; gap: 0.35rem; padding: 0; margin: 0; list-style: none; }
+  .mission { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.5rem 0.6rem; border-radius: 0.9rem; background: hsl(var(--card) / 0.7); border: 1px solid hsl(var(--border) / 0.5); }
+  .mission--done { opacity: 0.75; }
+  .mission--away { background: hsl(var(--card) / 0.4); border-style: dashed; }
+  .mission__mark { display: inline-flex; width: 1.5rem; height: 1.5rem; flex: none; align-items: center; justify-content: center; border-radius: 9999px; background: hsl(var(--foreground) / 0.08); color: hsl(var(--foreground) / 0.5); }
+  .mission__mark svg { width: 0.85rem; height: 0.85rem; }
+  .mission--done .mission__mark { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+  .mission__text { display: flex; flex: 1 1 auto; min-width: 0; flex-direction: column; gap: 0.15rem; }
+  .mission__name { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; font-size: 0.9rem; font-weight: 700; }
+  .mission__badge { font-size: 0.62rem; font-weight: 700; padding: 0.05rem 0.4rem; border-radius: 9999px; background: hsl(var(--foreground) / 0.08); color: hsl(var(--muted-foreground)); }
+  .mission__detail { font-size: 0.78rem; color: hsl(var(--muted-foreground)); }
+  .mission__go { display: inline-flex; align-items: center; gap: 0.25rem; flex: none; padding: 0.3rem 0.6rem; border-radius: 9999px; border: 1px solid hsl(var(--border)); background: hsl(var(--background)); font-size: 0.72rem; font-weight: 600; }
+  .mission__go svg { width: 0.7rem; height: 0.7rem; }
+}

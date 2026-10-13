@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Check, ChevronRight, ExternalLink, KeyRound, Map as MapIcon, Moon, Sparkles, Sun, Sunrise, UserRound, Volume2, VolumeX } from 'lucide-react';
+import { Check, ChevronRight, Globe2, HelpCircle, KeyRound, Moon, Sparkles, Sun, Sunrise, UserRound, Volume2, VolumeX } from 'lucide-react';
 import { DEVICE_ONLY_LINE, NO_STORAGE_LINE, useGuestSnapshot, useGuestUi } from '@/features/guest';
 import { GameOverlay } from './GameOverlay';
 import { AccountSheet } from './AccountSheet';
@@ -8,7 +8,7 @@ import { useSound } from '@/features/sound';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { shortNpub } from '@/lib/format';
-import { BLOBBI_ISLAND_URL } from '@/config/ecosystem';
+import { AboutBlobbiSheet } from '@/features/onboarding/screens';
 
 interface MenuSheetProps {
   open: boolean;
@@ -17,6 +17,8 @@ interface MenuSheetProps {
   inRoom?: boolean;
   /** The 3D room's own settings (how the Blobbi is drawn, graphics, the view), shown as one section when in the room. */
   roomSettings?: ReactNode;
+  /** The connected worlds (the Worlds sheet), from either home. */
+  onOpenWorlds?: () => void;
 }
 
 const APPEARANCE_ICON = { island: Sunrise, day: Sun, night: Moon } as const;
@@ -32,7 +34,7 @@ const APPEARANCE_ICON = { island: Sunrise, day: Sun, night: Moon } as const;
  * right of both homes, not a setting here (M14.1). A guest sees Save my
  * Blobbi and I already have an account instead of the account.
  */
-export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuSheetProps) {
+export function MenuSheet({ open, onClose, inRoom = false, roomSettings, onOpenWorlds }: MenuSheetProps) {
   const env = useEnvironment();
   const sound = useSound();
   const { user, metadata } = useCurrentUser();
@@ -51,6 +53,15 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
   const openAccount = () => {
     onClose();
     setAccountOpen(true);
+  };
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const openAbout = () => {
+    onClose();
+    setAboutOpen(true);
+  };
+  const openWorlds = () => {
+    onClose();
+    onOpenWorlds?.();
   };
 
   return (
@@ -88,17 +99,17 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
             </section>
           )}
 
-          {!inRoom && !guest && (
-            <a href={BLOBBI_ISLAND_URL} target="_blank" rel="noopener noreferrer" data-testid="enter-island" className="menu-tile menu-tile--hero">
+          {user && onOpenWorlds && (
+            <button type="button" onClick={openWorlds} data-testid="menu-worlds" className={`menu-tile ${guest ? '' : 'menu-tile--hero'}`}>
               <span className="menu-tile__icon">
-                <MapIcon className="h-7 w-7" aria-hidden />
+                <Globe2 className="h-7 w-7" aria-hidden />
               </span>
               <span className="menu-tile__text">
-                <span className="menu-tile__title">Blobbi Island</span>
-                <span className="menu-tile__sub">The wider world, in a new tab. The same Blobbi goes with you. Or use the door.</span>
+                <span className="menu-tile__title">Worlds</span>
+                <span className="menu-tile__sub">{guest ? 'Blobbi Island, Rumble and Nostr Farm: the doors open once your Blobbi is saved.' : 'Blobbi Island, Rumble and Nostr Farm. The same Blobbi goes with you.'}</span>
               </span>
-              <ExternalLink className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
-            </a>
+              <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
+            </button>
           )}
 
           {user && !guest && (
@@ -142,6 +153,22 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
             </button>
           </section>
 
+          <section className="menu-section" aria-labelledby="menu-help">
+            <h3 id="menu-help" className="menu-section__title">
+              Help
+            </h3>
+            <button type="button" onClick={openAbout} data-testid="menu-about" className="menu-tile">
+              <span className="menu-tile__icon">
+                <HelpCircle className="h-6 w-6" aria-hidden />
+              </span>
+              <span className="menu-tile__text">
+                <span className="menu-tile__title">What is Blobbi?</span>
+                <span className="menu-tile__sub">What a Blobbi is, what Nostr is, and where the worlds are.</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
+            </button>
+          </section>
+
           <section className="menu-section" aria-labelledby="menu-appearance">
             <h3 id="menu-appearance" className="menu-section__title">
               Home lighting
@@ -165,6 +192,7 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
         </div>
       </GameOverlay>
       {user && !guest && <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} />}
+      <AboutBlobbiSheet open={aboutOpen} onClose={() => setAboutOpen(false)} testId="menu-about-sheet" />
     </>
   );
 }

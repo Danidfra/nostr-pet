@@ -26,7 +26,11 @@ export function GuestProvider({ children, store, storage }: { children: ReactNod
   const own = useMemo(() => store ?? createGuestStore(storage === undefined ? storageOrNull() : storage), [store, storage]);
   // What a menu asked the page for (Save my Blobbi, I already have an account): the page renders it, the menu never does
   const [request, setRequest] = useState<GuestUiRequest>(null);
-  const ui = useMemo<GuestUi>(() => ({ request, requestSave: () => setRequest('save'), requestSignIn: () => setRequest('sign-in'), clearRequest: () => setRequest(null) }), [request]);
+  const [saved, setSaved] = useState(false);
+  const ui = useMemo<GuestUi>(
+    () => ({ request, requestSave: () => setRequest('save'), requestSignIn: () => setRequest('sign-in'), clearRequest: () => setRequest(null), saved, markSaved: () => setSaved(true) }),
+    [request, saved],
+  );
   return (
     <GuestStoreContext.Provider value={own}>
       <GuestUiContext.Provider value={ui}>{children}</GuestUiContext.Provider>
