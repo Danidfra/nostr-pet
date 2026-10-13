@@ -1,8 +1,9 @@
 /**
  * The way in since M11, end to end through the real router, login store,
  * signing and write paths (a relay that records): a new visitor's welcome, a
- * key made and backed up, the egg adopted, the room as the home, the first
- * egg's hatch as theatre, and exactly one hatch written. A returning player
+ * key made and kept, the egg at once, adopted, the room as the home, the
+ * first egg's hatch as theatre opening by itself, the shell cracked tap by
+ * tap (M12.3), and exactly one hatch written. A returning player
  * goes straight to the room. A hatch that does not land leaves the egg an
  * egg and is not retried by itself; a "refresh" before the write writes
  * nothing twice; a Blobbi that hatched elsewhere is not hatched again.
@@ -30,6 +31,7 @@ vi.mock('@/hooks/useCurrentUser', async (importOriginal) => {
 import AppRouter from '@/AppRouter';
 import { SceneSettingsProvider } from '@/features/home/scene';
 import { blobbiEvent, profileEvent, PUBKEY } from '@/test/fixtures';
+import { TAPS_TO_HATCH, TAP_SETTLE_MS } from '@/features/room/lib/hatch-theater';
 
 const STORAGE_KEY = 'nostr:login';
 const relay = { all: [] as NostrEvent[], published: [] as NostrEvent[], refuse: new Set<number>(), hold: null as null | Promise<void> };
@@ -77,6 +79,13 @@ const published = (kind: number) => relay.published.filter((e) => e.kind === kin
 const hatches = () => published(KIND_BLOBBI_STATE).filter((e) => getTagValue(e.tags, 'stage') === 'baby');
 const inRoom = () => screen.findByTestId('room-shell', {}, { timeout: 8000 });
 const roomStage = () => screen.getByTestId('room-blobbi-anchor').querySelector('[data-blobbi-renderer]')?.getAttribute('data-blobbi-stage');
+/** The player's taps on the egg in the theatre, each a moment after the last. */
+async function tapTheShell(times: number = TAPS_TO_HATCH) {
+  for (let i = 0; i < times; i++) {
+    await userEvent.click(screen.getByTestId('hatch-theater-egg'));
+    await act(() => new Promise((r) => setTimeout(r, TAP_SETTLE_MS + 30)));
+  }
+}
 const consoleSpies = [vi.spyOn(console, 'log'), vi.spyOn(console, 'warn'), vi.spyOn(console, 'error'), vi.spyOn(console, 'info'), vi.spyOn(console, 'debug')];
 
 /** A player already signed in as PUBKEY, with a signer that signs whatever it is handed. */
@@ -114,7 +123,7 @@ afterEach(() => {
 });
 
 describe('a new visitor', () => {
-  it('welcome → a key, backed up → the egg → adopted → the room is the home → the egg presented, waiting for the player → tapped (twice) → hatched as theatre, once → the baby in its room', async () => {
+  it('welcome → the key, kept → the egg at once → adopted → the room is the home → the theatre opens by itself → the shell cracks tap by tap → hatched, once → the baby in its room', async () => {
     renderApp('/');
     // The welcome: real Blobbis, what to do, and two doors; no key yet, nothing read about anyone
     const welcome = await screen.findByTestId('onboarding-welcome');
@@ -125,15 +134,17 @@ describe('a new visitor', () => {
 
     await userEvent.click(screen.getByTestId('onboarding-create'));
     const nsec = (await screen.findByTestId('nsec-box')).textContent ?? '';
-    // Not until the backup is confirmed
+    // Kept (copied), then confirmed, then on
+    await userEvent.click(screen.getByTestId('nsec-copy'));
     expect(screen.getByTestId('onboarding-continue')).toBeDisabled();
     await userEvent.click(screen.getByTestId('key-saved'));
     await userEvent.click(screen.getByTestId('onboarding-continue'));
-    await userEvent.click(await screen.findByTestId('profile-skip'));
 
-    // The egg straight away (the welcome said what a Blobbi is), named, adopted: the egg, then the profile
+    // The egg straight away: no profile step, nothing published to get here
     const card = await screen.findByTestId('adoption-egg');
-    expect(card).toHaveAttribute('data-brief', 'true');
+    expect(card).toHaveAttribute('data-ready', 'true');
+    expect(screen.queryByTestId('profile-skip')).toBeNull();
+    expect(relay.published).toHaveLength(0);
     const d = screen.getByTestId('adoption-preview').getAttribute('data-d')!;
     await userEvent.type(screen.getByTestId('adoption-name'), 'Mochi');
     await userEvent.click(screen.getByTestId('adoption-adopt'));
@@ -141,20 +152,27 @@ describe('a new visitor', () => {
     expect(published(KIND_BLOBBI_STATE)).toHaveLength(1);
     expect(getTagValue(published(KIND_BLOBBI_STATE)[0].tags, 'd')).toBe(d);
 
-    // Into the room, where the first egg is presented in the theatre and waits for the player: ready, never begun by itself
+    // Into the room, where the theatre opens on the first egg by itself and waits for the player's taps: no question,
+    // no Later, no Hatch button, and nothing written however long it waits
     await inRoom();
     expect(roomStage()).toBe('egg');
     const theater = await screen.findByTestId('hatch-theater', {}, { timeout: 8000 });
     expect(within(theater).getByTestId('hatch-theater-actor').querySelector('[data-blobbi-renderer]')).toHaveAttribute('data-blobbi-stage', 'egg');
-    expect(theater).toHaveAttribute('data-beat', 'ready');
-    expect(screen.getByTestId('hatch-theater-caption')).toHaveTextContent('Ready to hatch?');
+    expect(theater).toHaveAttribute('data-beat', 'stirring');
+    expect(screen.getByTestId('hatch-theater-caption')).toHaveTextContent('Tap your egg to help it hatch!');
+    expect(screen.queryByText(/Ready to hatch\?/)).toBeNull();
+    expect(screen.queryByText('Later')).toBeNull();
     await act(() => new Promise((r) => setTimeout(r, 2500)));
-    expect(theater).toHaveAttribute('data-beat', 'ready');
+    expect(theater).toHaveAttribute('data-beat', 'stirring');
     expect(hatches()).toHaveLength(0);
-    // The player taps the egg, and again in their excitement: one story, one write
-    await userEvent.click(screen.getByTestId('hatch-theater-egg'));
+    // Each tap a crack; nothing written until the shell opens
+    await tapTheShell(TAPS_TO_HATCH - 1);
+    expect(screen.getByTestId('hatch-theater-actor')).toHaveAttribute('data-crack', 'heavy');
+    expect(theater).toHaveAttribute('data-beat', 'breaking');
+    expect(hatches()).toHaveLength(0);
+    // The last tap opens it; more taps in the excitement change nothing: one write
+    await tapTheShell(1);
     expect(screen.queryByTestId('hatch-theater-egg')).toBeNull();
-    expect(screen.queryByTestId('hatch-theater-start')).toBeNull();
     await userEvent.click(screen.getByTestId('hatch-theater-actor'));
     // One hatch, of this very Blobbi: same address
     await waitFor(() => expect(hatches()).toHaveLength(1), { timeout: 8000 });
@@ -208,7 +226,7 @@ describe('when the hatch does not land', () => {
     renderApp('/');
     await inRoom();
     await screen.findByTestId('hatch-theater', {}, { timeout: 8000 });
-    await userEvent.click(screen.getByTestId('hatch-theater-start'));
+    await tapTheShell();
     const failed = await screen.findByTestId('hatch-theater-failed', {}, { timeout: 8000 });
     expect(failed).toHaveTextContent(/did not hatch yet/);
     expect(screen.getByTestId('hatch-theater-actor')).toHaveAttribute('data-stage', 'egg');
@@ -224,34 +242,51 @@ describe('when the hatch does not land', () => {
     await act(() => new Promise((r) => setTimeout(r, 2500)));
     expect(screen.queryByTestId('hatch-theater')).toBeNull();
     await userEvent.click(screen.getByTestId('room-hatch-invite'));
-    expect(await screen.findByTestId('hatch-theater')).toHaveAttribute('data-beat', 'ready');
+    // Back to the moment with the shell whole again: never left half cracked
+    const again = await screen.findByTestId('hatch-theater');
+    expect(again).toHaveAttribute('data-beat', 'stirring');
+    expect(screen.getByTestId('hatch-theater-actor')).toHaveAttribute('data-crack', 'none');
     expect(event.mock.calls.filter(([e]) => (e as NostrEvent).kind === KIND_BLOBBI_STATE).length).toBe(tries);
   }, 30_000);
 
-  it('Later on the invitation writes nothing; the room invites; a tap on the egg in the room asks again', async () => {
+  it('a refused write, then Try again once the relays take it: the same egg hatches, with one hatch written', async () => {
+    signedInWithExtension();
+    relay.all = [anEgg(), profileEvent({ currentCompanion: EGG_D, has: [EGG_D] })];
+    relay.refuse = new Set([KIND_BLOBBI_STATE]);
+    renderApp('/');
+    await inRoom();
+    await screen.findByTestId('hatch-theater', {}, { timeout: 8000 });
+    await tapTheShell();
+    await screen.findByTestId('hatch-theater-failed', {}, { timeout: 8000 });
+    relay.refuse = new Set();
+    await userEvent.click(screen.getByTestId('hatch-theater-retry'));
+    await waitFor(() => expect(hatches()).toHaveLength(1), { timeout: 8000 });
+    expect(getTagValue(hatches()[0].tags, 'd')).toBe(EGG_D);
+    await waitFor(() => expect(screen.queryByTestId('hatch-theater')).toBeNull(), { timeout: 8000 });
+    expect(roomStage()).toBe('baby');
+    expect(hatches()).toHaveLength(1);
+  }, 30_000);
+
+  it('for whoever cannot tap again and again: "Hatch it for me", from the keyboard, hatches it with one write', async () => {
     signedInWithExtension();
     relay.all = [anEgg(), profileEvent({ currentCompanion: EGG_D, has: [EGG_D] })];
     renderApp('/');
     await inRoom();
     await screen.findByTestId('hatch-theater', {}, { timeout: 8000 });
-    await userEvent.click(screen.getByTestId('hatch-theater-not-yet'));
-    expect(screen.queryByTestId('hatch-theater')).toBeNull();
-    expect(await screen.findByTestId('room-hatch-invite')).toHaveTextContent(/Ready to hatch/);
-    await act(() => new Promise((r) => setTimeout(r, 2500)));
-    expect(screen.queryByTestId('hatch-theater')).toBeNull();
-    expect(relay.published).toEqual([]);
-    // A tap on the egg itself (the keyboard's stand-in for it here) is the way back to the moment
-    await userEvent.click(screen.getByTestId('room-blobbi-focus'));
-    expect(await screen.findByTestId('hatch-theater')).toHaveAttribute('data-beat', 'ready');
-    expect(relay.published).toEqual([]);
-    await userEvent.click(screen.getByTestId('hatch-theater-start'));
+    // The egg holds the focus as it is presented: the keyboard can tap it at once
+    expect(document.activeElement).toBe(screen.getByTestId('hatch-theater-egg'));
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getByTestId('hatch-theater-actor')).toHaveAttribute('data-crack', 'light');
+    screen.getByTestId('hatch-theater-auto').focus();
+    await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(hatches()).toHaveLength(1), { timeout: 8000 });
-    await waitFor(() => expect(screen.queryByTestId('hatch-theater')).toBeNull(), { timeout: 8000 });
+    await waitFor(() => expect(screen.queryByTestId('hatch-theater')).toBeNull(), { timeout: 10000 });
     expect(screen.queryByTestId('room-hatch-invite')).toBeNull();
     expect(roomStage()).toBe('baby');
+    expect(hatches()).toHaveLength(1);
   }, 30_000);
 
-  it('a "refresh" before the tap, and another in the middle of the cracks: each next visit presents the egg again, waiting; the hatch is written once in all', async () => {
+  it('a "refresh" before the taps, and another in the middle of the cracks: each next visit opens on a whole shell; the hatch is written once in all', async () => {
     signedInWithExtension();
     relay.all = [anEgg(), profileEvent({ currentCompanion: EGG_D, has: [EGG_D] })];
     const first = renderApp('/');
@@ -263,17 +298,19 @@ describe('when the hatch does not land', () => {
     expect(hatches()).toHaveLength(0);
     const second = renderApp('/');
     await inRoom();
-    expect(await screen.findByTestId('hatch-theater', {}, { timeout: 8000 })).toHaveAttribute('data-beat', 'ready');
-    await userEvent.click(screen.getByTestId('hatch-theater-start'));
-    // Gone again mid-story, while the shell cracks and before the write
-    await waitFor(() => expect(screen.getByTestId('hatch-theater')).toHaveAttribute('data-beat', 'cracking'), { timeout: 8000 });
+    expect(await screen.findByTestId('hatch-theater', {}, { timeout: 8000 })).toHaveAttribute('data-beat', 'stirring');
+    // Gone again mid-story, two cracks in, before the write
+    await tapTheShell(2);
+    expect(screen.getByTestId('hatch-theater')).toHaveAttribute('data-beat', 'cracking');
     second.unmount();
     cleanup();
     expect(hatches()).toHaveLength(0);
     renderApp('/');
     await inRoom();
-    expect(await screen.findByTestId('hatch-theater', {}, { timeout: 8000 })).toHaveAttribute('data-beat', 'ready');
-    await userEvent.click(screen.getByTestId('hatch-theater-start'));
+    // The canonical egg is still unhatched: the shell is whole again, never stuck half cracked
+    expect(await screen.findByTestId('hatch-theater', {}, { timeout: 8000 })).toHaveAttribute('data-beat', 'stirring');
+    expect(screen.getByTestId('hatch-theater-actor')).toHaveAttribute('data-crack', 'none');
+    await tapTheShell();
     await waitFor(() => expect(hatches()).toHaveLength(1), { timeout: 8000 });
     await waitFor(() => expect(screen.queryByTestId('hatch-theater')).toBeNull(), { timeout: 8000 });
     await act(() => new Promise((r) => setTimeout(r, 2000)));

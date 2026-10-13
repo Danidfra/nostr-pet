@@ -39,3 +39,39 @@ export function revealMoment(t: number, reduced: boolean): RevealMoment {
   return { face: 'happy', eyes: undefined, hop: false, caption: 'home' };
 }
 
+/*
+ * The first hatch is the player's (M12.3): the theatre opens by itself once the egg is home, and the shell gives way
+ * under the player's taps, one crack a tap, the last tap opening it. Nothing is timed against the player: a tap is
+ * never refused for being slow; one that follows the last within a blink is not counted, so every crack is seen.
+ */
+
+/** Taps that open the shell: three cracks (the renderer's light, medium, heavy shell), then the one that opens it. */
+export const TAPS_TO_HATCH = 4;
+/** The least time between two counted taps, so every crack is seen even under a drumroll of taps. */
+export const TAP_SETTLE_MS = 180;
+/** "Hatch it for me": the pace of the taps it makes for the player (reduced motion: quicker, nothing to watch move). */
+export const AUTO_TAP_MS = 650;
+export const REDUCED_AUTO_TAP_MS = 300;
+
+/** The shell after `taps` taps: the renderer's own drawings. */
+export function crackForTaps(taps: number): 'none' | 'light' | 'medium' | 'heavy' {
+  if (taps <= 0) return 'none';
+  if (taps === 1) return 'light';
+  if (taps === 2) return 'medium';
+  return 'heavy';
+}
+
+/** Whether a tap at `at` counts: the shell still closed, and the last counted tap a moment ago. */
+export function tapCounts(taps: number, lastAt: number | null, at: number): boolean {
+  if (taps >= TAPS_TO_HATCH) return false;
+  return lastAt === null || at - lastAt >= TAP_SETTLE_MS;
+}
+
+/** What the theatre says while the shell is in the player's hands. */
+export function tapCaption(taps: number): string {
+  if (taps <= 0) return 'Tap your egg to help it hatch!';
+  if (taps === 1) return 'A crack! Keep going…';
+  if (taps === 2) return 'It is working! Tap again…';
+  if (taps === 3) return 'Almost there… one more!';
+  return 'Here it comes…';
+}

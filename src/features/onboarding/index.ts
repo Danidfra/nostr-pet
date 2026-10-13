@@ -1,5 +1,7 @@
-export { OnboardingFlow } from './OnboardingFlow';
-export { ExistingAccountScreen, CreateAccountScreen, WelcomeScreen, ProfileSetupScreen } from './screens';
+export { OnboardingFlow, useOnboardingSession } from './OnboardingFlow';
+export type { OnboardingSession } from './OnboardingFlow';
+export { ExistingAccountScreen, WelcomeScreen, ProfileForm } from './screens';
+export { CreateAccountScreen } from './KeyScene';
 export { KeyBackup } from './KeyBackup';
 export { resolveOnboardingStep } from './onboarding-steps';
 export type { OnboardingStep, OnboardingFacts } from './onboarding-steps';

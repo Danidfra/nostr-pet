@@ -551,7 +551,8 @@ Checked by building and reading the bundle, the config and the code:
 
 ### Remaining launch blockers
 1. A real phone run of `LAUNCH_TEST_PLAN.md` on the deployed build (now with
-   the egg-on-first-try, invited hatch, arrival, zoom and daily XP steps).
+   the key scene, the egg straight after it, the tap-by-tap hatch, arrival,
+   zoom and daily XP steps).
 2. Deploy `vercel.json` (or the host's equivalent) and confirm with `curl -sI`.
 3. Real-device performance numbers (older iPhone, budget Android).
 4. The kit's production console logging (a kit change).
@@ -606,3 +607,78 @@ Checked by building and reading the bundle, the config and the code:
 - **Real iPhone Safari** (bars appearing and hiding while scrolling, the
   home indicator, the keyboard on the name field) and any real device.
 - Visual and audio approval of the scene, the reactions and the guide.
+
+## M12.3: the key as a moment, no profile step, the first egg, a hatch in the player's hands (2026-10-12)
+
+### What changed
+- **The secret key** (`onboarding/KeyScene.tsx`): the welcome's world darkens,
+  a spotlight and drifting motes, a glowing key, "A little key, just for
+  you." Four short facts stand before any action (secret key; anyone with it
+  can open the account; losing it can mean losing the Blobbi for good; Blobbi
+  cannot recover it). The nsec is readable text; **no npub** on the way in
+  (the menu's Account has it). Copy key, Download backup file, or "I'll write
+  it down instead"; only then the confirmation ("I saved my secret key
+  somewhere safe." checkbox, then **Continue to my egg!**). A download is
+  reported as *asked of the browser*, never as done (also in the menu's
+  backup). Key generation, `login.nsec` and the login store are unchanged.
+- **No profile step.** The way in is welcome → key (or sign in) → egg. Nothing
+  is published for skipping it. The profile form lives in the menu's Account
+  (**Edit your profile**; kind 0 only on Save, merged with the fresh one).
+- **The egg straight away**, after a refresh too: the "No Blobbi lives here
+  yet" intro is gone (and `WhatIsBlobbi` with it).
+- **The hatch, tap by tap** (`HatchTheater.tsx`, `lib/hatch-theater.ts`): the
+  theatre opens by itself on the first egg; no "Ready to hatch?", Later or
+  Hatch!. Each tap is a crack (the renderer's light, medium, heavy shell, a
+  jolt, a flash, a sound, a stronger rocking); the fourth opens it and makes
+  the one write; the baby only once the write landed and the collection holds
+  it. "Hatch it for me" taps for the player; the egg is a focused button
+  (Enter/Space); reduced motion keeps the cracks and words, nothing moves.
+
+### The first-egg bug: what was found
+The device symptom (no egg, Adopt unusable, then "No Blobbi lives here yet"
+after a reload) was **not reproduced** in headless Chromium or WebKit, with
+fake relays, slow fake relays, the real relays for reads (writes held
+locally), 6x CPU throttling, or the production build. Tracing the transition
+found three defects, all fixed, two of them shown by tests that fail before
+the fix:
+1. **The way in lost its place while the account was read.** Between signing
+   in and the collection's first answer, `Home` showed the loading home and
+   unmounted `OnboardingFlow`, which held the door chosen, "new account" and
+   "profile done". It came back cold: the egg screen's `brief` was false, so
+   any later remount showed "No Blobbi lives here yet". The door now lives in
+   `Home` (`useOnboardingSession`) and the way in stays mounted, in its world,
+   through that read. (`onboarding.test.tsx`, "relays slow to answer".)
+2. **A successful adoption could be erased by a relay a moment behind.**
+   After the writes landed, `useAdoptEgg` re-read the collection at once; a
+   relay not yet serving the egg answered "none", which replaced the cached
+   egg, made the home "empty" and sent the player from the room back into the
+   way in. Seen in the browser (real relay reads, writes held: back on the
+   welcome about 2 s after reaching the room). After an adoption the caches,
+   which hold the very events the relays accepted, are kept; only a failure
+   re-reads. (`onboarding.test.tsx`, "a relay that is a moment behind".)
+3. **An egg could be drawn for another key.** The preview was re-made for a
+   new pubkey in an effect, after a render that showed an empty pedestal with
+   Adopt disabled and no message: a screen that matches the report, though
+   no traced flow was seen to change the key under it. It is now made for
+   the signed-in key in the same render (`AdoptionFlow.egg.test.tsx`).
+   A page-wide guard also stops a remounted screen from starting a second
+   adoption while one is out.
+
+### Verified
+- Typecheck, lint, the full suite (170 files, 1245 tests, half the workers),
+  the production build (new rules present in the CSS), the production build
+  under its CSP: no violation, no error.
+- Headless Chrome and WebKit, fake relays (nothing published): the whole way
+  from a new key to the baby in its room at 320x460, 375x553, 390x664,
+  430x740, 390x844 and 1280x800; the egg drawn with Adopt ready 10 to 30 ms
+  after Continue; no page or sideways scroll; the key scene fits without
+  scrolling from 390x664 up, and on the two smallest sizes scrolls inside
+  itself with Continue brought into view; the theatre's four taps, the focus,
+  reduced motion; three events in all (egg, profile, hatch).
+
+### Not verified
+- **Real iPhone Safari and any real device**, including whether the reported
+  first-egg symptom is gone there (the cause on the device was not observed
+  directly).
+- A real download landing in a phone's Files app; clipboard on iOS.
+- Visual and audio approval of the key scene and the tap-by-tap hatch.

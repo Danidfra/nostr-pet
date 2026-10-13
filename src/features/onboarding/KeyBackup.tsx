@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Check, Copy, Download, Eye, EyeOff } from 'lucide-react';
-import { downloadNsecBackup } from './new-account';
+import { downloadNsecBackup, nsecBackupFilename } from './new-account';
 
 interface KeyBackupProps {
   nsec: string;
@@ -38,7 +38,8 @@ export function KeyBackup({ nsec, onBackedUp, revealed = false }: KeyBackupProps
   };
   const download = () => {
     if (downloadNsecBackup(nsec)) {
-      setNote('Downloaded. Keep the file somewhere only you can reach.');
+      // Only asked of the browser: whether it saved the file is for the player to check
+      setNote(`Your browser was asked to save ${nsecBackupFilename(nsec)}. Check that it is in your downloads, and keep it somewhere only you can reach.`);
       onBackedUp?.('download');
     } else setNote('Downloads are not available here. Copy the key instead.');
   };

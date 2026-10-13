@@ -27,21 +27,40 @@ deployment.**
    largest the scene may scroll inside itself, but nothing is cut off and the
    page itself never scrolls. Reduced motion: no hops or bobbing, same words.
 2. Open the console (desktop): no CSP violations, no errors.
-3. **Adopt my Blobbi** → the key screen. Save the key (copy or download);
-   the button stays off until the box is ticked.
-4. The egg on its pedestal, **at once, on the first try** (no reload): its
-   centre in the middle of the glow, its base on the pedestal. Tap it
-   (wobble). Name it, **Adopt**.
-5. The room opens; a moment later the theatre presents the egg and **waits**:
-   "Ready to hatch?", **Hatch!** and **Later**. Wait 10 s: nothing happens,
-   nothing is written. Tap the egg twice quickly: one story, then the baby in
-   the room, with **no arrival effect** on top of the birth.
-6. Reload while it waits: it presents the egg again, waiting. Tap **Hatch!**,
-   then reload during the cracks: presented again, waiting; tap again. In the
-   end exactly **one** hatch event (check the kind 31124 history with a
-   Nostr client).
-7. **Later** on the invitation: the room shows "Ready to hatch? Tap your
-   egg"; tapping the egg or that pill brings the invitation back.
+3. **Meet your Blobbi** → the key, as a scene: the world darkens, a glowing
+   key, "A little key, just for you." Before anything can be pressed, four
+   short lines say it is a secret key, anyone with it can open the account,
+   losing it can mean losing the Blobbi for good, and Blobbi cannot recover
+   it. The key is readable; **no npub** anywhere on the way in. Nothing to
+   confirm yet. **Copy key** (paste it into a password manager), or
+   **Download backup file** (the screen says the browser *was asked* to save
+   it: check the file is really in Downloads, and that it holds only the
+   nsec), or **I'll write it down instead**. Only then: "I saved my secret
+   key somewhere safe." and **Continue to my egg!**, off until ticked. On the
+   smallest phones the confirmation scrolls into view by itself.
+4. **No profile step.** The egg on its pedestal comes **at once, on the
+   first try** (no reload, never "No Blobbi lives here yet"), drawn, with
+   **Adopt** ready. On slow mobile data "Just a moment…" may show first, in
+   the same world. Tap the egg (wobble). Name it, **Adopt** (tap it several
+   times quickly: one egg in a Nostr client). The menu's Account has **Edit
+   your profile** (nothing is published until Save).
+5. The room opens; a moment later the theatre opens on the egg **by itself**
+   (no "Ready to hatch?", no Later, no Hatch button): "Tap your egg to help it
+   hatch!". Wait 10 s: nothing is written. Tap: a crack (a jolt, a flash, a
+   sound), "A crack! Keep going…"; again: a bigger crack; again: the heaviest,
+   "Almost there… one more!"; the fourth tap opens it: light, "Here it
+   comes…", then the baby, only once the write has landed; then the room, with
+   **no arrival effect** on top of the birth. A drumroll of taps: still one
+   hatch. With a keyboard: the egg has the focus, Enter cracks it. **Hatch it
+   for me** taps for you.
+6. Reload before tapping: the theatre opens again, shell whole. Tap twice,
+   reload during the cracks: the shell is whole again (never stuck cracked);
+   tap it open. In the end exactly **one** hatch event (check the kind 31124
+   history with a Nostr client).
+7. Airplane mode just before the fourth tap: "The egg did not hatch yet…
+   your egg is safe", **Try again** and **Later**. Network back, **Try
+   again**: hatched, once. Or **Later**: the room shows "Your egg is ready:
+   tap it to hatch"; tapping it (or the egg) opens the theatre, shell whole.
 
 ## 2. The room
 

@@ -83,12 +83,12 @@ const published = (kind: number) => relay.published.filter((e) => e.kind === kin
 
 async function emptyHome() {
   renderHome();
-  return screen.findByTestId('adoption-intro');
+  return screen.findByTestId('adoption-egg');
 }
 
+/** No Blobbi yet: the egg itself, straight away (M12.3: no screen about having none first). */
 async function reachTheEgg() {
   await emptyHome();
-  await userEvent.click(screen.getByTestId('adoption-start'));
   const preview = await screen.findByTestId('adoption-preview');
   await waitFor(() => expect(preview.querySelector('[data-blobbi-renderer]')).toHaveAttribute('data-blobbi-stage', 'egg'));
   return preview.getAttribute('data-d')!;
@@ -120,7 +120,7 @@ describe('First run', () => {
     expect(screen.getByRole('list', { name: /what you can do/i })).toHaveTextContent(/one of a kind/i);
   });
 
-  it('adopts: intro, a unique egg with a name, the 31124 then one 11125, and the egg in the room', async () => {
+  it('adopts: the egg at once, a unique egg with a name, the 31124 then one 11125, and the egg in the room', async () => {
     const d = await reachTheEgg();
     expect(d).toMatch(/^blobbi-aaaaaaaaaaaa-[0-9a-f]{10}$/);
     expect(published(KIND_BLOBBI_STATE)).toHaveLength(0);

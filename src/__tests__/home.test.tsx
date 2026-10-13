@@ -133,18 +133,16 @@ describe('Home: loading, error, empty', () => {
     expect(screen.queryByTestId('blobbi-actor')).toBeNull();
   }, 15_000);
 
-  it('shows the empty home when the player owns no Blobbi: the profile step first (no kind 0), adoption after it', async () => {
+  it('shows the egg when the player owns no Blobbi: no profile step, no screen about having none (M12.3)', async () => {
     renderHome();
-    await userEvent.click(await screen.findByTestId('profile-skip'));
-    // The profile step was this session's: straight to the egg, one purpose.
     expect(await screen.findByRole('heading', { name: /here is your egg/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('profile-skip')).toBeNull();
     expect(screen.getByTestId('adoption-adopt')).toBeInTheDocument();
   });
 
   it('treats a player with only legacy events as owning no Blobbi', async () => {
     relay.state = [legacyMarkerEvent('0000000007'), legacyShapeEvent()];
     renderHome();
-    await userEvent.click(await screen.findByTestId('profile-skip'));
     expect(await screen.findByRole('heading', { name: /here is your egg/i })).toBeInTheDocument();
     expect(screen.queryByText('Old')).toBeNull();
     expect(screen.queryByText('Older')).toBeNull();

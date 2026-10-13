@@ -4,8 +4,9 @@
  * Before M12.1 the preview was made in an effect after the screen mounted: the
  * first frame of the egg screen had no egg, and if the egg ever failed to
  * appear the pedestal stayed empty with Adopt enabled and no way on. Now the
- * egg is made with the screen, and an egg that cannot be made or drawn says
- * so, offers another, and keeps Adopt off.
+ * egg is made with the screen, for the key signed in during that very render
+ * (M12.3), and an egg that cannot be made or drawn says so, offers another,
+ * and keeps Adopt off.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -41,24 +42,33 @@ const noop = () => {};
 describe('the egg on the naming screen', () => {
   it('is drawn in the very first render, before any effect runs', () => {
     // Server rendering runs no effects: what it returns is exactly the first frame
-    const html = renderToStaticMarkup(<AdoptionFlow pubkey={PUBKEY} updateCompanionEvent={noop} refresh={noop} brief />);
+    const html = renderToStaticMarkup(<AdoptionFlow pubkey={PUBKEY} updateCompanionEvent={noop} refresh={noop} />);
     expect(html).toContain('data-drawn="true"');
     expect(html).toMatch(/data-testid="adoption-egg-art"[^>]*>.*<svg/s);
     expect(html).not.toContain('adoption-egg-missing');
   });
 
-  it('is drawn on the first render after "Adopt an egg" from the full intro', () => {
-    render(<AdoptionFlow pubkey={PUBKEY} updateCompanionEvent={noop} refresh={noop} />);
-    fireEvent.click(screen.getByTestId('adoption-start'));
+  it('is made for the key signed in, in the same render that shows it: a new key never shows the old key\'s egg, not even for a frame', () => {
+    const OTHER = 'b'.repeat(64);
+    const view = render(<AdoptionFlow pubkey={PUBKEY} updateCompanionEvent={noop} refresh={noop} />);
+    expect(screen.getByTestId('adoption-preview').dataset.d).toContain(PUBKEY.slice(0, 12));
+    view.rerender(<AdoptionFlow pubkey={OTHER} updateCompanionEvent={noop} refresh={noop} />);
     const stage = screen.getByTestId('adoption-preview');
+    expect(stage.dataset.d).toContain(OTHER.slice(0, 12));
     expect(stage.dataset.drawn).toBe('true');
-    expect(stage.querySelector('svg')).not.toBeNull();
     expect(screen.getByTestId('adoption-adopt')).not.toBeDisabled();
+    expect(screen.getByTestId('adoption-egg')).toHaveAttribute('data-ready', 'true');
+  });
+
+  it('opens on the egg itself: no screen about having no Blobbi first', () => {
+    render(<AdoptionFlow pubkey={PUBKEY} updateCompanionEvent={noop} refresh={noop} />);
+    expect(screen.queryByText(/No Blobbi lives here yet/)).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Here is your egg' })).toBeInTheDocument();
   });
 
   it('that cannot be drawn says so, keeps Adopt off, and offers another egg that is drawn', () => {
     plan.failCompanion = 1;
-    render(<AdoptionFlow pubkey={PUBKEY} updateCompanionEvent={noop} refresh={noop} brief />);
+    render(<AdoptionFlow pubkey={PUBKEY} updateCompanionEvent={noop} refresh={noop} />);
     expect(screen.getByTestId('adoption-preview').dataset.drawn).toBe('false');
     expect(screen.getByTestId('adoption-egg-missing')).toHaveTextContent('did not appear');
     expect(screen.getByTestId('adoption-adopt')).toBeDisabled();
@@ -71,7 +81,7 @@ describe('the egg on the naming screen', () => {
   });
 
   it('keeps the same egg while the name is typed (the picture is the event)', () => {
-    render(<AdoptionFlow pubkey={PUBKEY} updateCompanionEvent={noop} refresh={noop} brief />);
+    render(<AdoptionFlow pubkey={PUBKEY} updateCompanionEvent={noop} refresh={noop} />);
     const d = screen.getByTestId('adoption-preview').dataset.d;
     expect(d).toMatch(/^blobbi-/);
     fireEvent.change(screen.getByTestId('adoption-name'), { target: { value: 'Mochi' } });

@@ -3041,26 +3041,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* The three lines a newcomer needs */
-  .what-is-blobbi {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    text-align: left;
-    font-size: 0.85rem;
-    color: hsl(var(--foreground) / 0.85);
-  }
-  .what-is-blobbi li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-  }
-  .what-is-blobbi svg {
-    flex: none;
-    margin-top: 0.15rem;
-    color: hsl(var(--primary));
-  }
-
   /* Text over the room */
   .scene-text {
     text-shadow: 0 1px 2px hsl(var(--background) / 0.9), 0 0 18px hsl(var(--background) / 0.7);
@@ -3627,9 +3607,45 @@
   }
   @keyframes hatch-invite-glow { 0%, 100% { box-shadow: 0 8px 20px -10px hsl(40 80% 40% / 0.6); } 50% { box-shadow: 0 8px 26px -6px hsl(45 100% 55% / 0.75); } }
   @media (prefers-reduced-motion: reduce) { .hatch-invite { animation: none; } }
-  /* Waiting for the player: the egg stirs now and then, and wobbles when tapped */
+  /* Waiting for the first tap: the egg stirs now and then */
   .hatch-theater__actor[data-ready='true'] { animation: adopt-stir 4.5s ease-in-out 1.2s infinite; }
-  .hatch-theater__actor[data-ready='true'][data-wobble='true'] { animation: adopt-wobble 700ms ease-out; }
+  /* M12.3: the shell in the player's hands: each counted tap jolts it and lets out a flash of light */
+  .hatch-theater__shell { width: 100%; height: 100%; transform-origin: 50% 92%; }
+  .hatch-theater__shell[data-jolt='a'] { animation: hatch-jolt-a 360ms cubic-bezier(0.3, 1.6, 0.5, 1); }
+  .hatch-theater__shell[data-jolt='b'] { animation: hatch-jolt-b 360ms cubic-bezier(0.3, 1.6, 0.5, 1); }
+  .hatch-theater__flash {
+    position: absolute;
+    left: 50%;
+    top: 52%;
+    width: 70%;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    border-radius: 50%;
+    background: radial-gradient(circle, hsl(48 100% 96% / 0.85), hsl(45 100% 75% / 0.3) 40%, transparent 68%);
+    pointer-events: none;
+    z-index: 2;
+    animation: hatch-flash 520ms ease-out both;
+  }
+  .hatch-theater[data-reduced='true'] .hatch-theater__flash { animation-duration: 260ms; }
+  .hatch-theater__quiet {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2.75rem;
+    padding: 0 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    opacity: 0.8;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    animation: hatch-fade 500ms ease-out 1400ms both;
+  }
+  .hatch-theater__quiet:hover { opacity: 1; }
+  .hatch-theater[data-reduced='true'] .hatch-theater__quiet { animation-duration: 1ms; animation-delay: 0ms; }
+  @keyframes hatch-jolt-a { 0% { scale: 1 1; translate: 0 0; } 30% { scale: 1.07 0.92; translate: 0 2%; } 65% { scale: 0.96 1.05; translate: 0 -3%; } 100% { scale: 1 1; translate: 0 0; } }
+  @keyframes hatch-jolt-b { 0% { scale: 1 1; translate: 0 0; } 30% { scale: 1.07 0.92; translate: 0 2%; } 65% { scale: 0.96 1.05; translate: 0 -3%; } 100% { scale: 1 1; translate: 0 0; } }
+  @keyframes hatch-flash { 0% { opacity: 0; scale: 0.5; } 25% { opacity: 1; } 100% { opacity: 0; scale: 1.35; } }
   .hatch-theater__tap {
     position: absolute;
     inset: 8% 18% 4%;
@@ -3642,10 +3658,6 @@
     -webkit-tap-highlight-color: transparent;
   }
   .hatch-theater__tap:focus-visible { outline: 2px solid hsl(45 100% 80%); outline-offset: 4px; }
-  .hatch-theater__invite { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; animation: hatch-fade 500ms ease-out 1100ms both; }
-  .hatch-theater__hint { font-size: 0.9rem; opacity: 0.85; text-align: center; text-shadow: 0 2px 10px hsl(260 60% 10% / 0.6); }
-  .hatch-theater__choices { display: grid; grid-template-columns: auto auto; gap: 0.6rem; }
-  .hatch-theater__choices .onboard-btn { width: auto; padding-inline: 1.4rem; }
   .hatch-theater__shadow {
     position: absolute;
     bottom: 3%;
@@ -3694,8 +3706,145 @@
   .hatch-theater[data-reduced='true'] .hatch-theater__veil,
   .hatch-theater[data-reduced='true'] .hatch-theater__light,
   .hatch-theater[data-reduced='true'] .hatch-theater__stage,
-  .hatch-theater[data-reduced='true'] .hatch-theater__caption,
-  .hatch-theater[data-reduced='true'] .hatch-theater__invite { animation-duration: 1ms; animation-delay: 0ms; }
+  .hatch-theater[data-reduced='true'] .hatch-theater__caption { animation-duration: 1ms; animation-delay: 0ms; }
+
+  /* ─── M12.3: the secret key, given ───────────────────────────────────────────────────────────────
+     The welcome's world darkens, a light falls on a glowing key, motes drift: the hatch's language, so the key reads
+     as something precious. The column fits a phone; scrolling inside it is the fallback for very short screens and
+     large text, never the page. */
+  .keyscene {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: hsl(40 60% 96%);
+  }
+  .keyscene__scroll {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .keyscene__veil { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, hsl(255 35% 20% / 0.82), hsl(255 45% 7% / 0.96)); animation: hatch-veil 700ms ease-out both; pointer-events: none; }
+  .keyscene__spot {
+    position: absolute;
+    left: 50%;
+    top: calc(env(safe-area-inset-top) - 6rem);
+    width: min(120vw, 34rem);
+    height: min(95vh, 40rem);
+    translate: -50% 0;
+    background: conic-gradient(from 168deg at 50% 0%, transparent 0deg, hsl(45 100% 85% / 0.16) 12deg, hsl(45 100% 85% / 0.16) 12deg, transparent 24deg);
+    filter: blur(6px);
+    pointer-events: none;
+    animation: hatch-light 1200ms ease-out 200ms both;
+  }
+  .keyscene__mote { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: hsl(45 100% 85%); box-shadow: 0 0 8px hsl(45 100% 75%); opacity: 0; pointer-events: none; animation: keyscene-mote 6s ease-in-out infinite; }
+  .keyscene__mote--a { left: 30%; top: 30%; }
+  .keyscene__mote--b { left: 68%; top: 22%; animation-delay: -1.6s; animation-duration: 7s; }
+  .keyscene__mote--c { left: 58%; top: 44%; animation-delay: -3.1s; }
+  .keyscene__mote--d { left: 38%; top: 16%; animation-delay: -4.4s; animation-duration: 8s; }
+  .keyscene__back {
+    position: relative;
+    z-index: 1;
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-height: 2.75rem;
+    margin: calc(0.35rem + env(safe-area-inset-top)) 0 0 max(0.75rem, env(safe-area-inset-left));
+    padding: 0 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: hsl(40 40% 88% / 0.85);
+  }
+  .keyscene__back:hover { color: hsl(40 60% 96%); }
+  .keyscene__body {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 25rem;
+    margin: auto;
+    padding: 0 1rem calc(1rem + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: center;
+  }
+  .keyscene__key { position: relative; width: clamp(3.4rem, 12vh, 5.75rem); aspect-ratio: 1; display: grid; place-items: center; animation: hatch-present 900ms cubic-bezier(0.34, 1.4, 0.64, 1) 250ms both; }
+  .keyscene__halo { position: absolute; inset: -55%; border-radius: 50%; background: radial-gradient(circle, hsl(45 100% 80% / 0.55), hsl(45 100% 70% / 0.15) 45%, transparent 70%); animation: adopt-glow 3.2s ease-in-out infinite; }
+  .keyscene__icon { position: relative; width: 100%; height: 100%; color: hsl(45 100% 78%); filter: drop-shadow(0 0 10px hsl(45 100% 70% / 0.8)); rotate: -28deg; animation: keyscene-float 4.5s ease-in-out infinite; }
+  .keyscene__title { font-size: clamp(1.25rem, 3.4vh, 1.6rem); font-weight: 800; line-height: 1.15; text-shadow: 0 2px 12px hsl(260 60% 10% / 0.7); animation: hatch-fade 600ms ease-out 500ms both; }
+  .keyscene__facts {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 1rem;
+    border: 1px solid hsl(40 90% 70% / 0.35);
+    background: hsl(35 60% 18% / 0.55);
+    color: hsl(40 90% 90%);
+    font-size: 0.82rem;
+    line-height: 1.35;
+    text-align: left;
+  }
+  .keyscene__facts li { position: relative; padding-left: 0.95rem; }
+  .keyscene__facts li::before { content: ''; position: absolute; left: 0.1rem; top: 0.5em; width: 0.4rem; height: 0.4rem; border-radius: 50%; background: hsl(45 100% 72%); }
+  .keyscene__nsec {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border-radius: 0.85rem;
+    border: 1px solid hsl(45 100% 80% / 0.45);
+    background: hsl(255 40% 6% / 0.7);
+    box-shadow: 0 0 22px -8px hsl(45 100% 70% / 0.6) inset;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    word-break: break-all;
+    text-align: left;
+    color: hsl(45 100% 92%);
+    user-select: all;
+    -webkit-user-select: all;
+  }
+  .keyscene__ways { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .keyscene__way { min-height: 2.75rem; padding: 0.55rem 0.5rem; font-size: 0.85rem; line-height: 1.15; }
+  .keyscene__way[data-done='true'] { border-color: hsl(45 100% 70%); }
+  .keyscene__quiet { display: inline-flex; align-items: center; gap: 0.3rem; min-height: 2.75rem; padding: 0 0.6rem; font-size: 0.8rem; font-weight: 600; color: hsl(40 40% 88% / 0.85); text-decoration: underline; text-underline-offset: 3px; }
+  /* Once the player has acted, the key steps back a little to make room for the confirmation */
+  .keyscene__body:has(.keyscene__confirm) .keyscene__key { width: clamp(2.6rem, 8vh, 4rem); }
+  .keyscene__note { font-size: 0.78rem; line-height: 1.35; color: hsl(40 50% 90% / 0.9); }
+  .keyscene__note:empty { display: none; }
+  .keyscene__confirm { width: 100%; display: flex; flex-direction: column; gap: 0.5rem; animation: hatch-fade 400ms ease-out both; }
+  .keyscene__check { display: flex; align-items: center; justify-content: center; gap: 0.55rem; min-height: 2.75rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+  .keyscene__check input { width: 1.25rem; height: 1.25rem; accent-color: hsl(45 100% 60%); flex: none; }
+  .keyscene__aside { font-size: 0.72rem; color: hsl(40 30% 85% / 0.75); }
+  .keyscene__error { font-size: 0.85rem; color: hsl(0 90% 82%); }
+  .keyscene[data-reduced='true'] .keyscene__veil,
+  .keyscene[data-reduced='true'] .keyscene__spot,
+  .keyscene[data-reduced='true'] .keyscene__key,
+  .keyscene[data-reduced='true'] .keyscene__title,
+  .keyscene[data-reduced='true'] .keyscene__confirm { animation-duration: 1ms; animation-delay: 0ms; }
+  .keyscene[data-reduced='true'] .keyscene__icon,
+  .keyscene[data-reduced='true'] .keyscene__halo,
+  .keyscene[data-reduced='true'] .keyscene__mote { animation: none; }
+  /* A short screen: the key a little smaller, the aside left to the menu */
+  @media (max-height: 600px) {
+    .keyscene__body { gap: 0.45rem; }
+    .keyscene__aside { display: none; }
+    .keyscene__facts { font-size: 0.78rem; padding-block: 0.45rem; }
+  }
+  @keyframes keyscene-mote { 0% { opacity: 0; translate: 0 12px; } 30%, 70% { opacity: 0.85; } 100% { opacity: 0; translate: 8px -40px; } }
+  @keyframes keyscene-float { 0%, 100% { translate: 0 0; rotate: -28deg; } 50% { translate: 0 -5px; rotate: -22deg; } }
 
   @keyframes welcome-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -6px; } }
   @keyframes welcome-drift { from { translate: -10px 0; } to { translate: 14px 4px; } }
@@ -3721,7 +3870,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .welcome__cloud, .welcome__spark, .wscene__friend, .wscene__friend > :first-child, .wscene__friend::before, .whero__body, .wscene__title,
-    .adopt__light, .adopt__egg, .hatch-theater__actor {
+    .adopt__light, .adopt__egg, .hatch-theater__actor, .keyscene__icon, .keyscene__halo, .keyscene__mote {
       animation: none !important;
     }
   }

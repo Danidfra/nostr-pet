@@ -1,13 +1,37 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { AdoptionFlow } from '@/features/adoption';
 import { useAuthor } from '@/hooks/useAuthor';
 import { resolveOnboardingStep, type OnboardingStep } from './onboarding-steps';
-import { CreateAccountScreen, ExistingAccountScreen, ProfileSetupScreen, WelcomeScreen } from './screens';
-import { useProfileSetup } from './useProfileSetup';
+import { ExistingAccountScreen, WelcomeScreen } from './screens';
+import { CreateAccountScreen } from './KeyScene';
 import { StagePanel } from './WelcomeStage';
 
+/**
+ * The one fact the way in keeps of its own: which door the player chose on
+ * this visit. Owned by the page (`Home`), never by the flow: between signing
+ * in and the collection's first answer the page shows the flow's loading
+ * step, and a flow that kept this itself would be unmounted and start again
+ * from nothing (the M12.3 first-egg bug).
+ */
+export interface OnboardingSession {
+  choice: 'create' | 'existing' | null;
+  choose: (choice: 'create' | 'existing' | null) => void;
+}
+
+export function useOnboardingSession(pubkey: string | undefined): OnboardingSession {
+  const [choice, choose] = useState<'create' | 'existing' | null>(null);
+  // Signed out from the menu part way in: back to the welcome, never straight into making another key
+  const [seen, setSeen] = useState(pubkey);
+  if (seen !== pubkey) {
+    setSeen(pubkey);
+    if (seen && !pubkey) choose(null);
+  }
+  return useMemo(() => ({ choice, choose }), [choice]);
+}
+
 interface OnboardingFlowProps {
+  session: OnboardingSession;
   /** The signed-in pubkey, or undefined while signed out. */
   pubkey: string | undefined;
   /** Whether a Blobbi is owned; undefined while the collection loads. Ignored while signed out. */
@@ -19,61 +43,35 @@ interface OnboardingFlowProps {
 }
 
 /**
- * The way in: WELCOME → CREATE or EXISTING → (PROFILE) → ADOPT → home.
+ * The way in: WELCOME → CREATE (the key) or EXISTING (sign in) → ADOPT (the
+ * egg) → home, where the first egg hatches.
  *
- * The flow keeps only two facts of its own: which door was chosen and
- * whether the profile step was done or skipped this session. Everything
- * else is read (the login store, the collection, the kind 0), so a refresh
- * in the middle lands on the same step, and an existing player with a
- * Blobbi never sees any of it (`resolveOnboardingStep`).
+ * Everything but the chosen door is read (the login store, the
+ * collection), so a refresh in the middle lands on the same step: a
+ * signed-in player without a Blobbi is shown their egg at once, never a
+ * screen about having none. An existing player with a Blobbi never sees any
+ * of it (`resolveOnboardingStep`).
  */
-export function OnboardingFlow({ pubkey, hasBlobbi, updateCompanionEvent, refresh, loading }: OnboardingFlowProps) {
-  const [choice, setChoice] = useState<'create' | 'existing' | null>(null);
-  const [newAccount, setNewAccount] = useState(false);
-  const [profileDone, setProfileDone] = useState(false);
-  const author = useAuthor(pubkey && hasBlobbi === false && !newAccount ? pubkey : undefined);
-  const profileSetup = useProfileSetup(pubkey);
-
-  const profileState = author.data?.metadata?.name ? 'named' : author.isPending && author.failureCount === 0 && !newAccount ? 'loading' : 'unnamed';
-  const step: OnboardingStep = useMemo(
-    () => resolveOnboardingStep({ signedIn: !!pubkey, choice, hasBlobbi, profile: profileState, profileDone, newAccount }),
-    [pubkey, choice, hasBlobbi, profileState, profileDone, newAccount],
-  );
-
-  const { mutateAsync: publishProfile } = profileSetup.publish;
-  const { mutateAsync: uploadPicture } = profileSetup.upload;
-  const saveProfile = useCallback(
-    async (form: Parameters<typeof publishProfile>[0]) => {
-      try {
-        await publishProfile(form);
-      } catch {
-        // The mutation's error state is what the screen shows; the player
-        // stays on the step. Nothing else may reject unhandled.
-        return;
-      }
-      setProfileDone(true);
-    },
-    [publishProfile],
-  );
-  const skipProfile = useCallback(() => setProfileDone(true), []);
+export function OnboardingFlow({ session, pubkey, hasBlobbi, updateCompanionEvent, refresh, loading }: OnboardingFlowProps) {
+  const { choice, choose } = session;
+  // The kind 0 name, only to name a brand-new Blobbonaut profile at adoption; it never decides a step or waits
+  const author = useAuthor(pubkey && hasBlobbi === false ? pubkey : undefined);
+  const step: OnboardingStep = resolveOnboardingStep({ signedIn: !!pubkey, choice, hasBlobbi });
 
   switch (step) {
     case 'welcome':
-      return <WelcomeScreen onCreate={() => setChoice('create')} onExisting={() => setChoice('existing')} />;
+      return <WelcomeScreen onCreate={() => choose('create')} onExisting={() => choose('existing')} />;
     case 'create':
-      return <CreateAccountScreen onBack={() => setChoice(null)} onCreated={() => setNewAccount(true)} />;
+      return <CreateAccountScreen onBack={() => choose(null)} />;
     case 'existing':
-      return <ExistingAccountScreen onBack={() => setChoice(null)} />;
+      return <ExistingAccountScreen onBack={() => choose(null)} />;
     case 'loading':
       return <StagePanel line="Just a moment…">{loading}</StagePanel>;
-    case 'profile':
-      return <ProfileSetupScreen existing={author.data?.metadata} onSave={saveProfile} onSkip={skipProfile} onUpload={uploadPicture} pending={profileSetup.publish.isPending} error={profileSetup.publish.error} />;
     case 'adopt':
-      // Brief when the welcome was seen this session (a door was chosen or a profile step done); full for a returning player landing here.
-      // The egg in the same world: the guide who welcomed you points at it (the adoption itself is unchanged)
+      // The egg in the same world: the guide who welcomed you points at it
       return pubkey ? (
         <StagePanel line="Look! Your very own egg!">
-          <AdoptionFlow pubkey={pubkey} suggestedName={author.data?.metadata?.name || author.data?.metadata?.display_name || undefined} updateCompanionEvent={updateCompanionEvent} refresh={refresh} brief={choice !== null || newAccount || profileDone} />
+          <AdoptionFlow pubkey={pubkey} suggestedName={author.data?.metadata?.name || author.data?.metadata?.display_name || undefined} updateCompanionEvent={updateCompanionEvent} refresh={refresh} />
         </StagePanel>
       ) : null;
     case 'home':

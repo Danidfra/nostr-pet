@@ -2,19 +2,19 @@
  * Where a player stands on the way in, as one word the flow switches on.
  *
  *   welcome   nobody signed in, nothing chosen yet
- *   create    making a new account (key shown once, backup, sign in)
+ *   create    making a new account (the key, its backup, sign in)
  *   existing  signing in with an extension, a bunker or a secret key
- *   loading   signed in; the profile read that decides the next step is in flight
- *   profile   signed in, no Blobbi, no name on the kind 0 yet (or a new account)
- *   adopt     signed in, no Blobbi; the existing adoption flow
+ *   loading   signed in; whether a Blobbi is owned is still being read
+ *   adopt     signed in, no Blobbi: the egg, straight away
  *   home      signed in with a Blobbi: nothing to onboard
  *
- * An existing player with a Blobbi never sees any of this. One whose kind 0
- * already has a name goes straight to adoption; the profile step is offered
- * to those without one and can always be skipped. Pure, so the order is
+ * An existing player with a Blobbi never sees any of this. There is no
+ * profile step (M12.3): a name, a picture and a line about you are the
+ * player's to set whenever they like, from the menu's Account; nothing is
+ * asked, and nothing is published, before the egg. Pure, so the order is
  * pinned by tests and a refresh in the middle lands on the same step.
  */
-export type OnboardingStep = 'welcome' | 'create' | 'existing' | 'loading' | 'profile' | 'adopt' | 'home';
+export type OnboardingStep = 'welcome' | 'create' | 'existing' | 'loading' | 'adopt' | 'home';
 
 export interface OnboardingFacts {
   signedIn: boolean;
@@ -22,20 +22,10 @@ export interface OnboardingFacts {
   choice: 'create' | 'existing' | null;
   /** Signed in: whether a Blobbi is owned (undefined while the collection loads). */
   hasBlobbi?: boolean;
-  /** Signed in: what the kind 0 says. */
-  profile: 'loading' | 'named' | 'unnamed';
-  /** The profile step was completed or skipped this session. */
-  profileDone: boolean;
-  /** The account was created in this session (its kind 0 cannot exist yet). */
-  newAccount: boolean;
 }
 
 export function resolveOnboardingStep(f: OnboardingFacts): OnboardingStep {
   if (!f.signedIn) return f.choice ?? 'welcome';
   if (f.hasBlobbi === undefined) return 'loading';
-  if (f.hasBlobbi) return 'home';
-  if (f.profileDone) return 'adopt';
-  if (f.newAccount) return 'profile';
-  if (f.profile === 'loading') return 'loading';
-  return f.profile === 'named' ? 'adopt' : 'profile';
+  return f.hasBlobbi ? 'home' : 'adopt';
 }

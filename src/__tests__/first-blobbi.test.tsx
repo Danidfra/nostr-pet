@@ -152,7 +152,7 @@ async function tapHatch() {
 
 async function adoptFromScratch(name = 'Pip') {
   renderHome();
-  await userEvent.click(await screen.findByTestId('adoption-start'));
+  // No Blobbi yet: the egg itself, straight away (M12.3)
   await screen.findByTestId('adoption-preview');
   await userEvent.type(screen.getByTestId('adoption-name'), name);
   await userEvent.click(screen.getByTestId('adoption-adopt'));

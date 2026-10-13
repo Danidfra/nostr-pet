@@ -200,7 +200,7 @@ interface BlobbiRoomProps {
 /** No growing-up tasks (the journey's list when the Blobbi is not on its way to growing up). */
 const NO_TASKS: readonly LifecycleTask[] = [];
 
-/** How long a first Blobbi's egg is simply there before the theatre presents it and invites the player to hatch it. */
+/** How long a first Blobbi's egg is simply there before the theatre opens on it, for the player's taps. */
 const FIRST_HATCH_LEAD_MS = 1_400;
 /** How long the room's reveal face lasts after a hatch or an evolution. */
 const REVEAL_MS = 2_400;
@@ -445,10 +445,9 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const { hatch, evolve } = lifecycle;
   const confirmFirstBlobbi = firstBlobbi.confirm;
   const ceremonyRunning = useRef(false);
-  // A hatch is the theatre (`HatchTheater`): it owns the beats, the one write and the reveal. 'invite': it presents
-  // the egg and waits for the player's tap; 'go': the player already asked (Hatch in the details)
-  const [theaterMode, setTheaterMode] = useState<'invite' | 'go' | null>(null);
-  const theater = theaterMode !== null;
+  // A hatch is the theatre (`HatchTheater`): the shell opens under the player's taps, and it owns the one write and
+  // the reveal (M12.3)
+  const [theater, setTheater] = useState(false);
   const [hatchError, setHatchError] = useState<string | null>(null);
   const performHatch = useCallback(async (): Promise<boolean> => {
     setHatchError(null);
@@ -462,7 +461,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [firstBlobbi.qualifies, confirmFirstBlobbi, hatch, lifecycle]);
   const endTheater = useCallback(
     (hatched: boolean) => {
-      setTheaterMode(null);
+      setTheater(false);
       ceremonyRunning.current = false;
       if (hatched) {
         gesture('bounce');
@@ -478,7 +477,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [lifecycleError, refresh]);
   const lifecycleNext = lifecycle.view.next;
   const startCeremony = useCallback(
-    async (kind: CeremonyKind, how: 'invite' | 'go' = 'go') => {
+    async (kind: CeremonyKind) => {
       if (ceremonyRunning.current || blobbi.state !== 'active') return;
       // The kit's rules, as on the classic home: an egg hatches when its incubation is done (the account's first egg
       // needs none, confirmed with the relays before the write); a baby grows up when its tasks are done
@@ -488,7 +487,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         ceremonyRunning.current = true;
         setSheetOpen(false);
         setMenuOpen(false);
-        setTheaterMode(how);
+        setTheater(true);
         return;
       }
       if (lifecycleNext !== 'evolve') return;
@@ -507,10 +506,10 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     [blobbi.state, blobbi.stage, firstBlobbi.qualifies, lifecycleNext, evolve, play, showFace, gesture],
   );
   // An egg that may hatch now (the account's first needs nothing more; another once its incubation is done). Being
-  // ready is never the hatch itself: the player begins it, in the theatre, with a tap
+  // ready is never the hatch itself: the shell opens under the player's taps, in the theatre
   const hatchReady = isEgg && blobbi.state === 'active' && !!profile && (firstBlobbi.qualifies || lifecycleNext === 'hatch');
-  // The account's first egg: a moment after it is on screen and the room is quiet, the theatre presents it and asks,
-  // once per visit (Later leaves the invitation in the room). Nothing is written until the player taps
+  // The account's first egg: a moment after it is on screen and the room is quiet, the theatre opens by itself, once
+  // per visit (a failed write's Later leaves the invitation in the room). Nothing is written until the last tap
   const inviteDue = firstBlobbi.qualifies && hatchReady && care.offer === null && interactions.activity === null && !transitions.transitioning && !theater;
   const invited = useRef(false);
   useEffect(() => {
@@ -520,11 +519,11 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     if (!inviteDue || invited.current) return;
     const timer = setTimeout(() => {
       invited.current = true;
-      void startCeremony('hatch', 'invite');
+      void startCeremony('hatch');
     }, FIRST_HATCH_LEAD_MS);
     return () => clearTimeout(timer);
   }, [inviteDue, startCeremony]);
-  const inviteHatch = useCallback(() => void startCeremony('hatch', 'invite'), [startCeremony]);
+  const inviteHatch = useCallback(() => void startCeremony('hatch'), [startCeremony]);
   // The streak: noticed only when the authoritative number goes up between two versions of this Blobbi
   const [streakMoment, setStreakMoment] = useState<StreakChange | null>(null);
   const [streakBump, setStreakBump] = useState(0);
@@ -643,7 +642,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const onBlobbiTap = useCallback((id: string) => {
     if (id !== MAIN_BLOBBI || !present) return;
     markActivity();
-    // An egg ready to hatch: a tap is the way to its moment (the theatre asks once more before anything is written)
+    // An egg ready to hatch: a tap opens the theatre, where the taps crack the shell (nothing is written before the last)
     if (hatchReady) {
       play('poke');
       gesture('stir');
@@ -864,7 +863,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           <>
             {hatchReady && !theater && (
               <button type="button" className="hatch-invite" onClick={inviteHatch} data-testid="room-hatch-invite">
-                <Sparkles className="h-4 w-4" aria-hidden /> Ready to hatch? Tap your egg
+                <Sparkles className="h-4 w-4" aria-hidden /> Your egg is ready: tap it to hatch
               </button>
             )}
             <RoomCareCards offer={offer} onRetry={interactions.retry} onPutAway={care.putAway} error={care.error} notice={care.notice ?? storeNotice} />
@@ -922,7 +921,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       </RoomShell>
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
       {streakMoment?.milestone && <StreakMoment change={streakMoment} onDone={dismissStreakMoment} reducedMotion={reducedMotion} />}
-      {theaterMode && <HatchTheater blobbi={blobbi} perform={performHatch} error={hatchError ?? lifecycleError} reducedMotion={reducedMotion} play={play} onDone={endTheater} invite={theaterMode === 'invite'} />}
+      {theater && <HatchTheater blobbi={blobbi} perform={performHatch} error={hatchError ?? lifecycleError} reducedMotion={reducedMotion} play={play} onDone={endTheater} />}
       <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} inRoom />
       <WorldsSheet open={worldsOpen} onClose={() => setWorldsOpen(false)} blobbi={blobbi} onTravel={travel} />
       <JourneySheet

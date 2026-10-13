@@ -8,6 +8,8 @@ import { useLoginActions } from '@/hooks/useLoginActions';
 import { shortNpub } from '@/lib/format';
 import { BLOBBI_ISLAND_URL, DITTO_BLOBBI_URL } from '@/config/ecosystem';
 import { KeyBackup } from '@/features/onboarding/KeyBackup';
+import { ProfileForm } from '@/features/onboarding/screens';
+import { useProfileSetup } from '@/features/onboarding/useProfileSetup';
 import { ROOM_PATH, useHomeExperience, type FromRoomState } from '@/lib/home-experience';
 
 interface MenuSheetProps {
@@ -27,8 +29,8 @@ const APPEARANCE_ICON = { island: Sunrise, day: Sun, night: Moon } as const;
  * settings list. On the classic home the way out to the Island first; in the
  * room the Island is one of the Worlds (the globe in the header), so the menu
  * does not repeat it (M12.1). Then sound and lighting as big toggles, then
- * the account (who, how signed in, sign out, and the key backup for a
- * secret-key session).
+ * the account (who, how signed in, sign out, the profile, and the key backup
+ * for a secret-key session). The profile is here, not on the way in (M12.3).
  */
 export function MenuSheet({ open, onClose, inRoom = false }: MenuSheetProps) {
   const env = useEnvironment();
@@ -146,6 +148,12 @@ export function MenuSheet({ open, onClose, inRoom = false }: MenuSheetProps) {
                 Sign out
               </button>
             </div>
+            <details className="menu-details" data-testid="profile-section">
+              <summary className="cursor-pointer text-sm font-semibold">Edit your profile</summary>
+              <div className="mt-2">
+                <MenuProfile pubkey={user.pubkey} metadata={metadata} />
+              </div>
+            </details>
             {sessionNsec && (
               <details className="menu-details" data-testid="key-backup-section">
                 <summary className="cursor-pointer text-sm font-semibold">Back up your secret key</summary>
@@ -160,5 +168,23 @@ export function MenuSheet({ open, onClose, inRoom = false }: MenuSheetProps) {
         )}
       </div>
     </GameOverlay>
+  );
+}
+
+/** The player's kind 0 (name, picture, a line), set whenever they like. Nothing is written until Save. */
+function MenuProfile({ pubkey, metadata }: { pubkey: string; metadata: ReturnType<typeof useCurrentUser>['metadata'] }) {
+  const { publish, upload } = useProfileSetup(pubkey);
+  const { mutateAsync } = publish;
+  return (
+    <ProfileForm
+      // A form opened before the profile arrived starts again once it has, so nothing set elsewhere is overwritten blank
+      key={metadata ? 'loaded' : 'empty'}
+      existing={metadata}
+      onSave={(form) => mutateAsync(form).catch(() => undefined)}
+      onUpload={upload.mutateAsync}
+      pending={publish.isPending}
+      error={publish.error}
+      saved={publish.isSuccess}
+    />
   );
 }

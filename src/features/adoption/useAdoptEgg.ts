@@ -9,7 +9,8 @@
  *   egg          the kind 31124, `created_at` pinned to the preview
  *   profile      exactly one kind 11125 (created, or updated with `has` and
  *                `current_companion`)
- *   local        the device pick, the caches, a refetch
+ *   local        the device pick and the caches (no re-read after a success:
+ *                a relay a moment behind would answer "none")
  *
  * If the egg landed but the profile write failed, the egg is real and shown;
  * the profile can be repaired by any later selection (ownership is the 31124
@@ -47,6 +48,14 @@ interface UseAdoptEggOptions {
 }
 
 const PREFLIGHT_TIMEOUT_MS = 6_000;
+
+/**
+ * The keys with an adoption on its way, for the whole page: a screen that is
+ * unmounted and mounted again while the first adoption is out (a re-render
+ * of the way in, a second tab of the same component) cannot begin a second
+ * one. Cleared when it settles.
+ */
+const adoptingFor = new Set<string>();
 
 export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refresh, additional = false }: UseAdoptEggOptions) {
   const { nostr } = useNostr();
@@ -93,9 +102,17 @@ export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refre
       }
       return { kind: 'adopted', egg, profile: profileEvent, profileError };
     },
-    onSettled: () => {
+    onSettled: (result, _error, preview) => {
       inFlightRef.current = false;
+      adoptingFor.delete(preview.ownerPubkey);
       setStep('idle');
+      // Adopted: the caches already hold the very events the relays accepted (the egg, the profile). A re-read straight
+      // away may reach a relay that has not stored them yet and would replace the egg with "none", sending the player
+      // back to the way in (M12.3); later reads catch up by themselves. Anything else re-reads.
+      if (result?.kind === 'adopted') {
+        if (!result.profile) queryClient.invalidateQueries({ queryKey: ['blobbonaut-profile', pubkey] });
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: ['blobbonaut-profile', pubkey] });
       refresh();
     },
@@ -105,8 +122,9 @@ export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refre
   /** Publish the egg for this preview unless an adoption is already running. Returns whether it started. */
   const adopt = useCallback(
     (preview: EggPreview): boolean => {
-      if (inFlightRef.current) return false;
+      if (inFlightRef.current || adoptingFor.has(preview.ownerPubkey)) return false;
       inFlightRef.current = true;
+      adoptingFor.add(preview.ownerPubkey);
       mutate(preview);
       return true;
     },

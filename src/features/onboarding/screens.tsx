@@ -13,17 +13,14 @@ import { WelcomeHero } from './WelcomeHero';
 import { INVITATION } from './welcome-hero';
 import { welcomeCast } from './welcome-cast';
 import { useLoginActions } from '@/hooks/useLoginActions';
-import { KeyBackup } from './KeyBackup';
-import { createNewAccount, isNsec, readNsecFromText, type NewAccount } from './new-account';
+import { isNsec, readNsecFromText } from './new-account';
 import { checkRelayTransport } from '@/lib/relay-transport';
 import { signInMessage, withTimeout } from './sign-in';
 import { PROFILE_ABOUT_MAX, PROFILE_NAME_MAX, checkProfileForm, profileFormFrom, type ProfileFormInput } from './profile-plan';
 
 /** What the little guide says beside each step: friendly, never instead of the step's own plain words. */
 const GUIDE_LINES: Record<string, string> = {
-  'onboarding-create-account': 'This little key opens my home!',
   'onboarding-existing-account': 'Welcome back! I missed you.',
-  'onboarding-profile': 'What should I call you?',
 };
 
 /** A step of the way in: the card, in the welcome's world, with the Blobbi guide beside it. */
@@ -143,98 +140,6 @@ function SceneFriend({ blobbi, where }: { blobbi: ReturnType<typeof welcomeCast>
       <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`welcome-${blobbi.d}`} size="100%" eggCrack="none" transparent style={{ width: '100%', height: '100%' }} expression={blobbi.stage === 'egg' ? undefined : 'happy'} />
       <span className="wscene__friend-shadow" aria-hidden />
     </button>
-  );
-}
-
-/* ─── Create an account ────────────────────────────────────────────────── */
-
-/**
- * A new key, shown once. The player must confirm a backup before the key
- * signs them in; the confirmation is a deliberate checkbox, and the copy
- * and download buttons are right there. The words do not soften it: the
- * key is the account, and losing it can mean losing the account.
- */
-export function CreateAccountScreen({ onBack, onCreated }: { onBack: () => void; onCreated: () => void }) {
-  const login = useLoginActions();
-  // The key comes from the browser's secure randomness (nostr-tools); a browser without it cannot make one, and says so
-  const [made] = useState<{ account: NewAccount } | { error: string }>(() => {
-    try {
-      return { account: createNewAccount() };
-    } catch {
-      return { error: 'This browser cannot make a secure key here. Open Blobbi over https in an up-to-date browser, or sign in with an account you already have.' };
-    }
-  });
-  if ('error' in made) {
-    return (
-      <Card testId="onboarding-create-account">
-        <BackButton onClick={onBack} />
-        <p role="alert" className="text-sm text-destructive" data-testid="create-account-unsupported">
-          {made.error}
-        </p>
-      </Card>
-    );
-  }
-  return <CreateAccountKey account={made.account} onBack={onBack} onCreated={onCreated} login={login} />;
-}
-
-function CreateAccountKey({ account, onBack, onCreated, login }: { account: NewAccount; onBack: () => void; onCreated: () => void; login: ReturnType<typeof useLoginActions> }) {
-  const [backedUp, setBackedUp] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const finish = () => {
-    if (!confirmed) return;
-    try {
-      login.nsec(account.nsec);
-      onCreated();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not sign in with the new key.');
-    }
-  };
-
-  return (
-    <Card testId="onboarding-create-account">
-      <BackButton onClick={onBack} />
-      <div className="space-y-1">
-        <h2 className="text-xl font-semibold">Your Blobbi’s house key</h2>
-        <p className="text-sm text-muted-foreground">
-          This little key opens your Blobbi’s home. Keep it safe! It is a <strong>secret key</strong>, made just now on this device: nobody else has it, not even us. It is your account, instead of a password.
-        </p>
-      </div>
-      <div className="rounded-2xl border border-amber-400/60 bg-amber-50/80 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100" role="note" data-testid="key-warning">
-        <p className="font-semibold">If you lose it, you lose your Blobbi’s home for good.</p>
-        <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs">
-          <li>It is the only way back in on a new phone or after clearing this browser. There is no reset and no recovery email.</li>
-          <li>Whoever has it can use your account. Never share it, and never paste it into a site you do not trust.</li>
-          <li>Save it now: a password manager, or the backup file below.</li>
-        </ul>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Your public id (fine to share): <code className="break-all" data-testid="new-npub">{account.npub}</code>
-      </p>
-      <KeyBackup nsec={account.nsec} revealed onBackedUp={() => setBackedUp(true)} />
-      <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5 h-4 w-4" data-testid="key-saved" />
-        <span>I saved my secret key somewhere safe. I understand it cannot be recovered without it.</span>
-      </label>
-      {!backedUp && confirmed && (
-        <p className="text-xs text-muted-foreground" data-testid="key-saved-hint">
-          You have not copied or downloaded it here. If you wrote it down, go on.
-        </p>
-      )}
-      <button type="button" className="onboard-btn onboard-btn--primary" onClick={finish} disabled={!confirmed} data-testid="onboarding-continue">
-        <Egg className="h-4 w-4" aria-hidden />
-        On to my egg!
-      </button>
-      <p className="text-xs text-muted-foreground">
-        On this device the key is kept by the sign-in store, the same one Blobbi Island and Ditto use. You can see it again from the menu, under Account.
-      </p>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-    </Card>
   );
 }
 
@@ -497,18 +402,23 @@ function SignerAppConnect({ disabled }: { disabled: boolean }) {
 
 /* ─── Profile ─────────────────────────────────────────────────────────── */
 
-interface ProfileSetupScreenProps {
+interface ProfileFormProps {
   existing: NostrMetadata | undefined;
   /** Publishes the kind 0; resolves when a relay accepted it. */
   onSave: (form: ProfileFormInput) => Promise<unknown>;
-  onSkip: () => void;
   onUpload?: (file: File) => Promise<string>;
   pending: boolean;
   error: Error | null;
+  /** Said under the button after a save landed. */
+  saved?: boolean;
 }
 
-/** Name, picture and a line about you, on the standard kind 0. Skippable. */
-export function ProfileSetupScreen({ existing, onSave, onSkip, onUpload, pending, error }: ProfileSetupScreenProps) {
+/**
+ * Name, picture and a line about you, on the standard kind 0. Not a step of
+ * the way in any more (M12.3): the menu's Account offers it, whenever the
+ * player likes. Nothing is published until they press Save.
+ */
+export function ProfileForm({ existing, onSave, onUpload, pending, error, saved = false }: ProfileFormProps) {
   const [form, setForm] = useState<ProfileFormInput>(() => profileFormFrom(existing));
   const [reason, setReason] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -541,63 +451,58 @@ export function ProfileSetupScreen({ existing, onSave, onSkip, onUpload, pending
   };
 
   return (
-    <Card testId="onboarding-profile" busy={pending}>
-      <div className="space-y-1">
-        <h2 className="text-xl font-semibold">How should your Blobbi know you?</h2>
-        <p className="text-sm text-muted-foreground">Your Nostr profile: shared with every app you sign into with this key. Everything here is optional.</p>
+    <form onSubmit={submit} className="space-y-3" data-testid="profile-form" aria-busy={pending}>
+      <p className="text-xs text-muted-foreground">Your Nostr profile: shared with every app you sign into with this key. Everything here is optional.</p>
+      <div className="flex items-center gap-3">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background" aria-hidden>
+          {form.picture ? <img src={form.picture} alt="" className="h-full w-full object-cover" /> : <UserRound className="h-6 w-6 text-muted-foreground" />}
+        </span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <label htmlFor="profile-picture" className="block text-sm font-medium">
+            Picture
+          </label>
+          <input id="profile-picture" value={form.picture} onChange={(e) => setForm((f) => ({ ...f, picture: e.target.value }))} placeholder="https://…" autoComplete="off" spellCheck={false} className="onboard-input" data-testid="profile-picture" />
+          {onUpload && (
+            <button type="button" className="inline-flex items-center gap-1 text-xs font-semibold text-primary" onClick={() => fileRef.current?.click()} disabled={uploading || pending} data-testid="profile-upload">
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <ImagePlus className="h-3.5 w-3.5" aria-hidden />}
+              {uploading ? 'Uploading…' : 'Upload an image'}
+            </button>
+          )}
+          <input ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={(e) => void upload(e.target.files?.[0])} data-testid="profile-upload-input" />
+          {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+        </div>
       </div>
-      <form onSubmit={submit} className="space-y-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background" aria-hidden>
-            {form.picture ? <img src={form.picture} alt="" className="h-full w-full object-cover" /> : <UserRound className="h-7 w-7 text-muted-foreground" />}
-          </span>
-          <div className="min-w-0 flex-1 space-y-1">
-            <label htmlFor="profile-picture" className="block text-sm font-medium">
-              Picture
-            </label>
-            <input id="profile-picture" value={form.picture} onChange={(e) => setForm((f) => ({ ...f, picture: e.target.value }))} placeholder="https://…" autoComplete="off" spellCheck={false} className="onboard-input" data-testid="profile-picture" />
-            {onUpload && (
-              <button type="button" className="inline-flex items-center gap-1 text-xs font-semibold text-primary" onClick={() => fileRef.current?.click()} disabled={uploading || pending} data-testid="profile-upload">
-                {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <ImagePlus className="h-3.5 w-3.5" aria-hidden />}
-                {uploading ? 'Uploading…' : 'Upload an image'}
-              </button>
-            )}
-            <input ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={(e) => void upload(e.target.files?.[0])} data-testid="profile-upload-input" />
-            {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
-          </div>
-        </div>
-        <div>
-          <label htmlFor="profile-name" className="block text-sm font-medium">
-            Name
-          </label>
-          <input id="profile-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} maxLength={PROFILE_NAME_MAX + 8} autoComplete="nickname" spellCheck={false} className="onboard-input mt-1" data-testid="profile-name" />
-        </div>
-        <div>
-          <label htmlFor="profile-about" className="block text-sm font-medium">
-            About you
-          </label>
-          <textarea id="profile-about" value={form.about} onChange={(e) => setForm((f) => ({ ...f, about: e.target.value }))} maxLength={PROFILE_ABOUT_MAX + 20} rows={2} className="onboard-input mt-1 resize-none" data-testid="profile-about" />
-        </div>
-        {reason && (
-          <p className="text-xs text-destructive" data-testid="profile-reason">
-            {reason}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="text-sm text-destructive" data-testid="profile-error">
-            {error.message}
-          </p>
-        )}
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" className="onboard-btn onboard-btn--secondary" onClick={onSkip} disabled={pending} data-testid="profile-skip">
-            Skip for now
-          </button>
-          <button type="submit" className="onboard-btn onboard-btn--primary" disabled={pending || uploading} data-testid="profile-save">
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Egg className="h-4 w-4" aria-hidden />}
-            {pending ? 'Saving…' : 'Save and continue'}
-          </button>
-        </div>
-      </form>
-    </Card>
+      <div>
+        <label htmlFor="profile-name" className="block text-sm font-medium">
+          Name
+        </label>
+        <input id="profile-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} maxLength={PROFILE_NAME_MAX + 8} autoComplete="nickname" spellCheck={false} className="onboard-input mt-1" data-testid="profile-name" />
+      </div>
+      <div>
+        <label htmlFor="profile-about" className="block text-sm font-medium">
+          About you
+        </label>
+        <textarea id="profile-about" value={form.about} onChange={(e) => setForm((f) => ({ ...f, about: e.target.value }))} maxLength={PROFILE_ABOUT_MAX + 20} rows={2} className="onboard-input mt-1 resize-none" data-testid="profile-about" />
+      </div>
+      {reason && (
+        <p className="text-xs text-destructive" data-testid="profile-reason">
+          {reason}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="text-sm text-destructive" data-testid="profile-error">
+          {error.message}
+        </p>
+      )}
+      <button type="submit" className="onboard-btn onboard-btn--primary" disabled={pending || uploading} data-testid="profile-save">
+        {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <UserRound className="h-4 w-4" aria-hidden />}
+        {pending ? 'Saving…' : 'Save my profile'}
+      </button>
+      {saved && !pending && !error && (
+        <p role="status" className="text-center text-xs text-muted-foreground" data-testid="profile-saved">
+          Saved.
+        </p>
+      )}
+    </form>
   );
 }

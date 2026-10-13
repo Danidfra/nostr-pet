@@ -434,9 +434,9 @@ local key are different login types in the same nostrify store. The
 bunker path stays as "paste a bunker address".
 
 **Onboarding polish.** One purpose per step: the welcome introduces, the
-account step creates or connects, the profile step names, and adoption
-(`AdoptionFlow brief`) no longer repeats the introduction when the player
-has just come through the steps before it.
+account step creates or connects, and adoption opens on the egg itself
+(M12.3: no profile step, no "No Blobbi lives here yet" screen; the profile
+is the menu's Account).
 
 **Care is item-driven.** The plain Feed / Play / Clean actions are gone. A
 verb opens the items that answer it: the **starter kit** and **owned
@@ -818,28 +818,34 @@ local day, yesterday cared for → +1, else reset to 1, same day → no
 change) is untouched.
 
 **The way in** (`src/features/onboarding/`): `resolveOnboardingStep` is
-pure over what is read (login store, collection, kind 0) and two session
-facts (the door chosen; the profile step done or skipped), so a refresh in
-the middle lands on the same step and an existing player with a Blobbi
-never sees any of it. Creating an account: nostr-tools `generateSecretKey`
-+ `nip19` (what Ditto's and Island's signup call), then nostrify
-`NLogin.fromNsec` into the `NostrLoginProvider` store both apps share
-(`nostr:login`; no new storage here). The key is shown once with a plain
-warning (it IS the account; no reset; losing it can mean losing access),
-copied or downloaded as Island's `blobbi-nostr-key-backup-<npub8>.txt`
-through a revoked object URL (never a `data:` URL), and a deliberate "I
-have saved it" gate stands before sign-in. Never logged, never in a relay
-payload, never in a URL; the menu can show it again for a backup, hidden
-until asked. Existing accounts: NIP-07 extension and NIP-46 bunker first,
-a secret key (pasted or the backup file) behind a fold. The profile step
-publishes a standard kind 0 that keeps every existing field (fresh read,
-`mergeProfileMetadata`), signed by the current signer, with an optional
-Blossom upload to Ditto's application servers (`config/blossom.ts`). It is
-offered to a new account and to a nameless kind 0 and can be skipped.
-Adoption is the M6 flow unchanged (preflight, idempotency); the profile
-name is suggested for the Blobbonaut profile. `onboarding.test.tsx` runs
-the whole way in with the real login store and real signing and asserts
-the secret never reaches a relay payload, a query, the URL or the console.
+pure over what is read (login store, collection) and one session fact (the
+door chosen, `OnboardingSession`, held by the page so it survives the read
+that follows signing in: M12.3 found that a flow holding it itself was
+unmounted during that read and started again), so a refresh in the middle
+lands on the same step and an existing player with a Blobbi never sees any
+of it. Creating an account: nostr-tools `generateSecretKey` + `nip19`
+(what Ditto's and Island's signup call), then nostrify `NLogin.fromNsec`
+into the `NostrLoginProvider` store both apps share (`nostr:login`; no new
+storage here). The key is given as a scene (`KeyScene.tsx`, M12.3) with
+four plain facts before any action (it IS the account; whoever has it gets
+in; losing it can mean losing the Blobbi; no recovery), no npub, copied or
+downloaded as Island's `blobbi-nostr-key-backup-<npub8>.txt` through a
+revoked object URL (never a `data:` URL), and a deliberate "I saved my
+secret key somewhere safe." gate, shown once a way to keep it was chosen,
+stands before sign-in; a download is reported as asked, never done. Never
+logged, never in a relay payload, never in a URL; the menu can show it
+again for a backup, hidden until asked. Existing accounts: NIP-07
+extension and NIP-46 bunker first, a secret key (pasted or the backup
+file) behind a fold. The profile (the menu's Account, `ProfileForm`)
+publishes a standard kind 0, only on Save, that keeps every existing field
+(fresh read, `mergeProfileMetadata`), signed by the current signer, with
+an optional Blossom upload to Ditto's application servers
+(`config/blossom.ts`). It is never asked for on the way in, and nothing is
+published for skipping it. Adoption is the M6 flow unchanged (preflight,
+idempotency); the profile name is suggested for the Blobbonaut profile.
+`onboarding.test.tsx` runs the whole way in with the real login store and
+real signing and asserts the secret never reaches a relay payload, a
+query, the URL or the console.
 
 **M10.1 polish.** The default room is wall, floor, window, door and the
 Blobbi: `HOME_SPACE.furniture` is empty (it had copied the registry's

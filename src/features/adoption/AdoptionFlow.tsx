@@ -1,32 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useSound } from '@/features/sound';
-import { Egg, Loader2, MapPin, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
-import { EnterIslandButton } from '@/features/home/EnterIslandButton';
 import { DEFAULT_EGG_NAME, NAME_MAX_LENGTH, newEggPreview, normalizeBlobbiName, previewCompanion, renamePreview, type EggPreview } from './adoption-plan';
 import { useAdoptEgg } from './useAdoptEgg';
-
-/** Three sentences a newcomer needs, and no more. Shared by the signed-out and the empty home. */
-export function WhatIsBlobbi() {
-  return (
-    <ul className="what-is-blobbi" aria-label="What a Blobbi is">
-      <li>
-        <Egg className="h-4 w-4" aria-hidden />
-        <span>A Blobbi is a small companion that hatches from an egg and grows as you care for it.</span>
-      </li>
-      <li>
-        <Sparkles className="h-4 w-4" aria-hidden />
-        <span>It is yours: it lives on Nostr under your own key, and only that key can care for it.</span>
-      </li>
-      <li>
-        <MapPin className="h-4 w-4" aria-hidden />
-        <span>This is its home. The same Blobbi goes out to Blobbi Island with you.</span>
-      </li>
-    </ul>
-  );
-}
 
 interface AdoptionFlowProps {
   pubkey: string;
@@ -34,13 +13,6 @@ interface AdoptionFlowProps {
   suggestedName?: string;
   updateCompanionEvent: (event: NostrEvent) => void;
   refresh: () => void;
-  /**
-   * The player just came through the welcome (this session): the three
-   * lines about what a Blobbi is were said there, so the intro says only
-   * what this step is for. A returning player who lands here directly
-   * gets the full intro.
-   */
-  brief?: boolean;
   /** Another egg, for a player who already has Blobbis (the kit's level unlock allows it; checked again before signing). */
   additional?: boolean;
 }
@@ -48,36 +20,35 @@ interface AdoptionFlowProps {
 const STEP_COPY = { idle: '', checking: 'Checking your relays…', egg: 'Signing your egg…', profile: 'Noting it in your profile…' } as const;
 
 /**
- * First run: understand, adopt, see it in the room. Two screens (why, then
- * the egg with a name) and one tap that signs two events. The preview is
- * generated once and is the source of truth for what gets published; nothing
- * is regenerated between the picture the player saw and the event.
+ * The egg, with a name, and one tap that signs two events. Straight away: no
+ * screen about having no Blobbi first (the welcome said what a Blobbi is),
+ * after a refresh as on the first visit. The preview is the source of truth
+ * for what gets published; nothing is regenerated between the picture the
+ * player saw and the event.
+ *
+ * The egg exists from the moment its screen does, made for the key that is
+ * signed in during the very render that shows it (never in an effect after
+ * it): the first frame draws it, and an egg made for another key is never on
+ * screen, not even for a frame (M12.3: that frame was an empty pedestal over
+ * a disabled Adopt, with nothing said).
  */
-export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refresh, brief = false, additional = false }: AdoptionFlowProps) {
-  const [screen, setScreen] = useState<'intro' | 'egg'>(brief || additional ? 'egg' : 'intro');
-  // The egg exists from the moment its screen does: made with the screen (never in an effect after it), so the first
-  // frame of the egg screen already draws it and Adopt never sits under an empty pedestal
-  const [preview, setPreview] = useState<EggPreview | null>(() => (brief || additional ? safePreview(pubkey) : null));
+export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refresh, additional = false }: AdoptionFlowProps) {
+  const [made, setMade] = useState<{ pubkey: string; preview: EggPreview | null }>(() => ({ pubkey, preview: safePreview(pubkey) }));
+  if (made.pubkey !== pubkey) setMade({ pubkey, preview: safePreview(pubkey) });
+  const preview = made.pubkey === pubkey ? made.preview : null;
   const [nameInput, setNameInput] = useState('');
   const adoption = useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refresh, additional });
-  const openEgg = () => {
-    setPreview((p) => (p && p.ownerPubkey === pubkey ? p : safePreview(pubkey)));
-    setScreen('egg');
-  };
-  // Another account signed in under the same screen: an egg is only ever made for the key that will sign it
-  const stale = preview !== null && preview.ownerPubkey !== pubkey;
-  useEffect(() => {
-    if (stale) setPreview(safePreview(pubkey));
-  }, [stale, pubkey]);
 
   const name = normalizeBlobbiName(nameInput);
-  const companion = useMemo(() => (preview && !stale ? previewCompanion(renamePreview(preview, name.ok ? name.name : DEFAULT_EGG_NAME)) : null), [preview, stale, name]);
+  const companion = useMemo(() => (preview ? previewCompanion(renamePreview(preview, name.ok ? name.name : DEFAULT_EGG_NAME)) : null), [preview, name]);
   // The egg could not be made or drawn here: said so, with a way on (a new egg), never an Adopt over nothing
-  const eggMissing = screen === 'egg' && !stale && companion === null;
+  const eggMissing = companion === null;
+  // Adopt is offered only over an egg that is drawn, named and not already on its way
+  const canAdopt = !!preview && !!companion && name.ok && !adoption.isPending;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!preview || !companion || !name.ok || adoption.isPending) return;
+    if (!canAdopt || !preview || !name.ok) return;
     adoption.reset();
     adoption.adopt(renamePreview(preview, name.name));
   };
@@ -104,28 +75,10 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
     );
   }
 
-  // A player who just came through the welcome goes straight to their egg: the why was said there
-  if (screen === 'intro' && !brief) {
-    return (
-      <div className="welcome-card text-center" data-testid="adoption-intro" data-brief="false">
-        <Egg className="mx-auto h-12 w-12 text-primary" aria-hidden />
-        <h2 className="welcome-card__title">No Blobbi lives here yet</h2>
-        <WhatIsBlobbi />
-        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <button type="button" className="lifecycle-pill !animate-none" onClick={openEgg} data-testid="adoption-start">
-            <Egg className="h-4 w-4" aria-hidden />
-            Adopt an egg
-          </button>
-          <EnterIslandButton variant="secondary" />
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <form onSubmit={submit} className="welcome-card adopt text-center" data-testid="adoption-egg" data-brief={brief ? 'true' : 'false'} aria-busy={adoption.isPending}>
-      <h2 className="welcome-card__title">{additional ? 'A new egg' : brief ? 'Here is your egg' : 'Your egg'}</h2>
-      <AdoptionEgg companion={companion} d={companion ? preview?.d : undefined} pending={adoption.isPending} missing={eggMissing} onAnother={() => setPreview(safePreview(pubkey))} />
+    <form onSubmit={submit} className="welcome-card adopt text-center" data-testid="adoption-egg" data-ready={canAdopt ? 'true' : 'false'} aria-busy={adoption.isPending}>
+      <h2 className="welcome-card__title">{additional ? 'A new egg' : 'Here is your egg'}</h2>
+      <AdoptionEgg companion={companion} d={companion ? preview?.d : undefined} pending={adoption.isPending} missing={eggMissing} onAnother={() => setMade({ pubkey, preview: safePreview(pubkey) })} />
       <p className="text-sm text-muted-foreground">Nobody else has this one: its colours and shape come from your key. Give it a name, or keep "{DEFAULT_EGG_NAME}" for now.</p>
       <div className="text-left">
         <label htmlFor="egg-name" className="block text-sm font-medium">
@@ -160,20 +113,15 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
         </p>
       )}
       <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-        <button type="submit" className="lifecycle-pill !animate-none" disabled={!preview || !companion || !name.ok || adoption.isPending} data-testid="adoption-adopt">
+        <button type="submit" className="lifecycle-pill !animate-none" disabled={!canAdopt} data-testid="adoption-adopt">
           {adoption.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
           {adoption.isPending ? STEP_COPY[adoption.step] || 'Adopting…' : adoption.error ? 'Try again' : 'Adopt'}
         </button>
-        {!brief && !additional && (
-          <button type="button" className="text-sm font-semibold text-muted-foreground underline" onClick={() => setScreen('intro')} disabled={adoption.isPending} data-testid="adoption-back">
-            Back
-          </button>
-        )}
       </div>
       <p className="text-[11px] text-muted-foreground" data-testid="adoption-footnote">
         {additional
           ? 'Adopting saves the egg to your account (two signatures). This egg hatches once its incubation tasks are done: its details list them.'
-          : 'Adopting saves the egg to your account (two signatures). Your first egg is ready to hatch as soon as it is home: you choose the moment.'}
+          : 'Adopting saves the egg to your account (two signatures). Then it is home, and ready to hatch under your taps.'}
       </p>
     </form>
   );
