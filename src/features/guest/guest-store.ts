@@ -44,11 +44,25 @@ export const GUEST_STORAGE_KEY = 'blobbi:guest:v1';
 export const GUEST_QUARANTINE_KEY = 'blobbi:guest:v1:unreadable';
 export const GUEST_DOCUMENT_VERSION = 1 as const;
 
+/**
+ * The identity as the app sees it: the public key only. The owner of the
+ * guest Blobbi's address, safe anywhere.
+ */
 export interface GuestIdentity {
-  /** The reserved secret key, bech32. Local to this document until the player saves. */
-  nsec: string;
-  /** Its public key, hex: the owner of the guest Blobbi's address. */
+  /** The public key, hex: the owner of the guest Blobbi's address. */
   pubkey: string;
+}
+
+/**
+ * The identity as it is STORED: the reserved secret key too. Only the store
+ * (`guest-context.ts`) holds this shape, in a closure, and hands the secret
+ * to exactly one caller (the save's key step) through `revealSecret`; the
+ * document every component reads carries the pubkey alone (M14.1 audit,
+ * `SECURITY.md` section 3).
+ */
+export interface GuestSecretIdentity extends GuestIdentity {
+  /** The reserved secret key, bech32. Local to this device until the player saves. */
+  nsec: string;
 }
 
 /** Where saving the Blobbi stands. `null`: never begun. */
@@ -76,6 +90,7 @@ export interface GuestMigration {
 export interface GuestDocument {
   v: typeof GUEST_DOCUMENT_VERSION;
   createdAt: number;
+  /** The public key only; the stored record (`StoredGuestDocument`) carries the secret as well. */
   identity: GuestIdentity;
   /** The guest Blobbi's `d`, once adopted. */
   blobbiD: string | null;
@@ -86,12 +101,25 @@ export interface GuestDocument {
   conflicts: string[];
 }
 
+/** The document as the storage holds it: the same, with the secret in its identity. */
+export type StoredGuestDocument = Omit<GuestDocument, 'identity'> & { identity: GuestSecretIdentity };
+
+/** The document without its secret: what the app reads. */
+export function withoutSecret(doc: StoredGuestDocument | GuestDocument): GuestDocument {
+  return { ...doc, identity: { pubkey: doc.identity.pubkey } };
+}
+
+/** The document with its secret put back, for the storage. */
+export function withSecret(doc: GuestDocument, nsec: string): StoredGuestDocument {
+  return { ...doc, identity: { pubkey: doc.identity.pubkey, nsec } };
+}
+
 export type GuestStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
-/** A fresh document around a reserved identity. */
-export function createGuestDocument(identity: GuestIdentity, now: number = Date.now()): GuestDocument {
+/** A fresh document around a reserved identity (the stored shape: the secret is in it until the store takes it). */
+export function createGuestDocument(identity: GuestSecretIdentity, now: number = Date.now()): StoredGuestDocument {
   return {
     v: GUEST_DOCUMENT_VERSION,
     createdAt: now,
@@ -106,7 +134,7 @@ export function createGuestDocument(identity: GuestIdentity, now: number = Date.
 }
 
 /** True when `nsec` decodes and its public key is `pubkey`: the one check that a document is about the key it names. */
-export function identityConsistent(identity: GuestIdentity): boolean {
+export function identityConsistent(identity: GuestSecretIdentity): boolean {
   try {
     const decoded = nip19.decode(identity.nsec);
     return decoded.type === 'nsec' && HEX64.test(identity.pubkey) && getPublicKey(decoded.data) === identity.pubkey;
@@ -138,11 +166,11 @@ const STAGES: readonly GuestMigrationStage[] = ['key', 'profile', 'publishing', 
  * the identity's consistency, and that every stored record is event-shaped
  * and belongs to the guest.
  */
-export function parseGuestDocument(raw: unknown): { ok: true; doc: GuestDocument } | { ok: false; reason: string } {
+export function parseGuestDocument(raw: unknown): { ok: true; doc: StoredGuestDocument } | { ok: false; reason: string } {
   if (!raw || typeof raw !== 'object') return { ok: false, reason: 'not an object' };
   const r = raw as Record<string, unknown>;
   if (r.v !== GUEST_DOCUMENT_VERSION) return { ok: false, reason: `unknown version ${String(r.v)}` };
-  const identity = r.identity as Partial<GuestIdentity> | undefined;
+  const identity = r.identity as Partial<GuestSecretIdentity> | undefined;
   if (!identity || typeof identity.nsec !== 'string' || typeof identity.pubkey !== 'string') return { ok: false, reason: 'no identity' };
   if (!identityConsistent({ nsec: identity.nsec, pubkey: identity.pubkey })) return { ok: false, reason: 'identity does not match its key' };
   const events = Array.isArray(r.events) ? r.events : null;
@@ -178,7 +206,7 @@ export function parseGuestDocument(raw: unknown): { ok: true; doc: GuestDocument
   };
 }
 
-export type GuestRead = { kind: 'none' } | { kind: 'guest'; doc: GuestDocument } | { kind: 'unreadable'; reason: string };
+export type GuestRead = { kind: 'none' } | { kind: 'guest'; doc: StoredGuestDocument } | { kind: 'unreadable'; reason: string };
 
 /**
  * The stored document. One that cannot be read is moved to the quarantine
@@ -221,7 +249,7 @@ function quarantine(storage: GuestStorage, raw: string): void {
 }
 
 /** Write the document. False when storage refused (quota, private mode, blocked): the caller keeps it in memory. */
-export function writeGuestDocument(doc: GuestDocument, storage: GuestStorage | null = storageOrNull()): boolean {
+export function writeGuestDocument(doc: StoredGuestDocument, storage: GuestStorage | null = storageOrNull()): boolean {
   if (!storage) return false;
   try {
     storage.setItem(GUEST_STORAGE_KEY, JSON.stringify(doc));

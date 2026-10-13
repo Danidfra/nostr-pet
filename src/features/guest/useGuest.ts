@@ -1,7 +1,7 @@
 import { useCallback, useContext, useMemo, useSyncExternalStore } from 'react';
 import { useNostrLogin } from '@nostrify/react/login';
 import { GuestStoreContext, GuestUiContext, GuestUserContext, withConflictSeen, withInviteDismissed, withLanded, withMigrationCleared, withMigrationStage, withProfileDone, type GuestSnapshot, type GuestUi, type GuestUser } from './guest-context';
-import { createGuestDocument, type GuestDocument, type GuestMigrationStage } from './guest-store';
+import { createGuestDocument, withoutSecret, type GuestDocument, type GuestMigrationStage } from './guest-store';
 import { reserveGuestIdentity } from './guest-signer';
 import { resolveGuestMode, type GuestMode } from './guest-session';
 import type { MigrationStep } from './guest-migration';
@@ -37,6 +37,8 @@ export interface Guest extends GuestSnapshot {
   rememberConflict: (loginPubkey: string) => void;
   /** The record is let go: confirmed on the relays, or discarded by the player's explicit choice. */
   clear: () => void;
+  /** The reserved secret key, for the save's key step only (`SECURITY.md`); null when there is no guest. */
+  revealSecret: () => string | null;
 }
 
 export function useGuest(): Guest {
@@ -52,7 +54,7 @@ export function useGuest(): Guest {
     try {
       const doc = createGuestDocument(reserveGuestIdentity());
       store.begin(doc);
-      return doc;
+      return withoutSecret(doc);
     } catch {
       return null;
     }
@@ -70,6 +72,7 @@ export function useGuest(): Guest {
       profileDone: () => store?.update((d) => withProfileDone(d)),
       rememberConflict: (pubkey) => store?.update((d) => withConflictSeen(d, pubkey)),
       clear: () => store?.clear(),
+      revealSecret: () => store?.revealSecret() ?? null,
     }),
     [start, store],
   );

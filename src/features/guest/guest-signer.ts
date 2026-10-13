@@ -19,9 +19,9 @@ import type { NostrSigner } from '@nostrify/nostrify';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { getEventHash } from 'nostr-tools/pure';
 import { createNewAccount } from '@/features/onboarding/new-account';
-import type { GuestIdentity } from './guest-store';
+import type { GuestSecretIdentity } from './guest-store';
 
-export function reserveGuestIdentity(): GuestIdentity {
+export function reserveGuestIdentity(): GuestSecretIdentity {
   const account = createNewAccount();
   return { nsec: account.nsec, pubkey: account.pubkey };
 }

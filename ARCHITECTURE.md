@@ -506,6 +506,18 @@ every other one at the first tap): it asks the context to resume, once at
 a time, and plays nothing until it runs; the next pointer or key event
 resumes it. No new audio library.
 
+**The reserved secret, confined.** The security audit of the guest identity
+(`src/features/guest/SECURITY.md`: threat model, findings, the sealed
+storage and NIP-49 backup designs, what needs approval) found the reserved
+nsec riding in ordinary app state: every component that read the guest
+record had it. The store now keeps the secret in a closure, publishes a
+record whose identity is the pubkey alone, writes the secret back on every
+save, and hands it out through one accessor to the save's key step only.
+Nothing changes on disk (the v1 record), so nothing migrates. Encryption at
+rest and a verified, password-protected backup are designed and waiting for
+a decision; neither protects against hostile same-origin code, and the
+document says so.
+
 Verified in Chrome (Playwright, phone 390×844, 320×568, landscape, desktop):
 the room's menu opens the ceremony and the sign-in sheet; the toggle sits
 under the menu button in both homes without overlapping it, the room

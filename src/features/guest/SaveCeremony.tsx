@@ -34,7 +34,7 @@ import { useReducedMotion } from '@/features/home/scene/SceneSettings';
 import { useSound } from '@/features/sound';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { usePublishAdapter } from '@/features/care/usePublishAdapter';
-import { KeyGift } from '@/features/onboarding/KeyScene';
+import { KeyGift, KeyStage } from '@/features/onboarding/KeyScene';
 import { ProfileForm } from '@/features/onboarding/screens';
 import { useProfileSetup } from '@/features/onboarding/useProfileSetup';
 import { useGuest } from './useGuest';
@@ -130,7 +130,12 @@ function IntroStep({ name, blobbi, reduced, onGo, onLater }: { name: string; blo
 function KeyStep({ doc, name, onBack }: { doc: GuestDocument; name: string; onBack: () => void }) {
   const guest = useGuest();
   const login = useLoginActions();
-  const account = useMemo(() => ({ nsec: doc.identity.nsec, pubkey: doc.identity.pubkey, npub: nip19.npubEncode(doc.identity.pubkey) }), [doc.identity]);
+  // The one place the reserved secret is asked for: the store hands it over here and nowhere else (`SECURITY.md`)
+  const { revealSecret } = guest;
+  const account = useMemo(() => {
+    const nsec = revealSecret();
+    return nsec ? { nsec, pubkey: doc.identity.pubkey, npub: nip19.npubEncode(doc.identity.pubkey) } : null;
+  }, [revealSecret, doc.identity.pubkey]);
   const signIn = useCallback(
     (nsec: string) => {
       // The stage first, so a refresh right after signing in resumes at the profile instead of starting over
@@ -139,6 +144,17 @@ function KeyStep({ doc, name, onBack }: { doc: GuestDocument; name: string; onBa
     },
     [guest, login],
   );
+  if (!account) {
+    return (
+      <div className="savescene savescene--key" data-testid="save-key">
+        <KeyStage onBack={onBack} headline={`${name}’s key is not here.`}>
+          <p role="alert" className="keyscene__error" data-testid="save-key-missing">
+            The key reserved for {name} could not be read on this device, so {name} cannot be saved from here. Nothing was changed.
+          </p>
+        </KeyStage>
+      </div>
+    );
+  }
   return (
     <div className="savescene savescene--key" data-testid="save-key">
       <KeyGift

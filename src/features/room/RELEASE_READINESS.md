@@ -834,6 +834,10 @@ apex 307 and http 308 to `https://www.`. Missing assets were 200 HTML
 - **First minutes:** a newborn's needs are 80 to 88 (health 100), the flame
   lights only after real care; the fridge opens over the room; the closet
   says Coming soon; sound is on by default, off stays off.
+- **The reserved secret:** audited (`src/features/guest/SECURITY.md`); it
+  no longer rides in app state (one accessor, the save's key step); the
+  record on disk is unchanged. Sealed storage and a verified NIP-49 backup
+  are designed and await approval; their limits are written down.
 - **Verified:** typecheck, lint, the full suite at half the workers, the
   production build; `m14-1-reliability.test.tsx` (the room's two buttons,
   the switch, a guest's and a registered hatch's first needs, the flame);

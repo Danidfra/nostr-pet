@@ -25,7 +25,7 @@ import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import AppRouter from '@/AppRouter';
 import { SceneSettingsProvider } from '@/features/home/scene';
 import { GuestProvider, GuestTransport, createGuestStore, readGuestDocument } from '@/features/guest';
-import { createGuestDocument, writeGuestDocument, type GuestDocument } from '@/features/guest/guest-store';
+import { createGuestDocument, writeGuestDocument, type StoredGuestDocument } from '@/features/guest/guest-store';
 import { localRecordSigner } from '@/features/guest/guest-signer';
 import { applyGuestEvent } from '@/features/guest/guest-world';
 import { withEvents } from '@/features/guest/guest-context';
@@ -88,7 +88,7 @@ async function tapTheShell(times: number = TAPS_TO_HATCH) {
 }
 
 /** A guest who already adopted (and, hatched, cared so many times): the record as the app would have written it. */
-async function seedGuest({ hatched = true, cared = 0, name = 'Pip' }: { hatched?: boolean; cared?: number; name?: string } = {}): Promise<GuestDocument> {
+async function seedGuest({ hatched = true, cared = 0, name = 'Pip' }: { hatched?: boolean; cared?: number; name?: string } = {}): Promise<StoredGuestDocument> {
   const sk = generateSecretKey();
   const identity = { nsec: nip19.nsecEncode(sk), pubkey: getPublicKey(sk) };
   const signer = localRecordSigner(identity.pubkey);
