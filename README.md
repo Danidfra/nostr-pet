@@ -125,11 +125,12 @@ Two things to know:
 - **The way in and the hatch (M11).** A new visitor sees the welcome
   (three real Blobbis, **Adopt my Blobbi**, **I have an account**), makes a
   key and saves it, gets their egg (the real one, on a lit pedestal) and
-  adopts it; the app then opens in the room, where the first egg hatches as
-  a short piece of theatre: the room darkens, the egg cracks, light covers
-  the hatch while it is written, and only then the baby appears, looks
-  around, blushes and hops. The room is the home for every player with a
-  Blobbi; the classic home is in the room's menu. Launch findings and
+  adopts it; the app then opens in the 2D home (M13), where the first egg
+  hatches under the player's taps as a short piece of theatre (M12.3): the
+  home darkens, each tap cracks the shell, the hatch is written, and only
+  then the baby appears and is let go where the egg lay. The 3D room is the
+  player's choice: menu → **Explore in 3D** (remembered on this device), and
+  back with the room menu's **2D home**; nothing stored means 2D. Launch findings and
   blockers: `src/features/room/RELEASE_READINESS.md`.
   Deployment: `DEPLOYMENT.md`; the manual launch run: `LAUNCH_TEST_PLAN.md`;
   worlds: `src/features/worlds/README.md`; the journey and progression:

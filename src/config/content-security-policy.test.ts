@@ -29,7 +29,12 @@ describe('the Content-Security-Policy', () => {
     expect(header('X-Content-Type-Options')).toBe('nosniff');
     expect(header('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
     expect(header('X-Frame-Options')).toBe('DENY');
-    expect(vercel.rewrites).toEqual([{ source: '/(.*)', destination: '/index.html' }]);
+    // Every route is the app, but never a file under /assets/: a missing chunk (an old one after a deploy, a new one
+    // during a rollback) must be a 404, not index.html cached as an immutable script for a year
+    expect(vercel.rewrites).toEqual([{ source: '/((?!assets/).*)', destination: '/index.html' }]);
+    const rewritten = (p: string) => new RegExp(`^${vercel.rewrites[0].source}$`).test(p);
+    for (const route of ['/', '/room', '/anything/deep', '/assetsy']) expect(rewritten(route)).toBe(true);
+    for (const asset of ['/assets/index-abc.js', '/assets/RoomPreviewPage-OLD.js']) expect(rewritten(asset)).toBe(false);
     expect(vercel.headers.find((h) => h.source === '/assets/(.*)')?.headers[0].value).toMatch(/immutable/);
   });
 });

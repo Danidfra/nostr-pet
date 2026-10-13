@@ -59,35 +59,52 @@ export function MenuSheet({ open, onClose, inRoom = false }: MenuSheetProps) {
         {user && (
           <section className="menu-section" aria-labelledby="menu-room">
             <h3 id="menu-room" className="menu-section__title">
-              {inRoom ? 'The classic home' : 'Your room'}
+              {inRoom ? 'The 2D home' : 'Your 3D room'}
             </h3>
             {inRoom ? (
-              <Link to="/" state={BACK_HOME} onClick={onClose} data-testid="open-classic" className="menu-tile">
+              <Link
+                to="/"
+                state={BACK_HOME}
+                onClick={() => {
+                  setExperience('classic');
+                  onClose();
+                }}
+                data-testid="open-classic"
+                className="menu-tile"
+              >
                 <span className="menu-tile__icon">
                   <House className="h-6 w-6" aria-hidden />
                 </span>
                 <span className="menu-tile__text">
-                  <span className="menu-tile__title">Classic home</span>
-                  <span className="menu-tile__sub">The earlier 2D home, kept for now. The same Blobbi, the same care; your room is one tap away from it.</span>
+                  <span className="menu-tile__title">2D home</span>
+                  <span className="menu-tile__sub">Back to the 2D home. The same Blobbi, the same care; the 3D room is one tap away from it.</span>
                 </span>
                 <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
               </Link>
             ) : (
-              <Link to={ROOM_PATH} onClick={onClose} data-testid="open-room" className="menu-tile">
+              <Link
+                to={ROOM_PATH}
+                onClick={() => {
+                  setExperience('room');
+                  onClose();
+                }}
+                data-testid="open-room"
+                className="menu-tile"
+              >
                 <span className="menu-tile__icon">
                   <Armchair className="h-6 w-6" aria-hidden />
                 </span>
                 <span className="menu-tile__text">
-                  <span className="menu-tile__title">Back to your room</span>
-                  <span className="menu-tile__sub">Your Blobbi's home: rooms to walk around, decorate and care in.</span>
+                  <span className="menu-tile__title">Explore in 3D</span>
+                  <span className="menu-tile__sub">Rooms to walk around, decorate and care in. The same Blobbi; the 2D home stays one tap away.</span>
                 </span>
                 <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
               </Link>
             )}
             <button type="button" role="switch" aria-checked={opensOnRoom} onClick={() => setExperience(opensOnRoom ? 'classic' : 'room')} data-testid="room-first-toggle" className={`menu-tile ${opensOnRoom ? 'menu-tile--on' : ''}`}>
               <span className="menu-tile__text">
-                <span className="menu-tile__title">Open in your room</span>
-                <span className="menu-tile__sub">On: Blobbi opens in your room (recommended). Off: it opens in this classic home.</span>
+                <span className="menu-tile__title">Open in 3D</span>
+                <span className="menu-tile__sub">On: Blobbi opens in your 3D room. Off: it opens in the 2D home.</span>
               </span>
               <span className="menu-switch" aria-hidden data-on={opensOnRoom ? 'true' : 'false'} />
             </button>

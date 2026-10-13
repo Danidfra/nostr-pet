@@ -67,20 +67,28 @@ beforeEach(() => {
 afterEach(() => localStorage.clear());
 
 describe('the room in the app', () => {
-  it('the room is the home: a player with a Blobbi opens in it, with nothing stored; junk in the preference is the room too', async () => {
-    expect(DEFAULT_EXPERIENCE).toBe('room');
-    expect(readExperience()).toBe('room');
-    for (const junk of ['3d', '', null, 'ROOM']) expect(parseExperience(junk)).toBe('room');
+  it('the room is a choice: with nothing stored a player with a Blobbi opens in the 2D home; the menu takes them to the room and remembers it', async () => {
+    expect(DEFAULT_EXPERIENCE).toBe('classic');
+    expect(readExperience()).toBe('classic');
+    for (const junk of ['3d', '', null, 'ROOM']) expect(parseExperience(junk)).toBe('classic');
     signedInWith();
     renderAt('/');
+    await onClassicHome();
+    expect(screen.queryByTestId('room-shell')).toBeNull();
+    fireEvent.click(screen.getByTestId('menu-button'));
+    expect(screen.getByTestId('open-room')).toHaveAttribute('href', '/room');
+    expect(screen.getByTestId('room-first-toggle')).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(screen.getByTestId('open-room'));
     await inRoom();
-    // One home: no way "back" in the header; the classic home is the menu's
+    expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('room');
+    // One home: no way "back" in the header; the 2D home is the menu's
     expect(screen.queryByTestId('room-back')).toBeNull();
     expect(relay.published).toEqual([]);
   });
 
-  it('the classic home stays reachable: the room\'s menu opens it without bouncing back, and its own menu leads back to the room', async () => {
+  it('the 2D home stays reachable from the room: its menu opens it without bouncing back, and remembers the choice', async () => {
     signedInWith();
+    localStorage.setItem(EXPERIENCE_STORAGE_KEY, 'room');
     renderAt('/');
     await inRoom();
     fireEvent.click(screen.getByTestId('room-menu'));
@@ -88,9 +96,9 @@ describe('the room in the app', () => {
     fireEvent.click(screen.getByTestId('open-classic'));
     await onClassicHome();
     expect(screen.queryByTestId('room-shell')).toBeNull();
+    expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('classic');
     fireEvent.click(screen.getByTestId('menu-button'));
-    expect(screen.getByTestId('open-room')).toHaveAttribute('href', '/room');
-    expect(screen.getByTestId('room-first-toggle')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('room-first-toggle')).toHaveAttribute('aria-checked', 'false');
     fireEvent.click(screen.getByTestId('open-room'));
     await inRoom();
     expect(relay.published).toEqual([]);

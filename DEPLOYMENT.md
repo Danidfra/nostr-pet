@@ -1,8 +1,8 @@
 # Deploying Blobbi Standalone (blobbi.pet)
 
-This is the production architecture as prepared in the repository. **Nothing
-here has been deployed, and no DNS has been changed.** Every statement about
-the live site is marked with the date it was observed.
+This is the production architecture as prepared in the repository. Every
+statement about the live site is marked with the date it was observed. No
+DNS has been changed from here.
 
 ## What the app is, for a host
 
@@ -13,7 +13,19 @@ the live site is marked with the date it was observed.
 - The build also copies `index.html` to `404.html`, for hosts that serve a
   `404.html` for unknown paths (GitHub Pages and similar).
 
-## Where it runs today (observed 2026-10-12)
+## Where it runs today (observed 2026-10-13)
+
+`origin/production` was pushed to `b7916dc` (M12.3) on 2026-10-13 00:10
+(UTC−3), and `https://www.blobbi.pet/` serves that build (its
+`index-CtT89whw.js` is the local build's), with every header in
+`vercel.json`. `/room` and unknown routes answer 200; `/assets/*` is
+`immutable`; `index.html` `no-cache`; `https://blobbi.pet/` 307 and
+`http://` 308 to `https://www.blobbi.pet/`. A missing `/assets/` file was
+answered 200 with `index.html` under the `immutable` header: the rewrite
+now excludes `/assets/` (M13; not deployed yet). The push and merge to
+`production` deploy: Vercel builds that branch.
+
+### Observed 2026-10-12 (before the M12.3 push)
 
 | Address | Observed |
 |---|---|
@@ -102,6 +114,50 @@ These are not guesses; they need someone with the hosting account or DNS.
 5. **Production logging.** The kit (`@blobbi-kit/*`) logs query filters to
    the console in production builds. It is noise, not a leak of secrets, but
    it should be turned off in the kit (not changed from here).
+
+## Releasing this build, and rolling back
+
+The live site deploys from the `production` branch. Nothing below has been
+run from here.
+
+**Before**
+1. `npm ci && npx tsc -p tsconfig.app.json --noEmit && npm run lint &&
+   npx vitest run --maxWorkers=50% && npm run build` on the commit to
+   release. Note the commit SHA and the `index-*.js` name.
+2. Note the current production deployment in Vercel (Deployments →
+   the one marked Production): this is the rollback target. Today that is
+   the build of `b7916dc`.
+3. Push the branch (not `production`) and open its **preview deployment**.
+   On the preview: `curl -sI https://<preview>/`, `/room`,
+   `/assets/<a real file>`, `/assets/nope.js` (expect 404). Run
+   `LAUNCH_TEST_PLAN.md` sections 0 to 2 there on a real iPhone and on
+   desktop, with a fresh test identity (its events are real: use a
+   throwaway key, never a player's).
+
+**Release**
+4. Fast-forward `production` to the tested commit and push (the
+   same commit the preview built: no new commits in between).
+5. When Vercel reports the deployment ready: `curl -s https://www.blobbi.pet/
+   | grep -o 'assets/index-[^"]*'` shows the noted name; the headers as in
+   step 3; one pass of `LAUNCH_TEST_PLAN.md` section 1 on a phone.
+
+**Rollback**
+6. In Vercel, promote the noted previous deployment (Instant Rollback): the
+   domain points back to it in seconds, without a rebuild, and nothing in
+   the repository changes. Players' data is on the relays, so a rollback
+   loses nothing; a hatch or adoption written meanwhile stays written and
+   the older build reads it (no new kinds or tags since M11).
+7. Then make the repository say the same: `git revert` the release on a
+   branch, test, and fast-forward `production` to it, so the next push does
+   not bring the bad build back. Never force-push `production`.
+8. Rolling forward again: prefer a new build of a new commit. A visitor
+   who asked for a new chunk while the old build was live may hold a
+   cached 404 for it if Vercel adds the `immutable` header to 404s (check on
+   the preview, step 3).
+
+**Players' stored choices survive both ways**: `blobbi:home:experience`
+is read the same by every build since M6; with nothing stored, the M11 to
+M12.3 builds open the room, every other build the 2D home.
 
 ## On another host
 

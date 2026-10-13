@@ -1,15 +1,16 @@
 /**
- * Which home the app opens on: the room (the default since M11) or the
- * classic home (legacy, kept during the rollout). A preference of this
- * device: a player who chose the classic home in its menu keeps it; everyone
- * else opens in the room. The classic home stays one tap away in the room's
- * menu, and the room one tap away in the classic home's.
+ * Which home the app opens on: the 2D home (`classic`, the default again
+ * since M13: a first Blobbi is born into it) or the 3D room (`room`). A
+ * preference of this device, written only by the player's own choice: the
+ * "Open in" switches, or going to one home from the other's menu. Nothing
+ * stored means the 2D home, which is what every build before M11 opened on;
+ * a stored choice, either one, is kept as it is.
  */
 import { useCallback, useState } from 'react';
 
 export type HomeExperience = 'classic' | 'room';
 
-export const DEFAULT_EXPERIENCE: HomeExperience = 'room';
+export const DEFAULT_EXPERIENCE: HomeExperience = 'classic';
 
 export const EXPERIENCE_STORAGE_KEY = 'blobbi:home:experience';
 

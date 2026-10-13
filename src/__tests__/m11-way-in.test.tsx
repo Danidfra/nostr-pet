@@ -1,10 +1,11 @@
 /**
- * The way in since M11, end to end through the real router, login store,
- * signing and write paths (a relay that records): a new visitor's welcome, a
- * key made and kept, the egg at once, adopted, the room as the home, the
- * first egg's hatch as theatre opening by itself, the shell cracked tap by
- * tap (M12.3), and exactly one hatch written. A returning player
- * goes straight to the room. A hatch that does not land leaves the egg an
+ * The way in on a device whose player chose the 3D room ("Open in 3D"; the
+ * 2D home is the default since M13, see m13-born-in-2d.test.tsx), end to
+ * end through the real router, login store, signing and write paths (a
+ * relay that records): a new visitor's welcome, a key made and kept, the egg
+ * at once, adopted, the room, the first egg's hatch as theatre opening by
+ * itself, the shell cracked tap by tap (M12.3), and exactly one hatch
+ * written. A returning player goes straight to the room. A hatch that does not land leaves the egg an
  * egg and is not retried by itself; a "refresh" before the write writes
  * nothing twice; a Blobbi that hatched elsewhere is not hatched again.
  *
@@ -32,6 +33,7 @@ import AppRouter from '@/AppRouter';
 import { SceneSettingsProvider } from '@/features/home/scene';
 import { blobbiEvent, profileEvent, PUBKEY } from '@/test/fixtures';
 import { TAPS_TO_HATCH, TAP_SETTLE_MS } from '@/features/room/lib/hatch-theater';
+import { EXPERIENCE_STORAGE_KEY } from '@/lib/home-experience';
 
 const STORAGE_KEY = 'nostr:login';
 const relay = { all: [] as NostrEvent[], published: [] as NostrEvent[], refuse: new Set<number>(), hold: null as null | Promise<void> };
@@ -111,6 +113,8 @@ beforeEach(() => {
   signed = 0;
   fake.user = undefined;
   window.localStorage.clear();
+  // This device's player chose the room
+  window.localStorage.setItem(EXPERIENCE_STORAGE_KEY, 'room');
   query.mockClear();
   event.mockClear();
   for (const spy of consoleSpies) spy.mockClear();
@@ -122,7 +126,7 @@ afterEach(() => {
   delete (window as { nostr?: unknown }).nostr;
 });
 
-describe('a new visitor', () => {
+describe('a new visitor, on a device set to open in 3D', () => {
   it('welcome → the key, kept → the egg at once → adopted → the room is the home → the theatre opens by itself → the shell cracks tap by tap → hatched, once → the baby in its room', async () => {
     renderApp('/');
     // The welcome: real Blobbis, what to do, and two doors; no key yet, nothing read about anyone

@@ -36,6 +36,7 @@ import {
 } from './scene';
 import { ActionBar, BlobbiSheet, CareOptions, GameShell, HudTop, MenuSheet } from './shell';
 import { StreakMoment } from './StreakMoment';
+import { HatchTheater } from '@/features/room/components/HatchTheater';
 import type { HealthLevel } from '@/lib/relay-health';
 
 interface BlobbiOverviewProps {
@@ -51,6 +52,9 @@ interface BlobbiOverviewProps {
 }
 
 /** Dev-only lifecycle shortcuts: never in a production build, and off unless the flag is set. */
+/** The account's first egg: how long it rests on its nest before the theatre opens by itself (as in the room). */
+const FIRST_HATCH_LEAD_MS = 1_400;
+
 const DEV_LIFECYCLE_TOOLS = import.meta.env.DEV && import.meta.env.VITE_BLOBBI_DEV_TOOLS === 'true';
 /**
  * Dev-only composition preview (`?preview=bed|tub`): the piece is out and
@@ -331,45 +335,75 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const dismissStreakMoment = useCallback(() => setStreakMoment(null), []);
 
   // The first Blobbi of the account (first-blobbi.ts): its egg hatches without
-  // the missions, when the player taps Hatch!. Decided from the collection, confirmed
-  // against the relays right before the ceremony; the hatch is the same kit
-  // transition every hatch is. Later eggs keep the mission gate below.
+  // the missions. Decided from the collection, confirmed against the relays
+  // right before the write; the hatch is the same kit transition every hatch
+  // is. Later eggs keep the mission gate below.
   // Today's missions keep counting and paying on the classic home too (shown in the room's Journey)
   useDailyXp({ pubkey, companions, profile });
   const firstBlobbi = useFirstBlobbiHatch({ blobbi, companions, pubkey });
   const confirmFirstBlobbi = firstBlobbi.confirm;
   const ceremonyStart = ceremony.start;
-  const confirmingFirstRef = useRef(false);
-  const startFirstHatch = useCallback(async () => {
-    if (confirmingFirstRef.current) return;
-    confirmingFirstRef.current = true;
-    try {
-      if (!(await confirmFirstBlobbi())) return;
-      // The world may have moved while the relays answered: still this egg, still awake, nothing in its hands.
-      if (liveBlobbi.current.stage !== 'egg' || liveBlobbi.current.state !== 'active') return;
-      if (offerRef.current !== null || stageRef.current?.phase === 'walking') return;
-      setBlobbiSheetOpen(false);
-      ceremonyStart('hatch');
-    } finally {
-      confirmingFirstRef.current = false;
+  // A hatch is the theatre (`HatchTheater`, M13: the 2D home is where a first Blobbi is born): the shell opens under
+  // the player's taps, and the theatre owns the one write and the reveal. The evolution keeps the home's ceremony.
+  const [theater, setTheater] = useState(false);
+  const theaterOpen = useRef(false);
+  const [hatchError, setHatchError] = useState<string | null>(null);
+  const { hatch: lifecycleHatch, clearError: clearLifecycleError } = lifecycle;
+  const performHatch = useCallback(async (): Promise<boolean> => {
+    setHatchError(null);
+    clearLifecycleError();
+    // The first egg's shortcut (no missions) only once the relays confirm it is still the first; fails closed
+    if (firstBlobbi.qualifies && !(await confirmFirstBlobbi())) {
+      setHatchError('Your egg could not be confirmed with the relays yet.');
+      return false;
     }
-  }, [confirmFirstBlobbi, ceremonyStart]);
+    return lifecycleHatch();
+  }, [firstBlobbi.qualifies, confirmFirstBlobbi, lifecycleHatch, clearLifecycleError]);
+  const endTheater = useCallback(
+    (hatched: boolean) => {
+      setTheater(false);
+      theaterOpen.current = false;
+      // The baby is already where the egg lay; a hop to say hello (the theatre has played the sound)
+      if (hatched) setResultKey((k) => k + 1);
+    },
+    [],
+  );
+  // Hatched elsewhere meanwhile (another device): the kit refused a second hatch; the collection catches up
+  const lifecycleErrorMessage = lifecycle.error?.message ?? null;
+  useEffect(() => {
+    if (theater && lifecycleErrorMessage && /already hatched/i.test(lifecycleErrorMessage)) refresh();
+  }, [theater, lifecycleErrorMessage, refresh]);
   const startCeremony = useCallback(
     (kind: CeremonyKind) => {
       if (blobbi.state !== 'active') return;
-      if (kind === 'hatch' && firstBlobbi.qualifies) {
-        void startFirstHatch();
+      if (kind === 'hatch') {
+        if (blobbi.stage !== 'egg' || theaterOpen.current) return;
+        if (!firstBlobbi.qualifies && lifecycle.view.next !== 'hatch') return;
+        theaterOpen.current = true;
+        setBlobbiSheetOpen(false);
+        setMenuOpen(false);
+        setTheater(true);
         return;
       }
-      if (kind === 'hatch' && lifecycle.view.next !== 'hatch') return;
-      if (kind === 'evolve' && lifecycle.view.next !== 'evolve') return;
+      if (lifecycle.view.next !== 'evolve') return;
       setBlobbiSheetOpen(false);
       ceremonyStart(kind);
     },
-    [blobbi.state, lifecycle.view.next, ceremonyStart, firstBlobbi.qualifies, startFirstHatch],
+    [blobbi.state, blobbi.stage, lifecycle.view.next, ceremonyStart, firstBlobbi.qualifies],
   );
-  // The player begins the hatch (M12.1): the first egg is ready at once (no missions), and the Hatch! button in the
-  // dock is how it starts. Nothing hatches because the home mounted.
+  // The account's first egg: a moment after it is on screen and the home is quiet, the theatre opens by itself, once
+  // per visit (M12.3's taps, M13's 2D home). Later leaves the Hatch! button in the dock. Nothing is written until the
+  // last tap.
+  const firstHatchDue = firstBlobbi.qualifies && isEgg && blobbi.state === 'active' && !!profile && offer === null && stage?.phase !== 'walking' && !theater;
+  const invitedFirst = useRef(false);
+  useEffect(() => {
+    if (!firstHatchDue || invitedFirst.current) return;
+    const timer = setTimeout(() => {
+      invitedFirst.current = true;
+      startCeremony('hatch');
+    }, FIRST_HATCH_LEAD_MS);
+    return () => clearTimeout(timer);
+  }, [firstHatchDue, startCeremony]);
   const devForce = DEV_LIFECYCLE_TOOLS
     ? (kind: CeremonyKind) => {
         setBlobbiSheetOpen(false);
@@ -644,10 +678,13 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             </>
           }
           actor={
-            <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={scene.presentation} inBed={inBed} happyKey={resultKey} onPoke={inCeremony ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} hatch={hatchBeat} effects={actorEffects} accessories={accessories}>
-              <NeedBubbles items={sleeping || inCeremony ? [] : statItems} />
-              <CareFeedback result={feedback} resultKey={resultKey} />
-            </BlobbiActor>
+            // While the theatre holds the egg, the home's own drawing of it steps aside: one Blobbi on screen
+            <div className="contents" style={theater ? { visibility: 'hidden' } : undefined} data-testid="home-actor-slot">
+              <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={scene.presentation} inBed={inBed} happyKey={resultKey} onPoke={inCeremony ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} hatch={hatchBeat} effects={actorEffects} accessories={accessories}>
+                <NeedBubbles items={sleeping || inCeremony ? [] : statItems} />
+                <CareFeedback result={feedback} resultKey={resultKey} />
+              </BlobbiActor>
+            </div>
           }
           foreground={
             <>
@@ -714,6 +751,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       }
       overlays={
         <>
+          {theater && <HatchTheater blobbi={blobbi} perform={performHatch} error={hatchError ?? lifecycleErrorMessage} reducedMotion={reducedMotion} play={play} onDone={endTheater} />}
           <BlobbiSheet
             open={blobbiSheetOpen}
             onClose={() => setBlobbiSheetOpen(false)}

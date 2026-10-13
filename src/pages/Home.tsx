@@ -16,13 +16,14 @@ import { ROOM_PATH, cameFromRoom, readExperience } from '@/lib/home-experience';
  * the home even when it is empty or waiting. Signed out and empty are the
  * onboarding's: welcome, account, the egg, in front of the room.
  *
- * The room is the home (M11): a player with a Blobbi is taken there, unless
- * they chose the classic home in its menu, or have just come back from the
- * room on purpose (its menu's Classic home): the legacy home stays reachable.
- * Signed out or with no Blobbi yet, this is the way in: the welcome stage,
- * the account, the egg; adopting lands the player in the room, where the
- * first egg hatches. The way in stays mounted through the read that follows
- * signing in, so the egg comes straight after the key.
+ * The 2D home is the home (M13): a first Blobbi is born here, and the 3D
+ * room is the player's choice (the menu's Explore in 3D, or Open in 3D). A
+ * player who chose the room is taken there, unless they have just come back
+ * from it on purpose. Signed out or with no Blobbi yet, this is the way in:
+ * the welcome stage, the account, the egg; adopting lands the player here,
+ * where the first egg hatches under their taps (`HatchTheater`). The way in
+ * stays mounted through the read that follows signing in, so the egg comes
+ * straight after the key.
  */
 export default function Home({ classic = false }: { classic?: boolean } = {}) {
   const home = useHomeBlobbi();

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useBlobbisCollection } from '@blobbi-kit/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { getSelectedBlobbiKey, type BlobbiCompanion, type BlobbonautProfile, type NostrEvent } from '@blobbi-kit/core';
 
 import { useCurrentUser } from './useCurrentUser';
@@ -8,6 +9,7 @@ import { selectCurrentBlobbi } from '@/lib/select-current-blobbi';
 import { useSetCurrentCompanion, type SetCurrentCompanionResult } from '@/features/care/useSetCurrentCompanion';
 import { useRelayHealth } from './useRelayHealth';
 import { RelayTransportError } from '@/lib/relay-transport';
+import { keepCollectionCanonical, markLocalWrite } from '@/lib/canonical-cache';
 
 /**
  * Where the home stands, as one word the page switches on.
@@ -67,12 +69,15 @@ function writeLocalSelection(pubkey: string, d: string): void {
  * profile fetch (kind 11125). Selection is `selectCurrentBlobbi` over a local
  * per-device pick (stored under the kit's own `getSelectedBlobbiKey`) and the
  * profile's `current_companion`. Opening the home publishes nothing; only a
- * deliberate selection or care action does.
+ * deliberate selection or care action does. The cached collection only moves
+ * forward: per Blobbi, the newest version stands (`keepCollectionCanonical`).
  */
 export function useHomeBlobbi(): HomeBlobbi {
   const { user } = useCurrentUser();
   const pubkey = user?.pubkey;
 
+  // Before the collection's first read: a relay a moment behind never undoes a write that landed (canonical-cache.ts)
+  keepCollectionCanonical(useQueryClient());
   const collection = useBlobbisCollection(undefined, pubkey);
   const profile = useBlobbonautProfile(pubkey);
   const setCurrentCompanion = useSetCurrentCompanion(pubkey);
@@ -96,6 +101,16 @@ export function useHomeBlobbi(): HomeBlobbi {
       publishSelection({ d, ownedDs });
     },
     [pubkey, ownedDs, publishSelection],
+  );
+
+  // A write this app just published goes into the cache as it is (the canonical rule is for relay answers)
+  const { updateCompanionEvent: putInCache } = collection;
+  const updateCompanionEvent = useCallback(
+    (event: NostrEvent) => {
+      markLocalWrite(event);
+      putInCache(event);
+    },
+    [putInCache],
   );
 
   const current = useMemo(
@@ -130,6 +145,6 @@ export function useHomeBlobbi(): HomeBlobbi {
     select,
     selection: { isPending: setCurrentCompanion.isPending, result: setCurrentCompanion.data, error: setCurrentCompanion.error },
     refresh: collection.invalidate,
-    updateCompanionEvent: collection.updateCompanionEvent,
+    updateCompanionEvent,
   };
 }

@@ -2,9 +2,9 @@
  * The room's settings, behind one HUD button: how the Blobbi is drawn (the
  * kit's 2D drawing, the original, or the 3D model, experimental), sound on
  * or off (the app's one preference, the same switch as the home's menu),
- * whether the app opens in the room, and the way to the classic home.
- * Every choice is this device's; nothing here is published, and switching
- * never leaves the room.
+ * whether the app opens in the room, and the way to the 2D home (which
+ * also makes the 2D home the one the app opens on, M13). Every choice is
+ * this device's; nothing here is published.
  */
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -172,12 +172,12 @@ export function RoomAppearanceControl({ appearance, onChange, unavailable3d, qua
             <span className="menu-switch" aria-hidden data-on={sound.enabled ? 'true' : 'false'} />
           </button>
           <button type="button" role="switch" aria-checked={opensOnRoom} className="room-settings-row" onClick={() => setExperience(opensOnRoom ? 'classic' : 'room')} data-testid="room-first-toggle">
-            <span className="flex-1 text-left">Open in the room</span>
+            <span className="flex-1 text-left">Open in 3D</span>
             <span className="menu-switch" aria-hidden data-on={opensOnRoom ? 'true' : 'false'} />
           </button>
-          <Link to="/" state={BACK_HOME} className="room-settings-row" data-testid="room-classic-home">
+          <Link to="/" state={BACK_HOME} onClick={() => setExperience('classic')} className="room-settings-row" data-testid="room-classic-home">
             <Home className="size-4" aria-hidden />
-            <span className="flex-1 text-left">Classic home</span>
+            <span className="flex-1 text-left">2D home</span>
           </Link>
         </div>
       )}

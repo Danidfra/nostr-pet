@@ -682,3 +682,107 @@ the fix:
   directly).
 - A real download landing in a phone's Files app; clipboard on iOS.
 - Visual and audio approval of the key scene and the tap-by-tap hatch.
+
+## M13: born into the 2D home; launch-readiness audit (2026-10-13)
+
+### What changed
+- **The 2D home is the default again.** `DEFAULT_EXPERIENCE` is `classic`:
+  with nothing stored, a player opens in the 2D home. A stored choice
+  (`blobbi:home:experience`, `room` or `classic`) is kept as it is; it is
+  only ever written by the player (the "Open in 3D" switches, and now also
+  going to one home from the other's menu: **Explore in 3D**, **2D home**).
+  Every build before M11 opened in 2D, and the one live since 2026-10-13
+  00:10 (UTC−3, `b7916dc`) opened in the room with nothing stored: only a
+  player who first came in that window and never chose goes back to 2D.
+- **The first hatch happens on the 2D home.** The theatre (M12.3) opens by
+  itself over it a moment after the egg is on its nest; the home's own egg
+  steps aside while it plays (one Blobbi on screen); four taps, one write,
+  the baby revealed only once it landed, then let go where the egg lay.
+  Later leaves the dock's **Hatch!**, which opens the theatre again. Any
+  hatch on the 2D home is the theatre now (the evolution keeps its
+  ceremony). No arrival, no room, no loading screen in between.
+- **The cached collection never goes back in time** (`lib/canonical-cache.ts`).
+  M12.3 stopped the re-read after adoption; every other write (hatch, care,
+  items) still re-read, and a relay a moment behind answered with the
+  previous version. Found here: after a hatch, such an answer put the egg
+  back in the cache and **left the theatre stuck** (it waits for the baby),
+  with the hatch offered again. Now a relay answer never replaces a Blobbi
+  with an older version of itself (`created_at`) and one an answer left out
+  is kept; this app's own writes always go in; a newer version from another
+  device comes through as before. The kit's hook is untouched (the app's
+  cache policy for its query key).
+- **A corrupted stored key no longer reaches the console.** The decoder's
+  error quotes the string ("Invalid checksum in nsec1…"), and the skipped
+  login was logged with it. Only the login's type is logged now.
+- **`vercel.json`**: the SPA rewrite no longer covers `/assets/`. A missing
+  chunk was answered with `index.html` as 200 under the year-long
+  `immutable` header (seen live), which after a rollback and roll-forward
+  could keep a visitor's 3D room (or the app) broken until their cache
+  expired. It is a 404 now.
+
+### Audit findings (2026-10-13)
+**First-time journey.** Welcome → key → egg → 2D home → theatre → baby: no
+intermediate screen, no loading screen after adoption (the home in 36 to 58 ms
+after Adopt, the theatre about 1.8 s later), three events in all. Stale
+account state, duplicate adoption, refresh mid-cracks, a refused write, a
+hatch from another device and relays behind are covered by tests. The
+original first-egg report is **not reproduced and not confirmed fixed** on a
+real device.
+
+**Nostr and persistence.** No new kind, tag or authority; kind 31124 / 11125 /
+0 writes are the kit's. Sync from other devices is unchanged: the collection
+re-reads when stale (30 s) on mount, on reconnect and after every write.
+Open questions for the ecosystem, not changed here:
+- `created_at` is in seconds; two writes to one Blobbi in the same second
+  tie, and relays keep one of them (NIP-01: the lowest id). A
+  `max(now, prev.created_at + 1)` rule belongs in the kit's publish path.
+- Ditto's repeated daily XP (reported before): Standalone checks the fresh
+  profile before its award; the double pay is Ditto's to fix.
+
+**Security.** No `dangerouslySetInnerHTML`, `eval` or user-built link
+targets; external links are constants with `noopener noreferrer`; picture
+URLs are http(s) only and shown as images; uploads are images up to 5 MB
+to fixed Blossom servers with a timeout. The key never goes into a URL, a
+relay message or (now) the console. `npm audit`: the runtime has one
+moderate (react-router: an open redirect through user-built link targets,
+which the app has none of, and an SSR-only issue); the rest is build and
+test tooling (vite, vitest, postcss, tailwind), which does not ship. The
+dev server listens on every interface (`*:8080`): with those advisories,
+keep it on a trusted network.
+
+**Performance.** First load: `index` 88 KB, `react` 65 KB, `nostr` 77 KB,
+`blobbi` 109 KB, CSS 25 KB (gzipped). The 3D room (`RoomPreviewPage`
+242 KB gzipped, three.js inside) is lazy and is not requested before the
+player chooses it: zero requests on the 2D path, three when chosen
+(browser-checked, dev and production builds). No real-device numbers.
+
+**Production (observed 2026-10-13).** `www.blobbi.pet` serves `b7916dc`
+(the same `index-CtT89whw.js`), with every header in `vercel.json`; `/room`
+and unknown routes 200; `/assets/*` immutable; `index.html` no-cache; the
+apex 307 and http 308 to `https://www.`. Missing assets were 200 HTML
+(fixed above, not yet deployed).
+
+### Verified
+- Typecheck, lint, the full suite (173 files, 1267 tests, half the
+  workers), the production build.
+- Headless Chrome and WebKit, fake relays, from a new key: 320x460, 375x553,
+  390x664, 430x740, 390x844, 1280x800, reduced motion; the production build
+  under its CSP at 390x844, 320x460 and 1280x800: the 2D home, one Blobbi on
+  screen through the theatre, no page or sideways scroll, no room requested,
+  no CSP violation; switching to 3D and back holds across reloads; relays
+  that keep serving the egg after the hatch leave the baby a baby, with one
+  hatch event.
+
+### Not verified
+- **Any real device**, iPhone Safari above all; the first-egg report there.
+- That Vercel answers a missing `/assets/` file with 404 (and whether the
+  `immutable` header rides on it): check on a preview deployment.
+
+### Launch blockers and follow-ups
+- **P0** none known in Standalone.
+- **P1** a real-iPhone run of `LAUNCH_TEST_PLAN.md` on a preview of this
+  build; the visual and audio approval of the hatch on the 2D home.
+- **P2** in Standalone: react-router 7 (advisory), vite/vitest upgrades
+  (tooling). Elsewhere: the kit's production query logging (noise, the
+  public key and filters, no secrets) and same-second `created_at`; Ditto's
+  repeated daily XP.

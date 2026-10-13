@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The classic home (legacy since M11, when the room became the home): these are its own tests, so it is the one opened
 vi.mock('@/lib/home-experience', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/home-experience')>()), readExperience: () => 'classic' as const }));
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -26,6 +26,7 @@ import {
   parseEvolutionContent,
   serializeEvolutionContent,
 } from '@blobbi-kit/core';
+import { TAPS_TO_HATCH, TAP_SETTLE_MS } from '@/features/room/lib/hatch-theater';
 import { KIND_COLOR_MOMENT, KIND_PROFILE_METADATA, KIND_THEME_DEFINITION, clearEvolutionFromStorage, createEvolveMissions, createHatchMissions } from '@blobbi-kit/react';
 
 import Home from '@/pages/Home';
@@ -144,6 +145,14 @@ async function closeSheet() {
   if (screen.queryByTestId('blobbi-sheet')) await userEvent.keyboard('{Escape}');
 }
 
+/** A hatch is the theatre (M12.3; on the 2D home since M13): the player's taps open the shell. */
+async function tapTheShell(times: number = TAPS_TO_HATCH) {
+  for (let i = 0; i < times; i++) {
+    await userEvent.click(screen.getByTestId('hatch-theater-egg'));
+    await act(() => new Promise((r) => setTimeout(r, TAP_SETTLE_MS + 30)));
+  }
+}
+
 describe('Lifecycle: egg', () => {
   it('an incubating egg draws as an egg, lists the canonical missions, and is not ready until they are done', async () => {
     relay.events = [incubatingEgg(3), earlierBlobbiEvent(), profileEvent({ has: [D], currentCompanion: D })];
@@ -168,16 +177,18 @@ describe('Lifecycle: egg', () => {
     expect(screen.getByTestId('lifecycle-hatch')).toBeEnabled();
   });
 
-  it('hatching publishes one kind 31124 with the same d and seed, stage baby, and reveals a baby', async () => {
+  it('hatching publishes one kind 31124 with the same d and seed, stage baby, and reveals a baby', { timeout: 20_000 }, async () => {
     const egg = incubatingEgg(7);
     relay.events = [egg, earlierBlobbiEvent(), profileEvent({ has: [D], currentCompanion: D }), ...hatchMissionEvents()];
     renderHome();
     const panel = await ready();
     await waitFor(() => expect(screen.getByTestId('lifecycle-hatch')).toBeEnabled());
 
-    await userEvent.click(screen.getByTestId('lifecycle-hatch')); // closes the sheet and starts the ceremony
+    await userEvent.click(screen.getByTestId('lifecycle-hatch')); // closes the sheet and opens the theatre
     expect(screen.queryByTestId('blobbi-sheet')).toBeNull();
-    await userEvent.click(screen.getByTestId('action-hatch')); // a second press is ignored (disabled during the ceremony)
+    await screen.findByTestId('hatch-theater');
+    expect(published31124()).toHaveLength(0);
+    await tapTheShell();
     await waitFor(() => expect(published31124()).toHaveLength(1), { timeout: 3_000 });
     const baby = published31124()[0];
     expect(getTagValue(baby.tags, 'd')).toBe(D);
@@ -186,6 +197,7 @@ describe('Lifecycle: egg', () => {
     expect(getTagValue(baby.tags, 'progression_state')).toBe('evolving');
     expect(parseEvolutionContent(baby.content).map((m) => m.id)).toContain('interactions');
 
+    await waitFor(() => expect(screen.queryByTestId('hatch-theater')).toBeNull(), { timeout: 8_000 });
     await waitFor(() => expect(renderer()).toHaveAttribute('data-blobbi-stage', 'baby'));
     expect(published31124()).toHaveLength(1);
     await ready();
@@ -201,7 +213,11 @@ describe('Lifecycle: egg', () => {
     const panel = await ready();
     await waitFor(() => expect(screen.getByTestId('lifecycle-hatch')).toBeEnabled());
     await userEvent.click(screen.getByTestId('lifecycle-hatch'));
-    await waitFor(() => expect(screen.getByTestId('ceremony-error')).toHaveTextContent(/relay rejected/), { timeout: 3_000 });
+    await screen.findByTestId('hatch-theater');
+    await tapTheShell();
+    expect(await screen.findByTestId('hatch-theater-failed', {}, { timeout: 5_000 })).toHaveTextContent(/did not hatch yet/);
+    expect(screen.getByTestId('hatch-theater-actor')).toHaveAttribute('data-stage', 'egg');
+    await userEvent.click(screen.getByTestId('hatch-theater-later'));
     expect(renderer()).toHaveAttribute('data-blobbi-stage', 'egg');
     expect(published31124()).toHaveLength(0);
     void panel;
@@ -210,7 +226,7 @@ describe('Lifecycle: egg', () => {
     expect(screen.getByTestId('lifecycle-hatch')).toBeEnabled(); // the ceremony is over; try again is allowed
   });
 
-  it('during the ceremony the home is exclusive: no care, no taps, one write', async () => {
+  it('while the hatch is written the theatre holds the home: nothing else can be pressed, one write', async () => {
     relay.events = [incubatingEgg(7), earlierBlobbiEvent(), profileEvent({ has: [D], currentCompanion: D }), ...hatchMissionEvents()];
     let release: (() => void) | null = null;
     event.mockImplementationOnce(async (ev: NostrEvent) => {
@@ -224,14 +240,17 @@ describe('Lifecycle: egg', () => {
     await ready();
     await waitFor(() => expect(screen.getByTestId('lifecycle-hatch')).toBeEnabled());
     await userEvent.click(screen.getByTestId('lifecycle-hatch'));
+    await screen.findByTestId('hatch-theater');
+    await tapTheShell();
     await waitFor(() => expect(event).toHaveBeenCalledTimes(1), { timeout: 3_000 });
-    // Publishing is in flight: everything else waits.
-    expect(screen.getByTestId('care-clean')).toBeDisabled();
-    expect(screen.getByTestId('care-rest')).toBeDisabled();
-    expect(screen.getByTestId('scene-floor')).toBeDisabled();
-    expect(screen.getByTestId('blobbi-poke')).toBeDisabled();
-    expect(screen.getByTestId('action-hatch')).toBeDisabled();
-    expect(screen.getByTestId('scene-object-door').querySelector('button')).toBeDisabled();
+    // Publishing is in flight: the theatre is a modal dialog over the whole home, the egg's button is gone, and
+    // more taps on it, or a press of Hatch! behind it, write nothing more
+    const theater = screen.getByTestId('hatch-theater');
+    expect(theater).toHaveAttribute('role', 'dialog');
+    expect(theater).toHaveAttribute('aria-modal', 'true');
+    expect(screen.queryByTestId('hatch-theater-egg')).toBeNull();
+    fireEvent.click(screen.getByTestId('hatch-theater-actor'));
+    fireEvent.click(screen.getByTestId('action-hatch'));
     fireEvent.click(screen.getByTestId('scene-floor'), { clientX: 100, clientY: 400, detail: 1 });
     expect(actor()).toHaveAttribute('data-x', '0.500');
     release!();

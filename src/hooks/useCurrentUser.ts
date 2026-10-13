@@ -38,8 +38,10 @@ export function useCurrentUser() {
     for (const login of logins) {
       try {
         users.push(loginToUser(login));
-      } catch (error) {
-        console.warn('Skipped invalid login', login.id, error);
+      } catch {
+        // Only the kind of login: a stored secret key that fails to decode is quoted by the decoder's error
+        // ("Invalid checksum in nsec1…"), and a key never goes to the console
+        console.warn('Skipped a login that could not be read:', login.type);
       }
     }
     return users;

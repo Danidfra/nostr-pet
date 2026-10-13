@@ -11,6 +11,8 @@ deployment.**
 - `curl -sI https://<host>/` and `https://<host>/room`: both **200**, each
   with the CSP, `nosniff`, `Referrer-Policy`, `X-Frame-Options: DENY`.
 - `curl -sI https://<host>/assets/<any>.js`: `immutable`.
+- `curl -sI https://<host>/assets/nope.js`: **404** (not 200 `text/html`);
+  note whether the 404 carries the `immutable` cache header.
 - Devices: one recent iPhone (Safari), one older iPhone, one budget Android
   (Chrome), one desktop (Chrome, Firefox or Safari).
 
@@ -44,13 +46,16 @@ deployment.**
    the same world. Tap the egg (wobble). Name it, **Adopt** (tap it several
    times quickly: one egg in a Nostr client). The menu's Account has **Edit
    your profile** (nothing is published until Save).
-5. The room opens; a moment later the theatre opens on the egg **by itself**
+5. The **2D home** opens (the egg on its nest, the dock below): never the 3D
+   room, no choice of 2D or 3D, no loading screen in between. A moment
+   later the theatre opens over it on the egg **by itself**
    (no "Ready to hatch?", no Later, no Hatch button): "Tap your egg to help it
    hatch!". Wait 10 s: nothing is written. Tap: a crack (a jolt, a flash, a
    sound), "A crack! Keep going…"; again: a bigger crack; again: the heaviest,
    "Almost there… one more!"; the fourth tap opens it: light, "Here it
-   comes…", then the baby, only once the write has landed; then the room, with
-   **no arrival effect** on top of the birth. A drumroll of taps: still one
+   comes…", then the baby, only once the write has landed; then the 2D home,
+   the baby where the egg lay, **one** Blobbi on screen, Feed / Play / Clean /
+   Rest ready. A drumroll of taps: still one
    hatch. With a keyboard: the egg has the focus, Enter cracks it. **Hatch it
    for me** taps for you.
 6. Reload before tapping: the theatre opens again, shell whole. Tap twice,
@@ -59,10 +64,14 @@ deployment.**
    history with a Nostr client).
 7. Airplane mode just before the fourth tap: "The egg did not hatch yet…
    your egg is safe", **Try again** and **Later**. Network back, **Try
-   again**: hatched, once. Or **Later**: the room shows "Your egg is ready:
-   tap it to hatch"; tapping it (or the egg) opens the theatre, shell whole.
+   again**: hatched, once. Or **Later**: the dock shows **Hatch!**; tapping
+   it opens the theatre, shell whole.
+8. Menu (☰) → **Explore in 3D**: the 3D room (desktop: the Network panel
+   shows the `RoomPreviewPage` and `RoomScene` chunks only now, never
+   before). Reload at the root: still the room. Room menu → **2D home**;
+   reload: the 2D home. "Open in 3D" in either menu matches the choice.
 
-## 2. The room
+## 2. The room (after choosing it: menu → Explore in 3D)
 
 1. Reload with a hatched, awake Blobbi: the room appears, then the Blobbi
    **arrives** (motes, forms, lands, "ta-da"), once. Open and close a few
@@ -117,9 +126,10 @@ deployment.**
 ## 5. Returning players and sign-in
 
 1. Sign in with an extension (desktop), with a bunker (phone), and with a
-   saved key. The room opens, no onboarding.
+   saved key. The home this device chose opens (the 2D home if nothing was
+   chosen), no onboarding.
 2. Start a bunker sign-in and do not approve: a message within a minute.
-3. Room menu → **Classic home** and back.
+3. Room menu → **2D home** and back (menu → **Explore in 3D**).
 
 ## 6. Failure
 

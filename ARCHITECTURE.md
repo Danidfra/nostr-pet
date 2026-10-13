@@ -52,7 +52,9 @@ Blobbi standalone         home UX (this repo)
 
 The standalone does not duplicate Ditto's ceremony-heavy onboarding (it
 keeps one rule of it: an account's first egg hatches right away, see "The
-first Blobbi hatches by itself") or the Island's world runtime. "Your Blobbi lives here. The Island is where you go
+first Blobbi hatches by itself") or the Island's world runtime. Since M13 the
+2D home is where a first Blobbi is born and the default home; the 3D room is
+opt-in (`src/lib/home-experience.ts`), its code in a lazy chunk. "Your Blobbi lives here. The Island is where you go
 out into the world."
 
 ## Milestone 2: themes, the home, and the care loop
