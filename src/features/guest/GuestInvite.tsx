@@ -25,7 +25,7 @@ export function GuestInvite({ name, onSave, onLater, reducedMotion }: GuestInvit
       <div className="guest-invite__actions">
         <button type="button" className="onboard-btn onboard-btn--primary guest-invite__save" onClick={onSave} data-testid="guest-invite-save">
           <Sparkles className="h-4 w-4" aria-hidden />
-          Save my Blobbi
+          Save {name}
         </button>
         <button type="button" className="guest-invite__later" onClick={onLater} data-testid="guest-invite-later">
           Maybe later

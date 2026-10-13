@@ -75,13 +75,19 @@ describe('the room in the app', () => {
     renderAt('/');
     await onClassicHome();
     expect(screen.queryByTestId('room-shell')).toBeNull();
-    // The one switch (M14.1), upper right: 3D asks first on a new device, then goes and remembers
+    // The one switch (M14.1), upper right: 3D goes and remembers; the room greets a first visit itself (M14.2)
     expect(screen.getByTestId('mode-toggle')).toHaveAttribute('data-mode', 'classic');
     fireEvent.click(screen.getByTestId('mode-3d'));
-    expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBeNull();
-    fireEvent.click(await screen.findByTestId('mode-intro-try'));
     await inRoom();
     expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('room');
+    const intro = await screen.findByTestId('mode-intro');
+    expect(intro).toHaveTextContent(/experimental/);
+    expect(within(intro).getByTestId('mode-intro-appearance')).toHaveTextContent(/choose how Brook looks here/);
+    expect(intro).toHaveTextContent(/2D home is always one tap away/);
+    expect(within(intro).getByTestId('mode-intro-dismiss')).toBeChecked();
+    fireEvent.click(within(intro).getByTestId('mode-intro-explore'));
+    expect(screen.queryByTestId('mode-intro')).toBeNull();
+    expect(localStorage.getItem(ROOM_INTRO_STORAGE_KEY)).toBe('seen');
     expect(screen.getByTestId('mode-toggle')).toHaveAttribute('data-mode', 'room');
     // One home: no way "back" in the header; the 2D home is the switch's
     expect(screen.queryByTestId('room-back')).toBeNull();
@@ -106,25 +112,31 @@ describe('the room in the app', () => {
     expect(relay.published).toEqual([]);
   });
 
-  it('a player who chose the classic home keeps it: they open there; the first 3D introduction can be declined, and nothing changes', async () => {
+  it('a player who chose the classic home keeps it: they open there; the room\'s introduction respects "Don\'t show this again", and comes back only when it was unticked', async () => {
     signedInWith();
     localStorage.setItem(EXPERIENCE_STORAGE_KEY, 'classic');
-    renderAt('/');
+    const first = renderAt('/');
     await onClassicHome();
     expect(screen.queryByTestId('room-shell')).toBeNull();
-    fireEvent.click(screen.getByTestId('mode-3d'));
-    const intro = await screen.findByTestId('mode-intro');
-    expect(intro).toHaveTextContent(/still being built/);
-    fireEvent.click(screen.getByTestId('mode-intro-stay'));
     expect(screen.queryByTestId('mode-intro')).toBeNull();
-    expect(screen.queryByTestId('room-shell')).toBeNull();
-    expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('classic');
-    // Declined once: the next 3D goes straight there
-    expect(localStorage.getItem(ROOM_INTRO_STORAGE_KEY)).toBe('seen');
     fireEvent.click(screen.getByTestId('mode-3d'));
-    expect(screen.queryByTestId('mode-intro')).toBeNull();
     await inRoom();
-    expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('room');
+    const intro = await screen.findByTestId('mode-intro');
+    // Unticked: it may greet again next time
+    fireEvent.click(within(intro).getByTestId('mode-intro-dismiss'));
+    expect(within(intro).getByTestId('mode-intro-dismiss')).not.toBeChecked();
+    fireEvent.click(within(intro).getByTestId('mode-intro-explore'));
+    expect(screen.queryByTestId('mode-intro')).toBeNull();
+    expect(localStorage.getItem(ROOM_INTRO_STORAGE_KEY)).toBeNull();
+    expect(screen.getByTestId('room-shell')).toBeInTheDocument();
+    first.unmount();
+    renderAt('/');
+    await inRoom();
+    const again = await screen.findByTestId('mode-intro');
+    // Ticked (the default): never again on this device
+    fireEvent.click(within(again).getByTestId('mode-intro-explore'));
+    expect(localStorage.getItem(ROOM_INTRO_STORAGE_KEY)).toBe('seen');
+    expect(screen.queryByTestId('mode-intro')).toBeNull();
   });
 
   it('the menu is the one settings entry: in the room it holds the room\'s own settings, sound and the account; the dock holds the Blobbi and the room', async () => {
@@ -136,7 +148,8 @@ describe('the room in the app', () => {
     fireEvent.click(screen.getByTestId('room-menu'));
     const menu = screen.getByTestId('menu-sheet');
     expect(within(menu).getByTestId('menu-room-settings')).toBeInTheDocument();
-    expect(within(menu).getByTestId('room-appearance-panel')).toBeInTheDocument();
+    // The Blobbi's look is the Blobbi sheet's (M14.2), not a room setting
+    expect(within(menu).queryByTestId('room-appearance-panel')).toBeNull();
     expect(within(menu).getByTestId('room-quality-select')).toBeInTheDocument();
     expect(within(menu).getByTestId('sound-toggle')).toBeInTheDocument();
     expect(within(menu).getByTestId('menu-account')).toBeInTheDocument();
@@ -146,6 +159,7 @@ describe('the room in the app', () => {
     // The dock: the Blobbi on the left opens its sheet; the room on the right says why it cannot decorate here
     fireEvent.click(screen.getByTestId('room-bar-blobbi'));
     expect(await screen.findByTestId('room-blobbi-sheet')).toBeInTheDocument();
+    expect(within(screen.getByTestId('room-blobbi-sheet')).getByTestId('room-appearance-panel')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId('room-bar-decorate')).toBeDisabled());
     expect(screen.getByTestId('room-bar-decorate')).toHaveAccessibleName(/decorating needs 3D graphics/i);
   });

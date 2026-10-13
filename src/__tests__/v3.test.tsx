@@ -32,7 +32,7 @@ import { join } from 'node:path';
 import { blobbiEvent } from '@/test/fixtures';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { BlobbiActor } from '@/features/home/scene/BlobbiActor';
-import { RENDERER_V3_WALK_CYCLE_S, RENDERER_WALK_CYCLE_S, walkCycleFor } from '@/features/home/scene/motion-contract';
+import { RENDERER_V3_WALK_CYCLE_S, RENDERER_WALK_CYCLE_S, walkCycleFor, walkTempoFor } from '@/features/home/scene/motion-contract';
 import type { BlobbiPresentation } from '@/features/home/scene/presentation';
 
 const PET = '0000000042';
@@ -240,7 +240,9 @@ describe('the home draws each generation with its own renderer and its own gait'
       const { unmount } = actor(generation, 'adult', walking);
       expect(bodyBox()).toHaveAttribute('data-blobbi-motion', 'walking');
       expect(svgEl().hasAttribute('data-blobbi-rig-motion')).toBe(false);
-      expect(screen.getByTestId('blobbi-actor').style.getPropertyValue('--walk-cycle')).toBe(`${RENDERER_WALK_CYCLE_S}s`);
+      // The cycle the shadow follows is the one PLAYED: the kit's over the stage's tempo (M14.2), which the actor also carries
+      expect(screen.getByTestId('blobbi-actor').style.getPropertyValue('--walk-cycle')).toBe(`${RENDERER_WALK_CYCLE_S / walkTempoFor('adult')}s`);
+      expect(screen.getByTestId('blobbi-actor').style.getPropertyValue('--walk-tempo')).toBe(String(walkTempoFor('adult')));
       unmount();
     }
     actor('v3', 'adult', walking);
@@ -249,7 +251,7 @@ describe('the home draws each generation with its own renderer and its own gait'
     expect(svgEl()).toHaveAttribute('data-blobbi-view', 'side');
     expect(svgEl()).toHaveAttribute('data-blobbi-direction', 'right');
     expect(document.querySelector('style[data-blobbi-rig-motion-styles]')).not.toBeNull();
-    expect(screen.getByTestId('blobbi-actor').style.getPropertyValue('--walk-cycle')).toBe(`${RENDERER_V3_WALK_CYCLE_S}s`);
+    expect(screen.getByTestId('blobbi-actor').style.getPropertyValue('--walk-cycle')).toBe(`${RENDERER_V3_WALK_CYCLE_S / walkTempoFor('adult')}s`);
   });
 
   it('the V3 cycle the shadow follows is the cycle the renderer animates, and its phase is the instance\'s', () => {

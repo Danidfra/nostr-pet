@@ -850,3 +850,33 @@ apex 307 and http 308 to `https://www.`. Missing assets were 200 HTML
   the switch, a guest's and a registered hatch's first needs, the flame);
   Chrome at four viewports with no console errors.
 - **Not verified:** a real device (`LAUNCH_TEST_PLAN.md` section 1c).
+
+## M14.2: the magical account experience, movement, shared progression (2026-10-13)
+
+- **Words:** every guest surface names the Blobbi, short sentences, no
+  semicolons, no relays; the key's four facts unchanged; the success screen
+  introduces Nostr in one line.
+- **Ceremony:** one screen at a time, sized to the visible viewport (dvh,
+  safe areas), the profile as three steps with Continue, Skip and Back, one
+  kind 0 at the end or none. Measured in Chrome and WebKit: no scrolling at
+  390×664 and 375×553 for the intro, the three steps and the end; the key
+  scene fits until the player acts and scrolls by about 80 px once the
+  confirmation appears (brought into view by itself), and by about 120 to
+  220 px at 320×460 (the smallest Safari viewport), which is the designed
+  fallback.
+- **Alive:** the portrait breathes, blinks, follows the field, reacts to a
+  name, hops with hearts on Continue, flinches at an unfriendly word,
+  celebrates at the end; reduced motion keeps the faces only.
+- **Validation:** a short local English word list; limited on purpose.
+- **Movement:** one per-stage walk tempo for both homes (adult 2.35, baby
+  2.6), tied to the animation cycle; the V3 baby's hop 0.14 of its box.
+  Measured in Chrome: the 2D baby at 0.24 floor widths a second with the
+  rig's cycle at 0.238 s, in step.
+- **3D intro:** shown in the room on its first visit (after the theatre),
+  names Appearance in the Blobbi sheet, "Don't show this again" remembered.
+- **Proposal:** `src/features/lifecycle/SHARED_PROGRESSION.md`.
+- **Verified:** typecheck, lint, the full suite at half the workers, the
+  production build; `m14-2-magic.test.tsx`, `ceremony-life.test.ts`,
+  `profile-guard.test.ts`, the gait suites; Chrome and WebKit (Playwright)
+  at 390×664, 375×553 and 320×460 with no console errors.
+- **Not verified:** a real device (`LAUNCH_TEST_PLAN.md` section 1d).

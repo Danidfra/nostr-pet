@@ -131,7 +131,7 @@ export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, firstBlo
       case 'evolve-tasks':
         return care && !care.completed ? `${Math.max(0, care.required - care.current)} more care action${care.required - care.current === 1 ? '' : 's'} and ${name} can evolve. Feeding, playing, a bath, medicine: each one counts.` : 'The care is done; evolve whenever you like.';
       case 'evolve':
-        return `${name} has grown enough. Evolving is a moment; it happens at home, in front of you.`;
+        return `${name} has grown enough. Evolving is a moment, and it happens at home, in front of you.`;
       case 'grown':
         return 'The adult form came from the same seed it was born with.';
     }
@@ -171,7 +171,7 @@ export function LifecyclePanel({ name, lifecycle, ceremony, onCeremony, firstBlo
       )}
       {guest && view.stage !== 'adult' && (
         <p className="mt-2 text-xs text-muted-foreground" data-testid="lifecycle-guest-note">
-          {name} grows up on this device for now; saving {name} from the menu keeps every step, and the adventures elsewhere open once it is saved.
+          {name} grows up on this device for now. Saving {name} from the menu keeps every step, and the adventures elsewhere open once it is saved.
         </p>
       )}
 

@@ -308,11 +308,11 @@ describe('a returning player keeps their home', () => {
     relay.all = [aBaby(), profileEvent()];
     const first = renderApp('/');
     await in2d();
-    // The one switch, upper right (M14.1); the first 3D on this device asks first
+    // The one switch, upper right (M14.1); the room greets the first visit itself (M14.2)
     expect(screen.getByTestId('mode-toggle')).toHaveAttribute('data-mode', 'classic');
     await userEvent.click(screen.getByTestId('mode-3d'));
-    await userEvent.click(await screen.findByTestId('mode-intro-try'));
     await inRoom();
+    await userEvent.click(await screen.findByTestId('mode-intro-explore'));
     expect(window.localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('room');
     // A refresh at the root opens where the player chose
     first.unmount();

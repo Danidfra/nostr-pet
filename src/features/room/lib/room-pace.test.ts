@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { GAITS, gaitFor, walkCycleFor } from '@/features/home/scene/motion-contract';
+import { GAITS, WALK_TEMPO as HOME_WALK_TEMPO, gaitFor, walkCycleFor } from '@/features/home/scene/motion-contract';
 import { CAMERA_ELEVATION, blobbiBoxTiles } from './room-geometry';
 import { WALK_TEMPO, strideTilesPerCycle, walkCycleSecondsFor, walkSpeedFor, walkTempoFor } from './room-pace';
 
@@ -38,11 +38,22 @@ describe('the walking pace in the room', () => {
     expect(speed / walkTempoFor('adult')).toBeCloseTo(0.852 * (blobbiBoxTiles('adult') / 3.8), 2);
   });
 
-  it('the adult drawn smaller keeps its approved ground speed by stepping quicker; the baby keeps the room\'s tempo', () => {
+  it('the adult drawn smaller keeps its approved ground speed by stepping quicker; the baby plays the home\'s quicker baby tempo (M14.2)', () => {
     expect(blobbiBoxTiles('adult')).toBeLessThan(3.8);
     expect(walkTempoFor('adult')).toBeCloseTo(WALK_TEMPO * (3.8 / blobbiBoxTiles('adult')), 10);
-    expect(walkTempoFor('baby')).toBe(WALK_TEMPO);
-    expect(walkTempoFor('egg')).toBe(WALK_TEMPO);
+    expect(WALK_TEMPO).toBe(HOME_WALK_TEMPO.adult);
+    expect(walkTempoFor('baby')).toBe(HOME_WALK_TEMPO.baby);
+    expect(walkTempoFor('egg')).toBe(HOME_WALK_TEMPO.baby);
+    expect(walkTempoFor('baby')).toBeGreaterThan(WALK_TEMPO);
+  });
+
+  it('the baby bounds across a room in about five seconds: quicker than before (six), still slower than the adult (four), on about four hops a second', () => {
+    const baby = walkSpeedFor('baby', 'v3');
+    expect(8 / baby).toBeGreaterThan(4.3);
+    expect(8 / baby).toBeLessThan(5.2);
+    expect(baby).toBeLessThan(walkSpeedFor('adult', 'v3'));
+    expect(1 / walkCycleSecondsFor('v3', 'baby')).toBeGreaterThan(3.5);
+    expect(1 / walkCycleSecondsFor('v3', 'baby')).toBeLessThan(5);
   });
 
   it('the lateral screen travel in one cycle AS PLAYED equals the stride, so nothing slides at any tempo', () => {

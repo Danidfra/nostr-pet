@@ -36,7 +36,7 @@ import {
   type FloorPoint,
 } from './scene';
 import { ActionBar, BlobbiSheet, CareOptions, GameShell, HudTop, MenuSheet } from './shell';
-import { ModeIntro, ModeToggle } from './shell/ModeToggle';
+import { ModeToggle } from './shell/ModeToggle';
 import { useModeSwitch } from './shell/useModeSwitch';
 import { StreakMoment } from './StreakMoment';
 import { HatchTheater } from '@/features/room/components/HatchTheater';
@@ -855,7 +855,6 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       }
       overlays={
         <>
-          <ModeIntro open={modeSwitch.introOpen} onTry={modeSwitch.tryRoom} onStay={modeSwitch.stayHome} />
           {theater && (
             <HatchTheater
               blobbi={blobbi}

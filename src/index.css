@@ -2720,8 +2720,21 @@
     width: var(--shadow-width);
     height: var(--shadow-height);
   }
-  /* Walking: the renderer bobs the body (one cycle of --walk-cycle, offset
-     by --blobbi-motion-phase, both from the actor); the shadow underneath
+  /* The walking tempo of the 2D home (motion-contract.ts, WALK_TEMPO, by
+     stage; M14.2): the same override the room plays (see .room-blobbi
+     above). The kit's walk is CSS on the drawing's rig (V3: 0.62 s a cycle
+     on [data-rig] parts; V1/V2: 0.56 s on the body box and its leg parts).
+     The home plays it --walk-tempo times faster and moves the Blobbi that
+     much faster, so the feet stay planted. Only the duration changes. */
+  .scene-actor [data-blobbi-generation='v3'][data-blobbi-rig-motion='walking'] [data-rig] {
+    animation-duration: calc(0.62s / var(--walk-tempo, 1)) !important;
+  }
+  .scene-actor [data-blobbi-motion='walking'],
+  .scene-actor [data-blobbi-motion='walking'] * {
+    animation-duration: calc(0.56s / var(--walk-tempo, 1)) !important;
+  }
+  /* Walking: the renderer bobs the body (one cycle of --walk-cycle, the
+     played one, offset by --blobbi-motion-phase, both from the actor); the shadow underneath
      shrinks and fades at the top of each bob, twice per cycle, with the
      same phase, so the two read as one thing. The body itself gets no
      transform from the home (motion-contract.ts). */
@@ -3857,9 +3870,12 @@
   .keyscene[data-reduced='true'] .keyscene__mote { animation: none; }
   /* A short screen: the key a little smaller, the aside left to the menu */
   @media (max-height: 600px) {
-    .keyscene__body { gap: 0.45rem; }
+    .keyscene__body { gap: 0.4rem; }
     .keyscene__aside { display: none; }
-    .keyscene__facts { font-size: 0.78rem; padding-block: 0.45rem; }
+    .keyscene__facts { font-size: 0.78rem; padding-block: 0.4rem; gap: 0.1rem; }
+    .keyscene__nsec { font-size: 0.74rem; padding: 0.45rem 0.6rem; }
+    .keyscene__way, .keyscene__quiet, .keyscene__check { min-height: 2.5rem; }
+    .keyscene__back { min-height: 2.25rem; margin-top: calc(0.1rem + env(safe-area-inset-top)); }
   }
   @keyframes keyscene-mote { 0% { opacity: 0; translate: 0 12px; } 30%, 70% { opacity: 0.85; } 100% { opacity: 0; translate: 8px -40px; } }
   @keyframes keyscene-float { 0%, 100% { translate: 0 0; rotate: -28deg; } 50% { translate: 0 -5px; rotate: -22deg; } }
@@ -4128,6 +4144,7 @@
   .savescene {
     position: fixed;
     inset: 0;
+    height: 100dvh;
     z-index: 120;
     display: flex;
     flex-direction: column;
@@ -4153,24 +4170,46 @@
     background: radial-gradient(circle, hsl(45 100% 85% / 0.3), hsl(45 100% 70% / 0.08) 45%, transparent 70%);
     animation: hatch-light 1200ms ease-out 200ms both;
   }
-  .savescene__scroll { position: relative; flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .savescene__body {
+  .savescene__scroll { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  /* One screen first (M14.2): the column fills the visible viewport (dvh follows Safari's toolbar) and centres what
+     it holds; the portrait is sized from the viewport's height, so a short phone shows a smaller Blobbi and the one
+     action stays in view. Scrolling inside the column is the fallback for very short screens and large text. */
+  .savescene__body-col {
     display: flex;
+    flex: 1 0 auto;
     flex-direction: column;
     align-items: center;
-    gap: 0.9rem;
+    justify-content: center;
+    gap: clamp(0.55rem, 1.6dvh, 0.9rem);
     width: min(100%, 30rem);
+    min-height: 100%;
     margin: 0 auto;
-    padding: calc(1.5rem + env(safe-area-inset-top)) 1rem calc(1.5rem + env(safe-area-inset-bottom));
+    padding: calc(0.9rem + env(safe-area-inset-top)) max(1rem, env(safe-area-inset-left)) calc(1rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-right));
     text-align: center;
   }
   .savescene__portrait {
     position: relative;
-    width: min(44vw, 11rem);
-    height: min(44vw, 11rem);
-    margin-top: 0.5rem;
+    flex: none;
+    width: clamp(5.5rem, 24dvh, 11rem);
+    height: clamp(5.5rem, 24dvh, 11rem);
     animation: hatch-present 900ms cubic-bezier(0.34, 1.4, 0.64, 1) 250ms both;
   }
+  /* The living Blobbi (CeremonyBlobbi.tsx): the moves play on this box, never on the drawing; two copies of each so
+     the same move coming round again restarts. The breath is the renderer's own idle. */
+  .savescene__body { position: absolute; inset: 0; transform-origin: 50% 88%; }
+  .savescene__body > div, .savescene__body > svg { display: block; width: 100%; height: 100%; }
+  .savescene__portrait[data-move='hop'][data-beat='0'] .savescene__body { animation: welcome-hop 560ms ease-out; }
+  .savescene__portrait[data-move='hop'][data-beat='1'] .savescene__body { animation: welcome-hop-b 560ms ease-out; }
+  .savescene__portrait[data-move='wiggle'][data-beat='0'] .savescene__body { animation: whero-wiggle 700ms ease-in-out; }
+  .savescene__portrait[data-move='wiggle'][data-beat='1'] .savescene__body { animation: whero-wiggle-b 700ms ease-in-out; }
+  .savescene__portrait[data-move='cheer'][data-beat='0'] .savescene__body { animation: save-cheer 1400ms ease-out; }
+  .savescene__portrait[data-move='cheer'][data-beat='1'] .savescene__body { animation: save-cheer-b 1400ms ease-out; }
+  .savescene__portrait[data-move='flinch'][data-beat='0'] .savescene__body { animation: save-flinch 420ms ease-out; }
+  .savescene__portrait[data-move='flinch'][data-beat='1'] .savescene__body { animation: save-flinch-b 420ms ease-out; }
+  @keyframes save-cheer { 0% { translate: 0 0; scale: 1 1; } 12% { scale: 1.1 0.88; } 30% { translate: 0 -18%; scale: 0.94 1.08; rotate: -4deg; } 48% { translate: 0 0; scale: 1.06 0.94; rotate: 0deg; } 60% { scale: 1.08 0.9; } 76% { translate: 0 -12%; scale: 0.96 1.05; rotate: 4deg; } 90% { translate: 0 0; scale: 1.03 0.97; rotate: 0deg; } 100% { translate: 0 0; scale: 1 1; } }
+  @keyframes save-cheer-b { 0% { translate: 0 0; scale: 1 1; } 12% { scale: 1.1 0.88; } 30% { translate: 0 -18%; scale: 0.94 1.08; rotate: -4deg; } 48% { translate: 0 0; scale: 1.06 0.94; rotate: 0deg; } 60% { scale: 1.08 0.9; } 76% { translate: 0 -12%; scale: 0.96 1.05; rotate: 4deg; } 90% { translate: 0 0; scale: 1.03 0.97; rotate: 0deg; } 100% { translate: 0 0; scale: 1 1; } }
+  @keyframes save-flinch { 0% { translate: 0 0; rotate: 0deg; } 30% { translate: -4% 0; rotate: -3deg; scale: 1.02 0.98; } 60% { translate: 3% 0; rotate: 2deg; } 100% { translate: 0 0; rotate: 0deg; } }
+  @keyframes save-flinch-b { 0% { translate: 0 0; rotate: 0deg; } 30% { translate: -4% 0; rotate: -3deg; scale: 1.02 0.98; } 60% { translate: 3% 0; rotate: 2deg; } 100% { translate: 0 0; rotate: 0deg; } }
   .savescene__ring {
     position: absolute;
     inset: -8%;
@@ -4182,12 +4221,12 @@
   .savescene__portrait[data-progress='1'] .savescene__ring { border-color: hsl(45 100% 80% / 0.7); box-shadow: 0 0 28px 4px hsl(45 100% 70% / 0.35); }
   .savescene__portrait[data-progress='2'] .savescene__ring { border-color: hsl(45 100% 85%); box-shadow: 0 0 44px 10px hsl(45 100% 70% / 0.55); animation: save-ring 2.4s ease-in-out infinite; }
   @keyframes save-ring { 0%, 100% { box-shadow: 0 0 44px 10px hsl(45 100% 70% / 0.55); } 50% { box-shadow: 0 0 60px 16px hsl(45 100% 75% / 0.75); } }
-  .savescene__title { font-size: 1.35rem; font-weight: 800; line-height: 1.25; text-shadow: 0 2px 10px hsl(260 60% 10% / 0.6); animation: hatch-fade 600ms ease-out 500ms both; }
+  .savescene__title { font-size: clamp(1.15rem, 3.2dvh, 1.4rem); font-weight: 800; line-height: 1.25; text-shadow: 0 2px 10px hsl(260 60% 10% / 0.6); animation: hatch-fade 600ms ease-out 500ms both; }
   .savescene__text { max-width: 26rem; font-size: 0.92rem; line-height: 1.45; opacity: 0.9; }
-  .savescene__points { display: grid; gap: 0.55rem; width: 100%; max-width: 24rem; text-align: left; font-size: 0.9rem; line-height: 1.35; }
+  .savescene__points { display: grid; gap: 0.5rem; width: 100%; max-width: 24rem; text-align: left; font-size: 0.9rem; line-height: 1.35; }
   .savescene__points li { display: flex; align-items: flex-start; gap: 0.6rem; }
   .savescene__points svg { width: 1.1rem; height: 1.1rem; flex: none; margin-top: 0.1rem; color: hsl(45 100% 80%); }
-  .savescene__actions { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 100%; max-width: 22rem; margin-top: 0.4rem; }
+  .savescene__actions { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; width: 100%; max-width: 22rem; margin-top: 0.2rem; }
   .savescene__quiet { min-height: 2.75rem; padding: 0 0.8rem; font-size: 0.85rem; font-weight: 600; opacity: 0.85; text-decoration: underline; text-underline-offset: 3px; }
   .savescene__quiet:disabled { opacity: 0.4; }
   .savescene__card { width: 100%; max-width: 24rem; padding: 1rem; border-radius: 1.25rem; background: hsl(var(--background)); color: hsl(var(--foreground)); text-align: left; }
@@ -4213,6 +4252,40 @@
   .savescene__failed { width: 100%; max-width: 22rem; padding: 0.9rem 1rem; border-radius: 1rem; background: hsl(0 0% 100% / 0.1); text-align: center; }
   .savescene[data-reduced='true'] .savescene__veil, .savescene[data-reduced='true'] .savescene__spot, .savescene[data-reduced='true'] .savescene__portrait, .savescene[data-reduced='true'] .savescene__title { animation: none; }
   .savescene[data-reduced='true'] .savescene__ring { animation: none; transition: none; }
+  .savescene[data-reduced='true'] .savescene__body { animation: none !important; }
+  /* The profile's three steps (M14.2): one field a screen, the progress as three dots, the actions under it */
+  .savescene__dots { display: flex; gap: 0.45rem; list-style: none; padding: 0; margin: 0; }
+  .savescene__dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: hsl(45 100% 85% / 0.3); transition: background-color 300ms ease, transform 300ms ease; }
+  .savescene__dot--done { background: hsl(45 100% 80%); }
+  .savescene__dot--now { background: hsl(45 100% 85%); transform: scale(1.35); box-shadow: 0 0 10px hsl(45 100% 75% / 0.8); }
+  .savescene__step { display: flex; flex-direction: column; align-items: center; gap: clamp(0.55rem, 1.6dvh, 0.9rem); width: 100%; }
+  .savescene__field { width: 100%; max-width: 22rem; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+  .savescene__input { width: 100%; min-height: 3rem; font-size: 1.05rem; text-align: center; color: hsl(var(--foreground)); background: hsl(var(--background)); }
+  textarea.savescene__input { text-align: left; font-size: 1rem; }
+  .savescene__reason { max-width: 22rem; padding: 0.5rem 0.8rem; border-radius: 0.9rem; background: hsl(0 0% 100% / 0.12); font-size: 0.88rem; line-height: 1.35; color: hsl(40 100% 92%); }
+  .savescene__row { display: flex; align-items: center; justify-content: center; gap: 1.25rem; }
+  .savescene__row .savescene__quiet { display: inline-flex; align-items: center; gap: 0.3rem; }
+  .savescene__picture { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; width: 100%; }
+  .savescene__avatar { display: grid; place-items: center; width: 4.25rem; height: 4.25rem; overflow: hidden; border-radius: 50%; border: 2px solid hsl(45 100% 80% / 0.5); background: hsl(255 40% 12% / 0.7); color: hsl(45 100% 85% / 0.8); }
+  .savescene__avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .savescene__avatar svg { width: 1.9rem; height: 1.9rem; }
+  .savescene__fine { max-width: 24rem; font-size: 0.78rem; line-height: 1.4; color: hsl(40 40% 90% / 0.78); }
+  /* A short screen or a keyboard open: the portrait steps back, the points go, nothing essential is clipped */
+  @media (max-height: 600px) {
+    .savescene__portrait { width: clamp(4rem, 18dvh, 7rem); height: clamp(4rem, 18dvh, 7rem); }
+    .savescene__title { font-size: 1.15rem; }
+    .savescene__points { font-size: 0.84rem; gap: 0.4rem; }
+    .savescene__fine { display: none; }
+  }
+  @media (max-height: 500px) {
+    .savescene__body-col { gap: 0.45rem; }
+    .savescene__points { font-size: 0.8rem; gap: 0.3rem; }
+    .savescene__avatar { width: 3rem; height: 3rem; }
+    .savescene__input { min-height: 2.6rem; font-size: 1rem; }
+  }
+  @media (max-height: 440px) {
+    .savescene__portrait { display: none; }
+  }
   .keyscene__intro { max-width: 26rem; margin: 0 auto; font-size: 0.92rem; line-height: 1.45; opacity: 0.9; text-align: center; }
 
   /* The guest's sheets above whichever page is shown: the pages' own frame, fixed over the viewport, letting every
@@ -4290,6 +4363,9 @@
   .mode-intro__lead svg { width: 1.5rem; height: 1.5rem; flex: none; color: hsl(var(--primary)); margin-top: 0.1rem; }
   .mode-intro__points { display: flex; flex-direction: column; gap: 0.4rem; padding-left: 1.1rem; font-size: 0.85rem; color: hsl(var(--muted-foreground)); list-style: disc; }
   .mode-intro__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; padding-top: 0.25rem; }
+  .mode-intro__actions--one { grid-template-columns: 1fr; }
+  .mode-intro__check { display: flex; align-items: center; gap: 0.55rem; min-height: 2.5rem; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+  .mode-intro__check input { width: 1.2rem; height: 1.2rem; accent-color: hsl(var(--primary)); flex: none; }
 
   /* The room's settings as a menu section (no longer a floating panel) */
   .room-settings { display: flex; flex-direction: column; gap: 0.35rem; border-radius: 1.25rem; border: 1px solid hsl(var(--border) / 0.7); background: hsl(var(--card)); padding: 0.6rem; }
@@ -4487,6 +4563,9 @@
 
   .guest-status { display: flex; flex-direction: column; gap: 0.8rem; padding-top: 0.25rem; }
   .guest-status__lead { font-size: 1rem; font-weight: 700; }
+  .guest-status__line { font-size: 0.95rem; line-height: 1.45; }
+  .guest-status__more summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: hsl(var(--muted-foreground)); }
+  .guest-status__more[open] summary { margin-bottom: 0.4rem; }
   .guest-status__points { display: flex; flex-direction: column; gap: 0.45rem; padding-left: 1.1rem; list-style: disc; font-size: 0.88rem; line-height: 1.4; }
   .guest-status__fine { font-size: 0.75rem; color: hsl(var(--muted-foreground)); }
   .guest-status__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }

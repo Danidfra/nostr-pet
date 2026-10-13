@@ -28,7 +28,7 @@ import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 
 import AppRouter from '@/AppRouter';
 import { SceneSettingsProvider } from '@/features/home/scene';
-import { GuestProvider, GuestTransport, createGuestStore, GUEST_STORAGE_KEY, readGuestDocument, NO_STORAGE_LINE, DEVICE_ONLY_LINE } from '@/features/guest';
+import { GuestProvider, GuestTransport, createGuestStore, GUEST_STORAGE_KEY, readGuestDocument, deviceOnlyLine, noStorageLine } from '@/features/guest';
 import { createGuestDocument, writeGuestDocument, type StoredGuestDocument } from '@/features/guest/guest-store';
 import { localRecordSigner } from '@/features/guest/guest-signer';
 import { applyGuestEvent } from '@/features/guest/guest-world';
@@ -126,6 +126,15 @@ async function seedGuest({ hatched = true, cared = 1, name = 'Pip' }: { hatched?
   }
   writeGuestDocument(doc, window.localStorage);
   return doc;
+}
+
+/** The profile's three steps (M14.2), each skipped: no kind 0 is written. */
+async function skipProfile() {
+  const scene = await screen.findByTestId('save-profile');
+  for (let i = 0; i < 3; i += 1) {
+    expect(within(scene).getByTestId('profile-progress')).toHaveAttribute('data-step', String(i + 1));
+    await userEvent.click(within(scene).getByTestId('save-profile-skip'));
+  }
 }
 
 async function saveThroughTheKey(name: string) {
@@ -234,8 +243,9 @@ describe('M14: play first', () => {
     // The menu: where the Blobbi lives, said plainly; the way to save; no sign out, no key
     await userEvent.click(screen.getByTestId('menu-button'));
     const menu = await screen.findByTestId('menu-sheet');
-    expect(within(menu).getByTestId('menu-guest-line')).toHaveTextContent(DEVICE_ONLY_LINE);
-    expect(within(menu).getByTestId('menu-save-blobbi')).toHaveTextContent('Save my Blobbi');
+    expect(within(menu).getByTestId('menu-guest-line')).toHaveTextContent(deviceOnlyLine('Pip'));
+    expect(within(menu).getByTestId('menu-guest-line')).not.toHaveTextContent(/relay/i);
+    expect(within(menu).getByTestId('menu-save-blobbi')).toHaveTextContent('Save Pip');
     expect(within(menu).queryByTestId('sign-out')).toBeNull();
     expect(within(menu).queryByTestId('key-backup-section')).toBeNull();
     expect(within(menu).queryByTestId('enter-island')).toBeNull();
@@ -254,7 +264,7 @@ describe('M14: play first', () => {
     expect(guestDoc()?.migration?.stage).toBe('profile');
     expect(await screen.findByTestId('save-profile')).toBeInTheDocument();
     expect(screen.queryByTestId('adoption-egg')).toBeNull();
-    await userEvent.click(screen.getByTestId('save-profile-skip'));
+    await skipProfile();
     await screen.findByTestId('save-connect');
     await screen.findByTestId('save-done', {}, { timeout: 10_000 });
     // Published: the very same address, signed for real, in Island's order
@@ -300,9 +310,9 @@ describe('M14: play first', () => {
     await userEvent.click(screen.getByTestId('menu-button'));
     await userEvent.click(await screen.findByTestId('menu-save-blobbi'));
     await saveThroughTheKey('Pip');
-    await userEvent.click(await screen.findByTestId('save-profile-skip'));
+    await skipProfile();
     const failed = await screen.findByTestId('save-failed', {}, { timeout: 10_000 });
-    expect(failed).toHaveTextContent(/profile did not reach the relays/);
+    expect(failed).toHaveTextContent(/Your profile did not get through/);
     expect(failed).toHaveTextContent(/still safe on this device/);
     expect(published(KIND_BLOBBI_STATE)).toHaveLength(1);
     expect(guestDoc()).not.toBeNull();
@@ -332,7 +342,7 @@ describe('M14: play first', () => {
     expect(await screen.findByTestId('save-profile', {}, { timeout: 8000 })).toBeInTheDocument();
     expect(screen.queryByTestId('adoption-egg')).toBeNull();
     expect(screen.queryByTestId('onboarding-welcome')).toBeNull();
-    await userEvent.click(screen.getByTestId('save-profile-skip'));
+    await skipProfile();
     await screen.findByTestId('save-done', {}, { timeout: 10_000 });
     expect(published(KIND_BLOBBI_STATE)).toHaveLength(1);
     expect(getTagValue(published(KIND_BLOBBI_STATE)[0].tags, 'd')).toBe(doc.blobbiD);
@@ -409,7 +419,8 @@ describe('M14: play first', () => {
     await userEvent.click(screen.getByTestId('adoption-adopt'));
     await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
     await userEvent.click(screen.getByTestId('menu-button'));
-    expect(within(await screen.findByTestId('menu-sheet')).getByTestId('menu-guest-line')).toHaveTextContent(NO_STORAGE_LINE);
+    expect(within(await screen.findByTestId('menu-sheet')).getByTestId('menu-guest-line')).toHaveTextContent(/not remembering anything right now/);
+    expect(within(screen.getByTestId('menu-sheet')).getByTestId('menu-guest-line')).toHaveTextContent(noStorageLine('Pip').slice(0, 40));
     expect(relay.published).toEqual([]);
   }, 30_000);
 

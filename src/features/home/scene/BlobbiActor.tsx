@@ -4,7 +4,7 @@ import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { gazeReachOfVisual, limitGaze } from '@/lib/gaze-reach';
 import { placeOnFloor } from './geometry';
-import { walkCycleFor } from './motion-contract';
+import { playedWalkCycleFor, walkTempoFor } from './motion-contract';
 import { GESTURES, hatchRock } from './gestures';
 import { shadowFor } from './shadow';
 import { useReducedMotion } from './SceneSettings';
@@ -62,9 +62,10 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
 ) {
   const placement = placeOnFloor(presentation.position);
   const { isSleeping } = presentation;
-  // The renderer's walk cycle and per-instance phase, so the shadow under the
-  // Blobbi can follow the bob (see motion-contract.ts). Same instance id as
-  // the renderer gets, so the phase is the one it uses.
+  // The renderer's walk cycle AS PLAYED (the home's tempo, motion-contract.ts: the CSS plays the kit's cycle that
+  // much faster and the walk moves that much faster, so a planted foot keeps its spot) and the per-instance phase,
+  // so the shadow under the Blobbi can follow the bob. Same instance id as the renderer gets, so the phase is the
+  // one it uses.
   const instanceId = `home-${blobbi.d}`;
   const motionPhase = blobbiMotionPhase(instanceId) / BLOBBI_MOTION_PHASES;
 
@@ -131,7 +132,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-hatch-rock={hatch ? (reducedMotion ? 0 : rock) : undefined}
       data-x={presentation.position.x.toFixed(3)}
       data-y={presentation.position.y.toFixed(3)}
-      style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale), '--walk-cycle': `${walkCycleFor(blobbi.visualGeneration)}s`, '--blobbi-motion-phase': String(motionPhase) } as React.CSSProperties}
+      style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale), '--walk-cycle': `${playedWalkCycleFor(blobbi.stage, blobbi.visualGeneration)}s`, '--walk-tempo': String(walkTempoFor(blobbi.stage)), '--blobbi-motion-phase': String(motionPhase) } as React.CSSProperties}
     >
       <div className="scene-actor__body">
         {!inBed && <div aria-hidden className="scene-actor__shadow" data-measured={shadowStyle ? 'true' : undefined} style={shadowStyle ?? undefined} />}

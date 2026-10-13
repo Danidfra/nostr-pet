@@ -9,6 +9,7 @@
  */
 import type { BlobbiCompanion, BlobbonautProfile } from '@blobbi-kit/core';
 import { Backpack, ChevronRight, Map as MapIcon, Moon, Snowflake, Sparkles } from 'lucide-react';
+import { BlobbiAppearanceControl, type BlobbiAppearanceControlProps } from './RoomSettings';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
@@ -39,6 +40,8 @@ interface RoomBlobbiSheetProps {
   onOpenItems: () => void;
   /** How many items can be used now, for the button. */
   usableItemCount: number;
+  /** How this Blobbi is drawn in the room (the drawing or the 3D model), chosen here and nowhere else (M14.2). */
+  appearance?: { value: BlobbiAppearanceControlProps['appearance']; onChange: BlobbiAppearanceControlProps['onChange']; unavailable3d: string | null };
 }
 
 const STAGE_LABEL: Record<BlobbiCompanion['stage'], string> = { egg: 'Egg', baby: 'Baby', adult: 'Adult' };
@@ -57,7 +60,7 @@ function Chip({ children, testId, tone = 'neutral' }: { children: React.ReactNod
   );
 }
 
-export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, onOpenItems, usableItemCount, onOpenJourney, guest = false }: RoomBlobbiSheetProps) {
+export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, onOpenItems, usableItemCount, onOpenJourney, guest = false, appearance }: RoomBlobbiSheetProps) {
   const portrait = (
     <span className="overlay-portrait" aria-hidden>
       <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`room-details-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
@@ -135,7 +138,18 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
 
         )}
 
+        {appearance && (
+          <section aria-labelledby="room-appearance-title" className="overlay-card" data-testid="room-appearance-section">
+            <h3 id="room-appearance-title" className="overlay-card__title">
+              Appearance
+            </h3>
+            <p className="mb-2 text-xs text-muted-foreground">How {blobbi.name} is drawn in the 3D room. The same Blobbi either way, and only on this device.</p>
+            <BlobbiAppearanceControl appearance={appearance.value} onChange={appearance.onChange} unavailable3d={appearance.unavailable3d} />
+          </section>
+        )}
+
         <LifecyclePanel name={blobbi.name} lifecycle={lifecycle} ceremony={ceremony} onCeremony={onCeremony} firstBlobbi={firstBlobbi} embedded guest={guest} />
+
 
         {companions.length > 1 && (
           <section aria-label="Your Blobbis" className="overlay-card">

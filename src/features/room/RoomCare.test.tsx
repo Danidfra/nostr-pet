@@ -649,8 +649,8 @@ describe('2D and 3D, one Blobbi, one care', () => {
     fireEvent.click(focusOn('Apple', 'starter'));
     await awaitWalk();
     settleWalk('arrived');
-    // Back to 2D while the write is out
-    fireEvent.click(screen.getByTestId('room-menu'));
+    // Back to 2D while the write is out (the look is the Blobbi sheet's, M14.2)
+    fireEvent.click(screen.getByTestId('room-bar-blobbi'));
     fireEvent.click(screen.getByTestId('room-appearance-2d'));
     expect(shell()).toHaveAttribute('data-blobbi-render', '2d');
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });

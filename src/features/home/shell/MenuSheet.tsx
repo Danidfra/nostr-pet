@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Check, ChevronRight, Globe2, HelpCircle, KeyRound, Moon, Sparkles, Sun, Sunrise, UserRound, Volume2, VolumeX } from 'lucide-react';
-import { DEVICE_ONLY_LINE, NO_STORAGE_LINE, useGuestSnapshot, useGuestUi } from '@/features/guest';
+import { deviceOnlyLine, noStorageLine, useGuestSnapshot, useGuestUi } from '@/features/guest';
+import { parseModernBlobbiEvent } from '@blobbi-kit/core';
+import { guestBlobbiEvent } from '@/features/guest/guest-world';
 import { GameOverlay } from './GameOverlay';
 import { AccountSheet } from './AccountSheet';
 import { useEnvironment } from '@/environment';
@@ -44,6 +46,9 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings, onOpenW
   const guestUi = useGuestUi();
   const guestSnapshot = useGuestSnapshot();
   const saveBegun = !!guestSnapshot.doc?.migration;
+  // The guest Blobbi's name, for the words (M14.2): "Save Lupa", not "Save my Blobbi"
+  const guestRecord = guestSnapshot.doc ? guestBlobbiEvent(guestSnapshot.doc.events, guestSnapshot.doc.blobbiD) : null;
+  const guestName = (guestRecord && parseModernBlobbiEvent(guestRecord)?.name) || 'your Blobbi';
   const ask = (what: 'save' | 'sign-in') => {
     onClose();
     if (what === 'save') guestUi.requestSave();
@@ -71,18 +76,18 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings, onOpenW
           {guest && (
             <section className="menu-section" aria-labelledby="menu-guest" data-testid="menu-guest">
               <h3 id="menu-guest" className="menu-section__title">
-                Your Blobbi
+                {guestName === 'your Blobbi' ? 'Your Blobbi' : guestName}
               </h3>
               <p className="menu-section__hint" data-testid="menu-guest-line">
-                {guestSnapshot.storageOk ? DEVICE_ONLY_LINE : NO_STORAGE_LINE}
+                {guestSnapshot.storageOk ? deviceOnlyLine(guestName) : noStorageLine(guestName)}
               </p>
               <button type="button" onClick={() => ask('save')} data-testid="menu-save-blobbi" className="menu-tile menu-tile--hero">
                 <span className="menu-tile__icon">
                   <Sparkles className="h-7 w-7" aria-hidden />
                 </span>
                 <span className="menu-tile__text">
-                  <span className="menu-tile__title">{saveBegun ? 'Finish saving my Blobbi' : 'Save my Blobbi'}</span>
-                  <span className="menu-tile__sub">A key only you hold, a home on Nostr, and the door to Blobbi Island and the other worlds. The very same Blobbi.</span>
+                  <span className="menu-tile__title">{saveBegun ? `Finish saving ${guestName}` : `Save ${guestName}`}</span>
+                  <span className="menu-tile__sub">A home you can return to from other devices, and the door to new worlds. The very same Blobbi.</span>
                 </span>
                 <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
               </button>
@@ -92,7 +97,7 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings, onOpenW
                 </span>
                 <span className="menu-tile__text">
                   <span className="menu-tile__title">I already have an account</span>
-                  <span className="menu-tile__sub">Sign in with the Nostr account your Blobbis live under. The guest Blobbi stays on this device.</span>
+                  <span className="menu-tile__sub">Sign in with the account your Blobbis live in. {guestName === 'your Blobbi' ? 'The guest Blobbi' : guestName} stays here on this device.</span>
                 </span>
                 <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
               </button>
@@ -106,7 +111,7 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings, onOpenW
               </span>
               <span className="menu-tile__text">
                 <span className="menu-tile__title">Worlds</span>
-                <span className="menu-tile__sub">{guest ? 'Blobbi Island, Rumble and Nostr Farm: the doors open once your Blobbi is saved.' : 'Blobbi Island, Rumble and Nostr Farm. The same Blobbi goes with you.'}</span>
+                <span className="menu-tile__sub">{guest ? `Blobbi Island, Rumble and Nostr Farm. The doors open once ${guestName} is saved.` : 'Blobbi Island, Rumble and Nostr Farm. The same Blobbi goes with you.'}</span>
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
             </button>
@@ -123,7 +128,7 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings, onOpenW
                 </span>
                 <span className="menu-tile__text">
                   <span className="menu-tile__title">{metadata?.display_name || metadata?.name || shortNpub(user.pubkey)}</span>
-                  <span className="menu-tile__sub">Your profile, your name and picture, your key backup, and sign out.</span>
+                  <span className="menu-tile__sub">Your name and picture, your key backup, and sign out.</span>
                 </span>
                 <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
               </button>

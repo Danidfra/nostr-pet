@@ -292,26 +292,33 @@ describe('M14.1: the guest\'s status', () => {
     await userEvent.click(pill);
     const sheet = await screen.findByTestId('guest-status-sheet');
     const text = within(sheet).getByTestId('guest-status-text');
-    expect(text).toHaveTextContent(/lives in this browser only/);
-    expect(text).toHaveTextContent(/Nostr relays/);
-    expect(text).toHaveTextContent(/may erase it/);
-    expect(text).toHaveTextContent(/another device/);
-    expect(text).toHaveTextContent(/keep playing here without an account/);
-    expect(text).toHaveTextContent(/not a vault/);
+    // A child's words (M14.2): where Pip lives, what could happen, what saving gives; no relays, no jargon
+    expect(text).toHaveTextContent(/Pip is still exploring this little world/);
+    expect(text).toHaveTextContent(/Pip lives only on this device/);
+    expect(text).toHaveTextContent(/Pip could disappear too/);
+    expect(text).toHaveTextContent(/visit from other devices and explore new worlds together/);
+    expect(text).not.toHaveTextContent(/relay/i);
+    expect(text).not.toHaveTextContent(/Nostr/);
+    expect(text.textContent).not.toContain(';');
+    // The storage warning stays reachable, under Good to know
+    expect(text).toHaveTextContent(/can erase Pip/);
+    expect(text).toHaveTextContent(/keep playing here without saving/);
+    expect(within(sheet).getByTestId('guest-status-save')).toHaveTextContent('Save Pip');
     await userEvent.click(within(sheet).getByTestId('guest-status-later'));
     expect(screen.queryByTestId('guest-status-sheet')).toBeNull();
     await userEvent.click(screen.getByTestId('guest-status'));
     await userEvent.click(within(await screen.findByTestId('guest-status-sheet')).getByTestId('guest-status-save'));
     const intro = await screen.findByTestId('save-intro');
-    expect(intro).toHaveTextContent(/visit Pip from another device/);
-    expect(within(intro).getByTestId('save-intro-benefit')).toHaveTextContent(/take your adventures with you/);
+    expect(intro).toHaveTextContent(/Ready to explore beyond this little world/);
+    expect(within(intro).getByTestId('save-intro-benefit')).toHaveTextContent(/home you can return to from other devices/);
+    expect(intro).not.toHaveTextContent(/relay/i);
     await userEvent.click(screen.getByTestId('save-later'));
     expect(screen.getByTestId('guest-status')).toBeInTheDocument();
     expect(screen.queryByTestId('saved-status')).toBeNull();
     expect(relay.published).toEqual([]);
   }, 30_000);
 
-  it('after a landed save the status becomes "Saved to Nostr" for the visit, and the connection dot is a different thing', async () => {
+  it('after a landed save the status becomes "Saved" for the visit, and the connection dot is a different thing', async () => {
     await seedGuest({ cared: 1 });
     renderApp('/');
     await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
@@ -323,7 +330,7 @@ describe('M14.1: the guest\'s status', () => {
     await userEvent.click(screen.getByTestId('nsec-copy'));
     await userEvent.click(screen.getByTestId('key-saved'));
     await userEvent.click(screen.getByTestId('onboarding-continue'));
-    await userEvent.click(await screen.findByTestId('save-profile-skip'));
+    for (let i = 0; i < 3; i += 1) await userEvent.click(await screen.findByTestId('save-profile-skip'));
     await userEvent.click(await screen.findByTestId('save-done', {}, { timeout: 15000 }));
     await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
     expect(screen.queryByTestId('guest-status')).toBeNull();

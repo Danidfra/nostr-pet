@@ -568,6 +568,77 @@ under the menu button in both homes without overlapping it, the room
 switcher or the needs (the needs' arc moves left under 360 px); the fridge
 fits a phone; no console errors. Not verified: a real device.
 
+
+## Milestone 14.2: the magical account experience, movement, shared progression
+
+**The words.** Every guest surface speaks of the Blobbi by name, in short
+sentences, without semicolons, and without relays: "Right now, Lupa lives
+only on this device. If its data disappears, Lupa could disappear too."
+(`deviceOnlyLine`), the status sheet ("Lupa is still exploring this little
+world", the storage warning under Good to know), the menu ("Save Lupa"), the
+worlds' note, the ceremony ("Ready to explore beyond this little world?",
+"Lupa has a new home!", then one line that names Nostr as the open network
+where your identity belongs to you, and that the key is the only way back
+in). The key scene's four facts are unchanged: the consequences of losing
+the key stay said.
+
+**One screen at a time** (`SaveCeremony.tsx`, `index.css` `.savescene*`).
+The scene is the visible viewport (`100dvh`), its column fills and centres,
+the portrait is sized from the viewport's height, safe areas are padding,
+and scrolling inside the column is the fallback for very short screens and
+large text. The profile is three steps (a name, a picture, a line about
+you), each with Continue, Skip and Back and three dots for progress; one
+kind 0 is written at the end with what was given, or none when every step
+was skipped (`checkProfileForm` with `allowEmptyName`, `mergeProfileMetadata`
+sets a name only when one was given). A refresh in the profile resumes at
+its first step (the record remembers the stage, as before).
+
+**The Blobbi alive** (`ceremony-life.ts` pure, `useCeremonyLife.ts`,
+`CeremonyBlobbi.tsx`, `ceremony-stage.ts`). The portrait breathes (the
+renderer's idle), blinks, follows the pointer with its eyes and the field
+being typed in (`attend`), looks curious while the player types, is glad of
+a name, hops with a few hearts when a step is passed, flinches and is
+briefly displeased at an unfriendly word, and celebrates when the account
+is made (sparkles in the air and a glow around it, one effect per renderer
+slot). Faces go through the shared expression controller (sources
+`attention` < `reaction` < `celebration`); moves are CSS on the portrait's
+box, never on the drawing; sparkles are the renderer's effects. Left alone
+it glances or smiles on six-to-eleven-second pauses and never moves. Reduced
+motion keeps the faces and the eyes, drops the moves, the sparkles and the
+breath.
+
+**Unfriendly words** (`onboarding/profile-guard.ts`): a short English list
+of the obvious slurs and swear words, matched as whole words and as the
+whole text squeezed, with lookalike digits read as letters, on this device
+only. One friendly line, the field left to edit, nothing sent anywhere.
+Limited on purpose: names and words in other languages are never caught.
+
+**Movement** (`scene/motion-contract.ts` `WALK_TEMPO`, `room-pace.ts`,
+`BlobbiActor` `--walk-tempo`/`--walk-cycle`, `index.css`). The 2D home had
+no walk tempo while the room played the kit's cycle 2.35× faster: the
+same per-stage tempo now drives both homes (adult 2.35, baby 2.6), applied
+to the animation's duration and to the floor speed from one number, so a
+planted foot keeps its spot and the depth travel keeps the steps' rhythm.
+The V3 baby's hop carries 0.14 of its box per cycle (a hop, not a shuffle).
+Measured: a 2D adult crosses the floor in about 4 s (was 9.4), a 2D baby in
+about 3.1 s at four hops a second, a 3D baby crosses a room in about 4.7 s
+(was 6), the 3D adult keeps its approved 4 s.
+
+**The room's first visit** (`ModeIntro`, `RoomPreviewPage`). The switch no
+longer asks before going; the room greets a first visit itself, after the
+egg's theatre if there is one: experimental, how the Blobbi looks here can
+be chosen (the classic drawing or the 3D model) in the Blobbi sheet under
+Appearance, the 2D home one tap away. "Let's explore" closes it; "Don't
+show this again" (ticked by default) writes `blobbi:home:3d-intro:v1`.
+The appearance control (`BlobbiAppearanceControl`) moved from the menu's
+room settings into the room's Blobbi sheet, above the lifecycle; the menu's
+room settings keep graphics and the view. Presentation only.
+
+**Shared progression:** a proposal, not an implementation:
+`src/features/lifecycle/SHARED_PROGRESSION.md` (objectives separate from
+activities, contributions as kind 1124 receipts with an `objective` tag,
+one fold in the 31124 content the kit already round-trips, no new kind).
+
 ## Milestone 13: MVP release readiness (M11)
 
 The pass that turns the M10 home into something that can be put in front

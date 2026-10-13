@@ -91,10 +91,15 @@ const LEGS_V3: Gait = { stride: 108 / 900, depth: 0.21 };
 const LEGS_V2: Gait = { stride: 28 / 238.125, depth: 0.19 };
 /**
  * THE BOB AND THE HOP: the V1 drawings, every baby, the V3 baby. Nothing
- * touches the floor, so nothing can slide on it. They keep pace with the
- * legged adults, in their own boxes.
+ * touches the floor, so nothing can slide on it. The bobs keep pace with the
+ * legged adults, in their own boxes. The V3 baby's HOP carries it a little
+ * farther per cycle than an adult's shuffle step (M14.2: a hop is a hop,
+ * not a shuffle; 0.14 of its box, with a lift of about 2% of the box at
+ * the top of each, still a low bound rather than a glide), and plays at a
+ * quicker tempo (`WALK_TEMPO`): a baby that bounds about, not a small
+ * adult.
  */
-const HOP_V3: Gait = { stride: 0.12, depth: 0.21 };
+const HOP_V3: Gait = { stride: 0.14, depth: 0.21 };
 const BOB: Gait = { stride: 0.12, depth: 0.19 };
 
 /** The gait of each stage of each generation: the one table the home's walking pace comes from. */
@@ -110,17 +115,53 @@ export function gaitFor(stage: string, generation: string): Gait {
 }
 
 /**
+ * THE TEMPO (M14.2): how many times faster than the renderer's own cycle a
+ * walk plays, by stage.
+ *
+ * The kit's walk is a short-stride shuffle at a fixed cycle (0.62 s for V3,
+ * 0.56 s for V1 and V2). Matched to that stride alone, a Blobbi crossed the
+ * 2D home's floor in nine seconds and a 3D room in nine as well, which read
+ * as far too slow in both; the room had already answered with a tempo of
+ * 2.35 (`room-pace.ts`) while the 2D home kept the kit's cycle, which is why
+ * a 2D baby felt slower than a 3D one. The kit has no rate control, but its
+ * walk is CSS, so a home plays the cycle `tempo` times faster
+ * (`index.css`, an `animation-duration` override on the kit's own
+ * selectors) and moves the Blobbi `tempo` times faster with it. Both come
+ * from this one number, so a planted foot keeps its spot at any tempo, and
+ * the depth travel keeps the rhythm of the steps. The stride itself (the
+ * kit's drawing) is unchanged.
+ *
+ * The baby plays quicker than the adult: smaller legs, more steps, an
+ * eager little bound. The adult at 2.35 crosses a floor in about four
+ * seconds; the baby's hop (above) at 2.6 reads as energetic without
+ * becoming a blur (about four hops a second). An egg never walks.
+ */
+export const WALK_TEMPO: Readonly<Record<'baby' | 'adult', number>> = { baby: 2.6, adult: 2.35 };
+
+/** The tempo this stage walks at. An unknown stage walks as a baby. */
+export function walkTempoFor(stage: string): number {
+  return WALK_TEMPO[stage === 'adult' ? 'adult' : 'baby'];
+}
+
+/** Seconds one walk cycle takes AS PLAYED on a home: the renderer's cycle over the stage's tempo. What the CSS plays and the shadow follows. */
+export function playedWalkCycleFor(stage: string, generation: string): number {
+  return walkCycleFor(generation) / walkTempoFor(stage);
+}
+
+/**
  * How fast this Blobbi walks where it stands, in floor units per second:
  * `side` along the floor's width, `depth` along its depth.
  *
  * The stride is a distance in the DRAWING, and the drawing is smaller at the
  * back of the room (`depthScale`), so the same stride covers less floor
  * there: the pace across follows the size the Blobbi is drawn at, which is
- * what keeps a planted foot on its spot at every depth.
+ * what keeps a planted foot on its spot at every depth. Both paces are per
+ * PLAYED cycle (`playedWalkCycleFor`), so the tempo quickens the walk and
+ * the steps together.
  */
 export function paceFor(stage: string, generation: string, y = 1): WalkPace {
   const gait = gaitFor(stage, generation);
-  const cycle = walkCycleFor(generation);
+  const cycle = playedWalkCycleFor(stage, generation);
   return { side: (gait.stride * ACTOR_BOX_WIDTH * depthScale(y)) / cycle, depth: gait.depth / cycle };
 }
 

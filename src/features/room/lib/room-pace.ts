@@ -23,11 +23,13 @@
  * of 900 drawing units a step) at a fixed cycle, and matched to that stride
  * the V3 adult covers about 0.85 tiles a second: a room's width in nine
  * seconds, which reads as far too slow in the room. The kit has no rate
- * control, but its walk is CSS, so the room plays the cycle `WALK_TEMPO`
- * times faster (`index.css`, `--room-walk-tempo`, an `animation-duration`
- * override the kit's selectors do not touch) and moves the Blobbi `WALK_TEMPO`
- * times faster with it. Both come from this one number, so the foot stays
- * planted at any tempo; the stride itself (the kit's drawing) is unchanged.
+ * control, but its walk is CSS, so the room plays the cycle faster
+ * (`index.css`, `--room-walk-tempo`, an `animation-duration` override the
+ * kit's selectors do not touch) and moves the Blobbi that much faster with
+ * it. The tempo is the home's, by stage (`motion-contract.ts`, `WALK_TEMPO`,
+ * M14.2: the 2D home plays the same one, so the two homes feel alike; the
+ * baby's is quicker than the adult's), so the foot stays planted at any
+ * tempo; the stride itself (the kit's drawing) is unchanged.
  *
  * Seen from the front or the back the feet step in place and nothing can
  * slide; the same pace is kept, as the home keeps one pace per walk.
@@ -39,23 +41,24 @@
  * tempo rises by the same factor (`walkTempoFor`), so a smaller body takes
  * quicker steps, and a foot still keeps its spot.
  */
-import { gaitFor, walkCycleFor } from '@/features/home/scene/motion-contract';
+import { WALK_TEMPO as HOME_WALK_TEMPO, gaitFor, walkCycleFor, walkTempoFor as homeWalkTempoFor } from '@/features/home/scene/motion-contract';
 import { CAMERA_ELEVATION, blobbiBoxTiles } from './room-geometry';
 
 /**
- * How many times faster than the renderer's own cycle a walk plays in the
- * room, and so how many times faster the Blobbi moves. 2.35 puts the V3
- * adult at about two tiles a second.
+ * The adult's tempo: how many times faster than the renderer's own cycle an
+ * adult's walk plays, and so how many times faster it moves. 2.35 puts the
+ * V3 adult at about two tiles a second. The home's table (`WALK_TEMPO` in
+ * `motion-contract.ts`) holds the baby's as well.
  */
-export const WALK_TEMPO = 2.35;
+export const WALK_TEMPO = HOME_WALK_TEMPO.adult;
 
 /** The box (tiles) a stage's approved ground speed was set at, where the room has drawn it smaller since. */
 const PACE_REFERENCE_TILES: Readonly<Record<string, number>> = { adult: 3.8 };
 
-/** How many times faster than the renderer's cycle THIS stage walks in the room: the tempo, quickened as much as its box shrank. */
+/** How many times faster than the renderer's cycle THIS stage walks in the room: its home tempo, quickened as much as its box shrank. */
 export function walkTempoFor(stage: string): number {
   const box = blobbiBoxTiles(stage);
-  return WALK_TEMPO * ((PACE_REFERENCE_TILES[stage] ?? box) / box);
+  return homeWalkTempoFor(stage) * ((PACE_REFERENCE_TILES[stage] ?? box) / box);
 }
 
 /** Lateral screen travel per walk cycle, in tiles of the scene's vertical unit. */

@@ -89,6 +89,7 @@ import { MAIN_BLOBBI, blobbiReachTiles } from './lib/room-geometry';
 import type { FurniturePlacement } from './lib/room-furniture';
 import { planDrop, planUse, shelfEntries, shelfKey, type CareShelf, type DropPlace, type RoomCareEntry } from './lib/room-care';
 import { RoomSettings } from './components/RoomSettings';
+import { readRoomIntroSeen, writeRoomIntroSeen } from '@/lib/home-experience';
 import { FridgeSheet } from './components/FridgeSheet';
 import { ModeIntro, ModeToggle } from '@/features/home/shell/ModeToggle';
 import { useModeSwitch } from '@/features/home/shell/useModeSwitch';
@@ -443,6 +444,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const guestActive = guest.mode === 'active';
   // The one switch between the two homes (M14.1); the first 3D asked first, from the 2D home
   const modeSwitch = useModeSwitch();
+  // The room's introduction, the first time it opens on this device (read once; the choice is written on dismissal)
+  const [introOpen, setIntroOpen] = useState(() => !readRoomIntroSeen());
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [worldsOpen, setWorldsOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -959,7 +962,15 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         />
       </RoomShell>
       <FridgeSheet open={fridgeOpen} onClose={() => setFridgeOpen(false)} entries={fridgeEntries} onUse={onUse} busy={care.busy || !present || transitioning} blobbiName={blobbi.name} />
-      <ModeIntro open={modeSwitch.introOpen} onTry={modeSwitch.tryRoom} onStay={modeSwitch.stayHome} />
+      {/* The first visit to the room on this device (M14.2): a word about it, over the room itself, once */}
+      <ModeIntro
+        open={introOpen && !theater}
+        name={blobbi.name}
+        onExplore={(dontShowAgain) => {
+          if (dontShowAgain) writeRoomIntroSeen();
+          setIntroOpen(false);
+        }}
+      />
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
       {streakMoment?.milestone && <StreakMoment change={streakMoment} onDone={dismissStreakMoment} reducedMotion={reducedMotion} />}
       {theater && (
@@ -982,9 +993,6 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         onOpenWorlds={() => setWorldsOpen(true)}
         roomSettings={
           <RoomSettings
-            appearance={appearance}
-            onChange={setAppearance}
-            unavailable3d={actor3d.unavailable3d}
             quality={{ preference: quality.preference, level: quality.level, onChange: quality.setPreference }}
             zoom={{ value: zoom.value, onIn: () => zoom.by(ZOOM_STEP), onOut: () => zoom.by(1 / ZOOM_STEP), onReset: zoom.reset }}
           />
@@ -1044,6 +1052,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           setItemsOpen(true);
         }}
         usableItemCount={usableItemCount}
+        appearance={{ value: appearance, onChange: setAppearance, unavailable3d: actor3d.unavailable3d }}
         onOpenJourney={() => {
           setSheetOpen(false);
           setJourneyOpen(true);

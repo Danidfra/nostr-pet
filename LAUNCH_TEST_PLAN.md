@@ -163,6 +163,44 @@ Private window, nothing stored, a real relay set, sound on the phone.
     twenty-one actions take a while; on a second phone signed in with the
     same key the same count shows.)
 
+## 1d. M14.2 on a real iPhone: the ceremony, the living Blobbi, the walk
+
+Private window, nothing stored, Safari with its toolbars (the visible
+viewport, not the screen), sound on.
+
+1. **Meet your Blobbi!**, adopt "Lupa", hatch. Walk Lupa by tapping the
+   floor's far side. Expected: a lively hop across the floor in about three
+   seconds, the hops in step with the movement (nothing slides), no blur.
+2. Tap **On this device**. Expected: "Lupa's little world", three short
+   lines, "Good to know" folded, **Save Lupa** / **Maybe later**. No word
+   "relay" anywhere.
+3. ☰ → **Save Lupa**. Expected: "Ready to explore beyond this little
+   world?", the whole screen without scrolling, Lupa breathing and blinking
+   in the ring, its eyes following your finger's taps. **Let's go**.
+4. The key: the four facts, the key, Copy key or Download; the confirmation
+   comes into view by itself; **Save Lupa!**.
+5. **What should Lupa call you?**: as you type, Lupa looks down at the field
+   and looks curious; Continue: a hop and hearts; the dots show 2 of 3.
+   **Back** returns with the name kept. Picture: **Skip**. A line about you:
+   type a rude word, **Finish**: a friendly line, Lupa briefly displeased,
+   the text still yours to edit; fix it, **Finish**.
+6. Expected: "Giving Lupa a home…", then "Lupa has a new home!" with the
+   celebration (sparkles, a glow, a cheer), the two lines, **Back to Lupa**;
+   the top shows **Saved**.
+7. Keyboard open on step 5: the field and Continue stay visible (the column
+   scrolls if the screen is short), nothing is clipped. Rotate to landscape:
+   the portrait steps back, the field and the button remain.
+8. **3D β**: the room opens at once; after the egg's theatre (a new egg) or
+   right away (a baby), "Your 3D room" greets you once, naming Appearance;
+   **Let's explore**. Reload: no greeting. Tap **Lupa** in the dock →
+   **Appearance** → 3D: the model; 2D: the drawing. ☰ → 3D room: Graphics
+   and View only.
+9. In the room: walk the baby across. Expected: quicker than before (about
+   five seconds for the room), hops in step; an adult (another account)
+   unchanged.
+10. Settings → Accessibility → Reduce Motion on, repeat 3 to 6. Expected:
+    faces and eyes still change, no hops, no sparkles, no breathing.
+
 ## 2. The room (after choosing it: menu → Explore in 3D)
 
 1. Reload with a hatched, awake Blobbi: the room appears, then the Blobbi

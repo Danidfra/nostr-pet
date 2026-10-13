@@ -20,12 +20,17 @@ export interface ProfileFormInput {
 
 export type ProfileCheck = { ok: true; value: ProfileFormInput } | { ok: false; reason: string };
 
-/** Trim and bound the form; a picture must be an http(s) URL or empty. */
-export function checkProfileForm(input: ProfileFormInput): ProfileCheck {
+/**
+ * Trim and bound the form; a picture must be an http(s) URL or empty. The
+ * profile editor wants a name; the save ceremony's steps (M14.2) may give a
+ * picture or a line without one (`allowEmptyName`), and then the name is
+ * simply not set.
+ */
+export function checkProfileForm(input: ProfileFormInput, { allowEmptyName = false }: { allowEmptyName?: boolean } = {}): ProfileCheck {
   const name = input.name.trim().replace(/\s+/g, ' ');
   const about = input.about.trim();
   const picture = input.picture.trim();
-  if (name.length === 0) return { ok: false, reason: 'Pick a name, or skip this for now.' };
+  if (name.length === 0 && !allowEmptyName) return { ok: false, reason: 'Pick a name, or skip this for now.' };
   if (name.length > PROFILE_NAME_MAX) return { ok: false, reason: `Keep the name under ${PROFILE_NAME_MAX} characters.` };
   if (about.length > PROFILE_ABOUT_MAX) return { ok: false, reason: `Keep the bio under ${PROFILE_ABOUT_MAX} characters.` };
   if (picture) {
@@ -42,8 +47,10 @@ export function checkProfileForm(input: ProfileFormInput): ProfileCheck {
 /** The kind 0 content: the existing metadata with the form applied. */
 export function mergeProfileMetadata(existing: NostrMetadata | undefined, form: ProfileFormInput): NostrMetadata {
   const next: NostrMetadata = { ...(existing ?? {}) };
-  next.name = form.name;
-  if (!existing?.display_name || existing.display_name === existing.name) next.display_name = form.name;
+  if (form.name) {
+    next.name = form.name;
+    if (!existing?.display_name || existing.display_name === existing.name) next.display_name = form.name;
+  }
   if (form.about) next.about = form.about;
   else delete next.about;
   if (form.picture) next.picture = form.picture;

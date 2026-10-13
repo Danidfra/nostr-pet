@@ -59,6 +59,17 @@ export function inviteLine(name: string): string {
   return `${name} loves being with you. Want to take them on adventures?`;
 }
 
-/** What the player is told about where the Blobbi lives. One sentence, no fear. */
-export const DEVICE_ONLY_LINE = 'Your Blobbi lives on this device for now. Clearing your browser data or losing this device may erase it.';
-export const NO_STORAGE_LINE = 'This browser is not remembering anything right now (private browsing, or storage is blocked), so your Blobbi will be gone when you leave. Saving it to an account keeps it.';
+/**
+ * What the player is told about where the Blobbi lives (M14.2: a child's
+ * words, no relays). Two short sentences, honest, no fear.
+ */
+export function deviceOnlyLine(name: string): string {
+  return `Right now, ${name} lives only on this device. If its data disappears, ${name} could disappear too.`;
+}
+/** The same when this browser is remembering nothing (private browsing, storage blocked). */
+export function noStorageLine(name: string): string {
+  return `This browser is not remembering anything right now, so ${name} will be gone when you leave. Saving ${name} keeps it.`;
+}
+/** The line without a name, where none is known (the menu before a Blobbi). */
+export const DEVICE_ONLY_LINE = deviceOnlyLine('your Blobbi');
+export const NO_STORAGE_LINE = noStorageLine('your Blobbi');

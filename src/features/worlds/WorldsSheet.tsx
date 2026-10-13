@@ -76,7 +76,7 @@ export function WorldsSheet({ open, onClose, blobbi, onTravel, guest = false, on
       </ul>
       <p className="worlds-note" data-testid="worlds-note">
         {guest
-          ? `${blobbi.name} lives on this device for now, so no world knows it yet. Save your Blobbi and these doors open: the same Blobbi, under a key only you hold.`
+          ? `${blobbi.name} lives only on this device for now, so no world has met it yet. Save ${blobbi.name} and these doors open for the very same Blobbi.`
           : 'Each world is its own app. Your key never travels: the other world asks you to sign in there, the way you signed in here.'}
       </p>
     </GameOverlay>

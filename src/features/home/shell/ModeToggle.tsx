@@ -3,16 +3,18 @@
  * upper right of both, 2D over 3D β, the one in force marked. Choosing is
  * going there, and the choice is the device's default from then on (a
  * reload opens the same home); there is no separate "open in" setting any
- * more. The first time 3D is chosen on a device a short introduction asks
- * first (`ModeIntro`): the room is experimental, the 2D home is one tap
- * away, some things are still being built; Try 3D or Stay in 2D. After
- * that the switch is just a switch. Nothing here is published.
+ * more. The first time the room opens on a device a short introduction
+ * greets the player there (`ModeIntro`, M14.2): the room is experimental,
+ * the Blobbi's look here can be chosen (the drawing or the 3D model, in the
+ * Blobbi menu under Appearance), the 2D home is one tap away. "Let's
+ * explore" closes it; "Don't show this again" (on by default) keeps it from
+ * coming back. Nothing here is published.
  *
  * The toggle only says what was chosen; the page owns the switch
- * (`useModeSwitch`, its own file), so the introduction can rise over the
- * whole game.
+ * (`useModeSwitch`, its own file).
  */
-import { Armchair, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { Armchair, Palette, Sparkles } from 'lucide-react';
 import { GameOverlay } from './GameOverlay';
 import type { HomeExperience } from '@/lib/home-experience';
 
@@ -29,25 +31,37 @@ export function ModeToggle({ mode, onChoose, className = '' }: { mode: HomeExper
   );
 }
 
-/** The first time 3D is chosen on this device: a word about it, as part of the game. */
-export function ModeIntro({ open, onTry, onStay }: { open: boolean; onTry: () => void; onStay: () => void }) {
+export interface ModeIntroProps {
+  open: boolean;
+  /** The Blobbi's name, for the words. */
+  name?: string;
+  /** Closed, with whether the player asked not to see it again. */
+  onExplore: (dontShowAgain: boolean) => void;
+}
+
+/** The first time the room opens on this device: a word about it, as part of the game, over the room itself. */
+export function ModeIntro({ open, name = 'your Blobbi', onExplore }: ModeIntroProps) {
+  const [dismiss, setDismiss] = useState(true);
   return (
-    <GameOverlay open={open} onClose={onStay} title="Your 3D room" testId="mode-intro" size="medium">
+    <GameOverlay open={open} onClose={() => onExplore(dismiss)} title="Your 3D room" testId="mode-intro" size="medium">
       <div className="mode-intro">
         <p className="mode-intro__lead">
-          <Armchair aria-hidden /> Your Blobbi has a 3D home too: rooms to wander, furniture to move, a kitchen, a bath, a bed. The same Blobbi, the same care.
+          <Armchair aria-hidden /> Welcome to the 3D room. It is experimental, so some corners are rough and a few things are not there yet. The same {name}, the same care.
+        </p>
+        <p className="mode-intro__lead" data-testid="mode-intro-appearance">
+          <Palette aria-hidden /> You can choose how {name} looks here: the classic drawing or the 3D model. Tap {name} in the dock, then Appearance.
         </p>
         <ul className="mode-intro__points" aria-label="Good to know">
-          <li>It is still being built, so some corners are rough and a few things are not there yet.</li>
-          <li>The 2D home is always one tap away: the same switch, top right.</li>
+          <li>The 2D home is always one tap away. The same switch, top right.</li>
           <li>Whichever you choose opens next time too.</li>
         </ul>
-        <div className="mode-intro__actions">
-          <button type="button" className="onboard-btn onboard-btn--primary" onClick={onTry} data-testid="mode-intro-try">
-            <Sparkles className="h-4 w-4" aria-hidden /> Try 3D
-          </button>
-          <button type="button" className="onboard-btn onboard-btn--secondary" onClick={onStay} data-testid="mode-intro-stay">
-            Stay in 2D
+        <label className="mode-intro__check">
+          <input type="checkbox" checked={dismiss} onChange={(e) => setDismiss(e.target.checked)} data-testid="mode-intro-dismiss" />
+          <span>Don’t show this again</span>
+        </label>
+        <div className="mode-intro__actions mode-intro__actions--one">
+          <button type="button" className="onboard-btn onboard-btn--primary" onClick={() => onExplore(dismiss)} data-testid="mode-intro-explore">
+            <Sparkles className="h-4 w-4" aria-hidden /> Let’s explore
           </button>
         </div>
       </div>
