@@ -156,6 +156,7 @@ describe('the fixture route', () => {
     expect(localStorage.getItem('nostr:login')).toBe(STORED_LOGIN);
     // The room's menu: the fixture user is the one in it, and signing out there touches no real login
     fireEvent.click(screen.getByTestId('room-menu'));
+    fireEvent.click(await screen.findByTestId('menu-account'));
     const signOut = await screen.findByTestId('sign-out');
     expect(screen.getByTestId('login-type')).toHaveTextContent('');
     expect(screen.queryByTestId('key-backup-section')).toBeNull();

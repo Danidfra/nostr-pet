@@ -162,6 +162,7 @@ describe('Creating an account', () => {
     nothingLeaked(nsec);
     // The menu can show the key again for a backup; hidden until asked. The public id is there.
     await userEvent.click(screen.getByTestId('menu-button'));
+    await userEvent.click(await screen.findByTestId('menu-account'));
     const backup = await screen.findByTestId('key-backup-section');
     expect(screen.getByTestId('login-type')).toHaveTextContent(/secret key kept on this device/);
     expect(within(backup).getByTestId('nsec-box')).toHaveAttribute('data-shown', 'false');
@@ -279,6 +280,7 @@ describe('An existing account', () => {
     await screen.findByRole('group', { name: /care for your blobbi/i }, { timeout: 5000 });
     expect(relay.published).toHaveLength(0);
     await userEvent.click(screen.getByTestId('menu-button'));
+    await userEvent.click(await screen.findByTestId('menu-account'));
     expect(await screen.findByTestId('login-type')).toHaveTextContent(/browser extension/);
     expect(screen.queryByTestId('key-backup-section')).toBeNull();
   });
@@ -309,8 +311,8 @@ describe('An existing account', () => {
     renderHome();
     await screen.findByTestId('adoption-egg');
     await userEvent.click(screen.getByTestId('menu-button'));
+    await userEvent.click(await screen.findByTestId('menu-account'));
     const section = await screen.findByTestId('profile-section');
-    await userEvent.click(within(section).getByText('Edit your profile'));
     await waitFor(() => expect(within(section).getByTestId('profile-picture')).toHaveValue('https://x.test/p.png'));
     expect(published(0)).toHaveLength(0);
     await userEvent.type(within(section).getByTestId('profile-name'), 'Dana');
@@ -328,8 +330,8 @@ describe('An existing account', () => {
     renderHome();
     await screen.findByTestId('adoption-egg');
     await userEvent.click(screen.getByTestId('menu-button'));
+    await userEvent.click(await screen.findByTestId('menu-account'));
     const section = await screen.findByTestId('profile-section');
-    await userEvent.click(within(section).getByText('Edit your profile'));
     await userEvent.type(within(section).getByTestId('profile-name'), 'Dana');
     await userEvent.click(within(section).getByTestId('profile-save'));
     expect(await within(section).findByTestId('profile-error')).toHaveTextContent(/refused kind 0/);
@@ -366,6 +368,7 @@ describe('A signer app (NIP-46, nostrconnect://)', () => {
     await screen.findByRole('group', { name: /care for your blobbi/i }, { timeout: 5000 });
     expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '[]')[0]).toMatchObject({ type: 'bunker', pubkey: PUBKEY });
     await userEvent.click(screen.getByTestId('menu-button'));
+    await userEvent.click(await screen.findByTestId('menu-account'));
     expect(await screen.findByTestId('login-type')).toHaveTextContent(/remote signer/);
     spy.mockRestore();
   });

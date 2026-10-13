@@ -2,23 +2,30 @@
  * The room's bottom bar and what rides above it: Ditto's `RoomBottomBar`
  * and `BarLayout` (`ditto/src/pages/BlobbiPage.tsx`), over this app's care.
  *
- *   living room, kitchen, care room   the carousel, centred between two
- *                                     action slots (empty: this app has no
- *                                     camera, shovel or towel)
+ * Since M14.1 the bar is the room's one set of controls, around the
+ * carousel: on the LEFT the Blobbi (its details, the other Blobbis, its
+ * lifecycle, its items: the sheet the header's name opens too), on the
+ * RIGHT the room (decorating: furniture, wallpaper, flooring), with the
+ * carousel between them; the HUD above keeps only the room switcher and
+ * the needs.
+ *
+ *   living room, kitchen, care room   the carousel between the two
  *   a shelf a piece of furniture      the same, with Back in the right slot
- *   opened (the toy box elsewhere)
+ *   opened (the toy box elsewhere)    instead of the room
  *   bedroom (and anyone asleep)       Sleep or Wake, centred (Ditto's RestBar)
- *   closet                            a quiet line (Ditto's ClosetBar)
+ *   closet                            Coming soon, said kindly (M14.1)
  *
  * A use that failed and a short notice ride above the bar, where Ditto shows
  * its inline activities (`RoomCareCards`, the shell's `middleSlot`).
  */
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
-import { Moon, Sun, Undo2 } from 'lucide-react';
+import { Armchair, Moon, Shirt, Sun, Undo2 } from 'lucide-react';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
+import { BlobbiRenderer } from '@blobbi-kit/renderer';
 
 import type { RoomId } from '@/features/home/rooms/rooms';
 import { ItemCarousel } from '@/features/care-ui/ItemCarousel';
+import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { RoomActionButton } from './RoomActionButton';
 import { RoomOfferFailure } from './RoomCareParts';
 import type { RoomOffer } from '../hooks/useRoomCare';
@@ -52,21 +59,71 @@ export interface RoomCarouselBinding {
   highlight: boolean;
 }
 
+/** The two controls around the carousel (M14.1). */
+export interface RoomBarControls {
+  /** The Blobbi's own screen: details, the other Blobbis, lifecycle, items. */
+  onOpenBlobbi: () => void;
+  /** Decorate this room. */
+  onDecorate: () => void;
+  decorateDisabled?: boolean;
+  /** Why decorating is off (no 3D graphics), for the label. */
+  decorateUnavailable?: string | null;
+}
+
 interface RoomBottomBarProps {
-  blobbi: Pick<BlobbiCompanion, 'state' | 'stage'>;
+  blobbi: BlobbiCompanion;
   roomId: RoomId;
   carousel: RoomCarouselBinding | null;
   offer: RoomOffer | null;
   busy: boolean;
   onRest: () => void;
   restPending: boolean;
+  controls?: RoomBarControls;
 }
 
-export function RoomBottomBar({ blobbi, roomId, carousel, offer, busy, onRest, restPending }: RoomBottomBarProps) {
+/** The left button: the Blobbi itself, drawn small, as the way to everything about it. */
+function BlobbiButton({ blobbi, onClick }: { blobbi: RoomBottomBarProps['blobbi']; onClick: () => void }) {
+  return (
+    <RoomActionButton
+      icon={
+        <span className="room-bar-portrait" aria-hidden>
+          <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`bar-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
+        </span>
+      }
+      label={blobbi.name.length > 9 ? 'Blobbi' : blobbi.name}
+      color="text-primary"
+      glowHex="#a855f7"
+      onClick={onClick}
+      testId="room-bar-blobbi"
+    />
+  );
+}
+
+/** The right button: the room (decorating), or why it cannot be decorated here (the HUD button's former words). */
+function RoomButton({ controls }: { controls: RoomBarControls }) {
+  const off = !!controls.decorateDisabled || !!controls.decorateUnavailable;
+  return (
+    <RoomActionButton
+      icon={<Armchair />}
+      label="Room"
+      color="text-amber-600"
+      glowHex="#f59e0b"
+      onClick={controls.onDecorate}
+      disabled={off}
+      testId="room-bar-decorate"
+      ariaLabel={controls.decorateUnavailable ?? 'Decorate this room'}
+    />
+  );
+}
+
+export function RoomBottomBar({ blobbi, roomId, carousel, offer, busy, onRest, restPending, controls }: RoomBottomBarProps) {
   const asleep = blobbi.state === 'sleeping';
+  const left = controls ? <BlobbiButton blobbi={blobbi} onClick={controls.onOpenBlobbi} /> : undefined;
+  const room = controls ? <RoomButton controls={controls} /> : undefined;
   if (carousel && !asleep) {
     return (
       <BarLayout
+        left={left}
         center={
           <ItemCarousel
             items={carousel.entries}
@@ -80,13 +137,14 @@ export function RoomBottomBar({ blobbi, roomId, carousel, offer, busy, onRest, r
             highlight={carousel.highlight}
           />
         }
-        right={carousel.onClose && <RoomActionButton icon={<Undo2 />} label="Back" color="text-muted-foreground" glowHex="#94a3b8" onClick={carousel.onClose} testId="room-shelf-back" />}
+        right={carousel.onClose ? <RoomActionButton icon={<Undo2 />} label="Back" color="text-muted-foreground" glowHex="#94a3b8" onClick={carousel.onClose} testId="room-shelf-back" /> : room}
       />
     );
   }
   if (roomId === 'rest' || asleep) {
     return (
       <BarLayout
+        left={left}
         center={
           blobbi.stage !== 'egg' && (
             <RoomActionButton
@@ -101,15 +159,27 @@ export function RoomBottomBar({ blobbi, roomId, carousel, offer, busy, onRest, r
             />
           )
         }
+        right={room}
       />
     );
   }
+  // The closet: not open yet, and said so as part of the game (M14.1)
   return (
-    <div className={ROOM_BOTTOM_BAR_CLASS} data-testid="room-bar">
-      <div className="flex items-center justify-center gap-2 py-1">
-        <p className="text-xs text-muted-foreground/60 font-medium" data-testid="room-closet-hint">What your Blobbi wears is equipped on the Island.</p>
-      </div>
-    </div>
+    <BarLayout
+      left={left}
+      center={
+        <div className={cx('closet-soon', ROOM_CONTROL_SURFACE)} role="status" data-testid="room-closet-soon">
+          <span className="closet-soon__icon" aria-hidden>
+            <Shirt />
+          </span>
+          <span className="closet-soon__text">
+            <span className="closet-soon__title">Coming soon</span>
+            <span className="closet-soon__sub">Outfits are still being sewn. {blobbi.name}’s wardrobe opens in a later update.</span>
+          </span>
+        </div>
+      }
+      right={room}
+    />
   );
 }
 

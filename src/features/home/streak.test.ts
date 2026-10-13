@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STREAK_MILESTONES, detectStreakIncrease, streakLine } from './streak';
+import { STREAK_MILESTONES, detectStreakIncrease, flameDays, streakLine } from './streak';
 
 describe('streak detection', () => {
   it('notices only an increase between two authoritative values', () => {
@@ -20,5 +20,16 @@ describe('streak detection', () => {
     expect(streakLine({ from: 0, to: 1, milestone: false })).toBe('A new streak begins.');
     expect(streakLine({ from: 1, to: 2, milestone: false })).toBe('2 days in a row.');
     expect(streakLine({ from: 6, to: 7, milestone: true })).toBe('7 days in a row!');
+  });
+});
+
+describe('the flame (M14.1)', () => {
+  it('hides a streak of 1 until real care was given, shows 2 or more always, and nothing for none', () => {
+    expect(flameDays(1, false)).toBe(0);
+    expect(flameDays(1, true)).toBe(1);
+    expect(flameDays(2, false)).toBe(2);
+    expect(flameDays(7, true)).toBe(7);
+    expect(flameDays(undefined, true)).toBe(0);
+    expect(flameDays(0, true)).toBe(0);
   });
 });

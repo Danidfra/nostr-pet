@@ -95,7 +95,7 @@ describe('the /room preview', () => {
     relay.all = [blobbiEvent('0000000001', { name: 'Brook', stage: 'adult', state: 'active', visualGeneration: 'v3' })];
     renderAt('/room');
     await screen.findByTestId('room-blobbi-anchor');
-    const decorate = screen.getByRole('button', { name: /decorating needs 3D graphics/i });
+    const decorate = await screen.findByRole('button', { name: /decorating needs 3D graphics/i });
     expect(decorate).toBeDisabled();
   });
 });

@@ -430,6 +430,88 @@ Not published: the guest days' 1124 receipts (the care is in the 31124 tags).
 publish adapter, a ceiling over the write, a bounded wait for the baby, a
 re-read, then an honest "saved but not showing" with Check again and Reload.
 
+## Milestone 14.1: reliability, mobile controls, the first minutes
+
+What M14 left on a desktop test: Save my Blobbi and I already have an
+account did nothing from the 3D room. The room's menu set the guest
+request (`GuestUi`) but only the 2D `Home` page rendered the ceremony, the
+sign-in sheet and the conflict sheet; a player whose device remembered the
+room never saw them. The layers now live above both pages (`GuestLayers`,
+mounted beside the router's `Routes`), so a request made in either home is
+answered wherever the player is, and the ceremony survives the change of
+page that a save causes (signing in with the reserved key moves the room
+to the home while the Blobbi is published; a saved Blobbi may move the
+home to the room). `useGuestScene` decides what the layers show; the pages
+only read it to keep out of the way (the home does not send a player to
+the room under an open ceremony).
+
+**One switch for the two homes.** The three controls that chose a home
+(Explore in 3D, 2D home, Open in 3D) are one vertical toggle in the upper
+right of both homes, 2D over 3D β (`ModeToggle`, `useModeSwitch`). Choosing
+is going there, and the choice is the device's default from then on
+(`blobbi:home:experience`, as before). The first 3D on a device asks first
+(`ModeIntro`: experimental, the 2D home one tap away, some things still
+being built; Try 3D or Stay in 2D), then never again
+(`blobbi:home:3d-intro:v1`). New players still open in the 2D home.
+
+**The room's controls.** The dock is the room's one set: the Blobbi on the
+left (its sheet: numbers, lifecycle, the other Blobbis, items), the
+carousel between, the room on the right (decorating; Back when a piece of
+furniture opened a shelf). The HUD keeps the room switcher and the needs.
+The room's own settings (how the Blobbi is drawn, graphics quality, the
+view) moved from a HUD button into the game menu, the one settings entry
+(`RoomSettings` as a section of `MenuSheet`); sound is there as before.
+
+**Account.** The menu's account block is a tile that opens its own screen
+(`AccountSheet`): the profile editor (the standard kind 0, nothing written
+until Save), the secret-key backup for a key kept on this device, Sign out,
+the way to Ditto. A guest sees Save my Blobbi and I already have an account
+instead.
+
+**The first minutes.** The kit's hatch plan writes every stat at 100; this
+app publishes the hatch with a newborn's needs instead (`lifecycle/newborn.ts`:
+hunger 80, happiness 86, hygiene 88, energy 84, health 100; all within the
+schema and above the kit's baby warning line of 65), so the first care is
+wanted but nothing is in distress. The kit is untouched: the template it
+planned is adjusted by this app before the same publish. The care flame in
+the HUD lights only after real care (`flameDays`): the kit's egg template
+carries a streak of 1 and a hatch keeps it, so a flame for that would mean
+nothing; a streak of 2 or more is real care by definition, and 1 counts
+once a kind 1124 receipt exists (`journey/care-receipts.ts`, one read shared
+with the Journey; a guest's local world answers it like a relay) or care
+landed on this visit. Guest and registered hatches write the same needs.
+
+**The fridge.** A tap on the kitchen's refrigerator opens its door over the
+room (`FridgeSheet`): a fridge drawn in CSS, its light on, shelves with the
+food and drink the player has (the shelf's own entries, `shelfEntries`),
+how many of an owned item are left; choosing one hands it over through the
+room's own use path (the same write, spend and ledger as the carousel's
+Use). The closet says Coming soon as part of the game (`RoomBottomBar`);
+no clothing system was added.
+
+**Quieter relays.** The connection chip said "Some relays down" whenever
+one application relay logged a retry, which a phone does every time a
+backgrounded tab's socket is dropped and reconnects; on a real iPhone it
+kept coming back. Degraded (some relays failing, the rest serving) is a
+small dot now, with no word and nothing to press; the pill with Try again
+shows only when every application relay is failing or the browser is
+offline, and only once that has lasted `OFFLINE_HOLD_MS` (4 s). A failed
+write still says so where it was asked. A guest's room shows no chip at
+all (the 2D home already did not).
+
+**Sound on by default.** Nothing stored means on; a stored off stays off.
+The voice engine no longer schedules into a suspended AudioContext (a
+sound asked for outside a tap would otherwise queue and burst out with
+every other one at the first tap): it asks the context to resume, once at
+a time, and plays nothing until it runs; the next pointer or key event
+resumes it. No new audio library.
+
+Verified in Chrome (Playwright, phone 390×844, 320×568, landscape, desktop):
+the room's menu opens the ceremony and the sign-in sheet; the toggle sits
+under the menu button in both homes without overlapping it, the room
+switcher or the needs (the needs' arc moves left under 360 px); the fridge
+fits a phone; no console errors. Not verified: a real device.
+
 ## Milestone 13: MVP release readiness (M11)
 
 The pass that turns the M10 home into something that can be put in front

@@ -28,7 +28,9 @@ the kit, milestone by milestone.
   missions; every later egg earns its hatch.
 - **Sound, small and procedural.** A short Web Audio voice derived from the
   ecosystem's feeding sound. Nothing is downloaded, nothing is published,
-  and audio only starts after you touch the page. There is a mute.
+  and audio only starts after you touch the page. It is on by default (a
+  few soft creature sounds) and the menu's switch turns it off for good on
+  that device.
 
 ## Signing in
 
@@ -161,9 +163,11 @@ Two things to know:
   hand on the Blobbi ends it with everything given back (a write already
   out finishes, and stands). A room counts as seen only once its build has
   played whole in front of you; a build cut short plays again next time.
-  The header's name opens the Blobbi's details (numbers, lifecycle, your
-  other Blobbis, the whole inventory) and the ☰ the game menu (sound,
-  lighting, account, the classic home).
+  The header's name (and the dock's left button) opens the Blobbi's
+  details (numbers, lifecycle, your other Blobbis, the whole inventory); the
+  dock's right button decorates the room; the ☰ is the game menu (the
+  account, the room's settings, sound, lighting). The 2D/3D switch in the
+  upper right of both homes is the way between them, and remembers itself.
 - **The room's dev tools** are one **Dev Tools** pill in the corner (dev
   builds with the flag). It opens a bottom sheet on a phone, a side panel on
   a wide screen, with one view at a time: Animations (the room transitions,

@@ -7,7 +7,7 @@
  * art and for an egg; and none of it publishes.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
 import { NostrLoginProvider } from '@nostrify/react/login';
@@ -16,7 +16,7 @@ import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 import AppRouter from '@/AppRouter';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
-import { EXPERIENCE_STORAGE_KEY, DEFAULT_EXPERIENCE, parseExperience, readExperience } from '@/lib/home-experience';
+import { EXPERIENCE_STORAGE_KEY, DEFAULT_EXPERIENCE, ROOM_INTRO_STORAGE_KEY, parseExperience, readExperience } from '@/lib/home-experience';
 
 const currentUser = vi.hoisted(() => ({ user: undefined as { pubkey: string; signer: unknown } | undefined }));
 vi.mock('@/hooks/useCurrentUser', () => ({
@@ -75,57 +75,79 @@ describe('the room in the app', () => {
     renderAt('/');
     await onClassicHome();
     expect(screen.queryByTestId('room-shell')).toBeNull();
-    fireEvent.click(screen.getByTestId('menu-button'));
-    expect(screen.getByTestId('open-room')).toHaveAttribute('href', '/room');
-    expect(screen.getByTestId('room-first-toggle')).toHaveAttribute('aria-checked', 'false');
-    fireEvent.click(screen.getByTestId('open-room'));
+    // The one switch (M14.1), upper right: 3D asks first on a new device, then goes and remembers
+    expect(screen.getByTestId('mode-toggle')).toHaveAttribute('data-mode', 'classic');
+    fireEvent.click(screen.getByTestId('mode-3d'));
+    expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBeNull();
+    fireEvent.click(await screen.findByTestId('mode-intro-try'));
     await inRoom();
     expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('room');
-    // One home: no way "back" in the header; the 2D home is the menu's
+    expect(screen.getByTestId('mode-toggle')).toHaveAttribute('data-mode', 'room');
+    // One home: no way "back" in the header; the 2D home is the switch's
     expect(screen.queryByTestId('room-back')).toBeNull();
     expect(relay.published).toEqual([]);
   });
 
-  it('the 2D home stays reachable from the room: its menu opens it without bouncing back, and remembers the choice', async () => {
+  it('the 2D home stays reachable from the room: the switch opens it without bouncing back, remembers the choice, and 3D asks nothing the second time', async () => {
     signedInWith();
     localStorage.setItem(EXPERIENCE_STORAGE_KEY, 'room');
+    localStorage.setItem(ROOM_INTRO_STORAGE_KEY, 'seen');
     renderAt('/');
     await inRoom();
-    fireEvent.click(screen.getByTestId('room-menu'));
-    expect(screen.getByTestId('open-classic')).toHaveAttribute('href', '/');
-    fireEvent.click(screen.getByTestId('open-classic'));
+    expect(screen.getByTestId('mode-toggle')).toHaveAttribute('data-mode', 'room');
+    fireEvent.click(screen.getByTestId('mode-2d'));
     await onClassicHome();
     expect(screen.queryByTestId('room-shell')).toBeNull();
     expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('classic');
-    fireEvent.click(screen.getByTestId('menu-button'));
-    expect(screen.getByTestId('room-first-toggle')).toHaveAttribute('aria-checked', 'false');
-    fireEvent.click(screen.getByTestId('open-room'));
+    expect(screen.getByTestId('mode-toggle')).toHaveAttribute('data-mode', 'classic');
+    fireEvent.click(screen.getByTestId('mode-3d'));
+    expect(screen.queryByTestId('mode-intro')).toBeNull();
     await inRoom();
     expect(relay.published).toEqual([]);
   });
 
-  it('a player who chose the classic home keeps it: they open there, and the switch brings the room back', async () => {
+  it('a player who chose the classic home keeps it: they open there; the first 3D introduction can be declined, and nothing changes', async () => {
     signedInWith();
     localStorage.setItem(EXPERIENCE_STORAGE_KEY, 'classic');
     renderAt('/');
     await onClassicHome();
     expect(screen.queryByTestId('room-shell')).toBeNull();
-    fireEvent.click(screen.getByTestId('menu-button'));
-    fireEvent.click(screen.getByTestId('room-first-toggle'));
+    fireEvent.click(screen.getByTestId('mode-3d'));
+    const intro = await screen.findByTestId('mode-intro');
+    expect(intro).toHaveTextContent(/still being built/);
+    fireEvent.click(screen.getByTestId('mode-intro-stay'));
+    expect(screen.queryByTestId('mode-intro')).toBeNull();
+    expect(screen.queryByTestId('room-shell')).toBeNull();
+    expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('classic');
+    // Declined once: the next 3D goes straight there
+    expect(localStorage.getItem(ROOM_INTRO_STORAGE_KEY)).toBe('seen');
+    fireEvent.click(screen.getByTestId('mode-3d'));
+    expect(screen.queryByTestId('mode-intro')).toBeNull();
+    await inRoom();
     expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('room');
   });
 
-  it('the room\'s settings switch the preference back, and their Classic home link does not bounce', async () => {
+  it('the menu is the one settings entry: in the room it holds the room\'s own settings, sound and the account; the dock holds the Blobbi and the room', async () => {
     signedInWith();
     localStorage.setItem(EXPERIENCE_STORAGE_KEY, 'room');
     renderAt('/room');
     await inRoom();
-    fireEvent.click(screen.getByTestId('room-settings-toggle'));
-    expect(screen.getByTestId('room-first-toggle')).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(screen.getByTestId('room-first-toggle'));
-    expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('classic');
-    fireEvent.click(screen.getByTestId('room-classic-home'));
-    await onClassicHome();
+    expect(screen.queryByTestId('room-settings-toggle')).toBeNull();
+    fireEvent.click(screen.getByTestId('room-menu'));
+    const menu = screen.getByTestId('menu-sheet');
+    expect(within(menu).getByTestId('menu-room-settings')).toBeInTheDocument();
+    expect(within(menu).getByTestId('room-appearance-panel')).toBeInTheDocument();
+    expect(within(menu).getByTestId('room-quality-select')).toBeInTheDocument();
+    expect(within(menu).getByTestId('sound-toggle')).toBeInTheDocument();
+    expect(within(menu).getByTestId('menu-account')).toBeInTheDocument();
+    expect(within(menu).queryByTestId('open-classic')).toBeNull();
+    expect(within(menu).queryByTestId('room-first-toggle')).toBeNull();
+    fireEvent.click(screen.getByTestId('menu-sheet-close'));
+    // The dock: the Blobbi on the left opens its sheet; the room on the right says why it cannot decorate here
+    fireEvent.click(screen.getByTestId('room-bar-blobbi'));
+    expect(await screen.findByTestId('room-blobbi-sheet')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('room-bar-decorate')).toBeDisabled());
+    expect(screen.getByTestId('room-bar-decorate')).toHaveAccessibleName(/decorating needs 3D graphics/i);
   });
 
   it('a signed-out visitor gets the welcome, at / and at /room alike', async () => {
@@ -145,7 +167,7 @@ describe('the room in the app', () => {
     expect(screen.getByTestId('room-blobbi-anchor')).toBeInTheDocument();
     expect(screen.getByTestId('room-status-hud')).toBeInTheDocument();
     expect(await screen.findByTestId('room-item-use')).toBeEnabled();
-    expect(screen.getByRole('button', { name: /decorating needs 3D graphics/i })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: /decorating needs 3D graphics/i })).toBeDisabled();
   });
 
   it('changing rooms, the graphics quality, the Blobbi\'s look and the sound stays on this device: nothing is published, only local preferences are written', async () => {
@@ -155,10 +177,11 @@ describe('the room in the app', () => {
     const before = new Set(Object.keys(localStorage));
     fireEvent.click(screen.getByTestId('room-nav-right'));
     fireEvent.click(screen.getByTestId('room-nav-right'));
-    fireEvent.click(screen.getByTestId('room-settings-toggle'));
+    fireEvent.click(screen.getByTestId('room-menu'));
     fireEvent.change(screen.getByTestId('room-quality-select'), { target: { value: 'low' } });
     expect(localStorage.getItem('blobbi:room:quality')).toBe('low');
-    fireEvent.click(screen.getByTestId('room-sound-toggle'));
+    fireEvent.click(screen.getByTestId('sound-toggle'));
+    fireEvent.click(screen.getByTestId('menu-sheet-close'));
     fireEvent.click(screen.getByTestId('room-nav-left'));
     // Whatever was written is a local preference or the room's own memory, never an event
     await new Promise((r) => setTimeout(r, 50));

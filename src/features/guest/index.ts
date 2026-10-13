@@ -15,3 +15,5 @@ export { SaveCeremony } from './SaveCeremony';
 export { useFinishSave } from './useFinishSave';
 export { INVITE_DELAY_MS, INVITE_REST_MS } from './guest-session';
 export type { MigrationStep, MigrationProgress, MigrationOutcome } from './guest-migration';
+export { GuestLayers } from './GuestLayers';
+export { useGuestScene } from './useGuestScene';

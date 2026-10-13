@@ -227,6 +227,24 @@
     border-color: hsl(40 90% 55% / 0.7);
     color: hsl(35 80% 30%);
   }
+  /* Degraded, or an outage that may still mend: a small amber dot, no words, nothing to press (M14.1) */
+  .conn-dot {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 9999px;
+    background: hsl(40 90% 55%);
+    box-shadow: 0 0 0 2px hsl(var(--background) / 0.8);
+    animation: conn-dot-breathe 2.4s ease-in-out infinite;
+  }
+  .conn-dot[data-level='offline'] { background: hsl(0 75% 60%); }
+  @keyframes conn-dot-breathe {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .conn-dot { animation: none; opacity: 0.85; }
+  }
   .conn-chip--offline {
     border-color: hsl(0 75% 60% / 0.7);
     color: hsl(0 65% 38%);
@@ -4197,7 +4215,172 @@
   .savescene[data-reduced='true'] .savescene__ring { animation: none; transition: none; }
   .keyscene__intro { max-width: 26rem; margin: 0 auto; font-size: 0.92rem; line-height: 1.45; opacity: 0.9; text-align: center; }
 
+  /* The guest's sheets above whichever page is shown: the pages' own frame, fixed over the viewport, letting every
+     touch through except the sheet's own (M14.1) */
+  .guest-layers { position: fixed; inset: 0; z-index: 60; pointer-events: none; background: none; }
+  .guest-layers .game-column { box-shadow: none; }
+  .guest-layers .overlay-root { pointer-events: auto; }
+
   /* A world card that is the way to save rather than a door */
   .world-card--guest { cursor: pointer; }
   .world-card--guest .world-card__badge { background: hsl(45 100% 88%); color: hsl(30 70% 22%); }
+}
+
+/* ─── M14.1: the home switch, the 3D introduction, the room's dock controls, the closet, the fridge ─── */
+@layer components {
+  /* The one switch between the two homes: upper right of both, under the HUD, vertical, compact (M14.1) */
+  .game-corner {
+    position: absolute;
+    top: calc(3.9rem + env(safe-area-inset-top, 0px));
+    right: calc(0.75rem + env(safe-area-inset-right, 0px));
+    z-index: 21;
+  }
+  .mode-toggle {
+    display: inline-flex;
+    flex-direction: column;
+    padding: 0.2rem;
+    border-radius: 9999px;
+    background: hsl(var(--card) / 0.85);
+    border: 1px solid hsl(var(--border) / 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 6px 20px -12px hsl(var(--foreground) / 0.5);
+  }
+  .mode-toggle__option {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: hsl(var(--foreground) / 0.65);
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+  .mode-toggle__option--on {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    box-shadow: 0 4px 12px -6px hsl(var(--primary) / 0.9);
+  }
+  .mode-toggle__option:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--card)), 0 0 0 4px hsl(var(--ring));
+  }
+  .mode-toggle__beta {
+    position: absolute;
+    top: 0.15rem;
+    right: 0.25rem;
+    font-size: 0.55rem;
+    font-weight: 700;
+    opacity: 0.85;
+  }
+  /* In the room the switch stands in the HUD's end slot, which is sized for a round button: let it hang below. On the
+     narrowest phones the needs' arc under it moves a little left, out from under it. */
+  .room-hud .mode-toggle { margin-top: -0.2em; }
+  @media (max-width: 359px) {
+    .room-hud__status { padding-right: 3.6rem; }
+  }
+
+  .mode-intro { display: flex; flex-direction: column; gap: 0.9rem; padding-top: 0.25rem; }
+  .mode-intro__lead { display: flex; gap: 0.6rem; align-items: flex-start; font-size: 0.95rem; line-height: 1.45; }
+  .mode-intro__lead svg { width: 1.5rem; height: 1.5rem; flex: none; color: hsl(var(--primary)); margin-top: 0.1rem; }
+  .mode-intro__points { display: flex; flex-direction: column; gap: 0.4rem; padding-left: 1.1rem; font-size: 0.85rem; color: hsl(var(--muted-foreground)); list-style: disc; }
+  .mode-intro__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; padding-top: 0.25rem; }
+
+  /* The room's settings as a menu section (no longer a floating panel) */
+  .room-settings { display: flex; flex-direction: column; gap: 0.35rem; border-radius: 1.25rem; border: 1px solid hsl(var(--border) / 0.7); background: hsl(var(--card)); padding: 0.6rem; }
+
+  /* The dock's left button: the Blobbi itself, small */
+  .room-bar-portrait { display: block; width: 2.4em; height: 2.4em; }
+
+  /* The closet, not open yet: a kind card where the carousel would be */
+  .closet-soon {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    max-width: 100%;
+    padding: 0.55em 0.9em;
+    border-radius: 1.25em;
+    text-align: left;
+  }
+  .closet-soon__icon { display: inline-flex; width: 2.4em; height: 2.4em; align-items: center; justify-content: center; border-radius: 9999px; background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); flex: none; }
+  .closet-soon__icon svg { width: 1.3em; height: 1.3em; }
+  .closet-soon__text { display: flex; flex-direction: column; min-width: 0; }
+  .closet-soon__title { font-size: 0.9em; font-weight: 800; }
+  .closet-soon__sub { font-size: 0.72em; line-height: 1.3; color: hsl(var(--muted-foreground)); }
+
+  /* The fridge, open over the room (M14.1): CSS only, in the Blobbi palette */
+  .fridge-root { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 1rem; padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+  .fridge-backdrop { position: absolute; inset: 0; background: hsl(255 40% 10% / 0.45); animation: fridge-dim 220ms ease-out both; }
+  @keyframes fridge-dim { from { opacity: 0; } to { opacity: 1; } }
+  .fridge {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 22rem);
+    max-height: min(82dvh, 36rem);
+    border-radius: 1.6rem 1.6rem 1.2rem 1.2rem;
+    background: linear-gradient(180deg, #f8fbff 0%, #e6f2fb 100%);
+    border: 3px solid #cfe3f3;
+    box-shadow: inset 0 0 0 4px #ffffff, 0 30px 60px -30px hsl(210 60% 20% / 0.7), 0 0 0 1px hsl(210 30% 60% / 0.3);
+    outline: none;
+    animation: fridge-open 260ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+    transform-origin: 100% 50%;
+  }
+  @keyframes fridge-open { from { opacity: 0; transform: perspective(900px) rotateY(-14deg) scale(0.96); } to { opacity: 1; transform: none; } }
+  .fridge__top { position: relative; height: 1.9rem; flex: none; }
+  .fridge__magnet { position: absolute; top: 0.55rem; width: 0.8rem; height: 0.8rem; border-radius: 9999px; box-shadow: 0 1px 2px hsl(0 0% 0% / 0.2); }
+  .fridge__magnet--a { left: 1rem; background: #f472b6; }
+  .fridge__magnet--b { left: 2.1rem; top: 0.75rem; width: 0.65rem; height: 0.65rem; background: #facc15; }
+  .fridge__note { position: absolute; right: 3.4rem; top: 0.45rem; padding: 0.15rem 0.5rem; border-radius: 0.25rem; background: #fef9c3; font-size: 0.65rem; font-weight: 700; color: #92400e; transform: rotate(-3deg); box-shadow: 0 1px 2px hsl(0 0% 0% / 0.15); }
+  .fridge__title { padding: 0 3rem 0.5rem 1.1rem; font-size: 1rem; font-weight: 800; color: hsl(210 40% 22%); }
+  .fridge__close { position: absolute; top: 0.6rem; right: 0.7rem; display: inline-flex; width: 2.5rem; height: 2.5rem; align-items: center; justify-content: center; border-radius: 9999px; background: #ffffff; color: hsl(210 40% 30%); box-shadow: 0 2px 6px hsl(210 40% 20% / 0.15); }
+  .fridge__close:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px hsl(var(--ring)); }
+  .fridge__inside {
+    position: relative;
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: 0 0.7rem;
+    padding: 0.9rem 0.6rem 0.4rem;
+    border-radius: 0.9rem;
+    background: linear-gradient(180deg, #dbeafe 0%, #e0f2fe 60%, #d9eefb 100%);
+    box-shadow: inset 0 10px 24px -14px hsl(210 60% 30% / 0.55), inset 0 -6px 14px -10px hsl(210 60% 30% / 0.35);
+  }
+  .fridge__light { position: absolute; top: 0; left: 50%; width: 70%; height: 3.5rem; transform: translateX(-50%); background: radial-gradient(ellipse at 50% 0%, hsl(50 100% 92% / 0.95), transparent 70%); pointer-events: none; }
+  .fridge__shelves { position: relative; display: flex; flex-direction: column; gap: 0.5rem; }
+  .fridge__shelf { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.35rem; padding: 0.3rem 0.2rem 0.65rem; min-height: 4.6rem; }
+  .fridge__shelf-edge { position: absolute; left: -0.2rem; right: -0.2rem; bottom: 0; height: 0.45rem; border-radius: 0.2rem; background: linear-gradient(180deg, #ffffff, #cfe3f3); box-shadow: 0 2px 3px hsl(210 40% 30% / 0.25); }
+  .fridge__item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    width: 4.4rem;
+    min-height: 3.9rem;
+    padding: 0.25rem 0.2rem 0.3rem;
+    border-radius: 0.8rem;
+    color: hsl(210 40% 20%);
+    transition: transform 120ms ease, background-color 120ms ease;
+  }
+  .fridge__item:hover { background: hsl(0 0% 100% / 0.45); }
+  .fridge__item:active { transform: scale(0.95); }
+  .fridge__item:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+  .fridge__item--off { opacity: 0.5; }
+  .fridge__glyph { display: block; width: 2.2rem; height: 2.2rem; filter: drop-shadow(0 2px 2px hsl(210 40% 20% / 0.25)); }
+  .fridge__name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.66rem; font-weight: 700; }
+  .fridge__count { position: absolute; top: 0.1rem; right: 0.15rem; padding: 0 0.3rem; border-radius: 9999px; background: #ffffff; font-size: 0.6rem; font-weight: 800; color: hsl(210 40% 30%); box-shadow: 0 1px 2px hsl(0 0% 0% / 0.15); }
+  .fridge__empty { padding: 1.5rem 0.5rem; text-align: center; font-size: 0.85rem; color: hsl(210 30% 35%); }
+  .fridge__blocked { margin: 0.4rem 1rem 0; text-align: center; font-size: 0.75rem; font-weight: 600; color: hsl(25 80% 35%); }
+  .fridge__handle { position: absolute; left: 0.15rem; top: 42%; width: 0.4rem; height: 5rem; border-radius: 9999px; background: linear-gradient(90deg, #ffffff, #cfe3f3); box-shadow: 0 2px 4px hsl(210 40% 30% / 0.3); }
+  .fridge { padding-bottom: 0.9rem; }
+  @media (prefers-reduced-motion: reduce) {
+    .fridge, .fridge-backdrop { animation: none; }
+  }
 }

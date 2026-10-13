@@ -4,6 +4,7 @@ import Home from '@/pages/Home';
 import NotFound from '@/pages/NotFound';
 import { ROOM_PATH } from '@/lib/home-experience';
 import { RoomLoading } from '@/features/room/RoomLoading';
+import { GuestLayers } from '@/features/guest/GuestLayers';
 
 /**
  * The 3D room (`/room`, beta): in every build, loaded only when visited
@@ -22,7 +23,10 @@ const RoomLab = import.meta.env.DEV ? lazy(() => import('@/features/room/RoomLab
  */
 export function AppRouter({ devLab = null }: { devLab?: ReactNode }) {
   return (
-    <Routes>
+    <>
+      {/* The guest's save, sign-in and conflict layers, above whichever home is shown (M14.1) */}
+      <GuestLayers />
+      <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/dev" element={devLab ?? <NotFound />} />
       <Route
@@ -44,7 +48,8 @@ export function AppRouter({ devLab = null }: { devLab?: ReactNode }) {
         />
       )}
       <Route path="*" element={<NotFound />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }
 

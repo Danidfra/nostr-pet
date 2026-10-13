@@ -24,7 +24,6 @@ import {
   BLOBBI_V3_RETIRED_TAG_NAMES,
   KIND_BLOBBI_STATE,
   KIND_BLOBBONAUT_PROFILE,
-  STAT_MAX,
   VISUAL_GENERATION_TAG,
   getTagValue,
   parseEvolutionContent,
@@ -35,6 +34,7 @@ import {
 import { EVOLVE_MISSIONS, clearEvolutionFromStorage, createHatchMissions, planHatchTransition } from '@blobbi-kit/react';
 
 import Home from '@/pages/Home';
+import { NEWBORN_STATS, withNewbornStats } from '@/features/lifecycle/newborn';
 import { finalizeTemplate } from '@/features/care/usePublishAdapter';
 import { SceneSettingsProvider } from '@/features/home/scene';
 import { PUBKEY, blobbiEvent, earlierBlobbiEvent, legacyShapeEvent, profileEvent } from '@/test/fixtures';
@@ -206,13 +206,14 @@ describe('A fresh account: the first Blobbi is ready to hatch at once, and the p
     expect(getTagValue(baby.tags, 'd')).toBe(getTagValue(egg.tags, 'd'));
     expect(getTagValue(baby.tags, 'stage')).toBe('baby');
     expect(getTagValue(baby.tags, 'state')).toBe('active');
-    for (const stat of ['hunger', 'happiness', 'health', 'hygiene', 'energy']) expect(getTagValue(baby.tags, stat)).toBe(String(STAT_MAX));
+    // A newborn starts healthy but not full (M14.1, `lifecycle/newborn.ts`): the kit's plan, this app's first needs
+    for (const stat of ['hunger', 'happiness', 'health', 'hygiene', 'energy'] as const) expect(getTagValue(baby.tags, stat)).toBe(String(NEWBORN_STATS[stat]));
     expect(getTagValue(baby.tags, 'progression_state')).toBe('evolving');
     expect(parseEvolutionContent(baby.content).map((m) => m.id).sort()).toEqual(EVOLVE_MISSIONS.map((m) => m.id).sort());
-    // Exactly the kit's own plan for this egg at that moment, finished the way every publish here is.
+    // Exactly the kit's own plan for this egg at that moment, with this app's newborn needs, finished the way every publish here is.
     const now = Number(getTagValue(baby.tags, 'last_interaction'));
     const plan = planHatchTransition({ companion: parseModernBlobbiEvent(egg)!, content: egg.content, allTags: egg.tags, profileAllTags: [] }, now);
-    expect(baby.tags).toEqual(finalizeTemplate(plan.event, baby.created_at).tags);
+    expect(baby.tags).toEqual(finalizeTemplate(withNewbornStats(plan.event), baby.created_at).tags);
     expect(baby.content).toBe(plan.event.content);
 
     // The V3 identity is the egg's: its address (the same d) under Algorithm 1; no algorithm, colour, trait or seed tag on either.

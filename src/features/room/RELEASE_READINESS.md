@@ -818,3 +818,24 @@ apex 307 and http 308 to `https://www.`. Missing assets were 200 HTML
   nsec signing (`m14-play-first.test.tsx`).
 - **Not verified:** any real device. The guest path and the save on a real
   iPhone are the next `LAUNCH_TEST_PLAN.md` run (section 1b).
+
+## M14.1: reliability, mobile UX, the first minutes (2026-10-13)
+
+- **Fixed:** Save my Blobbi and I already have an account did nothing from
+  the 3D room (the room set the guest request, only the 2D page rendered
+  it). The guest layers stand above both pages now (`GuestLayers`).
+- **Relay chip:** degraded is a dot, the pill only for a lasting outage
+  (4 s); a guest's room shows none. Genuine write failures are still said
+  where they happen.
+- **Controls:** one 2D/3D switch (upper right, both homes; the first 3D
+  asks); the room's dock holds the Blobbi (left) and the room (right)
+  around the carousel; the room's settings are a section of the menu; the
+  account is a tile that opens its own screen.
+- **First minutes:** a newborn's needs are 80 to 88 (health 100), the flame
+  lights only after real care; the fridge opens over the room; the closet
+  says Coming soon; sound is on by default, off stays off.
+- **Verified:** typecheck, lint, the full suite at half the workers, the
+  production build; `m14-1-reliability.test.tsx` (the room's two buttons,
+  the switch, a guest's and a registered hatch's first needs, the flame);
+  Chrome at four viewports with no console errors.
+- **Not verified:** a real device (`LAUNCH_TEST_PLAN.md` section 1c).

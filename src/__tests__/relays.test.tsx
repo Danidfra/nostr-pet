@@ -139,7 +139,8 @@ describe('Relay hints: discovery', () => {
     const kindsAsked = (url: string) => new Set(network.relay(url).requests.flat().flatMap((f) => f.kinds ?? []));
     expect(kindsAsked(DREAMITH)).toEqual(new Set([31632]));
     for (const f of network.relay(DREAMITH).requests.flat()) expect(f.authors).toEqual(['9efb8d3045ba753f3664d503308b49783356b26a6d5f4b944bfac4239afe63a9']);
-    expect(kindsAsked(APP)).toEqual(new Set([31124, 11125, 31125, 31633, 1416, 1417, 31632, 31634]));
+    // 1124: the care receipts, read once for the Journey and the HUD's flame (M14.1)
+    expect(kindsAsked(APP)).toEqual(new Set([31124, 11125, 31125, 31633, 1416, 1417, 31632, 31634, 1124]));
     expect(kindsAsked(DITTO).has(31124)).toBe(false);
     // Nothing was published anywhere for reading.
     expect(network.published()).toEqual([]);

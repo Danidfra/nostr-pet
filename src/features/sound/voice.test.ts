@@ -100,7 +100,7 @@ describe('the voice engine', () => {
     expect(ctx.state).toBe('running');
   });
 
-  it('creates the context lazily on the first play and never before, resumes it when suspended, and builds the munch graph', () => {
+  it('creates the context lazily on the first play and never before, asks a suspended one to resume and plays nothing into it, and builds the munch graph once it runs', () => {
     let created = 0;
     const ctx = fakeAudioContext('suspended');
     const engine = createVoiceEngine(() => {
@@ -111,9 +111,13 @@ describe('the voice engine', () => {
     expect(engine.hasContext()).toBe(false);
     engine.resume(); // nothing to resume yet: creates nothing
     expect(created).toBe(0);
-    expect(engine.play(VOICE.poke)).toBe(true);
+    // Suspended (made outside a gesture): asked to resume, nothing scheduled, so nothing bursts out later (M14.1)
+    expect(engine.play(VOICE.poke)).toBe(false);
     expect(created).toBe(1);
     expect(ctx.resumes).toBe(1);
+    expect(ctx.nodes.filter((n) => n.kind === 'osc')).toHaveLength(0);
+    // The fake answered at once: running, and the next play builds its graph
+    expect(engine.play(VOICE.poke)).toBe(true);
     const before = ctx.nodes.filter((n) => n.kind === 'osc').length;
     engine.play(VOICE.eat);
     expect(created).toBe(1);

@@ -157,12 +157,12 @@ describe('Home: one Blobbi', () => {
     expect(await screen.findByRole('img', { name: 'Brook' })).toBeInTheDocument();
     expect(document.querySelector('[data-testid="blobbi-actor"] [data-blobbi-renderer]')).toHaveAttribute('data-blobbi-generation', 'v1');
     expect(chip()).toHaveTextContent('Brook');
-    // The scene itself carries no panels: no rings, no badges, no selector.
+    // The scene itself carries no panels: no rings, no badges, no selector (the home switch top right is the one radiogroup, M14.1).
     expect(screen.queryByRole('group', { name: /care status/i })).toBeNull();
-    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: /blobbi|room/i })).toBeNull();
 
     await openBlobbiSheet();
-    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: /blobbi|room/i })).toBeNull();
     expect(screen.getByTestId('stage-badge')).toHaveTextContent('Baby');
     expect(screen.getByTestId('state-badge')).toHaveTextContent('Awake');
 

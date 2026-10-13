@@ -6,6 +6,8 @@ interface GameShellProps {
   bottom?: ReactNode;
   /** Game overlays, rendered last inside the column so they stack over it and stay anchored to it. */
   overlays?: ReactNode;
+  /** A control pinned to the column's upper right, under the HUD (the home switch, M14.1). */
+  corner?: ReactNode;
 }
 
 /**
@@ -14,12 +16,13 @@ interface GameShellProps {
  * device safe areas. On wide screens the frame sits centred at a
  * comfortable width, so the home stays a room and not a banner.
  */
-export function GameShell({ top, scene, bottom, overlays }: GameShellProps) {
+export function GameShell({ top, scene, bottom, overlays, corner }: GameShellProps) {
   return (
     <div className="game-shell" data-testid="game-shell">
       <div className="game-frame">
         <div className="game-column">
           {top}
+          {corner && <div className="game-corner">{corner}</div>}
           <div className="game-scene">{scene}</div>
           {bottom}
           {/* Overlays are layers of the game, so they live inside the game column:

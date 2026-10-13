@@ -6,3 +6,6 @@ export { GameOverlay } from './GameOverlay';
 export { BlobbiSheet } from './BlobbiSheet';
 export { MenuSheet } from './MenuSheet';
 export { ConnectionChip } from './ConnectionChip';
+export { AccountSheet } from './AccountSheet';
+export { ModeToggle, ModeIntro } from './ModeToggle';
+export { useModeSwitch } from './useModeSwitch';

@@ -15,6 +15,7 @@ import {
 import { usePublishAdapter } from '@/features/care';
 import { DITTO_URL } from '@/config/ecosystem';
 import { buildLifecycleView, type LifecycleView } from './lifecycle-view';
+import { withNewbornStats } from './newborn';
 
 export type LifecycleAction = 'start-incubation' | 'stop-incubation' | 'hatch' | 'start-evolution' | 'stop-evolution' | 'evolve';
 
@@ -90,7 +91,10 @@ export function useLifecycle({ blobbi, profile, pubkey, updateCompanionEvent, in
   const stopIncubationMutation = useStopIncubation(shared);
   const startEvolutionMutation = useStartEvolution(shared);
   const stopEvolutionMutation = useStopEvolution(shared);
-  const hatchMutation = useBlobbiHatch(shared);
+  // A newborn starts healthy but not full (`newborn.ts`): the kit's plan, this app's first needs, the same publish
+  const { publish } = publisher;
+  const hatchPublish = useCallback<typeof publish>((template) => publish(withNewbornStats(template)), [publish]);
+  const hatchMutation = useBlobbiHatch({ ...shared, publish: hatchPublish });
   const evolveMutation = useBlobbiEvolve(shared);
 
   const run = useCallback(

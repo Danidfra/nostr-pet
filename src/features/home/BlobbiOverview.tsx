@@ -15,7 +15,8 @@ import type { FeedbackResult } from './care-feedback-text';
 import { describeMood } from './mood';
 import { type CareChoice, type CareVerb } from './care-model';
 import { homeCareEntries, type CareEntry } from '@/features/care-ui/care-entries';
-import { detectStreakIncrease, type StreakChange } from './streak';
+import { detectStreakIncrease, flameDays, type StreakChange } from './streak';
+import { useCareGiven } from '@/features/journey/care-receipts';
 import { HOME_SPACE, STAGE_OBJECTS, type StageObjectKind } from './space/home-space';
 import { FurnitureLayer, RoomBackdrop, approachSpot, surfaceBackground, type Placement } from './rooms';
 import {
@@ -35,6 +36,8 @@ import {
   type FloorPoint,
 } from './scene';
 import { ActionBar, BlobbiSheet, CareOptions, GameShell, HudTop, MenuSheet } from './shell';
+import { ModeIntro, ModeToggle } from './shell/ModeToggle';
+import { useModeSwitch } from './shell/useModeSwitch';
 import { StreakMoment } from './StreakMoment';
 import { HatchTheater } from '@/features/room/components/HatchTheater';
 import { INVITE_DELAY_MS, inviteDue, useGuest, useGuestUi } from '@/features/guest';
@@ -209,6 +212,9 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // A hop, fresh chips, a face and a word each time a care action lands.
   const [resultKey, setResultKey] = useState(0);
   const [feedback, setFeedback] = useState<FeedbackResult | undefined>(undefined);
+  // Real care landed on this visit (the flame may light before the receipts are read back, M14.1)
+  const [caredThisVisit, setCaredThisVisit] = useState(false);
+  const careGiven = useCareGiven(pubkey, caredThisVisit);
   const lastResult = care.lastResult;
   const handledResultRef = useRef<typeof lastResult>(undefined);
   const { reactToCare, celebrate } = scene;
@@ -219,6 +225,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     const r = lastResult as CareResult;
     setResultKey((k) => k + 1);
     setFeedback(r);
+    setCaredThisVisit(true);
     reactToCare(r);
     const sound = soundForCare(r.action, r.nextState);
     if (sound) play(sound);
@@ -270,6 +277,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         finishTimerRef.current = null;
         setOffer(null);
         retireTub();
+        // Real care landed (the flame may light, M14.1), whether or not the result was already applied
+        setCaredThisVisit(true);
         if (r.alreadyApplied) return;
         setResultKey((k) => k + 1);
         setFeedback({ action: r.action, name: r.name, statsChanged: r.statsChanged, xpGained: r.xpGained, nextState: 'active', itemName: r.item.name });
@@ -623,7 +632,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   // An item on the way or in use, or a walk to a piece, holds the verbs; a write in flight is `pendingAction`'s.
   const busyWithObject = offer !== null || stage?.phase === 'walking';
-  const streakForHud = useMemo(() => ({ days: blobbi.careStreak ?? 0, bumpKey: streakBump }), [blobbi.careStreak, streakBump]);
+  // The flame only after real care, never for hatching alone (`flameDays`, M14.1)
+  const streakForHud = useMemo(() => ({ days: flameDays(blobbi.careStreak, careGiven), bumpKey: streakBump }), [blobbi.careStreak, careGiven, streakBump]);
 
   // A guest's home (M14): once the hatched Blobbi has really been cared for and the home is quiet, one small
   // invitation to save it, once per visit; Maybe later rests it for a day. The menu keeps the way at all times.
@@ -655,10 +665,13 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     setInvite(false);
     dismissInvite();
   }, [dismissInvite]);
+  // The one switch between the two homes (M14.1), upper right; the first 3D asks first
+  const modeSwitch = useModeSwitch();
 
   return (
     <GameShell
       top={<HudTop blobbi={blobbi} mood={mood} statItems={statItems} streak={streakForHud} onOpenBlobbi={openBlobbiSheet} onOpenMenu={() => setMenuOpen(true)} connection={connection} />}
+      corner={<ModeToggle mode={modeSwitch.mode} onChoose={modeSwitch.choose} />}
       scene={
         <HomeScene
           ref={sceneRef}
@@ -801,6 +814,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       }
       overlays={
         <>
+          <ModeIntro open={modeSwitch.introOpen} onTry={modeSwitch.tryRoom} onStay={modeSwitch.stayHome} />
           {theater && (
             <HatchTheater
               blobbi={blobbi}

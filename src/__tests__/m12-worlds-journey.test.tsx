@@ -120,7 +120,7 @@ describe('worlds from the room', () => {
     expect(within(menu).queryByTestId('enter-island')).toBeNull();
     expect(within(menu).queryByText('Blobbi Island')).toBeNull();
     // The rest of the menu stays: the classic home, and the account
-    expect(within(menu).getByTestId('open-classic')).toBeInTheDocument();
+    expect(within(menu).getByTestId('menu-room-settings')).toBeInTheDocument();
     expect(within(menu).getByRole('heading', { name: /account/i })).toBeInTheDocument();
     // The Worlds door still leads to the Island
     await userEvent.keyboard('{Escape}');

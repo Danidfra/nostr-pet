@@ -24,9 +24,11 @@ interface RoomActionButtonProps {
   className?: string;
   onPointerDown?: PointerEventHandler<HTMLButtonElement>;
   testId?: string;
+  /** What the button is for a reader, when the label under it is not the whole story (why it is off). */
+  ariaLabel?: string;
 }
 
-export function RoomActionButton({ icon, label, color, glowHex, onClick, disabled, loading, glow, className, onPointerDown, testId }: RoomActionButtonProps) {
+export function RoomActionButton({ icon, label, color, glowHex, onClick, disabled, loading, glow, className, onPointerDown, testId, ariaLabel }: RoomActionButtonProps) {
   return (
     <button
       type="button"
@@ -34,6 +36,8 @@ export function RoomActionButton({ icon, label, color, glowHex, onClick, disable
       disabled={disabled}
       onPointerDown={onPointerDown}
       aria-busy={loading || undefined}
+      aria-label={ariaLabel}
+      title={ariaLabel}
       data-testid={testId}
       className={cx(
         'flex flex-col items-center gap-[0.3em] transition-all duration-300 ease-out rounded-2xl',

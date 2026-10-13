@@ -283,8 +283,10 @@ describe('M14: play first', () => {
     await userEvent.click(screen.getByTestId('menu-button'));
     const menu = await screen.findByTestId('menu-sheet');
     expect(within(menu).queryByTestId('menu-guest')).toBeNull();
-    expect(within(menu).getByTestId('sign-out')).toBeInTheDocument();
-    expect(within(menu).getByTestId('login-type')).toHaveTextContent(/secret key/);
+    await userEvent.click(within(menu).getByTestId('menu-account'));
+    const account = await screen.findByTestId('account-sheet');
+    expect(within(account).getByTestId('sign-out')).toBeInTheDocument();
+    expect(within(account).getByTestId('login-type')).toHaveTextContent(/secret key/);
     // The secret never went to a relay or the console
     for (const spy of consoleSpies) for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain(doc.identity.nsec.slice(5));
     expect(JSON.stringify(relay.published)).not.toContain(doc.identity.nsec.slice(5));
@@ -376,6 +378,7 @@ describe('M14: play first', () => {
     expect(screen.getByTestId('adoption-footnote')).toHaveTextContent(/saves the egg to your account/);
     // Signing out brings the guest back
     await userEvent.click(screen.getByTestId('menu-button'));
+    await userEvent.click(await screen.findByTestId('menu-account'));
     await userEvent.click(await screen.findByTestId('sign-out'));
     await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
     expect(homeStage()).toBe('baby');

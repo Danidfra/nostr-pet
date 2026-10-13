@@ -112,6 +112,44 @@ Private window, nothing stored, a real relay set. Note times.
 10. Reduced motion on (Settings → Accessibility → Motion): steps 1 to 6
     again, faster, nothing rocks; the words tell it.
 
+## 1c. M14.1 on a real iPhone: the controls, the room's buttons, the first minutes
+
+Private window, nothing stored, a real relay set, sound on the phone.
+
+1. **Meet your Blobbi!**, adopt, four taps. Expected: a crack sound at each
+   tap (sound is on by default); the baby; **no flame** in the HUD yet; the
+   Blobbi's details show hunger around 80, happiness 86, hygiene 88,
+   energy 84, health 100.
+2. Feed the apple. Expected: the flame appears with **1**; the invitation
+   bubble a few seconds later; Maybe later.
+3. The switch top right: **3D β**. Expected: "Your 3D room" asks first;
+   **Stay in 2D** keeps the 2D home; **3D β** again goes straight to the
+   room; reload at the root opens the room; the switch shows 3D in force.
+   Portrait and landscape: the switch never covers the menu, the room's
+   name or the needs.
+4. In the room: the dock shows **Pip** (left), the carousel, **Room**
+   (right). Pip opens the details; Room opens decorating; the HUD has no
+   settings button. ☰ → **3D room** section (Blobbi appearance, Graphics,
+   View), Sound, Home lighting, **Save my Blobbi**, **I already have an
+   account**. Expected: **Save my Blobbi** opens the save scene over the
+   room with Pip in the glow; Maybe later returns to the room. **I already
+   have an account** opens the sign-in sheet; Close returns.
+5. Kitchen (switcher ←): tap the refrigerator. Expected: the fridge opens
+   over the room, the foods on its shelves, nothing cut off; tap the apple:
+   the door closes, Pip walks to the dish and eats; "Fed Pip". The × and
+   the dark around it close it.
+6. Closet (switcher ← twice): the dock says **Coming soon**, nothing
+   broken, Pip and Room still there.
+7. **2D** on the switch: the 2D home; reload: still the 2D home.
+8. Background the app for a minute, bring it back. Expected: at most a
+   small amber dot top right for a moment, never the "Some relays down"
+   pill; care still lands. Airplane mode for ten seconds: the red pill
+   "Offline" with a retry only after a few seconds; back online, it goes.
+9. ☰ → Sound off; reload: still off. On again: the next tap makes a sound,
+   nothing bursts out all at once.
+10. After saving (1b, step 6): ☰ → **Account** tile → the Account screen
+    with the profile form, the key backup and Sign out.
+
 ## 2. The room (after choosing it: menu → Explore in 3D)
 
 1. Reload with a hatched, awake Blobbi: the room appears, then the Blobbi

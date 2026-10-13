@@ -4,23 +4,31 @@ import { SOUND_STORAGE_KEY, type BlobbiSoundId } from './sounds';
 import { createVoiceEngine, type VoiceEngine } from './voice-engine';
 
 /**
- * The Blobbi's voice, behind one device-local preference. Off by default:
- * a game that starts making noise is a game people mute. When on, a sound
+ * The Blobbi's voice, behind one device-local preference. On by default
+ * since M14.1 (a few soft creature sounds, never music or notifications),
+ * off with one switch in the menu, the choice kept on this device. When on, a sound
  * is asked for by meaning (`play('poke')`) and synthesized on the spot
  * (`blobbi-voice.ts`, `voice-engine.ts`); no files, no fetch.
  *
- * The AudioContext is created the first time a sound is played, which is
- * always inside a user's tap (a care, a poke), so autoplay policy lets it
- * run; turning sound on also resumes a suspended context on the next
- * pointer or key event. Reduced motion is a separate preference and does
- * not mute. A sound never reaches Nostr and never touches game state; a
- * page without Web Audio simply plays nothing.
+ * The AudioContext is created the first time a sound is played. Inside a
+ * user's tap (a care, a poke) autoplay policy lets it run; a sound asked
+ * for outside one (a reveal, a scene opening) finds the context suspended,
+ * and the engine then plays NOTHING and asks for a resume at most once per
+ * gesture, never scheduling into a context that would let it all out at
+ * once later; the next pointer or key event resumes it. Reduced motion is
+ * a separate preference and does not mute. A sound never reaches Nostr and
+ * never touches game state; a page without Web Audio simply plays nothing.
+ */
+/**
+ * On unless the player turned it off (M14.1): a stored `off` is kept, a
+ * stored `on` too, and nothing stored means on. A browser that refuses
+ * storage plays on for the session.
  */
 function readStored(): boolean {
   try {
-    return typeof window !== 'undefined' && window.localStorage.getItem(SOUND_STORAGE_KEY) === 'on';
+    return typeof window === 'undefined' || window.localStorage.getItem(SOUND_STORAGE_KEY) !== 'off';
   } catch {
-    return false;
+    return true;
   }
 }
 

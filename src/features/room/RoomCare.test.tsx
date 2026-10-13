@@ -243,7 +243,9 @@ describe('the room\'s items', () => {
     expect(screen.queryByTestId('room-item-carousel')).toBeNull();
     expect(screen.getByTestId('room-rest')).toHaveTextContent('Sleep');
     await goTo('closet');
-    expect(screen.getByTestId('room-closet-hint')).toHaveTextContent(/Island/);
+    // The closet is not open yet, and says so as part of the game (M14.1)
+    expect(screen.getByTestId('room-closet-soon')).toHaveTextContent(/Coming soon/);
+    expect(screen.queryByTestId('room-item-carousel')).toBeNull();
     await goTo('care');
     expect(focusOn('Soap', 'owned')).toHaveTextContent('×1');
     expect(carouselItems().some((i) => /Ball|Apple/.test(i.name))).toBe(false);
@@ -597,14 +599,20 @@ describe('furniture', () => {
     await waitFor(() => expect(kinds().filter((k) => k === KIND_BLOBBI_STATE)).toHaveLength(2), { timeout: 3000 });
   });
 
-  it('the fridge points at the kitchen\'s own items; a toy box set in the kitchen opens its toys, and closes back to the kitchen\'s', async () => {
+  it('the fridge opens its door over the room with the kitchen\'s own food, and a food chosen there is given through the same use; a toy box set in the kitchen opens its toys, and closes back to the kitchen\'s', async () => {
     renderRoom();
     await ready();
     await goTo('kitchen');
     tapItemAt(roomFurnitureFor('kitchen').findIndex((p) => p.id === 'official:fridge'));
-    // Ditto's guide ring on the middle card, for a moment
-    expect(middle().className).toContain('ring-primary');
+    // The fridge (M14.1): food and drink on its shelves, nothing else; the carousel is untouched
+    const fridge = await screen.findByTestId('fridge');
+    const foods = within(fridge).getAllByTestId('fridge-item').map((i) => i.textContent ?? '');
+    expect(foods.some((t) => /Apple/.test(t))).toBe(true);
+    expect(foods.some((t) => /Soap|Ball/.test(t))).toBe(false);
+    expect(within(fridge).getAllByTestId('fridge-shelf').length).toBeGreaterThan(0);
     expect(screen.queryByTestId('room-shelf-back')).toBeNull();
+    fireEvent.click(screen.getByTestId('fridge-close'));
+    expect(screen.queryByTestId('fridge')).toBeNull();
     // Decorate: a toy box in the kitchen, saved for the session
     fireEvent.click(screen.getByRole('button', { name: /decorate this room/i }));
     fireEvent.click(screen.getByTestId('catalog-official:toybox'));
@@ -618,6 +626,16 @@ describe('furniture', () => {
     expect(carouselItems().some((i) => i.name === 'Apple')).toBe(true);
     await quiet(200);
     expect(relay.published).toEqual([]);
+    // Chosen from the fridge: the room's own use (the walk, then the same writes as the carousel's Use)
+    tapItemAt(roomFurnitureFor('kitchen').findIndex((p) => p.id === 'official:fridge'));
+    const apple = within(await screen.findByTestId('fridge')).getAllByTestId('fridge-item').find((i) => /Apple/.test(i.textContent ?? ''))!;
+    expect(apple).toHaveAttribute('data-usable', 'true');
+    fireEvent.click(apple);
+    expect(screen.queryByTestId('fridge')).toBeNull();
+    await awaitWalk();
+    settleWalk('arrived');
+    await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Fed Brook/), { timeout: 3000 });
   });
 });
 
@@ -632,7 +650,7 @@ describe('2D and 3D, one Blobbi, one care', () => {
     await awaitWalk();
     settleWalk('arrived');
     // Back to 2D while the write is out
-    fireEvent.click(screen.getByTestId('room-settings-toggle'));
+    fireEvent.click(screen.getByTestId('room-menu'));
     fireEvent.click(screen.getByTestId('room-appearance-2d'));
     expect(shell()).toHaveAttribute('data-blobbi-render', '2d');
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 3000 });

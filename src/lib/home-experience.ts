@@ -65,3 +65,26 @@ export interface FromRoomState {
 export function cameFromRoom(state: unknown): boolean {
   return !!state && typeof state === 'object' && (state as Partial<FromRoomState>).fromRoom === true;
 }
+
+/**
+ * Whether the 3D room's introduction was seen on this device (M14.1): the
+ * first choice of 3D opens it (experimental, the 2D home one tap away,
+ * some things still being built); after that the switch is just a switch.
+ */
+export const ROOM_INTRO_STORAGE_KEY = 'blobbi:home:3d-intro:v1';
+
+export function readRoomIntroSeen(storage: Pick<Storage, 'getItem'> | null = storageOrNull()): boolean {
+  try {
+    return storage?.getItem(ROOM_INTRO_STORAGE_KEY) === 'seen';
+  } catch {
+    return false;
+  }
+}
+
+export function writeRoomIntroSeen(storage: Pick<Storage, 'setItem'> | null = storageOrNull()): void {
+  try {
+    storage?.setItem(ROOM_INTRO_STORAGE_KEY, 'seen');
+  } catch {
+    /* the introduction may show again on this browser; nothing else is lost */
+  }
+}

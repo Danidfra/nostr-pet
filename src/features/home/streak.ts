@@ -31,3 +31,16 @@ export function streakLine(change: StreakChange): string {
   if (change.to === 1) return 'A new streak begins.';
   return `${change.to} days in a row.`;
 }
+
+/**
+ * What the HUD's flame shows (M14.1): the streak, but only once the player
+ * has really cared. A fresh egg carries a streak of 1 from the kit's own
+ * template and a hatch keeps it, so a flame for that would light for
+ * nothing; a streak of 2 or more is real care by definition, and 1 counts
+ * once a care receipt exists (or care landed on this visit). Zero hides it.
+ */
+export function flameDays(careStreak: number | undefined, careGiven: boolean): number {
+  const days = careStreak ?? 0;
+  if (days >= 2) return days;
+  return careGiven ? days : 0;
+}

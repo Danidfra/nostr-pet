@@ -33,7 +33,8 @@ import { MenuSheet } from '@/features/home/shell';
 import { InventorySheet, useWornEquipment } from '@/features/inventory';
 import { ownedEntry } from '@/features/care-ui/care-entries';
 import { useFirstBlobbiHatch, useLifecycle, type CeremonyKind } from '@/features/lifecycle';
-import { detectStreakIncrease, type StreakChange } from '@/features/home/streak';
+import { detectStreakIncrease, flameDays, type StreakChange } from '@/features/home/streak';
+import { useCareGiven } from '@/features/journey/care-receipts';
 import { StreakMoment } from '@/features/home/StreakMoment';
 import { describeMood } from '@/features/home/mood';
 import type { StatItem } from '@/features/home/BlobbiStatusPanel';
@@ -86,7 +87,10 @@ import { resolveFurniture, type FurnitureInteraction } from './lib/furniture-3d'
 import { MAIN_BLOBBI, blobbiReachTiles } from './lib/room-geometry';
 import type { FurniturePlacement } from './lib/room-furniture';
 import { planDrop, planUse, shelfEntries, shelfKey, type CareShelf, type DropPlace, type RoomCareEntry } from './lib/room-care';
-import { RoomAppearanceControl } from './components/RoomAppearanceControl';
+import { RoomSettings } from './components/RoomSettings';
+import { FridgeSheet } from './components/FridgeSheet';
+import { ModeIntro, ModeToggle } from '@/features/home/shell/ModeToggle';
+import { useModeSwitch } from '@/features/home/shell/useModeSwitch';
 import { useBlobbiAppearance } from './lib/blobbi-appearance';
 import { ZOOM_STEP, useRoomZoom } from './lib/room-zoom';
 import { useRoomSession } from './lib/room-session';
@@ -332,6 +336,10 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // The room on screen: its scene's status, and whether the first room's fold-in has played (a room seen before, or
   // reduced motion, has none to wait for)
   const [sceneStatus, setSceneStatus] = useState<RoomSceneStatus | null>(null);
+  // The scene's status as last reported, whatever the arrival is doing: decorating needs the 3D room, and the dock's
+  // room button says why when there is none (M14.1)
+  const [shellStatus, setShellStatus] = useState<RoomSceneStatus | null>(null);
+  const sceneIs3d = shellStatus !== 'unavailable';
   const [entryBuilt, setEntryBuilt] = useState(() => transitions.roomEntry.intro !== 'build' || reducedMotion);
   const markSeen = memory.markSeen;
   const onRoomBuilt = useCallback((id: RoomId) => {
@@ -344,6 +352,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const arrivalWaiting = arrival === 'waiting';
   const onSceneStatus = useCallback((status: RoomSceneStatus) => {
     navStatus(status);
+    setShellStatus(status);
     if (arrivalWaiting) setSceneStatus(status);
   }, [navStatus, arrivalWaiting]);
   const enterPresence = presence.enter;
@@ -431,6 +440,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const guest = useGuest();
   const guestUi = useGuestUi();
   const guestActive = guest.mode === 'active';
+  // The one switch between the two homes (M14.1); the first 3D asked first, from the 2D home
+  const modeSwitch = useModeSwitch();
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [worldsOpen, setWorldsOpen] = useState(false);
   const [adoptOpen, setAdoptOpen] = useState(false);
@@ -438,7 +449,10 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const careFeedbackKey = care.feedback?.key;
   const careFeedbackAction = care.feedback?.result.action;
   useEffect(() => {
-    if (careFeedbackKey !== undefined && careFeedbackAction) noteCare(careFeedbackAction);
+    if (careFeedbackKey !== undefined && careFeedbackAction) {
+      noteCare(careFeedbackAction);
+      setCaredThisVisit(true);
+    }
   }, [careFeedbackKey, careFeedbackAction, noteCare]);
   useEffect(() => {
     if (isSleeping) noteNapped();
@@ -541,7 +555,10 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     setStreakMoment(change);
   }, [blobbi.careStreak]);
   const dismissStreakMoment = useCallback(() => setStreakMoment(null), []);
-  const streak = useMemo(() => ({ days: blobbi.careStreak ?? 0, bumpKey: streakBump }), [blobbi.careStreak, streakBump]);
+  // The flame only after real care, never for hatching alone (`flameDays`, M14.1): the same rule as the 2D home's
+  const [caredThisVisit, setCaredThisVisit] = useState(false);
+  const careGiven = useCareGiven(pubkey, caredThisVisit);
+  const streak = useMemo(() => ({ days: flameDays(blobbi.careStreak, careGiven), bumpKey: streakBump }), [blobbi.careStreak, careGiven, streakBump]);
   const usableItemCount = care.inventory.items.filter((i) => i.usability.ok && !i.unverified).length;
 
   // What the strip shows: the room's own shelf, or what a piece of furniture opened (until the room changes)
@@ -744,10 +761,19 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       setAttention({ x: Math.max(-0.8, Math.min(0.8, across * 0.25)), y: p.x + p.y > at.x + at.z ? 0.4 : -0.1 });
     }
   }, [markActivity, play, placements, controlRef]);
+  // The fridge opens its door over the room (M14.1, `FridgeSheet`): the same entries a shelf would show, the same use
+  const [fridgeOpen, setFridgeOpen] = useState(false);
+  const fridgeEntries = useMemo(() => shelfEntries({ kind: 'furniture', label: FURNITURE_SHELVES.fridge.label, activities: FURNITURE_SHELVES.fridge.activities }, care.inventory), [care.inventory]);
+  useEffect(() => setFridgeOpen(false), [roomId]);
   const onInteract = useCallback((interaction: FurnitureInteraction, index: number) => {
     if (interaction === 'bed') {
       const p = placements[index];
       rest(p ? { x: p.x, z: p.y } : null);
+      return;
+    }
+    if (interaction === 'fridge') {
+      markActivity();
+      setFridgeOpen(true);
       return;
     }
     const opened = FURNITURE_SHELVES[interaction];
@@ -755,7 +781,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     const same = opened.activities.length === own.length && opened.activities.every((a) => own.includes(a));
     setFurnitureShelf(same ? null : { kind: 'furniture', label: opened.label, activities: opened.activities });
     setPulse(true);
-  }, [placements, rest, roomId]);
+  }, [placements, rest, roomId, markActivity]);
 
   const offer = care.offer;
   const offerGlyph = offer?.choice.entry.item.glyph ?? null;
@@ -836,8 +862,6 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         furniturePlacements={placements}
         pointerHandlers={pointerHandlers}
         {...nav.shellProps}
-        onDecorate={decorator.open}
-        decorateDisabled={care.busy || interactions.activity !== null || !present || transitioning}
         // Its life is the app's (useRoomLife): it ambles only when nothing else is going on
         blobbiWanders={false}
         onInteract={onInteract}
@@ -859,7 +883,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             onOpenMenu={() => setMenuOpen(true)}
             onOpenWorlds={() => setWorldsOpen(true)}
             onOpenJourney={() => setJourneyOpen(true)}
-            connection={connection}
+            // A guest's world is on this device: the relays' health is not its business (M14)
+            connection={guestActive ? undefined : connection}
             streak={streak}
           />
         }
@@ -875,7 +900,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           </>
         }
         blobbiModel={actor3d.model}
-        hudEnd={<RoomAppearanceControl appearance={appearance} onChange={setAppearance} unavailable3d={actor3d.unavailable3d} quality={{ preference: quality.preference, level: quality.level, onChange: quality.setPreference }} zoom={{ value: zoom.value, onIn: () => zoom.by(ZOOM_STEP), onOut: () => zoom.by(1 / ZOOM_STEP), onReset: zoom.reset }} />}
+        // The one switch between the two homes (M14.1), upper right under the header; the room's settings are the menu's
+        hudEnd={<ModeToggle mode={modeSwitch.mode} onChoose={modeSwitch.choose} />}
         quality={quality.settings}
         // The camera speaks the scene's units; the player's 100% is the former 80% view (`room-zoom.ts`)
         zoom={zoom.scene}
@@ -922,8 +948,17 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           busy={care.busy || !present || transitioning}
           onRest={() => rest(bed)}
           restPending={care.restPending}
+          // The dock's two controls (M14.1): the Blobbi on the left, the room on the right
+          controls={{
+            onOpenBlobbi: () => setSheetOpen(true),
+            onDecorate: decorator.open,
+            decorateDisabled: !sceneIs3d || care.busy || interactions.activity !== null || !present || transitioning,
+            decorateUnavailable: sceneIs3d ? null : 'Decorating needs 3D graphics, which this browser has turned off',
+          }}
         />
       </RoomShell>
+      <FridgeSheet open={fridgeOpen} onClose={() => setFridgeOpen(false)} entries={fridgeEntries} onUse={onUse} busy={care.busy || !present || transitioning} blobbiName={blobbi.name} />
+      <ModeIntro open={modeSwitch.introOpen} onTry={modeSwitch.tryRoom} onStay={modeSwitch.stayHome} />
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
       {streakMoment?.milestone && <StreakMoment change={streakMoment} onDone={dismissStreakMoment} reducedMotion={reducedMotion} />}
       {theater && (
@@ -938,7 +973,20 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           savingNote={guestActive ? 'Keeping the hatch on this device' : undefined}
         />
       )}
-      <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} inRoom />
+      <MenuSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        inRoom
+        roomSettings={
+          <RoomSettings
+            appearance={appearance}
+            onChange={setAppearance}
+            unavailable3d={actor3d.unavailable3d}
+            quality={{ preference: quality.preference, level: quality.level, onChange: quality.setPreference }}
+            zoom={{ value: zoom.value, onIn: () => zoom.by(ZOOM_STEP), onOut: () => zoom.by(1 / ZOOM_STEP), onReset: zoom.reset }}
+          />
+        }
+      />
       <WorldsSheet
         open={worldsOpen}
         onClose={() => setWorldsOpen(false)}

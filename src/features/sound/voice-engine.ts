@@ -6,8 +6,9 @@
  *                  never before (browsers keep a context made outside a
  *                  user gesture suspended; making it inside the tap that
  *                  wants the sound is what lets it play). One per page.
- *   resume         a suspended context is resumed on each play; if the
- *                  browser refuses, the sound is simply not heard
+ *   resume         a suspended context is asked to resume (once at a time)
+ *                  and the sound is NOT scheduled: nothing queues up to
+ *                  play all at once later; the next gesture resumes it
  *   scheduling     every layer is an OscillatorNode with its pitch points
  *                  ramped exponentially over its duration and a GainNode
  *                  envelope (fast linear attack, hold, exponential release
@@ -43,6 +44,17 @@ export interface VoiceEngine {
 
 export function createVoiceEngine(createContext: () => AudioContext | null = defaultCreateContext): VoiceEngine {
   let ctx: AudioContext | null = null;
+  // A play's own ask to resume, while unanswered: a second play does not ask again (a gesture always may)
+  let asking = false;
+  const askResume = (ac: AudioContext, fromGesture: boolean) => {
+    if (asking && !fromGesture) return;
+    asking = true;
+    ac.resume()
+      .catch(() => {})
+      .finally(() => {
+        asking = false;
+      });
+  };
   const context = (): AudioContext | null => {
     if (ctx) return ctx;
     try {
@@ -57,7 +69,12 @@ export function createVoiceEngine(createContext: () => AudioContext | null = def
     try {
       const ac = context();
       if (!ac) return false;
-      if (ac.state === 'suspended') void ac.resume().catch(() => {});
+      // Suspended (made outside a gesture, or the browser's autoplay rule): ask once to resume and play NOTHING now; a
+      // sound scheduled into a suspended context would wait and burst out with every other one at the first tap (M14.1)
+      if (ac.state === 'suspended') {
+        askResume(ac, false);
+        return false;
+      }
       const now = ac.currentTime;
       const pitch = variant.pitch > 0 ? variant.pitch : 1;
       const time = variant.time > 0 ? variant.time : 1;
@@ -151,7 +168,7 @@ export function createVoiceEngine(createContext: () => AudioContext | null = def
     play,
     hasContext: () => ctx !== null,
     resume: () => {
-      if (ctx && ctx.state === 'suspended') void ctx.resume().catch(() => {});
+      if (ctx && ctx.state === 'suspended') askResume(ctx, true);
     },
     suspend: () => {
       if (ctx && ctx.state === 'running') void ctx.suspend().catch(() => {});

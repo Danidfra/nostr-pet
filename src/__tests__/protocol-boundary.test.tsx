@@ -268,7 +268,7 @@ describe('The 3D room keeps the boundary', () => {
     carry(middleOf('owned'), 300, -40);
     await new Promise((r) => setTimeout(r, 0));
     for (const side of ['room-nav-left', 'room-nav-right', 'room-nav-right'] as const) fireEvent.click(screen.getByTestId(side));
-    fireEvent.click(screen.getByTestId('room-settings-toggle'));
+    fireEvent.click(screen.getByTestId('room-menu'));
     fireEvent.click(screen.getByTestId('room-appearance-3d'));
     fireEvent.click(screen.getByTestId('room-appearance-2d'));
     await new Promise((r) => setTimeout(r, 300));

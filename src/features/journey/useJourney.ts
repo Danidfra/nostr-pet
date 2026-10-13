@@ -17,16 +17,12 @@
  * old player is not greeted by four at once.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
-import { KIND_BLOBBI_INTERACTION, getUnlocks, parseInteractionEvent, xpToLevel, type BlobbiCompanion, type BlobbonautProfile } from '@blobbi-kit/core';
-import { timeoutSignal } from '@/lib/abort';
+import { getUnlocks, xpToLevel, type BlobbiCompanion, type BlobbonautProfile } from '@blobbi-kit/core';
 import type { LifecycleTask } from '@/features/lifecycle';
 import { buildJourney, newlyFinished, type CareAction, type Chapter, type ChapterId } from './journey';
+import { CARE_ACTIONS as ACTIONS, useCareReceipts } from './care-receipts';
 
-const READ_TIMEOUT_MS = 8_000;
 const STORE_VERSION = 1;
-const ACTIONS: readonly CareAction[] = ['feed', 'play', 'clean', 'medicate', 'boost'];
 
 /** A moment's local calendar day (YYYY-MM-DD), the way the kit's streak and daily missions count days. */
 export function localDay(at: Date): string {
@@ -103,7 +99,6 @@ export interface Journey {
 }
 
 export function useJourney({ pubkey, companions, current, profile, evolveTasks }: UseJourneyOptions): Journey {
-  const { nostr } = useNostr();
   const key = journeyStoreKey(pubkey);
   const [record, setRecord] = useState<JourneyDeviceRecord>(() => readRecord(key));
   useEffect(() => setRecord(readRecord(key)), [key]);
@@ -118,24 +113,8 @@ export function useJourney({ pubkey, companions, current, profile, evolveTasks }
     [key],
   );
 
-  const care = useQuery({
-    queryKey: ['journey-care', pubkey],
-    enabled: !!pubkey,
-    staleTime: 60_000,
-    queryFn: async () => {
-      const events = await nostr.query([{ kinds: [KIND_BLOBBI_INTERACTION], authors: [pubkey!], limit: 500 }], { signal: timeoutSignal(READ_TIMEOUT_MS) });
-      const seen = new Set<CareAction>();
-      const days = new Set<string>();
-      for (const event of events) {
-        const parsed = parseInteractionEvent(event);
-        if (parsed && (ACTIONS as readonly string[]).includes(parsed.action)) {
-          seen.add(parsed.action as CareAction);
-          days.add(localDay(new Date(event.created_at * 1000)));
-        }
-      }
-      return { actions: [...seen], days: [...days] };
-    },
-  });
+  // The receipts (shared with the home's care flame, `care-receipts.ts`)
+  const care = useCareReceipts(pubkey);
   const [session, setSession] = useState<CareAction[]>([]);
   const noteCare = useCallback((action: string) => {
     const a = (action === 'medicine' ? 'medicate' : action) as CareAction;

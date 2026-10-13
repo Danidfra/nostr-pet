@@ -308,11 +308,10 @@ describe('a returning player keeps their home', () => {
     relay.all = [aBaby(), profileEvent()];
     const first = renderApp('/');
     await in2d();
-    await userEvent.click(screen.getByTestId('menu-button'));
-    const toRoom = screen.getByTestId('open-room');
-    expect(toRoom).toHaveTextContent(/Explore in 3D/);
-    expect(screen.getByTestId('room-first-toggle')).toHaveAttribute('aria-checked', 'false');
-    await userEvent.click(toRoom);
+    // The one switch, upper right (M14.1); the first 3D on this device asks first
+    expect(screen.getByTestId('mode-toggle')).toHaveAttribute('data-mode', 'classic');
+    await userEvent.click(screen.getByTestId('mode-3d'));
+    await userEvent.click(await screen.findByTestId('mode-intro-try'));
     await inRoom();
     expect(window.localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('room');
     // A refresh at the root opens where the player chose
@@ -321,8 +320,7 @@ describe('a returning player keeps their home', () => {
     const second = renderApp('/');
     await inRoom();
     // Back to 2D from the room's menu
-    await userEvent.click(screen.getByTestId('room-menu'));
-    await userEvent.click(screen.getByTestId('open-classic'));
+    await userEvent.click(screen.getByTestId('mode-2d'));
     await in2d();
     expect(window.localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('classic');
     second.unmount();

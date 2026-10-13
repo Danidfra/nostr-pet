@@ -21,7 +21,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, type CSSProperties, type MutableRefObject, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { Armchair, ChevronLeft, ChevronRight, Cross, Home, Moon, Refrigerator, Shirt, type LucideIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Cross, Home, Moon, Refrigerator, Shirt, type LucideIcon } from 'lucide-react';
 import type { BlobbiFacing } from '@blobbi-kit/renderer';
 import type { WalkOutcome } from '@/features/home/scene/useBlobbiLocomotion';
 
@@ -224,6 +224,9 @@ export interface RoomShellProps {
   hero?: ReactNode;
   /** A bar above the room. */
   header?: ReactNode;
+  /** Accepted for callers that still pass them; the dock draws the decorate button since M14.1 (`RoomBottomBar`). */
+  onDecorate?: () => void;
+  decorateDisabled?: boolean;
   /** Under the room switcher. */
   statusHud?: ReactNode;
   /** Hide the HUD (while a drawer is open). */
@@ -268,10 +271,6 @@ export interface RoomShellProps {
   onInteract?: (interaction: FurnitureInteraction, index: number) => void;
   /** Any piece tapped outside decorating (before `onInteract`), and whether it was a lamp switched. */
   onPieceTap?: (index: number, lamp: boolean) => void;
-  /** Enter decorating mode. The button is disabled without WebGL. */
-  onDecorate?: () => void;
-  /** Disables the decorate button, e.g. while the Blobbi is busy with something. */
-  decorateDisabled?: boolean;
   /** Present while decorating. */
   editor?: RoomEditorBinding;
   controlRef?: MutableRefObject<RoomControl | null>;
@@ -343,8 +342,6 @@ export function RoomShell({
   onRoomBuilt,
   editor,
   controlRef,
-  onDecorate,
-  decorateDisabled,
   onStatusChange,
 }: RoomShellProps) {
   const isEditing = !!editor;
@@ -996,28 +993,16 @@ export function RoomShell({
         <div data-room-header className="relative z-[70] shrink-0">{header}</div>
       )}
 
-      {/* HUD: decorate (left), room switcher, an empty slot (right) to keep it centred, then the status */}
+      {/* HUD: an empty slot (left), the room switcher, the end slot (the home switch, M14.1), then the needs. Decorating
+          moved to the dock's right, beside the carousel (`RoomBottomBar`); `onDecorate` is kept for the editor's binding. */}
       {!isEditing && (
         <div
           data-room-top
           aria-hidden={!hudVisible}
           className={cx('room-hud relative z-30 px-3 pt-[1.1em] pb-[0.6em] pointer-events-none transition-opacity duration-200', !hudVisible && 'opacity-0')}
         >
-          <div className="room-hud__row flex items-center justify-between gap-2">
-            <div className={cx('size-[2.75em] shrink-0', hudVisible && 'pointer-events-auto')}>
-              {onDecorate && (
-                <button
-                  type="button"
-                  onClick={onDecorate}
-                  disabled={!is3d || decorateDisabled}
-                  className="room-hud-button touch-hit"
-                  aria-label={status === 'unavailable' ? 'Decorating needs 3D graphics, which this browser has turned off' : 'Decorate this room'}
-                  title={status === 'unavailable' ? 'Decorating needs 3D graphics' : 'Decorate'}
-                >
-                  <Armchair />
-                </button>
-              )}
-            </div>
+          <div className="room-hud__row flex items-start justify-between gap-2">
+            <div className="size-[2.75em] shrink-0" aria-hidden />
 
             <div className={cx('room-switcher flex items-center gap-1 p-1 rounded-full', hudVisible && 'pointer-events-auto')} data-testid="room-switcher">
               <RoomNavButton direction="left" label={roomById(neighbourRoom(navRoom, 'left')).label} onClick={goLeft} />
