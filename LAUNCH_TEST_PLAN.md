@@ -224,6 +224,29 @@ Private window, nothing stored, Safari with its toolbars.
    the previews hold still, the bubble and the glow do not pulse, the card
    has a plain ring.
 
+## 1f. M14.3.1 on a real iPhone: the crash on Let's explore, and choosing in the intro
+
+M14.3 crashed here on **Let's explore** ("The room hit an error", "Argument 1
+('shader') to WebGL2RenderingContext.shaderSource must be an instance of
+WebGLShader"). Desktop Chrome and WebKit never showed it: only iOS answers a
+lost context with no shader. If anything below fails, connect the iPhone to
+the Mac by cable (iPhone: Settings → Apps → Safari → Advanced → Web
+Inspector on; Mac Safari: Settings → Advanced → Show features for web
+developers; then Develop → the iPhone → the page) and copy the console.
+
+1. Private window, adopt and hatch, **3D β**. Expected: the two cards; Classic
+   has **Selected**. Tap **3D Model**: it is outlined with **Selected**, and
+   Classic is not. Tap Classic, then 3D Model again: the mark follows.
+2. **Let's explore**. Expected: no error card; the room shows Lupa as the 3D
+   model. Open Lupa's sheet: the Appearance chip says 3D Model. Close the
+   sheet (its small 3D preview goes away): still no error. Reload: still 3D.
+3. Fresh private window, adopt but do not hatch, go to the room. Expected:
+   the 3D card is dimmed with "The 3D model is ready once Lupa hatches.";
+   tapping it says "3D Model can't be chosen yet…" and Classic stays selected.
+4. If the error card ever shows: **Go to the 2D home** lands on the 2D home
+   with the same Blobbi and care, and opening the app again stays in 2D.
+   **Try again** is offered at most twice.
+
 ## 2. The room (after choosing it: menu → Explore in 3D)
 
 1. Reload with a hatched, awake Blobbi: the room appears, then the Blobbi

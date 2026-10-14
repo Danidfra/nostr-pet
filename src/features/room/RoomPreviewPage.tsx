@@ -1001,8 +1001,10 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         appearance={appearance}
         unavailable3d={actor3d.unavailable3d}
         reducedMotion={reducedMotion}
-        onExplore={(dontShowAgain) => {
+        onExplore={(dontShowAgain, look) => {
           if (dontShowAgain) writeRoomIntroSeen();
+          // The card the player selected is the look from now on (this device's preference, as in the sheet)
+          if (look && look !== appearance) setAppearance(look);
           setIntroOpen(false);
           const next = guideAfterIntro(readLookGuideShown());
           if (next) {

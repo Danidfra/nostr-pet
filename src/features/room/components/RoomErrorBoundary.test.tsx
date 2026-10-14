@@ -1,7 +1,7 @@
 /**
  * A render error in the room stays in the room: the page keeps standing,
  * the error is named with a copyable report, Try again mounts the room
- * afresh, Try again in 2D switches the drawing first, and the error is kept
+ * afresh, Try again with Classic switches the drawing first, and the error is kept
  * for the dev tools. Errors outside rendering are not caught here.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';

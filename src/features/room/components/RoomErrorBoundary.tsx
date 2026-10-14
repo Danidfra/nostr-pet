@@ -9,16 +9,27 @@
  * for the dev tools' error list, so a phone can show and copy it. Nothing
  * is swallowed: an error that is not a render error (a handler, a frame) is
  * not caught here at all.
+ *
+ * The way out never leads back in (M14.3.1): "Go to the 2D home" makes the
+ * 2D home this device's home and goes there as the room's own switch does,
+ * so a device that opens on the room is not sent straight back to it. The
+ * Blobbi, the account (guest or not) and the care live above this boundary
+ * and are untouched. Retrying is offered twice; a room that keeps failing
+ * leaves only the way out, so nothing loops.
  */
 /* eslint-disable react-refresh/only-export-components -- the boundary and what it shows share one file; hot reload remounts it whole */
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { writeExperience, type FromRoomState } from '@/lib/home-experience';
 import { useBlobbiAppearance } from '../lib/blobbi-appearance';
 import { pageDiagnostics, recordRuntimeError } from '../lib/runtime-errors';
 
 interface Props {
   children: ReactNode;
 }
+
+/** Retries offered before only the way out is left. */
+export const MAX_ROOM_RETRIES = 2;
 
 interface State {
   error: Error | null;
@@ -44,7 +55,7 @@ export class RoomErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.error) {
-      return <RoomCrash error={this.state.error} componentStack={this.state.componentStack} onRetry={this.retry} />;
+      return <RoomCrash error={this.state.error} componentStack={this.state.componentStack} onRetry={this.state.attempt < MAX_ROOM_RETRIES ? this.retry : null} />;
     }
     // A new key after a retry mounts the room afresh instead of resuming a broken tree
     return <RoomSlot key={this.state.attempt}>{this.props.children}</RoomSlot>;
@@ -58,12 +69,20 @@ function RoomSlot({ children }: { children: ReactNode }) {
 interface CrashProps {
   error: Error;
   componentStack: string | null;
-  onRetry: () => void;
+  /** Null once the retries are spent. */
+  onRetry: (() => void) | null;
 }
+
+const BACK_HOME: FromRoomState = { fromRoom: true };
 
 /** What stands in the room's place: the cause, a way back, and the 2D drawing as the lighter retry. */
 function RoomCrash({ error, componentStack, onRetry }: CrashProps) {
   const [appearance, setAppearance] = useBlobbiAppearance();
+  const navigate = useNavigate();
+  const toClassic = () => {
+    writeExperience('classic');
+    navigate('/', { state: BACK_HOME });
+  };
   const details = `${error.name}: ${error.message}\n${error.stack ?? ''}${componentStack ? `\n\ncomponent stack:${componentStack}` : ''}\n\n${pageDiagnostics()}`;
   const selectAll = (el: HTMLTextAreaElement | null) => {
     if (!el) return;
@@ -79,10 +98,15 @@ function RoomCrash({ error, componentStack, onRetry }: CrashProps) {
         Your Blobbi and this page are unchanged; the room was taken down so the rest could stay up.
       </p>
       <div className="room-crash__actions">
-        <button type="button" className="onboard-btn !w-auto !px-4 !py-2 text-sm" onClick={onRetry} data-testid="room-crash-retry">
-          Try again
+        <button type="button" className="onboard-btn onboard-btn--primary !w-auto !px-4 !py-2 text-sm" onClick={toClassic} data-testid="room-crash-classic">
+          Go to the 2D home
         </button>
-        {appearance === '3d' && (
+        {onRetry && (
+          <button type="button" className="onboard-btn onboard-btn--secondary !w-auto !px-4 !py-2 text-sm" onClick={onRetry} data-testid="room-crash-retry">
+            Try again
+          </button>
+        )}
+        {onRetry && appearance === '3d' && (
           <button
             type="button"
             className="onboard-btn onboard-btn--secondary !w-auto !px-4 !py-2 text-sm"
@@ -92,13 +116,15 @@ function RoomCrash({ error, componentStack, onRetry }: CrashProps) {
             }}
             data-testid="room-crash-2d"
           >
-            Try again in 2D
+            Try again with Classic
           </button>
         )}
-        <Link to="/" className="onboard-btn onboard-btn--secondary !w-auto !px-4 !py-2 text-sm">
-          Home
-        </Link>
       </div>
+      {!onRetry && (
+        <p className="text-sm text-foreground/80" data-testid="room-crash-spent">
+          The room keeps failing on this device. Your Blobbi is waiting in the 2D home.
+        </p>
+      )}
       {import.meta.env.DEV && (
         <details className="room-crash__details" open>
           <summary className="text-xs">Details (tap the box to select all, then copy)</summary>

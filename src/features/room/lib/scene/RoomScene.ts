@@ -3208,8 +3208,18 @@ export class RoomScene {
     this.onIntroDone?.();
   }
 
+  /**
+   * The browser took the context away and three has not heard yet (the event
+   * comes a task later): compiling now would ask iOS Safari for shaders it
+   * answers with null, a TypeError thrown into whoever asked for the frame.
+   * The page's `webglcontextlost` listener makes the room again.
+   */
+  private contextLost(): boolean {
+    return this.renderer.getContext().isContextLost();
+  }
+
   requestRender() {
-    if (this.disposed || this.frame || this.compiling) return;
+    if (this.disposed || this.frame || this.compiling || this.contextLost()) return;
     // New materials compile off the main thread first (KHR_parallel_shader_compile);
     // the previous frame stays up meanwhile
     if (this.needsCompile && this.geometry && this.layout) {
@@ -3240,7 +3250,7 @@ export class RoomScene {
   }
 
   private renderFrame() {
-    if (!this.geometry || !this.layout || this.disposed) return;
+    if (!this.geometry || !this.layout || this.disposed || this.contextLost()) return;
     const now = performance.now();
     this.idleAnimating = false;
     // The fold-in's own clock: held by a scrubber, or running

@@ -2,7 +2,15 @@
  * A small stage for one 3D Blobbi: its own renderer, a camera framing the
  * art box, soft lighting and a ground shadow, the model driven as the room
  * would drive it (`actor.ts`) but facing a chosen view or turning on the
- * spot. The lab's viewer; nothing in the room uses it.
+ * spot. The lab's viewer, and the previews of the room's introduction and
+ * Appearance card; the room's own scene never uses it.
+ *
+ * Nothing is drawn once the stage is disposed or its context is lost. A
+ * render then would compile shaders again (`renderer.dispose()` empties the
+ * program cache) on a dead context, and iOS Safari's `createShader` answers
+ * a lost context with null, which `shaderSource` rejects with a TypeError:
+ * the room's crash on the first visit's "Let's explore" (M14.3.1), where the
+ * preview's cleanup set its model to none after the stage was disposed.
  */
 import * as THREE from 'three';
 import type { BlobbiMotion } from '@blobbi-kit/renderer/procedural';
@@ -71,6 +79,16 @@ export class BlobbiStage {
 
   /** The stage's own canvas, put in `host`: a lost context never has to be won back on a canvas React keeps. */
   readonly canvas: HTMLCanvasElement;
+  /** The browser took the context away (memory, too many contexts): the stage draws nothing more. */
+  onContextLost: (() => void) | null = null;
+  private lost = false;
+  private readonly handleLost = () => {
+    if (this.lost) return;
+    this.lost = true;
+    if (this.frame) cancelAnimationFrame(this.frame);
+    this.frame = 0;
+    this.onContextLost?.();
+  };
 
   constructor(host: HTMLElement, private options: StageOptions = {}) {
     const canvas = host.ownerDocument.createElement('canvas');
@@ -79,6 +97,7 @@ export class BlobbiStage {
     canvas.style.height = '100%';
     this.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    canvas.addEventListener('webglcontextlost', this.handleLost);
     // A teleporting model is cut by a plane (teleport3d.ts)
     this.renderer.localClippingEnabled = true;
     host.appendChild(canvas);
@@ -196,6 +215,7 @@ export class BlobbiStage {
   }
 
   resize(width: number, height: number) {
+    if (this.disposed) return;
     this.width = Math.max(1, width);
     this.height = Math.max(1, height);
     this.renderer.setSize(this.width, this.height, false);
@@ -211,8 +231,18 @@ export class BlobbiStage {
     return this.canvas.toDataURL('image/png');
   }
 
+  /** Whether a frame may be drawn: not disposed, and the context still there (the event can come a task late). */
+  private drawable(): boolean {
+    if (this.disposed || this.lost) return false;
+    if (this.renderer.getContext().isContextLost()) {
+      this.handleLost();
+      return false;
+    }
+    return true;
+  }
+
   requestFrame() {
-    if (this.disposed || this.frame) return;
+    if (!this.drawable() || this.frame) return;
     this.frame = requestAnimationFrame(() => {
       this.frame = 0;
       const now = performance.now();
@@ -225,6 +255,7 @@ export class BlobbiStage {
 
   /** Draw one frame; true while something keeps moving. */
   private renderFrame(dt: number): boolean {
+    if (!this.drawable()) return false;
     let animating = false;
     if (this.actor) {
       if (this.view === 'turn') {
@@ -244,7 +275,10 @@ export class BlobbiStage {
   }
 
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
+    this.onContextLost = null;
+    this.canvas.removeEventListener('webglcontextlost', this.handleLost);
     if (this.frame) cancelAnimationFrame(this.frame);
     this.frame = 0;
     if (this.actor) this.scene.remove(this.actor.object);

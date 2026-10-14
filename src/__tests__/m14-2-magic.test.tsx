@@ -327,7 +327,7 @@ describe('M14.2: the room\'s first visit and the Blobbi\'s look', () => {
     await screen.findByTestId('room-shell', {}, { timeout: 8000 });
     const intro = await screen.findByTestId('mode-intro');
     expect(intro).toHaveTextContent(/experimental/);
-    expect(within(intro).getByTestId('mode-intro-appearance')).toHaveTextContent('Both are the same Pip, with the same care and the same story. Only the look here changes. Choose any time: tap Pip in the dock, then Appearance.');
+    expect(within(intro).getByTestId('mode-intro-appearance')).toHaveTextContent('Both are the same Pip, with the same care and the same story. Only the look here changes. Pick one above, or later: tap Pip in the dock, then Appearance.');
     expect(within(intro).getByTestId('mode-intro-dismiss')).toBeChecked();
     expect(intro.textContent).not.toContain(';');
     await userEvent.click(within(intro).getByTestId('mode-intro-explore'));

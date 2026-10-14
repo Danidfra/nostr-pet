@@ -104,11 +104,11 @@ describe('the introduction shows both looks of this very Blobbi', () => {
     // The player's Blobbi, not a stand-in: the kit's renderer with this Blobbi's own instance
     expect(classic.querySelector('[data-blobbi-renderer]')).not.toBeNull();
     expect(classic.querySelector('[data-blobbi-instance="intro-2d-0000000001"], [id*="intro-2d-0000000001"], [data-blobbi-renderer]')).not.toBeNull();
-    expect(within(classic).getByTestId('mode-intro-now-2d')).toHaveTextContent('Now');
-    expect(within(model).queryByTestId('mode-intro-now-3d')).toBeNull();
+    expect(within(classic).getByTestId('mode-intro-selected-2d')).toHaveTextContent('Selected');
+    expect(within(model).queryByTestId('mode-intro-selected-3d')).toBeNull();
     // Without WebGL the 3D card says so instead of a placeholder character
     expect(within(model).getByTestId('mode-intro-preview-3d-note')).toHaveTextContent(/cannot draw 3D/);
-    expect(within(dialog).getByTestId('mode-intro-appearance')).toHaveTextContent('Both are the same Brook, with the same care and the same story. Only the look here changes. Choose any time: tap Brook in the dock, then Appearance.');
+    expect(within(dialog).getByTestId('mode-intro-appearance')).toHaveTextContent('Both are the same Brook, with the same care and the same story. Only the look here changes. Pick one above, or later: tap Brook in the dock, then Appearance.');
     // The words (the drawings carry the kit's stylesheet, which is not copy)
     const copy = dialog.cloneNode(true) as HTMLElement;
     copy.querySelectorAll('.mode-intro__frame').forEach((f) => f.remove());
@@ -133,11 +133,11 @@ describe('the introduction shows both looks of this very Blobbi', () => {
     expect(stage).toHaveAttribute('aria-label', 'Brook in 3D');
     expect(screen.queryByTestId('mode-intro-preview-3d-note')).toBeNull();
     expect(screen.getByTestId('mode-intro-previews')).toHaveAttribute('data-current', '3d');
-    expect(screen.getByTestId('mode-intro-now-3d')).toBeInTheDocument();
-    expect(screen.queryByTestId('mode-intro-now-2d')).toBeNull();
+    expect(screen.getByTestId('mode-intro-selected-3d')).toBeInTheDocument();
+    expect(screen.queryByTestId('mode-intro-selected-2d')).toBeNull();
     // Reduced motion: both previews hold still
     screen.getByTestId('mode-intro-explore').click();
-    expect(onExplore).toHaveBeenCalledWith(true);
+    expect(onExplore).toHaveBeenCalledWith(true, null);
   });
 
   it('reduced motion stills both previews', () => {

@@ -24,6 +24,7 @@ vi.mock('three', async (importOriginal) => {
     render() {}
     dispose() {}
     forceContextLoss() {}
+    getContext() { return { isContextLost: () => false }; }
   }
   return { ...three, WebGLRenderer: FakeRenderer };
 });
