@@ -755,6 +755,69 @@ Blobbi's overlay box (drawing nothing when the model draws it), and the
 room's taps, strokes and swipes are locked meanwhile (`inputLocked`). An
 egg, a room without a tub and the simple room bathe where the Blobbi lies.
 
+## Milestone 15: the two tracks together (integration, 2026-10-14)
+
+Track B (one blocking layer at a time, the guest removed whole, the
+invitation that waits, the zoom) merged first, then Track A (the bath), on
+`feat/m15-integration`. The two met in three places, and those are the
+contracts now:
+
+**The bath is a busy moment.** Both homes compute `bathing` as "the bath is
+on screen" (`bath.active || bath.view !== null`), so it covers the
+celebration as well as the stages and a failed write waiting for Try again.
+`active` alone ends at `done` while the view stays up for the celebration.
+The 2D home folds it into `busyWithObject`, which its `homeQuiet` (the
+invitation's quiet) already reads. The room's `roomQuiet` reads it directly,
+beside `interactions.activity` (the bath runs on the director as `bathing`)
+and `care.offer`. The invitation therefore never rises during a bath. It
+comes in the first quiet moment after (`INVITE_DELAY_MS` later), and Stop
+counts as the end. The room's needs HUD steps aside during a bath, as the 2D
+home's bubbles do: on a 320×460 viewport it covered the top of the Blobbi in
+the tub, where the shower has to be held, so the rinse could not be
+finished.
+
+**The bath is not a blocking layer.** It does not claim the queue
+(`lib/blocking-layer.ts`), so the player can still open the menu, the bag or
+the Blobbi's sheet during a bath. Such a sheet is the one layer over it, and
+the bath waits under it unchanged. The unsolicited layers cannot appear over
+a bath in practice:
+- the room's introduction comes before the room is played;
+- the word about a guest Blobbi needs a change of login, which goes through
+  a sheet and remounts the home, ending the bath with nothing written;
+- the hatch theatre needs an egg ready to hatch, and an egg is bathed in
+  place.
+
+**One open use at a time.** An owned use that was begun and never finished
+(the spend landed, its state write did not, the player stopped) stays open
+in the spend ledger, and the next owned use resumes it. A cleaning item
+chosen while such a use is open goes the old way (offered, the open use
+resumed and finished) instead of starting a bath. Without that, the bath's
+single write would have resumed the other use and celebrated a bath it never
+gave. This holds in both homes, from the strip, the room's carousel, a drag
+and the bag.
+
+**What one bath spends.** One completed bath makes at most one spend and one
+application on one device:
+- the session calls the host's write once, after the last stage, under
+  `run.protect`;
+- Try again resumes the same signed spend from the ledger (same event id);
+- a re-broadcast after a slow or silent relay carries the same id, which
+  relays deduplicate;
+- the state write carries the spend's `blobbi_op` marker, and a retry that
+  finds it applies nothing (`alreadyApplied`).
+
+It is not exactly-once across devices:
+- the ledger is per device, so two devices can each read a balance of one
+  and sign two different spends of the last item;
+- 31124 is last-write-wins, so a write planned from an older state can drop
+  another device's application and its marker.
+
+On one device, the marker is the only guard against a second application,
+and a write that drops it (a starter use, which strips the old marker, or
+another app) reopens that door for a use still open in the ledger. These are
+limits of the current protocol (kinds 1416 and 31124 as they are), not of the
+bath. They are written down here rather than worked around.
+
 ## Milestone 13: MVP release readiness (M11)
 
 The pass that turns the M10 home into something that can be put in front

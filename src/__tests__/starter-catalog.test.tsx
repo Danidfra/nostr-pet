@@ -215,6 +215,8 @@ describe('in the home', () => {
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
     expect(kinds()).not.toContain(KIND_GAME_INVENTORY_SPEND);
     await waitFor(() => expect(screen.queryByTestId('scene-object-offer')).toBeNull(), { timeout: 3000 });
+    // The dock is the bath's until its celebration is over
+    await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull(), { timeout: 4000 });
     await userEvent.click(screen.getByTestId('action-items'));
     expect(within(await screen.findByTestId('inventory-sheet')).getByTestId('inventory-empty')).toBeInTheDocument();
   });

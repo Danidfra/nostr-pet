@@ -335,7 +335,24 @@ describe('M15: removing a guest Blobbi from this device', () => {
     nothingLeaked(doc);
   }, 40_000);
 
-  it('a guest Blobbi whose save already landed is removed without the warning: only this device\'s copy goes', async () => {
+  it("a guest Blobbi whose save was read back is removed without the warning, but still only once its key is said to be kept: only this device's copy goes", async () => {
+    let doc = await seedGuest();
+    doc = withLanded(withMigrationStage(doc, 'done'), 'blobbi', 'f'.repeat(64));
+    writeGuestDocument(doc, window.localStorage);
+    await seedAccount();
+    renderApp('/');
+    const conflict = await screen.findByTestId('guest-conflict', {}, { timeout: 8000 });
+    await userEvent.click(within(conflict).getByTestId('guest-conflict-remove'));
+    const remove = await screen.findByTestId('guest-remove');
+    expect(within(remove).getByTestId('guest-remove-saved')).toHaveTextContent(/Pip was saved to an account.*the key you kept/);
+    expect(within(remove).queryByTestId('guest-remove-warning')).toBeNull();
+    expect(within(remove).getByTestId('guest-remove-confirm')).toBeDisabled();
+    await userEvent.click(within(remove).getByTestId('guest-remove-ack'));
+    await userEvent.click(within(remove).getByTestId('guest-remove-confirm'));
+    await waitFor(() => expect(guestDoc()).toBeNull());
+  }, 30_000);
+
+  it('a save that landed but never finished (published, not read back) is not "saved": it warns and needs the acknowledgement, since the key here may be the only one', async () => {
     let doc = await seedGuest();
     doc = withLanded(withMigrationStage(doc, 'verifying'), 'blobbi', 'f'.repeat(64));
     writeGuestDocument(doc, window.localStorage);
@@ -344,12 +361,12 @@ describe('M15: removing a guest Blobbi from this device', () => {
     const conflict = await screen.findByTestId('guest-conflict', {}, { timeout: 8000 });
     await userEvent.click(within(conflict).getByTestId('guest-conflict-remove'));
     const remove = await screen.findByTestId('guest-remove');
-    expect(within(remove).getByTestId('guest-remove-saved')).toHaveTextContent(/Pip was saved to an account/);
-    expect(within(remove).queryByTestId('guest-remove-warning')).toBeNull();
-    expect(within(remove).queryByTestId('guest-remove-ack')).toBeNull();
-    expect(within(remove).getByTestId('guest-remove-confirm')).toBeEnabled();
-    await userEvent.click(within(remove).getByTestId('guest-remove-confirm'));
-    await waitFor(() => expect(guestDoc()).toBeNull());
+    expect(within(remove).getByTestId('guest-remove-unfinished')).toHaveTextContent(/Pip’s save did not finish/);
+    expect(within(remove).queryByTestId('guest-remove-saved')).toBeNull();
+    expect(within(remove).getByTestId('guest-remove-confirm')).toBeDisabled();
+    await userEvent.click(within(remove).getByTestId('guest-remove-cancel'));
+    expect(await screen.findByTestId('guest-conflict')).toBeInTheDocument();
+    expect(guestDoc()?.identity.nsec).toBe(doc.identity.nsec);
   }, 30_000);
 });
 

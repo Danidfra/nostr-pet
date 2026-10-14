@@ -337,3 +337,55 @@ Remaining risks after M15: T1, T2 and T6 of section 2 exactly as before;
 the plaintext login store (section 6); the unverified backup (section 5).
 None of them is new, and the words in the app still promise none of them
 away.
+
+### 12.1 After the integration with the bath (2026-10-14)
+
+A second, independent read of the removal on `feat/m15-integration` found
+one gap and fixed it:
+
+- **"Saved" meant "published", and that is not a backup of the key.** The
+  removal sheet treated a guest as saved, and dropped both the warning and
+  the acknowledgement, as soon as a save had landed anywhere
+  (`guestEverSaved`: `verifying`, or a landed Blobbi id). Failure scenario:
+  1. A save published the Blobbi and then stopped at the profile.
+  2. The player signed out of the guest key, which deletes its login entry,
+     the only other copy of the nsec on the device.
+  3. They signed in to another account.
+  4. One tap on Remove deleted the last copy on the device, leaving only an
+     unverified paper backup.
+
+  Now:
+  - the sheet calls a guest saved only at stage `done` (read back from the
+    relays);
+  - a landed but unfinished save gets its own warning ("Lupa's save did not
+    finish… the key kept here may be the only one");
+  - EVERY removal needs the box ticked. The saved case's box says "I have
+    Lupa's key somewhere safe", since the account is that key.
+  - Pinned in `m15-reliability.test.tsx`.
+
+Re-checked and holding:
+- **No collision with the signed-in key.** The removal is only offered in
+  `dormant` mode, where `logins[0]` is not the guest. The app only appends
+  logins, and the guest key is only added in `active` or `promoting` mode.
+  If another writer ever put the guest key behind another account, the
+  per-pubkey device keys would be swept, but never `nostr:login` or the
+  login's nsec.
+- **Every path that lets the record go:**
+  - `SaveCeremony` clears at `done` only;
+  - `useFinishSave` clears in `promoting` only, after a verified read-back;
+  - `store.remove()` runs from the confirmed removal only.
+
+  So no cleanup can delete the only key before a migration has succeeded,
+  except the confirmed, acknowledged removal itself.
+- **Closing writes nothing.** The X, the backdrop, Escape and Decide later on
+  the word only defer the conflict in memory, and only Keep writes. Closing
+  the removal sheet goes back to the word with nothing removed.
+- **No secret in logs.** The guest, onboarding and login code holds one
+  dev-only `console` call, about relay errors with no secret. The removal
+  path does not log, and it works on the snapshot without the secret.
+
+Still open (low): `removeFromDevice` ignores the storage's `{ ok }`. A
+storage that refuses the removal empties the snapshot for the visit, and the
+guest is back on reload with no word to the player. The quarantine copies
+stay as finding 1 says.
+

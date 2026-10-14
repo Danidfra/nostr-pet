@@ -513,7 +513,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   });
   const bathItemRef = useRef<BathItem | null>(null);
   const bathView = bath.view;
-  const bathing = bath.active;
+  // Busy for the whole time the bath is on screen, its celebration too (`active` ends at done; M15 integration)
+  const bathing = bath.active || bathView !== null;
   // The scene draws the bath (the hollow tub, the water, the foam, the tools) from the same state the layer draws
   useEffect(() => {
     const control = controlRef.current;
@@ -538,10 +539,16 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const startBath = bath.start;
   const offerBath = useCallback((entry: RoomCareEntry): boolean => {
     if (!present || transitioning || decorator.editing) return false;
+    // An owned use begun earlier and never finished is finished first (the ledger's resume), never bathed with: the
+    // bath's write would otherwise resume that other use and celebrate a bath it did not give (M15 integration)
+    if (entry.choice.source === 'owned' && careRef.current.hasOpenUse()) {
+      interactions.offer(entry, planUse(entry.action, controlRef.current?.blobbiPosition() ?? null), roomIdRef.current);
+      return false;
+    }
     const item: BathItem = { choice: entry.choice, name: entry.name, glyph: entry.glyph };
     bathItemRef.current = item;
     return startBath(item, { inPlace: isEgg || tubIndexRef.current < 0 || !nav.canWalk });
-  }, [startBath, present, transitioning, decorator.editing, isEgg, nav.canWalk]);
+  }, [startBath, present, transitioning, decorator.editing, isEgg, nav.canWalk, interactions, controlRef]);
   const cancelBath = bath.cancel;
 
   // ─── The screens over the room: the menu, the Blobbi's details, the whole inventory ───
@@ -1024,7 +1031,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // A guest's room (M15): the same invitation to save as the 2D home's, by the shared rules, in a quiet moment of the
   // room (nothing in use or walking, no ceremony, nothing of the room's open, the Blobbi here and awake)
   const roomQuiet =
-    present && !care.busy && care.offer === null && interactions.activity === null && !transitioning && !theater && !isSleeping && !decorator.editing && lifecycle.pending === null && !sheetOpen && !menuOpen && !itemsOpen && !introOpen && !fridgeOpen && !statusOpen && !worldsOpen && !journeyOpen && !adoptOpen && departure.phase === 'idle';
+    present && !bathing && !care.busy && care.offer === null && interactions.activity === null && !transitioning && !theater && !isSleeping && !decorator.editing && lifecycle.pending === null && !sheetOpen && !menuOpen && !itemsOpen && !introOpen && !fridgeOpen && !statusOpen && !worldsOpen && !journeyOpen && !adoptOpen && departure.phase === 'idle';
   const saveInvite = useSaveInvite({ hatched: blobbi.stage !== 'egg', quiet: roomQuiet });
 
   return (
@@ -1077,7 +1084,9 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             streak={streak}
           />
         }
-        statusHud={!isEgg && <RoomStatusHud stage={blobbi.stage} stats={projected?.stats} onGuide={isSleeping ? undefined : setChosenRoom} />}
+        // The needs step aside during a bath (as the 2D home's bubbles do): on a short phone they cover the top of the
+        // Blobbi in the tub, where the shower has to be held (M15 integration)
+        statusHud={!isEgg && !bathing && <RoomStatusHud stage={blobbi.stage} stats={projected?.stats} onGuide={isSleeping ? undefined : setChosenRoom} />}
         middleSlot={
           <>
             {hatchReady && !theater && (

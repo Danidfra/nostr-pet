@@ -44,7 +44,7 @@ vi.mock('@/hooks/useCurrentUser', () => ({
   useCurrentUser: () => ({ user: currentUser.user, users: currentUser.user ? [currentUser.user] : [] }),
 }));
 
-const relay = { all: [] as NostrEvent[], published: [] as NostrEvent[], refuse: 0 };
+const relay = { all: [] as NostrEvent[], published: [] as NostrEvent[], refuse: 0, refuseKind: null as number | null };
 function matches(event: NostrEvent, f: NostrFilter): boolean {
   if (f.kinds && !f.kinds.includes(event.kind)) return false;
   if (f.ids && !f.ids.includes(event.id)) return false;
@@ -62,6 +62,11 @@ const query = vi.fn(async (filters: NostrFilter[]): Promise<NostrEvent[]> => {
 const event = vi.fn(async (ev: NostrEvent) => {
   if (relay.refuse > 0) {
     relay.refuse -= 1;
+    throw new AggregateError([new Error('blocked: no')], 'refused');
+  }
+  // One refusal of one kind only (the spend lands, the state does not: a use left open in the ledger)
+  if (relay.refuseKind === ev.kind) {
+    relay.refuseKind = null;
     throw new AggregateError([new Error('blocked: no')], 'refused');
   }
   relay.published.push(ev);
@@ -192,6 +197,7 @@ beforeEach(async () => {
   relay.all = [brook(), ...definitions(), ...stock()];
   relay.published = [];
   relay.refuse = 0;
+  relay.refuseKind = null;
   signCount = 0;
   resetInventoryFixtureIds();
   scene.state.walks = [];
@@ -367,4 +373,64 @@ describe('the bath in the room', () => {
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
     expect(getTagValue(relay.published[0].tags, 'stage')).toBe('egg');
   }, 25_000);
+
+  // ─── Integration (M15): the spend under a failed state write ───
+  it('a spend that landed under a refused state write: Try again resumes the same spend (one 1416 in all) and applies the soap once', async () => {
+    renderRoom();
+    await ready();
+    await intoTheTub('owned');
+    relay.refuseKind = KIND_BLOBBI_STATE;
+    await playBath();
+    await screen.findByTestId('bath-error', {}, { timeout: 4000 });
+    expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND]);
+    const spendId = relay.published[0].id;
+    fireEvent.click(screen.getByTestId('bath-retry'));
+    await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
+    const state = relay.published[1];
+    expect(state.tags.some((t) => t[0] === 'blobbi_op' && t[1] === spendId)).toBe(true);
+    expect(Number(getTagValue(state.tags, 'hygiene'))).toBe(70);
+    await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull(), { timeout: 4000 });
+    await quiet();
+    expect(kinds().filter((k) => k === KIND_GAME_INVENTORY_SPEND)).toHaveLength(1);
+  }, 25_000);
+
+  it('a use left open (spent, state refused, then Stop) is finished first, never bathed with: the next owned soap resumes it with no new spend and no bath', async () => {
+    relay.all = [brook(), ...definitions(), inventoryEvent('blobbi:island', { [OFFICIAL_SOAP]: 2 })];
+    renderRoom();
+    await ready();
+    await intoTheTub('owned');
+    relay.refuseKind = KIND_BLOBBI_STATE;
+    await playBath();
+    await screen.findByTestId('bath-error', {}, { timeout: 4000 });
+    const spendId = relay.published[0].id;
+    fireEvent.click(screen.getByTestId('bath-stop'));
+    await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull());
+    await quiet();
+    expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND]);
+    // The second soap: the room's old way (set down, the Blobbi comes, the open use is resumed), not a second bath
+    fireEvent.click(focusOn('Soap', 'owned'));
+    await quiet(200);
+    expect(screen.queryByTestId('bath-bar')).toBeNull();
+    for (let i = 0; i < 20 && !kinds().includes(KIND_BLOBBI_STATE); i++) {
+      if (scene.state.walks.length > 0) settleWalk('arrived');
+      await quiet(150);
+    }
+    await waitFor(() => expect(kinds()).toContain(KIND_BLOBBI_STATE), { timeout: 4000 });
+    const state = relay.published.find((e) => e.kind === KIND_BLOBBI_STATE)!;
+    expect(state.tags.some((t) => t[0] === 'blobbi_op' && t[1] === spendId)).toBe(true);
+    await quiet();
+    expect(kinds().filter((k) => k === KIND_GAME_INVENTORY_SPEND)).toHaveLength(1);
+  }, 30_000);
+
+  it('the needs step aside for the bath (on a short phone they cover the top of the Blobbi in the tub, where the shower is held) and are back after it', async () => {
+    renderRoom();
+    await ready();
+    expect(screen.getByTestId('room-status-hud')).toBeInTheDocument();
+    await intoTheTub();
+    expect(screen.queryByTestId('room-status-hud')).toBeNull();
+    fireEvent.click(screen.getByTestId('bath-stop'));
+    await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull());
+    expect(await screen.findByTestId('room-status-hud')).toBeInTheDocument();
+  }, 15_000);
 });
+

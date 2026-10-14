@@ -101,21 +101,32 @@ interface GuestRemoveSheetProps {
 
 /**
  * The destructive flow, apart from the conflict sheet: what goes, a warning
- * when the Blobbi was never saved, an explicit acknowledgement in that case,
- * and a cancel that keeps everything.
+ * when the Blobbi was never saved or its save never finished, an explicit
+ * acknowledgement always (the key kept here may be the only copy on the
+ * device), and a cancel that keeps everything.
  */
 export function GuestRemoveSheet({ open, doc, onCancel, onRemove }: GuestRemoveSheetProps) {
   const { blobbi, name } = guestBlobbiOf(doc);
-  const saved = guestEverSaved(doc);
+  // Saved means read back from the relays (`done`). A save that landed but never finished is not a backup of the key:
+  // this record may be the only copy of it on the device, so every case asks for an explicit acknowledgement (M15 integration).
+  const saved = doc.migration?.stage === 'done';
+  const unfinished = !saved && guestEverSaved(doc);
   const [acknowledged, setAcknowledged] = useState(false);
-  const ready = saved || acknowledged;
+  const ready = acknowledged;
   return (
     <GameOverlay open={open} onClose={onCancel} title={`Remove ${name} from this device?`} testId="guest-remove" lead={<Portrait blobbi={blobbi} id="remove" />}>
       <div className="space-y-3 text-sm" data-testid="guest-remove-text">
         {saved ? (
           <p data-testid="guest-remove-saved">
-            {name} was saved to an account, so only this device’s copy goes. {name} stays in that account.
+            {name} was saved to an account, so only this device’s copy goes. {name} stays in that account. To open it again, you will need the key you kept.
           </p>
+        ) : unfinished ? (
+          <div className="space-y-1 rounded-2xl border border-destructive/40 bg-destructive/5 p-3" role="alert" data-testid="guest-remove-unfinished">
+            <p className="font-semibold">{name}’s save did not finish.</p>
+            <p className="text-xs text-muted-foreground">
+              {name} may be saved, but the key kept here may be the only one. Without it, {name} may never come back.
+            </p>
+          </div>
         ) : (
           <div className="space-y-1 rounded-2xl border border-destructive/40 bg-destructive/5 p-3" role="alert" data-testid="guest-remove-warning">
             <p className="font-semibold">{name} has never been saved.</p>
@@ -125,12 +136,10 @@ export function GuestRemoveSheet({ open, doc, onCancel, onRemove }: GuestRemoveS
           </div>
         )}
         <p className="text-muted-foreground">Your signed-in account is not touched.</p>
-        {!saved && (
-          <label className="flex items-start gap-2 text-xs font-semibold">
-            <input type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} data-testid="guest-remove-ack" />
-            <span>I understand {name} cannot be brought back.</span>
-          </label>
-        )}
+        <label className="flex items-start gap-2 text-xs font-semibold">
+          <input type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} data-testid="guest-remove-ack" />
+          <span>{saved ? `I have ${name}’s key somewhere safe.` : `I understand ${name} may not be brought back.`}</span>
+        </label>
         <div className="grid grid-cols-2 gap-2 pt-1">
           <button type="button" className="onboard-btn onboard-btn--secondary" onClick={onCancel} data-testid="guest-remove-cancel">
             Keep {name}

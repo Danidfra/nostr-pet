@@ -341,6 +341,33 @@ a real Blobbi whose hygiene is not full.
 8. Keyboard (iPad with a keyboard, or desktop): focus the bath layer, the
    arrow keys carry the tool a cell at a time and rub; Space lifts it.
 
+
+## 1i. M15 integrated: the one real-iPhone pass before a preview goes out
+
+One pass on a physical iPhone, Safari first, then Chrome on the same phone,
+against the integrated preview (`feat/m15-integration`). 1g and 1h hold the
+detail; this is the order to run it in and what to record. Settings →
+Apps → Safari → Advanced → Web Inspector on, and the Mac's Safari → Develop
+→ the iPhone for the console (`visualViewport.scale`). Note the iOS version,
+the model, and Safari or Chrome for every line. Nothing here was checked on
+a real device yet.
+
+| # | Area | Do | Expected |
+|---|---|---|---|
+| 1 | Guest onboarding | Fresh private window, Meet your Blobbi, name the egg, hatch with quick taps | No zoom on the name field or on the taps; scale 1 after; the home fits, no sideways scroll |
+| 2 | Save invitation | Care once, then play about five minutes with the screen on and the app in front; also try a minute in the background | No bubble before about five active minutes (background time does not count); then the bubble in a quiet moment, in the 2D home and in the room alike, never over a sheet; Maybe later rests it about a day; Don't ask again ends it; the menu's Save still works |
+| 3 | Invitation and bath | With the bubble due, start a bath straight away | No bubble during any stage, the failed-write wait or the celebration; it comes a few seconds after the Blobbi steps out (or after Stop) |
+| 4 | Guest/account conflict | With a guest Blobbi, sign in to another account (both homes, and with the room's first-visit introduction still due) | One sheet at a time, the introduction after the word; the X, Escape, the backdrop and Decide later write nothing and the word is back on reload; Keep is remembered for that account |
+| 5 | Removal | Remove… on the word: never saved; and once with a save that stopped before the end (airplane mode during the profile step) | A separate sheet; Remove disabled until the box is ticked in every case; the unfinished save warns that the key here may be the only one; Keep, the X and Escape go back with nothing removed; after removal the account's Blobbi and login are intact |
+| 6 | Key persistence | Save a guest to an account, write the key down; reload; sign out; sign in with the written key on the same phone, then on another device | The Blobbi is there each time; the key shown at the save is the one that signs in |
+| 7 | 2D bath | Clean → Soap; tap once; rub; hold the shower; rub with the towel | A tap lays nothing; foam under the finger; the page never scrolls or zooms while rubbing; one write at the end; the chips; the carousel back |
+| 8 | 3D bath, Classic | Room, care room, Appearance Classic, Soap | The walk and the hop into the tub; the dock's bar where the carousel was; the needs pills hidden during the bath (also on the smallest phone available); foam, rain and tools over the drawing; the carousel and the needs back after |
+| 9 | 3D bath, 3D Model | The same with Appearance 3D Model | White foam on the body, the rain and the tools as 3D objects; no crash card; the console shows no WebGL errors |
+| 10 | Bath cancellation | Stop at each stage; leave the room mid-bath; switch to the 2D home mid-bath; reload mid-bath | The Blobbi out of the tub, nothing written, an owned item's count unchanged, the carousel back |
+| 11 | Bath retry | Airplane mode just before the towel is done; Try again offline, then online; once, with an owned item, Stop instead and use another owned Soap | Nothing retries by itself; Try again online writes once, with a single spend; after Stop the next owned Soap finishes the earlier use (no second bath, no second spend) |
+| 12 | Mobile zoom | Focus every text field (sign-in key, bunker, profile steps, egg name, graphics select); double-tap the 2D home and the egg; pinch in and out | No zoom on focus or double tap; pinch still zooms and lets go; record the probe's numbers if anything zooms |
+| 13 | Account recovery | On a second browser, sign in with the saved account's key; reopen the first browser | The same Blobbi, with its care and its stage, on both browsers |
+
 ## 2. The room (after choosing it: menu → Explore in 3D)
 
 1. Reload with a hatched, awake Blobbi: the room appears, then the Blobbi

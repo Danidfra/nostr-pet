@@ -56,3 +56,9 @@ any step before the write, and failed → cancelled (Stop, a change of room, a t
 - Hygiene already full refuses a bath with a word (no free play mode).
 - Reduced motion keeps the faces and the eyes and drops the hops, the
   wiggles, the sparkles, the bobbing tools and the moving water.
+- The bath is busy for as long as it is on screen, its celebration included
+  (`active || view !== null`): the invitation to save and the home's own
+  verbs wait for it; the room's needs HUD steps aside meanwhile.
+- A cleaning item chosen while an earlier owned use is still open in the
+  spend ledger is not bathed with: that use is resumed and finished first
+  (the old way), so the bath's one write can only ever be its own.

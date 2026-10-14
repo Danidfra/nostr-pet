@@ -635,7 +635,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     notify: setBathNotice,
   });
   const bathView = bath.view;
-  const bathing = bath.active;
+  // Busy for the whole time the bath is on screen, its celebration too (`active` ends at done; M15 integration)
+  const bathing = bath.active || bathView !== null;
   // The tub comes out with the bath and sinks away a moment after it
   const [tubOut, setTubOut] = useState(false);
   const hadTub = useRef(false);
@@ -659,10 +660,13 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // Choosing on the strip: an item, owned or starter, is offered. There is no
   // other way to feed, play or clean. A cleaning item starts the bath (M15).
   const startBath = bath.start;
+  const hasOpenUseRef = useRef(useItem.hasOpenUse);
+  hasOpenUseRef.current = useItem.hasOpenUse;
   const chooseOption = useCallback(
     (entry: CareEntry) => {
       setSelectedVerb(null);
-      if (entry.action === 'clean') {
+      // An owned use begun earlier and never finished is finished first (the ledger's resume), never bathed with (M15)
+      if (entry.action === 'clean' && !(entry.choice.source === 'owned' && hasOpenUseRef.current(liveBlobbi.current.d))) {
         setItemsOpen(false);
         setDoorPrompt(false);
         startBath({ choice: entry.choice, name: entry.name, glyph: entry.glyph }, { inPlace: isEgg });
@@ -1032,7 +1036,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             inventory={inventory}
             blobbiName={blobbi.name}
             // An earlier use left unfinished is finished first (the ledger's resume), never bathed with
-            onUse={(entry) => (useItem.hasOpenUse(blobbi.d) ? offerItem({ source: 'owned', entry }) : chooseOption(ownedEntry(entry)))}
+            onUse={(entry) => chooseOption(ownedEntry(entry))}
             openUse={useItem.hasOpenUse(blobbi.d)}
             busy={useItem.isPending || useStarter.isPending || busyWithObject}
             worn={worn.wornAddresses}
