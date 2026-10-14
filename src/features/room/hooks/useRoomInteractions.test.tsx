@@ -21,6 +21,7 @@ function fakes() {
     propResting: vi.fn(() => true),
     kickProp: vi.fn((id: string) => { state.kicks.push(id); return true; }),
     whenPropRests: vi.fn(async () => {}),
+    bath: vi.fn(), itemFootprint: vi.fn(() => null), modelDrawn: vi.fn(() => false),
   } as unknown as RoomControl;
   const state = { props: new Set<string>(), kicks: [] as string[], walks: [] as { x: number; z: number; clear?: number }[], writes: 0 };
   const care = {

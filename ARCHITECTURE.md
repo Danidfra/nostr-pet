@@ -705,6 +705,56 @@ one. Verified in Chrome and WebKit (Playwright) at 390×664, 375×553 and
 viewport above the button at every size, the card lit then not, the choice
 kept across a reload with neither the introduction nor the guide back.
 
+## Milestone 15, Track A: the bath as a game (2026-10-14)
+
+A cleaning item used to be a button (the Blobbi walks to the tub, the write
+happens on arrival). It is a small game now, the same in both homes, with the
+same write at its end (`src/features/bath/README.md`):
+
+```
+idle → entering → soap (drag) → rinse (hold) → dry (drag) → committing → done
+                                                             ↘ failed → Try again (a tap)
+```
+
+**One pure machine** (`bath/bath-machine.ts`): the Blobbi's art box as a
+coarse 8×8 grid masked by its own silhouette (read from the canonical drawing
+through the teleport's outline reader; the plain blob without a canvas),
+foam and wet per cell, each stage passed by COVERING the body: the soap and
+the towel lay or lift along a drag (sampled every third of a cell, a disc
+with falloff; a press within a tap's slop lays nothing), the shower works
+with time under its head (a column), and a stage passes at a share of the
+body (0.82, 0.92, 0.85). Deterministic; `reduce(state, event)` mutates
+nothing; every rule is a unit test.
+
+**One session** (`bath/useBathSession.ts`) runs the machine as a script on
+an interaction director (`room/lib/room-interaction.ts`): whatever interrupts
+a scene (a change of room, decorating, a teleport, Stop, the page going)
+cancels the run, and the run's cleanup gives back everything borrowed (the
+Blobbi's place in the tub, its face, its eyes, the tub's model). The ONE write
+is the host's, through the home's own use paths (`useUseItem` with its spend,
+ledger and resume; `useStarterUse`), begun only after the last stage, under
+`run.protect` so a cancel asked meanwhile waits for it to land or fail. A
+failed write waits for the player's Try again; nothing retries by itself.
+Hygiene already full refuses a bath with a word. Nothing is persisted
+mid-bath.
+
+**Two pictures of it.** The 2D home: the tub in two layers round the Blobbi
+(`BathTub2D`), the foam, the wet, the rain and the tool drawn in SVG on a
+layer over the actor's box that takes every pointer (`BathTouchLayer`, box
+coordinates, captured, the arrow keys too), the bar in the options slot
+(`BathToolBar`, one tool at a time), the actor's face, eyes and gestures from
+the session. The 3D room: the session runs on the room's director
+(`interactions.run('bathing', …)`, so the room's busy flags hold), the
+Blobbi walks to the tub item and is scripted onto its floor
+(`setActorScript`, `BATH_ELEV`), the scene is handed the state to draw
+(`RoomScene.setBath` → `scene/bath-scene.ts`: a hollow tub on the item's
+footprint, the water, instanced foam on the body's front, the rain, the
+tools as meshes; the near walls, the water and the foam on the overlay pass
+when the Blobbi is the page's drawing), the same layer stands in the
+Blobbi's overlay box (drawing nothing when the model draws it), and the
+room's taps, strokes and swipes are locked meanwhile (`inputLocked`). An
+egg, a room without a tub and the simple room bathe where the Blobbi lies.
+
 ## Milestone 13: MVP release readiness (M11)
 
 The pass that turns the M10 home into something that can be put in front

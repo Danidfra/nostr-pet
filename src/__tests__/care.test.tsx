@@ -26,7 +26,7 @@ import {
 
 import Home from '@/pages/Home';
 import { SceneSettingsProvider } from '@/features/home/scene';
-import { chooseCare } from '@/test/care-ui';
+import { chooseCare, playBath } from '@/test/care-ui';
 import { EnvironmentProvider } from '@/environment';
 import type { Appearance } from '@/environment';
 import { PUBKEY, blobbiEvent, profileEvent } from '@/test/fixtures';
@@ -196,10 +196,11 @@ describe('Care: feed', () => {
     renderHome();
     await ready();
     await chooseCare('clean');
-    // A starter use that fails leaves the soap with a retry; nothing was written.
-    expect(await screen.findByTestId('item-error', {}, { timeout: 4000 })).toHaveTextContent(/relay rejected/i);
+    // The bath is played to its end before anything is written (M15); the write then fails, and the bath waits with why
+    await playBath();
+    expect(await screen.findByTestId('bath-error', {}, { timeout: 4000 })).toHaveTextContent(/relay rejected/i);
     expect(published31124()).toHaveLength(0);
-    await userEvent.click(screen.getByTestId('offer-put-away'));
+    await userEvent.click(screen.getByTestId('bath-stop'));
     await waitFor(() => expect(screen.getByTestId('care-feed')).toBeEnabled());
     await openBlobbiSheet();
     const hygiene = within(screen.getByRole('group', { name: /care status/i })).getByTestId('stat-hygiene');
@@ -259,7 +260,8 @@ describe('Care: rest and wake', () => {
 
 describe('Care: stages', () => {
   it('an egg can be cleaned and rested, not fed or played with', async () => {
-    relay.state = [blobbiEvent('0000000003', { name: 'Shell', stage: 'egg', createdAt: NOW - 60 })];
+    // Not squeaky clean already: a bath is refused when there is nothing to wash (M15)
+    relay.state = [blobbiEvent('0000000003', { name: 'Shell', stage: 'egg', createdAt: NOW - 60, set: { hygiene: '60' } })];
     renderHome();
     await ready();
     expect(screen.getByTestId('care-feed')).toBeDisabled();
@@ -267,10 +269,12 @@ describe('Care: stages', () => {
     expect(screen.getByTestId('care-clean')).toBeEnabled();
     expect(screen.getByTestId('care-rest')).toBeEnabled();
     await chooseCare('clean');
+    // An egg is bathed where it lies (M15): the same game, no tub, then the write
+    await playBath();
     await waitFor(() => expect(published31124()).toHaveLength(1));
     expect(getTagValue(published31124()[0].tags, 'stage')).toBe('egg');
     await waitFor(() => expect(published1124()).toHaveLength(1));
-  });
+  }, 20_000);
 });
 
 describe('Current companion (kind 11125)', () => {

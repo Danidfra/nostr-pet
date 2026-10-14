@@ -24,6 +24,7 @@ import Home from '@/pages/Home';
 import { SceneSettingsProvider, type SceneSettings } from '@/features/home/scene';
 import { PET_OP_TAG, INTERACTION_SPEND_MARKER, readLedger } from '@/features/inventory';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
+import { playBath } from '@/test/care-ui';
 import {
   FARM_CARROT,
   ISLAND_INVENTORY,
@@ -307,7 +308,9 @@ describe('Inventory: using an item', () => {
     await openItems();
     await userEvent.click(await screen.findByTestId('inventory-item-blobbi:hygiene:soap'));
     await userEvent.click(screen.getByTestId('inventory-use'));
-    // No walk: the use starts at once, so the spend and the state land without the actor moving.
+    // No walk: an egg is bathed where it lies (M15), and the spend and the state land once the bath is played, the actor never moving
+    expect(states()).toHaveLength(0);
+    await playBath();
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
     expect(screen.getByTestId('blobbi-actor')).toHaveAttribute('data-motion', 'still');
     expect(getTagValue(spends()[0].tags, 'purpose')).toBe('clean:blobbi');

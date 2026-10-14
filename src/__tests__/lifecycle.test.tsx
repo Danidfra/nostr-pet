@@ -30,7 +30,7 @@ import { TAPS_TO_HATCH, TAP_SETTLE_MS } from '@/features/room/lib/hatch-theater'
 import { KIND_COLOR_MOMENT, KIND_PROFILE_METADATA, KIND_THEME_DEFINITION, clearEvolutionFromStorage, createEvolveMissions, createHatchMissions } from '@blobbi-kit/react';
 
 import Home from '@/pages/Home';
-import { chooseCare } from '@/test/care-ui';
+import { chooseCare, playBath } from '@/test/care-ui';
 import { SceneSettingsProvider } from '@/features/home/scene';
 import { PUBKEY, blobbiEvent, earlierBlobbiEvent, profileEvent } from '@/test/fixtures';
 
@@ -102,7 +102,7 @@ function authored(kind: number, id: string, tags: string[][] = []): NostrEvent {
 
 function incubatingEgg(interactions: number): NostrEvent {
   const missions = createHatchMissions().map((m) => (m.id === 'interactions' && 'count' in m ? { ...m, count: interactions } : m));
-  const base = blobbiEvent('0000000001', { name: 'Shell', stage: 'egg', createdAt: NOW - 3_600, set: { progression_state: 'incubating' }, extra: [['progression_started_at', String(NOW - 3_000)]] });
+  const base = blobbiEvent('0000000001', { name: 'Shell', stage: 'egg', createdAt: NOW - 3_600, set: { progression_state: 'incubating', hygiene: '60' }, extra: [['progression_started_at', String(NOW - 3_000)]] });
   return { ...base, content: serializeEvolutionContent('', missions) };
 }
 
@@ -268,6 +268,7 @@ describe('Lifecycle: egg', () => {
     expect(screen.getByTestId('lifecycle-task-interactions')).toHaveTextContent('6/7');
     await closeSheet();
     await chooseCare('clean');
+    await playBath();
     await waitFor(() => expect(published31124()).toHaveLength(1));
     const missions = parseEvolutionContent(published31124()[0].content);
     const interactions = missions.find((m) => m.id === 'interactions');
@@ -275,7 +276,7 @@ describe('Lifecycle: egg', () => {
     expect(getTagValue(published31124()[0].tags, 'stage')).toBe('egg');
     await ready();
     await waitFor(() => expect(screen.getByTestId('lifecycle-task-interactions')).toHaveAttribute('data-completed', 'true'));
-  });
+  }, 20_000);
 });
 
 describe('Lifecycle: baby → adult', () => {

@@ -42,14 +42,14 @@ import type { RoomControl } from '../components/RoomShell';
 import type { RoomNavigation } from './useRoomNavigation';
 import { EAT, bitesFor, type RoomCare, type UseOutcome } from './useRoomCare';
 import type { EatingMoment } from './useEatingPresentation';
-import { Interrupted, createDirector, type CancelReason, type Run } from '../lib/room-interaction';
+import { Interrupted, createDirector, type CancelReason, type Interaction, type Run } from '../lib/room-interaction';
 import { PROP_GAP, PROP_LEAVE_MS, PROP_RADIUS, propGlyphFor, propKindFor, type RoomProp, type RoomPropKind } from '../lib/room-props';
 import { kickDirection } from '../lib/ball-physics';
 import { gazeToward } from '../lib/room-gaze';
 import type { DropPlan, RoomCareEntry } from '../lib/room-care';
 import { recordRuntimeError } from '../lib/runtime-errors';
 
-export type InteractionKind = 'feeding' | 'playing' | 'using';
+export type InteractionKind = 'feeding' | 'playing' | 'using' | 'bathing';
 
 /** How long it looks at a thing just set down before going to it. */
 export const NOTICE_MS = 480;
@@ -103,6 +103,12 @@ export interface RoomInteractions {
   /** The development previews: the whole scene with a pretend write (nothing used, nothing written). */
   preview: (kind: 'feed' | 'ball', item: HomeItem) => void;
   cancel: (reason: CancelReason) => void;
+  /**
+   * Play a scene of the caller's on the room's director (the bath, M15): whatever ran before gives way, the room
+   * knows the Blobbi is busy (`activity`), and the scene ends with the room's own reasons (a change of room, a
+   * teleport, decorating, the page going).
+   */
+  run: (kind: InteractionKind, script: (run: Run) => Promise<void>) => Interaction;
 }
 
 /** What a scene is about: the thing, where it is, and (unless pretend) the offer it belongs to. */
@@ -544,6 +550,15 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
 
   const cancel = useCallback((reason: CancelReason) => director.cancel(reason), [director]);
 
+  const run = useCallback((kind: InteractionKind, script: (run: Run) => Promise<void>): Interaction => {
+    setActivity(kind);
+    const interaction = director.start(kind, script);
+    void interaction.ended.then(() => {
+      if (director.current() === null) setActivity(null);
+    });
+    return interaction;
+  }, [director]);
+
   // ─── The ball left lying: put away after a while, gone with the room or with decorating ───
   const toyIdleMs = options.toyIdleMs ?? TOY_IDLE_MS;
   useEffect(() => {
@@ -609,5 +624,5 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
   }, [offerKey]);
   void reducedMotion;
 
-  return useMemo(() => ({ props, gaze, activity, eating, offer, retry, onPropTap, preview, cancel }), [props, gaze, activity, eating, offer, retry, onPropTap, preview, cancel]);
+  return useMemo(() => ({ props, gaze, activity, eating, offer, retry, onPropTap, preview, cancel, run }), [props, gaze, activity, eating, offer, retry, onPropTap, preview, cancel, run]);
 }
