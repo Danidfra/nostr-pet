@@ -8,6 +8,7 @@ import type { NostrSigner } from '@nostrify/nostrify';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION } from '@blobbi-kit/core';
 import { clearGuestDocument, readGuestDocument, storageAvailable, withSecret, withoutSecret, writeGuestDocument, type GuestDocument, type GuestMigration, type GuestMigrationStage, type GuestStorage, type StoredGuestDocument } from './guest-store';
+import { removeGuestFromDevice } from './guest-cleanup';
 import type { MigrationStep } from './guest-migration';
 
 export interface GuestSnapshot {
@@ -33,8 +34,13 @@ export interface GuestStore {
   revealSecret: () => string | null;
   /** Change the record; every change is persisted. */
   update: (change: (doc: GuestDocument) => GuestDocument) => void;
-  /** Let the record go: saved and confirmed, or discarded by the player. */
+  /** Let the record go: saved and confirmed. The keys the device keeps under the pubkey stay: they are the account's now. */
   clear: () => void;
+  /**
+   * The player's explicit, confirmed choice to remove the guest Blobbi from this device (M15): the record and every
+   * key the device kept under the guest's identity go (`guest-cleanup.ts`); nothing of any account's is touched.
+   */
+  remove: () => void;
   /** Read storage again (another tab, a test). */
   reload: () => void;
 }
@@ -80,6 +86,12 @@ export function createGuestStore(storage: GuestStorage | null): GuestStore {
       set(change(state.doc));
     },
     clear: () => set(null),
+    remove: () => {
+      const doc = state.doc;
+      if (!doc) return;
+      removeGuestFromDevice(doc, storage);
+      set(null);
+    },
     reload: () => {
       state = read();
       emit();
@@ -100,7 +112,18 @@ export function withEvents<T extends GuestDocument>(doc: T, events: NostrEvent[]
 }
 
 export function withInviteDismissed<T extends GuestDocument>(doc: T, now: number = Date.now()): T {
-  return { ...doc, invite: { dismissedAt: now, shownCount: doc.invite.shownCount + 1 } };
+  return { ...doc, invite: { ...doc.invite, dismissedAt: now, shownCount: doc.invite.shownCount + 1 } };
+}
+
+/** "Don't ask again" (M15): no automatic invitation in this browser, ever; the menu and the status pill keep the way. */
+export function withInviteOptOut<T extends GuestDocument>(doc: T, now: number = Date.now()): T {
+  return { ...doc, invite: { ...doc.invite, optOut: true, dismissedAt: now, shownCount: doc.invite.shownCount + 1 } };
+}
+
+/** Active play counted (M15): a visible, focused stretch of `ms` added to the record's total. */
+export function withActiveTime<T extends GuestDocument>(doc: T, ms: number): T {
+  if (!(ms > 0)) return doc;
+  return { ...doc, invite: { ...doc.invite, activeMs: doc.invite.activeMs + Math.round(ms) } };
 }
 
 export function withMigrationStage<T extends GuestDocument>(doc: T, stage: GuestMigrationStage, now: number = Date.now()): T {
@@ -148,6 +171,12 @@ export interface GuestUi {
   /** A save landed on this visit: the guest's status pill becomes "Saved to Nostr" for the rest of it (M14.1). */
   saved: boolean;
   markSaved: () => void;
+  /**
+   * Accounts whose word about the guest Blobbi was closed with "Decide later" on THIS visit (M15): the sheet stays
+   * away until the next visit and nothing is written, so a closed sheet never counts as a decision.
+   */
+  conflictDeferred: readonly string[];
+  deferConflict: (loginPubkey: string) => void;
 }
-const NO_UI: GuestUi = { request: null, requestSave: () => {}, requestSignIn: () => {}, clearRequest: () => {}, saved: false, markSaved: () => {} };
+const NO_UI: GuestUi = { request: null, requestSave: () => {}, requestSignIn: () => {}, clearRequest: () => {}, saved: false, markSaved: () => {}, conflictDeferred: [], deferConflict: () => {} };
 export const GuestUiContext = createContext<GuestUi>(NO_UI);

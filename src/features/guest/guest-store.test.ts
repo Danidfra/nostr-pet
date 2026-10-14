@@ -90,7 +90,7 @@ describe('guest-store', () => {
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
       expect(parsed.doc.care).toEqual({ count: 0, lastAt: null });
-      expect(parsed.doc.invite).toEqual({ dismissedAt: null, shownCount: 0 });
+      expect(parsed.doc.invite).toEqual({ dismissedAt: null, shownCount: 0, activeMs: 0, optOut: false });
       expect(parsed.doc.migration).toBeNull();
       expect('extra' in parsed.doc).toBe(false);
     }

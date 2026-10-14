@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { useBlockingLayer } from '@/lib/blocking-layer';
 
 interface GameOverlayProps {
   open: boolean;
@@ -36,15 +37,23 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * restored on close, Tab kept inside, Escape and the backdrop close it, the
  * page behind does not scroll. The header is fixed and the body scrolls.
  * Reduced motion removes the entrance.
+ *
+ * One at a time (M15): every open overlay passes through the blocking-layer
+ * queue (`lib/blocking-layer.ts`). The oldest open one holds the surface and
+ * is rendered; a later one waits, unrendered, and rises when the first has
+ * closed. Two sheets can therefore never stand on top of each other, and
+ * none is dismissed on another's behalf.
  */
 export function GameOverlay({ open, onClose, title, children, testId, lead, subtitle, toolbar, size = 'medium', className = '' }: GameOverlayProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
+  // The surface is held while open; a waiting overlay renders nothing until its turn
+  const held = useBlockingLayer(open);
 
   useEffect(() => {
-    if (!open) return;
+    if (!held) return;
     restoreRef.current = (document.activeElement as HTMLElement | null) ?? null;
     (closeRef.current ?? panelRef.current)?.focus();
     const previousOverflow = document.body.style.overflow;
@@ -53,9 +62,9 @@ export function GameOverlay({ open, onClose, title, children, testId, lead, subt
       document.body.style.overflow = previousOverflow;
       restoreRef.current?.focus?.();
     };
-  }, [open]);
+  }, [held]);
 
-  if (!open) return null;
+  if (!held) return null;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {

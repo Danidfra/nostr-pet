@@ -31,27 +31,43 @@ export function resolveGuestMode(doc: GuestDocument | null, loginPubkey: string 
 export const GUEST_MAX_BLOBBIS = 1;
 
 /**
- * The invitation to save: after the player has really cared for their
- * hatched Blobbi, once, when the home is quiet; declined, it rests for a
- * day. Never a countdown, never a second ask in the same session.
+ * The invitation to save (M15): after the player has really cared for their
+ * hatched Blobbi AND played with it for a while, once, when the home is
+ * quiet. Declined with Maybe later, it rests for about a day; declined
+ * with Don't ask again, it never comes back on its own in this browser.
+ * Never a countdown, never a second ask in the same visit; the menu and the
+ * status pill keep the way to save at all times.
  */
-export const INVITE_REST_MS = 20 * 60 * 60 * 1000;
-/** How long the home is quiet after the care landed before the invitation appears. */
+export const INVITE_REST_MS = 24 * 60 * 60 * 1000;
+/** Active play (a visible, focused tab) before the first invitation: about five minutes. */
+export const INVITE_ACTIVE_MS = 5 * 60 * 1000;
+/** How long the home is quiet before the invitation appears. */
 export const INVITE_DELAY_MS = 2_800;
 
 export interface InviteFacts {
   hatched: boolean;
   careCount: number;
+  /** Active play so far, in milliseconds (the record's `invite.activeMs`). */
+  activeMs: number;
   dismissedAt: number | null;
+  /** "Don't ask again" was chosen in this browser. */
+  optOut: boolean;
   /** Saving already begun (even interrupted): the invitation is to finish, shown from the menu, not from here. */
   migrationBegun: boolean;
   now: number;
 }
 
-export function inviteDue({ hatched, careCount, dismissedAt, migrationBegun, now }: InviteFacts): boolean {
-  if (!hatched || careCount < 1 || migrationBegun) return false;
+export function inviteDue({ hatched, careCount, activeMs, dismissedAt, optOut, migrationBegun, now }: InviteFacts): boolean {
+  if (optOut || !hatched || careCount < 1 || migrationBegun) return false;
+  if (activeMs < INVITE_ACTIVE_MS) return false;
   if (dismissedAt !== null && now - dismissedAt < INVITE_REST_MS) return false;
   return true;
+}
+
+/** True once the guest's Blobbi has been published somewhere: a save that landed, confirmed or not (M15, the removal's warning). */
+export function guestEverSaved(doc: Pick<GuestDocument, 'migration'>): boolean {
+  const m = doc.migration;
+  return !!m && (m.stage === 'verifying' || m.stage === 'done' || typeof m.landed.blobbi === 'string');
 }
 
 /** The invitation's one line. */

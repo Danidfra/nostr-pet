@@ -27,9 +27,20 @@ export function GuestProvider({ children, store, storage }: { children: ReactNod
   // What a menu asked the page for (Save my Blobbi, I already have an account): the page renders it, the menu never does
   const [request, setRequest] = useState<GuestUiRequest>(null);
   const [saved, setSaved] = useState(false);
+  // "Decide later" on the conflict sheet (M15): remembered for this visit only, never written
+  const [conflictDeferred, setConflictDeferred] = useState<readonly string[]>([]);
   const ui = useMemo<GuestUi>(
-    () => ({ request, requestSave: () => setRequest('save'), requestSignIn: () => setRequest('sign-in'), clearRequest: () => setRequest(null), saved, markSaved: () => setSaved(true) }),
-    [request, saved],
+    () => ({
+      request,
+      requestSave: () => setRequest('save'),
+      requestSignIn: () => setRequest('sign-in'),
+      clearRequest: () => setRequest(null),
+      saved,
+      markSaved: () => setSaved(true),
+      conflictDeferred,
+      deferConflict: (pubkey) => setConflictDeferred((list) => (list.includes(pubkey) ? list : [...list, pubkey])),
+    }),
+    [request, saved, conflictDeferred],
   );
   return (
     <GuestStoreContext.Provider value={own}>

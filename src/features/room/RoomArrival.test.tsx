@@ -103,6 +103,9 @@ beforeEach(() => {
   scene.state.walks = 0;
   scene.state.itemAt = null;
   localStorage.clear();
+  // M15: one blocking layer at a time. The room's first-visit introduction is a sheet; the sheets these tests open
+  // would wait behind it (as a player's taps cannot reach the dock under its backdrop), so the introduction counts as seen.
+  window.localStorage.setItem('blobbi:home:3d-intro:v1', 'seen');
 });
 afterEach(() => localStorage.clear());
 
@@ -158,7 +161,8 @@ describe('entering the room', () => {
     await waitFor(() => expect(teleport()).toBe('none'), { timeout: ARRIVAL_LEAD_MS + ARRIVE.total + 3_000 });
     fireEvent.click(screen.getByTestId('room-menu'));
     await screen.findByTestId('menu-sheet');
-    fireEvent.keyDown(document, { key: 'Escape' });
+    // Closed the way a player closes it (M15: a sheet opened while another is up waits for it, as under its backdrop)
+    fireEvent.click(screen.getByTestId('menu-sheet-close'));
     fireEvent.click(screen.getByTestId('room-bar-blobbi'));
     fireEvent.click(screen.getByTestId('sheet-journey'));
     await wait(ARRIVAL_LEAD_MS + 500);

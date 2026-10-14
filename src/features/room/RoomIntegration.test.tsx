@@ -142,6 +142,8 @@ describe('the room in the app', () => {
   });
 
   it('the menu is the one settings entry: in the room it holds the room\'s own settings, sound and the account; the dock holds the Blobbi and the room', async () => {
+    // M15: the introduction is a sheet and the menu would wait behind it; it counts as seen here
+    localStorage.setItem(ROOM_INTRO_STORAGE_KEY, 'seen');
     signedInWith();
     localStorage.setItem(EXPERIENCE_STORAGE_KEY, 'room');
     renderAt('/room');
@@ -187,6 +189,8 @@ describe('the room in the app', () => {
   });
 
   it('changing rooms, the graphics quality, the Blobbi\'s look and the sound stays on this device: nothing is published, only local preferences are written', async () => {
+    // M15: the introduction is a sheet and the menu would wait behind it; it counts as seen here
+    localStorage.setItem(ROOM_INTRO_STORAGE_KEY, 'seen');
     signedInWith();
     renderAt('/room');
     await inRoom();

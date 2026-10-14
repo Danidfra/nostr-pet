@@ -99,7 +99,7 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
           autoComplete="off"
           spellCheck={false}
           disabled={adoption.isPending}
-          className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           data-testid="adoption-name"
         />
         {!name.ok && (

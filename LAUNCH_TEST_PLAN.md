@@ -247,6 +247,53 @@ developers; then Develop → the iPhone → the page) and copy the console.
    with the same Blobbi and care, and opening the app again stays in 2D.
    **Try again** is offered at most twice.
 
+## 1g. M15 on a real iPhone: the zoom, the word about a guest Blobbi, the invitation
+
+Safari **and** Chrome on the iPhone zoomed the page by themselves. Both are
+WebKit, and WebKit zooms in when a text field smaller than 16px takes the
+focus (and stays zoomed), and on a double tap where `touch-action` allows
+it. The fields are 16px now, the 2D shell and the egg refuse the double-tap
+zoom as the room has since M12, and the viewport covers the safe areas.
+Pinch still zooms everywhere.
+
+1. Fresh private window, as a guest: adopt (type a name in the egg's field),
+   hatch with four quick taps on the egg. Expected: the page never zooms in,
+   neither on the field nor on the taps; after the hatch `visualViewport`
+   is at scale 1 (Web Inspector console: `visualViewport.scale`, or the
+   dev lab's **Viewport probe** on a dev build).
+2. Menu → I already have an account → **Sign in with a secret key**: tap the
+   key field. Expected: no zoom. Cancel.
+3. Save the Blobbi up to the profile's three fields: tap each. Expected: no
+   zoom. The room's menu → Graphics select: no zoom.
+4. Pinch to zoom in anywhere, then out. Expected: it works, and lets go.
+5. If a zoom still happens, note where, and read the probe: a scale above 1
+   is a zoom in (which element was focused is on the last row); a
+   `scrollWidth` wider than the viewport is a zoom out to fit.
+6. **The word about a guest Blobbi.** With a guest Blobbi on the phone, sign
+   in to a different account (menu → I already have an account). Expected:
+   the account's home, and over it one sheet, "*Lupa* is still here", in
+   plain words (the Blobbi's name, no relays or keys in the main text), with
+   **Keep Lupa here**, **Decide later** and a quieter **Remove Lupa from this
+   device…**. Never two sheets at once: if the room's introduction is due as
+   well, it comes after.
+7. Tap the X (or Decide later). Reload. Expected: the sheet comes back
+   (nothing was decided). Tap **Keep Lupa here**. Reload. Expected: it does
+   not come back for this account. Sign out: Lupa is there, as before.
+8. Sign in to the other account again, **Remove Lupa from this device…**.
+   Expected: a second sheet, "Remove Lupa from this device?", with the
+   warning that Lupa was never saved and a box to tick before **Remove Lupa**
+   is enabled; **Keep Lupa**, the X and Escape go back to the first sheet
+   with nothing removed. Tick and remove: Lupa is gone from the phone, the
+   account's Blobbi and settings are what they were (Settings → Safari →
+   Advanced → Website Data shows the origin still there, smaller).
+9. **The invitation.** A guest with a hatched Blobbi, cared for once, who has
+   played less than five minutes: no bubble. Keep playing with the screen on
+   and the app in front (time in the background does not count) until about
+   five minutes in all: a quiet moment later, the bubble, in the 2D home
+   and in the room alike, never over a sheet. **Maybe later**: gone for about
+   a day. **Don't ask again**: gone for good; the menu's **Save Lupa** and the
+   "On this device" pill still save.
+
 ## 2. The room (after choosing it: menu → Explore in 3D)
 
 1. Reload with a hatched, awake Blobbi: the room appears, then the Blobbi

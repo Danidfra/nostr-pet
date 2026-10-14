@@ -284,3 +284,56 @@ verified backup.
   Account screen's key backup (plain nsec) remains the way out while that
   browser lives.
 - The login store is plaintext after activation (section 6).
+
+## 12. M15 audit (2026-10-14): the key's life, read again; what changed, what remains
+
+Scope: the nine points of the M15 brief, read against the code as it stands
+after M14.3.1 and the M15 changes below. No redesign of the key
+architecture; no AES-GCM, no NIP-49 (sections 4 and 5 still wait for
+approval). Nothing in this section was observed in a browser; it is read
+from the code and pinned by the suites named.
+
+| Point | Finding | Changed in M15 |
+|---|---|---|
+| Generation | `generateSecretKey` through `createNewAccount`; raw bytes zeroed after encoding; made on **Meet your Blobbi!** and nowhere else (`reserveGuestIdentity`) | No |
+| Persistence | Plaintext `nsec` in the v1 record (`blobbi:guest:v1`), rewritten whole on every change of the record. M15 adds two more writers of the record: the active-time flush (`useSaveInvite`, every 15 s of active play and on hide/blur/unmount) and "Don't ask again". Each write puts the secret back from the store's closure (`withSecret`); none reads it into component state | More writes of the same record; the secret's confinement (section 3) holds: `guest-secret.test.ts` still passes, the new suites assert the snapshot and the console hold no nsec |
+| Migration into the login store | `login.nsec` after the stage is written; the login store keeps it in plaintext under `nostr:login` (the ecosystem's store) | No |
+| Backup acknowledgement | A checkbox, not a verification (section 1) | No (section 5 waits) |
+| Relay publication | Fresh events from templates, signed by the login's signer; the guest pool refuses unsigned or guest-authored events upstream; nothing of the guest's reaches a relay before the save (`m15-reliability.test.tsx` asserts `relay.published` empty through every new flow) | No |
+| Cleanup after a successful migration | `store.clear()` removes the record and leaves the keys the device kept under the pubkey (rooms, toys, Journey, ledger, selected Blobbi): the account IS that pubkey, so they are its own now | Made explicit and pinned (`guest-cleanup.test.ts`) |
+| Interrupted migration recovery | Stage and landed ids in the record; `useFinishSave` at mount for `verifying`/`done`; a refresh at `key` shows the key again from the store | No; re-read, still as section 7 says |
+| Sign-in to a different account | The record is untouched (`resolveGuestMode` → `dormant`); the word about it is now in plain words, closing it writes nothing (`conflictDeferred`, in memory for the visit), Keep writes the account's pubkey into `conflicts` as before, and neither path touches the identity | Copy, Decide later, the separate removal; pinned end to end |
+| Deletion of guest data | **Before M15** "Remove" called `store.clear()`: the record went, and every other key the device kept under the guest pubkey stayed behind (room, toys, layout, 3D nav and intro, Journey, spend ledger, selected Blobbi). **Now** `store.remove()` → `removeGuestFromDevice` removes the record, the keys from the stores' own builders, and (as a net) any `blobbi:`-prefixed key with the guest pubkey as a segment; it never touches `nostr:login`, any other pubkey's keys, device-wide preferences or the quarantine. The flow asks an explicit acknowledgement when the Blobbi was never saved | New; every path pinned (`guest-cleanup.test.ts`, `m15-reliability.test.tsx`) |
+
+Findings worth acting on later (none blocks M15):
+
+1. **The quarantine still holds plaintext keys** (`blobbi:guest:v1:unreadable*`),
+   as section 3 says; a removal leaves it alone because an unreadable
+   document cannot be attributed to the guest being removed. A future
+   recovery tool should be the one to clear it, with the player.
+2. **More frequent writes of the secret.** The active-time flush rewrites the
+   record (secret included) every 15 s of active play. It changes nothing
+   about where the secret lives, but it is one more reason to seal the
+   record (section 4) before the invitation's bookkeeping grows further. If
+   the flush is ever judged too chatty, `INVITE_FLUSH_MS` is the knob;
+   the time lost on a crash is at most one stretch.
+3. **Removal is not atomic across keys.** `removeGuestFromDevice` removes
+   the record first, then the rest; a storage that refuses halfway leaves
+   orphaned per-pubkey keys without a record. They hold no secret (the
+   secret is only in the record) and name a pubkey that no longer exists on
+   the device. The result reports `ok: false` and the store still empties
+   its snapshot, so the UI never shows a half-removed guest.
+4. **Test reports.** The M14 suites compare the shown key to the seeded one
+   (`expect(shown).toBe(doc.identity.nsec)`); a failure would print both.
+   The keys are random and thrown away, so nothing real can leak, but the
+   M15 suites compare pubkeys and assert the absence of the nsec instead,
+   and new tests should keep to that.
+5. **The login store after a dormant removal.** Removing a guest while
+   signed in to another account leaves that account's login where it was,
+   by design; the test asserts it. There is no path that removes a login
+   from this flow.
+
+Remaining risks after M15: T1, T2 and T6 of section 2 exactly as before;
+the plaintext login store (section 6); the unverified backup (section 5).
+None of them is new, and the words in the app still promise none of them
+away.

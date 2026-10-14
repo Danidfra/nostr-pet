@@ -1,9 +1,11 @@
 /**
- * The invitation to save (M14): a small bubble in the game world, after the
- * player has really cared for their hatched Blobbi and the home is quiet.
- * One line, two answers, and "Maybe later" is a full answer: the bubble goes
- * and rests for a day; the menu keeps the way whenever the player wants it.
- * No countdown, no warning, no second ask in the same visit.
+ * The invitation to save (M14, rules in `useSaveInvite` since M15): a small
+ * bubble in the game world, after the player has really cared for and
+ * played with their hatched Blobbi and the home is quiet. One line, three
+ * answers: Save, "Maybe later" (a full answer: the bubble goes and rests for
+ * about a day) and "Don't ask again" (no automatic invitation in this
+ * browser again). The menu keeps the way whenever the player wants it. No
+ * countdown, no warning, no second ask in the same visit.
  */
 import { Heart, Sparkles } from 'lucide-react';
 import { inviteLine } from './guest-session';
@@ -12,10 +14,12 @@ interface GuestInviteProps {
   name: string;
   onSave: () => void;
   onLater: () => void;
+  /** "Don't ask again": the automatic invitation is off in this browser from now on. */
+  onNever: () => void;
   reducedMotion: boolean;
 }
 
-export function GuestInvite({ name, onSave, onLater, reducedMotion }: GuestInviteProps) {
+export function GuestInvite({ name, onSave, onLater, onNever, reducedMotion }: GuestInviteProps) {
   return (
     <section className="guest-invite home-glass" role="dialog" aria-label="Save your Blobbi" data-testid="guest-invite" data-reduced={reducedMotion ? 'true' : undefined}>
       <span className="guest-invite__heart" aria-hidden>
@@ -31,6 +35,9 @@ export function GuestInvite({ name, onSave, onLater, reducedMotion }: GuestInvit
           Maybe later
         </button>
       </div>
+      <button type="button" className="guest-invite__later guest-invite__never" onClick={onNever} data-testid="guest-invite-never">
+        Don’t ask again
+      </button>
     </section>
   );
 }

@@ -33,7 +33,9 @@ export function useGuestScene() {
   useEffect(() => {
     if (ui.request === 'sign-in' && guest.loginPubkey) clearRequest();
   }, [ui.request, guest.loginPubkey, clearRequest]);
-  const conflict = guest.mode === 'dormant' && !!guest.doc && !!guest.loginPubkey && !guest.doc.conflicts.includes(guest.loginPubkey);
+  // The word about the guest Blobbi for another account: not for one that chose Keep (written), nor for one that
+  // chose Decide later on this visit (remembered in memory only, M15)
+  const conflict = guest.mode === 'dormant' && !!guest.doc && !!guest.loginPubkey && !guest.doc.conflicts.includes(guest.loginPubkey) && !ui.conflictDeferred.includes(guest.loginPubkey);
 
-  return { guest, guestActive, promoting, saveOpen, saveDone, signInOpen, closeSignIn: clearRequest, conflict };
+  return { guest, guestActive, promoting, saveOpen, saveDone, signInOpen, closeSignIn: clearRequest, conflict, deferConflict: ui.deferConflict };
 }
