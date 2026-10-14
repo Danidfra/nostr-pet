@@ -91,7 +91,9 @@ import { planDrop, planUse, shelfEntries, shelfKey, type CareShelf, type DropPla
 import { RoomSettings } from './components/RoomSettings';
 import { readRoomIntroSeen, writeRoomIntroSeen } from '@/lib/home-experience';
 import { FridgeSheet } from './components/FridgeSheet';
-import { ModeIntro, ModeToggle } from '@/features/home/shell/ModeToggle';
+import { ModeToggle } from '@/features/home/shell/ModeToggle';
+import { RoomIntro } from './components/RoomIntro';
+import { LOOK_GUIDE_DOCK_MS, guideAfterIntro, guideOnSheetOpen, readLookGuideShown, writeLookGuideShown, type LookGuideStage } from './lib/look-guide';
 import { useModeSwitch } from '@/features/home/shell/useModeSwitch';
 import { useBlobbiAppearance } from './lib/blobbi-appearance';
 import { ZOOM_STEP, useRoomZoom } from './lib/room-zoom';
@@ -446,6 +448,34 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const modeSwitch = useModeSwitch();
   // The room's introduction, the first time it opens on this device (read once; the choice is written on dismissal)
   const [introOpen, setIntroOpen] = useState(() => !readRoomIntroSeen());
+  // The one-time guide to the Blobbi's look (M14.3): the dock's bubble after the introduction, the lit card in the
+  // sheet it opens, then never again on this browser (remembered the moment it shows)
+  const [lookGuide, setLookGuide] = useState<LookGuideStage | null>(null);
+  const endLookGuide = useCallback(() => setLookGuide(null), []);
+  const openSheet = useCallback(() => {
+    setSheetOpen(true);
+    setLookGuide((g) => guideOnSheetOpen(g));
+  }, []);
+  useEffect(() => {
+    if (lookGuide !== 'dock') return;
+    // Another interaction (the floor, the carousel, the menu, the room) puts the bubble away; so does waiting
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Element | null;
+      if (target?.closest?.('[data-testid="room-bar-blobbi-slot"]')) return;
+      setLookGuide(null);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLookGuide(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('keydown', onKeyDown, true);
+    const t = setTimeout(() => setLookGuide(null), LOOK_GUIDE_DOCK_MS);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('keydown', onKeyDown, true);
+      clearTimeout(t);
+    };
+  }, [lookGuide]);
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [worldsOpen, setWorldsOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -721,9 +751,9 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const onJourneyAction = useCallback((action: ObjectiveAction) => {
     setJourneyOpen(false);
     if (action.kind === 'room') setChosenRoom(action.room);
-    else if (action.kind === 'details') setSheetOpen(true);
+    else if (action.kind === 'details') openSheet();
     else if (action.kind === 'adopt') setAdoptOpen(true);
-  }, []);
+  }, [openSheet]);
 
   // Where it comes to rest is remembered for this room (not mid-walk, mid-scene, away, asleep or decorating)
   const rememberPosition = memory.rememberPosition;
@@ -954,21 +984,31 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           restPending={care.restPending}
           // The dock's two controls (M14.1): the Blobbi on the left, the room on the right
           controls={{
-            onOpenBlobbi: () => setSheetOpen(true),
+            onOpenBlobbi: openSheet,
             onDecorate: decorator.open,
+            guide: lookGuide === 'dock' && !theater && !sheetOpen ? { reducedMotion } : null,
             decorateDisabled: !sceneIs3d || care.busy || interactions.activity !== null || !present || transitioning,
             decorateUnavailable: sceneIs3d ? null : 'Decorating needs 3D graphics, which this browser has turned off',
           }}
         />
       </RoomShell>
       <FridgeSheet open={fridgeOpen} onClose={() => setFridgeOpen(false)} entries={fridgeEntries} onUse={onUse} busy={care.busy || !present || transitioning} blobbiName={blobbi.name} />
-      {/* The first visit to the room on this device (M14.2): a word about it, over the room itself, once */}
-      <ModeIntro
+      {/* The first visit to the room on this device (M14.2): a word about it, over the room itself, once; the two looks of
+          this Blobbi side by side (M14.3), and the one-time guide to where they are chosen follows its closing */}
+      <RoomIntro
         open={introOpen && !theater}
-        name={blobbi.name}
+        blobbi={blobbi}
+        appearance={appearance}
+        unavailable3d={actor3d.unavailable3d}
+        reducedMotion={reducedMotion}
         onExplore={(dontShowAgain) => {
           if (dontShowAgain) writeRoomIntroSeen();
           setIntroOpen(false);
+          const next = guideAfterIntro(readLookGuideShown());
+          if (next) {
+            writeLookGuideShown();
+            setLookGuide(next);
+          }
         }}
       />
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
@@ -1033,7 +1073,13 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       {journeyBook.celebrate && <ChapterToast chapter={journeyBook.chapters.find((c) => c.id === journeyBook.celebrate)!} onDone={journeyBook.dismissCelebration} play={play} reducedMotion={reducedMotion} />}
       <RoomBlobbiSheet
         open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+        onClose={() => {
+          setSheetOpen(false);
+          endLookGuide();
+        }}
+        highlightAppearance={lookGuide === 'sheet'}
+        onAppearanceSeen={endLookGuide}
+        reducedMotion={reducedMotion}
         blobbi={blobbi}
         mood={mood}
         statItems={statItems}

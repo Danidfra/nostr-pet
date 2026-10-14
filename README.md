@@ -118,7 +118,8 @@ the same Wi-Fi can open the Mac's address (Vite prints it as "Network").
 Two things to know:
   Saving is a moment (M14.2): the Blobbi alive in it, the words a child's,
   one screen at a time, a profile in three optional steps, a friendly check
-  on public words, done on this device.
+  on public words, done on this device. The room's first visit shows both
+  looks of your Blobbi and guides you once to where they are chosen (M14.3).
 - **Fixtures need the flag.** With `VITE_BLOBBI_DEV_TOOLS=true` in
   `.env.local` (or in front of `npm run dev`), open
   `http://<mac-address>:8080/room?fixture=adult-v3&perf` (or `baby-v3`):

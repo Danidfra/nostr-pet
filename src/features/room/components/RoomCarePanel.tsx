@@ -32,6 +32,7 @@ import type { RoomOffer } from '../hooks/useRoomCare';
 import type { RoomCareEntry } from '../lib/room-care';
 import { cx } from '../lib/cx';
 import { ROOM_ACTION_SLOT, ROOM_BOTTOM_BAR_CLASS, ROOM_CONTROL_SURFACE } from '../lib/room-ui';
+import { LOOK_GUIDE_LINE } from '../lib/look-guide';
 
 /** A bar's layout: a button each side (or an empty slot) and the carousel between. Ditto's, verbatim. */
 function BarLayout({ left, center, right }: { left?: ReactNode; center?: ReactNode; right?: ReactNode }) {
@@ -68,6 +69,8 @@ export interface RoomBarControls {
   decorateDisabled?: boolean;
   /** Why decorating is off (no 3D graphics), for the label. */
   decorateUnavailable?: string | null;
+  /** The one-time guide (M14.3): the Blobbi button glows and a small bubble over it asks about another look. */
+  guide?: { reducedMotion: boolean } | null;
 }
 
 interface RoomBottomBarProps {
@@ -81,21 +84,34 @@ interface RoomBottomBarProps {
   controls?: RoomBarControls;
 }
 
-/** The left button: the Blobbi itself, drawn small, as the way to everything about it. */
-function BlobbiButton({ blobbi, onClick }: { blobbi: RoomBottomBarProps['blobbi']; onClick: () => void }) {
+/**
+ * The left button: the Blobbi itself, drawn small, as the way to everything
+ * about it. With the guide (M14.3) it glows and a bubble floats over it,
+ * once: the bubble is part of the button's slot, tapping either opens the
+ * sheet, and nothing else about the dock changes.
+ */
+function BlobbiButton({ blobbi, onClick, guide }: { blobbi: RoomBottomBarProps['blobbi']; onClick: () => void; guide?: RoomBarControls['guide'] }) {
   return (
-    <RoomActionButton
-      icon={
-        <span className="room-bar-portrait" aria-hidden>
-          <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`bar-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
-        </span>
-      }
-      label={blobbi.name.length > 9 ? 'Blobbi' : blobbi.name}
-      color="text-primary"
-      glowHex="#a855f7"
-      onClick={onClick}
-      testId="room-bar-blobbi"
-    />
+    <div className={cx('relative', ROOM_ACTION_SLOT)} data-testid="room-bar-blobbi-slot" data-guide={guide ? 'true' : undefined}>
+      {guide && (
+        <button type="button" className="look-guide" onClick={onClick} data-testid="room-look-guide" data-reduced={guide.reducedMotion ? 'true' : undefined}>
+          <span className="look-guide__bubble">{LOOK_GUIDE_LINE}</span>
+        </button>
+      )}
+      <RoomActionButton
+        icon={
+          <span className="room-bar-portrait" aria-hidden>
+            <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`bar-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
+          </span>
+        }
+        label={blobbi.name.length > 9 ? 'Blobbi' : blobbi.name}
+        color="text-primary"
+        glowHex="#a855f7"
+        onClick={onClick}
+        className={cx(guide && 'look-guide__target', guide?.reducedMotion && 'look-guide__target--still')}
+        testId="room-bar-blobbi"
+      />
+    </div>
   );
 }
 
@@ -118,7 +134,7 @@ function RoomButton({ controls }: { controls: RoomBarControls }) {
 
 export function RoomBottomBar({ blobbi, roomId, carousel, offer, busy, onRest, restPending, controls }: RoomBottomBarProps) {
   const asleep = blobbi.state === 'sleeping';
-  const left = controls ? <BlobbiButton blobbi={blobbi} onClick={controls.onOpenBlobbi} /> : undefined;
+  const left = controls ? <BlobbiButton blobbi={blobbi} onClick={controls.onOpenBlobbi} guide={controls.guide} /> : undefined;
   const room = controls ? <RoomButton controls={controls} /> : undefined;
   if (carousel && !asleep) {
     return (

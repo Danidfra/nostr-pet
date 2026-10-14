@@ -624,7 +624,7 @@ Measured: a 2D adult crosses the floor in about 4 s (was 9.4), a 2D baby in
 about 3.1 s at four hops a second, a 3D baby crosses a room in about 4.7 s
 (was 6), the 3D adult keeps its approved 4 s.
 
-**The room's first visit** (`ModeIntro`, `RoomPreviewPage`). The switch no
+**The room's first visit** (`RoomIntro`, `RoomPreviewPage`). The switch no
 longer asks before going; the room greets a first visit itself, after the
 egg's theatre if there is one: experimental, how the Blobbi looks here can
 be chosen (the classic drawing or the 3D model) in the Blobbi sheet under
@@ -638,6 +638,72 @@ room settings keep graphics and the view. Presentation only.
 `src/features/lifecycle/SHARED_PROGRESSION.md` (objectives separate from
 activities, contributions as kind 1124 receipts with an `objective` tag,
 one fold in the 31124 content the kit already round-trips, no new kind).
+
+## Milestone 14.3: finding the Blobbi's look in the room
+
+Manual testing of M14.2 found the Appearance choice hard to find: the
+introduction named it, but it sat inside the sheet used to switch between
+Blobbis. Three things, all presentation, all this device's; the genome,
+the identity and the lifecycle untouched; nothing published.
+
+**The introduction shows both looks** (`room/components/RoomIntro.tsx`, the
+intro's home now, out of the 2D shell so the home chunk pulls no three.js;
+`lib/look-guide.ts` the words and the rules). Two cards side by side of the
+player's own Blobbi: **Classic**, the kit's renderer with the Blobbi's own
+visual, idle; **3D Model**, the lab's `Blobbi3dStage` built from the same
+genome and stage the room builds from, sized to its frame's shorter side
+(`useBoxSide`, a `ResizeObserver`). The look in force carries a "Now" chip
+(`data-current` on the group). Where there is no model the 3D card says why
+in a line (`previewNote3d`: an egg's model comes with the hatch, V1/V2 art
+has none, a browser without WebGL cannot draw it): never a stand-in
+character. Under them the line that both are the same Blobbi with the same
+care and story, and where to choose. The panel may rise to 92% of the game
+(`.overlay-panel--intro`); under 700 px of height the frames go 4:3 and the
+words a size down, under 600 px the frames go 3:2 and the "Good to know"
+list hides, so "Let's explore" is in view at 390×664 and the panel scrolls
+by a few dozen pixels at 375×553 (the fallback). "Don't show this again"
+and `blobbi:home:3d-intro:v1` are as they were.
+
+**The one-time guide** (`look-guide.ts`: `guideAfterIntro`,
+`guideOnSheetOpen`, `blobbi:room:look-guide:v1`; `RoomPreviewPage`
+`lookGuide`; `RoomCarePanel` `BlobbiButton`; `RoomBlobbiSheet`
+`AppearanceCard`). When the introduction closes, by any means, and the guide
+was never shown on this browser, it is remembered as shown at once and the
+dock's Blobbi button glows (`look-guide__target`, a soft pulse on the
+button's disc) with a bubble above it in the button's own slot ("Want to try
+another look?", `room-look-guide`, a tap on it opens the sheet like the
+button). Any other pointer-down (the floor, the carousel, the menu, the
+room), Escape, or fourteen seconds put it away. The sheet opened from the
+glowing button lights its Appearance card (`look-card--lit`, scrolled into
+view) for about three seconds or until the card is first touched or focused.
+Closing the sheet ends the guide. It never returns: not on the next visit,
+not when the introduction is asked back by unticking its box. The hatch
+theatre and an open sheet hide the bubble. Reduced motion (the scene
+setting or the media query): the bubble and the glow hold still, the lit
+card is a plain ring (`data-reduced`, and a `prefers-reduced-motion` rule
+in the stylesheet as the belt to the braces).
+
+**The Appearance card** stands under the condition in the Blobbi sheet, its
+own icon (a palette), the title "Appearance", the look in force named in a
+chip (`room-appearance-current`), and the two options as tiles with the
+Blobbi small in each (the drawing still; the model's stage at 56 px where
+there is one, a plain cube mark otherwise), labelled Classic and 3D Model
+(`LOOK_OPTIONS`, the same words everywhere). The other Blobbis stay at the
+bottom, apart. The menu's room settings keep graphics and the view; there is
+no second Appearance anywhere.
+
+**Tests:** `room/lib/look-guide.test.ts` (the words, the rules, the key),
+`room/RoomLookGuide.test.tsx` (both previews with this Blobbi's genome and
+the current one marked, the egg's and V2's lines, reduced motion stilling
+both, the guide once with the lit card and its end, its dismissal by a touch
+elsewhere and by Escape, the unticked introduction without a second guide,
+reduced motion and the stylesheet's rules, the card's place and parts and
+the menu without one, the choice remembered across a fresh visit with
+nothing published); the suites that read the old intro line follow the new
+one. Verified in Chrome and WebKit (Playwright) at 390×664, 375×553 and
+320×460 with no console errors: both stages `ready`, the bubble inside the
+viewport above the button at every size, the card lit then not, the choice
+kept across a reload with neither the introduction nor the guide back.
 
 ## Milestone 13: MVP release readiness (M11)
 

@@ -82,7 +82,9 @@ describe('the room in the app', () => {
     expect(localStorage.getItem(EXPERIENCE_STORAGE_KEY)).toBe('room');
     const intro = await screen.findByTestId('mode-intro');
     expect(intro).toHaveTextContent(/experimental/);
-    expect(within(intro).getByTestId('mode-intro-appearance')).toHaveTextContent(/choose how Brook looks here/);
+    expect(within(intro).getByTestId('mode-intro-appearance')).toHaveTextContent(/Both are the same Brook/);
+    expect(within(intro).getByTestId('mode-intro-preview-2d')).toHaveTextContent(/Classic/);
+    expect(within(intro).getByTestId('mode-intro-preview-3d')).toHaveTextContent(/3D Model/);
     expect(intro).toHaveTextContent(/2D home is always one tap away/);
     expect(within(intro).getByTestId('mode-intro-dismiss')).toBeChecked();
     fireEvent.click(within(intro).getByTestId('mode-intro-explore'));

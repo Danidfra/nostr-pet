@@ -880,3 +880,23 @@ apex 307 and http 308 to `https://www.`. Missing assets were 200 HTML
   `profile-guard.test.ts`, the gait suites; Chrome and WebKit (Playwright)
   at 390×664, 375×553 and 320×460 with no console errors.
 - **Not verified:** a real device (`LAUNCH_TEST_PLAN.md` section 1d).
+
+## M14.3: finding the Blobbi's look (2026-10-13)
+
+- **Introduction:** both looks of the player's own Blobbi side by side
+  (the renderer and the 3D stage from the same genome), the one in force
+  marked, a line where there is no model; "Don't show this again" as before.
+  Measured in Chrome and WebKit: "Let's explore" in view at 390×664, the
+  panel scrolling by about 45 px at 375×553 and 150 px at 320×460 (the
+  designed fallback).
+- **Guide:** once per browser (`blobbi:room:look-guide:v1`, written when
+  shown): the dock's Blobbi button glows with "Want to try another look?",
+  the sheet it opens lights the Appearance card for three seconds; any
+  other touch, Escape or fourteen seconds put it away; never again.
+- **Card:** under the condition, its own icon, the look in force named, the
+  two options with the Blobbi small in each, labelled Classic and 3D Model.
+- **Verified:** typecheck, lint, the full suite at half the workers, the
+  production build; `look-guide.test.ts`, `RoomLookGuide.test.tsx`; Chrome
+  and WebKit (Playwright) at 390×664, 375×553 and 320×460, no console
+  errors, reduced motion stilling the bubble and the glow.
+- **Not verified:** a real device (`LAUNCH_TEST_PLAN.md` section 1e).

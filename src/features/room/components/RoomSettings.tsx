@@ -5,23 +5,36 @@
  * here is published. Sound and which home opens are the menu's and the mode
  * switch's, not repeated here.
  *
- * How the Blobbi is drawn (the kit's 2D drawing, the original, or the 3D
- * model, experimental) is about the Blobbi, so it lives with the Blobbi
- * (M14.2): `BlobbiAppearanceControl` is the Blobbi sheet's Appearance
- * section, the one place it is chosen. Presentation only: the genome and
- * the identity are untouched by it.
+ * How the Blobbi is drawn (Classic, the kit's drawing, the original, or the
+ * 3D Model, experimental) is about the Blobbi, so it lives with the Blobbi
+ * (M14.2): `BlobbiAppearanceControl` is the Blobbi sheet's Appearance card,
+ * the one place it is chosen. Each option shows the player's own Blobbi in
+ * that look, small (M14.3). Presentation only: the genome and the identity
+ * are untouched by it.
  */
 import { useCallback, type KeyboardEvent } from 'react';
+import { Check } from 'lucide-react';
+import type { BlobbiCompanion } from '@blobbi-kit/core';
+import { BlobbiRenderer } from '@blobbi-kit/renderer';
 
+import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import type { BlobbiAppearance } from '../lib/blobbi-appearance';
+import { genomeOf, stage3dOf } from '../lib/blobbi3d/identity';
+import { LOOK_OPTIONS, shownLook } from '../lib/look-guide';
 import type { QualityLevel, QualityPreference } from '../lib/room-quality';
 import { cx } from '../lib/cx';
+import { webglAvailable } from '../hooks/useRoomScene';
+import { Blobbi3dStage } from './Blobbi3dStage';
 
 export interface BlobbiAppearanceControlProps {
   appearance: BlobbiAppearance;
   onChange: (appearance: BlobbiAppearance) => void;
   /** Why this Blobbi can only be drawn in 2D (an egg, V1/V2 art); null when 3D is available. */
   unavailable3d: string | null;
+  /** The Blobbi itself, drawn small in each option (M14.3); without it the options are words alone. */
+  preview?: BlobbiCompanion;
+  /** Reduced motion: the small previews hold still. */
+  reducedMotion?: boolean;
 }
 
 export interface RoomSettingsProps {
@@ -33,15 +46,14 @@ export interface RoomSettingsProps {
 
 const QUALITY_WORD: Record<QualityLevel, string> = { high: 'High', balanced: 'Balanced', low: 'Low' };
 
-const OPTIONS: { value: BlobbiAppearance; title: string; detail: string }[] = [
-  { value: '2d', title: '2D', detail: 'The classic drawing' },
-  { value: '3d', title: '3D', detail: 'The 3D model, experimental' },
-];
-
 /** The Blobbi's look in the room: the drawing or the 3D model. The same Blobbi, the same care, whichever is chosen. */
-export function BlobbiAppearanceControl({ appearance, onChange, unavailable3d }: BlobbiAppearanceControlProps) {
+export function BlobbiAppearanceControl({ appearance, onChange, unavailable3d, preview, reducedMotion = false }: BlobbiAppearanceControlProps) {
   // What is drawn: 3D only where it can be
-  const shown: BlobbiAppearance = appearance === '3d' && !unavailable3d ? '3d' : '2d';
+  const shown = shownLook(appearance, unavailable3d);
+  const visual = preview ? toBlobbiVisual(preview) : null;
+  const genome = visual ? genomeOf(visual) : null;
+  const stage3d = stage3dOf(preview?.stage);
+  const model = !unavailable3d && genome && stage3d && webglAvailable() ? { genome, stage: stage3d } : null;
 
   const choose = useCallback(
     (value: BlobbiAppearance) => {
@@ -62,8 +74,8 @@ export function BlobbiAppearanceControl({ appearance, onChange, unavailable3d }:
   };
 
   return (
-    <div role="radiogroup" aria-label="Blobbi appearance" onKeyDown={onRadioKeyDown} className="room-settings flex flex-col gap-1" data-testid="room-appearance-panel" data-appearance={shown}>
-      {OPTIONS.map((o) => {
+    <div role="radiogroup" aria-label="Blobbi appearance" onKeyDown={onRadioKeyDown} className="look-options" data-testid="room-appearance-panel" data-appearance={shown}>
+      {LOOK_OPTIONS.map((o) => {
         const disabled = o.value === '3d' && !!unavailable3d;
         const checked = shown === o.value;
         return (
@@ -74,13 +86,25 @@ export function BlobbiAppearanceControl({ appearance, onChange, unavailable3d }:
             aria-checked={checked}
             aria-disabled={disabled || undefined}
             tabIndex={checked ? 0 : -1}
-            className={cx('room-appearance-option', checked && 'room-appearance-option--on', disabled && 'opacity-50')}
+            className={cx('look-option', checked && 'look-option--on', disabled && 'look-option--off')}
             onClick={() => choose(o.value)}
             data-appearance={o.value}
             data-testid={`room-appearance-${o.value}`}
           >
-            <span className="font-bold">{o.title}</span>
-            <span className="text-foreground/70"> · {o.detail}</span>
+            {preview && visual && (
+              <span className="look-option__thumb" aria-hidden data-testid={`room-appearance-thumb-${o.value}`}>
+                {o.value === '2d' && <BlobbiRenderer visual={visual} instanceId={`look-2d-${preview.d}`} size="100%" motion="still" transparent style={{ width: '100%', height: '100%' }} />}
+                {o.value === '3d' && model && <Blobbi3dStage genome={model.genome} stage={model.stage} view="front" motion={reducedMotion ? 'still' : 'idle'} size={56} testId="room-appearance-stage-3d" />}
+                {o.value === '3d' && !model && <span className="look-option__cube" />}
+              </span>
+            )}
+            <span className="look-option__text">
+              <span className="look-option__title">{o.title}</span>
+              <span className="look-option__detail">{o.detail}</span>
+            </span>
+            <span className="look-option__mark" aria-hidden>
+              {checked && <Check className="h-4 w-4" />}
+            </span>
           </button>
         );
       })}

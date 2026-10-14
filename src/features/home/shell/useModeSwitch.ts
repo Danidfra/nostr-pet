@@ -1,7 +1,7 @@
 /**
  * The switch between the two homes (M14.1): choosing is going there, and
  * the choice is the device's default from then on. The room greets a
- * first visit with its introduction itself (`ModeIntro`, shown by the room
+ * first visit with its introduction itself (`RoomIntro`, shown by the room
  * page when `readRoomIntroSeen()` is false; M14.2), so the switch asks
  * nothing. See `ModeToggle.tsx`.
  */

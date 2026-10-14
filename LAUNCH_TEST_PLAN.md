@@ -201,6 +201,29 @@ viewport, not the screen), sound on.
 10. Settings → Accessibility → Reduce Motion on, repeat 3 to 6. Expected:
     faces and eyes still change, no hops, no sparkles, no breathing.
 
+## 1e. M14.3 on a real iPhone: finding the Blobbi's look
+
+Private window, nothing stored, Safari with its toolbars.
+
+1. **Meet your Blobbi!**, adopt "Lupa", **3D β**, hatch. Expected: "Your 3D
+   room" with two cards side by side, **Classic** (Lupa's drawing, marked
+   **Now**) and **3D Model** (Lupa in 3D, turning gently idle), the line
+   that both are the same Lupa, the checkbox, **Let's explore** in view
+   without scrolling on an iPhone 14 (a small scroll on an SE is fine).
+2. **Let's explore**. Expected: the dock's **Lupa** button glows and a bubble
+   above it says "Want to try another look?". Nothing else is blocked: the
+   carousel still scrolls. Wait: the bubble fades by itself after about
+   fourteen seconds (or tap the floor: it goes at once).
+3. Repeat 1 and 2 in a fresh private window, this time tap the bubble.
+   Expected: Lupa's sheet opens with the **Appearance** card glowing for a
+   moment under the condition, a palette icon, a **Classic** chip, the two
+   options with Lupa small in each. Tap **3D Model**: the room shows the
+   model, the chip says 3D Model. Close. Reload: the model, no greeting, no
+   bubble. ☰ → 3D room: Graphics and View only.
+4. Settings → Accessibility → Reduce Motion on, repeat 1 and 2. Expected:
+   the previews hold still, the bubble and the glow do not pulse, the card
+   has a plain ring.
+
 ## 2. The room (after choosing it: menu → Explore in 3D)
 
 1. Reload with a hatched, awake Blobbi: the room appears, then the Blobbi

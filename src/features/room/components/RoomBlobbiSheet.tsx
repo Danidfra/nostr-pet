@@ -5,11 +5,16 @@
  * the HUD's rings, progression, the lifecycle (hatch, evolve: the writes
  * are the same kit transitions the classic home performs; the room's
  * reveal is its own, simpler one), the player's other Blobbis, and the way
- * to the whole inventory.
+ * to the whole inventory. Since M14.3 the Appearance card (how the Blobbi is
+ * drawn here: Classic or the 3D Model, presentation only) stands right under
+ * the condition, with its own icon and the look in force named, and the
+ * one-time guide can light it when the sheet opens.
  */
 import type { BlobbiCompanion, BlobbonautProfile } from '@blobbi-kit/core';
-import { Backpack, ChevronRight, Map as MapIcon, Moon, Snowflake, Sparkles } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { Backpack, ChevronRight, Map as MapIcon, Moon, Palette, Snowflake, Sparkles } from 'lucide-react';
 import { BlobbiAppearanceControl, type BlobbiAppearanceControlProps } from './RoomSettings';
+import { LOOK_GUIDE_SHEET_MS, lookTitle, shownLook } from '../lib/look-guide';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
@@ -40,8 +45,52 @@ interface RoomBlobbiSheetProps {
   onOpenItems: () => void;
   /** How many items can be used now, for the button. */
   usableItemCount: number;
-  /** How this Blobbi is drawn in the room (the drawing or the 3D model), chosen here and nowhere else (M14.2). */
+  /** How this Blobbi is drawn in the room (Classic or the 3D Model), chosen here and nowhere else (M14.2). */
   appearance?: { value: BlobbiAppearanceControlProps['appearance']; onChange: BlobbiAppearanceControlProps['onChange']; unavailable3d: string | null };
+  /** The one-time guide (M14.3): the Appearance card is lit for a moment when the sheet opens, then `onAppearanceSeen`. */
+  highlightAppearance?: boolean;
+  onAppearanceSeen?: () => void;
+  reducedMotion?: boolean;
+}
+
+/** The Appearance card, lit once by the guide: a glow that ends on its own, or at the first touch of the card. */
+function AppearanceCard({ blobbi, appearance, highlight, onSeen, reducedMotion }: { blobbi: BlobbiCompanion; appearance: NonNullable<RoomBlobbiSheetProps['appearance']>; highlight: boolean; onSeen?: () => void; reducedMotion: boolean }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!highlight) return;
+    ref.current?.scrollIntoView?.({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' });
+    const t = setTimeout(() => onSeen?.(), LOOK_GUIDE_SHEET_MS);
+    return () => clearTimeout(t);
+  }, [highlight, onSeen, reducedMotion]);
+  const shown = shownLook(appearance.value, appearance.unavailable3d);
+  return (
+    <section
+      ref={ref}
+      aria-labelledby="room-appearance-title"
+      className={`overlay-card look-card ${highlight ? 'look-card--lit' : ''}`}
+      data-testid="room-appearance-section"
+      data-hint={highlight ? 'true' : undefined}
+      data-reduced={reducedMotion ? 'true' : undefined}
+      onPointerDownCapture={highlight ? onSeen : undefined}
+      onFocusCapture={highlight ? onSeen : undefined}
+    >
+      <div className="look-card__head">
+        <span className="look-card__icon" aria-hidden>
+          <Palette className="h-5 w-5" />
+        </span>
+        <span className="look-card__text">
+          <h3 id="room-appearance-title" className="look-card__title">
+            Appearance
+          </h3>
+          <span className="look-card__sub">How {blobbi.name} looks in the 3D room. The same Blobbi either way, and only on this device.</span>
+        </span>
+        <span className="look-card__now" data-testid="room-appearance-current" data-appearance={shown}>
+          {lookTitle(shown)}
+        </span>
+      </div>
+      <BlobbiAppearanceControl appearance={appearance.value} onChange={appearance.onChange} unavailable3d={appearance.unavailable3d} preview={blobbi} reducedMotion={reducedMotion} />
+    </section>
+  );
 }
 
 const STAGE_LABEL: Record<BlobbiCompanion['stage'], string> = { egg: 'Egg', baby: 'Baby', adult: 'Adult' };
@@ -60,7 +109,7 @@ function Chip({ children, testId, tone = 'neutral' }: { children: React.ReactNod
   );
 }
 
-export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, onOpenItems, usableItemCount, onOpenJourney, guest = false, appearance }: RoomBlobbiSheetProps) {
+export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, onOpenItems, usableItemCount, onOpenJourney, guest = false, appearance, highlightAppearance = false, onAppearanceSeen, reducedMotion = false }: RoomBlobbiSheetProps) {
   const portrait = (
     <span className="overlay-portrait" aria-hidden>
       <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`room-details-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
@@ -104,6 +153,8 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
           </div>
         </section>
 
+        {appearance && <AppearanceCard blobbi={blobbi} appearance={appearance} highlight={highlightAppearance} onSeen={onAppearanceSeen} reducedMotion={reducedMotion} />}
+
         <button type="button" className="menu-tile" onClick={onOpenItems} data-testid="room-open-items">
           <span className="menu-tile__icon">
             <Backpack className="h-6 w-6" aria-hidden />
@@ -115,37 +166,17 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
         </button>
 
         {onOpenJourney && (
-
           <button type="button" className="menu-tile" onClick={onOpenJourney} data-testid="sheet-journey">
-
             <span className="menu-tile__icon">
-
               <MapIcon className="h-6 w-6" aria-hidden />
-
             </span>
-
             <span className="menu-tile__text">
-
               <span className="menu-tile__title">Journey</span>
-
               <span className="menu-tile__sub">Chapters, today’s missions and your Blobbonaut level.</span>
-
             </span>
-
             <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
-
           </button>
 
-        )}
-
-        {appearance && (
-          <section aria-labelledby="room-appearance-title" className="overlay-card" data-testid="room-appearance-section">
-            <h3 id="room-appearance-title" className="overlay-card__title">
-              Appearance
-            </h3>
-            <p className="mb-2 text-xs text-muted-foreground">How {blobbi.name} is drawn in the 3D room. The same Blobbi either way, and only on this device.</p>
-            <BlobbiAppearanceControl appearance={appearance.value} onChange={appearance.onChange} unavailable3d={appearance.unavailable3d} />
-          </section>
         )}
 
         <LifecyclePanel name={blobbi.name} lifecycle={lifecycle} ceremony={ceremony} onCeremony={onCeremony} firstBlobbi={firstBlobbi} embedded guest={guest} />
