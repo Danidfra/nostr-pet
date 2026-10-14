@@ -40,6 +40,7 @@ import { ROOM_GRID, blobbiBoxTiles, blobbiReachTiles, MAIN_BLOBBI } from '../lib
 import { useFurnitureModels } from '../hooks/useFurnitureModels';
 import { useRoomScene, type RoomSceneFailure, type RoomSceneStatus } from '../hooks/useRoomScene';
 import type { PickResult, RoomScene, SceneGeometry, ScreenAnchor, SpotQuery } from '../lib/scene/RoomScene';
+import type { BathSceneState } from '../lib/scene/bath-scene';
 import type { RoomProp } from '../lib/room-props';
 import { RoomFlatProp } from './RoomProps';
 
@@ -112,6 +113,12 @@ export interface RoomControl {
   propResting: (id: string) => boolean;
   /** Resolves when a rolling prop comes to rest (at once when it is still, or gone). */
   whenPropRests: (id: string) => Promise<void>;
+  /** The bath under way (M15), drawn by the scene (the hollow tub, the water, the foam, the tools), or none. */
+  bath: (state: BathSceneState | null) => void;
+  /** A floor piece's footprint (tiles) as laid out now, or null. */
+  itemFootprint: (index: number) => { x0: number; x1: number; z0: number; z1: number } | null;
+  /** Whether the 3D model stands in the user's Blobbi's place on screen (the page's drawing has stepped aside). */
+  modelDrawn: () => boolean;
 }
 
 /** What the simple room says about why it is simple. */
@@ -273,6 +280,11 @@ export interface RoomShellProps {
   onPieceTap?: (index: number, lamp: boolean) => void;
   /** Present while decorating. */
   editor?: RoomEditorBinding;
+  /**
+   * The room's own taps, strokes, drags and swipes are off (a bath under way takes the pointer on its own layer); the
+   * two-finger zoom stays.
+   */
+  inputLocked?: boolean;
   controlRef?: MutableRefObject<RoomControl | null>;
   /** The scene's status, for callers that show something different without WebGL. */
   onStatusChange?: (status: RoomSceneStatus) => void;
@@ -341,10 +353,13 @@ export function RoomShell({
   onPropTap,
   onRoomBuilt,
   editor,
+  inputLocked = false,
   controlRef,
   onStatusChange,
 }: RoomShellProps) {
   const isEditing = !!editor;
+  const inputLockedRef = useRef(inputLocked);
+  inputLockedRef.current = inputLocked;
 
   const navRoom = headerRoomId ?? roomId;
   const [failureDismissed, setFailureDismissed] = useState(false);
@@ -365,7 +380,7 @@ export function RoomShell({
       swipe.current = null;
       return;
     }
-    if (swipe.current) return;
+    if (swipe.current || inputLockedRef.current) return;
     // Drags that start on the dock must not switch rooms; nor do touches on chrome, nor stroking the Blobbi.
     if ((e.target as HTMLElement).closest?.('[data-room-drag], [data-room-header], [data-room-top], [data-room-bottom]')) return;
     if (e.timeStamp - notSwipeAt.current < SWIPE_PRESS_MS) return;
@@ -615,6 +630,9 @@ export function RoomShell({
           propRests.current.set(id, waiting);
         });
       },
+      bath: (state) => sceneRef.current?.setBath?.(state),
+      itemFootprint: (index) => sceneRef.current?.itemFootprint?.(index) ?? null,
+      modelDrawn: () => sceneRef.current?.actorModelDrawn?.(MAIN_BLOBBI) ?? false,
     } : null;
     return () => { controlRef.current = null; };
   }, [is3d, controlRef, sceneRef]);
@@ -725,7 +743,7 @@ export function RoomShell({
       if (!pinch.current) pinch.current = { startDist: fingerDistance(), startZoom: scene.zoomLimits?.().value ?? zoomRef.current };
       return;
     }
-    if (!e.isPrimary) return;
+    if (!e.isPrimary || inputLockedRef.current) return;
     const { x, y } = at;
     const hit = scene.pick(x, y);
     const item = hit?.kind === 'item' ? hit.index : null;
@@ -860,6 +878,7 @@ export function RoomShell({
       data-room={roomId}
       data-scene={status}
       data-blobbi-render={blobbiModel ? '3d' : '2d'}
+      data-input-locked={inputLocked ? 'true' : undefined}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchCancel}

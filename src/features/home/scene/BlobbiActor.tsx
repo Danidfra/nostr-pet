@@ -9,6 +9,7 @@ import { GESTURES, hatchRock } from './gestures';
 import { shadowFor } from './shadow';
 import { useReducedMotion } from './SceneSettings';
 import type { BlobbiPresentation } from './presentation';
+import { EXPRESSIONS, type ExpressionName } from '@/features/expression/faces';
 
 /** A hatch ceremony's beat, as the actor draws it (the ceremony decides it; see `useLifecycleCeremony`). */
 export interface ActorHatch {
@@ -41,6 +42,11 @@ interface BlobbiActorProps {
   children?: ReactNode;
   /** On the nest or in the bed: the bed is the ground, so the actor casts no shadow of its own. */
   inBed?: boolean;
+  /**
+   * A face a moment asks for over the presentation's (the bath's: curious on the way, glad in the water, eyes
+   * closed under the shower), one of the app's named expressions (`features/expression/faces.ts`); null for none.
+   */
+  faceName?: ExpressionName | null;
 }
 
 /**
@@ -57,9 +63,11 @@ interface BlobbiActorProps {
  * about how the Blobbi looks. It never touches Nostr.
  */
 export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function BlobbiActor(
-  { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, hatch = null, effects, accessories, children, inBed = false },
+  { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, hatch = null, effects, accessories, children, inBed = false, faceName = null },
   ref,
 ) {
+  // A named face over the presentation's emotion (a sleeper keeps its closed eyes)
+  const expression = faceName && !presentation.isSleeping ? EXPRESSIONS[faceName] : presentation.expression;
   const placement = placeOnFloor(presentation.position);
   const { isSleeping } = presentation;
   // The renderer's walk cycle AS PLAYED (the home's tempo, motion-contract.ts: the CSS plays the kit's cycle that
@@ -121,7 +129,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-generation={blobbi.visualGeneration}
       data-stage={blobbi.stage}
       data-facing={presentation.facing}
-      data-expression={presentation.expression}
+      data-expression={faceName && !presentation.isSleeping ? faceName : presentation.expression}
       data-sleeping={isSleeping ? 'true' : 'false'}
       data-invite={invite ? 'true' : 'false'}
       data-gesture={gesture?.kind}
@@ -163,7 +171,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
             size="100%"
             facing={presentation.facing}
             motion={presentation.motion}
-            expression={presentation.expression}
+            expression={expression}
             eyeOffset={limitGaze(presentation.eyeOffset, gazeReach)}
             isSleeping={isSleeping}
             sleepIndicator="none"

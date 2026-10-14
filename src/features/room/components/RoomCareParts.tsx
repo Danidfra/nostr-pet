@@ -5,7 +5,7 @@
  * pointer while an item is carried. Presentation only; the decisions are
  * `useRoomCare`'s.
  */
-import { forwardRef, type CSSProperties } from 'react';
+import { forwardRef, type CSSProperties, type ReactNode } from 'react';
 import { RotateCcw, Undo2 } from 'lucide-react';
 
 import { ItemGlyph, type ItemGlyphModel } from '@/features/inventory';
@@ -59,9 +59,11 @@ export function RoomOfferFailure({ offer, onRetry, onPutAway }: { offer: RoomOff
  * head, hearts, the spoken result) sits on it as it does on the home, in 2D
  * or 3D. An item handed to it shows at its mouth while it is used.
  */
-export const RoomBlobbiOverlay = forwardRef<HTMLDivElement, { feedback: RoomCareFeedback | undefined; handed: { glyph: ItemGlyphModel; phase: RoomOffer['phase']; bites?: number } | null; heart?: number }>(function RoomBlobbiOverlay({ feedback, handed, heart = 0 }, ref) {
+export const RoomBlobbiOverlay = forwardRef<HTMLDivElement, { feedback: RoomCareFeedback | undefined; handed: { glyph: ItemGlyphModel; phase: RoomOffer['phase']; bites?: number } | null; heart?: number; children?: ReactNode }>(function RoomBlobbiOverlay({ feedback, handed, heart = 0, children }, ref) {
   return (
     <div ref={ref} className="room-blobbi-overlay" aria-live="off" data-testid="room-blobbi-box">
+      {/* What a moment lays over the body (the bath's layer, M15): sized with the box, on its feet */}
+      {children}
       {/* Lit while an item is carried over the Blobbi (the shell's data-drop, set without a render) */}
       <span className="room-drop-ring" aria-hidden />
       {handed && (

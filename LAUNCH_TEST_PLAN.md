@@ -247,6 +247,53 @@ developers; then Develop → the iPhone → the page) and copy the console.
    with the same Blobbi and care, and opening the app again stays in 2D.
    **Try again** is offered at most twice.
 
+## 1g. M15 on a real iPhone: the bath (Track A)
+
+A cleaning item (Soap, Bubble Bath, Shampoo, Soft Towel) is a small game now,
+in both homes: the tub, the soap by dragging, the shower by holding, the towel
+by dragging, then one write. Nothing is written or consumed before the towel
+is done; Stop, a change of room, a reload or the other home end it with
+nothing written. Use `?fixture=baby-v3&low=hygiene` (the flagged dev server) or
+a real Blobbi whose hygiene is not full.
+
+1. 2D home, **Clean → Soap**. Expected: a tub rises at the right with Lupa
+   walking into it, its lower body in the water, the rim in front; the dock
+   shows one card: the soap, "Rub the soap all over Lupa", a bar, **Stop**.
+   Tap Lupa once: nothing happens (no foam, the bar stays at zero). Drag a
+   finger over Lupa: foam appears under the finger and grows, the bar fills,
+   Lupa looks at the soap, wiggles and purrs now and then. Scribble in one
+   spot: the bar stops growing. Cover the body: a glad hop, a chirp, and the
+   **Shower** card.
+2. Hold a finger over Lupa: rain falls from the shower head to the water,
+   splashes, and the foam under the stream washes off; moving the finger
+   aims it. Lift the finger: nothing more washes off. Rinse everything: the
+   **Towel** card. Rub as with the soap: the sheen dries where rubbed. Done:
+   "All clean! Saving Lupa's bath…", then chips (+25 clean for Soap, +70 and
+   +25 joy for Bubble Bath), sparkles, a hop, "squeaky clean"; the tub sinks
+   away and Lupa steps out. Exactly one write (an owned item: one spend).
+3. Start a bath, **Stop** during the soap. Expected: the card goes, the tub
+   goes, Lupa steps out, the verbs are enabled, hygiene unchanged, an owned
+   item's count unchanged. Repeat and reload mid-bath: Lupa stands on the
+   floor, nothing was written.
+4. With hygiene already full: **Clean → Soap** says "Lupa is already squeaky
+   clean. Nothing to wash yet!" and nothing starts.
+5. Airplane mode, play a whole bath. Expected: "The bath could not be saved."
+   with why, **Try again** and **Stop**; nothing retries by itself; Try again
+   with the network back writes once; Stop writes nothing.
+6. 3D room, care room, **Soap**. Expected: Lupa walks to the tub and hops
+   onto its floor; the tub is hollow with water and Lupa in it; the same
+   three cards in the dock where the carousel was; the room's taps, strokes
+   and swipes are off (the pinch still zooms). With Classic: foam, rain and
+   the tool drawn over the drawing; with 3D Model: foam as white bubbles on
+   the body, the rain and the tools as 3D objects. At the end Lupa is back
+   on the floor beside the tub, the tub is itself again, the carousel is
+   back. A change of room mid-bath puts Lupa on the floor first.
+7. Settings → Accessibility → Reduce Motion on, repeat 1 and 6. Expected:
+   faces and eyes still change; no hops, wiggles, sparkles, bobbing tools,
+   falling drops or rippling water; the stages still pass by covering.
+8. Keyboard (iPad with a keyboard, or desktop): focus the bath layer, the
+   arrow keys carry the tool a cell at a time and rub; Space lifts it.
+
 ## 2. The room (after choosing it: menu → Explore in 3D)
 
 1. Reload with a hatched, awake Blobbi: the room appears, then the Blobbi

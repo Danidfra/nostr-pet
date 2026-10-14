@@ -82,6 +82,12 @@ import { AdoptionFlow } from '@/features/adoption/AdoptionFlow';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import { RoomStatusHud } from './components/RoomStatusHud';
 import { RoomBlobbiOverlay, RoomDragGhost, RoomFloorItem } from './components/RoomCareParts';
+import { BathToolBar, BathTouchLayer, useBathSession, type BathCommitOutcome, type BathItem } from '@/features/bath';
+import { bodyBottomInset } from './lib/body-inset';
+import { BATH_ELEV, type BathSceneState } from './lib/scene/bath-scene';
+import type { Run } from './lib/room-interaction';
+import type { CareChoice } from '@/features/home/care-model';
+import { CAMERA_AZIMUTH } from './lib/room-geometry';
 import { useReactionPolicy } from '@/features/home/scene/useReactionPolicy';
 import { roomById, type RoomActivity } from '@/features/home/rooms/rooms';
 import { resolveFurniture, type FurnitureInteraction } from './lib/furniture-3d';
@@ -419,6 +425,124 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // Food taken: eaten bite by bite once its use has landed (never before): the face and the body's dip
   const eatingView = useEatingPresentation({ eating: interactions.eating, controlRef, boxRef: actorRef, showFace, clearFace, reducedMotion });
 
+  // ─── The bath (M15): a cleaning item is a small game at the tub, one write at its end ───
+  const [bathGaze, setBathGaze] = useState<EyeOffset | null>(null);
+  const placementsRef = useRef(placements);
+  placementsRef.current = placements;
+  const tubIndex = useMemo(() => placements.findIndex((p) => p.at === 'floor' && resolveFurniture(p.id)?.interaction === 'bath'), [placements]);
+  const tubIndexRef = useRef(tubIndex);
+  tubIndexRef.current = tubIndex;
+  const roomIdRef = useRef(roomId);
+  roomIdRef.current = roomId;
+  const careRef = useRef(care);
+  careRef.current = care;
+  /** The write of a bath: the room's own offer, placed and begun only when the bath is played out. */
+  const bathWrite = useCallback(
+    async (choice: CareChoice, name: string): Promise<BathCommitOutcome> => {
+      const c = careRef.current;
+      const at = controlRef.current?.blobbiPosition() ?? { x: 4.5, z: 4.5 };
+      const entry = { key: `bath|${name}`, choice, name, glyph: choice.entry.item.glyph, action: 'clean' as const, quantity: null, usable: true, reason: null };
+      const placed = c.place(entry, { kind: 'set-down', x: at.x, z: at.z }, roomIdRef.current);
+      if (!placed) return { kind: 'failed', error: 'Another use is still finishing. Try again in a moment.' };
+      const outcome = await c.begin(placed.key);
+      if (outcome.kind === 'landed') {
+        c.finish(placed.key, { feedback: outcome.feedback, alreadyApplied: !!outcome.result?.alreadyApplied });
+        return { kind: 'landed', alreadyApplied: !!outcome.result?.alreadyApplied };
+      }
+      return { kind: 'failed', error: outcome.error };
+    },
+    [controlRef],
+  );
+  const bathRetry = useCallback(async (): Promise<BathCommitOutcome> => {
+    const c = careRef.current;
+    const current = c.offer;
+    const again = c.retry();
+    if (!again || !current) return { kind: 'failed', error: 'Nothing to try again.' };
+    const outcome = await again;
+    if (outcome.kind === 'landed') {
+      c.finish(current.key, { feedback: outcome.feedback, alreadyApplied: !!outcome.result?.alreadyApplied });
+      return { kind: 'landed', alreadyApplied: !!outcome.result?.alreadyApplied };
+    }
+    return { kind: 'failed', error: outcome.error };
+  }, []);
+  const runBath = interactions.run;
+  const bathStart = useCallback((_name: string, script: (run: Run) => Promise<void>) => runBath('bathing', script), [runBath]);
+  const bath = useBathSession({
+    name: blobbi.name,
+    reducedMotion,
+    hygiene: projected?.stats.hygiene,
+    start: bathStart,
+    // Into the tub: a walk to it, then a hop onto its floor, facing the room; an egg (no walk) and a room without a
+    // tub are bathed where the Blobbi lies
+    enter: isEgg || tubIndex < 0
+      ? null
+      : async (run: Run) => {
+          const control = controlRef.current;
+          const rect = control?.itemFootprint(tubIndexRef.current);
+          if (!control || !rect || !nav.canWalk) return true;
+          const cx = (rect.x0 + rect.x1) / 2;
+          const cz = (rect.z0 + rect.z1) / 2;
+          const outcome = await run.until(nav.approach(cx, cz, Math.max(rect.x1 - rect.x0, rect.z1 - rect.z0) / 2));
+          if (outcome !== 'arrived') return false;
+          // A little hop in: up over the rim and down onto the tub's floor (at once under reduced motion)
+          const from = control.blobbiPosition() ?? { x: cx, z: cz };
+          const steps = reduceMotionRef.current ? 1 : 10;
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const arc = i === steps ? 0 : Math.sin(t * Math.PI) * 1.1;
+            control.script({ x: from.x + (cx - from.x) * t, z: from.z + (cz - from.z) * t, elev: BATH_ELEV * t + arc, heading: CAMERA_AZIMUTH });
+            if (i < steps) await run.wait(34);
+          }
+          return true;
+        },
+    leave: () => {
+      // Out of the tub: back on the floor, at the free spot nearest it; a write that failed is taken back with the bath
+      controlRef.current?.script(null);
+      controlRef.current?.bath(null);
+      careRef.current.clear();
+    },
+    commit: (choice) => bathWrite(choice, bathItemRef.current?.name ?? 'Soap'),
+    retry: bathRetry,
+    drawing: () => actorRef.current?.querySelector('svg') ?? null,
+    face: (name) => (name ? showFace('bath', name, { priority: PRIORITY.care }) : clearFace('bath')),
+    gaze: setBathGaze,
+    gesture,
+    play,
+    notify: care.notify,
+  });
+  const bathItemRef = useRef<BathItem | null>(null);
+  const bathView = bath.view;
+  const bathing = bath.active;
+  // The scene draws the bath (the hollow tub, the water, the foam, the tools) from the same state the layer draws
+  useEffect(() => {
+    const control = controlRef.current;
+    if (!control) return;
+    if (!bathView || bathView.inPlace || tubIndex < 0) {
+      control.bath(null);
+      return;
+    }
+    const state: BathSceneState = { itemIndex: tubIndex, status: bathView.status, tool: bathView.tool, foam: bathView.foam, mask: bathView.mask, grid: bathView.grid, outline: bathView.outline, pointer: bathView.pointer, celebrating: bathView.celebrating };
+    control.bath(state);
+  }, [bathView, tubIndex, controlRef]);
+  // The 3D model draws the foam, the water and the tools itself; the page's drawing has them on its layer
+  const [modelDrawn, setModelDrawn] = useState(false);
+  useEffect(() => {
+    if (!bathView) return;
+    const read = () => setModelDrawn(controlRef.current?.modelDrawn() ?? false);
+    read();
+    const timer = setInterval(read, 400);
+    return () => clearInterval(timer);
+  }, [bathView, controlRef, actor3d.model]);
+  const bathInset = useMemo(() => (isEgg ? 0 : bodyBottomInset(blobbi, facing)), [blobbi, facing, isEgg]);
+  const startBath = bath.start;
+  const offerBath = useCallback((entry: RoomCareEntry): boolean => {
+    if (!present || transitioning || decorator.editing) return false;
+    const item: BathItem = { choice: entry.choice, name: entry.name, glyph: entry.glyph };
+    bathItemRef.current = item;
+    return startBath(item, { inPlace: isEgg || tubIndexRef.current < 0 || !nav.canWalk });
+  }, [startBath, present, transitioning, decorator.editing, isEgg, nav.canWalk]);
+  const cancelBath = bath.cancel;
+
   // ─── The screens over the room: the menu, the Blobbi's details, the whole inventory ───
   const [menuOpen, setMenuOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -644,6 +768,11 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       selectItem(key);
       const plan = planDrop(entry.action, placeAt(clientX, clientY), controlRef.current?.blobbiPosition() ?? null);
       if (plan.kind === 'cancel') return;
+      // A cleaning item let go anywhere in the room is a bath (M15); one that cannot start now says why and does nothing
+      if (entry.action === 'clean') {
+        offerBath(entry);
+        return;
+      }
       applyEntry(entry, plan, roomId);
     },
   });
@@ -654,8 +783,14 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [controlRef, startDrag, present, transitioning]);
   const onUse = useCallback((entry: RoomCareEntry) => {
     selectItem(entry.key);
+    // A cleaning item is a bath (M15): the tub, the soap, the shower, the towel, then the one write; a bath that cannot
+    // start now (squeaky clean already, the Blobbi away) says why and does nothing else
+    if (entry.action === 'clean') {
+      offerBath(entry);
+      return;
+    }
     applyEntry(entry, planUse(entry.action, controlRef.current?.blobbiPosition() ?? null), roomId);
-  }, [selectItem, applyEntry, controlRef, roomId]);
+  }, [selectItem, applyEntry, controlRef, roomId, offerBath]);
 
   // A drag ends without a drop when the room changes, decorating begins, or the item is gone or no longer usable
   const cancelDrag = drag.cancel;
@@ -683,7 +818,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const markActivity = life.markActivity;
   // Its eyes: the pointer's when it has one, else what it is attending to, else where its own thoughts wander;
   // a glance the way it goes while walking (the 2D drawing; the 3D model turns its whole body)
-  const eyeOffset = pickGaze({ scripted: transitions.gaze ?? eatingView.gaze ?? interactions.gaze, pointer: gaze.eyeOffset, attention, glance: life.glance, walking: motion === 'walking' ? { facing } : null });
+  const eyeOffset = pickGaze({ scripted: transitions.gaze ?? eatingView.gaze ?? (bathing ? bathGaze : null) ?? interactions.gaze, pointer: gaze.eyeOffset, attention, glance: life.glance, walking: motion === 'walking' ? { facing } : null });
   // The 3D model turns its whole body as it walks, so its eyes rest then
   const gaze3d = isEgg || isSleeping || motion === 'walking' ? null : eyeOffset ?? null;
   useEffect(() => {
@@ -735,7 +870,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   // ─── Travel: the Blobbi says goodbye and dissolves (the teleport's own departure), then the page goes ───
   const departure = useWorldDeparture({ presence, canAct: present && !isEgg && !isSleeping, reducedMotion, showFace, clearFace, gesture, play });
-  const travelBusy = care.busy || theater || lifecycle.pending !== null || decorator.editing || transitioning;
+  const travelBusy = care.busy || theater || lifecycle.pending !== null || decorator.editing || transitioning || bathing;
   const travel = useCallback(
     (world: Parameters<typeof departure.go>[0]) => {
       // A write still out finishes here first: leaving mid-signature could lose it
@@ -818,14 +953,19 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     setPulse(true);
   }, [placements, rest, roomId, markActivity]);
 
+  // A change of room ends a bath first (the Blobbi is put back on the floor before the room's own scene begins)
+  const changeRoom = useCallback((next: RoomId) => {
+    cancelBath('room');
+    setChosenRoom(next);
+  }, [cancelBath]);
   const offer = care.offer;
   const offerGlyph = offer?.choice.entry.item.glyph ?? null;
   const offerPhysical = offer ? propKindFor(offer.choice.entry.item) !== null : false;
   const floorThings = useMemo(
-    () => (offer && offer.place.roomId === roomId && offerGlyph
+    () => (offer && offer.place.roomId === roomId && offerGlyph && !bathing
       ? [{ key: `offer-${offer.key}`, x: offer.place.x, z: offer.place.z, node: <RoomFloorItem offer={offer} glyph={offerGlyph} onPutAway={care.putAway} physical={offerPhysical} /> }]
       : []),
-    [offer, offerGlyph, offerPhysical, roomId, care.putAway],
+    [offer, offerGlyph, offerPhysical, roomId, care.putAway, bathing],
   );
   // Its name, shown over its head on demand (hover, tap, keyboard focus), in 2D and 3D alike
   const nameTag = useMemo(() => ({ text: blobbi.name, color: toBlobbiVisual(blobbi).baseColor }), [blobbi]);
@@ -885,7 +1025,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     <div ref={shellRef} className="flex flex-1 min-h-0 flex-col" onPointerDownCapture={markActivity} onKeyDownCapture={markActivity}>
       <RoomShell
         roomId={roomId}
-        onChangeRoom={setChosenRoom}
+        onChangeRoom={changeRoom}
         headerRoomId={decorator.room ?? resolvedRoom}
         roomEntry={transitions.roomEntry}
         isSleeping={isSleeping}
@@ -907,7 +1047,15 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         onPropTap={interactions.onPropTap}
         onRoomBuilt={onRoomBuilt}
         onStatusChange={onSceneStatus}
-        blobbiOverlay={<RoomBlobbiOverlay ref={gazeBoxRef} feedback={care.feedback} handed={null} heart={petting.heart} />}
+        blobbiOverlay={
+          <RoomBlobbiOverlay ref={gazeBoxRef} feedback={care.feedback} handed={null} heart={petting.heart}>
+            {/* The bath on its body (M15): the surface the player rubs; the foam and the tools too, unless the 3D model draws them */}
+            {bathView && (
+              <BathTouchLayer view={bathView} input={bath.input} draw={!modelDrawn} reducedMotion={reducedMotion} name={blobbi.name} style={{ top: `${bathInset}%`, bottom: `${-bathInset}%` }} />
+            )}
+          </RoomBlobbiOverlay>
+        }
+        inputLocked={bathing}
         onBlobbiPet={petting.onPet}
         blobbiName={nameTag}
         header={
@@ -930,7 +1078,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                 <Sparkles className="h-4 w-4" aria-hidden /> Your egg is ready: tap it to hatch
               </button>
             )}
-            <RoomCareCards offer={offer} onRetry={interactions.retry} onPutAway={care.putAway} error={care.error} notice={care.notice ?? storeNotice} />
+            <RoomCareCards offer={bathing ? null : offer} onRetry={interactions.retry} onPutAway={care.putAway} error={care.error} notice={care.notice ?? storeNotice} />
           </>
         }
         blobbiModel={actor3d.model}
@@ -965,6 +1113,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         <RoomBottomBar
           blobbi={blobbi}
           roomId={roomId}
+          bath={bathView ? <BathToolBar view={bathView} onStop={() => cancelBath('stopped')} onRetry={bath.retry} reducedMotion={reducedMotion} variant="room" /> : null}
           carousel={hasStrip ? {
             entries,
             focusedKey: selectedKey,
@@ -1115,6 +1264,11 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         onUse={(entry) => {
           setItemsOpen(false);
           const careEntry = ownedEntry(entry);
+          // A cleaning item from the bag is a bath too (M15); in a room without a tub, where the Blobbi stands
+          if (careEntry.action === 'clean') {
+            offerBath(careEntry);
+            return;
+          }
           interactions.offer(careEntry, planUse(careEntry.action, controlRef.current?.blobbiPosition() ?? null), roomId);
         }}
         busy={care.busy || interactions.activity !== null || !present || transitioning}

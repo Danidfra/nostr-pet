@@ -27,7 +27,7 @@ import { OFFICIAL_CATALOG_SNAPSHOT, SNAPSHOT_ADDRESSES, builtinStarterItem, reso
 import { OFFICIAL_ITEM_ISSUER } from '@/features/inventory/issuers';
 import { PET_OP_TAG } from '@/features/inventory/item-use-plan';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
-import { chooseCare, useOwnedItem, carouselCurrent, carouselItems } from '@/test/care-ui';
+import { chooseCare, useOwnedItem, carouselCurrent, carouselItems, playBath } from '@/test/care-ui';
 import { OFFICIAL_APPLE, inventoryEvent, officialCareDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 
 let signCount = 0;
@@ -210,6 +210,8 @@ describe('in the home', () => {
     expect(soap).toHaveAttribute('data-definition', 'builtin');
     expect(soap).toHaveAttribute('title', expect.stringMatching(/built-in/));
     await userEvent.click(soap);
+    // The soap is a bath (M15): played to its end, then the one write
+    await playBath();
     await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
     expect(kinds()).not.toContain(KIND_GAME_INVENTORY_SPEND);
     await waitFor(() => expect(screen.queryByTestId('scene-object-offer')).toBeNull(), { timeout: 3000 });

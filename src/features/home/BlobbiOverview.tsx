@@ -14,11 +14,18 @@ import { CareError, CareFeedback } from './CareFeedback';
 import type { FeedbackResult } from './care-feedback-text';
 import { describeMood } from './mood';
 import { type CareChoice, type CareVerb } from './care-model';
-import { homeCareEntries, type CareEntry } from '@/features/care-ui/care-entries';
+import { homeCareEntries, ownedEntry, type CareEntry } from '@/features/care-ui/care-entries';
 import { detectStreakIncrease, flameDays, type StreakChange } from './streak';
 import { useCareGiven } from '@/features/journey/care-receipts';
 import { HOME_SPACE, STAGE_OBJECTS, type StageObjectKind } from './space/home-space';
 import { FurnitureLayer, RoomBackdrop, approachSpot, surfaceBackground, type Placement } from './rooms';
+import { BathToolBar, BathTouchLayer, BathTub2D, useBathSession, type BathCommitOutcome } from '@/features/bath';
+import { GESTURES } from './scene/gestures';
+import type { ActiveGesture } from './scene/useReactionPolicy';
+import type { ExpressionName } from '@/features/expression/faces';
+import type { EyeOffset } from './scene/gaze';
+import type { PokeGesture } from './personality';
+import type { Run } from '@/features/room/lib/room-interaction';
 import {
   BlobbiActor,
   DoorArt,
@@ -33,6 +40,7 @@ import {
   OFFER_SPOT,
   OFFER_APPROACH,
   clampToFloor,
+  placeOnFloor,
   type FloorPoint,
 } from './scene';
 import { ActionBar, BlobbiSheet, CareOptions, GameShell, HudTop, MenuSheet } from './shell';
@@ -279,8 +287,16 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // An item was used (owned or starter): the celebration waits for the write
   // AND for the use to have been visible for a moment (`MIN_USE_MS`).
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The bath's write, waited for (M15): settled by the use's result or its error below. */
+  const bathCommit = useRef<((outcome: BathCommitOutcome) => void) | null>(null);
   const onUseResult = useCallback(
     (r: ItemUseResult | StarterUseResult) => {
+      // A bath's write landed: the bath goes on to its celebration; the chips and the sound below are the same
+      if (bathCommit.current) {
+        const settle = bathCommit.current;
+        bathCommit.current = null;
+        settle({ kind: 'landed', alreadyApplied: r.alreadyApplied });
+      }
       const finish = () => {
         finishTimerRef.current = null;
         setOffer(null);
@@ -326,6 +342,12 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   useEffect(() => {
     if (!itemError) return;
     setOffer((o) => (o ? { ...o, phase: 'failed' } : o));
+    // A bath's write failed: the bath shows why and waits for Try again
+    if (bathCommit.current) {
+      const settle = bathCommit.current;
+      bathCommit.current = null;
+      settle({ kind: 'failed', error: describeWriteError(itemError) });
+    }
   }, [itemError]);
 
   // The reveal of a lifecycle moment: a bigger face, a hop, a word, a sound.
@@ -539,14 +561,116 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     retireTub();
   }, [resetUse, resetStarter, retireTub]);
 
+  // ─── The bath (M15): a cleaning item is a small game, not a write at the tub ───
+  // The Blobbi's reactions through the bath, over its presentation: a named face, where its eyes go, a body gesture
+  const [bathFace, setBathFace] = useState<ExpressionName | null>(null);
+  const [bathGaze, setBathGaze] = useState<EyeOffset | null>(null);
+  const [bathGesture, setBathGesture] = useState<ActiveGesture | null>(null);
+  const bathGestureKey = useRef(0);
+  const bathGestureTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playBathGesture = useCallback((kind: PokeGesture) => {
+    bathGestureKey.current += 1;
+    setBathGesture({ kind, key: bathGestureKey.current });
+    if (bathGestureTimer.current) clearTimeout(bathGestureTimer.current);
+    bathGestureTimer.current = setTimeout(() => setBathGesture(null), GESTURES[kind].durationMs + 50);
+  }, []);
+  useEffect(() => () => {
+    if (bathGestureTimer.current) clearTimeout(bathGestureTimer.current);
+  }, []);
+  const [bathNotice, setBathNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!bathNotice) return;
+    const timer = setTimeout(() => setBathNotice(null), 3_200);
+    return () => clearTimeout(timer);
+  }, [bathNotice]);
+  // Where the Blobbi stands in the tub, and where it steps out to
+  const tubSpot = useMemo(() => approachSpot(STAGE_OBJECTS.tub), []);
+  const tubExit = useMemo(() => clampToFloor({ x: STAGE_OBJECTS.tub.x - 0.24, y: tubSpot.y + 0.14 }), [tubSpot]);
+  const placeAtRef = useRef(placeAt);
+  placeAtRef.current = placeAt;
+  const walkToRef = useRef(walkTo);
+  walkToRef.current = walkTo;
+  const canWalkRef = useRef(canWalk);
+  canWalkRef.current = canWalk;
+  const beginBathWrite = useCallback(
+    (choice: CareChoice) =>
+      new Promise<BathCommitOutcome>((resolve) => {
+        resetUse();
+        resetStarter();
+        bathCommit.current = resolve;
+        const started = choice.source === 'owned' ? startUse({ entry: choice.entry, blobbiD: liveBlobbi.current.d }) : startStarter({ entry: choice.entry, blobbiD: liveBlobbi.current.d });
+        if (!started) {
+          bathCommit.current = null;
+          resolve({ kind: 'failed', error: 'Another use is still finishing. Try again in a moment.' });
+        }
+      }),
+    [resetUse, resetStarter, startUse, startStarter],
+  );
+  const bath = useBathSession({
+    name: blobbi.name,
+    reducedMotion,
+    hygiene: projected?.stats.hygiene,
+    // An egg is bathed where it lies, on its nest; anyone else walks to the tub and hops in
+    enter: isEgg
+      ? null
+      : async (run: Run) => {
+          if (!canWalkRef.current) {
+            placeAtRef.current(tubSpot);
+            return true;
+          }
+          const outcome = await run.until(walkToRef.current(tubSpot));
+          return outcome === 'arrived';
+        },
+    leave: () => {
+      // Out of the tub: a step toward the viewer, so the tub can go
+      if (!isEgg && liveBlobbi.current.state === 'active' && canWalkRef.current) void walkToRef.current(tubExit);
+    },
+    commit: beginBathWrite,
+    retry: beginBathWrite,
+    drawing: () => actorRef.current?.querySelector('svg') ?? null,
+    face: setBathFace,
+    gaze: setBathGaze,
+    gesture: playBathGesture,
+    play,
+    notify: setBathNotice,
+  });
+  const bathView = bath.view;
+  const bathing = bath.active;
+  // The tub comes out with the bath and sinks away a moment after it
+  const [tubOut, setTubOut] = useState(false);
+  const hadTub = useRef(false);
+  useEffect(() => {
+    const showing = !!bathView && !bathView.inPlace;
+    if (showing) hadTub.current = true;
+    else if (hadTub.current) {
+      hadTub.current = false;
+      setTubOut(true);
+      const timer = setTimeout(() => setTubOut(false), 1_300);
+      return () => clearTimeout(timer);
+    }
+  }, [bathView]);
+  const tubZ = placeOnFloor(tubSpot).zIndex;
+  const bathTub = bathView && !bathView.inPlace ? (bathView.status === 'entering' ? 'in' : 'using') : tubOut ? 'out' : null;
+  const bathPresentation = useMemo(
+    () => (bathView ? { ...scene.presentation, eyeOffset: bathGaze ?? scene.presentation.eyeOffset, gesture: bathGesture ?? scene.presentation.gesture } : scene.presentation),
+    [bathView, scene.presentation, bathGaze, bathGesture],
+  );
+
   // Choosing on the strip: an item, owned or starter, is offered. There is no
-  // other way to feed, play or clean.
+  // other way to feed, play or clean. A cleaning item starts the bath (M15).
+  const startBath = bath.start;
   const chooseOption = useCallback(
     (entry: CareEntry) => {
       setSelectedVerb(null);
+      if (entry.action === 'clean') {
+        setItemsOpen(false);
+        setDoorPrompt(false);
+        startBath({ choice: entry.choice, name: entry.name, glyph: entry.glyph }, { inPlace: isEgg });
+        return;
+      }
       offerItem(entry.choice);
     },
-    [offerItem],
+    [offerItem, startBath, isEgg],
   );
 
   // The verb row: a verb opens its options; Rest and Wake act at once (one
@@ -607,10 +731,12 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const usableItemCount = inventory.items.filter((i) => i.usability.ok && !i.unverified).length;
   const offerObject = offer ? itemObjectAt('offer', offer.choice.entry.item.name, offer.spot.position, offer.spot.approach) : null;
   const accessories = blobbi.stage === 'egg' ? undefined : worn.accessoriesFor(scene.presentation.facing);
+  const bathEffects = bath.effects;
   const actorEffects = useMemo(() => {
     const ceremonyEffects = ceremony.presentation.effects ?? [];
-    return ceremonyEffects.length > 0 ? [...ceremonyEffects, ...worn.effects] : worn.effects;
-  }, [ceremony.presentation.effects, worn.effects]);
+    const extra = [...ceremonyEffects, ...bathEffects];
+    return extra.length > 0 ? [...extra, ...worn.effects] : worn.effects;
+  }, [ceremony.presentation.effects, bathEffects, worn.effects]);
   const lifecycleNext = lifecycle.view.next;
   const firstHatchReady = firstBlobbi.qualifies;
   const lifecycleReady = useMemo(
@@ -640,7 +766,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   );
 
   // An item on the way or in use, or a walk to a piece, holds the verbs; a write in flight is `pendingAction`'s.
-  const busyWithObject = offer !== null || stage?.phase === 'walking';
+  const busyWithObject = offer !== null || stage?.phase === 'walking' || bathing;
   // The flame only after real care, never for hatching alone (`flameDays`, M14.1)
   const streakForHud = useMemo(() => ({ days: flameDays(blobbi.careStreak, careGiven), bumpKey: streakBump }), [blobbi.careStreak, careGiven, streakBump]);
 
@@ -715,11 +841,14 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           label={`${blobbi.name}'s home`}
           room="home"
           floorLabel={sleeping ? `${blobbi.name} is asleep` : canWalk ? `Call ${blobbi.name} here` : `${blobbi.name} stays put`}
-          onFloorTap={interactive ? onFloorTap : undefined}
+          onFloorTap={interactive && !bathing ? onFloorTap : undefined}
           pointerHandlers={scene.scenePointerHandlers}
           objects={
             <>
               <FurnitureLayer placements={placements} interactive={interactive && !busyWithObject} onUse={useFurniture} stateOf={stageStateOf} />
+              {/* The bath's tub (M15): two layers, the Blobbi between them */}
+              {bathTub && <BathTub2D placement={STAGE_OBJECTS.tub} part="back" zIndex={tubZ - 1} phase={bathTub} stage={bathView?.stage ?? null} reducedMotion={reducedMotion} />}
+              {bathTub && <BathTub2D placement={STAGE_OBJECTS.tub} part="front" zIndex={tubZ + 1} phase={bathTub} stage={bathView?.stage ?? null} reducedMotion={reducedMotion} />}
               <SceneObjectView
                 def={door}
                 state={doorPrompt ? 'open' : 'closed'}
@@ -779,9 +908,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           actor={
             // While the theatre holds the egg, the home's own drawing of it steps aside: one Blobbi on screen
             <div className="contents" style={theater ? { visibility: 'hidden' } : undefined} data-testid="home-actor-slot">
-              <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={scene.presentation} inBed={inBed} happyKey={resultKey} onPoke={inCeremony ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} hatch={hatchBeat} effects={actorEffects} accessories={accessories}>
-                <NeedBubbles items={sleeping || inCeremony ? [] : statItems} />
+              <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={bathPresentation} faceName={bathView ? bathFace : null} inBed={inBed} happyKey={resultKey} onPoke={inCeremony || bathing ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} hatch={hatchBeat} effects={actorEffects} accessories={accessories}>
+                <NeedBubbles items={sleeping || inCeremony || bathing ? [] : statItems} />
                 <CareFeedback result={feedback} resultKey={resultKey} />
+                {/* The bath on its body (M15): the surface the player rubs, the foam, the water, the tool in hand */}
+                {bathView && <BathTouchLayer view={bathView} input={bath.input} reducedMotion={reducedMotion} name={blobbi.name} />}
               </BlobbiActor>
             </div>
           }
@@ -789,6 +920,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             <>
               <div className="absolute inset-x-4 top-16 flex flex-col items-center gap-2">
                 <CareError error={care.error} />
+                {bathNotice && (
+                  <p role="status" className="home-glass rounded-xl px-3 py-2 text-center text-sm" data-testid="bath-notice">
+                    {bathNotice}
+                  </p>
+                )}
                 {itemError && offer?.phase === 'failed' && (
                   <p role="alert" className="home-glass rounded-xl px-3 py-2 text-center text-sm text-destructive" data-testid="item-error">
                     {itemError.message}
@@ -840,7 +976,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           statItems={statItems}
           onOpenBlobbi={openBlobbiSheet}
           options={
-            selectedVerb && options.length > 0 ? (
+            bathView ? (
+              <div className="care-options" data-testid="care-options" data-bath="true">
+                <BathToolBar view={bathView} onStop={() => bath.cancel('stopped')} onRetry={bath.retry} reducedMotion={reducedMotion} variant="home" />
+              </div>
+            ) : selectedVerb && options.length > 0 ? (
               <CareOptions
                 verb={selectedVerb}
                 entries={options}
@@ -913,7 +1053,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             onClose={() => setItemsOpen(false)}
             inventory={inventory}
             blobbiName={blobbi.name}
-            onUse={(entry) => offerItem({ source: 'owned', entry })}
+            // An earlier use left unfinished is finished first (the ledger's resume), never bathed with
+            onUse={(entry) => (useItem.hasOpenUse(blobbi.d) ? offerItem({ source: 'owned', entry }) : chooseOption(ownedEntry(entry)))}
             openUse={useItem.hasOpenUse(blobbi.d)}
             busy={useItem.isPending || useStarter.isPending || busyWithObject}
             worn={worn.wornAddresses}
@@ -922,4 +1063,11 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       }
     />
   );
+}
+
+/** Why a write failed, in a line that is never empty (an AggregateError from the relays says nothing itself). */
+function describeWriteError(error: Error): string {
+  if (error.message) return error.message;
+  const inner = error instanceof AggregateError ? (error.errors[0] as Error | undefined)?.message : undefined;
+  return inner || 'The relays did not accept it.';
 }

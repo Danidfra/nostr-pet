@@ -76,6 +76,8 @@ export interface RoomBarControls {
 interface RoomBottomBarProps {
   blobbi: BlobbiCompanion;
   roomId: RoomId;
+  /** A bath under way (M15): its bar stands where the carousel was, one tool at a time. */
+  bath?: ReactNode;
   carousel: RoomCarouselBinding | null;
   offer: RoomOffer | null;
   busy: boolean;
@@ -132,10 +134,12 @@ function RoomButton({ controls }: { controls: RoomBarControls }) {
   );
 }
 
-export function RoomBottomBar({ blobbi, roomId, carousel, offer, busy, onRest, restPending, controls }: RoomBottomBarProps) {
+export function RoomBottomBar({ blobbi, roomId, bath = null, carousel, offer, busy, onRest, restPending, controls }: RoomBottomBarProps) {
   const asleep = blobbi.state === 'sleeping';
   const left = controls ? <BlobbiButton blobbi={blobbi} onClick={controls.onOpenBlobbi} guide={controls.guide} /> : undefined;
   const room = controls ? <RoomButton controls={controls} /> : undefined;
+  // The bath's bar takes the carousel's place while the bath is on (the room's two buttons stay)
+  if (bath) return <BarLayout left={left} center={bath} right={room} />;
   if (carousel && !asleep) {
     return (
       <BarLayout

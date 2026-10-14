@@ -33,6 +33,7 @@ import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.j
 
 import type { SnoNode } from './sno-object';
 import { buildSnoObject } from './sno-three';
+import { BathLayer, type BathSceneState } from './bath-scene';
 import type { ActorFrame, ActorGesture, ActorModel } from '../blobbi3d/actor';
 import { journeyDuration, journeyFrame, journeyShadow, type JourneyFrame, type JourneyKind } from '@/features/teleport/timeline';
 import { moteLayers } from '@/features/teleport/particles';
@@ -738,6 +739,8 @@ export class RoomScene {
 
   // Props: a dish of food, a ball (`room-props.ts`); the ball's motion is the scene's (`ball-physics.ts`)
   private props = new Map<string, BuiltProp>();
+  /** The bath under way (M15): the hollow tub standing in for a tub item, the water, the foam, the tools. */
+  private bath: { layer: BathLayer; built: Built } | null = null;
   private propGroup = new THREE.Group();
   private ballSkin?: THREE.CanvasTexture | null;
   private ballGeometry = shared(new THREE.SphereGeometry(BALL.radius, 24, 18));
@@ -889,6 +892,8 @@ export class RoomScene {
    * or null to leave it where it is.
    */
   setItems(items: SceneItem[], intro: RoomIntro | boolean = 'none', spawn: { x: number; z: number } | null = null) {
+    // The furniture may be other furniture now: a bath standing on a tub ends with it (the page ends it first)
+    if (this.bath) this.setBath(null);
     const mode: RoomIntro = intro === true ? 'build' : intro === false ? 'none' : intro;
     // The pieces may be others now: nothing is hovered until the pointer says so again
     if (mode !== 'none') this.hovered = null;
@@ -1023,6 +1028,7 @@ export class RoomScene {
     // The models are the caller's: out of the scene before it is torn down
     for (const actor of this.actors.values()) if (actor.model) this.scene.remove(actor.model.object);
     for (const id of [...this.props.keys()]) this.removeProp(id);
+    this.setBath(null);
     disposeObject(this.scene);
     for (const value of [
       this.trimMaterial, this.shellMaterial, this.edgeMaterial, this.okMaterial, this.badMaterial, this.quad,
@@ -1730,6 +1736,50 @@ export class RoomScene {
       any ||= front;
     }
     return any;
+  }
+
+  // ─── The bath (M15) ───────────────────────────────────────────────────────
+
+  /**
+   * The bath under way, or none: the tub item's model steps aside and the hollow tub stands on its footprint with
+   * the water, the foam on the Blobbi, the shower's rain and the tool in hand (`bath-scene.ts`), redrawn from the
+   * state each time it is given. Null puts the tub back. A state naming an item that is not a piece here is ignored.
+   */
+  setBath(state: BathSceneState | null) {
+    if (!state) {
+      if (!this.bath) return;
+      this.scene.remove(this.bath.layer.root);
+      this.bath.layer.dispose();
+      this.bath.built.holder.visible = true;
+      this.bath = null;
+      this.shadowsDirty = true;
+      this.requestRender();
+      return;
+    }
+    const built = this.byIndex.get(state.itemIndex);
+    if (!built) {
+      if (this.bath) this.setBath(null);
+      return;
+    }
+    if (this.bath && this.bath.built !== built) this.setBath(null);
+    if (!this.bath) {
+      built.holder.visible = false;
+      const layer = new BathLayer(built.rect, () => this.reducedMotion);
+      this.scene.add(layer.root);
+      this.bath = { layer, built };
+      this.needsCompile = true;
+    }
+    const main = this.actors.get(MAIN);
+    if (main) this.bath.layer.update(state, { x: main.x, z: main.z, elev: main.elev, tiles: main.tiles });
+    this.shadowsDirty = true;
+    this.requestRender();
+  }
+
+  /** A piece's footprint on the floor (tiles), as laid out now, or null for no such piece (or one on a wall). */
+  itemFootprint(index: number): { x0: number; x1: number; z0: number; z1: number } | null {
+    const built = this.byIndex.get(index);
+    if (!built || built.item.placement.at !== 'floor') return null;
+    return { ...built.rect };
   }
 
   // ─── Blobbis ──────────────────────────────────────────────────────────────
@@ -3391,6 +3441,7 @@ export class RoomScene {
     if (this.stepActors(dt)) animating = true;
     if (this.placeActorProxies(dt)) animating = true;
     if (this.stepProps(dt, now)) animating = true;
+    if (this.bath?.layer.step(dt)) animating = true;
     this.updateClocks();
 
     // Furniture in front of the Blobbi is also drawn to the overlay canvas, over it.
@@ -3400,7 +3451,9 @@ export class RoomScene {
     // Only a Blobbi drawn by the page (the 2D drawing, a visitor) needs furniture drawn over it; a 3D model is
     // hidden by depth like anything else, so with none drawn by the page the second pass is skipped altogether
     const domDrawn = [...this.actors.values()].some((a) => a.visible && !(a.model && a.modelDrawn));
-    const hasFront = (domDrawn ? this.classifyFront() : this.clearFront()) || this.classifyPropsFront(domDrawn);
+    // The bath's near walls, water, foam and tools cover the page's drawing in the tub the way depth covers the model
+    this.bath?.layer.setFrontForDom(domDrawn);
+    const hasFront = (domDrawn ? this.classifyFront() : this.clearFront()) || this.classifyPropsFront(domDrawn) || (this.bath?.layer.onFront ?? false);
     if (ctx) {
       ctx.clearRect(0, 0, this.fgCanvas.width, this.fgCanvas.height);
       if (hasFront) {
