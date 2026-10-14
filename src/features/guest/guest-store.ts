@@ -23,7 +23,9 @@
  *               UNSIGNED (`sig` is empty; see `guest-signer.ts`): local
  *               records, not Nostr events.
  *   care        how many care actions landed, for the invitation to save.
- *   invite      when the invitation was last declined; it never nags.
+ *   invite      when the invitation was last declined, how much ACTIVE play
+ *               (a visible, focused tab) the guest has had, and whether the
+ *               player asked never to be asked again (M15); it never nags.
  *   migration   where saving stands, so a refresh in the middle resumes.
  *   conflicts   login pubkeys that were told about this guest Blobbi.
  *
@@ -96,9 +98,22 @@ export interface GuestDocument {
   blobbiD: string | null;
   events: NostrEvent[];
   care: { count: number; lastAt: number | null };
-  invite: { dismissedAt: number | null; shownCount: number };
+  invite: GuestInviteState;
   migration: GuestMigration | null;
   conflicts: string[];
+}
+
+/**
+ * Where the invitation to save stands (M15). `activeMs` counts play with the
+ * tab visible and the window focused, never time in the background;
+ * `optOut` is "Don't ask again" for this browser. Both are additive: a v1
+ * record written before M15 reads as zero time and no opt-out.
+ */
+export interface GuestInviteState {
+  dismissedAt: number | null;
+  shownCount: number;
+  activeMs: number;
+  optOut: boolean;
 }
 
 /** The document as the storage holds it: the same, with the secret in its identity. */
@@ -114,7 +129,8 @@ export function withSecret(doc: GuestDocument, nsec: string): StoredGuestDocumen
   return { ...doc, identity: { pubkey: doc.identity.pubkey, nsec } };
 }
 
-export type GuestStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+/** What the store needs of a storage; `length` and `key` only for the sweep that removes a guest's other keys. */
+export type GuestStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> & Partial<Pick<Storage, 'length' | 'key'>>;
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
@@ -127,7 +143,7 @@ export function createGuestDocument(identity: GuestSecretIdentity, now: number =
     blobbiD: null,
     events: [],
     care: { count: 0, lastAt: null },
-    invite: { dismissedAt: null, shownCount: 0 },
+    invite: { dismissedAt: null, shownCount: 0, activeMs: 0, optOut: false },
     migration: null,
     conflicts: [],
   };
@@ -199,7 +215,12 @@ export function parseGuestDocument(raw: unknown): { ok: true; doc: StoredGuestDo
       blobbiD: typeof r.blobbiD === 'string' ? r.blobbiD : null,
       events: events as NostrEvent[],
       care: { count: typeof care.count === 'number' && care.count >= 0 ? Math.floor(care.count) : 0, lastAt: typeof care.lastAt === 'number' ? care.lastAt : null },
-      invite: { dismissedAt: typeof invite.dismissedAt === 'number' ? invite.dismissedAt : null, shownCount: typeof invite.shownCount === 'number' ? invite.shownCount : 0 },
+      invite: {
+        dismissedAt: typeof invite.dismissedAt === 'number' ? invite.dismissedAt : null,
+        shownCount: typeof invite.shownCount === 'number' ? invite.shownCount : 0,
+        activeMs: typeof invite.activeMs === 'number' && Number.isFinite(invite.activeMs) && invite.activeMs >= 0 ? invite.activeMs : 0,
+        optOut: invite.optOut === true,
+      },
       migration,
       conflicts: Array.isArray(r.conflicts) ? r.conflicts.filter((c): c is string => typeof c === 'string' && HEX64.test(c)) : [],
     },

@@ -68,7 +68,8 @@ import { useRoomItemDrag } from './hooks/useRoomItemDrag';
 import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
 import { RoomHeader } from './components/RoomHeader';
 import { WorldsSheet } from '@/features/worlds/WorldsSheet';
-import { useGuest, useGuestUi } from '@/features/guest';
+import { useGuest, useGuestUi, useSaveInvite } from '@/features/guest';
+import { GuestInvite } from '@/features/guest/GuestInvite';
 import { GuestStatusPill, GuestStatusSheet, SavedPill } from '@/features/guest/GuestStatus';
 import { useWorldDeparture } from '@/features/worlds/useWorldDeparture';
 import { DepartureCard } from '@/features/worlds/DepartureCard';
@@ -880,9 +881,15 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     };
   }, [decorator.editing, draft, layoutDraft, selectedIndex, select, placeMove, setInvalid, setDraft, setLayoutDraft, invalid, controlRef, saveWithChime, cancel, roomId]);
 
+  // A guest's room (M15): the same invitation to save as the 2D home's, by the shared rules, in a quiet moment of the
+  // room (nothing in use or walking, no ceremony, nothing of the room's open, the Blobbi here and awake)
+  const roomQuiet =
+    present && !care.busy && care.offer === null && interactions.activity === null && !transitioning && !theater && !isSleeping && !decorator.editing && lifecycle.pending === null && !sheetOpen && !menuOpen && !itemsOpen && !introOpen && !fridgeOpen && !statusOpen && !worldsOpen && !journeyOpen && !adoptOpen && departure.phase === 'idle';
+  const saveInvite = useSaveInvite({ hatched: blobbi.stage !== 'egg', quiet: roomQuiet });
+
   return (
     // Any touch of the player's holds the Blobbi's own life off for a while
-    <div ref={shellRef} className="flex flex-1 min-h-0 flex-col" onPointerDownCapture={markActivity} onKeyDownCapture={markActivity}>
+    <div ref={shellRef} className="relative flex flex-1 min-h-0 flex-col" onPointerDownCapture={markActivity} onKeyDownCapture={markActivity}>
       <RoomShell
         roomId={roomId}
         onChangeRoom={setChosenRoom}
@@ -1015,6 +1022,11 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       />
       <RoomDragGhost ref={drag.ghostRef} glyph={drag.session?.lifted && dragged ? dragged.glyph : null} />
       {streakMoment?.milestone && <StreakMoment change={streakMoment} onDone={dismissStreakMoment} reducedMotion={reducedMotion} />}
+      {saveInvite.open && guestActive && (
+        <div className="guest-invite-room">
+          <GuestInvite name={blobbi.name} onSave={saveInvite.save} onLater={saveInvite.later} onNever={saveInvite.never} reducedMotion={reducedMotion} />
+        </div>
+      )}
       {theater && (
         <HatchTheater
           blobbi={blobbi}

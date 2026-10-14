@@ -3,6 +3,7 @@ import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import { setRoomArrivalEnabled } from '@/features/room/lib/room-arrival';
 import { setDailyXpEnabled } from '@/features/progression/daily-xp-switch';
+import { resetBlockingLayers } from '@/lib/blocking-layer';
 
 // The room's home-coming (M12.1) starts the Blobbi absent for a moment: suites about other things meet it present,
 // as before; the arrival's own suite turns it on
@@ -28,5 +29,7 @@ Object.defineProperty(window, 'matchMedia', {
 
 afterEach(() => {
   cleanup();
+  // Unmounting releases every claim; this is the net under a test that rendered outside the library's tree
+  resetBlockingLayers();
   window.localStorage.clear();
 });

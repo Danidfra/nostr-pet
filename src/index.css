@@ -70,6 +70,13 @@
     transition: background-color 600ms ease, color 600ms ease;
     overscroll-behavior: none;
   }
+  /* Text fields are never smaller than 16px: iOS Safari (and every WebKit browser on iPhone) zooms the page in when a
+     smaller field takes focus and does not zoom back out, which is the "stuck zoomed" home (M15). Pinch-to-zoom stays. */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  select,
+  textarea {
+    font-size: 1rem;
+  }
 }
 
 @layer components {
@@ -84,6 +91,8 @@
     display: flex;
     justify-content: center;
     background: hsl(var(--background));
+    /* No double-tap zoom on the 2D home's buttons and the egg's taps (the room has had this since M12); pinch still zooms */
+    touch-action: manipulation;
   }
   .game-frame {
     position: relative;
@@ -493,7 +502,8 @@
     border: 1px solid hsl(var(--input));
     background: hsl(var(--background));
     padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
+    /* 16px, never less: a smaller field zooms iOS Safari in on focus (M15) */
+    font-size: 1rem;
   }
   .onboard-input::placeholder {
     color: hsl(var(--muted-foreground));
@@ -1536,7 +1546,8 @@
     border: 1px solid hsl(var(--border));
     color: hsl(var(--foreground));
     font: inherit;
-    font-size: 0.8rem;
+    /* a select counts as a text field for iOS Safari's focus zoom: 16px (M15) */
+    font-size: 1rem;
   }
   .room-settings-select:focus-visible {
     outline: 2px solid hsl(var(--ring));
@@ -3647,6 +3658,8 @@
     border-radius: 45% 45% 40% 40%;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+    /* Four quick taps crack the shell: never a double-tap zoom (M15) */
+    touch-action: manipulation;
   }
   .hatch-theater__tap:focus-visible { outline: 2px solid hsl(45 100% 80%); outline-offset: 4px; }
   .hatch-theater__shadow {
@@ -4098,6 +4111,10 @@
     text-decoration: underline;
     text-underline-offset: 3px;
   }
+  .guest-invite__never { align-self: center; min-height: 2rem; font-size: 0.72rem; font-weight: 500; }
+  /* In the room the bubble sits above the dock (the 2D home's sits in the scene, above its own dock) */
+  .guest-invite-room .guest-invite { bottom: calc(6.25rem + env(safe-area-inset-bottom, 0px)); }
+  .guest-conflict__remove { justify-self: center; color: hsl(var(--destructive)); }
   @keyframes guest-invite-in { from { opacity: 0; translate: -50% 1rem; } to { opacity: 1; translate: -50% 0; } }
 
   /* The save ceremony: the keyscene's darkened world, with the Blobbi in the middle of it */

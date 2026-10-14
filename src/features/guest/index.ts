@@ -10,13 +10,16 @@ export type { GuestDocument, GuestIdentity, GuestMigration, GuestMigrationStage 
 export { migrationTemplates, runGuestMigration, verifyGuestMigration } from './guest-migration';
 export { GuestInvite } from './GuestInvite';
 export { inviteLine } from './guest-session';
-export { GuestConflictSheet } from './GuestConflictSheet';
+export { GuestConflictSheet, GuestRemoveSheet } from './GuestConflictSheet';
 export { SaveCeremony } from './SaveCeremony';
 export { CeremonyPortrait } from './CeremonyBlobbi';
 export { useCeremonyLife } from './useCeremonyLife';
 export { useCeremonyStage, CeremonyStageContext } from './ceremony-stage';
 export { useFinishSave } from './useFinishSave';
-export { INVITE_DELAY_MS, INVITE_REST_MS } from './guest-session';
+export { INVITE_DELAY_MS, INVITE_REST_MS, INVITE_ACTIVE_MS } from './guest-session';
+export { useSaveInvite } from './useSaveInvite';
+export type { SaveInvite } from './useSaveInvite';
+export { guestDeviceKeys, removeGuestFromDevice, isGuestOwnedKey } from './guest-cleanup';
 export type { MigrationStep, MigrationProgress, MigrationOutcome } from './guest-migration';
 export { GuestLayers } from './GuestLayers';
 export { useGuestScene } from './useGuestScene';

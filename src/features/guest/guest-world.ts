@@ -11,7 +11,7 @@
  */
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { matchFilters, type Filter } from 'nostr-tools/filter';
-import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE } from '@blobbi-kit/core';
+import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, parseModernBlobbiEvent, type BlobbiCompanion } from '@blobbi-kit/core';
 
 /** How many non-replaceable records (care receipts) the world keeps. */
 export const GUEST_RECEIPT_CAP = 240;
@@ -53,4 +53,11 @@ export function guestBlobbiEvent(events: readonly NostrEvent[], d: string | null
 /** The guest's profile record, if any. */
 export function guestProfileEvent(events: readonly NostrEvent[]): NostrEvent | undefined {
   return events.filter((e) => e.kind === KIND_BLOBBONAUT_PROFILE).sort((a, b) => b.created_at - a.created_at)[0];
+}
+
+/** The guest Blobbi and its name, for the words; "your Blobbi" where no record is readable (M15). */
+export function guestBlobbiOf(doc: { events: readonly NostrEvent[]; blobbiD: string | null }): { blobbi: BlobbiCompanion | undefined; name: string } {
+  const record = guestBlobbiEvent(doc.events, doc.blobbiD);
+  const blobbi = record ? parseModernBlobbiEvent(record) : undefined;
+  return { blobbi, name: blobbi?.name ?? 'your Blobbi' };
 }

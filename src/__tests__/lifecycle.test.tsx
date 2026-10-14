@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The classic home (legacy since M11, when the room became the home): these are its own tests, so it is the one opened
 vi.mock('@/lib/home-experience', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/home-experience')>()), readExperience: () => 'classic' as const }));
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -125,6 +125,9 @@ const actor = () => screen.getByTestId('blobbi-actor');
 
 beforeEach(() => {
   currentUser.user = { pubkey: PUBKEY, signer };
+  // M15: one blocking layer at a time. The room's first-visit introduction is a sheet; the sheets these tests open
+  // would wait behind it (as a player's taps cannot reach the dock under its backdrop), so the introduction counts as seen.
+  window.localStorage.setItem('blobbi:home:3d-intro:v1', 'seen');
   relay.events = [];
   relay.published = [];
   relay.publishFails = false;
@@ -290,7 +293,8 @@ describe('Lifecycle: baby → adult', () => {
     relay.events = [evolvingBaby(21), profileEvent({ has: [D], currentCompanion: D }), ...evolveMissionEvents()];
     relay.published = [];
     clearEvolutionFromStorage(PUBKEY, D);
-    document.body.innerHTML = '';
+    // Unmounted, not wiped: a wiped tree would keep its sheet's claim on the one blocking surface (M15)
+    cleanup();
     renderHome();
     panel = await ready();
     await waitFor(() => expect(panel).toHaveAttribute('data-next', 'evolve'));

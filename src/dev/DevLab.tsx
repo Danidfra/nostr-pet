@@ -9,6 +9,7 @@ import { V3Sheet } from './V3Sheet';
 import { useFixtureController } from './FixtureControllerContext';
 import { FIXTURE_PRESETS } from './fixture-controller';
 import { AdoptedSections, InspectorSection, LifecycleSection, PinsSection, StageStateSection, StatsSection, WorldSection } from './sections';
+import { ViewportProbe } from './ViewportProbe';
 import { FIXTURE_D } from './fixture-world';
 import { FACINGS, specFromCompanion, summaryOf, useDevHome, useDevLifecycle, type DevHome } from './dev-home';
 import './dev-lab.css';
@@ -148,6 +149,10 @@ function LabControls({ home, overlay, onOverlay }: { home: DevHome; overlay: boo
       </Section>
       <Section title="Inspect" open={false} testId="dev-lab-inspect">
         <InspectorSection blobbi={blobbi} />
+      </Section>
+      <Section title="Viewport probe (zoom on a phone)" open={false} testId="dev-lab-viewport">
+        <p className="dev-panel__hint">What the browser did to the page: a scale above 1 is a zoom in (a focused field under 16px, a double tap); a scrollWidth wider than the viewport is a layout the browser zoomed OUT to fit. Tap a field or the egg and watch.</p>
+        <ViewportProbe />
       </Section>
       <Section title="World" open={false} testId="dev-lab-world">
         <WorldSection controller={controller} blobbi={blobbi} />

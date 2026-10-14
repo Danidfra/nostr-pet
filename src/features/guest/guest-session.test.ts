@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import { createGuestDocument } from './guest-store';
-import { INVITE_REST_MS, inviteDue, resolveGuestMode } from './guest-session';
+import { INVITE_ACTIVE_MS, INVITE_REST_MS, inviteDue, resolveGuestMode } from './guest-session';
 
 const sk = generateSecretKey();
 const identity = { nsec: nip19.nsecEncode(sk), pubkey: getPublicKey(sk) };
@@ -21,14 +21,27 @@ describe('resolveGuestMode', () => {
 
 describe('inviteDue', () => {
   const now = 1_000_000_000;
+  const base = { hatched: true, careCount: 1, activeMs: INVITE_ACTIVE_MS, dismissedAt: null, optOut: false, migrationBegun: false, now };
   it('waits for a hatched Blobbi and one real care action', () => {
-    expect(inviteDue({ hatched: false, careCount: 3, dismissedAt: null, migrationBegun: false, now })).toBe(false);
-    expect(inviteDue({ hatched: true, careCount: 0, dismissedAt: null, migrationBegun: false, now })).toBe(false);
-    expect(inviteDue({ hatched: true, careCount: 1, dismissedAt: null, migrationBegun: false, now })).toBe(true);
+    expect(inviteDue({ ...base, hatched: false, careCount: 3 })).toBe(false);
+    expect(inviteDue({ ...base, careCount: 0 })).toBe(false);
+    expect(inviteDue(base)).toBe(true);
   });
-  it('rests for a day after Maybe later, and never nags once saving began', () => {
-    expect(inviteDue({ hatched: true, careCount: 1, dismissedAt: now - 1_000, migrationBegun: false, now })).toBe(false);
-    expect(inviteDue({ hatched: true, careCount: 1, dismissedAt: now - INVITE_REST_MS - 1, migrationBegun: false, now })).toBe(true);
-    expect(inviteDue({ hatched: true, careCount: 1, dismissedAt: null, migrationBegun: true, now })).toBe(false);
+  it('waits for about five minutes of active play (M15)', () => {
+    expect(inviteDue({ ...base, activeMs: 0 })).toBe(false);
+    expect(inviteDue({ ...base, activeMs: INVITE_ACTIVE_MS - 1 })).toBe(false);
+    expect(inviteDue({ ...base, activeMs: INVITE_ACTIVE_MS })).toBe(true);
+    expect(INVITE_ACTIVE_MS).toBe(5 * 60 * 1000);
+  });
+  it('rests for about a day after Maybe later, and never nags once saving began', () => {
+    expect(INVITE_REST_MS).toBe(24 * 60 * 60 * 1000);
+    expect(inviteDue({ ...base, dismissedAt: now - 1_000 })).toBe(false);
+    expect(inviteDue({ ...base, dismissedAt: now - INVITE_REST_MS + 1 })).toBe(false);
+    expect(inviteDue({ ...base, dismissedAt: now - INVITE_REST_MS - 1 })).toBe(true);
+    expect(inviteDue({ ...base, migrationBegun: true })).toBe(false);
+  });
+  it("never asks again after Don't ask again, however much is played (M15)", () => {
+    expect(inviteDue({ ...base, optOut: true })).toBe(false);
+    expect(inviteDue({ ...base, optOut: true, activeMs: INVITE_ACTIVE_MS * 100, careCount: 50, dismissedAt: now - INVITE_REST_MS * 10 })).toBe(false);
   });
 });

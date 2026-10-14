@@ -32,8 +32,8 @@ import { GuestProvider, GuestTransport, createGuestStore, GUEST_STORAGE_KEY, rea
 import { createGuestDocument, writeGuestDocument, type StoredGuestDocument } from '@/features/guest/guest-store';
 import { localRecordSigner } from '@/features/guest/guest-signer';
 import { applyGuestEvent } from '@/features/guest/guest-world';
-import { withEvents, withMigrationStage } from '@/features/guest/guest-context';
-import { INVITE_DELAY_MS } from '@/features/guest/guest-session';
+import { withActiveTime, withEvents, withMigrationStage } from '@/features/guest/guest-context';
+import { INVITE_ACTIVE_MS, INVITE_DELAY_MS } from '@/features/guest/guest-session';
 import { eggTemplate, newEggPreview, profileTemplate } from '@/features/adoption/adoption-plan';
 import { finalizeTemplate } from '@/features/care/usePublishAdapter';
 import { TAPS_TO_HATCH, TAP_SETTLE_MS } from '@/features/room/lib/hatch-theater';
@@ -106,8 +106,11 @@ async function tapTheShell(times: number = TAPS_TO_HATCH) {
 }
 const consoleSpies = [vi.spyOn(console, 'log'), vi.spyOn(console, 'warn'), vi.spyOn(console, 'error'), vi.spyOn(console, 'info'), vi.spyOn(console, 'debug')];
 
-/** A guest who already adopted (and, hatched, cared once): the record as the app would have written it. */
-async function seedGuest({ hatched = true, cared = 1, name = 'Pip' }: { hatched?: boolean; cared?: number; name?: string } = {}): Promise<StoredGuestDocument> {
+/**
+ * A guest who already adopted (and, hatched, cared once): the record as the app would have written it. Played for the
+ * invitation's five active minutes already (M15), unless a test says otherwise.
+ */
+async function seedGuest({ hatched = true, cared = 1, name = 'Pip', activeMs = INVITE_ACTIVE_MS }: { hatched?: boolean; cared?: number; name?: string; activeMs?: number } = {}): Promise<StoredGuestDocument> {
   const sk = generateSecretKey();
   const identity = { nsec: nip19.nsecEncode(sk), pubkey: getPublicKey(sk) };
   const signer = localRecordSigner(identity.pubkey);
@@ -124,6 +127,7 @@ async function seedGuest({ hatched = true, cared = 1, name = 'Pip' }: { hatched?
     const receipt = await signer.signEvent({ kind: KIND_BLOBBI_INTERACTION, tags: [['a', `${KIND_BLOBBI_STATE}:${identity.pubkey}:${preview.d}`]], content: '', created_at: Number(now) + i });
     doc = withEvents(doc, applyGuestEvent(doc.events, receipt), receipt);
   }
+  doc = withActiveTime(doc, activeMs);
   writeGuestDocument(doc, window.localStorage);
   return doc;
 }
@@ -377,8 +381,8 @@ describe('M14: play first', () => {
     await waitFor(() => expect(logins().map((l) => l.pubkey)).toEqual([otherPubkey]));
     // The account's own home (it has nothing: its egg is offered), the guest record untouched, the conflict said
     const conflict = await screen.findByTestId('guest-conflict', {}, { timeout: 8000 });
-    expect(conflict).toHaveTextContent(/Pip was raised here as a guest/);
-    expect(conflict).toHaveTextContent(/cannot be moved into this account/);
+    expect(conflict).toHaveTextContent(/Pip is still here/);
+    expect(conflict).toHaveTextContent(/this account does not know Pip/);
     expect(guestDoc()?.identity.pubkey).toBe(doc.identity.pubkey);
     expect(relay.published).toEqual([]);
     await userEvent.click(within(conflict).getByTestId('guest-conflict-keep'));
@@ -395,18 +399,24 @@ describe('M14: play first', () => {
     expect(guestDoc()).not.toBeNull();
   }, 60_000);
 
-  it('removing the guest Blobbi for another account is asked twice', async () => {
+  it('removing the guest Blobbi for another account is a separate, confirmed flow (M15: the paths are pinned in m15-reliability)', async () => {
     await seedGuest({ hatched: true, cared: 1 });
     const other = generateSecretKey();
     window.localStorage.setItem(LOGIN_KEY, JSON.stringify([{ id: 'other', type: 'nsec', pubkey: getPublicKey(other), createdAt: new Date().toISOString(), data: { nsec: nip19.nsecEncode(other) } }]));
     renderApp('/');
     const conflict = await screen.findByTestId('guest-conflict', {}, { timeout: 8000 });
     await userEvent.click(within(conflict).getByTestId('guest-conflict-remove'));
+    const remove = await screen.findByTestId('guest-remove');
+    expect(screen.queryByTestId('guest-conflict')).toBeNull();
     expect(guestDoc()).not.toBeNull();
-    await userEvent.click(within(conflict).getByTestId('guest-conflict-cancel'));
+    await userEvent.click(within(remove).getByTestId('guest-remove-cancel'));
+    await screen.findByTestId('guest-conflict');
     expect(guestDoc()).not.toBeNull();
-    await userEvent.click(within(conflict).getByTestId('guest-conflict-remove'));
-    await userEvent.click(within(conflict).getByTestId('guest-conflict-remove-confirm'));
+    await userEvent.click(screen.getByTestId('guest-conflict-remove'));
+    const again = await screen.findByTestId('guest-remove');
+    expect(within(again).getByTestId('guest-remove-confirm')).toBeDisabled();
+    await userEvent.click(within(again).getByTestId('guest-remove-ack'));
+    await userEvent.click(within(again).getByTestId('guest-remove-confirm'));
     await waitFor(() => expect(guestDoc()).toBeNull());
   }, 30_000);
 

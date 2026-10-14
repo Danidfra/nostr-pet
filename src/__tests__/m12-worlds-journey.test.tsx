@@ -87,6 +87,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   localStorage.clear();
+  // M15: one blocking layer at a time. The room's first-visit introduction is a sheet; the sheets these tests open
+  // would wait behind it (as a player's taps cannot reach the dock under its backdrop), so the introduction counts as seen.
+  window.localStorage.setItem('blobbi:home:3d-intro:v1', 'seen');
   relay.all = [];
   relay.published = [];
   signCount = 0;

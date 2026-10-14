@@ -40,7 +40,7 @@ import { ModeToggle } from './shell/ModeToggle';
 import { useModeSwitch } from './shell/useModeSwitch';
 import { StreakMoment } from './StreakMoment';
 import { HatchTheater } from '@/features/room/components/HatchTheater';
-import { INVITE_DELAY_MS, inviteDue, useGuest, useGuestUi } from '@/features/guest';
+import { useGuest, useGuestUi, useSaveInvite } from '@/features/guest';
 import { GuestInvite } from '@/features/guest/GuestInvite';
 import { GuestStatusPill, GuestStatusSheet, SavedPill } from '@/features/guest/GuestStatus';
 import { useJourney } from '@/features/journey/useJourney';
@@ -644,36 +644,13 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // The flame only after real care, never for hatching alone (`flameDays`, M14.1)
   const streakForHud = useMemo(() => ({ days: flameDays(blobbi.careStreak, careGiven), bumpKey: streakBump }), [blobbi.careStreak, careGiven, streakBump]);
 
-  // A guest's home (M14): once the hatched Blobbi has really been cared for and the home is quiet, one small
-  // invitation to save it, once per visit; Maybe later rests it for a day. The menu keeps the way at all times.
+  // A guest's home (M14): the invitation to save, by the shared rules (`useSaveInvite`, M15): a hatched Blobbi, real
+  // care, about five minutes of active play, and a quiet home; once per visit. The menu keeps the way at all times.
   const guest = useGuest();
   const guestUi = useGuestUi();
   const guestActive = guest.mode === 'active';
-  const [invite, setInvite] = useState(false);
-  const invitedThisVisit = useRef(false);
-  const careCount = guest.doc?.care.count ?? 0;
-  const inviteDismissedAt = guest.doc?.invite.dismissedAt ?? null;
-  const saveBegun = !!guest.doc?.migration;
-  const homeQuiet = !busyWithObject && !theater && !inCeremony && pendingAction === null && !blobbiSheetOpen && !menuOpen && !itemsOpen && !sleeping;
-  useEffect(() => {
-    if (!guestActive || invite || invitedThisVisit.current || !homeQuiet) return;
-    if (!inviteDue({ hatched: !isEgg, careCount, dismissedAt: inviteDismissedAt, migrationBegun: saveBegun, now: Date.now() })) return;
-    const timer = setTimeout(() => {
-      invitedThisVisit.current = true;
-      setInvite(true);
-    }, INVITE_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [guestActive, invite, homeQuiet, isEgg, careCount, inviteDismissedAt, saveBegun]);
   const requestSave = guestUi.requestSave;
-  const dismissInvite = guest.dismissInvite;
-  const inviteSave = useCallback(() => {
-    setInvite(false);
-    requestSave();
-  }, [requestSave]);
-  const inviteLater = useCallback(() => {
-    setInvite(false);
-    dismissInvite();
-  }, [dismissInvite]);
+  const homeQuiet = !busyWithObject && !theater && !inCeremony && pendingAction === null && !blobbiSheetOpen && !menuOpen && !itemsOpen && !sleeping;
   // The one switch between the two homes (M14.1), upper right; the first 3D asks first
   const modeSwitch = useModeSwitch();
   // The guest's status, by the name (M14.1): a word, and a short explanation on tap; "Saved to Nostr" once a save landed
@@ -682,6 +659,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // The Journey and the worlds, from the Blobbi's sheet and the menu (M14.1): the same screens the 3D room has
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [worldsOpen, setWorldsOpen] = useState(false);
+  const saveInvite = useSaveInvite({ hatched: !isEgg, quiet: homeQuiet && !statusOpen && !journeyOpen && !worldsOpen });
   const evolveTasks = lifecycle.view.process === 'evolving' ? lifecycle.view.tasks : NO_TASKS;
   const journeyBook = useJourney({ pubkey, companions, current: blobbi, profile, evolveTasks });
   const { noteCare, noteNapped, notePetted } = journeyBook;
@@ -816,7 +794,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                 </p>
               )}
               {streakMoment?.milestone && <StreakMoment change={streakMoment} onDone={dismissStreakMoment} reducedMotion={reducedMotion} />}
-              {invite && guestActive && <GuestInvite name={blobbi.name} onSave={inviteSave} onLater={inviteLater} reducedMotion={reducedMotion} />}
+              {saveInvite.open && guestActive && <GuestInvite name={blobbi.name} onSave={saveInvite.save} onLater={saveInvite.later} onNever={saveInvite.never} reducedMotion={reducedMotion} />}
             </>
           }
         >
