@@ -149,7 +149,7 @@ export function BathTouchLayer({ view, input, draw = true, reducedMotion, name, 
       data-reduced={reducedMotion ? 'true' : undefined}
       ref={boxRef}
     >
-      {draw && <BathEffects2D frame={view.frame} />}
+      {draw && <BathEffects2D frame={view.frame} outline={view.ready ? view.outline : undefined} />}
       <div
         className="bath-layer__hit"
         style={{ position: 'absolute', inset: `-${pad}px`, touchAction: 'none' }}

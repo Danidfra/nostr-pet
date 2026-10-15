@@ -6,7 +6,9 @@
 import { describe, expect, it } from 'vitest';
 import { BATH_GRID } from '../bath-machine';
 import { bodyCells, BODY, makeFrame } from '@/test/bath-frames';
-import { bodyColumns, columnSpan, dropletPlans, EDGE_INSET, isDry, isWetNotDry, landingUnder, rowsOf, shapePath, streamPlans } from './body-shape';
+import { maskFromOutline } from '../body-mask';
+import { outlineRows, rowsPath } from '@/features/teleport/silhouette2d';
+import { bodyColumns, bodyPath, FOAM_EDGE_MARGIN, insideOutline, columnSpan, OUTLINE_CLIP_ROWS, dropletPlans, EDGE_INSET, isDry, isWetNotDry, landingUnder, rowsOf, shapePath, streamPlans } from './body-shape';
 
 const frame = makeFrame();
 const rowHas = (row: number) => BODY.slice(row * BATH_GRID, (row + 1) * BATH_GRID).some(Boolean);
@@ -88,5 +90,48 @@ describe('columns, streams, drops', () => {
     expect(landingUnder(frame, (col + 0.5) / BATH_GRID)).toBeCloseTo(columnSpan(frame, col)!.top);
     const first = bodyCells()[0] % BATH_GRID;
     if (first > 0) expect(landingUnder(frame, 0.01)).toBeNull();
+  });
+});
+
+describe('bodyPath (the clip: the drawing’s own outline when it is the one the cells came from)', () => {
+  // A pear: narrow head, wide bottom, so its edge is nothing like the cells' 8 rounded rows
+  const pear = {
+    silhouette: { span: (h: number) => { const half = 0.12 + 0.26 * (1 - h) * Math.sqrt(Math.max(0, 1 - ((h - 0.5) / 0.52) ** 2)); return { left: -half, right: half }; } },
+    bottom: 0.1,
+    top: 0.88,
+  };
+  const shapeFor = (outline: typeof pear) => {
+    const body = maskFromOutline(outline, BATH_GRID);
+    return { grid: BATH_GRID, cells: body.map((b) => ({ body: b, visible: b, foamed: false, wet: false, dry: false })), outline: { bottom: outline.bottom, top: outline.top } };
+  };
+
+  it('follows the drawing’s edge, finer than the cells, when the outline gives exactly the frame’s body cells', () => {
+    const shape = shapeFor(pear);
+    const d = bodyPath(shape, pear);
+    expect(d).toBe(rowsPath(outlineRows(pear, OUTLINE_CLIP_ROWS)));
+    expect(d).not.toBe(shapePath(shape, undefined, 0));
+  });
+
+  it('keeps the cells when there is no outline, or one the cells were not read from (the plain body stood in)', () => {
+    const shape = shapeFor(pear);
+    expect(bodyPath(shape)).toBe(shapePath(shape, undefined, 0));
+    const tiny = { ...pear, silhouette: { span: () => ({ left: -0.01, right: 0.01 }) } };
+    expect(bodyPath(shape, tiny)).toBe(shapePath(shape, undefined, 0));
+    expect(bodyPath(frame, pear)).toBe(shapePath(frame, undefined, 0));
+  });
+
+  it('keeps an edge cell’s bubble just inside the drawing’s edge, and leaves a cell well inside where it is', () => {
+    const height = pear.top - pear.bottom;
+    for (const [i, body] of maskFromOutline(pear, BATH_GRID).entries()) {
+      if (!body) continue;
+      const at = { x: ((i % BATH_GRID) + 0.5) / BATH_GRID, y: (Math.floor(i / BATH_GRID) + 0.5) / BATH_GRID };
+      const p = insideOutline(at, pear);
+      const span = pear.silhouette.span((p.y - pear.bottom) / height);
+      expect(p.x).toBeGreaterThanOrEqual(span.left + 0.5 + FOAM_EDGE_MARGIN - 1e-9);
+      expect(p.x).toBeLessThanOrEqual(span.right + 0.5 - FOAM_EDGE_MARGIN + 1e-9);
+      expect(p.y).toBeGreaterThanOrEqual(pear.bottom + FOAM_EDGE_MARGIN - 1e-9);
+      expect(p.y).toBeLessThanOrEqual(pear.top - FOAM_EDGE_MARGIN + 1e-9);
+    }
+    expect(insideOutline({ x: 0.5, y: 0.45 }, pear)).toEqual({ x: 0.5, y: 0.45 });
   });
 });

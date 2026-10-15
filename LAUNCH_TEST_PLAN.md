@@ -399,6 +399,31 @@ device yet: Playwright's WebKit is not an iPhone.
 | 16 | Medicine failure | Airplane mode, Care → Bandage | The item stays on the floor with Try again / Put away; Try again online writes once |
 | 17 | Reduced motion | Settings → Accessibility → Reduce Motion, repeat 3, 7 and 13 | Faces and eyes still change; no hops, wiggles, sparkles, flights or moving water; every stage still passes |
 
+## 1k. M15 care integrated (logic + visuals): the one real-iPhone pass before a preview goes out
+
+The gameplay (1j) and the water and foam (Agent B) together, on the
+integration branch. Run 1j's rows first, then these; Safari then Chrome on
+the same phone; note the iOS version, the model and the browser. Connect
+the phone to the Mac with Safari's Web Inspector open on the page (1f) to
+read the console. Nothing here was checked on a real device yet.
+
+| # | Area | Do | Expected |
+|---|---|---|---|
+| 1 | Foam on the body | 2D home, Soap with the hygiene need bubble showing, lather slowly | Foam appears only where the finger went and stays inside the Blobbi's own outline (no bubbles in the air beside it, no band across the body that never foams); the progress bar moves with the foam you see |
+| 2 | Held finger | Soap: keep the finger down from the lather straight into the shower stage, move it over the head | The shower takes over under the same finger: water falls and the foam washes off without lifting the finger first |
+| 3 | Shower from above | Shower held just above the head (the finger off the body), 2D and the room's smallest Blobbi | Rain from the head above the finger onto the top of the body; the face visible; the stage passes in a few seconds |
+| 4 | Water on the body, 2D | During and after the rinse (2D home and the room's Classic drawing) | A wet sheen on the body, thin streams running down its sides, drops that slide down the body and fall from its lowest point to a small splash on the floor; nothing floating beside it |
+| 5 | Water on the body, 3D Model | The same with Appearance 3D Model | Foam beads on the model's surface (not floating in front); drops run down the body and fall to the floor; the model looks glossy while wet and goes back to normal when dry |
+| 6 | Shampoo look | Shampoo in both homes | The lather is tinted lavender and denser than the soap's; same game |
+| 7 | Towel look | Soft Towel | A damp sheen that clears where the towel rubs, a soft fluff left where it went; no water, no shake |
+| 8 | Bubble Bath, every home | 2D, room Classic, room 3D Model | It visibly jumps INTO the tub (a splash), plays in the water a few seconds, jumps OUT (a splash) onto the floor, then the chips, then a shake that flings drops, then the celebration |
+| 9 | Shake | End of Soap and of Bubble Bath | A short wobble with a ring of drops; once per ritual; never after the towel |
+| 10 | Medicine never bathes | Bandage in every home, health below full | No tub, no bath bar, no water; the short moment where it stands; "Treated" |
+| 11 | Reduced motion | iOS Reduce Motion on, rows 1, 8 and 10 | No wobble, no running or falling drops, no splashes in flight; foam and sheen still shown; every stage still passes |
+| 12 | Console | Web Inspector console during rows 1–10 in the room (Classic and 3D Model) and the 2D home | No "Maximum update depth exceeded"; no WebGL "Mismatch between texture format and sampler type"; no error card |
+| 13 | One write | An owned Soap: play it, then reload; an owned Bubble Bath: Stop during the play, then play it fully | Played: one fewer in the bag, hygiene up once. Stopped: count unchanged, nothing written. Never two spends for one ritual |
+| 14 | Guest | As a guest (no account), rows 8 and 10 | Same flows; nothing published; the save invitation never appears in the middle of a ritual |
+
 ## 2. The room (after choosing it: menu → Explore in 3D)
 
 1. Reload with a hatched, awake Blobbi: the room appears, then the Blobbi

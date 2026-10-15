@@ -708,7 +708,9 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     },
     commit: beginBathWrite,
     retry: beginBathWrite,
-    drawing: () => actorRef.current?.querySelector('svg') ?? null,
+    // The drawing itself, inside the poke button: the actor's children (the need bubbles' icons, the bath's own
+    // layer) come before it, and their first <svg> would be read as the body
+    drawing: () => actorRef.current?.querySelector<SVGSVGElement>('[data-testid="blobbi-poke"] svg') ?? null,
     face: setBathFace,
     gaze: setBathGaze,
     gesture: playBathGesture,

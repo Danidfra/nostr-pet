@@ -11,7 +11,8 @@
  * y down).
  */
 import type { BathCell, BathFrame } from '../bath-frame';
-import { rowsPath, type OutlineRow } from '@/features/teleport/silhouette2d';
+import { maskFromOutline } from '../body-mask';
+import { outlineRows, rowsPath, type DrawingOutline, type OutlineRow } from '@/features/teleport/silhouette2d';
 
 type Shape = Pick<BathFrame, 'grid' | 'cells' | 'outline'>;
 
@@ -71,6 +72,52 @@ export function shapePath(shape: Shape, pick: CellPick = isBody, pad = 0): strin
     return rowsPath([{ ...r, y: r.y - half }, { ...r, y: r.y + half }], pad);
   }
   return rowsPath(rows, pad);
+}
+
+/** The outline gives exactly the frame's body cells (a cell is the body when its centre is inside the outline). */
+function outlineMatches(shape: Shape, outline: Pick<DrawingOutline, 'silhouette' | 'bottom' | 'top'>): boolean {
+  const mask = maskFromOutline({ silhouette: outline.silhouette, bottom: outline.bottom, top: outline.top }, shape.grid);
+  return shape.cells.length === mask.length && shape.cells.every((cell, i) => cell.body === mask[i]);
+}
+
+/** How many rows of the drawing's own outline the body's clip is built from (finer than the grid's 8). */
+export const OUTLINE_CLIP_ROWS = 24;
+
+/**
+ * The body's clip: the drawing's own outline when it is known (its edge, so nothing laid on the body is cut off
+ * inside the drawing or drawn in the air beside it), else the body cells rounded. The outline is used only when it
+ * is the one the frame's body cells were read from (the same mask again); otherwise (the plain body stood in, an
+ * outline too thin to hold a cell) the cells are the clip, so the clip never hides a cell the machine counts.
+ */
+export function bodyPath(shape: Shape, outline?: Pick<DrawingOutline, 'silhouette' | 'bottom' | 'top'> | null): string {
+  if (outline && outlineMatches(shape, outline)) {
+    const path = rowsPath(outlineRows(outline, OUTLINE_CLIP_ROWS));
+    if (path) return path;
+  }
+  return shapePath(shape, isBody, 0);
+}
+
+/** How far inside the drawing's edge a foamed cell's bubble is kept (box units). */
+export const FOAM_EDGE_MARGIN = 0.05;
+
+/**
+ * Where a foamed cell's bubble is drawn when the clip is the drawing's own outline: its place, moved in just
+ * inside the edge when it stands on it (a cell counts when its centre is in the silhouette, so an edge cell's
+ * centre may sit on the clip's line), so every counted cell's bubble shows. Box units, y up.
+ */
+export function insideOutline(
+  p: { x: number; y: number },
+  outline: Pick<DrawingOutline, 'silhouette' | 'bottom' | 'top'>,
+  margin = FOAM_EDGE_MARGIN,
+): { x: number; y: number } {
+  const height = Math.max(1e-3, outline.top - outline.bottom);
+  const y = Math.min(outline.top - margin, Math.max(outline.bottom + margin, p.y));
+  const span = outline.silhouette.span((y - outline.bottom) / height);
+  if (!span) return { x: p.x, y };
+  const left = span.left + 0.5 + margin;
+  const right = span.right + 0.5 - margin;
+  const x = left > right ? (left + right) / 2 : Math.min(right, Math.max(left, p.x));
+  return { x, y };
 }
 
 /** The lowest and highest body cell of a column, as y (box units, the cells' outer edges), or null for none. */

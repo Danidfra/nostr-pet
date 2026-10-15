@@ -347,7 +347,12 @@ function pass(state: BathState): BathState {
     case 'timed':
       break;
   }
-  return enterStage(next, state.stageIndex + 1);
+  const entered = enterStage(next, state.stageIndex + 1);
+  // A finger still down when a stage passes carries on with the next tool, as a fresh press where it is: on a phone
+  // the lather's last cells pass mid-stroke, and the shower must not wait for the finger to be lifted and put back
+  const held = state.stroke ? state.pointer : null;
+  if (held && entered.status === 'stage' && isHandStage(currentStage(entered))) return { ...entered, pointer: held, stroke: { last: held, travelled: 0 } };
+  return entered;
 }
 
 /** How far a coverage stage has come, and whether it is done (its share reached, or only the last few cells left). */

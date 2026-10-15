@@ -867,6 +867,39 @@ longer re-renders its panel on every new scene controller. Together that
 removed the nested-update chain behind WebKit's "Maximum update depth"
 warning during the bath.
 
+## Milestone 15: the care refinement integrated (2026-10-15)
+
+The gameplay (`feat/m15-care-logic`) and the water and foam
+(`feat/m15-care-visual`, built on the contract commit only) merged on
+`feat/m15-care-integration`, logic first. Git saw one conflict (the bath
+README, both sections kept); the contract held, so no interface changed.
+Three things only showed up together:
+
+- **The body was read from an icon.** The 2D home handed the ritual the
+  first `<svg>` in the actor's box, which is the hygiene need bubble's icon
+  whenever the Blobbi needs a wash (Track A had this from the start). The
+  mask, the progress and the clip were all the icon's shape: a band of the
+  body that never foamed, foam beside it. The drawing is now the `<svg>`
+  inside the poke button (a test fails on the old selector).
+- **The clip follows the drawing.** B clipped the 2D effects to the body
+  cells' rounded rows. With the session's outline passed through, the clip
+  is the drawing's own edge whenever that outline gives exactly the frame's
+  body cells (else the cells, as before), and an edge cell's bubble is kept
+  just inside it, so counted foam always shows.
+- **The shower under a held finger.** A stage that passed dropped the press,
+  so a finger still down when the lather finished had to be lifted before
+  the shower ran. The press now carries into the next hand stage as a fresh
+  stroke where the finger is.
+
+Kept from both: one write per ritual under `run.protect`; cancel writes
+nothing; retry is the same write; the open-use guard on every ritual and
+medicine entry; medicine on the item path; the shadow change applied
+between the room's two passes and the overlay pass skipped without a map
+(a forced flip every 400 ms in WebKit's Classic room: zero GL errors; the
+old ordering restored in the browser: the "texture format and sampler type"
+error at once); the gaze offset set where its target is (no "Maximum update
+depth" in WebKit drags).
+
 ## Milestone 13: MVP release readiness (M11)
 
 The pass that turns the M10 home into something that can be put in front

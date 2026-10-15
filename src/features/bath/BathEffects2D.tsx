@@ -30,13 +30,16 @@ import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 
 import { cellCenter } from './bath-machine';
 import { cuesAfter, foamedCount, type BathAnchor, type BathCue, type BathFrame } from './bath-frame';
 import { BathToolArt } from './BathTools';
-import { dropletPlans, isBody, isBodyNotDry, isWetNotDry, landingUnder, shapePath, streamPlans, toView } from './effects/body-shape';
+import { bodyPath, dropletPlans, insideOutline, isBodyNotDry, isWetNotDry, landingUnder, shapePath, streamPlans, toView } from './effects/body-shape';
+import type { BodyOutline } from './body-mask';
 import './bath.css';
 
 interface BathEffects2DProps {
   frame: BathFrame;
   /** The box it is drawn in (its size on screen). */
   anchor?: Extract<BathAnchor, { kind: 'box' }>;
+  /** The drawing's own outline (the one the body mask was read from): the clip follows its edge; without it, the body cells. */
+  outline?: BodyOutline;
 }
 
 /** How long a burst stays on screen (ms): past its animation, then unmounted. */
@@ -47,7 +50,7 @@ const RAIN_DX = [-9, -5.5, -2, 1.5, 5, 8.5];
 const SHAKE_DROPS = 10;
 const SPLASH_DROPS = 8;
 
-export function BathEffects2D({ frame }: BathEffects2DProps) {
+export function BathEffects2D({ frame, outline }: BathEffects2DProps) {
   const id = useId();
   const stage = frame.stage;
   const tool = frame.tool;
@@ -61,15 +64,19 @@ export function BathEffects2D({ frame }: BathEffects2DProps) {
   // The shapes from the cells: again only when a cell changed (or the outline did)
   const shapes = useMemo(() => {
     const sheenPick = towel ? isBodyNotDry : isWetNotDry;
+    const body = bodyPath(frame, outline);
     return {
-      body: shapePath(frame, isBody, 0),
+      body,
+      clip: body === shapePath(frame, undefined, 0) ? 'cells' : 'outline',
       sheen: shapePath(frame, sheenPick, 0),
       streams: streamPlans(frame),
       droplets: dropletPlans(frame, 6),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the cells and the outline change only with the revision and the key
-  }, [frame.revision, frame.key, frame.grid, frame.outline.bottom, frame.outline.top, towel]);
+  }, [frame.revision, frame.key, frame.grid, frame.outline.bottom, frame.outline.top, towel, outline]);
 
+  // With the drawing's own edge as the clip, an edge cell's bubble is kept just inside it
+  const edgeOutline = shapes.clip === 'outline' ? outline : undefined;
   const wetness = frame.wetness;
   const anyWet = frame.cells.some((c) => c.wet && !c.dry);
   const anyDamp = towel ? frame.cells.some((c) => c.body && !c.dry) : anyWet;
@@ -93,6 +100,7 @@ export function BathEffects2D({ frame }: BathEffects2DProps) {
         data-style={frame.style}
         data-wetness={wetness.toFixed(2)}
         data-reduced={reduced ? 'true' : 'false'}
+        data-clip={shapes.clip}
       >
         <defs>
           <clipPath id={bodyClip} clipPathUnits="userSpaceOnUse">
@@ -145,7 +153,8 @@ export function BathEffects2D({ frame }: BathEffects2DProps) {
           <g className="bath-foam" data-testid="bath-foam" data-count={foamedCount(frame)} data-style={frame.style}>
             {frame.cells.map((cell, i) => {
               if (!cell.foamed) return null;
-              const c = toView(cellCenter(frame.grid, i));
+              const at = cellCenter(frame.grid, i);
+              const c = toView(edgeOutline ? insideOutline(at, edgeOutline) : at);
               const cell100 = 100 / frame.grid;
               const wobble = ((i * 7) % 5) - 2;
               const r = cell100 * (frame.style === 'shampoo' ? 0.7 : 0.62) + ((i * 3) % 3) * 0.5;

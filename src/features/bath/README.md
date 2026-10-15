@@ -117,6 +117,14 @@ The types are frozen; later changes are additive only, announced in
   (the old way), so the ritual's one write can only ever be its own.
 - Medicine is not a ritual (`home/medicine`): a short moment where the
   Blobbi stands, on the home's item path, never the bath and never the tub.
+- A finger still down when a stage passes carries on with the next tool as
+  a fresh press where it is (the lather's last cells pass mid-stroke on a
+  phone; the shower does not wait for the finger to be lifted).
+- The body's outline is read from the drawing itself: in the 2D home the
+  `<svg>` inside the actor's poke button, never the first `<svg>` in the
+  actor's box (the need bubbles' icons and the ritual's own layer come
+  before it there, and an icon read as the body made a band of the body
+  that could never foam).
 
 ## Rendering (Agent B, M15 care refinement)
 
@@ -127,7 +135,12 @@ here counts: what is drawn foamed is `foamed`, wet is `wet`, towelled is
 ### 2D (`BathEffects2D.tsx`, `effects/body-shape.ts`, `bath.css`)
 
 - **Clipped to the body.** Everything laid on the Blobbi is inside one SVG
-  `clipPath` built from the frame's body cells: each grid row with a body
+  `clipPath`: the drawing's own outline (`BathTouchLayer` passes the
+  session's `outline`; `bodyPath`, 24 rows of the silhouette) when it gives
+  exactly the frame's body cells, so the clip follows the drawing's edge;
+  a foamed cell on that edge is drawn just inside it (`insideOutline`), so
+  every counted cell shows. Otherwise (no outline, the plain body stood
+  in) the clip is built from the frame's body cells: each grid row with a body
   cell gives a row from the leftmost cell to the rightmost (drawn in from
   their outer edges by `EDGE_INSET`, since a cell counts when its centre is
   in the silhouette), the lowest at the outline's feet and the highest at its top,

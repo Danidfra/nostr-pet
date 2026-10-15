@@ -11,6 +11,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The classic home (legacy since M11, when the room became the home): these are its own tests, so it is the one opened
 vi.mock('@/lib/home-experience', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/home-experience')>()), readExperience: () => 'classic' as const }));
+// Which <svg> the ritual reads the body's outline from (passed through to the real reader)
+const outlineReads = vi.hoisted(() => [] as { read: boolean; inDrawing: boolean }[]);
+vi.mock('@/features/bath/body-mask', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/features/bath/body-mask')>();
+  return { ...real, readBodyMask: (svg: SVGSVGElement | null, grid?: number) => {
+      // Where it stands when it is read (the renderer may swap its <svg> later)
+      outlineReads.push({ read: !!svg, inDrawing: !!svg?.closest('[data-testid="blobbi-poke"]') });
+      return real.readBodyMask(svg, grid);
+    } };
+});
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -379,6 +389,20 @@ describe('Clean is a bath (M15)', () => {
     expect(screen.queryByTestId('bath-tub')).toBeNull();
     expect(screen.getByTestId('care-feed')).toBeEnabled();
     expect(states()).toHaveLength(1);
+  }, 20_000);
+
+  it('the body’s outline is read from the drawing itself, never from an icon beside it (the need bubbles, the ritual’s own layer)', async () => {
+    renderHome(SLOW_WALK);
+    await ready();
+    outlineReads.length = 0;
+    await chooseCare('clean');
+    await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-ready', 'true'));
+    expect(outlineReads.length).toBeGreaterThan(0);
+    expect(outlineReads).toEqual(outlineReads.map(() => ({ read: true, inDrawing: true })));
+    // The case it guards: another <svg> comes before the drawing in the actor's box
+    const first = actor().querySelector('svg');
+    expect(first).not.toBeNull();
+    expect(first!.closest('[data-testid="blobbi-poke"]')).toBeNull();
   }, 20_000);
 
   it('Bubble Bath is the soak: the tub comes out in two layers round the Blobbi, it walks there and jumps in, plays in the bubbles, jumps out, THEN the one write; no tool, no towel; the tub leaves', async () => {

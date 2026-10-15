@@ -281,6 +281,31 @@ describe('the brush and the shower, measured on screen', () => {
     expect(s.wet[top]).toBe(true);
   });
 
+  it('a finger still down when the lather passes goes on as the shower: no new press needed, and lifting it still ends the stroke', () => {
+    // One long press that zigzags over the whole body until the lather passes, then simply stays down
+    let s = begun(RITUALS.soap, FULL, { w: 40, h: 40 });
+    s = reduce(s, { type: 'pointer-down', point: { x: 0.06, y: 0.02 } });
+    for (let col = 0; col < BATH_GRID && currentStage(s)?.kind === 'rub'; col++) {
+      for (let k = 0; k <= 16 && currentStage(s)?.kind === 'rub'; k++) {
+        const y = col % 2 === 0 ? 0.02 + 0.96 * (k / 16) : 0.98 - 0.96 * (k / 16);
+        s = reduce(s, { type: 'pointer-move', point: { x: (col + 0.5) / BATH_GRID, y } });
+      }
+    }
+    expect(currentStage(s)?.kind).toBe('rinse');
+    expect(s.pointer).not.toBeNull();
+    expect(s.stroke).not.toBeNull();
+    // Held over the head with no new press: the water runs
+    s = reduce(s, { type: 'pointer-move', point: { x: 0.5, y: 1.05 } });
+    const before = count(s.foamed);
+    s = run(s, Array.from({ length: 20 }, () => ({ type: 'tick', dtMs: 50 }) as BathEvent));
+    expect(count(s.foamed)).toBeLessThan(before);
+    s = reduce(s, { type: 'pointer-up' });
+    expect(s.stroke).toBeNull();
+    const after = count(s.foamed);
+    s = run(s, Array.from({ length: 20 }, () => ({ type: 'tick', dtMs: 50 }) as BathEvent));
+    expect(count(s.foamed)).toBe(after);
+  });
+
   it('on a 34 px Blobbi a finger anywhere in the margin above the box still rinses (the reach covers the lift and the margin)', () => {
     let s = run(begun(RITUALS.soap, FULL, { w: 34, h: 34 }), strokesEverywhere());
     const top = cellIndex(BATH_GRID, 4, BATH_GRID - 1);
