@@ -132,12 +132,10 @@ Blobbis; `care-plan.ts` knows nothing about signing.
 
 ### Current companion
 
-Selecting a Blobbi writes the device pick at once and, when the player has a
-kind 11125 profile, publishes it through `useSetCurrentCompanion`: fresh
-`fetchFreshBlobbonautProfile`, the kit's `updateBlobbonautTags` over the full
-tag list (so `has`, `xp`, onboarding and unknown tags survive), `prev` set.
-An unowned `d` is refused; with no profile nothing is created (adoption owns
-profile creation) and the pick stays device-local.
+Since the companion sync (2026-10-15) a signed-in player's choice is shared
+with every Blobbi app through the profile's `current_companion`; see "The
+global current companion" below. A guest and a dev fixture keep the device
+pick and `useSetCurrentCompanion` (their world never leaves the device).
 
 ### Still deferred
 
@@ -1973,11 +1971,11 @@ Key files:
 
 ### Current Blobbi selection
 
-Presentation-side only, never published: the first of (device pick stored
-under the kit's `getSelectedBlobbiKey(pubkey)`, the profile's
-`current_companion`) that names an owned modern Blobbi; else the only Blobbi;
-else the most recently cared-for. Publishing a new `current_companion` is a
-later, kit-backed write.
+A signed-in player: this device's choice and the profile's
+`current_companion`, put in order by `useCompanionChoice` (see "The global
+current companion"); a guest or a fixture: the device pick under the kit's
+`getSelectedBlobbiKey(pubkey)`, then `current_companion`. Then the only
+Blobbi, else the most recently cared-for.
 
 ### Kind 11125 vs 31124
 
@@ -2033,3 +2031,73 @@ Audited commits: `54d413f` (last full app), `2281fb1` (pre-nuke parent),
    catalog on purpose until then.
 2. Relay settings (NIP-65) and account switcher, once `@blobbi/ui` exists.
 3. The dormant M9 rooms (see `src/features/home/rooms/README.md`).
+
+## The global current companion (companion sync, 2026-10-15)
+
+The Blobbi a player chooses is their companion in every Blobbi app
+(Standalone, Blobbi Pixel, Ditto): the kind 11125 profile's
+`current_companion`, the bare `d` of one of their own kind 31124 Blobbis. No
+new kind, no new tag. Code: `src/features/companion/`.
+
+```
+select(d) ─► choice-store (per account, shown at once) ─► companion-sync (one write at a time, in the background)
+                                                              └─► profile-write: complete read → build → sign → re-check → send → read back
+profile (watched: focus, reconnect, every minute) ─┐
+choice-store ──────────────────────────────────────┴─► choice-order ─► shown d  (adopted from elsewhere once no moment holds it)
+                                                                    └─► a question when the two cannot be ordered
+```
+
+**Choice order v1** (`choice-order.ts`; Blobbi Pixel's `src/game/companion-order.ts`
+carries the same rules and the same test vectors):
+
+1. the same Blobbi on both sides: nothing to decide;
+2. only one side usable (a profile counts only if valid and naming one of the player's own Blobbis);
+3. a choice known to the network (published here, or adopted) against the profile: NIP-01 order (newer `created_at`, then lower id): a shared choice never blocks a later one;
+4. adopted with a time only: `created_at` order, equal is ambiguous;
+5. the device pick kept before choices were stamped (`legacy`): the profile wins (this app published every change);
+6. a choice made here and not shared yet: made over the profile now seen (or one naming the same Blobbi), it wins; otherwise this device's clock against the profile's `created_at`, decided only by a gap over 60 s with both in the past; else ambiguous, and the player is asked (closing the question is not an answer).
+
+**Writing safely** (`profile-write.ts`). The profile is replaceable: a write
+replaces it everywhere. So a replacement is built only from a COMPLETE read
+(each of `PROFILE_REQUIRED_RELAYS`, relay.ditto.pub and relay.primal.net,
+where every Blobbi app writes profiles, answered), over the newest valid
+profile (11125 before 31125, NIP-01 order), changing only
+`current_companion` (and listing the Blobbi in `has` if missing; nothing is
+ever removed), content kept, `created_at` after the base's, checked by
+`preservesProfile` before signing; the choice's own order is checked against
+the base (a choice made clearly later elsewhere is never overwritten); a
+second complete read just before sending (a profile written meanwhile is
+built over, once); then saved only when read back from 2 relays,
+relay.ditto.pub among them (Blobbi Pixel's policy). The signed event is
+stored before it is sent, so every retry sends that very event; a stored
+write superseded by a newer profile is dropped. No profile at all: nothing is
+created (the choice stays on this device). Adoption builds its profile from
+the same complete read (`readProfileCensus`) and writes none from an
+incomplete one.
+
+**When it publishes**: only for the player's act (choosing, Try again,
+answering the question), plus in-visit retries after a failure (when the
+connection returns, then after 15 s, 60 s, 180 s). Never on load, refresh,
+re-mount, an adopted choice, or the same Blobbi chosen again; after a reload
+an unshared choice waits for Try again.
+
+**Who**: the signed-in account only, the Blobbi in its own collection; the
+record is per account (`blobbi:companion:v1:<pubkey>`), a write stops before
+sending if the account changed, and a signature for another key is refused.
+
+**Moments**: a newer choice from elsewhere is applied only when no care
+write, bath, dose, hatch theatre, ceremony, walk to an object, or departure
+is on screen (`useCompanionSwitchHold`, 2D home and room).
+
+**What the player sees** (`CompanionLayer`): nothing while it works; a small
+card with Try again when a choice could not be shared ("Your other Blobbi
+games don't know about Bo yet."); the question "Who's your companion?" with
+both Blobbis when the order is unclear.
+
+**For the kit, later (not done here)**: `orderChoices`, `newestProfile`,
+`buildCompanionProfile` and `preservesProfile` are pure and app-agnostic; a
+future `@blobbi-kit/core` release could carry them (with the shared
+vectors) so every app orders and writes choices the same way, and the kit's
+`fetchFreshBlobbonautProfile` could gain the NIP-01 tie-break and a
+"complete" flag.
+
