@@ -37,7 +37,10 @@ function eyesOf(actor: HTMLElement): Point {
  * mirrors the left profile itself, so nothing here is negated.
  */
 export function useGazePolicy({ actorRef, sceneRef, hoverCapable, actorKey, enabled = true, now = Date.now }: UseGazePolicyOptions): GazePolicy {
-  const [target, setTarget] = useState<GazeTarget | null>(null);
+  // The target is kept in a ref; the offset is computed where the target is set (and when the actor moves), never
+  // in an effect that follows the target: a hovering pointer sets state once per frame at most, and only when the
+  // eyes really move (M15 care refinement: the effect per pointer frame fed a nested-update chain in dev)
+  const targetRef = useRef<GazeTarget | null>(null);
   const [eyeOffset, setEyeOffset] = useState<EyeOffset | undefined>(undefined);
   const expiryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -48,40 +51,58 @@ export function useGazePolicy({ actorRef, sceneRef, hoverCapable, actorKey, enab
     }
   };
 
+  /** The offset for a target, relative to where the eyes are right now; undefined for none (or no actor yet). */
+  const offsetFor = useCallback(
+    (target: GazeTarget | null): EyeOffset | undefined => {
+      if (!target) return undefined;
+      if (target.kind === 'glance') return target.offset;
+      const actor = actorRef.current;
+      if (!actor) return undefined;
+      const range = gazeRangeFor(sceneRef.current?.getBoundingClientRect().width ?? 0);
+      return gazeToward(eyesOf(actor), target.point, range);
+    },
+    [actorRef, sceneRef],
+  );
+
+  /** Aim at a target (or none): the state changes only when the offset does. */
+  // What was last set: compared before setting, since a set of an equal value can still cost the home a render
+  const shownRef = useRef<EyeOffset | undefined>(undefined);
+  const aim = useCallback(
+    (target: GazeTarget | null) => {
+      targetRef.current = target;
+      const next = offsetFor(target);
+      const prev = shownRef.current;
+      if (prev === next || (prev && next && prev.x === next.x && prev.y === next.y)) return;
+      shownRef.current = next;
+      setEyeOffset(next);
+    },
+    [offsetFor],
+  );
+
   const expireAt = useCallback(
     (until: number) => {
       clearExpiry();
       expiryRef.current = setTimeout(() => {
         expiryRef.current = null;
-        setTarget((t) => (t && t.kind !== 'pointer' && t.until <= until ? null : t));
+        const t = targetRef.current;
+        if (t && t.kind !== 'pointer' && t.until <= until) aim(null);
       }, Math.max(0, until - now()));
     },
-    [now],
+    [now, aim],
   );
 
   useEffect(() => clearExpiry, []);
 
-  // Turn the target into an offset relative to where the eyes are right now.
+  // The actor moved under a held target: the eyes follow it from where they are now (no state when nothing changes)
   useEffect(() => {
-    if (!enabled || !target) {
-      setEyeOffset(undefined);
-      return;
-    }
-    if (target.kind === 'glance') {
-      setEyeOffset(target.offset);
-      return;
-    }
-    const actor = actorRef.current;
-    if (!actor) return;
-    const range = gazeRangeFor(sceneRef.current?.getBoundingClientRect().width ?? 0);
-    const next = gazeToward(eyesOf(actor), target.point, range);
-    setEyeOffset((prev) => (prev && prev.x === next.x && prev.y === next.y ? prev : next));
-  }, [enabled, target, actorRef, sceneRef, actorKey]);
+    if (targetRef.current && targetRef.current.kind !== 'glance') aim(targetRef.current);
+  }, [actorKey, aim]);
 
   // A mouse moves many times per frame; the eyes only need the latest
-  // position once per frame. The point is kept in a ref and the state
-  // update is scheduled with requestAnimationFrame, so the home re-renders
-  // at most once per frame for gaze, not once per pixel.
+  // position once per frame. The point is kept in a ref and the offset is
+  // computed in a requestAnimationFrame, so the home re-renders at most
+  // once per frame for gaze, not once per pixel, and not at all while the
+  // eyes stay where they are.
   const pendingPointRef = useRef<{ x: number; y: number } | null>(null);
   const pointFrameRef = useRef<number | null>(null);
   const onPointerMove = useCallback(
@@ -95,10 +116,12 @@ export function useGazePolicy({ actorRef, sceneRef, hoverCapable, actorKey, enab
         const point = pendingPointRef.current;
         if (!point) return;
         clearExpiry();
-        setTarget((t) => (t?.kind === 'pointer' && t.point.x === point.x && t.point.y === point.y ? t : { kind: 'pointer', point }));
+        const t = targetRef.current;
+        if (t?.kind === 'pointer' && t.point.x === point.x && t.point.y === point.y) return;
+        aim({ kind: 'pointer', point });
       });
     },
-    [enabled, hoverCapable],
+    [enabled, hoverCapable, aim],
   );
   useEffect(
     () => () => {
@@ -108,34 +131,37 @@ export function useGazePolicy({ actorRef, sceneRef, hoverCapable, actorKey, enab
   );
 
   const onPointerLeave = useCallback(() => {
-    setTarget((t) => (t?.kind === 'pointer' ? null : t));
-  }, []);
+    if (targetRef.current?.kind === 'pointer') aim(null);
+  }, [aim]);
 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       if (!enabled) return;
       if (event.pointerType === 'mouse' && hoverCapable) return; // the move handler already follows it
       const until = now() + TAP_ATTENTION_MS;
-      setTarget({ kind: 'tap', point: { x: event.clientX, y: event.clientY }, until });
+      aim({ kind: 'tap', point: { x: event.clientX, y: event.clientY }, until });
       expireAt(until);
     },
-    [enabled, hoverCapable, now, expireAt],
+    [enabled, hoverCapable, now, expireAt, aim],
   );
 
   const glance = useCallback(
     (offset: EyeOffset, durationMs: number) => {
       if (!enabled) return;
+      if (targetRef.current?.kind === 'pointer') return;
       const until = now() + durationMs;
-      setTarget((t) => (t?.kind === 'pointer' ? t : { kind: 'glance', offset, until }));
+      aim({ kind: 'glance', offset, until });
       expireAt(until);
     },
-    [enabled, now, expireAt],
+    [enabled, now, expireAt, aim],
   );
 
   const clear = useCallback(() => {
     clearExpiry();
-    setTarget(null);
-  }, []);
+    aim(null);
+  }, [aim]);
 
-  return useMemo(() => ({ eyeOffset, onPointerMove, onPointerLeave, onPointerDown, glance, clear }), [eyeOffset, onPointerMove, onPointerLeave, onPointerDown, glance, clear]);
+  // Off: no gaze at all (nothing is set; what was held is simply not shown)
+  const shown = enabled ? eyeOffset : undefined;
+  return useMemo(() => ({ eyeOffset: shown, onPointerMove, onPointerLeave, onPointerDown, glance, clear }), [shown, onPointerMove, onPointerLeave, onPointerDown, glance, clear]);
 }

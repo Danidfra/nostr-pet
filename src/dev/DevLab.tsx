@@ -43,8 +43,9 @@ const remember = (key: string, value: boolean) => {
  */
 export default function DevLab() {
   const controller = useFixtureController();
-  const home = useDevHome(controller);
   const [overlay, setOverlay] = useState(() => remembered(OVERLAY_KEY, false));
+  // The debug overlay draws from the scene controller: it follows it while it is on
+  const home = useDevHome(controller, { followScene: overlay });
   const [drawer, setDrawer] = useState(() => remembered(DRAWER_KEY, true));
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageRoot, setStageRoot] = useState<HTMLElement | null>(null);

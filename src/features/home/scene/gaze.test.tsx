@@ -110,3 +110,64 @@ describe('useGazePolicy', () => {
     expect(result.current.eyeOffset).toBeUndefined();
   });
 });
+
+// ─── M15 care refinement: no state from an effect per pointer frame, a controller stable while only the eyes move ───
+describe('the gaze does not churn the home', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  function counted() {
+    const actor = document.createElement('div');
+    actor.getBoundingClientRect = () => ({ left: 100, top: 100, width: 100, height: 100, right: 200, bottom: 200, x: 100, y: 100, toJSON: () => ({}) });
+    const scene = document.createElement('section');
+    scene.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 400, right: 400, bottom: 400, x: 0, y: 0, toJSON: () => ({}) });
+    const actorRef = { current: actor as HTMLElement | null };
+    const sceneRef = { current: scene as HTMLElement | null };
+    const renders = { n: 0 };
+    const hook = renderHook(() => {
+      renders.n += 1;
+      return useGazePolicy({ actorRef, sceneRef, hoverCapable: true, actorKey: 'k' });
+    });
+    return { ...hook, renders };
+  }
+  const mouse = (clientX: number, clientY: number) => ({ pointerType: 'mouse', clientX, clientY }) as unknown as React.PointerEvent<HTMLElement>;
+  const frame = () => act(() => { vi.advanceTimersByTime(20); });
+
+  it('one render per pointer frame that moves the eyes (never two: no effect turns the target into the offset)', () => {
+    const { result, renders } = counted();
+    const start = renders.n;
+    for (let i = 0; i < 5; i++) {
+      // Many moves inside one frame, one render for the frame
+      act(() => {
+        result.current.onPointerMove(mouse(160 + i * 12, 140));
+        result.current.onPointerMove(mouse(162 + i * 12, 140));
+      });
+      frame();
+    }
+    expect(result.current.eyeOffset).toBeDefined();
+    expect(renders.n - start).toBe(5);
+  });
+
+  it('a pointer frame that leaves the eyes where they are renders nothing', () => {
+    const { result, renders } = counted();
+    act(() => result.current.onPointerMove(mouse(210, 140)));
+    frame();
+    const settled = renders.n;
+    const eyes = result.current.eyeOffset;
+    // Far beyond the range the eyes saturate: a new point, the same offset
+    for (const x of [900, 950, 1000]) {
+      act(() => result.current.onPointerMove(mouse(x, 140)));
+      frame();
+    }
+    act(() => result.current.onPointerMove(mouse(1000, 140)));
+    frame();
+    expect(result.current.eyeOffset).not.toEqual(eyes);
+    const saturated = renders.n;
+    for (const x of [1100, 1200, 1300]) {
+      act(() => result.current.onPointerMove(mouse(x, 140)));
+      frame();
+    }
+    expect(renders.n).toBe(saturated);
+    expect(saturated - settled).toBe(1);
+  });
+});
