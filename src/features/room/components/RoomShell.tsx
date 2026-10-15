@@ -40,7 +40,7 @@ import { ROOM_GRID, blobbiBoxTiles, blobbiReachTiles, MAIN_BLOBBI } from '../lib
 import { useFurnitureModels } from '../hooks/useFurnitureModels';
 import { useRoomScene, type RoomSceneFailure, type RoomSceneStatus } from '../hooks/useRoomScene';
 import type { PickResult, RoomScene, SceneGeometry, ScreenAnchor, SpotQuery } from '../lib/scene/RoomScene';
-import type { BathSceneState } from '../lib/scene/bath-scene';
+import type { BathAnchor, BathFrame } from '@/features/bath/bath-frame';
 import type { RoomProp } from '../lib/room-props';
 import { RoomFlatProp } from './RoomProps';
 
@@ -113,8 +113,8 @@ export interface RoomControl {
   propResting: (id: string) => boolean;
   /** Resolves when a rolling prop comes to rest (at once when it is still, or gone). */
   whenPropRests: (id: string) => Promise<void>;
-  /** The bath under way (M15), drawn by the scene (the hollow tub, the water, the foam, the tools), or none. */
-  bath: (state: BathSceneState | null) => void;
+  /** The care ritual under way (M15), drawn by the scene from its frame on the main actor (in the tub `anchor` names, or in place), or none. */
+  bath: (frame: BathFrame | null, anchor?: Extract<BathAnchor, { kind: 'world' }> | null) => void;
   /** A floor piece's footprint (tiles) as laid out now, or null. */
   itemFootprint: (index: number) => { x0: number; x1: number; z0: number; z1: number } | null;
   /** Whether the 3D model stands in the user's Blobbi's place on screen (the page's drawing has stepped aside). */
@@ -630,7 +630,7 @@ export function RoomShell({
           propRests.current.set(id, waiting);
         });
       },
-      bath: (state) => sceneRef.current?.setBath?.(state),
+      bath: (frame, anchor) => sceneRef.current?.setBath?.(frame, anchor ?? null),
       itemFootprint: (index) => sceneRef.current?.itemFootprint?.(index) ?? null,
       modelDrawn: () => sceneRef.current?.actorModelDrawn?.(MAIN_BLOBBI) ?? false,
     } : null;

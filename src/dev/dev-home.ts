@@ -29,9 +29,12 @@ export interface DevHome {
  * The home's own data hook plus the wiring that lets a rewrite reach the
  * running app the way a published event does (the collection cache first,
  * then the task queries that read the missions). Re-renders the caller on
- * every fixture change.
+ * every fixture change, except a new scene controller (the home hands its
+ * controller over as it changes: a surface that draws from it subscribes
+ * itself, or asks with `followScene`), so the panel is not rendered again
+ * with every step of the scene (M15 care refinement).
  */
-export function useDevHome(controller: FixtureController) {
+export function useDevHome(controller: FixtureController, { followScene = false }: { followScene?: boolean } = {}) {
   const home = useHomeBlobbi();
   const queryClient = useQueryClient();
   const [, bump] = useState(0);
@@ -45,9 +48,10 @@ export function useDevHome(controller: FixtureController) {
           void queryClient.invalidateQueries({ queryKey: ['evolve-tasks'] });
         }
         if (change.kind === 'reset') void queryClient.invalidateQueries();
+        if (change.kind === 'scene' && !followScene) return;
         bump((n) => n + 1);
       }),
-    [controller, updateCompanionEvent, queryClient],
+    [controller, updateCompanionEvent, queryClient, followScene],
   );
   return home;
 }

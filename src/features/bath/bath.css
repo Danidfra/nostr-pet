@@ -12,26 +12,34 @@
   position: absolute;
   inset: 0;
   z-index: 3;
+  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* The surface itself: the art box and a margin round it (`HIT_PAD_PX`), so a small Blobbi is easy to reach */
+.bath-layer__hit {
+  z-index: 2;
   pointer-events: auto;
   touch-action: none;
   cursor: grab;
   -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  -webkit-user-select: none;
   outline: none;
 }
-.bath-layer[data-pressed='true'] {
+.bath-layer__hit[data-pressed='true'] {
   cursor: grabbing;
 }
-.bath-layer[data-stage='entering'],
-.bath-layer[data-stage='committing'],
-.bath-layer[data-stage='done'],
-.bath-layer[data-stage='failed'] {
+.bath-layer__hit[data-stage='jump-in'],
+.bath-layer__hit[data-stage='play'],
+.bath-layer__hit[data-stage='jump-out'],
+.bath-layer__hit[data-stage='committing'],
+.bath-layer__hit[data-stage='done'],
+.bath-layer__hit[data-stage='failed'] {
   cursor: default;
 }
-.bath-layer:focus-visible {
+.bath-layer__hit:focus-visible {
   outline: 2px dashed hsl(var(--ring) / 0.7);
-  outline-offset: 6px;
+  outline-offset: -18px;
   border-radius: 40%;
 }
 .bath-layer__svg {
@@ -106,7 +114,8 @@
   animation: bath-tool-rest 1.4s ease-in-out infinite;
 }
 .bath-layer__tool[data-tool='shower'][data-resting='false'] {
-  transform: translate(-50%, -80%);
+  /* The frame's point is the shower's head already (above the finger) */
+  transform: translate(-50%, -50%);
 }
 @keyframes bath-tool-rest {
   0%,

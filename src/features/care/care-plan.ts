@@ -75,6 +75,12 @@ const STATE_REASON: Record<Exclude<BlobbiState, 'active'>, string> = {
   hibernating: 'Hibernating. Nothing to do here for now.',
 };
 
+/**
+ * The verbs' words. `clean` reads "Care" (M15 care refinement): it offers the hygiene items and the medicine together;
+ * the id stays `clean` (the action, the test hooks, the events), and the status panel's hygiene stat keeps "Clean".
+ */
+const VERB_LABEL: Record<CareInteraction, string> = { feed: 'Feed', play: 'Play', clean: 'Care' };
+
 /** Which care actions make sense for this Blobbi, and why the others do not. */
 export function availableCareActions(companion: BlobbiCompanion): CareAvailability[] {
   const visible = new Set(getVisibleStats(companion.stage));
@@ -82,15 +88,15 @@ export function availableCareActions(companion: BlobbiCompanion): CareAvailabili
 
   const list: CareAvailability[] = interactions.map((action) => {
     if (companion.stage === 'egg' && !EGG_CARE.has(action)) {
-      return { action, label: capitalize(action), available: false, reason: 'Not until it hatches.' };
+      return { action, label: VERB_LABEL[action], available: false, reason: 'Not until it hatches.' };
     }
     if (!visible.has(CARE_PRIMARY_STAT[action])) {
-      return { action, label: capitalize(action), available: false, reason: 'Not at this stage.' };
+      return { action, label: VERB_LABEL[action], available: false, reason: 'Not at this stage.' };
     }
     if (companion.state !== 'active') {
-      return { action, label: capitalize(action), available: false, reason: STATE_REASON[companion.state] };
+      return { action, label: VERB_LABEL[action], available: false, reason: STATE_REASON[companion.state] };
     }
-    return { action, label: capitalize(action), available: true };
+    return { action, label: VERB_LABEL[action], available: true };
   });
 
   if (companion.state === 'hibernating') {
@@ -216,8 +222,4 @@ function diffStats(before: BlobbiStats, after: BlobbiStats): Partial<BlobbiStats
     if (delta !== 0) out[key] = delta;
   }
   return out;
-}
-
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }

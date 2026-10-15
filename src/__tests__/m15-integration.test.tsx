@@ -146,7 +146,7 @@ describe('M15 integration: the bath is a busy moment for the invitation and the 
     expect(await screen.findByTestId('bath-bar')).toBeInTheDocument();
     await wait(INVITE_DELAY_MS + 1_000);
     expect(screen.queryByTestId('guest-invite')).toBeNull();
-    await playBath({ through: 'rinse' });
+    await playBath({ through: 'lather' });
     await wait(INVITE_DELAY_MS + 200);
     expect(screen.queryByTestId('guest-invite')).toBeNull();
     await playBath();
@@ -173,7 +173,7 @@ describe('M15 integration: the bath is a busy moment for the invitation and the 
     renderApp('/');
     await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
     await chooseCare('clean');
-    await playBath({ through: 'soap' });
+    await playBath({ through: 'lather' });
     expect(screen.getByTestId('bath-bar')).toHaveAttribute('data-tool', 'shower');
     await userEvent.click(screen.getByTestId('menu-button'));
     await screen.findByTestId('menu-sheet');

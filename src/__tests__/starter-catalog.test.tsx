@@ -219,7 +219,8 @@ describe('in the home', () => {
     await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull(), { timeout: 4000 });
     await userEvent.click(screen.getByTestId('action-items'));
     expect(within(await screen.findByTestId('inventory-sheet')).getByTestId('inventory-empty')).toBeInTheDocument();
-  });
+    // A whole wash, its shake and its celebration: the bath tests' budget, not the default 5 s
+  }, 20_000);
 
   it('rest stays the bed’s: no options, the bed comes out, sleep on arrival', async () => {
     renderHome({ walkSpeed: 1.2, idleEnabled: false });

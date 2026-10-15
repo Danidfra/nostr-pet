@@ -19,17 +19,22 @@ the kit, milestone by milestone.
 - **One home.** A single living room, drawn at a fixed 4:5 canvas that fits
   any phone, with the Blobbi walking, looking, reacting and sleeping in it.
   No rooms to manage, no editor, no shop.
-- **Care by items.** Feed, Play and Clean each open a strip of the items
+- **Care by items.** Feed, Play and Care each open a strip of the items
   that answer them: the official starter kit (free, unlimited, not owned)
-  and what you own on the Island (spent when used). Rest is the bed.
-- **The bath is a small game (M15).** A cleaning item puts the Blobbi in
-  the tub, in both homes: the soap is dragged over its body (foam where it
-  went), the shower held over it (the foam washes off under the stream),
-  the towel dragged again, each stage passing by covering the body, never
-  by a tap; then the one care write, the same as any item's. Stop, a change
-  of room, a reload or the other home end it with nothing written and
-  nothing consumed; a Blobbi already clean is not bathed
-  (`src/features/bath/README.md`).
+  and what you own on the Island (spent when used). Care offers the hygiene
+  items first, then the health ones. Rest is the bed.
+- **Care rituals (M15).** Each cleaning item is its own small game, in both
+  homes: Soap and Shampoo a wash where the Blobbi stands (the soap dragged
+  over its body, foam where it went; the shower held over or above it, the
+  foam washing off under the stream), Soft Towel a short towelling, Bubble
+  Bath a soak (it walks to the tub, jumps in, plays in the bubbles, jumps
+  out wet). Each stage passes by covering the body or with time, never by a
+  tap; then the one care write, the same as any item's, and a wet Blobbi
+  shakes itself dry. Stop, a change of room, a reload or the other home end
+  it with nothing written and nothing consumed; a Blobbi already clean is
+  not washed (`src/features/bath/README.md`). Medicine is a short moment
+  where the Blobbi stands: worried, the medicine to its mouth, a wiggle, the
+  write, relieved.
 - **The lifecycle at home.** An egg hatches into a baby and a baby evolves
   into an adult here, through the kit's missions and ceremonies. An
   account's first egg hatches by itself, a moment after adoption, with no

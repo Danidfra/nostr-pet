@@ -261,6 +261,8 @@ export function createFixtureController(request: FixtureRequest): FixtureControl
     },
     scene: () => scene,
     setScene: (next) => {
+      // The same controller handed over again is no change
+      if (next === scene) return;
       scene = next;
       notify({ kind: 'scene', scene: next });
     },

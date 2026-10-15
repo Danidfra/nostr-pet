@@ -243,10 +243,40 @@ export function useBlobbiPresentation({ blobbi, stats, sceneRef, actorRef, isInC
     [gazeMove, gazeLeave, gazeDown, markActivity],
   );
 
-  const controller = useMemo<BlobbiSceneController>(
-    () => ({ presentation, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, canWalk: policy.walks.includes('user'), placeAt, destination: locomotion.destination, scenePointerHandlers, isUserWalking, reducedMotion }),
-    [presentation, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, policy.walks, placeAt, locomotion.destination, scenePointerHandlers, isUserWalking, reducedMotion],
+  // The controller is the same object while only the eyes move (a hovering pointer moves them every frame): its
+  // presentation is read live, and it changes when anything else of the presentation does. So whoever is told of
+  // the controller (the settings' seam, a dev surface) is not told once a frame (M15 care refinement).
+  const presentationRef = useRef(presentation);
+  presentationRef.current = presentation;
+  const presentationSansEyes = useMemo(
+    () => ({}),
+    // Every input of the presentation but the eyes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mode, locomotion.position, locomotion.facing, locomotion.motion, travelGaze, reactions.reaction, reactions.gesture, blobbi, stats, settings.facing, settings.motion, settings.gaze, settings.baselineExpression],
   );
+  const controller = useMemo<BlobbiSceneController>(
+    () => ({
+      get presentation() {
+        return presentationRef.current;
+      },
+      mode,
+      walkTo,
+      onFloorTap,
+      poke,
+      lookAt,
+      reactToCare,
+      celebrate,
+      canWalk: policy.walks.includes('user'),
+      placeAt,
+      destination: locomotion.destination,
+      scenePointerHandlers,
+      isUserWalking,
+      reducedMotion,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [presentationSansEyes, mode, walkTo, onFloorTap, poke, lookAt, reactToCare, celebrate, policy.walks, placeAt, locomotion.destination, scenePointerHandlers, isUserWalking, reducedMotion],
+  );
+
 
   // The settings' harness seam: told about this controller as it changes, and about the unmount.
   const onController = settings.onController;

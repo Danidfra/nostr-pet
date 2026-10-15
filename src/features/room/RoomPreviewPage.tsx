@@ -85,7 +85,9 @@ import { RoomStatusHud } from './components/RoomStatusHud';
 import { RoomBlobbiOverlay, RoomDragGhost, RoomFloorItem } from './components/RoomCareParts';
 import { BathToolBar, BathTouchLayer, useBathSession, type BathCommitOutcome, type BathItem } from '@/features/bath';
 import { bodyBottomInset } from './lib/body-inset';
-import { BATH_ELEV, type BathSceneState } from './lib/scene/bath-scene';
+import { BATH_ELEV } from './lib/scene/bath-scene';
+import { MedicineDose, medicineRefusal } from '@/features/home/medicine';
+import type { BlobbiVisualEffect } from '@blobbi-kit/renderer';
 import type { Run } from './lib/room-interaction';
 import type { CareChoice } from '@/features/home/care-model';
 import { CAMERA_AZIMUTH } from './lib/room-geometry';
@@ -129,6 +131,9 @@ const ATTENTION_MS = 1_600;
 /** When a 3D Blobbi's landing hop comes after a room change: as the room finishes folding in. */
 /** How long the carousel pulses when a piece of furniture points at it (one turn of Ditto's guide pulse). */
 const PULSE_MS = 2_600;
+
+/** Relieved after medicine: a few sparkles. */
+const MEDICINE_SPARKLES: readonly BlobbiVisualEffect[] = [{ id: 'golden-sparkles', intensity: 0.7 }];
 
 export default function RoomPreviewPage() {
   const home = useHomeBlobbi();
@@ -473,8 +478,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     reducedMotion,
     hygiene: projected?.stats.hygiene,
     start: bathStart,
-    // Into the tub: a walk to it, then a hop onto its floor, facing the room; an egg (no walk) and a room without a
-    // tub are bathed where the Blobbi lies
+    // A soak, into the tub: a walk to it, then a jump onto its floor, facing the room; an egg (no walk) and a room
+    // without a tub soak where the Blobbi lies (every other ritual is played where it stands)
     enter: isEgg || tubIndex < 0
       ? null
       : async (run: Run) => {
@@ -496,8 +501,23 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           }
           return true;
         },
+    // A soak, out of the tub: a jump over its near rim onto the floor in front of it, wet
+    exit: async (run: Run) => {
+      const control = controlRef.current;
+      const rect = control?.itemFootprint(tubIndexRef.current);
+      const from = control?.blobbiPosition();
+      if (!control || !rect || !from) return;
+      const out = control.standPointNear((rect.x0 + rect.x1) / 2, rect.z1 + 0.9);
+      const steps = reduceMotionRef.current ? 1 : 10;
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const arc = i === steps ? 0 : Math.sin(t * Math.PI) * 1.1;
+        control.script({ x: from.x + (out.x - from.x) * t, z: from.z + (out.z - from.z) * t, elev: BATH_ELEV * (1 - t) + arc, heading: CAMERA_AZIMUTH });
+        if (i < steps) await run.wait(34);
+      }
+    },
     leave: () => {
-      // Out of the tub: back on the floor, at the free spot nearest it; a write that failed is taken back with the bath
+      // Over: back on the floor, at the free spot nearest it; a write that failed is taken back with the ritual
       controlRef.current?.script(null);
       controlRef.current?.bath(null);
       careRef.current.clear();
@@ -519,12 +539,12 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   useEffect(() => {
     const control = controlRef.current;
     if (!control) return;
-    if (!bathView || bathView.inPlace || tubIndex < 0) {
+    if (!bathView) {
       control.bath(null);
       return;
     }
-    const state: BathSceneState = { itemIndex: tubIndex, status: bathView.status, tool: bathView.tool, foam: bathView.foam, mask: bathView.mask, grid: bathView.grid, outline: bathView.outline, pointer: bathView.pointer, celebrating: bathView.celebrating };
-    control.bath(state);
+    // On the main actor: in the tub for a soak there, else where it stands
+    control.bath(bathView.frame, { kind: 'world', tubIndex: bathView.inPlace || tubIndex < 0 ? null : tubIndex });
   }, [bathView, tubIndex, controlRef]);
   // The 3D model draws the foam, the water and the tools itself; the page's drawing has them on its layer
   const [modelDrawn, setModelDrawn] = useState(false);
@@ -550,6 +570,15 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     return startBath(item, { inPlace: isEgg || tubIndexRef.current < 0 || !nav.canWalk });
   }, [startBath, present, transitioning, decorator.editing, isEgg, nav.canWalk, interactions, controlRef]);
   const cancelBath = bath.cancel;
+  // Medicine's own rule, at every way in (M15 care refinement): its health already full, a word and nothing else
+  const healthRef = useRef(projected?.stats.health);
+  healthRef.current = projected?.stats.health;
+  const medicineRefused = useCallback((entry: RoomCareEntry): boolean => {
+    if (entry.action !== 'medicine') return false;
+    const refusal = medicineRefusal(blobbi.name, healthRef.current);
+    if (refusal) careRef.current.notify(refusal);
+    return refusal !== null;
+  }, [blobbi.name]);
 
   // ─── The screens over the room: the menu, the Blobbi's details, the whole inventory ───
   const [menuOpen, setMenuOpen] = useState(false);
@@ -562,6 +591,13 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const mood = describeMood(blobbi, projected?.stats);
   // What the Island dressed it in, drawn on the 2D drawing too (read-only; the 3D model goes undressed)
   const worn = useWornEquipment({ pubkey, blobbi, items: care.inventory.items });
+  // What a moment adds round the drawing: the bath's sparkles at its end, medicine's once it has landed (never under reduced motion)
+  const bathEffects = bath.effects;
+  const relievedNow = interactions.dose?.phase === 'relieved' && !reducedMotion;
+  const drawingEffects = useMemo(
+    () => (bathEffects.length > 0 || relievedNow ? [...bathEffects, ...(relievedNow ? MEDICINE_SPARKLES : []), ...worn.effects] : worn.effects),
+    [bathEffects, relievedNow, worn.effects],
+  );
   const accessories = isEgg ? undefined : worn.accessoriesFor(facing);
   // The lifecycle: the kit's transitions, as on the classic home; the room's reveal is a face, a hop and a sound
   const lifecycle = useLifecycle({ blobbi, profile, pubkey, updateCompanionEvent, invalidate: refresh });
@@ -781,6 +817,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         offerBath(entry);
         return;
       }
+      if (medicineRefused(entry)) return;
       applyEntry(entry, plan, roomId);
     },
   });
@@ -797,8 +834,9 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       offerBath(entry);
       return;
     }
+    if (medicineRefused(entry)) return;
     applyEntry(entry, planUse(entry.action, controlRef.current?.blobbiPosition() ?? null), roomId);
-  }, [selectItem, applyEntry, controlRef, roomId, offerBath]);
+  }, [selectItem, applyEntry, controlRef, roomId, offerBath, medicineRefused]);
 
   // A drag ends without a drop when the room changes, decorating begins, or the item is gone or no longer usable
   const cancelDrag = drag.cancel;
@@ -967,13 +1005,15 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     setChosenRoom(next);
   }, [cancelBath]);
   const offer = care.offer;
+  // Medicine's moment (M15 care refinement): the dose at the mouth, then relieved; its item never lies on the floor
+  const dose = interactions.dose;
   const offerGlyph = offer?.choice.entry.item.glyph ?? null;
   const offerPhysical = offer ? propKindFor(offer.choice.entry.item) !== null : false;
   const floorThings = useMemo(
-    () => (offer && offer.place.roomId === roomId && offerGlyph && !bathing
+    () => (offer && offer.place.roomId === roomId && offerGlyph && !bathing && !(dose && dose.key === offer.key && offer.phase !== 'failed')
       ? [{ key: `offer-${offer.key}`, x: offer.place.x, z: offer.place.z, node: <RoomFloorItem offer={offer} glyph={offerGlyph} onPutAway={care.putAway} physical={offerPhysical} /> }]
       : []),
-    [offer, offerGlyph, offerPhysical, roomId, care.putAway, bathing],
+    [offer, offerGlyph, offerPhysical, roomId, care.putAway, bathing, dose],
   );
   // Its name, shown over its head on demand (hover, tap, keyboard focus), in 2D and 3D alike
   const nameTag = useMemo(() => ({ text: blobbi.name, color: toBlobbiVisual(blobbi).baseColor }), [blobbi]);
@@ -1064,6 +1104,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         blobbiOverlay={
           <RoomBlobbiOverlay ref={gazeBoxRef} feedback={care.feedback} handed={null} heart={petting.heart}>
             {/* The bath on its body (M15): the surface the player rubs; the foam and the tools too, unless the 3D model draws them */}
+            {dose && <MedicineDose glyph={dose.glyph} phase={dose.phase} reducedMotion={reducedMotion} />}
             {bathView && (
               <BathTouchLayer view={bathView} input={bath.input} draw={!modelDrawn} reducedMotion={reducedMotion} name={blobbi.name} style={{ top: `${bathInset}%`, bottom: `${-bathInset}%` }} />
             )}
@@ -1122,7 +1163,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             journeyPreview={journeyPreview}
             moteDensity={quality.settings.moteDensity}
             accessories={accessories}
-            effects={worn.effects}
+            effects={drawingEffects}
           />
         }
       >
@@ -1290,6 +1331,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             offerBath(careEntry);
             return;
           }
+          if (medicineRefused(careEntry)) return;
           interactions.offer(careEntry, planUse(careEntry.action, controlRef.current?.blobbiPosition() ?? null), roomId);
         }}
         busy={care.busy || interactions.activity !== null || !present || transitioning}

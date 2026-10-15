@@ -818,6 +818,55 @@ another app) reopens that door for a use still open in the ledger. These are
 limits of the current protocol (kinds 1416 and 31124 as they are), not of the
 bath. They are written down here rather than worked around.
 
+## Milestone 15: the care refinement (2026-10-14)
+
+The bath of Track A was one game for every cleaning item, at the tub. Each
+item is its own RITUAL now (`bath/rituals.ts`), read by the same machine:
+
+```
+Soap, Shampoo   wash    in place   lather (rub) → rinse (the shower)       → write → shake → done
+Soft Towel      towel   in place   dry-rub                                 → write → done
+Bubble Bath     soak    the tub    jump in (script) → play (timed) → jump out (script) → write → shake → done
+```
+
+**The machine walks a stage list.** `bath-machine.ts` passes each stage by
+its kind: `rub` and `dry-rub` by coverage, `rinse` by time under the
+shower's column, `timed` by time, `script` when the host says its jump is
+done. Cells are booleans (`foamed`, `wet`, `dry`, and `visible` for the body
+the player can see), so what is drawn is what is counted; the last two cells
+of a stage finish themselves; the brush, the column, the shower's lift and
+the tap's slop are measured in px on screen (the layer measures the box).
+`committing`, `done`, `failed` and `cancelled` are as before: one write,
+under `run.protect`, after the last stage; retry is the host's retry of the
+same write.
+
+**One render model.** Every renderer reads a `BathFrame` (`bath-frame.ts`),
+made by the pure `frameFromState`: the ritual, its look and place, the
+stage, the progress, the cells, the tool and its head, the wetness, and the
+ordered one-shot cues (`splash-in`, `splash-out`, `rinse`, `shake`, `done`)
+with ids. The input (`BathTouchLayer`, the art box and a 24 px margin) and
+the 2D drawing (`BathEffects2D`) are separate files; the 3D scene is handed
+`setBath(frame, anchor)`, anchored to the main actor and followed each
+frame, with the tub item's index or null for a ritual in place. This is the
+contract between the gameplay and the rendering work (README "Contract").
+
+**Medicine** (`home/medicine`) left the bath and the 2D tub: a short moment
+where the Blobbi stands, on each home's item path (the room's as a scene on
+its director). Worried, the dose to its mouth, a wiggle, then the write;
+relieved with sparkles once it lands. Its own rule: refused when its health
+is full.
+
+**"Clean" reads "Care"** on the 2D home: it offers the hygiene items, then
+the health ones behind a thin divider. The id stays `clean`.
+
+**The eyes no longer churn the home.** The gaze policy computes the eye
+offset where its target is set, with an equality check, instead of in an
+effect that followed the target; the scene controller stays the same object
+while only the eyes move (its presentation read live). The dev fixture no
+longer re-renders its panel on every new scene controller. Together that
+removed the nested-update chain behind WebKit's "Maximum update depth"
+warning during the bath.
+
 ## Milestone 13: MVP release readiness (M11)
 
 The pass that turns the M10 home into something that can be put in front

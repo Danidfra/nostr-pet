@@ -1,8 +1,13 @@
-export { BATH_GRID, BATH_RULES, TOOL_LABEL, createBath, defaultMask, reduce, guidanceFor, toolFor, isBathActive, isBathStage, cellCenter } from './bath-machine';
-export type { BathStage, BathStatus, BathTool, BathPoint, BathState, BathEvent } from './bath-machine';
-export { useBathSession, CELEBRATE_MS, RINSE_TICK_MS } from './useBathSession';
+export { BATH_GRID, BATH_RULES, createBath, defaultMask, reduce, guidanceFor, toolFor, toolLabel, currentStage, isHandStage, isBathActive, cellCenter, frameSource, brushRadius, columnHalfWidth, headFor } from './bath-machine';
+export type { BathStatus, BathTool, BathPoint, BathState, BathEvent, BoxPx } from './bath-machine';
+export { RITUALS, SOAK_PLAY_MS, ritualFor, stageAt } from './rituals';
+export type { RitualId, RitualStyle, RitualPlace, RitualStageKind, RitualStageId, RitualStage, RitualDef } from './rituals';
+export { frameFromState, foamedCount, cuesAfter, TOOL_RESTING } from './bath-frame';
+export type { BathFrame, BathFrameStatus, BathFrameStage, BathFrameTool, BathCell, BathCue, BathCueKind, BathAnchor, FrameSource, FrameContext } from './bath-frame';
+export { useBathSession, CELEBRATE_MS, RINSE_TICK_MS, SHAKE_MS } from './useBathSession';
 export type { BathSession, BathView, BathHost, BathItem, BathInput, BathCommitOutcome } from './useBathSession';
-export { BathTouchLayer } from './BathTouchLayer';
+export { BathTouchLayer, HIT_PAD_PX } from './BathTouchLayer';
+export { BathEffects2D } from './BathEffects2D';
 export { BathToolBar } from './BathToolBar';
 export { BathTub2D, TUB_ART } from './BathTub2D';
 export type { BathTubPart, BathTubPhase } from './BathTub2D';

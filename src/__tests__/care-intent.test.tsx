@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The classic home (legacy since M11, when the room became the home): these are its own tests, so it is the one opened
 vi.mock('@/lib/home-experience', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/home-experience')>()), readExperience: () => 'classic' as const }));
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -28,7 +28,7 @@ import { HOME_SPACE, STAGE_OBJECTS } from '@/features/home/space/home-space';
 import { readLedger } from '@/features/inventory';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 import { carouselCurrent, carouselItems, chooseCare, chooseFromCarousel, playBath, rubBath, useOwnedItem } from '@/test/care-ui';
-import { FARM_CARROT, OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_GLASSES, OFFICIAL_SOAP, farmProduceDefinition, inventoryEvent, officialCareDefinition, officialCosmeticDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
+import { FARM_CARROT, OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_BANDAGE, OFFICIAL_GLASSES, OFFICIAL_SOAP, farmProduceDefinition, inventoryEvent, officialCareDefinition, officialCosmeticDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 import { OFFICIAL_CATALOG_SNAPSHOT } from '@/features/inventory';
 
 /** The starter tiles a verb shows for a baby: every official item whose care action answers it, in catalog order. */
@@ -336,29 +336,25 @@ describe('Rest brings the bed out', () => {
 });
 
 describe('Clean is a bath (M15)', () => {
-  it('a cleaning item brings the bath\'s tub out, two layers round the Blobbi: it walks into it, the soap is in hand, nothing is written until the whole bath is played, then one write, the celebration, and the tub leaves', async () => {
+  it('Soap is a wash where the Blobbi stands: no tub, no walk, the soap in hand, nothing written until the whole wash is played, then one write, the shake, the celebration', async () => {
     renderHome(SLOW_WALK);
     await ready();
     await chooseCare('clean');
-    // The home's own tub stays away: the bath draws its own, the Blobbi between its layers
+    await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', 'lather'), { timeout: 3000 });
+    // No tub, no walk: played where it stands
     expect(tub()).toBeNull();
-    const tubs = await screen.findAllByTestId('bath-tub');
-    expect(tubs.map((t) => t.dataset.tubPart)).toEqual(['back', 'front']);
-    expect(Number(tubs[0].style.zIndex)).toBeLessThan(Number(tubs[1].style.zIndex));
-    expect(screen.getByTestId('bath-bar')).toHaveAttribute('data-status', 'entering');
-    expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', 'entering');
-    expect(actor()).toHaveAttribute('data-motion', 'walking');
-    expect(actor()).toHaveAttribute('data-expression', 'curious');
-    // The verbs and the floor wait for the bath; the carousel is gone
+    expect(screen.queryByTestId('bath-tub')).toBeNull();
+    expect(actor()).not.toHaveAttribute('data-motion', 'walking');
+    expect(screen.getByTestId('bath-bar')).toHaveAttribute('data-ritual', 'wash');
+    // The verbs and the floor wait for the ritual; the carousel is gone
     expect(screen.getByTestId('care-feed')).toBeDisabled();
     expect(screen.queryByTestId('care-item-carousel')).toBeNull();
     expect(screen.getByTestId('scene-floor')).toBeDisabled();
-    await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', 'soap'), { timeout: 5000 });
-    expect(actor()).toHaveAttribute('data-x', TUB_SPOT.x.toFixed(3));
     expect(screen.getByTestId('bath-bar')).toHaveAttribute('data-tool', 'soap');
     expect(screen.getByTestId('bath-guidance')).toHaveTextContent(/Rub the soap all over Brook/);
     expect(states()).toHaveLength(0);
-    // A tap lays no foam; a stroke does, and the Blobbi follows the soap with its eyes
+    // A tap lays no foam; a stroke does
+    await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-ready', 'true'));
     fireEvent.pointerDown(screen.getByTestId('bath-layer'), { pointerId: 1, isPrimary: true, clientX: 100, clientY: 100 });
     fireEvent.pointerUp(screen.getByTestId('bath-layer'), { pointerId: 1, isPrimary: true, clientX: 100, clientY: 100 });
     await settle(60);
@@ -367,36 +363,99 @@ describe('Clean is a bath (M15)', () => {
     await waitFor(() => expect(Number(screen.getByTestId('bath-foam').dataset.count)).toBeGreaterThan(0));
     expect(Number(screen.getByTestId('bath-progress').getAttribute('aria-valuenow'))).toBeGreaterThan(0);
     expect(states()).toHaveLength(0);
-    await playBath({ through: 'soap' });
+    await playBath({ through: 'lather' });
     expect(screen.getByTestId('bath-bar')).toHaveAttribute('data-tool', 'shower');
-    expect(screen.getAllByTestId('bath-tub')[0]).toHaveAttribute('data-stage', 'rinse');
-    await playBath({ through: 'rinse' });
-    expect(screen.getByTestId('bath-bar')).toHaveAttribute('data-tool', 'towel');
     expect(states()).toHaveLength(0);
     await playBath();
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
     expect(Number(getTagValue(states()[0].tags, 'hygiene'))).toBeGreaterThan(45);
     expect(interactions()).toHaveLength(1);
     expect(spends()).toHaveLength(0);
-    // Squeaky clean: the home's chips, the glad face, then the tub goes and the Blobbi steps out
+    // Squeaky clean: the home's chips, the glad face
     await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Brook/), { timeout: 3000 });
     await waitFor(() => expect(screen.getByTestId('bath-bar')).toHaveAttribute('data-status', 'done'), { timeout: 3000 });
     expect(actor()).toHaveAttribute('data-expression', 'excited');
     await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull(), { timeout: 4000 });
-    await waitFor(() => expect(screen.queryByTestId('bath-tub')).toBeNull(), { timeout: 3000 });
+    expect(screen.queryByTestId('bath-tub')).toBeNull();
     expect(screen.getByTestId('care-feed')).toBeEnabled();
     expect(states()).toHaveLength(1);
+  }, 20_000);
+
+  it('Bubble Bath is the soak: the tub comes out in two layers round the Blobbi, it walks there and jumps in, plays in the bubbles, jumps out, THEN the one write; no tool, no towel; the tub leaves', async () => {
+    renderHome(SLOW_WALK);
+    await ready();
+    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseFromCarousel('blobbi:hygiene:bubble-bath');
+    const tubs = await screen.findAllByTestId('bath-tub');
+    expect(tubs.map((t) => t.dataset.tubPart)).toEqual(['back', 'front']);
+    expect(Number(tubs[0].style.zIndex)).toBeLessThan(Number(tubs[1].style.zIndex));
+    expect(tub()).toBeNull();
+    expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', 'jump-in');
+    expect(actor()).toHaveAttribute('data-motion', 'walking');
+    expect(actor()).toHaveAttribute('data-expression', 'curious');
+    await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', 'play'), { timeout: 6000 });
+    expect(actor()).toHaveAttribute('data-x', TUB_SPOT.x.toFixed(3));
+    expect(screen.getByTestId('bath-bar')).toHaveAttribute('data-tool', 'none');
+    expect(screen.queryByTestId('bath-tool-in-hand')).toBeNull();
+    expect(screen.getAllByTestId('bath-tub')[0]).toHaveAttribute('data-stage', 'play');
+    expect(states()).toHaveLength(0);
+    await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', 'jump-out'), { timeout: 8000 });
+    expect(states()).toHaveLength(0);
+    await waitFor(() => expect(states()).toHaveLength(1), { timeout: 8000 });
+    // Out of the water before the write: no longer at the tub's spot
+    expect(actor()).not.toHaveAttribute('data-x', TUB_SPOT.x.toFixed(3));
+    expect(Number(getTagValue(states()[0].tags, 'hygiene'))).toBe(100);
+    await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull(), { timeout: 5000 });
+    await waitFor(() => expect(screen.queryByTestId('bath-tub')).toBeNull(), { timeout: 3000 });
+    expect(states()).toHaveLength(1);
+  }, 30_000);
+
+  it('Shampoo and Soft Towel are played where the Blobbi stands too: never a tub, never a walk; one write each', async () => {
+    for (const [d, ritual, firstStage] of [['blobbi:hygiene:shampoo', 'wash', 'lather'], ['blobbi:hygiene:soft-towel', 'towel', 'dry']] as const) {
+      relay.published = [];
+      renderHome();
+      await ready();
+      await userEvent.click(screen.getByTestId('care-clean'));
+      await chooseFromCarousel(d);
+      await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', firstStage), { timeout: 3000 });
+      expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-ritual', ritual);
+      expect(screen.queryByTestId('bath-tub')).toBeNull();
+      expect(tub()).toBeNull();
+      expect(actor()).not.toHaveAttribute('data-motion', 'walking');
+      await playBath();
+      await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
+      expect(screen.queryByTestId('bath-tub')).toBeNull();
+      await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull(), { timeout: 4000 });
+      cleanup();
+    }
+  }, 30_000);
+
+  it('an owned soap whose write is refused: Try again resumes the same spend (one 1416 in all)', async () => {
+    relay.careFails = true;
+    renderHome();
+    await ready();
+    await useOwnedItem('blobbi:hygiene:soap');
+    await playBath();
+    await screen.findByTestId('bath-error', {}, { timeout: 4000 });
+    expect(spends()).toHaveLength(1);
+    const spendId = spends()[0].id;
+    relay.careFails = false;
+    await userEvent.click(screen.getByTestId('bath-retry'));
+    await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
+    expect(states()[0].tags.some((t) => t[0] === 'blobbi_op' && t[1] === spendId)).toBe(true);
+    await settle(400);
+    expect(spends()).toHaveLength(1);
   }, 20_000);
 
   it('Stop at any step puts the soap away with nothing written, the tub goes, and the verbs are free again', async () => {
     renderHome();
     await ready();
     await chooseCare('clean');
-    await playBath({ through: 'soap' });
+    await playBath({ through: 'lather' });
     expect(states()).toHaveLength(0);
     await userEvent.click(screen.getByTestId('bath-stop'));
     await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull());
-    await waitFor(() => expect(screen.queryByTestId('bath-tub')).toBeNull(), { timeout: 3000 });
+    expect(screen.queryByTestId('bath-tub')).toBeNull();
     expect(screen.getByTestId('care-feed')).toBeEnabled();
     await settle(300);
     expect(states()).toHaveLength(0);
@@ -424,7 +483,7 @@ describe('Clean is a bath (M15)', () => {
     expect(states()).toHaveLength(1);
   }, 20_000);
 
-  it('a failed bath stopped: nothing written, the tub goes, the verbs free', async () => {
+  it('a failed bath stopped: nothing written, the bar goes, the verbs free', async () => {
     relay.careFails = true;
     renderHome();
     await ready();
@@ -432,7 +491,7 @@ describe('Clean is a bath (M15)', () => {
     await playBath();
     await screen.findByTestId('bath-error', {}, { timeout: 4000 });
     await userEvent.click(screen.getByTestId('bath-stop'));
-    await waitFor(() => expect(screen.queryByTestId('bath-tub')).toBeNull(), { timeout: 3000 });
+    await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull(), { timeout: 3000 });
     expect(screen.getByTestId('care-feed')).toBeEnabled();
     expect(states()).toHaveLength(0);
   }, 20_000);
@@ -442,7 +501,7 @@ describe('Clean is a bath (M15)', () => {
     await ready();
     await useOwnedItem('blobbi:hygiene:soap');
     expect(screen.queryByTestId('inventory-sheet')).toBeNull();
-    await playBath({ through: 'rinse' });
+    await playBath({ through: 'lather' });
     expect(spends()).toHaveLength(0);
     expect(states()).toHaveLength(0);
     await playBath();
@@ -462,7 +521,7 @@ describe('Clean is a bath (M15)', () => {
     const eggTiles = OFFICIAL_CATALOG_SNAPSHOT.filter((r) => ['clean', 'medicine'].includes(r.action) && r.stages.includes('egg')).map((r) => r.d);
     expect(await startersShown()).toEqual(eggTiles);
     await chooseFromCarousel('blobbi:hygiene:soap');
-    await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', 'soap'));
+    await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', 'lather'));
     expect(screen.queryByTestId('bath-tub')).toBeNull();
     expect(actor()).not.toHaveAttribute('data-motion', 'walking');
     expect(states()).toHaveLength(0);
@@ -483,15 +542,139 @@ describe('Clean is a bath (M15)', () => {
     expect(states()).toHaveLength(0);
   }, 20_000);
 
-  it('medicine still goes to the home\'s own tub as before: no game', async () => {
+});
+
+describe('Medicine is a moment where the Blobbi stands (M15 care refinement)', () => {
+  it('no bath, no tub, no walk: worried, the dose to its mouth, a wiggle, and only then the one write; relieved with sparkles, "Treated"', async () => {
+    relay.all = [brook({ health: '60' }), ...definitions(), ...stock()];
+    renderHome(SLOW_WALK);
+    await ready();
+    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseFromCarousel('blobbi:medicine:bandage');
+    // The moment, where it stands: no bath, no tub (neither the bath's nor the home's), no walk
+    expect(screen.queryByTestId('bath-bar')).toBeNull();
+    expect(screen.queryByTestId('bath-tub')).toBeNull();
+    expect(tub()).toBeNull();
+    expect(actor()).not.toHaveAttribute('data-motion', 'walking');
+    expect(actor()).toHaveAttribute('data-expression', 'worried');
+    expect(screen.getByTestId('medicine-dose')).toHaveAttribute('data-phase', 'dose');
+    // The item does not lie on the floor; the verbs wait
+    expect(screen.queryByTestId('scene-object-offer')).toBeNull();
+    expect(screen.getByTestId('care-feed')).toBeDisabled();
+    expect(states()).toHaveLength(0);
+    await waitFor(() => expect(screen.getByTestId('medicine-dose')).toHaveAttribute('data-phase', 'wiggle'), { timeout: 2000 });
+    expect(states()).toHaveLength(0);
+    // Taken: the one write, its effects the catalog's (Bandage: health +25)
+    await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
+    expect(Number(getTagValue(states()[0].tags, 'health'))).toBeGreaterThan(60);
+    expect(interactions()).toHaveLength(1);
+    expect(spends()).toHaveLength(0);
+    await waitFor(() => expect(actor()).toHaveAttribute('data-expression', 'relieved'), { timeout: 3000 });
+    expect(screen.getByTestId('care-status')).toHaveTextContent(/Treated Brook/);
+    expect(actor()).not.toHaveAttribute('data-motion', 'walking');
+    await waitFor(() => expect(screen.queryByTestId('medicine-dose')).toBeNull(), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByTestId('care-feed')).toBeEnabled(), { timeout: 3000 });
+    await settle(300);
+    expect(states()).toHaveLength(1);
+    expect(screen.queryByTestId('bath-tub')).toBeNull();
+  }, 20_000);
+
+  it('its own rule: health full is refused with a word and writes nothing; hygiene full never refuses it (the bath’s rule is not medicine’s)', async () => {
+    relay.all = [brook({ health: '100', hygiene: '40' }), ...definitions(), ...stock()];
     renderHome();
     await ready();
     await userEvent.click(screen.getByTestId('care-clean'));
     await chooseFromCarousel('blobbi:medicine:bandage');
-    expect(screen.queryByTestId('bath-bar')).toBeNull();
-    expect(tub()).toHaveAttribute('data-state', 'walking');
+    expect(await screen.findByTestId('bath-notice')).toHaveTextContent(/Brook is feeling fine/);
+    expect(screen.queryByTestId('medicine-dose')).toBeNull();
+    await settle(1_600);
+    expect(states()).toHaveLength(0);
+    cleanup();
+    relay.all = [brook({ health: '50', hygiene: '100' }), ...definitions(), ...stock()];
+    relay.published = [];
+    renderHome();
+    await ready();
+    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseFromCarousel('blobbi:medicine:bandage');
+    expect(screen.getByTestId('medicine-dose')).toBeInTheDocument();
+    expect(screen.queryByTestId('bath-notice')).toBeNull();
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
   }, 20_000);
+
+  it('the page going before the write writes nothing', async () => {
+    relay.all = [brook({ health: '60' }), ...definitions(), ...stock()];
+    const view = renderHome();
+    await ready();
+    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseFromCarousel('blobbi:medicine:bandage');
+    expect(screen.getByTestId('medicine-dose')).toBeInTheDocument();
+    view.unmount();
+    await settle(2_000);
+    expect(relay.published).toHaveLength(0);
+  }, 20_000);
+
+  it('a failed write: worried no more, the item to try again (Try again writes once), nothing written meanwhile', async () => {
+    relay.all = [brook({ health: '60' }), ...definitions(), ...stock()];
+    relay.careFails = true;
+    renderHome();
+    await ready();
+    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseFromCarousel('blobbi:medicine:bandage');
+    await waitFor(() => expect(screen.getByTestId('offer-retry')).toBeInTheDocument(), { timeout: 5000 });
+    expect(screen.queryByTestId('medicine-dose')).toBeNull();
+    expect(states()).toHaveLength(0);
+    await settle(600);
+    expect(states()).toHaveLength(0);
+    relay.careFails = false;
+    await userEvent.click(screen.getByTestId('offer-retry'));
+    await waitFor(() => expect(states()).toHaveLength(1), { timeout: 5000 });
+    await settle(400);
+    expect(states()).toHaveLength(1);
+  }, 20_000);
+});
+
+/** The bag's Use, from a plain helper (the test action is named like a hook; it is not one). */
+const fromTheBag = useOwnedItem;
+
+describe('A use left open is finished first, never played with (M15 care refinement)', () => {
+  /** Owned soap spent, its state write refused, the bath stopped: a use left open in the ledger. */
+  async function leaveAUseOpen() {
+    relay.all = [brook({ health: '60' }), ...definitions(), officialCareDefinition('blobbi:medicine:bandage', 'Bandage', 'medicine', 'medicine', { health: 25 }, { emoji: '🩹' }), inventoryEvent('blobbi:island', { [OFFICIAL_SOAP]: 2, [OFFICIAL_BANDAGE]: 1 })];
+    relay.careFails = true;
+    renderHome();
+    await ready();
+    await fromTheBag('blobbi:hygiene:soap');
+    await playBath();
+    await screen.findByTestId('bath-error', {}, { timeout: 4000 });
+    await userEvent.click(screen.getByTestId('bath-stop'));
+    await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull());
+    expect(spends()).toHaveLength(1);
+    expect(states()).toHaveLength(0);
+    relay.careFails = false;
+    return spends()[0].id;
+  }
+
+  it('the next owned soap from the bag resumes it the old way: no bath, no new spend, the open spend applied', async () => {
+    const spendId = await leaveAUseOpen();
+    await useOwnedItem('blobbi:hygiene:soap');
+    await settle(200);
+    expect(screen.queryByTestId('bath-bar')).toBeNull();
+    await waitFor(() => expect(states()).toHaveLength(1), { timeout: 6000 });
+    expect(states()[0].tags.some((t) => t[0] === 'blobbi_op' && t[1] === spendId)).toBe(true);
+    expect(spends()).toHaveLength(1);
+  }, 30_000);
+
+  it('an owned medicine with a use left open: no moment (what lands is that use), no new spend, never the tub', async () => {
+    const spendId = await leaveAUseOpen();
+    await useOwnedItem('blobbi:medicine:bandage');
+    await settle(100);
+    expect(screen.queryByTestId('medicine-dose')).toBeNull();
+    expect(screen.queryByTestId('bath-bar')).toBeNull();
+    await waitFor(() => expect(states()).toHaveLength(1), { timeout: 6000 });
+    expect(states()[0].tags.some((t) => t[0] === 'blobbi_op' && t[1] === spendId)).toBe(true);
+    expect(spends()).toHaveLength(1);
+    expect(screen.queryByTestId('bath-tub')).toBeNull();
+  }, 30_000);
 });
 
 describe('Owned items from the Inventory', () => {

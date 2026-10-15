@@ -19,7 +19,7 @@ function starter(id: string, action: 'feed' | 'play' | 'clean' | 'boost', ok = t
 const all: CareAvailability[] = [
   { action: 'feed', label: 'Feed', available: true },
   { action: 'play', label: 'Play', available: true },
-  { action: 'clean', label: 'Clean', available: true },
+  { action: 'clean', label: 'Care', available: true },
   { action: 'rest', label: 'Rest', available: true },
 ];
 const items = [entry('apple', 'feed'), entry('tonic', 'boost'), entry('ball', 'play'), entry('soap', 'clean'), entry('pill', 'medicine'), entry('hat', null)];
