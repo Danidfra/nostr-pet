@@ -136,7 +136,7 @@ export interface ProfilePlanInput {
 }
 
 /** The one kind 11125 write. */
-export function profileTemplate({ ownerPubkey, profile, d, suggestedName }: ProfilePlanInput): PublishEventTemplate & { tags: string[][]; content: string } {
+export function profileTemplate({ ownerPubkey, profile, d, suggestedName, now }: ProfilePlanInput & { now?: number }): PublishEventTemplate & { tags: string[][]; content: string } {
   if (!profile) {
     const tags = updateBlobbonautTags([...buildBlobbonautTags(ownerPubkey), ['name', suggestedName]], { has: [d], current_companion: d });
     return { kind: KIND_BLOBBONAUT_PROFILE, tags, content: '' };
@@ -144,7 +144,9 @@ export function profileTemplate({ ownerPubkey, profile, d, suggestedName }: Prof
   const has = mergeHasForAdoption(profile.has, profile.has, d);
   const withoutCurrent = profile.allTags.filter(([name]) => name !== 'current_companion');
   const tags = updateBlobbonautTags(withoutCurrent, { has, current_companion: d });
-  return { kind: KIND_BLOBBONAUT_PROFILE, tags, content: profile.content, prev: profile.event };
+  // After the profile it replaces, even when this device's clock is behind (an older one would lose on every relay)
+  const created_at = now !== undefined ? Math.max(now, profile.event.created_at + 1) : undefined;
+  return { kind: KIND_BLOBBONAUT_PROFILE, tags, content: profile.content, prev: profile.event, ...(created_at !== undefined ? { created_at } : {}) };
 }
 
 /** A lenient "already owns a Blobbi" read: any 31124 with a `d` and a stage counts, namespace or not. */

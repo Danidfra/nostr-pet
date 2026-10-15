@@ -8,7 +8,12 @@
  *                never clobbered by a cache miss
  *   egg          the kind 31124, `created_at` pinned to the preview
  *   profile      exactly one kind 11125 (created, or updated with `has` and
- *                `current_companion`)
+ *                `current_companion`), built from a COMPLETE read of the
+ *                profile (`readProfileCensus`: every relay every Blobbi app
+ *                writes profiles to answered). An incomplete read writes no
+ *                profile (a partial one could replace the player's real
+ *                profile, `has`, xp and all): the egg is real, and the choice
+ *                waits on this device to be shared (`src/features/companion`)
  *   local        the device pick and the caches (no re-read after a success:
  *                a relay a moment behind would answer "none")
  *
@@ -21,6 +26,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { KIND_BLOBBI_STATE, fetchFreshBlobbonautProfile, getSelectedBlobbiKey, getUnlocks, xpToLevel, parseBlobbonautEvent, type BlobbonautProfile, type NostrEvent } from '@blobbi-kit/core';
 import { usePublishAdapter } from '@/features/care/usePublishAdapter';
+import { canAskRelays, poolProfileRelays } from '@/features/companion/pool-relays';
+import { readProfileCensus } from '@/features/companion/profile-write';
+import { companionChoices } from '@/features/companion/choice-store';
 import { timeoutSignal } from '@/lib/abort';
 import { eggTemplate, isOwnedBlobbiEvent, profileTemplate, type EggPreview } from './adoption-plan';
 
@@ -93,13 +101,37 @@ export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refre
       setStep('profile');
       let profileEvent: NostrEvent | null = null;
       let profileError: string | null = null;
+      // The relays one by one (a signed-in player): the profile built on is the newest one there is, or none is written
+      const networked = canAskRelays(nostr);
+      let seen: NostrEvent | null = profile?.event ?? null;
       try {
-        profileEvent = await publisher.publish(profileTemplate({ ownerPubkey: pubkey, profile, d: preview.d, suggestedName: suggestedName ?? 'Blobbonaut' }));
+        let base = profile;
+        if (networked) {
+          const census = await readProfileCensus(poolProfileRelays(nostr), pubkey);
+          if (!census.complete) throw new Error('your profile could not be reached right now');
+          base = census.newest ? (parseBlobbonautEvent(census.newest) ?? null) : null;
+          seen = census.newest;
+        }
+        profileEvent = await publisher.publish(profileTemplate({ ownerPubkey: pubkey, profile: base, d: preview.d, suggestedName: suggestedName ?? 'Blobbonaut', now: Math.floor(Date.now() / 1000) }));
         const parsed = parseBlobbonautEvent(profileEvent);
         if (parsed) queryClient.setQueryData<BlobbonautProfile | null>(['blobbonaut-profile', pubkey], parsed);
       } catch (error) {
         profileError = error instanceof Error ? error.message : String(error);
       }
+      // The new egg is the player's choice: shared with the other Blobbi apps by the profile just written, or waiting
+      // on this device to be (Try again, or choosing it, writes it into the profile and lists it there)
+      if (networked)
+        companionChoices.set({
+          version: 1,
+          account: pubkey,
+          d: preview.d,
+          at: Date.now(),
+          by: 'player',
+          synced: profileEvent ? { id: profileEvent.id, createdAt: profileEvent.created_at } : null,
+          pending: null,
+          over: seen ? { id: seen.id, createdAt: seen.created_at, d: parseBlobbonautEvent(seen)?.currentCompanion ?? null } : null,
+          note: null,
+        });
       return { kind: 'adopted', egg, profile: profileEvent, profileError };
     },
     onSettled: (result, _error, preview) => {
