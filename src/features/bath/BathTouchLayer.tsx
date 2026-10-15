@@ -13,8 +13,8 @@
  * The keyboard: with the layer focused, the arrow keys carry the tool a
  * cell at a time (pressing it down as they go), Space lifts it.
  */
-import { useCallback, useEffect, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { isHandStage, type BathPoint } from './bath-machine';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { BATH_RULES, isHandStage, type BathPoint } from './bath-machine';
 import type { BathInput, BathView } from './useBathSession';
 import { BathEffects2D } from './BathEffects2D';
 import './bath.css';
@@ -32,7 +32,7 @@ interface BathTouchLayerProps {
 }
 
 /** How far beyond the art box the surface reaches, all round (px). */
-export const HIT_PAD_PX = 24;
+export const HIT_PAD_PX = BATH_RULES.hitPadPx;
 
 /** The keyboard's step across the box, and where its tool starts. */
 const KEY_STEP = 1 / 8;
@@ -43,8 +43,13 @@ export function BathTouchLayer({ view, input, draw = true, reducedMotion, name, 
   const keyPointer = useRef<BathPoint | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
-  /** A pointer in the art box's coordinates (the box is the surface less its padding). */
+  /** The margin in the box's own px: at least `HIT_PAD_PX` on screen however the box is scaled (the 2D actor is, with depth). */
+  const [pad, setPad] = useState<number>(HIT_PAD_PX);
+
+  /** A pointer in the art box's coordinates: from the box on screen when it is laid out, else the surface less its margin. */
   const localPoint = (e: { clientX: number; clientY: number; currentTarget: EventTarget & HTMLElement }): BathPoint => {
+    const art = boxRef.current?.getBoundingClientRect();
+    if (art && art.width > 0 && art.height > 0) return { x: (e.clientX - art.left) / art.width, y: 1 - (e.clientY - art.top) / art.height };
     const rect = e.currentTarget.getBoundingClientRect();
     const pad = padOf(e.currentTarget);
     const w = rect.width - 2 * pad;
@@ -60,7 +65,10 @@ export function BathTouchLayer({ view, input, draw = true, reducedMotion, name, 
     if (!box) return;
     const read = () => {
       const r = box.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) measure({ w: r.width, h: r.height });
+      if (r.width <= 0 || r.height <= 0) return;
+      measure({ w: r.width, h: r.height });
+      const scale = box.offsetWidth > 0 ? r.width / box.offsetWidth : 1;
+      setPad(Math.ceil(HIT_PAD_PX / Math.max(0.2, scale)));
     };
     read();
     if (typeof ResizeObserver === 'undefined') return;
@@ -144,8 +152,8 @@ export function BathTouchLayer({ view, input, draw = true, reducedMotion, name, 
       {draw && <BathEffects2D frame={view.frame} />}
       <div
         className="bath-layer__hit"
-        style={{ position: 'absolute', inset: `-${HIT_PAD_PX}px`, touchAction: 'none' }}
-        data-pad={HIT_PAD_PX}
+        style={{ position: 'absolute', inset: `-${pad}px`, touchAction: 'none' }}
+        data-pad={pad}
         data-testid="bath-layer"
         data-stage={view.stageId ?? view.status}
         data-ritual={view.ritual.id}

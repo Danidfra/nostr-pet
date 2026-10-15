@@ -81,6 +81,8 @@ export const BATH_RULES = {
   showerReach: 0.8,
   rinseCellSeconds: 0.35,
   showerLiftPx: 26,
+  /** The touch surface's margin round the art box (px; `BathTouchLayer`'s `HIT_PAD_PX`). */
+  hitPadPx: 24,
   /** How much of the visible body each stage must reach; the last `autoFinish` cells finish themselves. */
   rubDone: 0.75,
   rinseDone: 0.85,
@@ -262,6 +264,13 @@ export function headFor(state: Pick<BathState, 'boxPx' | 'status' | 'ritual' | '
   return { x: pointer.x, y: pointer.y + lift };
 }
 
+/** How high the shower's head still reaches (box units): about 0.8 box over the body, and on a small Blobbi at least as high as a finger at the top of the surface's margin holds it (its lift above the finger). */
+export function showerCeiling(state: Pick<BathState, 'boxPx' | 'bodyTop'>): number {
+  const over = state.bodyTop + BATH_RULES.showerReach;
+  if (!state.boxPx || state.boxPx.h <= 0) return over;
+  return Math.max(over, 1 + (BATH_RULES.showerLiftPx + BATH_RULES.hitPadPx) / state.boxPx.h);
+}
+
 function tapSlop(state: Pick<BathState, 'boxPx'>): number {
   if (!state.boxPx || state.boxPx.w <= 0) return BATH_RULES.tapSlop;
   return Math.max(BATH_RULES.tapSlop, BATH_RULES.tapSlopPx / state.boxPx.w);
@@ -373,7 +382,7 @@ function shower(state: BathState, dtSeconds: number): BathState {
   const head = headFor(state, state.pointer);
   if (dtSeconds <= 0 || !head) return state;
   // Too far above the body (or below the box) the water no longer reaches it
-  if (head.y > state.bodyTop + BATH_RULES.showerReach || head.y < -0.05) return state;
+  if (head.y > showerCeiling(state) || head.y < -0.05) return state;
   const half = columnHalfWidth(state);
   const foamed = [...state.foamed];
   const wet = [...state.wet];

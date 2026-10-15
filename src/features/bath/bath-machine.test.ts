@@ -281,6 +281,14 @@ describe('the brush and the shower, measured on screen', () => {
     expect(s.wet[top]).toBe(true);
   });
 
+  it('on a 34 px Blobbi a finger anywhere in the margin above the box still rinses (the reach covers the lift and the margin)', () => {
+    let s = run(begun(RITUALS.soap, FULL, { w: 34, h: 34 }), strokesEverywhere());
+    const top = cellIndex(BATH_GRID, 4, BATH_GRID - 1);
+    // The finger at the top of the margin: 24 px above the box; its head 26 px higher still
+    s = run(s, hold({ x: (4 + 0.5) / BATH_GRID, y: 1 + 24 / 34 }, 600));
+    expect(s.foamed[top]).toBe(false);
+  });
+
   it('too far above (more than about 0.8 box over the body) the water no longer reaches', () => {
     let s = run(begun(RITUALS.soap, FULL, { w: 40, h: 40 }), strokesEverywhere());
     const before = count(s.foamed);
