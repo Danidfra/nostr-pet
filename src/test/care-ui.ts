@@ -57,12 +57,13 @@ export async function useOwnedItem(itemId: string): Promise<void> {
   await userEvent.click(screen.getByTestId('inventory-use'));
 }
 
-/** A box for the bath layer (jsdom lays nothing out): the body's art box, 200 px a side. */
+/** A box for the bath layer (jsdom lays nothing out): the body's art box, 200 px a side; the surface is the box and its margin all round. */
 const BATH_BOX = { left: 0, top: 0, width: 200, height: 200 };
 
 function bathLayer(): HTMLElement {
   const layer = screen.getByTestId('bath-layer');
-  layer.getBoundingClientRect = () => ({ ...BATH_BOX, right: 200, bottom: 200, x: 0, y: 0, toJSON: () => ({}) });
+  const pad = Number(layer.dataset.pad ?? 0);
+  layer.getBoundingClientRect = () => ({ left: -pad, top: -pad, width: BATH_BOX.width + 2 * pad, height: BATH_BOX.height + 2 * pad, right: BATH_BOX.width + pad, bottom: BATH_BOX.height + pad, x: -pad, y: -pad, toJSON: () => ({}) });
   return layer;
 }
 
@@ -88,40 +89,32 @@ export async function holdShower(at: { x: number; y: number }, ms: number): Prom
   fireEvent.pointerUp(layer, { ...base, clientX: at.x * BATH_BOX.width, clientY: (1 - at.y) * BATH_BOX.height });
 }
 
-
-const stageNow = () => screen.getByTestId('bath-layer').dataset.stage ?? '';
-const ORDER = ['entering', 'soap', 'rinse', 'dry'] as const;
-const reached = (stage: string, at: string) => ORDER.indexOf(at as (typeof ORDER)[number]) >= ORDER.indexOf(stage as (typeof ORDER)[number]) || !ORDER.includes(at as (typeof ORDER)[number]);
+const stageNow = () => screen.queryByTestId('bath-layer')?.dataset.stage ?? 'gone';
+const OVER = ['committing', 'done', 'failed', 'gone'];
+/** The old names of the wash's stages, still read: the soap is the lather. */
+const ALIAS: Record<string, string> = { soap: 'lather' };
 
 /**
- * Play the bath as a player would, from wherever it stands: wait for the soap (the Blobbi walks to the tub first),
- * rub it over the body in strokes until the shower is in hand, hold the shower across the body until the towel is,
- * rub the towel until the write begins. Nothing is written before the last stroke. `through` stops after that stage
- * has passed; a later call carries on from there.
+ * Play the ritual on screen as a player would, from wherever it stands: rub the lather or the towel over the body in
+ * strokes, hold the shower across it, wait through a jump or the play in the water, until the write begins. Nothing
+ * is written before the last stage. `through` stops once that stage has passed; a later call carries on from there.
  */
-export async function playBath(options: { through?: 'soap' | 'rinse' | 'dry' } = {}): Promise<void> {
-  const through = options.through ?? 'dry';
-  await waitFor(() => expect(reached('soap', stageNow())).toBe(true), { timeout: 6000 });
-  if (stageNow() === 'soap') {
-    for (let i = 0; i < 12 && stageNow() === 'soap'; i++) {
-      const x = 0.3125 + (i % 4) * 0.125;
-      rubBath({ x, y: 0.05 }, { x, y: 0.95 });
+export async function playBath(options: { through?: string } = {}): Promise<void> {
+  const through = options.through ? ALIAS[options.through] ?? options.through : null;
+  // The layer takes the rubbing once the body's outline is known
+  await waitFor(() => expect(screen.getByTestId('bath-layer').dataset.ready).toBe('true'), { timeout: 6000 });
+  for (let guard = 0; guard < 24; guard++) {
+    const stage = stageNow();
+    if (OVER.includes(stage)) return;
+    if (stage === 'lather' || stage === 'dry') {
+      for (let i = 0; i < 12 && stageNow() === stage; i++) {
+        const x = 0.3125 + (i % 4) * 0.125;
+        rubBath({ x, y: 0.05 }, { x, y: 0.95 });
+      }
+    } else if (stage === 'rinse') {
+      for (let i = 0; i < 8 && stageNow() === 'rinse'; i++) await holdShower({ x: i % 2 ? 0.6 : 0.4, y: 0.95 }, 1000);
     }
-    await waitFor(() => expect(reached('rinse', stageNow())).toBe(true), { timeout: 2000 });
+    await waitFor(() => expect(stageNow()).not.toBe(stage), { timeout: 8000 });
+    if (stage === through) return;
   }
-  if (through === 'soap') return;
-  if (stageNow() === 'rinse') {
-    for (let i = 0; i < 6 && stageNow() === 'rinse'; i++) {
-      await holdShower({ x: i % 2 ? 0.6 : 0.4, y: 0.95 }, 1000);
-    }
-    await waitFor(() => expect(reached('dry', stageNow())).toBe(true), { timeout: 4000 });
-  }
-  if (through === 'rinse') return;
-  if (stageNow() === 'dry') {
-    for (let i = 0; i < 12 && stageNow() === 'dry'; i++) {
-      const x = 0.3125 + (i % 4) * 0.125;
-      rubBath({ x, y: 0.05 }, { x, y: 0.95 });
-    }
-  }
-  await waitFor(() => expect(['committing', 'done', 'failed']).toContain(stageNow()), { timeout: 3000 });
 }

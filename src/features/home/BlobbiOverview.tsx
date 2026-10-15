@@ -592,6 +592,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   walkToRef.current = walkTo;
   const canWalkRef = useRef(canWalk);
   canWalkRef.current = canWalk;
+  const reducedMotionRef = useRef(reducedMotion);
+  reducedMotionRef.current = reducedMotion;
   const beginBathWrite = useCallback(
     (choice: CareChoice) =>
       new Promise<BathCommitOutcome>((resolve) => {
@@ -606,24 +608,44 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       }),
     [resetUse, resetStarter, startUse, startStarter],
   );
+  /** In the tub now (a soak): however the ritual ends, it steps out. */
+  const inTub = useRef(false);
   const bath = useBathSession({
     name: blobbi.name,
     reducedMotion,
     hygiene: projected?.stats.hygiene,
-    // An egg is bathed where it lies, on its nest; anyone else walks to the tub and hops in
+    // A soak: an egg is bathed where it lies, on its nest; anyone else walks to the tub and jumps in (the ritual's
+    // other games are played where the Blobbi stands)
     enter: isEgg
       ? null
       : async (run: Run) => {
           if (!canWalkRef.current) {
             placeAtRef.current(tubSpot);
+            inTub.current = true;
             return true;
           }
           const outcome = await run.until(walkToRef.current(tubSpot));
-          return outcome === 'arrived';
+          if (outcome !== 'arrived') return false;
+          inTub.current = true;
+          // The jump in: up over the rim and down into the water (the tub's front covers its lower body)
+          if (!reducedMotionRef.current) playBathGesture('bounce');
+          await run.wait(reducedMotionRef.current ? 150 : 520);
+          return true;
         },
+    exit: async (run: Run) => {
+      // The jump out: a hop over the rim, then a step toward the viewer, wet
+      if (!reducedMotionRef.current) playBathGesture('bounce');
+      await run.wait(reducedMotionRef.current ? 150 : 420);
+      inTub.current = false;
+      if (liveBlobbi.current.state === 'active' && canWalkRef.current) await run.until(walkToRef.current(tubExit));
+      else placeAtRef.current(tubExit);
+    },
     leave: () => {
-      // Out of the tub: a step toward the viewer, so the tub can go
-      if (!isEgg && liveBlobbi.current.state === 'active' && canWalkRef.current) void walkToRef.current(tubExit);
+      // Still in the tub (a soak cut short): out of it, so the tub can go
+      if (!inTub.current) return;
+      inTub.current = false;
+      if (liveBlobbi.current.state === 'active' && canWalkRef.current) void walkToRef.current(tubExit);
+      else placeAtRef.current(tubExit);
     },
     commit: beginBathWrite,
     retry: beginBathWrite,
@@ -651,7 +673,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     }
   }, [bathView]);
   const tubZ = placeOnFloor(tubSpot).zIndex;
-  const bathTub = bathView && !bathView.inPlace ? (bathView.status === 'entering' ? 'in' : 'using') : tubOut ? 'out' : null;
+  const bathTub = bathView && !bathView.inPlace ? (bathView.stageId === 'jump-in' ? 'in' : 'using') : tubOut ? 'out' : null;
   const bathPresentation = useMemo(
     () => (bathView ? { ...scene.presentation, eyeOffset: bathGaze ?? scene.presentation.eyeOffset, gesture: bathGesture ?? scene.presentation.gesture } : scene.presentation),
     [bathView, scene.presentation, bathGaze, bathGesture],
@@ -829,8 +851,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             <>
               <FurnitureLayer placements={placements} interactive={interactive && !busyWithObject} onUse={useFurniture} stateOf={stageStateOf} />
               {/* The bath's tub (M15): two layers, the Blobbi between them */}
-              {bathTub && <BathTub2D placement={STAGE_OBJECTS.tub} part="back" zIndex={tubZ - 1} phase={bathTub} stage={bathView?.stage ?? null} reducedMotion={reducedMotion} />}
-              {bathTub && <BathTub2D placement={STAGE_OBJECTS.tub} part="front" zIndex={tubZ + 1} phase={bathTub} stage={bathView?.stage ?? null} reducedMotion={reducedMotion} />}
+              {bathTub && <BathTub2D placement={STAGE_OBJECTS.tub} part="back" zIndex={tubZ - 1} phase={bathTub} stage={bathView?.stageId ?? null} reducedMotion={reducedMotion} />}
+              {bathTub && <BathTub2D placement={STAGE_OBJECTS.tub} part="front" zIndex={tubZ + 1} phase={bathTub} stage={bathView?.stageId ?? null} reducedMotion={reducedMotion} />}
               <SceneObjectView
                 def={door}
                 state={doorPrompt ? 'open' : 'closed'}

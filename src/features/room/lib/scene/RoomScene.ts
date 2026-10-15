@@ -33,7 +33,8 @@ import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.j
 
 import type { SnoNode } from './sno-object';
 import { buildSnoObject } from './sno-three';
-import { BathLayer, type BathSceneState } from './bath-scene';
+import { BathLayer } from './bath-scene';
+import type { BathAnchor, BathFrame } from '@/features/bath/bath-frame';
 import type { ActorFrame, ActorGesture, ActorModel } from '../blobbi3d/actor';
 import { journeyDuration, journeyFrame, journeyShadow, type JourneyFrame, type JourneyKind } from '@/features/teleport/timeline';
 import { moteLayers } from '@/features/teleport/particles';
@@ -742,7 +743,7 @@ export class RoomScene {
   // Props: a dish of food, a ball (`room-props.ts`); the ball's motion is the scene's (`ball-physics.ts`)
   private props = new Map<string, BuiltProp>();
   /** The bath under way (M15): the hollow tub standing in for a tub item, the water, the foam, the tools. */
-  private bath: { layer: BathLayer; built: Built } | null = null;
+  private bath: { layer: BathLayer; built: Built | null; frame: BathFrame } | null = null;
   private propGroup = new THREE.Group();
   private ballSkin?: THREE.CanvasTexture | null;
   private ballGeometry = shared(new THREE.SphereGeometry(BALL.radius, 24, 18));
@@ -1743,38 +1744,43 @@ export class RoomScene {
   // ─── The bath (M15) ───────────────────────────────────────────────────────
 
   /**
-   * The bath under way, or none: the tub item's model steps aside and the hollow tub stands on its footprint with
-   * the water, the foam on the Blobbi, the shower's rain and the tool in hand (`bath-scene.ts`), redrawn from the
-   * state each time it is given. Null puts the tub back. A state naming an item that is not a piece here is ignored.
+   * The care ritual under way, or none (M15). Anchored to the main actor, followed as it moves; in a tub (`tubIndex`)
+   * the tub item's model steps aside and the hollow tub stands on its footprint with the water (`bath-scene.ts`), in
+   * place (`tubIndex` null) only what the ritual lays on the body. Redrawn from the frame each time it is given; the
+   * frame decides everything drawn (`bath-frame.ts`). Null puts the tub back. A tub index that is not a piece here is
+   * a ritual in place.
    */
-  setBath(state: BathSceneState | null) {
-    if (!state) {
+  setBath(frame: BathFrame | null, anchor: Extract<BathAnchor, { kind: 'world' }> | null = null) {
+    if (!frame) {
       if (!this.bath) return;
       this.scene.remove(this.bath.layer.root);
       this.bath.layer.dispose();
-      this.bath.built.holder.visible = true;
+      if (this.bath.built) this.bath.built.holder.visible = true;
       this.bath = null;
       this.shadowsDirty = true;
       this.requestRender();
       return;
     }
-    const built = this.byIndex.get(state.itemIndex);
-    if (!built) {
-      if (this.bath) this.setBath(null);
-      return;
-    }
+    const built = anchor?.tubIndex != null ? this.byIndex.get(anchor.tubIndex) ?? null : null;
     if (this.bath && this.bath.built !== built) this.setBath(null);
     if (!this.bath) {
-      built.holder.visible = false;
-      const layer = new BathLayer(built.rect, () => this.reducedMotion);
+      if (built) built.holder.visible = false;
+      const layer = new BathLayer(built ? built.rect : null, () => this.reducedMotion);
       this.scene.add(layer.root);
-      this.bath = { layer, built };
+      this.bath = { layer, built, frame };
       this.needsCompile = true;
     }
-    const main = this.actors.get(MAIN);
-    if (main) this.bath.layer.update(state, { x: main.x, z: main.z, elev: main.elev, tiles: main.tiles });
+    this.bath.frame = frame;
+    this.updateBathAnchor();
     this.shadowsDirty = true;
     this.requestRender();
+  }
+
+  /** The ritual follows the main actor: its place now, as it walks, jumps or stands in the tub. */
+  private updateBathAnchor() {
+    if (!this.bath) return;
+    const main = this.actors.get(MAIN);
+    if (main) this.bath.layer.update(this.bath.frame, { x: main.x, z: main.z, elev: main.elev, tiles: main.tiles });
   }
 
   /** A piece's footprint on the floor (tiles), as laid out now, or null for no such piece (or one on a wall). */
@@ -3453,7 +3459,10 @@ export class RoomScene {
     if (this.stepActors(dt)) animating = true;
     if (this.placeActorProxies(dt)) animating = true;
     if (this.stepProps(dt, now)) animating = true;
-    if (this.bath?.layer.step(dt)) animating = true;
+    if (this.bath) {
+      this.updateBathAnchor();
+      if (this.bath.layer.step(dt)) animating = true;
+    }
     this.updateClocks();
 
     // Furniture in front of the Blobbi is also drawn to the overlay canvas, over it.
