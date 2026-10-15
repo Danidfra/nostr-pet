@@ -680,6 +680,8 @@ export class RoomScene {
   private needsCompile = true;
   private compiling = false;
   private shadowsDirty = true;
+  /** A shadow change asked by `setQuality`, applied by the next frame right before its main pass. */
+  private pendingShadow: { cast: boolean; size: number } | null = null;
   private introStart: number | null = null;
   /** The fold-in hasn't been drawn yet; it waits for the next shader compile. */
   private introPending = false;
@@ -2232,14 +2234,10 @@ export class RoomScene {
   setQuality(quality: QualitySettings) {
     const before = this.quality;
     this.quality = quality;
+    // Only recorded here: the frame applies it between its two passes (`applyShadowQuality`), never before the
+    // overlay pass, which would otherwise draw with the map just taken away
     if (before.shadows !== quality.shadows || before.shadowMapSize !== quality.shadowMapSize) {
-      this.key.castShadow = quality.shadows !== 'off';
-      if (this.key.shadow.mapSize.x !== quality.shadowMapSize) {
-        this.key.shadow.map?.dispose();
-        this.key.shadow.map = null;
-        this.key.shadow.mapSize.set(quality.shadowMapSize, quality.shadowMapSize);
-      }
-      this.shadowsDirty = true;
+      this.pendingShadow = { cast: quality.shadows !== 'off', size: quality.shadowMapSize };
     }
     // Lights not drawn are left out of the shaders altogether (one recompile, then nothing per pixel)
     this.lamps.forEach((lamp, i) => {
@@ -2248,6 +2246,20 @@ export class RoomScene {
     if (this.geometry && before.maxPixelRatio !== quality.maxPixelRatio) this.setGeometry(this.geometry);
     this.monitor.reset(performance.now());
     this.requestRender();
+  }
+
+  /** A shadow change from `setQuality`, applied after the overlay pass and before the main one, which rebuilds the map. */
+  private applyShadowQuality() {
+    const next = this.pendingShadow;
+    if (!next) return;
+    this.pendingShadow = null;
+    this.key.castShadow = next.cast;
+    if (this.key.shadow.mapSize.x !== next.size) {
+      this.key.shadow.map?.dispose();
+      this.key.shadow.map = null;
+      this.key.shadow.mapSize.set(next.size, next.size);
+    }
+    this.shadowsDirty = true;
   }
 
   /** The quality it draws at now. */
@@ -3454,7 +3466,11 @@ export class RoomScene {
     // The bath's near walls, water, foam and tools cover the page's drawing in the tub the way depth covers the model
     this.bath?.layer.setFrontForDom(domDrawn);
     const hasFront = (domDrawn ? this.classifyFront() : this.clearFront()) || this.classifyPropsFront(domDrawn) || (this.bath?.layer.onFront ?? false);
-    if (ctx) {
+    // That pass never builds the shadow map, so with none built yet (the first frame, or just after a change of
+    // size) it would bind three's empty placeholder to a shadow sampler, which WebGL refuses ("texture format and
+    // sampler type"): it is skipped, and the canvas keeps the last front pieces for that one frame
+    const shadowMissing = this.key.castShadow && !this.key.shadow.map;
+    if (ctx && !(hasFront && shadowMissing)) {
       ctx.clearRect(0, 0, this.fgCanvas.width, this.fgCanvas.height);
       if (hasFront) {
         this.renderer.shadowMap.needsUpdate = false;
@@ -3464,6 +3480,7 @@ export class RoomScene {
       }
     }
 
+    this.applyShadowQuality();
     // Shadow map once per frame at most, only when a caster moved, from every caster
     if (this.shadowsDirty) {
       this.renderer.shadowMap.needsUpdate = true;
