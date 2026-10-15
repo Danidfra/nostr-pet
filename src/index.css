@@ -3962,6 +3962,15 @@
     flex-shrink: 0; border-radius: 9999px; padding: 0.4rem 0.8rem; min-height: 2.25rem; font-size: 0.8rem; font-weight: 700;
     background: hsl(var(--primary)); color: hsl(var(--primary-foreground));
   }
+  /* The companion not shared yet with the other Blobbi games (src/features/companion) */
+  .companion-note__icon { color: hsl(var(--muted-foreground)); }
+  .companion-note__text { font-size: 0.8rem; font-weight: 600; line-height: 1.25; }
+  .companion-note__close {
+    flex-shrink: 0; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 9999px;
+    color: hsl(var(--muted-foreground));
+  }
+  .companion-choice__btn { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; padding-block: 0.6rem; }
+  .companion-choice__btn .overlay-portrait { width: 4.5rem; height: 4.5rem; }
   @keyframes chapter-toast-in {
     from { opacity: 0; transform: translate(-50%, -0.75rem) scale(0.92); }
     to { opacity: 1; transform: translate(-50%, 0) scale(1); }

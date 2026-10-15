@@ -118,6 +118,7 @@ import type { RoomSceneStatus } from './hooks/useRoomScene';
 import { useEatingPresentation } from './hooks/useEatingPresentation';
 import { usePetting } from './hooks/usePetting';
 import { useExpression } from '@/features/expression/react/useExpression';
+import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
 import { PRIORITY } from '@/features/expression/controller';
 import { proceduralFace, type ExpressionName } from '@/features/expression/faces';
 
@@ -917,6 +918,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // ─── Travel: the Blobbi says goodbye and dissolves (the teleport's own departure), then the page goes ───
   const departure = useWorldDeparture({ presence, canAct: present && !isEgg && !isSleeping, reducedMotion, showFace, clearFace, gesture, play });
   const travelBusy = care.busy || theater || lifecycle.pending !== null || decorator.editing || transitioning || bathing;
+  // A companion chosen meanwhile in another Blobbi game waits for these moments to end (src/features/companion)
+  useCompanionSwitchHold(travelBusy || care.offer !== null || !!interactions.dose || departure.phase !== 'idle');
   const travel = useCallback(
     (world: Parameters<typeof departure.go>[0]) => {
       // A write still out finishes here first: leaving mid-signature could lose it

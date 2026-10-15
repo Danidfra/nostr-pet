@@ -5,6 +5,7 @@ import NotFound from '@/pages/NotFound';
 import { ROOM_PATH } from '@/lib/home-experience';
 import { RoomLoading } from '@/features/room/RoomLoading';
 import { GuestLayers } from '@/features/guest/GuestLayers';
+import { CompanionLayer } from '@/features/companion/CompanionLayer';
 
 /**
  * The 3D room (`/room`, beta): in every build, loaded only when visited
@@ -26,6 +27,8 @@ export function AppRouter({ devLab = null }: { devLab?: ReactNode }) {
     <>
       {/* The guest's save, sign-in and conflict layers, above whichever home is shown (M14.1) */}
       <GuestLayers />
+      {/* The companion shared with the other Blobbi games: a word when it could not be, a question when unclear */}
+      <CompanionLayer />
       <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/dev" element={devLab ?? <NotFound />} />

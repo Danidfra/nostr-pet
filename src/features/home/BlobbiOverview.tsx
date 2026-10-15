@@ -54,6 +54,7 @@ import { useGuest, useGuestUi, useSaveInvite } from '@/features/guest';
 import { GuestInvite } from '@/features/guest/GuestInvite';
 import { GuestStatusPill, GuestStatusSheet, SavedPill } from '@/features/guest/GuestStatus';
 import { useJourney } from '@/features/journey/useJourney';
+import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
 import { JourneySheet } from '@/features/journey/JourneySheet';
 import type { ObjectiveAction } from '@/features/journey/journey';
 import { WorldsSheet } from '@/features/worlds/WorldsSheet';
@@ -856,6 +857,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   // An item on the way or in use, or a walk to a piece, holds the verbs; a write in flight is `pendingAction`'s.
   const busyWithObject = offer !== null || stage?.phase === 'walking' || bathing;
+  // A companion chosen meanwhile in another Blobbi game waits for these moments to end (src/features/companion)
+  useCompanionSwitchHold(care.isPending || useItem.isPending || useStarter.isPending || inCeremony || theater || busyWithObject || !!dose);
   // The flame only after real care, never for hatching alone (`flameDays`, M14.1)
   const streakForHud = useMemo(() => ({ days: flameDays(blobbi.careStreak, careGiven), bumpKey: streakBump }), [blobbi.careStreak, careGiven, streakBump]);
 
