@@ -47,13 +47,25 @@ export function isHandFed(action: ItemAction): boolean {
  * none: it acts at once.
  */
 export function verbEntries(verb: CareVerb, inventory: Pick<HomeInventory, 'starters' | 'items'>): CareEntry[] {
-  const answers = (action: ItemAction | undefined) => action !== undefined && VERB_ITEM_ACTIONS[verb].includes(action);
-  const starters = inventory.starters.filter((s) => answers(s.item.care?.action)).map((entry) => starterEntry(entry));
-  const owned = inventory.items
-    .filter((i) => answers(i.item.care?.action) && i.quantity > 0)
-    .map((entry) => ownedEntry(entry))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  return [...starters, ...owned];
+  // Care is grouped (the hygiene items first, then the health ones), each group its starters then what the player
+  // owns, by name; every other verb is its starters, then what the player owns
+  const by: readonly (readonly ItemAction[])[] = verb === 'clean' ? VERB_ITEM_ACTIONS.clean.map((a) => [a]) : [VERB_ITEM_ACTIONS[verb]];
+  const groups = by.map((actions) => {
+    const answers = (action: ItemAction | undefined) => action !== undefined && actions.includes(action);
+    const starters = inventory.starters.filter((s) => answers(s.item.care?.action)).map((entry) => starterEntry(entry));
+    const owned = inventory.items
+      .filter((i) => answers(i.item.care?.action) && i.quantity > 0)
+      .map((entry) => ownedEntry(entry))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return [...starters, ...owned];
+  });
+  return groups.flat();
+}
+
+/** The group an entry belongs to in a verb's carousel: Care's health items (medicine) after its hygiene ones. */
+export type CareEntryGroup = 'hygiene' | 'health' | null;
+export function entryGroup(entry: Pick<CareEntry, 'action'>): CareEntryGroup {
+  return entry.action === 'clean' ? 'hygiene' : entry.action === 'medicine' ? 'health' : null;
 }
 
 /**

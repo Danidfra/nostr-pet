@@ -33,7 +33,7 @@ describe('availableCareActions', () => {
     expect(list.map((a) => [a.action, a.available, a.label])).toEqual([
       ['feed', true, 'Feed'],
       ['play', true, 'Play'],
-      ['clean', true, 'Clean'],
+      ['clean', true, 'Care'],
       ['rest', true, 'Rest'],
     ]);
   });

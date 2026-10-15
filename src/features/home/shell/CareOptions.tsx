@@ -1,9 +1,10 @@
 import { memo, useEffect, useState } from 'react';
 import { ItemCarousel } from '@/features/care-ui/ItemCarousel';
-import type { CareEntry } from '@/features/care-ui/care-entries';
+import { entryGroup, type CareEntry } from '@/features/care-ui/care-entries';
 import type { CareVerb } from '../care-model';
 
-const VERB_WORD: Record<CareVerb, string> = { feed: 'Feed', play: 'Play', clean: 'Clean', rest: 'Rest' };
+/** The verbs' words; `clean` is "Care" (its hygiene items and its medicine together, M15 care refinement). */
+const VERB_WORD: Record<CareVerb, string> = { feed: 'Feed', play: 'Play', clean: 'Care', rest: 'Rest' };
 
 interface CareOptionsProps {
   verb: CareVerb;
@@ -31,8 +32,19 @@ function CareOptionsImpl({ verb, entries, focusedKey, onFocus, onChoose, disable
   // Why the item in the middle cannot be used now, when the player taps it anyway
   const [blocked, setBlocked] = useState<string | null>(null);
   useEffect(() => setBlocked(null), [verb, focusedKey]);
+  // Care: the hygiene items first, then the health ones; a thin divider names the health group while it is in the middle
+  const focused = entries.find((e) => e.key === focusedKey) ?? entries[0];
+  const grouped = entries.some((e) => entryGroup(e) === 'hygiene') && entries.some((e) => entryGroup(e) === 'health');
+  const inHealth = grouped && !!focused && entryGroup(focused) === 'health';
   return (
     <div className="care-options" role="group" aria-label={`${VERB_WORD[verb]}: choose an item`} data-testid="care-options" data-verb={verb} data-float="true">
+      {inHealth && (
+        <p className="care-options__group scene-text" data-testid="care-group" data-group="health" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5em', margin: '0 0 0.15em', fontSize: '0.7em', fontWeight: 600, letterSpacing: '0.04em', opacity: 0.8 }}>
+          <span aria-hidden style={{ height: 1, width: '2.5em', background: 'currentColor', opacity: 0.45 }} />
+          Health
+          <span aria-hidden style={{ height: 1, width: '2.5em', background: 'currentColor', opacity: 0.45 }} />
+        </p>
+      )}
       <div className="care-options__carousel">
         <ItemCarousel
           items={entries}
