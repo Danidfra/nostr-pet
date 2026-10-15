@@ -109,6 +109,7 @@ export function farmProduceDefinition(d = 'farm:produce:carrot', name = 'Carrot'
 
 export const OFFICIAL_APPLE = buildGameItemAddress(OFFICIAL_ITEM_ISSUER, 'blobbi:food:apple');
 export const OFFICIAL_SOAP = buildGameItemAddress(OFFICIAL_ITEM_ISSUER, 'blobbi:hygiene:soap');
+export const OFFICIAL_BANDAGE = buildGameItemAddress(OFFICIAL_ITEM_ISSUER, 'blobbi:medicine:bandage');
 export const OFFICIAL_BALL = buildGameItemAddress(OFFICIAL_ITEM_ISSUER, 'blobbi:toy:ball');
 export const OFFICIAL_COIN = buildGameItemAddress(OFFICIAL_ITEM_ISSUER, 'blobbi:currency:coin');
 export const OFFICIAL_GLASSES = buildGameItemAddress(OFFICIAL_ITEM_ISSUER, 'blobbi:cosmetic:stargazer-glasses');

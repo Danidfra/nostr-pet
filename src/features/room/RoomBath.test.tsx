@@ -30,7 +30,7 @@ import { KIND_GAME_INVENTORY_SPEND } from '@nostr-games/inventory';
 
 import AppRouter from '@/AppRouter';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
-import { OFFICIAL_SOAP, inventoryEvent, officialCareDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
+import { OFFICIAL_BANDAGE, OFFICIAL_SOAP, inventoryEvent, officialCareDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 import { playBath, rubBath } from '@/test/care-ui';
 import { carouselItems, focusOn } from './test/carousel';
 import { BATH_ELEV } from './lib/scene/bath-scene';
@@ -330,6 +330,24 @@ describe('the bath in the room', () => {
     expect(kinds().filter((k) => k === KIND_GAME_INVENTORY_SPEND)).toHaveLength(1);
   }, 25_000);
 
+  it('Shampoo and Soft Towel: in place, the scene told no tub (the tub item stays itself), one write each', async () => {
+    renderRoom();
+    await ready();
+    await goTo('care');
+    for (const [name, ritual, firstStage] of [['Shampoo', 'wash', 'lather'], ['Soft Towel', 'towel', 'dry']] as const) {
+      relay.published = [];
+      fireEvent.click(focusOn(name, 'starter'));
+      await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', firstStage), { timeout: 3000 });
+      await waitFor(() => expect(lastBath()).toMatchObject({ ritual, place: 'in-place', anchor: { tubIndex: null } }));
+      expect(scene.state.walks).toEqual([]);
+      await playBath();
+      await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
+      await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull(), { timeout: 4000 });
+      expect(scene.state.baths.filter(Boolean).every((b) => (b!.anchor as { tubIndex: number | null }).tubIndex === null)).toBe(true);
+      expect(scene.state.scripts.filter(Boolean)).toEqual([]);
+    }
+  }, 30_000);
+
   it('Stop at the soap: nothing written, nothing spent, the scene drawing nothing, the carousel back', async () => {
     renderRoom();
     await ready();
@@ -519,6 +537,38 @@ describe('medicine in the room (M15 care refinement)', () => {
     await quiet(1_600);
     expect(relay.published).toEqual([]);
   }, 15_000);
+
+  it('an owned medicine with a use left open: no moment, the open use resumed (no new spend), no walk to the tub', async () => {
+    relay.all = [brook({ health: '60' }), ...definitions(), officialCareDefinition('blobbi:medicine:bandage', 'Bandage', 'medicine', 'medicine', { health: 25 }, { stages: ['egg', 'baby', 'adult'] }), inventoryEvent('blobbi:island', { [OFFICIAL_SOAP]: 1, [OFFICIAL_BANDAGE]: 1 })];
+    renderRoom();
+    await ready();
+    await startSoap('owned');
+    relay.refuseKind = KIND_BLOBBI_STATE;
+    await playBath();
+    await screen.findByTestId('bath-error', {}, { timeout: 4000 });
+    const spendId = relay.published[0].id;
+    fireEvent.click(screen.getByTestId('bath-stop'));
+    await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull());
+    await quiet();
+    fireEvent.click(focusOn('Bandage', 'owned'));
+    await quiet(150);
+    expect(screen.queryByTestId('medicine-dose')).toBeNull();
+    const walked: { x: number; z: number }[] = [];
+    for (let i = 0; i < 20 && !kinds().includes(KIND_BLOBBI_STATE); i++) {
+      if (scene.state.walks.length > 0) {
+        walked.push({ x: scene.state.walks[0].x, z: scene.state.walks[0].z });
+        settleWalk('arrived');
+      }
+      await quiet(150);
+    }
+    await waitFor(() => expect(kinds()).toContain(KIND_BLOBBI_STATE), { timeout: 4000 });
+    const state = relay.published.find((e) => e.kind === KIND_BLOBBI_STATE)!;
+    expect(state.tags.some((t) => t[0] === 'blobbi_op' && t[1] === spendId)).toBe(true);
+    expect(kinds().filter((k) => k === KIND_GAME_INVENTORY_SPEND)).toHaveLength(1);
+    // The plain way sets it down in front of the Blobbi, never at the tub (the care room's tub stands at x 3..7, z 0..2)
+    expect(walked.length).toBeGreaterThan(0);
+    for (const w of walked) expect(w.z).toBeGreaterThan(2);
+  }, 30_000);
 
   it('a change of room before the write writes nothing', async () => {
     relay.all = [brook({ health: '60', hygiene: '100' }), ...definitions(), ...stock()];
