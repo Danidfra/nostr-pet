@@ -2055,7 +2055,9 @@ carries the same rules and the same test vectors):
 3. a choice known to the network (published here, or adopted) against the profile: NIP-01 order (newer `created_at`, then lower id): a shared choice never blocks a later one;
 4. adopted with a time only: `created_at` order, equal is ambiguous;
 5. the device pick kept before choices were stamped (`legacy`): the profile wins (this app published every change);
-6. a choice made here and not shared yet: made over the profile now seen (or one naming the same Blobbi), it wins; otherwise this device's clock against the profile's `created_at`, decided only by a gap over 60 s with both in the past; else ambiguous, and the player is asked (closing the question is not an answer).
+6. a choice made here and not shared yet: made over the profile now seen or a newer one (`over`: the newest profile known when choosing), it wins; a profile written after it is never ignored: this device's clock against the profile's `created_at`, decided only by a gap over 60 s with both in the past; else ambiguous, and the player is asked (closing the question is not an answer).
+
+Writers add one rule (`CHOICE_FRESH_MS`): the share that starts within 30 s of the choice is the player's latest act in real time, so it is written over whatever the relays hold without asking; only a later attempt (a retry, a choice kept offline) is ordered against what it finds. Two choices made in two apps within those seconds: the later write wins.
 
 **Writing safely** (`profile-write.ts`). The profile is replaceable: a write
 replaces it everywhere. So a replacement is built only from a COMPLETE read
