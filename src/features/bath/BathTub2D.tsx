@@ -10,9 +10,14 @@
  * the Blobbi's own.
  *
  * Procedural SVG, no asset: the water shows foam while the soap is on and
- * ripples under the shower (the stylesheet animates them; reduced motion
- * stills them). The home's classic `/furniture/tub.svg` (the medicine's
- * tub) is drawn from the same shapes.
+ * ripples under the shower; while the Blobbi PLAYS in it (the Bubble Bath's
+ * `play` stage) rings widen on the water behind it and drops are flung up
+ * over the near edge, again and again (the stylesheet animates them; reduced
+ * motion stills them and keeps the rings as a still mark of the play). The
+ * one-shot splashes of the jump in and out are the cues' (`BathEffects2D`,
+ * at the Blobbi's feet), never read off a change of stage here. The home's
+ * classic `/furniture/tub.svg` (the medicine's tub) is drawn from the same
+ * shapes.
  */
 import type { CSSProperties } from 'react';
 import { depthScale } from '@/features/home/scene/geometry';
@@ -100,6 +105,14 @@ function TubBack({ stage }: { stage: RitualStageId | null }) {
           <circle cx="98" cy="37" r="2.6" fill="#fff" opacity="0.85" />
         </g>
       )}
+      {/* The play: rings widening on the water behind the Blobbi */}
+      {stage === 'play' && (
+        <g className="bath-tub__play" data-testid="bath-tub-play">
+          {[52, 80, 108].map((cx, i) => (
+            <ellipse key={cx} className="bath-tub__ripple" style={{ '--delay': `${i * 420}ms` } as CSSProperties} cx={cx} cy={TUB_ART.waterY} rx="11" ry="3.2" fill="none" stroke="#fff" strokeWidth="1.6" opacity="0.8" />
+          ))}
+        </g>
+      )}
       {/* The tap and its spout, on the far rim */}
       <rect x="126" y="12" width="6" height="22" rx="3" fill="#b8c4d1" stroke="#8a9bad" strokeWidth="1" />
       <path d="M129 14 C 129 6, 118 6, 114 11" fill="none" stroke="#b8c4d1" strokeWidth="5" strokeLinecap="round" />
@@ -131,6 +144,14 @@ function TubFront({ stage }: { stage: RitualStageId | null }) {
       </g>
       <path d={`M 10 40 A 70 ${TUB_ART.rimRy} 0 0 0 150 40`} fill="none" stroke={SHELL_LINE} strokeWidth="2.5" />
       <path d="M 10 40 C 10 64, 16 86, 36 94 C 52 100, 108 100, 124 94 C 144 86, 150 64, 150 40" fill="none" stroke={SHELL_LINE} strokeWidth="2.5" />
+      {/* The play: drops flung up over the near edge, again and again */}
+      {stage === 'play' && (
+        <g className="bath-tub__play" data-testid="bath-tub-spray">
+          {[-30, -16, -4, 8, 20, 32].map((dx, i) => (
+            <ellipse key={dx} className="bath-tub__spray" style={{ '--dx': `${dx * 0.5}`, '--dy': `${-12 - (i % 3) * 6}`, '--delay': `${(i * 170) % 1100}ms` } as CSSProperties} cx={80 + dx} cy={TUB_ART.waterY + 2} rx="1.6" ry="2.6" fill="#bae6fd" opacity="0" />
+          ))}
+        </g>
+      )}
       {/* The feet */}
       <path d="M 30 93 q -4 8 -6 12 h 12 q -2 -6 -2 -12 z" fill="#c3d2e2" stroke={SHELL_LINE} strokeWidth="1.5" />
       <path d="M 130 93 q 4 8 6 12 h -12 q 2 -6 2 -12 z" fill="#c3d2e2" stroke={SHELL_LINE} strokeWidth="1.5" />
