@@ -482,3 +482,54 @@ describe('the bath in the room', () => {
   }, 15_000);
 });
 
+describe('medicine in the room (M15 care refinement)', () => {
+  it('a moment where the Blobbi stands: no walk, no bath, no tub; the dose at its mouth, then the one write; relieved, "Treated"; the item never on the floor', async () => {
+    relay.all = [brook({ health: '60' }), ...definitions(), ...stock()];
+    renderRoom();
+    await ready();
+    await goTo('care');
+    fireEvent.click(focusOn('Bandage', 'starter'));
+    expect(await screen.findByTestId('medicine-dose')).toHaveAttribute('data-phase', 'dose');
+    expect(screen.queryByTestId('bath-bar')).toBeNull();
+    expect(screen.queryByTestId('room-floor-item')).toBeNull();
+    expect(relay.published).toEqual([]);
+    await waitFor(() => expect(screen.getByTestId('medicine-dose')).toHaveAttribute('data-phase', 'wiggle'), { timeout: 2000 });
+    expect(scene.state.gestures).toContain('wiggle');
+    expect(relay.published).toEqual([]);
+    await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
+    expect(Number(getTagValue(relay.published[0].tags, 'health'))).toBe(85);
+    await waitFor(() => expect(screen.getByTestId('care-status')).toHaveTextContent(/Treated Brook/), { timeout: 3000 });
+    await waitFor(() => expect(screen.queryByTestId('medicine-dose')).toBeNull(), { timeout: 3000 });
+    // Never a walk, never the bath, never the tub
+    expect(scene.state.walks).toEqual([]);
+    expect(scene.state.scripts.filter(Boolean)).toEqual([]);
+    expect(scene.state.baths.filter(Boolean)).toEqual([]);
+    await quiet();
+    expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]);
+  }, 20_000);
+
+  it('its own rule: health full is a word in the room and nothing else; a full hygiene does not stop it', async () => {
+    relay.all = [brook({ health: '100' }), ...definitions(), ...stock()];
+    renderRoom();
+    await ready();
+    await goTo('care');
+    fireEvent.click(focusOn('Bandage', 'starter'));
+    expect(await screen.findByTestId('room-care-notice')).toHaveTextContent(/Brook is feeling fine/);
+    expect(screen.queryByTestId('medicine-dose')).toBeNull();
+    await quiet(1_600);
+    expect(relay.published).toEqual([]);
+  }, 15_000);
+
+  it('a change of room before the write writes nothing', async () => {
+    relay.all = [brook({ health: '60', hygiene: '100' }), ...definitions(), ...stock()];
+    renderRoom();
+    await ready();
+    await goTo('care');
+    fireEvent.click(focusOn('Bandage', 'starter'));
+    expect(await screen.findByTestId('medicine-dose')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('room-nav-right'));
+    await waitFor(() => expect(screen.queryByTestId('medicine-dose')).toBeNull());
+    await quiet(1_800);
+    expect(relay.published).toEqual([]);
+  }, 15_000);
+});

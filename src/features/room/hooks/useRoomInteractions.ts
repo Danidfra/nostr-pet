@@ -17,7 +17,11 @@
  *              written when the game begins and celebrated when it ends.
  *              The ball stays in the room for the visit; a tap sends it
  *              rolling again, and the Blobbi looks.
- *   anything   soap, medicine, another toy: set down, noticed, walked to,
+ *   medicine   where it stands (M15 care refinement): worried, the medicine to
+ *              its mouth, a wiggle as it takes it, and only then the write;
+ *              once it has landed, relieved with sparkles. No walk, never the
+ *              tub (the bath's tub is the bath's).
+ *   anything   another toy: set down, noticed, walked to,
  *   else       used where it lies (the home's consume), celebrated.
  *
  * Everything the scene borrows (its face, its eyes, a prop, a walk) is
@@ -48,6 +52,8 @@ import { kickDirection } from '../lib/ball-physics';
 import { gazeToward } from '../lib/room-gaze';
 import type { DropPlan, RoomCareEntry } from '../lib/room-care';
 import { recordRuntimeError } from '../lib/runtime-errors';
+import { MEDICINE_MOMENT, type MedicinePhase } from '@/features/home/medicine';
+import type { ItemGlyphModel } from '@/features/inventory';
 
 export type InteractionKind = 'feeding' | 'playing' | 'using' | 'bathing';
 
@@ -94,6 +100,8 @@ export interface RoomInteractions {
   activity: InteractionKind | null;
   /** A meal under way (for the eating presentation: the faces and the dip), or null. */
   eating: EatingMoment | null;
+  /** Medicine's moment under way (the dose at the mouth, then relieved), or null. */
+  dose: { key: number; glyph: ItemGlyphModel; phase: MedicinePhase } | null;
   /** Set an item down for the Blobbi, as planned, and play the scene. False when it could not start. */
   offer: (entry: RoomCareEntry, plan: DropPlan, roomId: RoomId) => boolean;
   /** Try a failed use again, with its scene from the write on (the player's tap). */
@@ -121,6 +129,8 @@ interface Subject {
   dry: boolean;
   /** The thing it becomes in the room, for the distance kept from it. */
   prop: RoomPropKind | null;
+  /** Medicine taken where it stands (its moment), not set down and walked to. */
+  moment?: boolean;
 }
 
 const FACE = 'interaction';
@@ -137,6 +147,7 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
   const gazeRef = useRef<EyeOffset | null>(null);
   const [activity, setActivity] = useState<InteractionKind | null>(null);
   const [eating, setEating] = useState<EatingMoment | null>(null);
+  const [dose, setDose] = useState<RoomInteractions['dose']>(null);
   /** The ball lying in the room after a game, and when it was last touched. */
   const toy = useRef<{ id: string; touchedAt: number } | null>(null);
   const [toyTouched, setToyTouched] = useState(0);
@@ -456,12 +467,51 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
     await settle(run);
   }, [noticeAndApproach, write, face, setGaze, settle]);
 
+  /** Medicine where it stands: the dose, the wiggle, the write, relieved (`features/home/medicine`). */
+  const medicineScene = useCallback((subject: Subject, from: 'start' | 'write') => async (run: Run) => {
+    const o = live.current;
+    const reduced = o.reducedMotion;
+    run.cleanup(() => {
+      face(null);
+      setGaze(null);
+      setDose(null);
+    });
+    if (from === 'start') {
+      face('worried');
+      setGaze({ x: 0, y: 0.3 });
+      setDose({ key: subject.key, glyph: subject.item.glyph, phase: 'dose' });
+      await run.wait(reduced ? MEDICINE_MOMENT.reducedMs : MEDICINE_MOMENT.doseMs);
+      setDose({ key: subject.key, glyph: subject.item.glyph, phase: 'wiggle' });
+      o.play('drink');
+      if (!reduced) o.gesture('wiggle');
+      await run.wait(reduced ? MEDICINE_MOMENT.reducedMs : MEDICINE_MOMENT.wiggleMs);
+    }
+    // Taken: the write, held against a cancel until it has landed or failed
+    const outcome = from === 'start' ? await run.protect(() => o.care.begin(subject.key)) : await run.protect(() => o.care.retry() ?? Promise.resolve<UseOutcome>({ kind: 'failed', error: 'Nothing to try again.' }));
+    if (outcome.kind === 'failed') {
+      // The room's failure card offers Try again (the same use) and Put away
+      setDose(null);
+      face(null);
+      setGaze(null);
+      return;
+    }
+    o.care.finish(subject.key, { feedback: outcome.feedback, alreadyApplied: !!outcome.result?.alreadyApplied });
+    setDose({ key: subject.key, glyph: subject.item.glyph, phase: 'relieved' });
+    face('relieved');
+    setGaze(null);
+    if (!reduced) o.gesture('bounce');
+    await run.wait(MEDICINE_MOMENT.relievedMs);
+    setDose(null);
+    await settle(run);
+  }, [face, setGaze, settle]);
+
   const sceneFor = useCallback((subject: Subject, from: 'start' | 'write'): { kind: InteractionKind; script: (run: Run) => Promise<void> } => {
+    if (subject.moment && !subject.dry) return { kind: 'using', script: medicineScene(subject, from) };
     const prop = propKindFor(subject.item);
     if (prop === 'dish') return { kind: 'feeding', script: feedScene(subject, from) };
     if (prop === 'ball') return { kind: 'playing', script: ballScene(subject, from) };
     return { kind: 'using', script: plainScene(subject, from) };
-  }, [feedScene, ballScene, plainScene]);
+  }, [feedScene, ballScene, plainScene, medicineScene]);
 
   const runScene = useCallback((subject: Subject, from: 'start' | 'write') => {
     const { kind, script } = sceneFor(subject, from);
@@ -483,9 +533,12 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
   const offer = useCallback((entry: RoomCareEntry, plan: DropPlan, room: RoomId): boolean => {
     const o = live.current;
     if (!o.present || !o.enabled || plan.kind !== 'set-down') return false;
-    const placed = o.care.place(entry, plan, room);
+    // Medicine is a moment where it stands; an owned use left open is resumed the plain way (what lands is that use)
+    const moment = entry.action === 'medicine' && !(entry.choice.source === 'owned' && o.care.hasOpenUse());
+    const at = moment ? o.controlRef.current?.blobbiPosition() ?? { x: plan.x, z: plan.z } : { x: plan.x, z: plan.z };
+    const placed = o.care.place(entry, { kind: 'set-down', x: at.x, z: at.z }, room);
     if (!placed) return false;
-    runScene({ key: placed.key, item: entry.choice.entry.item, name: entry.name, x: plan.x, z: plan.z, dry: false, prop: propKindFor(entry.choice.entry.item) }, 'start');
+    runScene({ key: placed.key, item: entry.choice.entry.item, name: entry.name, x: at.x, z: at.z, dry: false, prop: moment ? null : propKindFor(entry.choice.entry.item), moment }, 'start');
     return true;
   }, [runScene]);
 
@@ -493,7 +546,8 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
     const o = live.current;
     const current = o.care.offer;
     if (!current || current.phase !== 'failed') return;
-    runScene({ key: current.key, item: current.choice.entry.item, name: current.name, x: current.place.x, z: current.place.z, dry: false, prop: propKindFor(current.choice.entry.item) }, 'write');
+    const moment = current.choice.entry.item.care?.action === 'medicine';
+    runScene({ key: current.key, item: current.choice.entry.item, name: current.name, x: current.place.x, z: current.place.z, dry: false, prop: moment ? null : propKindFor(current.choice.entry.item), moment }, 'write');
   }, [runScene]);
 
   const preview = useCallback((kind: 'feed' | 'ball', item: HomeItem) => {
@@ -624,5 +678,5 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
   }, [offerKey]);
   void reducedMotion;
 
-  return useMemo(() => ({ props, gaze, activity, eating, offer, retry, onPropTap, preview, cancel, run }), [props, gaze, activity, eating, offer, retry, onPropTap, preview, cancel, run]);
+  return useMemo(() => ({ props, gaze, activity, eating, dose, offer, retry, onPropTap, preview, cancel, run }), [props, gaze, activity, eating, dose, offer, retry, onPropTap, preview, cancel, run]);
 }

@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The classic home (legacy since M11, when the room became the home): these are its own tests, so it is the one opened
 vi.mock('@/lib/home-experience', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/home-experience')>()), readExperience: () => 'classic' as const }));
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -505,14 +505,94 @@ describe('Clean is a bath (M15)', () => {
     expect(states()).toHaveLength(0);
   }, 20_000);
 
-  it('medicine still goes to the home\'s own tub as before: no game', async () => {
+});
+
+describe('Medicine is a moment where the Blobbi stands (M15 care refinement)', () => {
+  it('no bath, no tub, no walk: worried, the dose to its mouth, a wiggle, and only then the one write; relieved with sparkles, "Treated"', async () => {
+    relay.all = [brook({ health: '60' }), ...definitions(), ...stock()];
+    renderHome(SLOW_WALK);
+    await ready();
+    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseFromCarousel('blobbi:medicine:bandage');
+    // The moment, where it stands: no bath, no tub (neither the bath's nor the home's), no walk
+    expect(screen.queryByTestId('bath-bar')).toBeNull();
+    expect(screen.queryByTestId('bath-tub')).toBeNull();
+    expect(tub()).toBeNull();
+    expect(actor()).not.toHaveAttribute('data-motion', 'walking');
+    expect(actor()).toHaveAttribute('data-expression', 'worried');
+    expect(screen.getByTestId('medicine-dose')).toHaveAttribute('data-phase', 'dose');
+    // The item does not lie on the floor; the verbs wait
+    expect(screen.queryByTestId('scene-object-offer')).toBeNull();
+    expect(screen.getByTestId('care-feed')).toBeDisabled();
+    expect(states()).toHaveLength(0);
+    await waitFor(() => expect(screen.getByTestId('medicine-dose')).toHaveAttribute('data-phase', 'wiggle'), { timeout: 2000 });
+    expect(states()).toHaveLength(0);
+    // Taken: the one write, its effects the catalog's (Bandage: health +25)
+    await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
+    expect(Number(getTagValue(states()[0].tags, 'health'))).toBeGreaterThan(60);
+    expect(interactions()).toHaveLength(1);
+    expect(spends()).toHaveLength(0);
+    await waitFor(() => expect(actor()).toHaveAttribute('data-expression', 'relieved'), { timeout: 3000 });
+    expect(screen.getByTestId('care-status')).toHaveTextContent(/Treated Brook/);
+    expect(actor()).not.toHaveAttribute('data-motion', 'walking');
+    await waitFor(() => expect(screen.queryByTestId('medicine-dose')).toBeNull(), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByTestId('care-feed')).toBeEnabled(), { timeout: 3000 });
+    await settle(300);
+    expect(states()).toHaveLength(1);
+    expect(screen.queryByTestId('bath-tub')).toBeNull();
+  }, 20_000);
+
+  it('its own rule: health full is refused with a word and writes nothing; hygiene full never refuses it (the bath’s rule is not medicine’s)', async () => {
+    relay.all = [brook({ health: '100', hygiene: '40' }), ...definitions(), ...stock()];
     renderHome();
     await ready();
     await userEvent.click(screen.getByTestId('care-clean'));
     await chooseFromCarousel('blobbi:medicine:bandage');
-    expect(screen.queryByTestId('bath-bar')).toBeNull();
-    expect(tub()).toHaveAttribute('data-state', 'walking');
+    expect(await screen.findByTestId('bath-notice')).toHaveTextContent(/Brook is feeling fine/);
+    expect(screen.queryByTestId('medicine-dose')).toBeNull();
+    await settle(1_600);
+    expect(states()).toHaveLength(0);
+    cleanup();
+    relay.all = [brook({ health: '50', hygiene: '100' }), ...definitions(), ...stock()];
+    relay.published = [];
+    renderHome();
+    await ready();
+    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseFromCarousel('blobbi:medicine:bandage');
+    expect(screen.getByTestId('medicine-dose')).toBeInTheDocument();
+    expect(screen.queryByTestId('bath-notice')).toBeNull();
     await waitFor(() => expect(states()).toHaveLength(1), { timeout: 4000 });
+  }, 20_000);
+
+  it('the page going before the write writes nothing', async () => {
+    relay.all = [brook({ health: '60' }), ...definitions(), ...stock()];
+    const view = renderHome();
+    await ready();
+    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseFromCarousel('blobbi:medicine:bandage');
+    expect(screen.getByTestId('medicine-dose')).toBeInTheDocument();
+    view.unmount();
+    await settle(2_000);
+    expect(relay.published).toHaveLength(0);
+  }, 20_000);
+
+  it('a failed write: worried no more, the item to try again (Try again writes once), nothing written meanwhile', async () => {
+    relay.all = [brook({ health: '60' }), ...definitions(), ...stock()];
+    relay.careFails = true;
+    renderHome();
+    await ready();
+    await userEvent.click(screen.getByTestId('care-clean'));
+    await chooseFromCarousel('blobbi:medicine:bandage');
+    await waitFor(() => expect(screen.getByTestId('offer-retry')).toBeInTheDocument(), { timeout: 5000 });
+    expect(screen.queryByTestId('medicine-dose')).toBeNull();
+    expect(states()).toHaveLength(0);
+    await settle(600);
+    expect(states()).toHaveLength(0);
+    relay.careFails = false;
+    await userEvent.click(screen.getByTestId('offer-retry'));
+    await waitFor(() => expect(states()).toHaveLength(1), { timeout: 5000 });
+    await settle(400);
+    expect(states()).toHaveLength(1);
   }, 20_000);
 });
 
