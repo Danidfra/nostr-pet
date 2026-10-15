@@ -70,9 +70,16 @@ const companionOn = (net: FakeNetwork, url = DITTO) => {
   const top = net.relays.get(url)!.events.filter((e) => e.kind === 11125).sort((a, b) => b.created_at - a.created_at)[0];
   return top ? parseBlobbonautEvent(top)?.currentCompanion : undefined;
 };
+type App = 'Ditto' | 'Blobbi Pixel' | 'this home on another device';
+/** What each app adds around the kit's tags: Ditto its client tag, Pixel nothing, this home `client` and `published_at`. */
+const SHAPE: Record<App, (at: number) => string[][]> = {
+  Ditto: () => [['client', 'Ditto']],
+  'Blobbi Pixel': () => [],
+  'this home on another device': (at) => [['client', 'Blobbi'], ['published_at', String(at - 86_400)]],
+};
 /** Another app chose (Ditto's Set as companion, Blobbi Pixel's MY BLOBBIS): a newer profile on the relays. */
-function chosenElsewhere(net: FakeNetwork, acc: TestAccount, ds: string[], d: string, createdAt: number) {
-  net.seed(profileEvent(acc, { has: ds, companion: d, createdAt, extra: [['client', 'Ditto']] }), [DITTO, PRIMAL]);
+function chosenElsewhere(net: FakeNetwork, acc: TestAccount, ds: string[], d: string, createdAt: number, app: App = 'Ditto') {
+  net.seed(profileEvent(acc, { has: ds, companion: d, createdAt, extra: SHAPE[app](createdAt) }), [DITTO, PRIMAL]);
 }
 async function rereadProfile() {
   await act(async () => {
@@ -151,9 +158,9 @@ describe('the companion shared with the other Blobbi apps', () => {
     expect(view.result.current.current?.d).toBe(dA);
   });
 
-  it.each([['Ditto'], ['Blobbi Pixel'], ['this home on another device']])('a newer choice made in %s is met and shown, never published again', async () => {
+  it.each([['Ditto'], ['Blobbi Pixel'], ['this home on another device']] as [App][])('a newer choice made in %s is met and shown, never published again', async (app) => {
     const view = await ready(net);
-    chosenElsewhere(net, acc, [dA, dB, dC], dC, S() - 5);
+    chosenElsewhere(net, acc, [dA, dB, dC], dC, S() - 5, app);
     await rereadProfile();
     await waitFor(() => expect(view.result.current.current?.d).toBe(dC));
     expect(profilesSent(net)).toHaveLength(0);
