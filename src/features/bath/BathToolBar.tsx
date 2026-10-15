@@ -7,7 +7,7 @@
  */
 import { RotateCcw, Square } from 'lucide-react';
 import { ItemGlyph } from '@/features/inventory';
-import { TOOL_LABEL } from './bath-machine';
+import { toolLabel } from './bath-machine';
 import type { BathView } from './useBathSession';
 import { BathToolArt } from './BathTools';
 import './bath.css';
@@ -22,9 +22,11 @@ interface BathToolBarProps {
 }
 
 export function BathToolBar({ view, onStop, onRetry, reducedMotion, variant = 'home' }: BathToolBarProps) {
-  const { status, stage, tool, progress, guidance, item, error } = view;
-  const canStop = status === 'entering' || status === 'soap' || status === 'rinse' || status === 'dry' || status === 'failed';
-  const showProgress = tool !== null;
+  const { status, stage, tool, progress, guidance, item, error, ritual } = view;
+  const canStop = status === 'stage' || status === 'failed';
+  // A stage the player plays, or watches for a while, shows how far it has come; a jump does not
+  const showProgress = stage !== null && stage.kind !== 'script';
+  const label = tool ? toolLabel(tool, ritual.style) : null;
   return (
     <div
       className={`bath-bar bath-bar--${variant}`}
@@ -32,7 +34,8 @@ export function BathToolBar({ view, onStop, onRetry, reducedMotion, variant = 'h
       aria-label={`Bath with ${item.name}`}
       data-testid="bath-bar"
       data-status={status}
-      data-stage={stage ?? ''}
+      data-stage={view.stageId ?? ''}
+      data-ritual={ritual.id}
       data-tool={tool ?? 'none'}
       data-reduced={reducedMotion ? 'true' : undefined}
     >
@@ -41,11 +44,11 @@ export function BathToolBar({ view, onStop, onRetry, reducedMotion, variant = 'h
       </div>
       <div className="bath-bar__body">
         <p className="bath-bar__text" role="status" aria-live="polite" data-testid="bath-guidance">
-          {tool && <span className="bath-bar__tool-name">{TOOL_LABEL[tool]}</span>}
+          {label && <span className="bath-bar__tool-name">{label}</span>}
           {guidance}
         </p>
         {showProgress && (
-          <div className="bath-bar__progress" role="progressbar" aria-label={`${TOOL_LABEL[tool!]} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} data-testid="bath-progress">
+          <div className="bath-bar__progress" role="progressbar" aria-label={`${label ?? item.name} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} data-testid="bath-progress">
             <span className="bath-bar__fill" style={{ width: `${Math.round(progress * 100)}%` }} />
           </div>
         )}

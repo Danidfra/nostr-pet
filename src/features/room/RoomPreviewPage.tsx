@@ -85,7 +85,7 @@ import { RoomStatusHud } from './components/RoomStatusHud';
 import { RoomBlobbiOverlay, RoomDragGhost, RoomFloorItem } from './components/RoomCareParts';
 import { BathToolBar, BathTouchLayer, useBathSession, type BathCommitOutcome, type BathItem } from '@/features/bath';
 import { bodyBottomInset } from './lib/body-inset';
-import { BATH_ELEV, type BathSceneState } from './lib/scene/bath-scene';
+import { BATH_ELEV } from './lib/scene/bath-scene';
 import type { Run } from './lib/room-interaction';
 import type { CareChoice } from '@/features/home/care-model';
 import { CAMERA_AZIMUTH } from './lib/room-geometry';
@@ -473,8 +473,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     reducedMotion,
     hygiene: projected?.stats.hygiene,
     start: bathStart,
-    // Into the tub: a walk to it, then a hop onto its floor, facing the room; an egg (no walk) and a room without a
-    // tub are bathed where the Blobbi lies
+    // A soak, into the tub: a walk to it, then a jump onto its floor, facing the room; an egg (no walk) and a room
+    // without a tub soak where the Blobbi lies (every other ritual is played where it stands)
     enter: isEgg || tubIndex < 0
       ? null
       : async (run: Run) => {
@@ -496,8 +496,23 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           }
           return true;
         },
+    // A soak, out of the tub: a jump over its near rim onto the floor in front of it, wet
+    exit: async (run: Run) => {
+      const control = controlRef.current;
+      const rect = control?.itemFootprint(tubIndexRef.current);
+      const from = control?.blobbiPosition();
+      if (!control || !rect || !from) return;
+      const out = control.standPointNear((rect.x0 + rect.x1) / 2, rect.z1 + 0.9);
+      const steps = reduceMotionRef.current ? 1 : 10;
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const arc = i === steps ? 0 : Math.sin(t * Math.PI) * 1.1;
+        control.script({ x: from.x + (out.x - from.x) * t, z: from.z + (out.z - from.z) * t, elev: BATH_ELEV * (1 - t) + arc, heading: CAMERA_AZIMUTH });
+        if (i < steps) await run.wait(34);
+      }
+    },
     leave: () => {
-      // Out of the tub: back on the floor, at the free spot nearest it; a write that failed is taken back with the bath
+      // Over: back on the floor, at the free spot nearest it; a write that failed is taken back with the ritual
       controlRef.current?.script(null);
       controlRef.current?.bath(null);
       careRef.current.clear();
@@ -519,12 +534,12 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   useEffect(() => {
     const control = controlRef.current;
     if (!control) return;
-    if (!bathView || bathView.inPlace || tubIndex < 0) {
+    if (!bathView) {
       control.bath(null);
       return;
     }
-    const state: BathSceneState = { itemIndex: tubIndex, status: bathView.status, tool: bathView.tool, foam: bathView.foam, mask: bathView.mask, grid: bathView.grid, outline: bathView.outline, pointer: bathView.pointer, celebrating: bathView.celebrating };
-    control.bath(state);
+    // On the main actor: in the tub for a soak there, else where it stands
+    control.bath(bathView.frame, { kind: 'world', tubIndex: bathView.inPlace || tubIndex < 0 ? null : tubIndex });
   }, [bathView, tubIndex, controlRef]);
   // The 3D model draws the foam, the water and the tools itself; the page's drawing has them on its layer
   const [modelDrawn, setModelDrawn] = useState(false);

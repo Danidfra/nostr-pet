@@ -27,24 +27,12 @@
  * Blobbi's place; nothing here knows the DOM, React or the relays.
  */
 import * as THREE from 'three';
-import type { BathPoint, BathStatus, BathTool } from '@/features/bath/bath-machine';
+import type { BathPoint, BathTool } from '@/features/bath/bath-machine';
+import type { BathFrame } from '@/features/bath/bath-frame';
 import { CAMERA_AZIMUTH } from '../room-geometry';
 
-/** What the scene is told about the bath (a subset of the session's view). */
-export interface BathSceneState {
-  /** The tub's index among the placements. */
-  itemIndex: number;
-  status: BathStatus;
-  tool: BathTool | null;
-  foam: readonly number[];
-  mask: readonly boolean[];
-  grid: number;
-  /** The body's feet and top, as fractions of its box. */
-  outline: { bottom: number; top: number };
-  /** The tool's place in the body's box, or null while nothing is pressed. */
-  pointer: BathPoint | null;
-  celebrating: boolean;
-}
+/** The tool's place in the body's box while pressed, or null (resting). */
+const pointerOf = (frame: BathFrame): BathPoint | null => (frame.tool?.pressed ? frame.tool.at : null);
 
 /** The tub's footprint (tiles) the scene hands over. */
 export interface BathTubRect {
@@ -118,14 +106,19 @@ export class BathLayer {
   private drops: THREE.InstancedMesh;
   private splash: THREE.InstancedMesh;
   private tools: Record<BathTool, THREE.Group>;
-  private state: BathSceneState | null = null;
+  private state: BathFrame | null = null;
+  /** No tub: a ritual played where the Blobbi stands (only the foam, the rain and the tools). */
+  private readonly tubless: boolean;
   private actor: BathActorPlace | null = null;
   private time = 0;
   private dropPhase = new Float32Array(DROPS);
   private front = false;
   private readonly scratch = { m: new THREE.Matrix4(), p: new THREE.Vector3(), q: new THREE.Quaternion(), s: new THREE.Vector3() };
 
-  constructor(rect: BathTubRect, private readonly reducedMotion: () => boolean) {
+  constructor(tub: BathTubRect | null, private readonly reducedMotion: () => boolean) {
+    this.tubless = tub === null;
+    // Placeholder (M15 care contract): a ritual in place builds the tub's parts too, hidden, so the rest is unchanged
+    const rect = tub ?? { x0: 0, x1: 2, z0: 0, z1: 2 };
     const shell = new THREE.MeshStandardMaterial({ color: SHELL, roughness: 0.85 });
     const shade = new THREE.MeshStandardMaterial({ color: SHELL_SHADE, roughness: 0.9 });
     const w = rect.x1 - rect.x0;
@@ -224,6 +217,10 @@ export class BathLayer {
     }
     this.root.add(this.backParts, this.frontParts, this.foam, this.drops, this.splash, ...Object.values(this.tools));
     setFront(this.backParts, false);
+    if (this.tubless) {
+      this.backParts.visible = false;
+      this.frontParts.visible = false;
+    }
   }
 
   private hideAll(mesh: THREE.InstancedMesh) {
@@ -289,7 +286,7 @@ export class BathLayer {
   }
 
   /** The bath as it stands now, and where the Blobbi is; redraws the foam, the suds, the tools. */
-  update(state: BathSceneState, actor: BathActorPlace) {
+  update(state: BathFrame, actor: BathActorPlace) {
     this.state = state;
     this.actor = actor;
     const { m, p, q, s } = this.scratch;
@@ -297,8 +294,8 @@ export class BathLayer {
     // The foam: a sphere on each lathered cell, growing with the lather
     const cellTiles = actor.tiles / state.grid;
     for (let i = 0; i < FOAM_MAX; i++) {
-      const f = i < state.foam.length && state.mask[i] ? state.foam[i] : 0;
-      if (f < 0.03) {
+      const f = state.cells[i]?.foamed ? 1 : 0;
+      if (f === 0) {
         m.makeScale(0, 0, 0);
       } else {
         const r = cellTiles * (0.22 + 0.36 * Math.min(1, f));
@@ -309,20 +306,22 @@ export class BathLayer {
       this.foam.setMatrixAt(i, m);
     }
     this.foam.instanceMatrix.needsUpdate = true;
-    const soapy = state.status === 'soap' || state.status === 'rinse';
+    const soapy = state.stage?.id === 'lather' || state.stage?.id === 'rinse' || state.stage?.id === 'play';
     for (const sud of this.suds) sud.visible = soapy;
     // The tool in hand: the stage's, at the pointer or resting; the others away
-    for (const [kind, tool] of Object.entries(this.tools) as [BathTool, THREE.Group][]) tool.visible = kind === state.tool;
-    if (state.tool) {
-      const at = state.pointer ?? RESTING[state.tool];
-      const tool = this.tools[state.tool];
+    const kindNow = state.tool?.kind ?? null;
+    const pointer = pointerOf(state);
+    for (const [kind, tool] of Object.entries(this.tools) as [BathTool, THREE.Group][]) tool.visible = kind === kindNow;
+    if (kindNow) {
+      const at = pointer ?? RESTING[kindNow];
+      const tool = this.tools[kindNow];
       this.bodyPoint(at, tool.position, 0.35);
-      if (state.tool === 'shower') tool.position.y += actor.tiles * 0.12;
+      if (kindNow === 'shower') tool.position.y += actor.tiles * 0.12;
       tool.rotation.set(0, CAMERA_AZIMUTH, 0);
-      if (state.tool === 'soap' && state.pointer) tool.rotation.z = -0.25;
-      if (state.tool === 'towel' && state.pointer) tool.rotation.z = 0.2;
+      if (kindNow === 'soap' && pointer) tool.rotation.z = -0.25;
+      if (kindNow === 'towel' && pointer) tool.rotation.z = 0.2;
     }
-    if (!state.pointer || state.status !== 'rinse') {
+    if (!pointer || state.stage?.kind !== 'rinse') {
       this.hideAll(this.drops);
       this.hideAll(this.splash);
     }
@@ -332,6 +331,8 @@ export class BathLayer {
   setFrontForDom(dom: boolean) {
     if (this.front === dom) return;
     this.front = dom;
+    // In place, the page's drawing has the ritual on its own layer; the scene draws it only on the model
+    if (this.tubless) this.root.visible = !dom;
     setFront(this.frontParts, dom);
     setFront(this.foam, dom);
     setFront(this.drops, dom);
@@ -355,7 +356,7 @@ export class BathLayer {
     const { m, p, q, s } = this.scratch;
     q.identity();
     // The rain: from the shower head down to the water, each drop on its own phase
-    const raining = state.status === 'rinse' && state.pointer !== null && state.tool === 'shower';
+    const raining = state.stage?.kind === 'rinse' && pointerOf(state) !== null && state.tool?.kind === 'shower';
     if (raining) {
       const head = this.tools.shower.position;
       const waterY = BATH_TUB.foot + BATH_TUB.water;
@@ -383,15 +384,15 @@ export class BathLayer {
     }
     // The water ripples a little under the shower; the suds drift
     if (!still) {
-      this.water.position.y = BATH_TUB.foot + BATH_TUB.water + (state.status === 'rinse' ? Math.sin(this.time * 6) * 0.012 : 0);
+      this.water.position.y = BATH_TUB.foot + BATH_TUB.water + (state.stage?.kind === 'rinse' || state.stage?.kind === 'timed' ? Math.sin(this.time * 6) * 0.012 : 0);
       for (let i = 0; i < this.suds.length; i++) if (this.suds[i].visible) this.suds[i].position.y = BATH_TUB.foot + BATH_TUB.water + 0.01 + Math.sin(this.time * 2 + i) * 0.008;
-      if (state.status === 'rinse') animating = true;
+      if (state.stage?.kind === 'rinse' || state.stage?.kind === 'timed') animating = true;
     }
     // A resting tool bobs, inviting the hand
-    if (!still && state.tool && !state.pointer) {
-      const tool = this.tools[state.tool];
-      this.bodyPoint(RESTING[state.tool], tool.position, 0.35);
-      if (state.tool === 'shower') tool.position.y += actor.tiles * 0.12;
+    if (!still && state.tool && !pointerOf(state)) {
+      const tool = this.tools[state.tool.kind];
+      this.bodyPoint(RESTING[state.tool.kind], tool.position, 0.35);
+      if (state.tool.kind === 'shower') tool.position.y += actor.tiles * 0.12;
       tool.position.y += Math.sin(this.time * 2.2) * 0.05;
       tool.rotation.z = Math.sin(this.time * 1.6) * 0.12;
       animating = true;

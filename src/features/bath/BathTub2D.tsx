@@ -18,7 +18,7 @@ import type { CSSProperties } from 'react';
 import { depthScale } from '@/features/home/scene/geometry';
 import { floorFromRoom, roomToCss } from '@/features/home/space/room-space';
 import { furnitureById, type Placement } from '@/features/home/rooms';
-import type { BathStage } from './bath-machine';
+import type { RitualStageId } from './rituals';
 import './bath.css';
 
 export type BathTubPart = 'back' | 'front';
@@ -29,7 +29,7 @@ interface BathTub2DProps {
   part: BathTubPart;
   zIndex: number;
   phase: BathTubPhase;
-  stage: BathStage | null;
+  stage: RitualStageId | null;
   reducedMotion: boolean;
 }
 
@@ -69,8 +69,8 @@ const WATER_DEEP = '#5fb8e8';
 /** The outer shell: from the rim's left end down round the bottom and up to its right end. */
 const SHELL_PATH = 'M 10 40 C 10 64, 16 86, 36 94 C 52 100, 108 100, 124 94 C 144 86, 150 64, 150 40 Z';
 
-function TubBack({ stage }: { stage: BathStage | null }) {
-  const foamy = stage === 'soap' || stage === 'rinse';
+function TubBack({ stage }: { stage: RitualStageId | null }) {
+  const foamy = stage === 'play' || stage === 'lather' || stage === 'rinse';
   return (
     <g>
       <defs>
@@ -109,8 +109,8 @@ function TubBack({ stage }: { stage: BathStage | null }) {
   );
 }
 
-function TubFront({ stage }: { stage: BathStage | null }) {
-  const rippling = stage === 'rinse';
+function TubFront({ stage }: { stage: RitualStageId | null }) {
+  const rippling = stage === 'play' || stage === 'rinse';
   return (
     <g>
       <defs>

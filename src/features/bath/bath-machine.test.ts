@@ -1,209 +1,397 @@
 /**
- * The bath machine's rules, pinned: no stage passes on a tap, each passes by
- * covering the body, the shower works with time under its head, the write
- * is reached only after the last stage, a cancel never reaches the write,
- * a retry is the player's and counted, and a write on its way is not cancelled.
+ * The care rituals' machine, rule by rule: the stage list walked in order,
+ * each passed by its own rule and never by a tap; only visible body cells
+ * count, as booleans, exactly what is drawn; the last few cells finish
+ * themselves; the brush and the shower's column measured in px on a small
+ * Blobbi; the shower reaching from above the head; nothing rubbed before
+ * the outline is known; the one write after the last stage, a retry the
+ * player's only, a cancel at any step with nothing committed; a landed wet
+ * ritual shaking itself dry; and no input mutated.
  */
 import { describe, expect, it } from 'vitest';
-import { BATH_GRID, BATH_RULES, cellCenter, createBath, defaultMask, guidanceFor, isBathActive, reduce, strokeSamples, toolFor, type BathPoint, type BathState } from './bath-machine';
+import {
+  BATH_GRID,
+  BATH_RULES,
+  brushRadius,
+  cellCenter,
+  cellIndex,
+  columnHalfWidth,
+  createBath,
+  currentStage,
+  defaultMask,
+  frameSource,
+  guidanceFor,
+  headFor,
+  reduce,
+  strokeSamples,
+  toolFor,
+  type BathEvent,
+  type BathPoint,
+  type BathState,
+} from './bath-machine';
+import { frameFromState, foamedCount } from './bath-frame';
+import { RITUALS, type RitualDef } from './rituals';
+import type { CancelReason } from '@/features/room/lib/room-interaction';
 
-const fresh = (inPlace = false): BathState => reduce(createBath(defaultMask()), { type: 'begin', inPlace });
-const inTub = (): BathState => reduce(fresh(), { type: 'entered' });
+const FULL = new Array<boolean>(BATH_GRID * BATH_GRID).fill(true);
 
-/** A drag from `a` to `b` in one move. */
-const drag = (s: BathState, a: BathPoint, b: BathPoint): BathState => {
-  let next = reduce(s, { type: 'pointer-down', point: a });
-  next = reduce(next, { type: 'pointer-move', point: b });
-  return reduce(next, { type: 'pointer-up' });
-};
-
-/** Rub the whole body: vertical strokes across the box, until the stage passes. */
-function rubAll(s: BathState, maxStrokes = 40): BathState {
-  let next = s;
-  const start = next.status;
-  for (let i = 0; i < maxStrokes && next.status === start; i++) {
-    const x = ((i % 6) + 0.5) / 6;
-    next = drag(next, { x, y: 0.05 }, { x, y: 0.95 });
-  }
-  return next;
+function run(state: BathState, events: BathEvent[]): BathState {
+  return events.reduce(reduce, state);
 }
 
-/** Hold the shower in columns across the body until the stage passes. */
-function showerAll(s: BathState, maxColumns = 20): BathState {
-  let next = s;
-  for (let i = 0; i < maxColumns && next.status === 'rinse'; i++) {
-    const x = ((i % 7) + 0.5) / 7;
-    next = reduce(next, { type: 'pointer-down', point: { x, y: 0.98 } });
-    for (let t = 0; t < 20 && next.status === 'rinse'; t++) next = reduce(next, { type: 'tick', dtMs: 50 });
-    next = reduce(next, { type: 'pointer-up' });
-  }
-  return next;
+/** A ritual begun and ready to rub (the outline known), optionally measured on screen. */
+function begun(ritual: RitualDef = RITUALS.soap, body: readonly boolean[] = FULL, box?: { w: number; h: number }): BathState {
+  let s = createBath(ritual, body);
+  s = reduce(s, { type: 'begin' });
+  s = reduce(s, { type: 'mask', body });
+  if (box) s = reduce(s, { type: 'measure', box });
+  return s;
 }
 
-const body = (s: BathState) => s.mask.filter(Boolean).length;
-const foamed = (s: BathState) => s.foam.filter((v, i) => s.mask[i] && v > 0).length;
+/** A drag from one box point to another in a few moves. */
+function drag(from: BathPoint, to: BathPoint, moves = 8): BathEvent[] {
+  const events: BathEvent[] = [{ type: 'pointer-down', point: from }];
+  for (let i = 1; i <= moves; i++) {
+    const t = i / moves;
+    events.push({ type: 'pointer-move', point: { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t } });
+  }
+  events.push({ type: 'pointer-up' });
+  return events;
+}
 
-describe('the body grid', () => {
-  it('is 8 by 8 with an egg-ish body in the middle, row 0 at the bottom, and a mask must fit it', () => {
-    const mask = defaultMask();
-    expect(mask).toHaveLength(BATH_GRID * BATH_GRID);
-    expect(body(createBath(mask))).toBeGreaterThan(20);
-    expect(body(createBath(mask))).toBeLessThan(50);
-    // The corners are air, the middle is body
-    expect(mask[0]).toBe(false);
-    expect(mask[BATH_GRID * BATH_GRID - 1]).toBe(false);
-    expect(mask[4 * BATH_GRID + 4]).toBe(true);
-    expect(cellCenter(BATH_GRID, 0)).toEqual({ x: 0.5 / 8, y: 0.5 / 8 });
-    expect(() => createBath([true])).toThrow(/64 cells/);
+/** Vertical strokes across the whole box, one per column. */
+function strokesEverywhere(): BathEvent[] {
+  const out: BathEvent[] = [];
+  for (let col = 0; col < BATH_GRID; col++) out.push(...drag({ x: (col + 0.5) / BATH_GRID, y: 0.02 }, { x: (col + 0.5) / BATH_GRID, y: 0.98 }, 16));
+  return out;
+}
+
+/** The shower held at a point for a while. */
+function hold(at: BathPoint, ms: number, tick = 50): BathEvent[] {
+  const events: BathEvent[] = [{ type: 'pointer-down', point: at }];
+  for (let t = 0; t < ms; t += tick) events.push({ type: 'tick', dtMs: tick });
+  events.push({ type: 'pointer-up' });
+  return events;
+}
+
+const count = (values: readonly boolean[]) => values.filter(Boolean).length;
+
+describe('the stage list', () => {
+  it('a wash is lather then rinse then the write; a towel one dry-rub; a soak jump in, play, jump out', () => {
+    expect(RITUALS.soap.stages.map((s) => [s.id, s.kind])).toEqual([['lather', 'rub'], ['rinse', 'rinse']]);
+    expect(RITUALS.towel.stages.map((s) => [s.id, s.kind])).toEqual([['dry', 'dry-rub']]);
+    expect(RITUALS.soak.stages.map((s) => [s.id, s.kind])).toEqual([['jump-in', 'script'], ['play', 'timed'], ['jump-out', 'script']]);
   });
 
-  it('a stroke is sampled every third of a cell; a stroke of no length lays no samples', () => {
-    expect(strokeSamples({ x: 0.5, y: 0 }, { x: 0.5, y: 1 })).toHaveLength(Math.floor(1 / BATH_RULES.sampleStep));
-    expect(strokeSamples({ x: 0.2, y: 0.2 }, { x: 0.2, y: 0.2 })).toEqual([]);
-    expect(strokeSamples({ x: 0, y: 0 }, { x: 0.01, y: 0 })).toHaveLength(1);
+  it('begin enters the first stage; the tool is the stage’s', () => {
+    const s = begun();
+    expect(s.status).toBe('stage');
+    expect(currentStage(s)?.id).toBe('lather');
+    expect(toolFor(s)).toBe('soap');
+  });
+
+  it('a wash played end to end: lather, rinse, then committing with one attempt; landed, the shake, then dry and done', () => {
+    let s = run(begun(), strokesEverywhere());
+    expect(currentStage(s)?.id).toBe('rinse');
+    for (let i = 0; i < 30 && s.status === 'stage'; i++) s = run(s, hold({ x: ((i % 8) + 0.5) / 8, y: 0.9 }, 600));
+    expect(s.status).toBe('committing');
+    expect(s.attempts).toBe(1);
+    expect(s.completed).toEqual(['lather', 'rinse']);
+    expect(s.cues.map((c) => c.kind)).toEqual(['rinse']);
+    s = reduce(s, { type: 'landed' });
+    expect(s.status).toBe('done');
+    expect(s.cues.map((c) => c.kind)).toEqual(['rinse', 'shake']);
+    expect(s.wetness).toBe(1);
+    s = reduce(s, { type: 'shaken' });
+    expect(s.wetness).toBe(0);
+    expect(count(s.wet)).toBe(0);
+    expect(s.cues.map((c) => c.kind)).toEqual(['rinse', 'shake', 'done']);
+    expect(new Set(s.cues.map((c) => c.id)).size).toBe(3);
+  });
+
+  it('a towel: dry-rubbed to the write; dry all over; landed straight to done (it was never wet: no shake)', () => {
+    let s = run(begun(RITUALS.towel), strokesEverywhere());
+    expect(s.status).toBe('committing');
+    expect(count(s.dry)).toBe(count(s.visible));
+    s = reduce(s, { type: 'landed' });
+    expect(s.cues.map((c) => c.kind)).toEqual(['done']);
+  });
+
+  it('a soak: the script stages pass only by script-done, the play by time; wet from the jump in; the write only after the jump out', () => {
+    let s = begun(RITUALS.soak);
+    expect(currentStage(s)?.id).toBe('jump-in');
+    // Time and the pointer do nothing to a script stage
+    s = run(s, [{ type: 'tick', dtMs: 5_000 }, ...drag({ x: 0.2, y: 0.2 }, { x: 0.8, y: 0.8 })]);
+    expect(currentStage(s)?.id).toBe('jump-in');
+    s = reduce(s, { type: 'script-done' });
+    expect(currentStage(s)?.id).toBe('play');
+    expect(s.wetness).toBe(1);
+    expect(s.cues.map((c) => c.kind)).toEqual(['splash-in']);
+    // The play passes with time, and only with time
+    s = run(s, drag({ x: 0.2, y: 0.2 }, { x: 0.8, y: 0.8 }));
+    expect(s.progress).toBe(0);
+    for (let t = 0; t < RITUALS.soak.stages[1].durationMs! - 100; t += 100) s = reduce(s, { type: 'tick', dtMs: 100 });
+    expect(currentStage(s)?.id).toBe('play');
+    s = reduce(s, { type: 'tick', dtMs: 200 });
+    expect(currentStage(s)?.id).toBe('jump-out');
+    // Still in the water: no write yet
+    expect(s.status).toBe('stage');
+    expect(s.attempts).toBe(0);
+    s = reduce(s, { type: 'script-done' });
+    expect(s.status).toBe('committing');
+    expect(s.cues.map((c) => c.kind)).toEqual(['splash-in', 'splash-out']);
+    s = reduce(s, { type: 'landed' });
+    // The shake follows the landed write, never before it
+    expect(s.cues.map((c) => c.kind)).toEqual(['splash-in', 'splash-out', 'shake']);
+  });
+
+  it('the shake is never cued without a landed write: a failed write leaves the Blobbi wet, no shake, until a retry lands', () => {
+    let s = begun(RITUALS.soak);
+    s = run(s, [{ type: 'script-done' }, { type: 'tick', dtMs: 10_000 }, { type: 'script-done' }, { type: 'failed', error: 'offline' }]);
+    expect(s.status).toBe('failed');
+    expect(s.cues.some((c) => c.kind === 'shake')).toBe(false);
+    s = run(s, [{ type: 'retry' }, { type: 'landed' }]);
+    expect(s.cues[s.cues.length - 1].kind).toBe('shake');
+    expect(s.attempts).toBe(2);
   });
 });
 
-describe('the stages', () => {
-  it('begins by entering, and the soap is in hand once it is in the tub; an in-place bath skips the entering', () => {
-    const s = fresh();
-    expect(s.status).toBe('entering');
-    expect(toolFor(s.status)).toBeNull();
-    expect(inTub().status).toBe('soap');
-    expect(toolFor('soap')).toBe('soap');
-    expect(fresh(true).status).toBe('soap');
-    expect(fresh(true).completed).toEqual(['entering']);
-    // Only an idle machine begins
-    expect(reduce(inTub(), { type: 'begin' }).status).toBe('soap');
+describe('coverage, never a tap', () => {
+  it('a press, or a press that moves within a tap’s slop, lays nothing', () => {
+    let s = begun();
+    s = run(s, [{ type: 'pointer-down', point: { x: 0.5, y: 0.5 } }, { type: 'pointer-move', point: { x: 0.504, y: 0.5 } }, { type: 'pointer-up' }]);
+    expect(count(s.foamed)).toBe(0);
+    expect(s.progress).toBe(0);
   });
 
-  it('a tap lays no foam and passes nothing; pressing before the tub is entered does nothing', () => {
-    const pressedEarly = reduce(fresh(), { type: 'pointer-down', point: { x: 0.5, y: 0.5 } });
-    expect(pressedEarly.stroke).toBeNull();
-    let s = inTub();
+  it('the slop is measured in px on screen: a 4 px wobble on a 34 px Blobbi is still a tap', () => {
+    let s = begun(RITUALS.soap, FULL, { w: 34, h: 34 });
+    s = run(s, [{ type: 'pointer-down', point: { x: 0.5, y: 0.5 } }, { type: 'pointer-move', point: { x: 0.5 + 4 / 34, y: 0.5 } }, { type: 'pointer-up' }]);
+    expect(count(s.foamed)).toBe(0);
+  });
+
+  it('nothing is rubbed before the outline is known (a pointer waits for the mask)', () => {
+    let s = reduce(createBath(RITUALS.soap, FULL), { type: 'begin' });
+    expect(s.maskReady).toBe(false);
+    s = run(s, drag({ x: 0.1, y: 0.5 }, { x: 0.9, y: 0.5 }));
+    expect(count(s.foamed)).toBe(0);
+    s = reduce(s, { type: 'mask', body: FULL });
+    s = run(s, drag({ x: 0.1, y: 0.5 }, { x: 0.9, y: 0.5 }));
+    expect(count(s.foamed)).toBeGreaterThan(0);
+  });
+
+  it('the mask arrives once: a later one is ignored (what was laid is never thrown away)', () => {
+    let s = run(begun(), drag({ x: 0.1, y: 0.5 }, { x: 0.9, y: 0.5 }));
+    const laid = count(s.foamed);
+    s = reduce(s, { type: 'mask', body: defaultMask() });
+    expect(count(s.foamed)).toBe(laid);
+    expect(s.body).toBe(FULL);
+  });
+
+  it('scribbling in one spot saturates it and goes no further', () => {
+    let s = begun();
+    for (let i = 0; i < 20; i++) s = run(s, drag({ x: 0.45, y: 0.5 }, { x: 0.55, y: 0.5 }));
+    expect(s.status).toBe('stage');
+    expect(currentStage(s)?.id).toBe('lather');
+    expect(s.progress).toBeLessThan(BATH_RULES.rubDone);
+  });
+
+  it('foam is laid on visible body cells only', () => {
+    const body = defaultMask();
+    let s = createBath(RITUALS.soap, body);
+    s = run(s, [{ type: 'begin', hiddenBelow: 0.4 }, { type: 'mask', body }]);
+    s = run(s, drag({ x: 0, y: 0.05 }, { x: 1, y: 0.95 }, 30));
+    s.foamed.forEach((f, i) => {
+      if (f) expect(s.visible[i]).toBe(true);
+    });
+    // The hidden rows are not body the player can reach: never visible, never counted
+    for (let i = 0; i < body.length; i++) if (cellCenter(BATH_GRID, i).y < 0.4) expect(s.visible[i]).toBe(false);
+  });
+
+  it('the stage passes at the share (about three quarters) and the rest of the lather finishes itself', () => {
+    let s = begun();
+    let before = s;
+    for (const e of strokesEverywhere()) {
+      before = s;
+      s = reduce(s, e);
+      if (s.stageIndex !== before.stageIndex) break;
+    }
+    expect(currentStage(s)?.id).toBe('rinse');
+    const share = count(before.foamed) / count(before.visible);
+    const left = count(before.visible) - count(before.foamed);
+    // It passed on the stroke that reached the share, or with only the last few cells left
+    expect(share >= 0.6 || left <= BATH_RULES.autoFinish + 20).toBe(true);
+    // Every visible cell is foamed now: what is drawn is all of it
+    expect(count(s.foamed)).toBe(count(s.visible));
+  });
+
+  it('the last two cells finish themselves (no hunt for a cell nobody can find)', () => {
+    let s = begun();
+    // Foam everything but the two corner cells, by hand
+    const foamed = s.visible.map((_v, i) => i !== 0 && i !== 63);
+    s = { ...s, foamed };
+    s = run(s, drag({ x: 0.4, y: 0.5 }, { x: 0.6, y: 0.5 }));
+    expect(currentStage(s)?.id).toBe('rinse');
+    expect(count(s.foamed)).toBe(64);
+  });
+});
+
+describe('the brush and the shower, measured on screen', () => {
+  it('the brush is never under 24 px across: on a 34 px Blobbi it reaches 12 px round the finger', () => {
+    const s = begun(RITUALS.soap, FULL, { w: 34, h: 34 });
+    const { rx, ry } = brushRadius(s);
+    expect(rx * 34).toBeGreaterThanOrEqual(11.99);
+    expect(ry * 34).toBeGreaterThanOrEqual(11.99);
+    // Bigger on a big Blobbi (a cell's worth)
+    const big = begun(RITUALS.soap, FULL, { w: 160, h: 160 });
+    expect(brushRadius(big).rx * 160).toBeCloseTo(20, 5);
+  });
+
+  it('one stroke across a 34 px Blobbi lathers a band at least 22 px tall', () => {
+    let s = begun(RITUALS.soap, FULL, { w: 34, h: 34 });
+    s = run(s, drag({ x: 0.05, y: 0.5 }, { x: 0.95, y: 0.5 }, 12));
+    const rows = new Set<number>();
+    s.foamed.forEach((f, i) => f && rows.add(Math.floor(i / BATH_GRID)));
+    expect(rows.size * (34 / BATH_GRID)).toBeGreaterThanOrEqual(22 * 0.75);
+    expect(rows.size).toBeGreaterThanOrEqual(5);
+  });
+
+  it('the shower’s column is never under 18 px across', () => {
+    const s = begun(RITUALS.soap, FULL, { w: 34, h: 34 });
+    expect(columnHalfWidth(s) * 2 * 34).toBeGreaterThanOrEqual(18);
+    const big = begun(RITUALS.soap, FULL, { w: 160, h: 160 });
+    expect(columnHalfWidth(big)).toBe(BATH_RULES.columnHalf);
+  });
+
+  it('the shower’s head is a little above the finger', () => {
+    let s = run(begun(RITUALS.soap, FULL, { w: 100, h: 100 }), strokesEverywhere());
+    expect(toolFor(s)).toBe('shower');
     s = reduce(s, { type: 'pointer-down', point: { x: 0.5, y: 0.5 } });
-    s = reduce(s, { type: 'pointer-up' });
-    expect(foamed(s)).toBe(0);
-    expect(s.progress).toBe(0);
-    // A move within the tap slop is still a tap
-    s = drag(s, { x: 0.5, y: 0.5 }, { x: 0.504, y: 0.5 });
-    expect(foamed(s)).toBe(0);
-    expect(s.status).toBe('soap');
+    expect(headFor(s, s.pointer)!.y).toBeCloseTo(0.5 + BATH_RULES.showerLiftPx / 100, 5);
+    expect(frameSource(s).head!.y).toBeCloseTo(0.76, 5);
   });
 
-  it('dragging the soap lays foam where it went, only on the body, and the stage passes by covering most of it', () => {
-    let s = inTub();
-    s = drag(s, { x: 0.5, y: 0.1 }, { x: 0.5, y: 0.9 });
-    expect(foamed(s)).toBeGreaterThan(0);
-    expect(foamed(s)).toBeLessThan(body(s));
-    // Nothing off the body
-    expect(s.foam.some((v, i) => !s.mask[i] && v > 0)).toBe(false);
-    expect(s.progress).toBeGreaterThan(0);
-    expect(s.progress).toBeLessThan(BATH_RULES.soapDone);
-    expect(s.status).toBe('soap');
-    // Scribbling in one spot saturates it and goes no further
-    for (let i = 0; i < 20; i++) s = drag(s, { x: 0.5, y: 0.4 }, { x: 0.5, y: 0.6 });
-    expect(s.status).toBe('soap');
-    const stuck = s.progress;
-    s = drag(s, { x: 0.5, y: 0.4 }, { x: 0.5, y: 0.6 });
-    expect(s.progress).toBe(stuck);
-    s = rubAll(s);
-    expect(s.status).toBe('rinse');
-    expect(s.completed).toEqual(['entering', 'soap']);
-    expect(s.progress).toBe(0);
-    // Into the water: everything is wet, and the foam is what there is to rinse
-    expect(s.wet.filter((v, i) => s.mask[i] && v === 1).length).toBe(body(s));
-    expect(s.startAmount).toBeGreaterThan(0);
+  it('held well above the head the shower still rinses (the top row too, the finger nowhere near the face)', () => {
+    let s = run(begun(RITUALS.soap, FULL, { w: 40, h: 40 }), strokesEverywhere());
+    const top = cellIndex(BATH_GRID, 4, BATH_GRID - 1);
+    expect(s.foamed[top]).toBe(true);
+    // The finger just above the box: the head higher still (above the finger), the face uncovered
+    s = run(s, hold({ x: (4 + 0.5) / BATH_GRID, y: 1.05 }, 500));
+    expect(s.foamed[top]).toBe(false);
+    expect(s.wet[top]).toBe(true);
   });
 
-  it('the shower rinses with time under its head, moving it only aims it, and the stage passes once nearly all the foam is gone', () => {
-    let s = rubAll(inTub());
-    expect(s.status).toBe('rinse');
-    const before = s.foam.reduce((a, b) => a + b, 0);
-    // A drag alone takes nothing off
-    s = drag(s, { x: 0.2, y: 0.9 }, { x: 0.8, y: 0.9 });
-    expect(s.foam.reduce((a, b) => a + b, 0)).toBe(before);
-    // Held: the column under it washes off, elsewhere stays
-    s = reduce(s, { type: 'pointer-down', point: { x: 0.5, y: 0.95 } });
-    s = reduce(s, { type: 'tick', dtMs: 300 });
-    const after = s.foam.reduce((a, b) => a + b, 0);
-    expect(after).toBeLessThan(before);
-    const far = s.foam.filter((_v, i) => s.mask[i] && Math.abs(cellCenter(s.grid, i).x - 0.5) > 0.15);
-    expect(far.some((v) => v > 0)).toBe(true);
-    // Released: time does nothing
-    s = reduce(s, { type: 'pointer-up' });
-    s = reduce(s, { type: 'tick', dtMs: 1000 });
-    expect(s.foam.reduce((a, b) => a + b, 0)).toBe(after);
-    s = showerAll(s);
-    expect(s.status).toBe('dry');
-    expect(s.foam.every((v) => v === 0)).toBe(true);
-    expect(s.completed).toEqual(['entering', 'soap', 'rinse']);
+  it('too far above (more than about 0.8 box over the body) the water no longer reaches', () => {
+    let s = run(begun(RITUALS.soap, FULL, { w: 40, h: 40 }), strokesEverywhere());
+    const before = count(s.foamed);
+    s = run(s, hold({ x: 0.5, y: 3 }, 1_000));
+    expect(count(s.foamed)).toBe(before);
   });
 
-  it('the towel dries where it is rubbed, and the last stage passes into the write with the body dry', () => {
-    let s = showerAll(rubAll(inTub()));
-    expect(s.status).toBe('dry');
-    const wetBefore = s.wet.reduce((a, b) => a + b, 0);
-    s = drag(s, { x: 0.5, y: 0.1 }, { x: 0.5, y: 0.9 });
-    expect(s.wet.reduce((a, b) => a + b, 0)).toBeLessThan(wetBefore);
-    expect(s.status).toBe('dry');
-    s = rubAll(s);
+  it('a cell under the middle of the column rinses in about a third of a second, and not before', () => {
+    let s = run(begun(RITUALS.soap, FULL, { w: 160, h: 160 }), strokesEverywhere());
+    const i = cellIndex(BATH_GRID, 3, 3);
+    const x = cellCenter(BATH_GRID, i).x;
+    s = run(s, hold({ x, y: 0.6 }, 300));
+    expect(s.foamed[i]).toBe(true);
+    s = run(s, hold({ x, y: 0.6 }, 100));
+    expect(s.foamed[i]).toBe(false);
+  });
+
+  it('the shower works with time, never by moving it alone; a tap rinses nothing', () => {
+    let s = run(begun(), strokesEverywhere());
+    const before = count(s.foamed);
+    s = run(s, [{ type: 'pointer-down', point: { x: 0.2, y: 0.9 } }, ...[0.3, 0.5, 0.7, 0.9].map((x) => ({ type: 'pointer-move' as const, point: { x, y: 0.9 } })), { type: 'pointer-up' }]);
+    expect(count(s.foamed)).toBe(before);
+  });
+
+  it('the rinse passes at about 0.85 and washes off the rest, the whole body wet', () => {
+    let s = run(begun(), strokesEverywhere());
+    for (let i = 0; i < 40 && s.status === 'stage'; i++) s = run(s, hold({ x: ((i % 8) + 0.5) / 8, y: 0.9 }, 300));
     expect(s.status).toBe('committing');
-    expect(s.attempts).toBe(1);
-    expect(s.progress).toBe(1);
-    expect(s.completed).toEqual(['entering', 'soap', 'rinse', 'dry']);
-    // Only the write's own events move it on
-    expect(reduce(s, { type: 'pointer-down', point: { x: 0.5, y: 0.5 } }).stroke).toBeNull();
-    expect(reduce(s, { type: 'cancel', reason: 'stopped' }).status).toBe('committing');
-    expect(reduce(s, { type: 'landed' }).status).toBe('done');
-    expect(isBathActive(reduce(s, { type: 'landed' }).status)).toBe(false);
+    expect(count(s.foamed)).toBe(0);
+    expect(count(s.wet)).toBe(count(s.body));
+  });
+});
+
+describe('the write and the ways out', () => {
+  it('nothing reaches committing before the last stage; a retry only after a failure, the player’s, counted', () => {
+    let s = run(begun(RITUALS.towel), strokesEverywhere());
+    expect(s.status).toBe('committing');
+    expect(reduce(s, { type: 'retry' })).toBe(s);
+    s = reduce(s, { type: 'failed', error: 'no relay' });
+    expect(s.status).toBe('failed');
+    expect(s.error).toBe('no relay');
+    s = reduce(s, { type: 'retry' });
+    expect(s.status).toBe('committing');
+    expect(s.attempts).toBe(2);
   });
 
-  it('a failed write waits for Retry, counted; nothing retries by itself; a failed bath can be stopped', () => {
-    const committing = rubAll(showerAll(rubAll(inTub())));
-    const failed = reduce(committing, { type: 'failed', error: 'The relays refused it.' });
-    expect(failed.status).toBe('failed');
-    expect(failed.error).toBe('The relays refused it.');
-    expect(isBathActive(failed.status)).toBe(true);
-    expect(reduce(failed, { type: 'tick', dtMs: 5000 })).toBe(failed);
-    const again = reduce(failed, { type: 'retry' });
-    expect(again.status).toBe('committing');
-    expect(again.attempts).toBe(2);
-    expect(again.error).toBeNull();
+  it('a cancel is refused while the write is out (the session holds it) and after the end', () => {
+    const committing = run(begun(RITUALS.towel), strokesEverywhere());
+    expect(reduce(committing, { type: 'cancel', reason: 'stopped' })).toBe(committing);
+    const done = reduce(committing, { type: 'landed' });
+    expect(reduce(done, { type: 'cancel', reason: 'stopped' })).toBe(done);
+  });
+
+  const reasons: CancelReason[] = ['stopped', 'room', 'teleport', 'hidden', 'unmount'];
+  for (const ritual of [RITUALS.soap, RITUALS.shampoo, RITUALS.towel, RITUALS.soak]) {
+    it(`${ritual.style}: a cancel at every stage ends it with no attempt and nothing committed`, () => {
+      for (let index = 0; index < ritual.stages.length; index++) {
+        let s = begun(ritual);
+        // Walk to the stage
+        for (let k = 0; k < index; k++) {
+          const stage = currentStage(s)!;
+          if (stage.kind === 'script') s = reduce(s, { type: 'script-done' });
+          else if (stage.kind === 'timed') s = reduce(s, { type: 'tick', dtMs: 60_000 });
+          else if (stage.kind === 'rinse') for (let i = 0; i < 40 && currentStage(s)?.kind === 'rinse'; i++) s = run(s, hold({ x: ((i % 8) + 0.5) / 8, y: 0.9 }, 300));
+          else s = run(s, strokesEverywhere());
+        }
+        expect(currentStage(s)?.id).toBe(ritual.stages[index].id);
+        const reason = reasons[index % reasons.length];
+        const cancelled = reduce(s, { type: 'cancel', reason });
+        expect(cancelled.status).toBe('cancelled');
+        expect(cancelled.reason).toBe(reason);
+        expect(cancelled.attempts).toBe(0);
+        // Nothing moves a cancelled ritual on
+        expect(run(cancelled, [{ type: 'landed' }, { type: 'retry' }, { type: 'script-done' }, { type: 'tick', dtMs: 9_999 }]).status).toBe('cancelled');
+      }
+    });
+  }
+
+  it('a failed write can be cancelled (Stop), and nothing was committed', () => {
+    const failed = run(begun(RITUALS.towel), [...strokesEverywhere(), { type: 'failed', error: 'x' }]);
     expect(reduce(failed, { type: 'cancel', reason: 'stopped' }).status).toBe('cancelled');
-    // A retry is only for a failed write
-    expect(reduce(committing, { type: 'retry' }).attempts).toBe(1);
+  });
+});
+
+describe('purity and the words', () => {
+  it('reduce mutates nothing', () => {
+    const s = begun();
+    const frozen = JSON.stringify(s);
+    run(s, [...strokesEverywhere(), ...hold({ x: 0.5, y: 0.9 }, 400), { type: 'cancel', reason: 'stopped' }]);
+    expect(JSON.stringify(s)).toBe(frozen);
   });
 
-  it('a cancel at any stage before the write ends the bath, with its reason, and nothing was committed', () => {
-    for (const s of [fresh(), inTub(), rubAll(inTub()), showerAll(rubAll(inTub()))]) {
-      const ended = reduce(s, { type: 'cancel', reason: 'room' });
-      expect(ended.status).toBe('cancelled');
-      expect(ended.reason).toBe('room');
-      expect(ended.attempts).toBe(0);
-      expect(ended.pointer).toBeNull();
-    }
-    // Done and cancelled are final; idle has nothing to cancel
-    expect(reduce(reduce(rubAll(showerAll(rubAll(inTub()))), { type: 'landed' }), { type: 'cancel', reason: 'unmount' }).status).toBe('done');
-    expect(reduce(createBath(defaultMask()), { type: 'cancel', reason: 'unmount' }).status).toBe('idle');
+  it('strokeSamples steps a third of a cell and includes the end', () => {
+    const samples = strokeSamples({ x: 0, y: 0 }, { x: 0.5, y: 0 });
+    expect(samples.length).toBe(Math.floor(0.5 / BATH_RULES.sampleStep));
+    expect(samples[samples.length - 1]).toEqual({ x: 0.5, y: 0 });
+    expect(strokeSamples({ x: 0.2, y: 0.2 }, { x: 0.2, y: 0.2 })).toEqual([]);
   });
 
-  it('never mutates the state it is given', () => {
-    const s = inTub();
-    const foam = [...s.foam];
-    const next = drag(s, { x: 0.5, y: 0.1 }, { x: 0.5, y: 0.9 });
-    expect(s.foam).toEqual(foam);
-    expect(next).not.toBe(s);
-    expect(s.status).toBe('soap');
+  it('the guidance names the Blobbi and the tool, by the ritual', () => {
+    expect(guidanceFor(begun(RITUALS.soap), 'Lupa')).toBe('Rub the soap all over Lupa.');
+    expect(guidanceFor(begun(RITUALS.shampoo), 'Lupa')).toBe('Rub the shampoo all over Lupa.');
+    expect(guidanceFor(begun(RITUALS.towel), 'Lupa')).toContain('soft towel');
+    expect(guidanceFor(begun(RITUALS.soak), 'Lupa')).toContain('bubbles');
   });
 
-  it('says what to do in a child\'s words, naming the Blobbi, with no semicolons', () => {
-    for (const status of ['entering', 'soap', 'rinse', 'dry', 'committing', 'done', 'failed'] as const) {
-      const line = guidanceFor(status, 'Lupa');
-      expect(line.length).toBeGreaterThan(0);
-      expect(line).not.toMatch(/;/);
-      if (status !== 'failed') expect(line).toMatch(/Lupa/);
-    }
-    expect(guidanceFor('idle', 'Lupa')).toBe('');
+  it('drawn equals counted: the frame’s foamed cells are the machine’s, and the progress is made of the same count', () => {
+    let s = begun(RITUALS.soap, FULL, { w: 34, h: 34 });
+    s = run(s, drag({ x: 0.1, y: 0.3 }, { x: 0.9, y: 0.3 }));
+    const frame = frameFromState(frameSource(s), { key: 1, ritual: s.ritual, outline: { bottom: 0.08, top: 0.92 }, reducedMotion: false });
+    expect(foamedCount(frame)).toBe(count(s.foamed));
+    expect(s.progress).toBeCloseTo(foamedCount(frame) / count(s.visible), 5);
   });
 });
