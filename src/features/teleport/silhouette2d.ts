@@ -100,3 +100,68 @@ export async function readDrawingOutline(svg: SVGSVGElement | null): Promise<Dra
     return null;
   }
 }
+
+// ─── Rows and a path (M15 care: the bath's effects clipped to the body) ─────
+
+/** One row of an outline across the box: its height (a fraction from the box's bottom) and the body's edges there (x, 0 left to 1 right). */
+export interface OutlineRow {
+  y: number;
+  left: number;
+  right: number;
+}
+
+/**
+ * An outline as rows, feet to top: `rows` heights evenly through the body (the first at its feet, the last at its
+ * top), each with the body's edges there in box x (0..1). A height with no span is skipped; a body too thin for
+ * a row gives none.
+ */
+export function outlineRows(outline: Pick<DrawingOutline, 'silhouette' | 'bottom' | 'top'>, rows: number): OutlineRow[] {
+  const out: OutlineRow[] = [];
+  const n = Math.max(2, Math.floor(rows));
+  const height = Math.max(1e-3, outline.top - outline.bottom);
+  for (let i = 0; i < n; i++) {
+    const h = i / (n - 1);
+    const span = outline.silhouette.span(h);
+    if (!span) continue;
+    out.push({ y: outline.bottom + h * height, left: span.left + 0.5, right: span.right + 0.5 });
+  }
+  return out;
+}
+
+/**
+ * A closed, rounded SVG path through rows (feet to top), in a 100 × 100 box with y DOWN (the bath's effects
+ * viewBox): up the right edge and down the left, each edge a smooth curve through its points, grown by `pad`
+ * (box fractions) all round. Fewer than two rows give an empty path (nothing is clipped in).
+ */
+export function rowsPath(rows: readonly OutlineRow[], pad = 0): string {
+  if (rows.length < 2) return '';
+  const sorted = [...rows].sort((a, b) => a.y - b.y);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  const pt = (x: number, y: number) => ({ x: x * 100, y: (1 - y) * 100 });
+  const points = [
+    // Under the feet and over the top: the ends close in to the middle so the shape rounds off there
+    pt((first.left + first.right) / 2, first.y - pad),
+    ...sorted.map((r) => pt(r.right + pad, r.y)),
+    pt((last.left + last.right) / 2, last.y + pad),
+    ...[...sorted].reverse().map((r) => pt(r.left - pad, r.y)),
+  ];
+  return smoothClosed(points);
+}
+
+/** A closed Catmull-Rom spline through points as cubic Béziers (2 decimals). */
+function smoothClosed(points: { x: number; y: number }[]): string {
+  const n = points.length;
+  const f = (v: number) => v.toFixed(2);
+  let d = `M ${f(points[0].x)} ${f(points[0].y)}`;
+  for (let i = 0; i < n; i++) {
+    const p0 = points[(i - 1 + n) % n];
+    const p1 = points[i];
+    const p2 = points[(i + 1) % n];
+    const p3 = points[(i + 2) % n];
+    const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
+    const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
+    d += ` C ${f(c1.x)} ${f(c1.y)}, ${f(c2.x)} ${f(c2.y)}, ${f(p2.x)} ${f(p2.y)}`;
+  }
+  return `${d} Z`;
+}

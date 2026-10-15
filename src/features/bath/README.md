@@ -101,3 +101,104 @@ The types are frozen; later changes are additive only, announced in
 - A cleaning item chosen while an earlier owned use is still open in the
   spend ledger is not bathed with: that use is resumed and finished first
   (the old way), so the bath's one write can only ever be its own.
+
+## Rendering (Agent B, M15 care refinement)
+
+What each renderer draws from the frame, and the rules it keeps. Nothing
+here counts: what is drawn foamed is `foamed`, wet is `wet`, towelled is
+`dry`, a cue is played once per id, and no renderer ever decides progress.
+
+### 2D (`BathEffects2D.tsx`, `effects/body-shape.ts`, `bath.css`)
+
+- **Clipped to the body.** Everything laid on the Blobbi is inside one SVG
+  `clipPath` built from the frame's body cells: each grid row with a body
+  cell gives a row from the leftmost cell to the rightmost (drawn in from
+  their outer edges by `EDGE_INSET`, since a cell counts when its centre is
+  in the silhouette), the lowest at the outline's feet and the highest at its top,
+  rounded into a closed spline (`teleport/silhouette2d.ts`: `rowsPath`,
+  with `outlineRows` beside it for a drawing's own silhouette). Off the
+  body only what falls is drawn: the shower's rain, the falling half of
+  each drop and its ground splash, and the cues' bursts.
+- **The foam** is one bubble per foamed cell (a radial gradient, a pop-in);
+  the shampoo's lather is tinted lavender and denser (a second, smaller
+  bubble each). `bath-foam[data-count]` is the machine's count.
+- **The sheen** is a glossy gradient clipped to the wet cells not yet dry,
+  its opacity `0.18 + 0.32 × wetness`; a towel ritual (whose `wetness` is
+  always 0) shows a damp sheen over every body cell not yet rubbed dry, and
+  a soft fluff on each `dry` cell, so the rub is visible where it went.
+- **The water**: up to four thin streams down the body's sides and belly
+  (dashes flowing along a path through the rows) in step with `wetness`
+  (all four under the shower), and up to six drops that start on the body,
+  slide to the lowest body cell of their column, let go there (the clip
+  cuts them off) and fall, outside the clip, to a ring on the ground at the
+  outline's feet. One CSS cycle per drop (`--cycle`, `--slide-dy`,
+  `--fall-dy`); about twenty nodes beyond the foam.
+- **The rain** falls from the shower head to the body's top under each
+  drop (the feet beside the body), with a splash where it lands, inside the
+  clip.
+- **The cues**: `splash-in` / `splash-out` draw a ring and drops flung up at
+  the feet; `shake` flings a ring of drops out from the body's middle and
+  mounts a `.bath-shake` marker in the layer for the burst's length. The
+  stylesheet wobbles the drawing beside that marker with `:has()` (the 2D
+  home's actor box, the room's Classic drawing); no host sets anything. A
+  browser without `:has()` keeps the burst and skips the wobble. The
+  memory is the last cue id; a new `key` starts it afresh.
+- **The tub** (`BathTub2D.tsx`): during `play`, rings widen on the water
+  behind the Blobbi and drops are flung up over the near edge, again and
+  again (stage-driven, not a cue).
+- **Reduced motion** (`frame.reducedMotion`, and the layer's
+  `data-reduced`): no streams, no running or falling drops, no rain drops
+  (a still spray from the head), no wobble; the foam and the sheen still;
+  a burst fades in place. The state (which cells are foamed, wet, dry)
+  stays legible.
+
+### 3D (`room/lib/scene/bath-scene.ts`, `bath-fx/`)
+
+- **The surface** (`bath-fx/surface.ts`): once per ritual (again if the
+  Blobbi's size or what stands there changes, never mid-jump), every body
+  cell is sampled by a ray from the camera's side onto the 3D model's
+  meshes (the shadow caster's shape when the page draws the Blobbi; the
+  plain dome where the ray meets nothing), giving a point and a normal in
+  the actor's frame (across, up, out). The foam sits on those points; the
+  drops run between them. The effects follow the actor each frame from
+  those offsets.
+- **The foam** is one instanced sphere per foamed cell on the surface,
+  lifted by its radius along the normal; the shampoo's lather is tinted
+  and has a second, smaller bead per cell. One draw call.
+- **The water** (`bath-fx/droplets.ts`): a pool of 28 beads, as many
+  running as `wetness` asks, each spawned near the top of a body column,
+  running sample to sample down it, let go at the column's lowest body
+  cell, falling under gravity and splashing on the floor (the tub's water
+  when the Blobbi stands in the tub). Two draw calls (the beads, the
+  rings), however many there are.
+- **The wet look** (`bath-fx/wet-look.ts`): the model's standard materials
+  have their roughness lowered toward 0.22 in step with `wetness` (and a
+  clearcoat where a material has one), and are put back EXACTLY when the
+  body dries, the bath ends or the layer is disposed. No material is
+  created or replaced, so nothing recompiles.
+- **The cues**: `splash-in` / `splash-out` fling beads up from the water;
+  `shake` wobbles the model about its feet (a decaying roll post-multiplied
+  on its root's quaternion each frame for `SHAKE_S`; the actor sets its
+  turn afresh every frame, so nothing is left behind) and flings a ring of
+  beads. Once per cue id; a new `key` starts afresh.
+- **Reduced motion**: no beads, no bursts, no wobble, the rain still; the
+  foam and the sheen stay.
+
+### The room's two passes (the rules this layer keeps)
+
+- With the page's drawing in the tub (Classic), only the tub's **near walls,
+  rim and feet** go on the overlay pass (layer 1), over the drawing, the
+  way the 2D home's front layer stands over its actor. The **water and the
+  suds never do**: on the overlay they drowned the drawing; they stay on
+  the main pass, behind it. Nothing laid on the body is drawn here then
+  (`bodyFx` hidden): the DOM layer draws the same clipped effects over the
+  drawing. A ritual in place with the drawing hides the whole layer.
+- Every mesh that may go on the overlay pass receives shadows (the pass's
+  standing rule: WebKit's GL rejects a draw there from a program compiled
+  without shadow sampling). The overlay pass is skipped on a frame where
+  the key light casts and its shadow map is not built yet
+  (`RoomScene.renderFrame`), and a change of shadow quality is applied
+  between the two passes, never before the overlay pass
+  (`RoomScene.applyShadowQuality`).
+- No new WebGL context, no fluid simulation: everything is instanced
+  meshes and the stylesheet.

@@ -1780,7 +1780,9 @@ export class RoomScene {
   private updateBathAnchor() {
     if (!this.bath) return;
     const main = this.actors.get(MAIN);
-    if (main) this.bath.layer.update(this.bath.frame, { x: main.x, z: main.z, elev: main.elev, tiles: main.tiles });
+    // The model's root (sampled for the foam and the drops, made glossy, wobbled) when one draws it; the shadow
+    // caster's shape stands in for the sampling when the page draws the Blobbi
+    if (main) this.bath.layer.update(this.bath.frame, { x: main.x, z: main.z, elev: main.elev, tiles: main.tiles, model: main.model?.object ?? null, proxy: main.caster });
   }
 
   /** A piece's footprint on the floor (tiles), as laid out now, or null for no such piece (or one on a wall). */
