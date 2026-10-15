@@ -64,40 +64,56 @@ The types are frozen; later changes are additive only, announced in
 
 ## The hosts
 
-- **2D home** (`home/BlobbiOverview.tsx`): the bath's session over the home's
-  own `useUseItem` / `useStarterUse`; the Blobbi walks to the tub's spot and
-  the two tub layers stand round it; the actor takes the bath's face, gaze
-  and gesture over its presentation; the layer is the actor's child; the bar
-  stands in the options slot. An egg is bathed on its nest, with no tub.
+- **2D home** (`home/BlobbiOverview.tsx`): the ritual's session over the
+  home's own `useUseItem` / `useStarterUse`; a wash or a towelling is played
+  where the Blobbi stands; a soak walks to the tub's spot, jumps in (the
+  actor's hop, the two tub layers round it), plays, jumps out and steps
+  toward the viewer; the actor takes the session's face, gaze and gesture
+  over its presentation; the layer is the actor's child; the bar stands in
+  the options slot. An egg soaks on its nest, with no tub.
 - **3D room** (`room/RoomPreviewPage.tsx`): the session runs on the room's
   director (`interactions.run('bathing', …)`, so the room knows the Blobbi
-  is busy); the Blobbi walks to the tub item and is scripted onto its floor
-  (`setActorScript`, `BATH_ELEV`); the scene is handed the bath to draw
-  (`RoomControl.bath`); the layer stands in the Blobbi's overlay box; the
-  room's own taps, strokes and swipes are locked (`inputLocked`); the write
-  is the room's own offer (`care.place` + `begin`), placed only at the end.
-  A room without a tub, the simple room, and an egg bathe where the Blobbi
-  stands.
+  is busy); the scene is handed every frame on the main actor
+  (`RoomControl.bath(frame, anchor)`: `tubIndex` null in place); a soak walks
+  to the tub item and is scripted onto its floor (`setActorScript`,
+  `BATH_ELEV`) and back out over its near rim; the layer stands in the
+  Blobbi's overlay box; the room's own taps, strokes and swipes are locked
+  (`inputLocked`); the write is the room's own offer (`care.place` +
+  `begin`), placed only at the end. A room without a tub, the simple room,
+  and an egg soak where the Blobbi stands.
 
 ## The rules that matter
 
-- Nothing is written, spent or persisted before the last stage: a cancel at
-  any step, a refresh, leaving the room or switching homes writes nothing and
-  consumes nothing, and the Blobbi is put back on the floor (the run's
-  cleanup gives everything back).
+- Nothing is written, spent or persisted before the last stage (a soak's:
+  the jump out): a cancel at any step, a refresh, leaving the room or
+  switching homes writes nothing and consumes nothing, and the Blobbi is put
+  back on the floor (the run's cleanup gives everything back).
 - The write is the home's existing use path: an owned item signs one spend,
   ledgered and resumed on Try again (never a second one); a starter writes
   the 31124 and its 1124. A cancel asked during the write is held until it
-  has landed or failed.
-- A tap never passes a stage: the soap and the towel lay nothing until the
-  pointer has travelled past a tap's slop; the shower works with time under
-  its head; each stage needs most of the body covered.
-- Hygiene already full refuses a bath with a word (no free play mode).
+  has landed or failed. A wet Blobbi shakes itself dry only after a landed
+  write (the `shake` cue).
+- A tap never passes a stage: the lather and the towel lay nothing until the
+  pointer has travelled past a tap's slop (at least 5 px); the shower works
+  with time under its head; each stage needs most of the visible body
+  covered (lather 0.75, rinse 0.85, towel 0.7), and the last two cells
+  finish themselves. Only visible body cells count, and what is drawn is
+  exactly what is counted (booleans).
+- Measured in px on screen: the brush is at least 24 px across, the
+  shower's column at least 18 px, its head 26 px above the finger (so the
+  finger never hides it or the face) and it still reaches the body from the
+  top of the touch margin; the touch surface is the art box and at least
+  24 px round it. A cell under the middle of the stream rinses in 0.35 s.
+- Nothing is rubbed before the body's outline is known (or 0.7 s have
+  passed and the plain body stands in): what is laid is never thrown away.
+- Hygiene already full refuses a ritual with a word (no free play mode).
 - Reduced motion keeps the faces and the eyes and drops the hops, the
   wiggles, the sparkles, the bobbing tools and the moving water.
-- The bath is busy for as long as it is on screen, its celebration included
-  (`active || view !== null`): the invitation to save and the home's own
-  verbs wait for it; the room's needs HUD steps aside meanwhile.
+- The ritual is busy for as long as it is on screen, its celebration
+  included (`active || view !== null`): the invitation to save and the
+  home's own verbs wait for it; the room's needs HUD steps aside meanwhile.
 - A cleaning item chosen while an earlier owned use is still open in the
-  spend ledger is not bathed with: that use is resumed and finished first
-  (the old way), so the bath's one write can only ever be its own.
+  spend ledger is not played with: that use is resumed and finished first
+  (the old way), so the ritual's one write can only ever be its own.
+- Medicine is not a ritual (`home/medicine`): a short moment where the
+  Blobbi stands, on the home's item path, never the bath and never the tub.

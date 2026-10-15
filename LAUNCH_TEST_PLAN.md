@@ -368,6 +368,37 @@ a real device yet.
 | 12 | Mobile zoom | Focus every text field (sign-in key, bunker, profile steps, egg name, graphics select); double-tap the 2D home and the egg; pinch in and out | No zoom on focus or double tap; pinch still zooms and lets go; record the probe's numbers if anything zooms |
 | 13 | Account recovery | On a second browser, sign in with the saved account's key; reopen the first browser | The same Blobbi, with its care and its stage, on both browsers |
 
+## 1j. M15 care refinement on a real iPhone: the rituals, medicine, Care
+
+Each cleaning item is its own game now (Soap and Shampoo a wash where the
+Blobbi stands, Soft Towel a towelling, Bubble Bath a soak in the tub);
+medicine is a short moment; the 2D verb reads "Care". This replaces 1h's
+"every item at the tub" steps. Safari first, then Chrome on the same phone;
+note the iOS version, the model and the browser for every line. Use
+`?fixture=baby-v3&low=hygiene` (the flagged dev server) or a real Blobbi
+whose hygiene and health are not full. Nothing here was checked on a real
+device yet: Playwright's WebKit is not an iPhone.
+
+| # | Area | Do | Expected |
+|---|---|---|---|
+| 1 | Care label | 2D home: look at the dock | The third verb reads **Care**; the status ring for hygiene still reads Clean |
+| 2 | Care carousel | Care, step through the items | The hygiene items first (Soap, Shampoo, Soft Towel, Bubble Bath, in any order), then the medicine with a thin **Health** divider above while one is in the middle |
+| 3 | Soap, 2D | Care → Soap | No tub, no walk; the soap in the dock; a tap lays nothing; one finger stroke lathers a band under the finger; scribbling in one spot stops growing; most of the body covered, the rest foams by itself and the shower card comes |
+| 4 | Shower | Hold a finger just above the Blobbi's head and sweep slowly | The shower head shows above the finger, not under it; the face stays visible; rain falls and the foam under it washes off after a moment, the top of the head too; lifting the finger stops it; done, one write, the Blobbi shakes itself dry, sparkles |
+| 5 | Shampoo | Care → Shampoo, in both homes | The same game as the soap (the look may differ); no tub; one write |
+| 6 | Soft Towel | Care → Soft Towel | A short rub where the Blobbi stands, no soap, no shower, no tub; one write, no shake |
+| 7 | Bubble Bath, 2D | Care → Bubble Bath | The tub comes out; the Blobbi walks there and jumps in; a few seconds of play in the bubbles with nothing to do; it jumps out wet; only THEN the write (chips +70 clean +25 joy); a shake, the celebration; the tub sinks away |
+| 8 | Rituals, room Classic | Room, care room, Appearance Classic: Soap, Soft Towel, Bubble Bath | Soap and the towel where the Blobbi stands (the tub stays a tub); Bubble Bath walks to the tub, jumps in and out; the dock's bar; the room's swipes off meanwhile, the pinch on |
+| 9 | Rituals, room 3D Model | The same with Appearance 3D Model | As 8; no crash card; no WebGL errors in the console |
+| 10 | Small Blobbi | The room on the smallest phone available (about 320×460), Soap | Easy to reach (the touch area is wider than the Blobbi); one or two strokes lather it; the shower held just above it rinses it |
+| 11 | Stop and leave | Stop at each stage of each ritual (the soak: during the walk, the play and the jump out); change room; switch homes; reload | Nothing written, an owned item's count unchanged, the Blobbi on the floor, the carousel back |
+| 12 | Failed write | Airplane mode just before the last stage (Soap) and during the soak's play (Bubble Bath); Try again offline, then online | Nothing retries by itself; no shake before the write lands; Try again online writes once (an owned item: one spend in all) |
+| 13 | Medicine, 2D | Care → Bandage (health below full) | No walk, no tub, no bath bar; worried, the bandage flies to its mouth, a wiggle; then the write; relieved with sparkles, "Treated"; about one and a half seconds |
+| 14 | Medicine, room | Care room, Bandage, Classic and 3D Model | The same moment where it stands; never a walk to the tub; the item never lies on the floor |
+| 15 | Medicine rules | Health full: Care → Bandage; hygiene full and health low: Care → Bandage | Health full: "…is feeling fine. No medicine needed!" and nothing written; hygiene full does not stop medicine |
+| 16 | Medicine failure | Airplane mode, Care → Bandage | The item stays on the floor with Try again / Put away; Try again online writes once |
+| 17 | Reduced motion | Settings → Accessibility → Reduce Motion, repeat 3, 7 and 13 | Faces and eyes still change; no hops, wiggles, sparkles, flights or moving water; every stage still passes |
+
 ## 2. The room (after choosing it: menu → Explore in 3D)
 
 1. Reload with a hatched, awake Blobbi: the room appears, then the Blobbi
