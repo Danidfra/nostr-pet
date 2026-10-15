@@ -34,7 +34,8 @@ export function useBlobbonautProfile(pubkey: string | undefined, { watch = false
     enabled: !!pubkey,
     staleTime: 30_000,
     retry: 1,
-    ...(watch ? { refetchOnWindowFocus: true, refetchOnReconnect: true, refetchInterval: PROFILE_WATCH_INTERVAL_MS, refetchIntervalInBackground: false } : {}),
+    // Coming back to the page is coming back from another Blobbi game: read again even if the last read is fresh
+    ...(watch ? { refetchOnWindowFocus: 'always' as const, refetchOnReconnect: true, refetchInterval: PROFILE_WATCH_INTERVAL_MS, refetchIntervalInBackground: false } : {}),
   });
 }
 

@@ -27,11 +27,11 @@
  *     published every change (`by: 'legacy'`): the global choice wins.
  *  6. A choice made here and NOT yet known to the network (offline, a failed
  *     or refused signature, no profile to update):
- *     a. made over the very profile now seen, or over a newer one, or over
- *        one that already named the Blobbi it names (`over`: the profile the
- *        player was shown when they chose): the player chose knowing that
- *        choice, so theirs wins (a profile rewritten since for something
- *        else, a new Blobbi listed, does not undo it);
+ *     a. made over the very profile now seen, or over a newer one (`over`:
+ *        the profile the player was shown when they chose): the player chose
+ *        knowing that choice, so theirs wins. A profile written AFTER it is
+ *        never ignored, even one naming the Blobbi the player passed over (it
+ *        may be a real new choice made elsewhere): the clock decides (b);
  *     b. otherwise this device's clock against the profile's `created_at`.
  *        Only a clear gap of more than `CHOICE_SKEW_MS`, both times in the
  *        past, decides; anything else (too close, a future time, a missing
@@ -43,6 +43,14 @@
 
 /** Clocks of different devices are never exactly the same: closer than this, two choices cannot be ordered. */
 export const CHOICE_SKEW_MS = 60_000;
+
+/**
+ * For WRITERS: a choice shared within this long of being made is the player's latest act in real time: every profile
+ * a writer finds on the relays then was written before it (give or take these seconds), whatever its device's clock
+ * says, so it is written over them without asking. Only a later attempt (a retry, a choice kept offline) is ordered
+ * by the rules above against what it finds. (Two choices made in two apps within these seconds: the later write wins.)
+ */
+export const CHOICE_FRESH_MS = 30_000;
 
 /** A profile event, as far as ordering goes. `createdAt` in seconds (NIP-01). */
 export interface ProfileStamp {
@@ -104,7 +112,7 @@ export function orderChoices(local: LocalChoiceFacts | null, global: GlobalChoic
     if (remoteAt === local.at) return { winner: 'ambiguous', rule: 'remote-time', reason: 'equal-time' };
     return { winner: remoteAt > local.at ? 'global' : 'local', rule: 'remote-time' };
   }
-  if (local.over && (local.over.id === global.id || !replaces(global, local.over) || (!!local.over.d && local.over.d === global.d))) return { winner: 'local', rule: 'seen' };
+  if (local.over && (local.over.id === global.id || !replaces(global, local.over))) return { winner: 'local', rule: 'seen' };
   if (local.at === null || !Number.isFinite(local.at)) return { winner: 'ambiguous', rule: 'clock', reason: 'no-local-time' };
   if (local.at > now + skewMs || remoteAt > now + skewMs) return { winner: 'ambiguous', rule: 'clock', reason: 'future' };
   const gap = remoteAt - local.at;

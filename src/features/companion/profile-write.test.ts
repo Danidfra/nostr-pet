@@ -253,8 +253,19 @@ describe('the companion choice written into the profile', () => {
     const seen = profileEvent(acc, { has: [a, b, c], companion: a, createdAt: S - 3_600 });
     net.seed(profileEvent(acc, { has: [a, b, c], companion: c, createdAt: S - 20 }));
     const run = deps(net, acc);
-    expect((await writeCompanionProfile({ owner: acc.pubkey, d: b, at: NOW - 10_000, over: { id: seen.id, createdAt: seen.created_at, d: a }, pending: null }, run.deps)).kind).toBe('ambiguous');
+    // Chosen 45 s ago (a retry, not the share right after the choice); Pixel chose 20 s ago
+    expect((await writeCompanionProfile({ owner: acc.pubkey, d: b, at: NOW - 45_000, over: { id: seen.id, createdAt: seen.created_at, d: a }, pending: null }, run.deps)).kind).toBe('ambiguous');
     expect(net.sent()).toHaveLength(0);
+  });
+
+  it('the share right after the choice is the latest act: written over a profile made moments before, never asked', async () => {
+    const acc = testAccount();
+    const net = fakeNetwork();
+    const [a, b, c] = [dOf(acc.pubkey, 1), dOf(acc.pubkey, 2), dOf(acc.pubkey, 3)];
+    // Pixel chose c 8 s ago; this app had never read the profile (nothing seen)
+    net.seed(profileEvent(acc, { has: [a, b, c], companion: c, createdAt: S - 8 }));
+    expect((await writeCompanionProfile({ owner: acc.pubkey, d: b, at: NOW - 1_000, over: null, pending: null }, deps(net, acc).deps)).kind).toBe('saved');
+    expect(companion(newestOn(net, DITTO))).toBe(b);
   });
 
   it('offline: nothing is read, signed or sent', async () => {

@@ -13,6 +13,10 @@
  *   base      the newest valid profile by the owner (a valid 11125 before any
  *             legacy 31125; NIP-01 order: newer created_at, then lower id).
  *             None at all: `no-profile` (a profile is never created here).
+ *   order     a choice made clearly later elsewhere is never overwritten:
+ *             unless this is the share right after the choice
+ *             (`CHOICE_FRESH_MS`), the rules of `choice-order.ts` decide
+ *             (`superseded`, or `ambiguous`: the player is asked).
  *   build     the base's tags with `current_companion` replaced (the kit's
  *             `updateBlobbonautTags`), the chosen Blobbi added to `has` when
  *             missing (never removed), its content as it is, `created_at`
@@ -34,7 +38,7 @@
  */
 import { KIND_BLOBBONAUT_PROFILE, KIND_BLOBBONAUT_PROFILE_LEGACY, getBlobbonautQueryDValues, getCanonicalBlobbonautD, isValidBlobbonautEvent, parseBlobbonautEvent, updateBlobbonautTags, type NostrEvent } from '@blobbi-kit/core';
 import { verifyEvent } from 'nostr-tools/pure';
-import { orderChoices, replaces, type ProfileStamp, type SeenProfile } from './choice-order';
+import { CHOICE_FRESH_MS, orderChoices, replaces, type ProfileStamp, type SeenProfile } from './choice-order';
 import type { PendingWrite } from './choice-store';
 
 export interface ProfileFilter {
@@ -252,8 +256,9 @@ export async function writeCompanionProfile(req: ProfileWriteRequest, deps: Prof
       if (!base) return { kind: 'no-profile' };
       const named = companionOf(base);
       if (named === d) return { kind: 'unchanged', profile: stamp(base) };
-      // A choice made elsewhere after this one is never overwritten (`choice-order.ts`, the same rules as the screen)
-      if (named) {
+      // A choice made elsewhere after this one is never overwritten (`choice-order.ts`, the same rules as the screen);
+      // a choice shared right after it was made is the latest act there is (`CHOICE_FRESH_MS`)
+      if (named && deps.now() - req.at > CHOICE_FRESH_MS) {
         const order = orderChoices({ d, at: req.at, by: 'player', synced: null, over: req.over }, { d: named, ...stamp(base) }, deps.now());
         if (order.winner === 'global') return { kind: 'superseded', profile: { ...stamp(base), d: named } };
         if (order.winner === 'ambiguous') return { kind: 'ambiguous', profile: { ...stamp(base), d: named } };

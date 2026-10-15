@@ -56,11 +56,16 @@ export function useCompanionChoice({ pubkey, ownedDs, profile, env, ready }: { p
   }, [pubkey, env]);
 
   const global = useMemo(() => globalChoiceOf(profile, pubkey, owned), [profile, pubkey, owned]);
-  // The profile the player is shown now: a choice made now is made over it
+  // The profile the player has been shown: a choice made now is made over it. The newest of the profile read and the
+  // one this device's current choice was carried by or agreed with (a Blobbi met from another app, say).
   const seen = useMemo(() => {
     const e = profile?.event as NostrEvent | undefined;
-    return e && e.pubkey === pubkey ? { id: e.id, createdAt: e.created_at, d: profile?.currentCompanion ?? null } : null;
-  }, [profile, pubkey]);
+    const read = e && e.pubkey === pubkey ? { id: e.id, createdAt: e.created_at, d: profile?.currentCompanion ?? null } : null;
+    const own = choice?.synced && choice.synced.createdAt > 0 ? { ...choice.synced, d: choice.d } : null;
+    if (!own) return read;
+    if (!read) return own;
+    return read.createdAt > own.createdAt || (read.createdAt === own.createdAt && read.id <= own.id) ? read : own;
+  }, [profile, pubkey, choice]);
   const local = choice && owned.has(choice.d) ? choice : null;
   const order = useMemo(() => (ready ? orderChoices(choiceFacts(local), global, Date.now()) : NOTHING), [ready, local, global]);
 

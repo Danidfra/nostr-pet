@@ -38,7 +38,9 @@ const CHOICE_ORDER_VECTORS: { name: string; local: LocalChoiceFacts | null; glob
   // Chosen over the profile the player was shown: that profile never overrides the choice, however close in time
   { name: 'unpublished, chosen over this very profile', local: l(A, NOW - 10_000, 'player', null, { id: id('b'), createdAt: S - 30 }), global: g(B, S - 30), winner: 'local' },
   { name: 'unpublished, chosen over a newer profile than this one', local: l(A, NOW - 10_000, 'player', null, { id: id('c'), createdAt: S - 20 }), global: g(B, S - 30), winner: 'local' },
-  { name: 'unpublished, the profile rewritten since but naming what the player saw', local: l(A, NOW - 10_000, 'player', null, { id: id('c'), createdAt: S - 900, d: B }), global: g(B, S - 5), winner: 'local' },
+  // A profile written after the choice naming the Blobbi the player passed over may be a real new choice: never ignored
+  { name: 'unpublished, a newer profile naming the Blobbi passed over, close in time', local: l(A, NOW - 10_000, 'player', null, { id: id('c'), createdAt: S - 900, d: B }), global: g(B, S - 5), winner: 'ambiguous' },
+  { name: 'unpublished, a newer profile naming the Blobbi passed over, clearly later', local: l(A, NOW - 600_000, 'player', null, { id: id('c'), createdAt: S - 900, d: B }), global: g(B, S - 60), winner: 'global' },
   { name: 'unpublished, a profile made since the choice, close in time', local: l(A, NOW - 100_000, 'player', null, { id: id('c'), createdAt: S - 900 }), global: g(B, S - 70), winner: 'ambiguous' },
   { name: 'unpublished, a profile made clearly after the choice', local: l(A, NOW - 600_000, 'player', null, { id: id('c'), createdAt: S - 900 }), global: g(B, S - 60), winner: 'global' },
 ];
