@@ -24,6 +24,19 @@ export const BASE_RELAYS: readonly string[] = [
 ];
 
 /**
+ * The player's profile (kind 11125) is replaceable: a write replaces it
+ * everywhere. A companion change is built only from a read in which EACH of
+ * these relays answered: every Blobbi app (this home, Blobbi Pixel, Ditto)
+ * writes profiles to both, so the newest profile is on one of them.
+ * A write counts as saved when read back from `PROFILE_WRITE_QUORUM` relays,
+ * `PROFILE_ANCHOR_RELAY` among them (the relay every Blobbi app reads); the
+ * same policy as Blobbi Pixel's (`relay-config.ts` there).
+ */
+export const PROFILE_REQUIRED_RELAYS: readonly string[] = ['wss://relay.ditto.pub', 'wss://relay.primal.net'];
+export const PROFILE_ANCHOR_RELAY = 'wss://relay.ditto.pub';
+export const PROFILE_WRITE_QUORUM = 2;
+
+/**
  * The most relays one read may fan out to, application relays included.
  * Hints are source-controlled constants, so this is a ceiling, not a knob:
  * it caps the damage of a mistaken table, never a player's choice.
