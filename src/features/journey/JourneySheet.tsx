@@ -185,6 +185,31 @@ function TodayMissions({ daily }: { daily: DailyXp }) {
           ))}
         </ul>
       )}
+      {(() => {
+        // Today's progress kept on this device, not in the account yet: said, with the player's Save (never automatic)
+        const p = daily.progress.status;
+        if (p.kind !== 'pending' && p.kind !== 'failed' && p.kind !== 'saving') return null;
+        return (
+          <p className="journey-today__note" role="status" data-testid="journey-today-progress" data-state={p.kind}>
+            {p.kind === 'saving' ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden /> Saving today's progress to your account…
+              </>
+            ) : (
+              <>
+                {p.kind === 'failed' && p.reason === 'storage'
+                  ? "This device couldn't keep today's progress."
+                  : p.kind === 'failed'
+                    ? "Today's progress couldn't be saved to your account just now. It's kept on this device."
+                    : "Today's progress is kept on this device, not saved to your account yet."}{' '}
+                <button type="button" className="journey-today__retry" onClick={daily.progress.save} data-testid="journey-today-save">
+                  Save
+                </button>
+              </>
+            )}
+          </p>
+        );
+      })()}
       <p className="journey-today__note" role="status" data-testid="journey-today-award">
         {award.kind === 'saving' ? (
           <>

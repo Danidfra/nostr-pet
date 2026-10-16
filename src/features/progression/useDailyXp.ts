@@ -12,17 +12,27 @@
  * the profile and written by `writeProfileSafely` (companion sync): one
  * profile write at a time, never over an older profile, so it can never
  * restore a companion chosen a moment before (here or in another app).
+ *
+ * The day's PROGRESS, signed in on the real relays, runs in the kit's safe
+ * mode (blobbi-kit 0.10, `usePersistDailyProgress` with `storage` and
+ * `writeProfile`): kept on this device per account (`localStorage`, public
+ * data only) the moment it happens, merged back after a reload, saved 3 s
+ * after something done here over the NEWEST profile (the companion, `has`,
+ * other tags and content kept), cleared only once read back. It is never
+ * saved by itself on load, on a tab hide, on unmount or after a failure: what
+ * is waiting is said (`progress`) and saved by the player's Save. A guest's
+ * world and a dev fixture keep the kit's legacy mode.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
-import { DAILY_BONUS_XP, getTodayDateString, useDailyMissions, usePersistDailyProgress, useRerollMission, type BlobbiStage, type DailyMissionView } from '@blobbi-kit/react';
+import { DAILY_BONUS_XP, getTodayDateString, useDailyMissions, usePersistDailyProgress, useRerollMission, type BlobbiStage, type DailyMissionView, type DailyProgressStatus, type ProfileWriter, type StorageAdapter } from '@blobbi-kit/react';
 import { fetchFreshBlobbonautProfile, parseBlobbonautEvent, type BlobbiCompanion, type BlobbonautProfile, type MissionsContent, type NostrEvent } from '@blobbi-kit/core';
 import type { NPool } from '@nostrify/nostrify';
 import { usePublishAdapter, type HomePublisher } from '@/features/care/usePublishAdapter';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { canAskRelays, poolProfileRelays } from '@/features/companion/pool-relays';
-import { writeProfileSafely } from '@/features/companion/safe-profile-write';
+import { profileWriterFor, writeProfileSafely } from '@/features/companion/safe-profile-write';
 import { doableHere, paidFor, planDailyAward } from './daily-xp';
 import { dailyXpEnabled } from './daily-xp-switch';
 
@@ -53,9 +63,46 @@ export interface DailyXp {
   rerollsLeft: number;
   swap: (missionId: string) => void;
   swapping: boolean;
+  /** Today's progress not saved to the account yet (signed in on the relays only), and the player's Save. */
+  progress: { pending: boolean; status: DailyProgressStatus; save: () => void };
 }
 
 const NO_PROFILE = 'Your Blobbonaut profile could not be read from the relays.';
+
+/**
+ * This device's storage for progress not saved yet (the kit's `StorageAdapter`): `localStorage`, every access
+ * guarded. A refused write reaches the kit as a throw, which it reports (`failed: storage`) instead of losing quietly.
+ */
+function deviceStorage(): StorageAdapter {
+  const store = () => {
+    try {
+      return typeof window !== 'undefined' ? window.localStorage : null;
+    } catch {
+      return null;
+    }
+  };
+  return {
+    getItem: (key) => {
+      try {
+        return store()?.getItem(key) ?? null;
+      } catch {
+        return null;
+      }
+    },
+    setItem: (key, value) => {
+      const s = store();
+      if (!s) throw new Error('This device keeps no data for this page.');
+      s.setItem(key, value);
+    },
+    removeItem: (key) => {
+      try {
+        store()?.removeItem(key);
+      } catch {
+        /* nothing to remove */
+      }
+    },
+  };
+}
 
 /** One award at a time per player and day, across every mount in this page (a StrictMode re-run, two homes). */
 const inFlight = new Map<string, Promise<AwardState>>();
@@ -117,16 +164,24 @@ export function useDailyXp({ pubkey, companions, profile }: UseDailyXpOptions): 
     },
     [queryClient, pubkey],
   );
-  // The kit keeps the day's progress on the profile (debounced; never a finished day: that is the award's to write)
-  usePersistDailyProgress({ pubkey: available ? pubkey : undefined, publish: publisher.publish, updateProfileEvent });
-  const reroll = useRerollMission({ pubkey: available ? pubkey : undefined });
-
-  // ─── The award ───
-  const [award, setAward] = useState<AwardState>({ kind: 'idle' });
   const raw = daily.raw;
   const signedInAs = user?.pubkey;
   const live = useRef({ nostr, publisher, updateProfileEvent, raw, pubkey, signedInAs });
   live.current = { nostr, publisher, updateProfileEvent, raw, pubkey, signedInAs };
+
+  // The kit keeps the day's progress on the profile (never a finished day: that is the award's to write). Signed in on
+  // the real relays: its safe mode, with this device's storage and the safe write for the account signed in
+  const networked = canAskRelays(nostr);
+  const storage = useMemo(() => (networked ? deviceStorage() : undefined), [networked]);
+  const writeProfile = useMemo<ProfileWriter | undefined>(
+    () => (networked ? profileWriterFor({ relays: poolProfileRelays(nostr), sign: (t) => live.current.publisher.sign(t), stillAccount: (owner) => live.current.signedInAs === owner && live.current.pubkey === owner }) : undefined),
+    [networked, nostr],
+  );
+  const progress = usePersistDailyProgress({ pubkey: available ? pubkey : undefined, publish: publisher.publish, updateProfileEvent, storage, writeProfile, profileContent: profile?.content });
+  const reroll = useRerollMission({ pubkey: available ? pubkey : undefined });
+
+  // ─── The award ───
+  const [award, setAward] = useState<AwardState>({ kind: 'idle' });
   const runAward = useCallback(() => {
     const { pubkey, raw } = live.current;
     if (!pubkey || !raw) return;
@@ -202,5 +257,6 @@ export function useDailyXp({ pubkey, companions, profile }: UseDailyXpOptions): 
     rerollsLeft: daily.rerollsRemaining,
     swap,
     swapping,
+    progress: { pending: progress.pending, status: progress.status, save: () => void progress.save() },
   };
 }

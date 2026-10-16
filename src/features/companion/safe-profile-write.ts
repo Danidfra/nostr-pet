@@ -47,7 +47,10 @@ export function writeProfileSafely<R extends string>(deps: SafeWriteDeps, build:
   return writeWithKit<R>({ ...deps, relays: kitRelays, verify: deps.verify ?? verifyEvent }, build, opts);
 }
 
-/** The kit's `ProfileWriter` for one signed-in account: what its safe-mode hooks write with. */
-export function profileWriterFor(deps: Omit<SafeWriteDeps, 'owner'>): ProfileWriter {
-  return (owner, build) => writeProfileSafely({ ...deps, owner }, build);
+/**
+ * The kit's `ProfileWriter`: what its safe-mode hooks write with. `stillAccount(owner)` says whether the account a
+ * write is FOR is still the one signed in (asked before signing, after signing and right before sending).
+ */
+export function profileWriterFor(deps: Omit<SafeWriteDeps, 'owner' | 'stillAccount'> & { stillAccount: (owner: string) => boolean }): ProfileWriter {
+  return (owner, build) => writeProfileSafely({ ...deps, owner, stillAccount: () => deps.stillAccount(owner) }, build);
 }

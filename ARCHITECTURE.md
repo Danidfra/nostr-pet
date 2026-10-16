@@ -2123,19 +2123,25 @@ card with Try again when a choice could not be shared ("Your other Blobbi
 games don't know about Bo yet."); the question "Who's your companion?" with
 both Blobbis when the order is unclear.
 
-**Known limitation, daily progress (not changed here; owner decision
-pending).** The kit's `usePersistDailyProgress` still writes the day's
-mission progress over its own quick read (`fetchFreshEvent`, which ends a
-moment after the fastest relay) and copies that profile's tags, so it can
-still restore an older `current_companion`. Making it refuse a stale base
-would delay progress, and the kit keeps unsaved progress only in memory (a
-`Map`, `daily-mission-tracker.ts`): it does not survive a reload, is retried
-only on the next mission update, tab hide or unmount, and on the next load
-the profile's older progress is hydrated over it. So the owner's conditions
-for delaying it (kept locally across reloads, retried without another care
-action, never silently lost) cannot be met without changing the kit. Options:
-a durable Standalone hook replacing the kit's, a kit change, or a
-non-refusing rebase of the progress write onto the newest profile.
+**Daily progress, safe and durable (blobbi-kit 0.10).** The kit's
+`usePersistDailyProgress` runs in its safe mode for a signed-in player on
+the relays (`useDailyXp`: this device's `localStorage` as the kit's
+`StorageAdapter`, and `profileWriterFor`, the kit's `writeProfileSafely`
+bound to this account). Progress is kept on this device per account the
+moment it happens (public data only), merged back after a reload, saved
+3 s after something done here over the NEWEST profile (complete read;
+the companion, `has`, other tags and content kept; the profile's own
+progress merged in), and cleared only once read back. It is never saved
+by itself on load, on a tab hide, on unmount or after a failure: the
+Journey says "Today's progress is kept on this device" with Save. A
+finished day is the award's. The profile's missions are merged into this
+page's (the kit's merge on load), never written over local progress.
+Known limits of the kit's merge (no reroll history): two devices
+rerolling the same day, or a reroll picking again a mission replaced
+earlier that day; completed missions and paid XP are never lost.
+`profile-queue.ts` and `safe-profile-write.ts` are now thin adapters over
+the kit (one queue instance for the page). Until 0.10.0 is published the
+dependency is a local tarball, not committed.
 
 **Choice order v1.1 (proposed, deferred).** A confirmed write of ours
 replaced within a short window (for example 10 minutes) by a profile naming
