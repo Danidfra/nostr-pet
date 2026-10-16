@@ -7,13 +7,22 @@
  * the fresh profile at the moment of signing (`planDailyAward`): it is paid
  * once per player and day however many tabs, devices, reloads or Blobbi apps
  * are involved, and a failed award is never retried by itself.
+ *
+ * Signed in on the real relays, the award is planned over a COMPLETE read of
+ * the profile and written by `writeProfileSafely` (companion sync): one
+ * profile write at a time, never over an older profile, so it can never
+ * restore a companion chosen a moment before (here or in another app).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { DAILY_BONUS_XP, getTodayDateString, useDailyMissions, usePersistDailyProgress, useRerollMission, type BlobbiStage, type DailyMissionView } from '@blobbi-kit/react';
-import { fetchFreshBlobbonautProfile, parseBlobbonautEvent, type BlobbiCompanion, type BlobbonautProfile, type NostrEvent } from '@blobbi-kit/core';
-import { usePublishAdapter } from '@/features/care/usePublishAdapter';
+import { fetchFreshBlobbonautProfile, parseBlobbonautEvent, type BlobbiCompanion, type BlobbonautProfile, type MissionsContent, type NostrEvent } from '@blobbi-kit/core';
+import type { NPool } from '@nostrify/nostrify';
+import { usePublishAdapter, type HomePublisher } from '@/features/care/usePublishAdapter';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { canAskRelays, poolProfileRelays } from '@/features/companion/pool-relays';
+import { writeProfileSafely } from '@/features/companion/safe-profile-write';
 import { doableHere, paidFor, planDailyAward } from './daily-xp';
 import { dailyXpEnabled } from './daily-xp-switch';
 
@@ -46,8 +55,45 @@ export interface DailyXp {
   swapping: boolean;
 }
 
+const NO_PROFILE = 'Your Blobbonaut profile could not be read from the relays.';
+
 /** One award at a time per player and day, across every mount in this page (a StrictMode re-run, two homes). */
 const inFlight = new Map<string, Promise<AwardState>>();
+
+/**
+ * The award on the real relays: planned over a complete read of the newest profile and written by
+ * `writeProfileSafely` (one profile write at a time, never over an older profile, the signer asked at most once).
+ */
+async function awardSafely(
+  owner: string,
+  missions: MissionsContent,
+  { nostr, publisher, updateProfileEvent, stillAccount }: { nostr: NPool; publisher: HomePublisher; updateProfileEvent: (event: NostrEvent) => void; stillAccount: () => boolean },
+): Promise<AwardState> {
+  let xp = 0;
+  const out = await writeProfileSafely({ owner, relays: poolProfileRelays(nostr), sign: (t) => publisher.sign(t), stillAccount }, (base) => {
+    const decision = planDailyAward(base ? (parseBlobbonautEvent(base) ?? null) : null, missions);
+    if (decision.kind !== 'award') return { skip: decision.kind };
+    xp = decision.xp;
+    return { template: decision.template };
+  });
+  switch (out.kind) {
+    case 'sent':
+      updateProfileEvent(out.event);
+      return { kind: 'paid', xp };
+    case 'skipped':
+      return out.reason === 'already-paid' ? { kind: 'already' } : out.reason === 'no-profile' ? { kind: 'failed', message: NO_PROFILE } : { kind: 'idle' };
+    case 'no-profile':
+      return { kind: 'failed', message: NO_PROFILE };
+    case 'unsafe':
+      return { kind: 'failed', message: 'Not every relay answered, so nothing was saved. Try again in a moment.' };
+    case 'stale':
+      return { kind: 'failed', message: 'Your profile changed while saving, so nothing was saved. Try again.' };
+    case 'wrong-account':
+      return { kind: 'idle' };
+    case 'failed':
+      return { kind: 'failed', message: out.message };
+  }
+}
 
 export interface UseDailyXpOptions {
   pubkey: string | undefined;
@@ -58,6 +104,7 @@ export interface UseDailyXpOptions {
 export function useDailyXp({ pubkey, companions, profile }: UseDailyXpOptions): DailyXp {
   const { nostr } = useNostr();
   const publisher = usePublishAdapter();
+  const { user } = useCurrentUser();
   const queryClient = useQueryClient();
   const stages = useMemo<BlobbiStage[]>(() => [...new Set(companions.map((c) => c.stage))].filter((s) => s !== 'egg').sort(), [companions]);
   const available = dailyXpEnabled() && !!pubkey && stages.length > 0;
@@ -77,8 +124,9 @@ export function useDailyXp({ pubkey, companions, profile }: UseDailyXpOptions): 
   // ─── The award ───
   const [award, setAward] = useState<AwardState>({ kind: 'idle' });
   const raw = daily.raw;
-  const live = useRef({ nostr, publisher, updateProfileEvent, raw, pubkey });
-  live.current = { nostr, publisher, updateProfileEvent, raw, pubkey };
+  const signedInAs = user?.pubkey;
+  const live = useRef({ nostr, publisher, updateProfileEvent, raw, pubkey, signedInAs });
+  live.current = { nostr, publisher, updateProfileEvent, raw, pubkey, signedInAs };
   const runAward = useCallback(() => {
     const { pubkey, raw } = live.current;
     if (!pubkey || !raw) return;
@@ -87,11 +135,14 @@ export function useDailyXp({ pubkey, companions, profile }: UseDailyXpOptions): 
     if (!job) {
       job = (async (): Promise<AwardState> => {
         const { nostr, publisher, updateProfileEvent } = live.current;
-        // The fresh profile, read right before signing: the only place the "paid already" rule can be decided
+        if (canAskRelays(nostr)) {
+          return awardSafely(pubkey, raw, { nostr, publisher, updateProfileEvent, stillAccount: () => live.current.signedInAs === pubkey && live.current.pubkey === pubkey });
+        }
+        // A dev fixture's world: the fresh profile, read right before signing (the "paid already" rule is decided there)
         const fresh = await fetchFreshBlobbonautProfile(nostr, pubkey);
         const decision = planDailyAward(fresh ?? null, raw);
         if (decision.kind === 'already-paid') return { kind: 'already' };
-        if (decision.kind === 'no-profile') return { kind: 'failed', message: 'Your Blobbonaut profile could not be read from the relays.' };
+        if (decision.kind === 'no-profile') return { kind: 'failed', message: NO_PROFILE };
         if (decision.kind !== 'award') return { kind: 'idle' };
         const event = await publisher.publish(decision.template);
         updateProfileEvent(event);
