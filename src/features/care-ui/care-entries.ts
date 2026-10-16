@@ -5,8 +5,10 @@
  * whether it can be used on this Blobbi now. Pure; what an item is and what
  * using it writes stay the inventory feature's.
  */
+import { buildGameItemAddress } from '@nostr-games/inventory';
 import { optionKey, VERB_ITEM_ACTIONS, type CareChoice, type CareVerb } from '@/features/home/care-model';
-import type { HomeInventory, HomeInventoryItem, ItemAction, ItemGlyphModel, StarterEntry } from '@/features/inventory';
+import { OFFICIAL_ITEM_ISSUER } from '@/features/inventory/issuers';
+import type { HomeInventory, HomeInventoryItem, HomeItem, ItemAction, ItemGlyphModel, StarterEntry } from '@/features/inventory';
 
 /** One item a carousel offers. */
 export interface CareEntry {
@@ -34,6 +36,19 @@ export function ownedEntry(entry: HomeInventoryItem): CareEntry {
   return { key: optionKey(choice), choice, name: entry.item.name, glyph: entry.item.glyph, action: entry.item.care!.action, quantity: entry.quantity, usable: reason === null, reason };
 }
 
+/**
+ * Official items that are not care actions of their own: no carousel offers them (the classic home's Care, the
+ * room's dock), as a starter or an owned copy (M15 care cleanup). Shampoo and Soft Towel stay what they are: their
+ * rituals (`bath/rituals.ts`) and the starter kit are untouched, and an owned copy is still used from the Items sheet
+ * (the bag), as the same bath.
+ */
+export const NOT_OFFERED_AS_CARE: ReadonlySet<string> = new Set(['blobbi:hygiene:shampoo', 'blobbi:hygiene:soft-towel'].map((d) => buildGameItemAddress(OFFICIAL_ITEM_ISSUER, d)));
+
+/** Whether a carousel offers this item as a care action (by its address: the official issuer's item only). */
+export function offeredAsCare(item: Pick<HomeItem, 'address'>): boolean {
+  return !NOT_OFFERED_AS_CARE.has(item.address);
+}
+
 /** Food and drink are handed to the Blobbi; everything else is set down for it to come to. */
 export function isHandFed(action: ItemAction): boolean {
   return action === 'feed' || action === 'boost';
@@ -43,8 +58,9 @@ export function isHandFed(action: ItemAction): boolean {
 /**
  * What the classic home offers for a care verb: the starter kit's items
  * that answer it (each with whether this Blobbi can use it now), then the
- * player's owned ones that do (a balance above zero), by name. Rest has
- * none: it acts at once.
+ * player's owned ones that do (a balance above zero), by name; never one that
+ * is not a care action of its own (`offeredAsCare`). Rest has none: it acts
+ * at once.
  */
 export function verbEntries(verb: CareVerb, inventory: Pick<HomeInventory, 'starters' | 'items'>): CareEntry[] {
   // Care is grouped (the hygiene items first, then the health ones), each group its starters then what the player
@@ -52,9 +68,9 @@ export function verbEntries(verb: CareVerb, inventory: Pick<HomeInventory, 'star
   const by: readonly (readonly ItemAction[])[] = verb === 'clean' ? VERB_ITEM_ACTIONS.clean.map((a) => [a]) : [VERB_ITEM_ACTIONS[verb]];
   const groups = by.map((actions) => {
     const answers = (action: ItemAction | undefined) => action !== undefined && actions.includes(action);
-    const starters = inventory.starters.filter((s) => answers(s.item.care?.action)).map((entry) => starterEntry(entry));
+    const starters = inventory.starters.filter((s) => answers(s.item.care?.action) && offeredAsCare(s.item)).map((entry) => starterEntry(entry));
     const owned = inventory.items
-      .filter((i) => answers(i.item.care?.action) && i.quantity > 0)
+      .filter((i) => answers(i.item.care?.action) && i.quantity > 0 && offeredAsCare(i.item))
       .map((entry) => ownedEntry(entry))
       .sort((a, b) => a.name.localeCompare(b.name));
     return [...starters, ...owned];

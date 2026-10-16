@@ -19,7 +19,8 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { MemoryRouter } from 'react-router-dom';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { KIND_BLOBBI_INTERACTION, KIND_BLOBBI_STATE, getTagValue } from '@blobbi-kit/core';
-import { KIND_GAME_INVENTORY_SPEND, KIND_GAME_ITEM_DEFINITION, parseGameItemDefinition } from '@nostr-games/inventory';
+import { KIND_GAME_INVENTORY_SPEND, KIND_GAME_ITEM_DEFINITION, buildGameItemAddress, parseGameItemDefinition } from '@nostr-games/inventory';
+import { offeredAsCare } from '@/features/care-ui/care-entries';
 
 import Home from '@/pages/Home';
 import { SceneSettingsProvider, type SceneSettings } from '@/features/home/scene';
@@ -141,14 +142,14 @@ describe('the catalog itself', () => {
 });
 
 describe('in the home', () => {
-  it('no verb is a magic button: every option is a starter item; each verb offers every official item whose care action answers it, never an owned copy; tapping a verb writes nothing', async () => {
+  it('no verb is a magic button: every option is a starter item; each verb offers every official item whose care action answers it (but Shampoo and Soft Towel, not care actions of their own: M15 cleanup), never an owned copy; tapping a verb writes nothing', async () => {
     renderHome();
     await ready();
     const expected = { feed: ['feed', 'boost'], play: ['play'], clean: ['clean', 'medicine'] } as const;
     for (const verb of ['feed', 'play', 'clean'] as const) {
       await userEvent.click(screen.getByTestId(`care-${verb}`));
       const items = await carouselItems();
-      const rows = OFFICIAL_CATALOG_SNAPSHOT.filter((r) => (expected[verb] as readonly string[]).includes(r.action) && r.stages.includes('baby'));
+      const rows = OFFICIAL_CATALOG_SNAPSHOT.filter((r) => (expected[verb] as readonly string[]).includes(r.action) && r.stages.includes('baby') && offeredAsCare({ address: buildGameItemAddress(OFFICIAL_ITEM_ISSUER, r.d) }));
       expect(items.filter((i) => i.source === 'starter').map((i) => i.id)).toEqual(rows.map((r) => r.d));
       expect(items.length).toBeGreaterThan(0);
       for (const i of items) {

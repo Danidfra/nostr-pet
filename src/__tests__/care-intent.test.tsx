@@ -29,7 +29,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { MemoryRouter } from 'react-router-dom';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { KIND_BLOBBI_INTERACTION, KIND_BLOBBI_STATE, getTagValue } from '@blobbi-kit/core';
-import { KIND_GAME_INVENTORY_SPEND } from '@nostr-games/inventory';
+import { KIND_GAME_INVENTORY_SPEND, buildGameItemAddress } from '@nostr-games/inventory';
 
 import Home from '@/pages/Home';
 import { MIN_USE_MS, OFFER_SPOT, SceneSettingsProvider, placeOnFloor, type SceneSettings } from '@/features/home/scene';
@@ -40,9 +40,13 @@ import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 import { carouselCurrent, carouselItems, chooseCare, chooseFromCarousel, playBath, rubBath, useOwnedItem } from '@/test/care-ui';
 import { FARM_CARROT, OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_BANDAGE, OFFICIAL_GLASSES, OFFICIAL_SOAP, farmProduceDefinition, inventoryEvent, officialCareDefinition, officialCosmeticDefinition, resetInventoryFixtureIds } from '@/test/inventory-fixtures';
 import { OFFICIAL_CATALOG_SNAPSHOT } from '@/features/inventory';
+import { OFFICIAL_ITEM_ISSUER } from '@/features/inventory/issuers';
+import { offeredAsCare } from '@/features/care-ui/care-entries';
 
+/** Official items no carousel offers as a care action (M15 cleanup): Shampoo and Soft Towel. */
+const offered = (d: string) => offeredAsCare({ address: buildGameItemAddress(OFFICIAL_ITEM_ISSUER, d) });
 /** The starter tiles a verb shows for a baby: every official item whose care action answers it, in catalog order. */
-const starterTiles = (actions: readonly string[]) => OFFICIAL_CATALOG_SNAPSHOT.filter((r) => actions.includes(r.action) && r.stages.includes('baby')).map((r) => r.d);
+const starterTiles = (actions: readonly string[]) => OFFICIAL_CATALOG_SNAPSHOT.filter((r) => actions.includes(r.action) && r.stages.includes('baby') && offered(r.d)).map((r) => r.d);
 /** The starter items of the open carousel, in order. */
 const startersShown = async () => (await carouselItems()).filter((i) => i.source === 'starter').map((i) => i.id);
 
@@ -434,13 +438,23 @@ describe('Clean is a bath (M15)', () => {
     expect(states()).toHaveLength(1);
   }, 30_000);
 
-  it('Shampoo and Soft Towel are played where the Blobbi stands too: never a tub, never a walk; one write each', async () => {
-    for (const [d, ritual, firstStage] of [['blobbi:hygiene:shampoo', 'wash', 'lather'], ['blobbi:hygiene:soft-towel', 'towel', 'dry']] as const) {
+  it('Shampoo and Soft Towel are not care actions of their own (M15 cleanup): Care never offers them; owned, from the bag, each is still its own ritual where the Blobbi stands, one write each', async () => {
+    const extras = [['blobbi:hygiene:shampoo', 'Shampoo', 'wash', 'lather'], ['blobbi:hygiene:soft-towel', 'Soft Towel', 'towel', 'dry']] as const;
+    const withExtras = () => [brook(), ...definitions(), ...extras.map(([d, name]) => officialCareDefinition(d, name, 'hygiene', 'clean', { hygiene: 25 }, { emoji: '🧴' })), inventoryEvent('blobbi:island', { [OFFICIAL_SOAP]: 1, ...Object.fromEntries(extras.map(([d]) => [buildGameItemAddress(OFFICIAL_ITEM_ISSUER, d), 1])) })];
+    relay.all = withExtras();
+    renderHome();
+    await ready();
+    await userEvent.click(screen.getByTestId('care-clean'));
+    const ids = (await carouselItems()).map((i) => i.id);
+    expect(ids).toEqual(expect.arrayContaining(['blobbi:hygiene:soap', 'blobbi:hygiene:bubble-bath']));
+    for (const [d] of extras) expect(ids).not.toContain(d);
+    cleanup();
+    for (const [d, , ritual, firstStage] of extras) {
+      relay.all = withExtras();
       relay.published = [];
       renderHome();
       await ready();
-      await userEvent.click(screen.getByTestId('care-clean'));
-      await chooseFromCarousel(d);
+      await fromTheBag(d);
       await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', firstStage), { timeout: 3000 });
       expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-ritual', ritual);
       expect(screen.queryByTestId('bath-tub')).toBeNull();
@@ -452,7 +466,7 @@ describe('Clean is a bath (M15)', () => {
       await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull(), { timeout: 4000 });
       cleanup();
     }
-  }, 30_000);
+  }, 40_000);
 
   it('an owned soap whose write is refused: Try again resumes the same spend (one 1416 in all)', async () => {
     relay.careFails = true;
@@ -542,7 +556,7 @@ describe('Clean is a bath (M15)', () => {
     expect(screen.getByTestId('care-feed')).toBeDisabled();
     await userEvent.click(screen.getByTestId('care-clean'));
     // Owned soap first, then every official cleaning and medicine item an egg may use.
-    const eggTiles = OFFICIAL_CATALOG_SNAPSHOT.filter((r) => ['clean', 'medicine'].includes(r.action) && r.stages.includes('egg')).map((r) => r.d);
+    const eggTiles = OFFICIAL_CATALOG_SNAPSHOT.filter((r) => ['clean', 'medicine'].includes(r.action) && r.stages.includes('egg') && offered(r.d)).map((r) => r.d);
     expect(await startersShown()).toEqual(eggTiles);
     await chooseFromCarousel('blobbi:hygiene:soap');
     await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', 'lather'));

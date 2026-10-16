@@ -21,7 +21,7 @@
  * with no quantity; that is NOT this app's economy and is not copied: an
  * owned item here shows its real balance and is spent on use.
  */
-import { isHandFed, ownedEntry, starterEntry, type CareEntry } from '@/features/care-ui/care-entries';
+import { isHandFed, offeredAsCare, ownedEntry, starterEntry, type CareEntry } from '@/features/care-ui/care-entries';
 import { roomById, roomShowsItem, type RoomActivity, type RoomId } from '@/features/home/rooms/rooms';
 import type { HomeInventory, HomeItem, ItemAction } from '@/features/inventory';
 import { ROOM_GRID } from './room-geometry';
@@ -50,15 +50,16 @@ function shows(activities: readonly RoomActivity[], item: Pick<HomeItem, 'care'>
  * What a shelf offers: the starter kit's items that answer its activities,
  * then the player's owned items that do, each with whether it can be used
  * now. An owned item the relays could not verify, or with none left, is
- * shown but cannot be used; one that is not a care item never shows.
+ * shown but cannot be used; one that is not a care item never shows, nor one
+ * that is not a care action of its own (`offeredAsCare`: Shampoo, Soft Towel).
  */
 export function shelfEntries(shelf: CareShelf, inventory: Pick<HomeInventory, 'starters' | 'items'>): RoomCareEntry[] {
   const activities = shelfActivities(shelf);
   const starters = inventory.starters
-    .filter((s) => shows(activities, s.item))
+    .filter((s) => shows(activities, s.item) && offeredAsCare(s.item))
     .map((entry) => starterEntry(entry));
   const owned = inventory.items
-    .filter((i) => shows(activities, i.item) && i.quantity > 0)
+    .filter((i) => shows(activities, i.item) && i.quantity > 0 && offeredAsCare(i.item))
     .map((entry) => ownedEntry(entry))
     .sort((a, b) => a.name.localeCompare(b.name));
   return [...starters, ...owned];
