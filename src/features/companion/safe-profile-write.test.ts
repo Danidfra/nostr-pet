@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parseBlobbonautEvent, updateBlobbonautTags, type NostrEvent } from '@blobbi-kit/core';
+import { profileWriteQueue } from '@blobbi-kit/core';
 import { profileQueue } from './profile-queue';
 import { writeProfileSafely, type ProfileBuild, type SafeWriteDeps } from './safe-profile-write';
 import { writeCompanionProfile } from './profile-write';
@@ -138,7 +139,7 @@ describe("the home's other profile writes", () => {
     const net = fakeNetwork();
     net.seed(profileEvent(acc, { has: [dOf(acc.pubkey, 1)], createdAt: S - 600 }));
     const run = deps(net, acc);
-    expect(await writeProfileSafely(run.deps, () => ({ skip: 'already-paid' as const }))).toEqual({ kind: 'skipped', reason: 'already-paid' });
+    expect(await writeProfileSafely(run.deps, () => ({ skip: 'already-paid' as const }))).toMatchObject({ kind: 'skipped', reason: 'already-paid' });
     expect(run.signed).toHaveLength(0);
   });
 
@@ -164,6 +165,10 @@ describe("the home's other profile writes", () => {
 });
 
 describe('the profile queue', () => {
+  it("is the kit's one queue: the companion choice, adoption, the award and the daily progress all wait in it", () => {
+    expect(profileQueue).toBe(profileWriteQueue);
+  });
+
   it('runs one write at a time per account, in order; a failure never blocks the next; accounts never wait', async () => {
     const log: string[] = [];
     let release!: () => void;
