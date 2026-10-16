@@ -3,50 +3,54 @@
   "note": "Shared test vectors. The same file lives in Blobbi Standalone (src/features/presence/) and Blobbi Pixel (tests/); keep them equal. Times are ms; T = 1_800_000_000_000.",
   "T": 1800000000000,
   "codec": [
-    { "name": "round trip", "lease": { "app": "pixel", "tab": "t1a2b3c4", "at": 1800000000000, "exp": 1800000045000 }, "encoded": "1.pixel.t1a2b3c4.mywpiww0.mywpjvm0" },
-    { "name": "home", "lease": { "app": "home", "tab": "abc", "at": 1800000000000, "exp": 1800000045000 }, "encoded": "1.home.abc.mywpiww0.mywpjvm0" }
+    {"name": "round trip", "lease": {"app": "pixel", "tab": "t1a2b3c4", "at": 1800000000000, "exp": 1800000045000}, "encoded": "1.pixel.t1a2b3c4.mywpiww0.mywpjvm0"},
+    {"name": "home", "lease": {"app": "home", "tab": "abc", "at": 1800000000000, "exp": 1800000045000}, "encoded": "1.home.abc.mywpiww0.mywpjvm0"},
+    {"name": "a lease renewed for an hour keeps its claim time", "lease": {"app": "pixel", "tab": "t1a2b3c4", "at": 1800000000000, "exp": 1800003645000}, "encoded": "1.pixel.t1a2b3c4.mywpiww0.mywrp1e0"}
   ],
-  "rejected": ["", "0.pixel.t.mywpiww0.mywpjvm0", "1.Pixel.t.mywpiww0.mywpjvm0", "1.pixel.t.mywpiww0", "1.pixel.t.mywpjvm0.mywpiww0", "1.pixel.t.0.zzzzzzzz", "1.pi xel.t.mywpiww0.mywpjvm0", "1.pixel.t;x.mywpiww0.mywpjvm0", "{\"app\":\"pixel\"}"],
+  "rejected": ["", "0.pixel.t.mywpiww0.mywpjvm0", "1.Pixel.t.mywpiww0.mywpjvm0", "1.pixel.t.mywpiww0", "1.pixel.t.mywpjvm0.mywpiww0", "1.pi xel.t.mywpiww0.mywpjvm0", "1.pixel.t;x.mywpiww0.mywpjvm0", "{\"app\":\"pixel\"}"],
   "accountKey": [
-    { "pubkey": "", "key": "811c9dc5" },
-    { "pubkey": "a", "key": "e40c292c" },
-    { "pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", "key": "9d7f8d86" }
+    {"pubkey": "", "key": "811c9dc5"},
+    {"pubkey": "a", "key": "e40c292c"},
+    {"pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", "key": "9d7f8d86"}
   ],
   "place": [
-    { "name": "no lease is home", "lease": null, "now": 0, "place": "home" },
-    { "name": "a live lease", "lease": { "app": "pixel", "tab": "p1", "at": -1000, "exp": 44000 }, "now": 0, "place": "pixel" },
-    { "name": "a lapsed lease is home", "lease": { "app": "pixel", "tab": "p1", "at": -45000, "exp": 0 }, "now": 0, "place": "home" }
+    {"name": "no lease is home", "lease": null, "now": 0, "place": "home"},
+    {"name": "a live lease", "lease": {"app": "pixel", "tab": "p1", "at": -1000, "exp": 44000}, "now": 0, "place": "pixel"},
+    {"name": "a lapsed lease is home", "lease": {"app": "pixel", "tab": "p1", "at": -45000, "exp": 0}, "now": 0, "place": "home"},
+    {"name": "a lease played for an hour (renewed, exp - at of an hour) is live", "lease": {"app": "pixel", "tab": "p1", "at": -3600000, "exp": 44000}, "now": 0, "place": "pixel"},
+    {"name": "a lease reaching further ahead than a lease can is not live", "lease": {"app": "pixel", "tab": "p1", "at": 0, "exp": 90001}, "now": 0, "place": "home"},
+    {"name": "exactly two leases ahead is still live", "lease": {"app": "pixel", "tab": "p1", "at": 0, "exp": 90000}, "now": 0, "place": "pixel"}
   ],
   "decide": [
-    { "name": "pixel input claims from no lease", "lease": null, "page": { "app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null }, "event": "input", "now": 0, "decision": { "write": { "app": "pixel", "tab": "p1", "at": 0, "exp": 45000 } } },
-    { "name": "home input with no lease writes nothing", "lease": null, "page": { "app": "home", "tab": "h1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null }, "event": "input", "now": 0, "decision": { "none": true } },
-    { "name": "home input brings it back from pixel", "lease": { "app": "pixel", "tab": "p1", "at": -10000, "exp": 35000 }, "page": { "app": "home", "tab": "h1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null }, "event": "input", "now": 0, "decision": { "write": { "app": "home", "tab": "h1", "at": 0, "exp": 45000 } } },
-    { "name": "a hidden page never claims", "lease": null, "page": { "app": "pixel", "tab": "p1", "visible": false, "focused": false, "lastInputAt": 0, "lastClaimAt": null }, "event": "input", "now": 0, "decision": { "none": true } },
-    { "name": "an unfocused page never claims", "lease": null, "page": { "app": "pixel", "tab": "p1", "visible": true, "focused": false, "lastInputAt": 0, "lastClaimAt": null }, "event": "input", "now": 0, "decision": { "none": true } },
-    { "name": "a tick never claims", "lease": null, "page": { "app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null }, "event": "tick", "now": 0, "decision": { "none": true } },
-    { "name": "min stay: a claim right after another app's claim waits", "lease": { "app": "home", "tab": "h1", "at": -3000, "exp": 42000 }, "page": { "app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null }, "event": "input", "now": 0, "decision": { "none": true } },
-    { "name": "after min stay the claim goes", "lease": { "app": "home", "tab": "h1", "at": -4000, "exp": 41000 }, "page": { "app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null }, "event": "input", "now": 0, "decision": { "write": { "app": "pixel", "tab": "p1", "at": 0, "exp": 45000 } } },
-    { "name": "cooldown: one claim per page per 2 s", "lease": { "app": "home", "tab": "h1", "at": -5000, "exp": 40000 }, "page": { "app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": -1500 }, "event": "input", "now": 0, "decision": { "none": true } },
-    { "name": "holder renewal not yet due", "lease": { "app": "pixel", "tab": "p1", "at": -20000, "exp": 35000 }, "page": { "app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": -1000, "lastClaimAt": -20000 }, "event": "tick", "now": 0, "decision": { "none": true } },
-    { "name": "holder renews when due, keeping at", "lease": { "app": "pixel", "tab": "p1", "at": -20000, "exp": 30000 }, "page": { "app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": -1000, "lastClaimAt": -20000 }, "event": "tick", "now": 0, "decision": { "write": { "app": "pixel", "tab": "p1", "at": -20000, "exp": 45000 } } },
-    { "name": "a hidden holder does not renew", "lease": { "app": "pixel", "tab": "p1", "at": -20000, "exp": 30000 }, "page": { "app": "pixel", "tab": "p1", "visible": false, "focused": false, "lastInputAt": -1000, "lastClaimAt": -20000 }, "event": "tick", "now": 0, "decision": { "none": true } },
-    { "name": "an idle holder does not renew", "lease": { "app": "pixel", "tab": "p1", "at": -400000, "exp": 30000 }, "page": { "app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": -300000, "lastClaimAt": -400000 }, "event": "tick", "now": 0, "decision": { "none": true } },
-    { "name": "another tab of the same app takes the renewal over with an input", "lease": { "app": "pixel", "tab": "p1", "at": -20000, "exp": 30000 }, "page": { "app": "pixel", "tab": "p2", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null }, "event": "input", "now": 0, "decision": { "write": { "app": "pixel", "tab": "p2", "at": -20000, "exp": 45000 } } },
-    { "name": "another tab of the same app never ticks the lease", "lease": { "app": "pixel", "tab": "p1", "at": -20000, "exp": 30000 }, "page": { "app": "pixel", "tab": "p2", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null }, "event": "tick", "now": 0, "decision": { "none": true } },
-    { "name": "the home never renews its own lease", "lease": { "app": "home", "tab": "h1", "at": -20000, "exp": 25000 }, "page": { "app": "home", "tab": "h1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": -20000 }, "event": "tick", "now": 0, "decision": { "none": true } },
-    { "name": "pagehide gives back the lease it holds", "lease": { "app": "pixel", "tab": "p1", "at": -1000, "exp": 44000 }, "page": { "app": "pixel", "tab": "p1", "visible": false, "focused": false, "lastInputAt": -1000, "lastClaimAt": -1000 }, "event": "pagehide", "now": 0, "decision": { "clear": true } },
-    { "name": "pagehide leaves another page's lease alone", "lease": { "app": "pixel", "tab": "p1", "at": -1000, "exp": 44000 }, "page": { "app": "pixel", "tab": "p2", "visible": false, "focused": false, "lastInputAt": null, "lastClaimAt": null }, "event": "pagehide", "now": 0, "decision": { "none": true } },
-    { "name": "a lapsed lease is claimed like none", "lease": { "app": "home", "tab": "h1", "at": -60000, "exp": -15000 }, "page": { "app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null }, "event": "input", "now": 0, "decision": { "write": { "app": "pixel", "tab": "p1", "at": 0, "exp": 45000 } } }
+    {"name": "pixel input claims from no lease", "lease": null, "page": {"app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null}, "event": "input", "now": 0, "decision": {"write": {"app": "pixel", "tab": "p1", "at": 0, "exp": 45000}}},
+    {"name": "home input with no lease writes nothing", "lease": null, "page": {"app": "home", "tab": "h1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null}, "event": "input", "now": 0, "decision": {"none": true}},
+    {"name": "home input brings it back from pixel", "lease": {"app": "pixel", "tab": "p1", "at": -10000, "exp": 35000}, "page": {"app": "home", "tab": "h1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null}, "event": "input", "now": 0, "decision": {"write": {"app": "home", "tab": "h1", "at": 0, "exp": 45000}}},
+    {"name": "a hidden page never claims", "lease": null, "page": {"app": "pixel", "tab": "p1", "visible": false, "focused": false, "lastInputAt": 0, "lastClaimAt": null}, "event": "input", "now": 0, "decision": {"none": true}},
+    {"name": "an unfocused page never claims", "lease": null, "page": {"app": "pixel", "tab": "p1", "visible": true, "focused": false, "lastInputAt": 0, "lastClaimAt": null}, "event": "input", "now": 0, "decision": {"none": true}},
+    {"name": "a tick never claims", "lease": null, "page": {"app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null}, "event": "tick", "now": 0, "decision": {"none": true}},
+    {"name": "min stay: a claim right after another app's claim waits", "lease": {"app": "home", "tab": "h1", "at": -3000, "exp": 42000}, "page": {"app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null}, "event": "input", "now": 0, "decision": {"none": true}},
+    {"name": "after min stay the claim goes", "lease": {"app": "home", "tab": "h1", "at": -4000, "exp": 41000}, "page": {"app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null}, "event": "input", "now": 0, "decision": {"write": {"app": "pixel", "tab": "p1", "at": 0, "exp": 45000}}},
+    {"name": "cooldown: one claim per page per 2 s", "lease": {"app": "home", "tab": "h1", "at": -5000, "exp": 40000}, "page": {"app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": -1500}, "event": "input", "now": 0, "decision": {"none": true}},
+    {"name": "holder renewal not yet due", "lease": {"app": "pixel", "tab": "p1", "at": -20000, "exp": 35000}, "page": {"app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": -1000, "lastClaimAt": -20000}, "event": "tick", "now": 0, "decision": {"none": true}},
+    {"name": "holder renews when due, keeping at", "lease": {"app": "pixel", "tab": "p1", "at": -20000, "exp": 30000}, "page": {"app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": -1000, "lastClaimAt": -20000}, "event": "tick", "now": 0, "decision": {"write": {"app": "pixel", "tab": "p1", "at": -20000, "exp": 45000}}},
+    {"name": "a hidden holder does not renew", "lease": {"app": "pixel", "tab": "p1", "at": -20000, "exp": 30000}, "page": {"app": "pixel", "tab": "p1", "visible": false, "focused": false, "lastInputAt": -1000, "lastClaimAt": -20000}, "event": "tick", "now": 0, "decision": {"none": true}},
+    {"name": "an idle holder does not renew", "lease": {"app": "pixel", "tab": "p1", "at": -400000, "exp": 30000}, "page": {"app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": -300000, "lastClaimAt": -400000}, "event": "tick", "now": 0, "decision": {"none": true}},
+    {"name": "another tab of the same app takes the renewal over with an input", "lease": {"app": "pixel", "tab": "p1", "at": -20000, "exp": 30000}, "page": {"app": "pixel", "tab": "p2", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null}, "event": "input", "now": 0, "decision": {"write": {"app": "pixel", "tab": "p2", "at": -20000, "exp": 45000}}},
+    {"name": "another tab of the same app never ticks the lease", "lease": {"app": "pixel", "tab": "p1", "at": -20000, "exp": 30000}, "page": {"app": "pixel", "tab": "p2", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null}, "event": "tick", "now": 0, "decision": {"none": true}},
+    {"name": "the home never renews its own lease", "lease": {"app": "home", "tab": "h1", "at": -20000, "exp": 25000}, "page": {"app": "home", "tab": "h1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": -20000}, "event": "tick", "now": 0, "decision": {"none": true}},
+    {"name": "pagehide gives back the lease it holds", "lease": {"app": "pixel", "tab": "p1", "at": -1000, "exp": 44000}, "page": {"app": "pixel", "tab": "p1", "visible": false, "focused": false, "lastInputAt": -1000, "lastClaimAt": -1000}, "event": "pagehide", "now": 0, "decision": {"clear": true}},
+    {"name": "pagehide leaves another page's lease alone", "lease": {"app": "pixel", "tab": "p1", "at": -1000, "exp": 44000}, "page": {"app": "pixel", "tab": "p2", "visible": false, "focused": false, "lastInputAt": null, "lastClaimAt": null}, "event": "pagehide", "now": 0, "decision": {"none": true}},
+    {"name": "a lapsed lease is claimed like none", "lease": {"app": "home", "tab": "h1", "at": -60000, "exp": -15000}, "page": {"app": "pixel", "tab": "p1", "visible": true, "focused": true, "lastInputAt": 0, "lastClaimAt": null}, "event": "input", "now": 0, "decision": {"write": {"app": "pixel", "tab": "p1", "at": 0, "exp": 45000}}}
   ],
   "reconcile": [
-    { "name": "here and absent: arrive", "view": { "here": true, "shown": "absent", "visible": true, "visibleFor": 0, "busy": false }, "action": "enter" },
-    { "name": "here and departing: turn back", "view": { "here": true, "shown": "departing", "visible": true, "visibleFor": 9999, "busy": true }, "action": "enter" },
-    { "name": "here and present: nothing", "view": { "here": true, "shown": "present", "visible": true, "visibleFor": 9999, "busy": false }, "action": null },
-    { "name": "away and present: leave", "view": { "here": false, "shown": "present", "visible": true, "visibleFor": 1500, "busy": false }, "action": "leave" },
-    { "name": "away and arriving: turn back", "view": { "here": false, "shown": "arriving", "visible": true, "visibleFor": 9999, "busy": false }, "action": "leave" },
-    { "name": "away but busy: wait", "view": { "here": false, "shown": "present", "visible": true, "visibleFor": 9999, "busy": true }, "action": null },
-    { "name": "away, just visible: wait for the grace", "view": { "here": false, "shown": "present", "visible": true, "visibleFor": 1499, "busy": false }, "action": null },
-    { "name": "hidden: wait", "view": { "here": true, "shown": "absent", "visible": false, "visibleFor": 0, "busy": false }, "action": null },
-    { "name": "away and absent: nothing", "view": { "here": false, "shown": "absent", "visible": true, "visibleFor": 9999, "busy": false }, "action": null }
+    {"name": "here and absent: arrive", "view": {"here": true, "shown": "absent", "visible": true, "visibleFor": 0, "busy": false}, "action": "enter"},
+    {"name": "here and departing: turn back", "view": {"here": true, "shown": "departing", "visible": true, "visibleFor": 9999, "busy": true}, "action": "enter"},
+    {"name": "here and present: nothing", "view": {"here": true, "shown": "present", "visible": true, "visibleFor": 9999, "busy": false}, "action": null},
+    {"name": "away and present: leave", "view": {"here": false, "shown": "present", "visible": true, "visibleFor": 1500, "busy": false}, "action": "leave"},
+    {"name": "away and arriving: turn back", "view": {"here": false, "shown": "arriving", "visible": true, "visibleFor": 9999, "busy": false}, "action": "leave"},
+    {"name": "away but busy: wait", "view": {"here": false, "shown": "present", "visible": true, "visibleFor": 9999, "busy": true}, "action": null},
+    {"name": "away, just visible: wait for the grace", "view": {"here": false, "shown": "present", "visible": true, "visibleFor": 1499, "busy": false}, "action": null},
+    {"name": "hidden: wait", "view": {"here": true, "shown": "absent", "visible": false, "visibleFor": 0, "busy": false}, "action": null},
+    {"name": "away and absent: nothing", "view": {"here": false, "shown": "absent", "visible": true, "visibleFor": 9999, "busy": false}, "action": null}
   ]
 }

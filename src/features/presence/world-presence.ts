@@ -80,12 +80,15 @@ export function decodeLease(value: string | null | undefined): Lease | null {
   if (!ID.test(app) || !ID.test(tab) || !/^[0-9a-z]{1,11}$/.test(at36) || !/^[0-9a-z]{1,11}$/.test(exp36)) return null;
   const at = parseInt(at36, 36);
   const exp = parseInt(exp36, 36);
-  if (!Number.isSafeInteger(at) || !Number.isSafeInteger(exp) || exp <= at || exp - at > LEASE_MS * 2) return null;
+  // `at` is when it was CLAIMED and a renewal keeps it, so a lease played for an hour has `exp - at` of an hour: only
+  // the order is checked here; how far ahead it may reach is `isLive`'s (it knows the time)
+  if (!Number.isSafeInteger(at) || !Number.isSafeInteger(exp) || exp <= at) return null;
   return { app, tab, at, exp };
 }
 
+/** Live: not lapsed, and not reaching further ahead than a lease can (a value from a broken or hostile writer). */
 export function isLive(lease: Lease | null, now: number): lease is Lease {
-  return !!lease && lease.exp > now;
+  return !!lease && lease.exp > now && lease.exp - now <= LEASE_MS * 2;
 }
 
 /** Where the Blobbi is now (rule 1). */

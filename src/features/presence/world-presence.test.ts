@@ -51,18 +51,20 @@ describe('world presence v1: the shared vectors', () => {
   });
 });
 
-/** A browser's worth of pages sharing one stored lease, stepped by hand. */
+/** A browser's worth of pages sharing one stored lease, stepped by hand. The lease is kept ENCODED, as the cookie
+ * keeps it, so every read goes through the codec (a lease the codec refuses is no lease, as in a browser). */
 function browser() {
-  let stored: Lease | null = null;
+  let raw: string | null = null;
+  const read = () => decodeLease(raw);
   let writes = 0;
   const pages = new Map<string, PageState>();
   const apply = (d: Decision, page: PageState, now: number) => {
     if ('write' in d) {
-      stored = d.write;
+      raw = encodeLease(d.write);
       writes++;
       if (d.write.at === now) page.lastClaimAt = now;
     } else if ('clear' in d) {
-      stored = null;
+      raw = null;
       writes++;
     }
   };
@@ -75,17 +77,17 @@ function browser() {
     input(tab: string, now: number) {
       const p = pages.get(tab)!;
       p.lastInputAt = now;
-      apply(decide(stored, p, 'input', now), p, now);
+      apply(decide(read(), p, 'input', now), p, now);
     },
     tick(now: number) {
-      for (const p of pages.values()) apply(decide(stored, p, 'tick', now), p, now);
+      for (const p of pages.values()) apply(decide(read(), p, 'tick', now), p, now);
     },
     hide(tab: string, now: number) {
       const p = pages.get(tab)!;
-      apply(decide(stored, p, 'pagehide', now), p, now);
+      apply(decide(read(), p, 'pagehide', now), p, now);
       pages.delete(tab);
     },
-    place: (now: number) => placeOf(stored, now),
+    place: (now: number) => placeOf(read(), now),
     get writes() {
       return writes;
     },
@@ -115,6 +117,18 @@ describe('world presence v1: whole stories', () => {
       if (home < 0 && b.place(t) === HOME_APP) home = t;
     }
     expect(home).toBeGreaterThan(0);
+  });
+
+  it('an hour of active play in Pixel keeps the Blobbi there the whole time (renewals keep the claim time)', () => {
+    const b = browser();
+    b.page(HOME_APP, 'h1');
+    b.page(PIXEL_APP, 'p1');
+    b.input('p1', 0);
+    for (let t = 1000; t <= 3_600_000; t += 1000) {
+      if (t % 4000 === 0) b.input('p1', t);
+      b.tick(t);
+      expect(b.place(t)).toBe(PIXEL_APP);
+    }
   });
 
   it('a hidden Pixel tab never keeps the Blobbi', () => {
