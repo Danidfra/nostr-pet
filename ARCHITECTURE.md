@@ -2073,15 +2073,42 @@ built over, once); then saved only when read back from 2 relays,
 relay.ditto.pub among them (Blobbi Pixel's policy). The signed event is
 stored before it is sent, so every retry sends that very event; a stored
 write superseded by a newer profile is dropped. No profile at all: nothing is
-created (the choice stays on this device). Adoption builds its profile from
-the same complete read (`readProfileCensus`) and writes none from an
-incomplete one.
+created (the choice stays on this device), with one exception below. The
+account is checked again right before sending.
+
+**One profile write at a time, never over an older profile** (follow-up audit,
+2026-10-16). Every profile write this home builds runs in the account's
+profile queue (`profile-queue.ts`): the companion choice, and, through
+`writeProfileSafely` (`safe-profile-write.ts`), adoption's profile and the
+daily award. `writeProfileSafely`: a complete read (else `unsafe`), the
+caller's change over the newest profile, `created_at` after the base's,
+signed by the account still signed in, a second complete read after signing
+(a profile written meanwhile: nothing is sent, `stale`; never rebuilt, so the
+signer is asked at most once), the account checked again, then sent. The
+daily award is planned over that complete read (the pool's quick merged read
+ends a moment after the fastest relay and could miss a newer profile), so it
+can no longer restore a companion chosen a moment before.
+
+**A first adoption's profile.** Adoption writes its profile with
+`writeProfileSafely`, asking a silent required relay once more (a read only)
+before giving up. If no profile was written and no complete read ever found
+one, the choice is kept as `needs-profile` (with the name for a new profile);
+the player sees Try again, which creates the profile only when a complete
+read of every required relay confirms none exists. An incomplete read is
+never taken for "no profile"; a profile that appeared meanwhile is built
+over, never replaced.
 
 **When it publishes**: only for the player's act (choosing, Try again,
 answering the question), plus in-visit retries after a failure (when the
 connection returns, then after 15 s, 60 s, 180 s). Never on load, refresh,
 re-mount, an adopted choice, or the same Blobbi chosen again; after a reload
 an unshared choice waits for Try again.
+
+**Who is asked to sign**: only the player's own acts may ask the signer (an
+extension or a remote signer shows the player every request). An automatic
+retry only resends a write already signed; one that would need a new
+signature stops (`needs-signature`) and the choice waits for Try again. A
+choice made offline (never signed) is therefore shared by Try again.
 
 **Who**: the signed-in account only, the Blobbi in its own collection; the
 record is per account (`blobbi:companion:v1:<pubkey>`), a write stops before
@@ -2095,6 +2122,27 @@ is on screen (`useCompanionSwitchHold`, 2D home and room).
 card with Try again when a choice could not be shared ("Your other Blobbi
 games don't know about Bo yet."); the question "Who's your companion?" with
 both Blobbis when the order is unclear.
+
+**Known limitation, daily progress (not changed here; owner decision
+pending).** The kit's `usePersistDailyProgress` still writes the day's
+mission progress over its own quick read (`fetchFreshEvent`, which ends a
+moment after the fastest relay) and copies that profile's tags, so it can
+still restore an older `current_companion`. Making it refuse a stale base
+would delay progress, and the kit keeps unsaved progress only in memory (a
+`Map`, `daily-mission-tracker.ts`): it does not survive a reload, is retried
+only on the next mission update, tab hide or unmount, and on the next load
+the profile's older progress is hydrated over it. So the owner's conditions
+for delaying it (kept locally across reloads, retried without another care
+action, never silently lost) cannot be met without changing the kit. Options:
+a durable Standalone hook replacing the kit's, a kit change, or a
+non-refusing rebase of the progress write onto the newest profile.
+
+**Choice order v1.1 (proposed, deferred).** A confirmed write of ours
+replaced within a short window (for example 10 minutes) by a profile naming
+exactly the companion our write replaced would be put to the player instead
+of followed silently: such a profile may be a stale writer restoring an old
+profile, not a new choice. Both apps would ship it together, with the shared
+vectors. No tag format change, no new kind. Not implemented.
 
 **For the kit, later (not done here)**: `orderChoices`, `newestProfile`,
 `buildCompanionProfile` and `preservesProfile` are pure and app-agnostic; a
