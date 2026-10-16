@@ -12,6 +12,10 @@ export function syncNote(status: SyncStatus, name: string): string | null {
       return `You're offline. Your other Blobbi games will meet ${name} when you're back.`;
     case 'sign-failed':
       return `Your sign-in app didn't say yes, so your other Blobbi games don't know about ${name} yet.`;
+    case 'partial':
+      // Sent, and an automatic retry already on its way: nothing for the player to do
+      if (status.retrying) return `Still telling your other Blobbi games about ${name}...`;
+      return `Your other Blobbi games don't know about ${name} yet.`;
     default:
       return `Your other Blobbi games don't know about ${name} yet.`;
   }

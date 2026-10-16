@@ -46,6 +46,22 @@ describe('the companion layer', () => {
     expect(screen.queryByTestId('companion-note')).toBeNull();
   });
 
+  it('a share on its way (sent, a retry scheduled): "Still telling…", no Try again; once retries are used up, the warning and Try again', () => {
+    home.value = homeWith({ status: { kind: 'waiting', reason: 'partial', retrying: true }, retry: vi.fn(), ambiguity: null, resolve: vi.fn() });
+    const view = renderLayer();
+    expect(screen.getByTestId('companion-note')).toHaveTextContent('Still telling your other Blobbi games about Bo...');
+    expect(screen.getByTestId('companion-note')).toHaveAttribute('data-state', 'on-its-way');
+    expect(screen.queryByTestId('companion-retry')).toBeNull();
+    home.value = homeWith({ status: { kind: 'waiting', reason: 'partial' }, retry: vi.fn(), ambiguity: null, resolve: vi.fn() });
+    view.rerender(
+      <NostrContext.Provider value={{ nostr: {} as NPool }}>
+        <CompanionLayer />
+      </NostrContext.Provider>,
+    );
+    expect(screen.getByTestId('companion-note')).toHaveTextContent("Your other Blobbi games don't know about Bo yet.");
+    expect(screen.getByTestId('companion-retry')).toBeInTheDocument();
+  });
+
   it('two choices that cannot be ordered: the player picks; closing is not an answer', async () => {
     const resolve = vi.fn();
     home.value = homeWith({ status: { kind: 'idle' }, retry: vi.fn(), ambiguity: { local: BO.d, global: CY.d }, resolve });

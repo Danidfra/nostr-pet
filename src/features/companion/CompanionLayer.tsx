@@ -38,8 +38,10 @@ function CompanionLayerInner() {
   const name = home.current?.name || 'your Blobbi';
   const note = ready ? syncNote(status, name) : null;
 
+  // On its way (sent, a retry scheduled): said, with no Try again; a failure the player must act on keeps it
+  const onItsWay = status.kind === 'waiting' && status.reason === 'partial' && !!status.retrying;
   // Put away: hidden until the next problem (a new status), never forever
-  const statusKey = status.kind === 'waiting' ? `${status.reason}:${home.current?.d ?? ''}` : status.kind;
+  const statusKey = status.kind === 'waiting' ? `${status.reason}:${onItsWay ? 'on-its-way' : ''}:${home.current?.d ?? ''}` : status.kind;
   const [dismissed, setDismissed] = useState<string | null>(null);
   useEffect(() => {
     if (status.kind !== 'waiting') setDismissed(null);
@@ -56,15 +58,17 @@ function CompanionLayerInner() {
   return (
     <>
       {note && dismissed !== statusKey && !ambiguity && (
-        <div className="chapter-toast chapter-toast--still companion-note" role="status" aria-live="polite" data-testid="companion-note" data-reason={status.kind === 'waiting' ? status.reason : undefined}>
-          <CloudOff className="chapter-toast__icon companion-note__icon" aria-hidden />
+        <div className="chapter-toast chapter-toast--still companion-note" role="status" aria-live="polite" data-testid="companion-note" data-reason={status.kind === 'waiting' ? status.reason : undefined} data-state={onItsWay ? 'on-its-way' : 'waiting'}>
+          {onItsWay ? <RefreshCw className="chapter-toast__icon companion-note__icon animate-spin" aria-hidden /> : <CloudOff className="chapter-toast__icon companion-note__icon" aria-hidden />}
           <span className="chapter-toast__text">
             <span className="companion-note__text">{note}</span>
           </span>
-          <button type="button" className="chapter-toast__ok" onClick={() => companion!.retry()} data-testid="companion-retry">
-            <RefreshCw className="mr-1 inline h-3.5 w-3.5" aria-hidden />
-            Try again
-          </button>
+          {!onItsWay && (
+            <button type="button" className="chapter-toast__ok" onClick={() => companion!.retry()} data-testid="companion-retry">
+              <RefreshCw className="mr-1 inline h-3.5 w-3.5" aria-hidden />
+              Try again
+            </button>
+          )}
           <button type="button" className="companion-note__close" onClick={() => setDismissed(statusKey)} aria-label="Not now" data-testid="companion-note-close">
             <X className="h-4 w-4" aria-hidden />
           </button>

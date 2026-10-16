@@ -39,8 +39,11 @@ export type SyncStatus =
   | { kind: 'saved' }
   /** The player has no profile for the choice to live in: it stays on this device (nothing to fix). */
   | { kind: 'device-only' }
-  /** Not shared yet; `retry` may fix it. */
-  | { kind: 'waiting'; reason: 'offline' | 'unsafe' | 'partial' | 'failed' | 'sign-failed' | 'not-sent' };
+  /**
+   * Not shared yet; `retry` may fix it. `retrying`: an automatic retry is already scheduled for a write that went out
+   * and awaits confirmation (`partial`): the player is told it is on its way, not asked to act.
+   */
+  | { kind: 'waiting'; reason: 'offline' | 'unsafe' | 'partial' | 'failed' | 'sign-failed' | 'not-sent'; retrying?: boolean };
 
 export interface SyncEnv {
   /** The account signed in right now (the write checks it again before anything is sent). */
@@ -142,11 +145,14 @@ function scheduleRetry(account: string): void {
   const s = stateOf(account);
   // A refused signature, or one only the player may ask for (`not-sent`), waits for Try again
   if (s.timer || s.autoLeft <= 0 || s.status.kind !== 'waiting' || s.status.reason === 'sign-failed' || s.status.reason === 'not-sent') return;
+  // The first automatic retry waits RETRY_DELAYS_MS[0] (15 s), the next ones the following delays
   const delay = RETRY_DELAYS_MS[AUTO_RETRIES - s.autoLeft] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
   s.timer = setTimeout(() => {
     s.timer = null;
     void runSync(account);
   }, delay);
+  // Sent and awaiting confirmation, with a retry on its way: said as on its way
+  if (s.status.kind === 'waiting' && s.status.reason === 'partial') setStatus(account, { ...s.status, retrying: true });
 }
 
 /**
@@ -165,7 +171,8 @@ export async function runSync(account: string, byPlayer = false): Promise<void> 
   if (!env || env.account() !== account || !needsSync(choice)) return;
   if (s.timer) clearTimeout(s.timer);
   s.timer = null;
-  if (s.autoLeft > 0) s.autoLeft--;
+  // Only an automatic run uses up one of the automatic retries (the player's own act never does)
+  if (!byPlayer && s.autoLeft > 0) s.autoLeft--;
   hookOnline();
   setStatus(account, { kind: 'syncing' });
   const d = choice!.d;
