@@ -232,6 +232,46 @@ describe('the companion choice written into the profile', () => {
     }
   });
 
+  it('the account gone while the relays were read again: nothing is sent; the signed write is kept for that account', async () => {
+    const acc = testAccount();
+    const net = fakeNetwork();
+    net.seed(profileEvent(acc, { has: [dOf(acc.pubkey, 1)], companion: dOf(acc.pubkey, 1), createdAt: S - 100 }));
+    // Still the account before and after signing; gone by the time the re-check read has answered
+    let checks = 0;
+    let here = true;
+    const port = net.port;
+    const run = deps(net, acc, {
+      stillAccount: () => (++checks, here),
+      relays: {
+        ...port,
+        async query(url, filter, signal) {
+          const got = await port.query(url, filter, signal);
+          if (checks >= 2) here = false;
+          return got;
+        },
+      },
+    });
+    const out = await writeCompanionProfile({ owner: acc.pubkey, d: dOf(acc.pubkey, 2), at: NOW, over: null, pending: null }, run.deps);
+    expect(out.kind).toBe('wrong-account');
+    expect(net.sent()).toHaveLength(0);
+    expect(run.signed).toHaveLength(1);
+    expect(run.pending()?.event.id).toBe(run.signed[0].id);
+  });
+
+  it('a stored write is never resent for an account that is no longer signed in', async () => {
+    const acc = testAccount();
+    const net = fakeNetwork();
+    const base = profileEvent(acc, { has: [dOf(acc.pubkey, 1)], companion: dOf(acc.pubkey, 1), createdAt: S - 100 });
+    net.seed(base);
+    const signedBefore = acc.sign(buildCompanionProfile(base, acc.pubkey, dOf(acc.pubkey, 2), S));
+    const out = await writeCompanionProfile(
+      { owner: acc.pubkey, d: dOf(acc.pubkey, 2), at: NOW, over: null, pending: { event: signedBefore, base: { id: base.id, createdAt: base.created_at } } },
+      deps(net, acc, { stillAccount: () => false }).deps,
+    );
+    expect(out.kind).toBe('wrong-account');
+    expect(net.sent()).toHaveLength(0);
+  });
+
   it('a choice made offline never overwrites a choice made clearly later in another app', async () => {
     const acc = testAccount();
     const net = fakeNetwork();

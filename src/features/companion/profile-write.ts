@@ -28,7 +28,9 @@
  *             event, never a second one.
  *   re-check  just before sending, a second complete read: a profile written
  *             meanwhile by another app is built over (once), never replaced.
- *   send      to every relay; then READ BACK: saved only when at least
+ *   send      only while the account is still the one signed in (checked
+ *             again right before, after the reads); to every relay; then
+ *             READ BACK: saved only when at least
  *             `quorum` relays, `anchor` among them, hold it (or a newer
  *             profile naming the same Blobbi). Fewer: `partial` (the same
  *             event is resent to the missing relays on retry).
@@ -290,6 +292,9 @@ export async function writeCompanionProfile(req: ProfileWriteRequest, deps: Prof
     if (!pending) return { kind: 'unsafe' };
   }
 
+  // The account may have gone while the relays were read (a sign-out, a switch): nothing goes out for it then; the
+  // signed event stays this choice's write, for when that account is back
+  if (!deps.stillAccount()) return { kind: 'wrong-account' };
   // Send the one signed event to every relay that does not hold it yet; then read it back
   const event = pending.event;
   let held = holders(first, event, owner, d, verify);
