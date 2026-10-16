@@ -110,10 +110,10 @@ function apply(account: string, d: string, outcome: ProfileWriteOutcome): SyncSt
   const keep = (change: Partial<CompanionChoice>) => companionChoices.set({ ...choice, ...change });
   switch (outcome.kind) {
     case 'saved':
-      keep({ synced: { id: outcome.event.id, createdAt: outcome.event.created_at }, pending: null, note: null });
+      keep({ synced: { id: outcome.event.id, createdAt: outcome.event.created_at }, pending: null, note: null, profileName: null });
       return { kind: 'saved' };
     case 'unchanged':
-      keep({ synced: outcome.profile, pending: null, note: null });
+      keep({ synced: outcome.profile, pending: null, note: null, profileName: null });
       return { kind: 'saved' };
     case 'superseded':
       // A newer choice elsewhere: this one's write is over; ordered as the network orders it (the newer one wins)
@@ -173,7 +173,15 @@ export async function runSync(account: string, byPlayer = false): Promise<void> 
     let outcome: ProfileWriteOutcome;
     try {
       outcome = await profileQueue.run(account, () => writeCompanionProfile(
-        { owner: account, d, at: choice!.at ?? 0, over: choice!.over ?? null, pending: choice!.pending },
+        {
+          owner: account,
+          d,
+          at: choice!.at ?? 0,
+          over: choice!.over ?? null,
+          pending: choice!.pending,
+          // An adoption whose profile never landed: a profile may be created, only on a complete read finding none
+          create: choice!.note === 'needs-profile' ? { name: choice!.profileName || 'Blobbonaut' } : null,
+        },
         {
           relays: env.relays,
           sign: env.sign,

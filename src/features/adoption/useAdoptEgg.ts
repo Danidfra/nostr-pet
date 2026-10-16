@@ -8,12 +8,16 @@
  *                never clobbered by a cache miss
  *   egg          the kind 31124, `created_at` pinned to the preview
  *   profile      exactly one kind 11125 (created, or updated with `has` and
- *                `current_companion`), built from a COMPLETE read of the
- *                profile (`readProfileCensus`: every relay every Blobbi app
- *                writes profiles to answered). An incomplete read writes no
- *                profile (a partial one could replace the player's real
- *                profile, `has`, xp and all): the egg is real, and the choice
- *                waits on this device to be shared (`src/features/companion`)
+ *                `current_companion`), written by `writeProfileSafely`: built
+ *                from a COMPLETE read of the profile (every relay every Blobbi
+ *                app writes profiles to answered; asked twice before giving
+ *                up), created only when that complete read finds none, never
+ *                sent over a profile written meanwhile. An incomplete read
+ *                writes no profile and is never taken for "no profile": the
+ *                egg is real, and the choice waits on this device to be
+ *                shared (`src/features/companion`); when no complete read
+ *                ever found a profile, its Try again may create it then
+ *                (`needs-profile`), on a complete read finding none
  *   local        the device pick and the caches (no re-read after a success:
  *                a relay a moment behind would answer "none")
  *
@@ -28,6 +32,8 @@ import { KIND_BLOBBI_STATE, fetchFreshBlobbonautProfile, getSelectedBlobbiKey, g
 import { usePublishAdapter } from '@/features/care/usePublishAdapter';
 import { canAskRelays, poolProfileRelays } from '@/features/companion/pool-relays';
 import { readProfileCensus } from '@/features/companion/profile-write';
+import { writeProfileSafely } from '@/features/companion/safe-profile-write';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { companionChoices } from '@/features/companion/choice-store';
 import { timeoutSignal } from '@/lib/abort';
 import { eggTemplate, isOwnedBlobbiEvent, profileTemplate, type EggPreview } from './adoption-plan';
@@ -56,6 +62,8 @@ interface UseAdoptEggOptions {
 }
 
 const PREFLIGHT_TIMEOUT_MS = 6_000;
+/** A second look at the profile, when a relay that must answer did not the first time. */
+const PROFILE_SECOND_READ_MS = 12_000;
 
 /**
  * The keys with an adoption on its way, for the whole page: a screen that is
@@ -69,6 +77,9 @@ export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refre
   const { nostr } = useNostr();
   const publisher = usePublishAdapter();
   const queryClient = useQueryClient();
+  const { user } = useCurrentUser();
+  const signedInRef = useRef(user?.pubkey);
+  signedInRef.current = user?.pubkey;
   const inFlightRef = useRef(false);
   const [step, setStep] = useState<'idle' | 'checking' | 'egg' | 'profile'>('idle');
 
@@ -104,15 +115,30 @@ export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refre
       // The relays one by one (a signed-in player): the profile built on is the newest one there is, or none is written
       const networked = canAskRelays(nostr);
       let seen: NostrEvent | null = profile?.event ?? null;
+      /** What a COMPLETE read found: the newest profile, null for none, undefined when no read was complete. */
+      let confirmed: NostrEvent | null | undefined;
+      const name = suggestedName ?? 'Blobbonaut';
       try {
-        let base = profile;
         if (networked) {
-          const census = await readProfileCensus(poolProfileRelays(nostr), pubkey);
-          if (!census.complete) throw new Error('your profile could not be reached right now');
-          base = census.newest ? (parseBlobbonautEvent(census.newest) ?? null) : null;
-          seen = census.newest;
+          const relays = poolProfileRelays(nostr);
+          // A relay a moment slow is asked once more (a read, nothing signed) before giving up
+          let complete = (await readProfileCensus(relays, pubkey)).complete;
+          if (!complete) complete = (await readProfileCensus(relays, pubkey, PROFILE_SECOND_READ_MS)).complete;
+          if (!complete) throw new Error('your profile could not be reached right now');
+          const out = await writeProfileSafely(
+            { owner: pubkey, relays, sign: (t) => publisher.sign(t), stillAccount: () => signedInRef.current === pubkey },
+            (base) => {
+              confirmed = base;
+              seen = base;
+              return { template: profileTemplate({ ownerPubkey: pubkey, profile: base ? (parseBlobbonautEvent(base) ?? null) : null, d: preview.d, suggestedName: name }) };
+            },
+            { create: true },
+          );
+          if (out.kind !== 'sent') throw new Error(out.kind === 'failed' ? out.message : out.kind === 'stale' ? 'your profile changed while saving' : out.kind === 'wrong-account' ? 'the account changed' : 'your profile could not be reached right now');
+          profileEvent = out.event;
+        } else {
+          profileEvent = await publisher.publish(profileTemplate({ ownerPubkey: pubkey, profile, d: preview.d, suggestedName: name, now: Math.floor(Date.now() / 1000) }));
         }
-        profileEvent = await publisher.publish(profileTemplate({ ownerPubkey: pubkey, profile: base, d: preview.d, suggestedName: suggestedName ?? 'Blobbonaut', now: Math.floor(Date.now() / 1000) }));
         const parsed = parseBlobbonautEvent(profileEvent);
         if (parsed) queryClient.setQueryData<BlobbonautProfile | null>(['blobbonaut-profile', pubkey], parsed);
       } catch (error) {
@@ -130,7 +156,9 @@ export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refre
           synced: profileEvent ? { id: profileEvent.id, createdAt: profileEvent.created_at } : null,
           pending: null,
           over: seen ? { id: seen.id, createdAt: seen.created_at, d: parseBlobbonautEvent(seen)?.currentCompanion ?? null } : null,
-          note: null,
+          // Not written, and no complete read ever found a profile: Try again may create it (on a complete read only)
+          note: !profileEvent && !confirmed ? 'needs-profile' : null,
+          profileName: !profileEvent && !confirmed ? name : null,
         });
       return { kind: 'adopted', egg, profile: profileEvent, profileError };
     },

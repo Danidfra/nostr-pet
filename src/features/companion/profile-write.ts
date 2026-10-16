@@ -12,7 +12,10 @@
  *             answered to the end. Incomplete: nothing is built (`unsafe`).
  *   base      the newest valid profile by the owner (a valid 11125 before any
  *             legacy 31125; NIP-01 order: newer created_at, then lower id).
- *             None at all: `no-profile` (a profile is never created here).
+ *             None at all: `no-profile`; a profile is created here only for
+ *             an adoption whose own profile write never landed (`create`),
+ *             and only on that COMPLETE read: an incomplete one never counts
+ *             as "none".
  *   order     a choice made clearly later elsewhere is never overwritten:
  *             unless this is the share right after the choice
  *             (`CHOICE_FRESH_MS`), the rules of `choice-order.ts` decide
@@ -41,6 +44,7 @@
 import { KIND_BLOBBONAUT_PROFILE, KIND_BLOBBONAUT_PROFILE_LEGACY, getBlobbonautQueryDValues, getCanonicalBlobbonautD, isValidBlobbonautEvent, parseBlobbonautEvent, updateBlobbonautTags, type NostrEvent } from '@blobbi-kit/core';
 import { verifyEvent } from 'nostr-tools/pure';
 import { CHOICE_FRESH_MS, orderChoices, replaces, type ProfileStamp, type SeenProfile } from './choice-order';
+import { profileTemplate } from '@/features/adoption/adoption-plan';
 import type { PendingWrite } from './choice-store';
 
 export interface ProfileFilter {
@@ -122,7 +126,12 @@ export interface ProfileWriteRequest {
   over: SeenProfile | null;
   /** A write already signed for this choice (resent as it is), or null. */
   pending: PendingWrite | null;
+  /** An adoption's choice whose profile was never written: with no profile at all, create one with this name. */
+  create?: { name: string } | null;
 }
+
+/** The base of a write that created the profile (there was none before it). */
+export const NO_BASE: ProfileStamp = { id: '0'.repeat(64), createdAt: 0 };
 
 export const profileFilter = (owner: string): ProfileFilter => ({ kinds: [KIND_BLOBBONAUT_PROFILE, KIND_BLOBBONAUT_PROFILE_LEGACY], authors: [owner], '#d': getBlobbonautQueryDValues(owner), limit: 20 });
 
@@ -262,7 +271,35 @@ export async function writeCompanionProfile(req: ProfileWriteRequest, deps: Prof
     // Build over the newest; if another app writes meanwhile, build once more over theirs
     for (let round = 0; round < 2 && !built; round++) {
       const base = first.newest;
-      if (!base) return { kind: 'no-profile' };
+      if (!base) {
+        if (!req.create) return { kind: 'no-profile' };
+        // No profile on a complete read: the adoption's own profile, created now (`has` and `current_companion` = d)
+        const fresh = profileTemplate({ ownerPubkey: owner, profile: null, d, suggestedName: req.create.name });
+        const template: UnsignedProfile = { kind: fresh.kind, created_at: Math.floor(deps.now() / 1000), tags: fresh.tags, content: fresh.content };
+        if (!deps.stillAccount()) return { kind: 'wrong-account' };
+        if (deps.maySign === false) return { kind: 'needs-signature' };
+        let created: NostrEvent;
+        try {
+          created = await deps.sign(template);
+        } catch (error) {
+          return { kind: 'sign-failed', message: error instanceof Error ? error.message : String(error) };
+        }
+        if (created.pubkey !== owner || !safeVerify(verify, created) || !deps.stillAccount()) return { kind: 'wrong-account' };
+        const again = await census(relays, owner, timeoutMs, verify);
+        if (!again.complete) {
+          deps.onSigned({ event: created, base: NO_BASE });
+          return { kind: 'unsafe' };
+        }
+        // A profile made meanwhile (another app): built over, never replaced
+        if (again.newest) {
+          first = again;
+          continue;
+        }
+        built = created;
+        pending = { event: created, base: NO_BASE };
+        deps.onSigned(pending);
+        continue;
+      }
       const named = companionOf(base);
       if (named === d) return { kind: 'unchanged', profile: stamp(base) };
       // A choice made elsewhere after this one is never overwritten (`choice-order.ts`, the same rules as the screen);

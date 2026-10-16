@@ -18,7 +18,12 @@
  *   over     for a choice made here: the profile the player was shown when
  *            they chose (that profile never overrides this choice)
  *   note     `no-profile`: the player has no profile to carry the choice
- *            (it stays on this device; nothing is ever created to hold it)
+ *            (it stays on this device; nothing is ever created to hold it);
+ *            `needs-profile`: an adoption whose profile write never landed,
+ *            and no complete read ever found a profile: Try again may create
+ *            it, named `profileName`, but only when a complete read of every
+ *            required relay confirms none exists (an incomplete read is never
+ *            taken for "none")
  *
  * One account's record is never read for another account: switching accounts
  * can never apply an old account's choice or pending write to a new one.
@@ -50,7 +55,9 @@ export interface CompanionChoice {
   synced: ProfileStamp | null;
   pending: PendingWrite | null;
   over?: SeenProfile | null;
-  note?: 'no-profile' | null;
+  note?: 'no-profile' | 'needs-profile' | null;
+  /** For `needs-profile`: the name a new profile is given (the player's kind 0 name, or the default). */
+  profileName?: string | null;
 }
 
 export interface ChoiceStorage {
@@ -99,7 +106,9 @@ export function readChoice(account: string, storage: ChoiceStorage | null = stor
       if (v.version !== CHOICE_VERSION || v.account !== account || typeof v.d !== 'string' || !v.d) return null;
       const by: ChoiceOrigin = v.by === 'player' || v.by === 'remote' || v.by === 'legacy' ? v.by : 'legacy';
       const at = typeof v.at === 'number' && Number.isFinite(v.at) && v.at > 0 ? v.at : null;
-      return { version: CHOICE_VERSION, account, d: v.d, at, by, synced: stampOf(v.synced), pending: pendingOf(v.pending, account, v.d), over: seenOf(v.over), note: v.note === 'no-profile' ? 'no-profile' : null };
+      const note = v.note === 'no-profile' || v.note === 'needs-profile' ? v.note : null;
+      const profileName = note === 'needs-profile' && typeof v.profileName === 'string' && v.profileName.trim() ? v.profileName : null;
+      return { version: CHOICE_VERSION, account, d: v.d, at, by, synced: stampOf(v.synced), pending: pendingOf(v.pending, account, v.d), over: seenOf(v.over), note, profileName };
     }
     const legacy = storage.getItem(getSelectedBlobbiKey(account));
     return legacy ? { version: CHOICE_VERSION, account, d: legacy, at: null, by: 'legacy', synced: null, pending: null } : null;
