@@ -58,6 +58,9 @@ import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
 import { JourneySheet } from '@/features/journey/JourneySheet';
 import type { ObjectiveAction } from '@/features/journey/journey';
 import { WorldsSheet } from '@/features/worlds/WorldsSheet';
+import { usePresence } from '@/features/teleport/react/usePresence';
+import { blobbiIsHome, useWorldPresence, useWorldPresenceSync } from '@/features/presence/useWorldPresence';
+import { WorldPresenceNote } from '@/features/presence/WorldPresenceNote';
 import type { LifecycleTask } from '@/features/lifecycle';
 import type { HealthLevel } from '@/lib/relay-health';
 
@@ -816,7 +819,28 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // A hatch in progress: its beat for what is on screen, and a shell that never un-cracks while it runs.
   const hatchBeat = hatchOnScreen(ceremony.presentation.hatch, blobbi.stage);
   const eggCrack = ceremony.presentation.eggCrack ?? (hatchBeat ? 'heavy' : lifecycle.view.eggCrack);
-  const interactive = !sleeping && canWalk && !inCeremony;
+  // World presence (features/presence): while the player plays in another Blobbi app, the Blobbi is there and not
+  // here; it leaves and comes back with the teleport's own journey. An egg and a sleeper stay home (an egg cannot
+  // travel, a sleeper is in its bed). Nothing is written to Nostr; the companion choice is untouched.
+  const worldPresence = useWorldPresence(pubkey);
+  const travels = !isEgg && !sleeping;
+  const presence = usePresence({ initial: travels && !blobbiIsHome(pubkey) ? 'absent' : 'present', reducedMotion: () => reducedMotionRef.current, onCue: (cue) => play(cue) });
+  const [presenceJourney, setPresenceJourney] = useState<{ kind: 'enter' | 'leave'; place: string; key: number } | null>(null);
+  useWorldPresenceSync({
+    page: worldPresence.page,
+    presence,
+    busy: care.isPending || useItem.isPending || useStarter.isPending || inCeremony || theater || offer !== null || bathing || !!dose,
+    paused: !travels,
+    onJourney: (kind, place) => setPresenceJourney((j) => ({ kind, place, key: (j?.key ?? 0) + 1 })),
+  });
+  // A sleeper or an egg is always shown home, whatever the teleport was doing
+  const presenceCancel = presence.cancel;
+  useEffect(() => {
+    if (!travels) presenceCancel();
+  }, [travels, presenceCancel]);
+  const blobbiHere = presence.state === 'present';
+  const blobbiAway = presence.state === 'absent';
+  const interactive = !sleeping && canWalk && !inCeremony && blobbiHere;
   const usableItemCount = inventory.items.filter((i) => i.usability.ok && !i.unverified).length;
   const offerObject = offer ? itemObjectAt('offer', offer.choice.entry.item.name, offer.spot.position, offer.spot.approach) : null;
   const accessories = blobbi.stage === 'egg' ? undefined : worn.accessoriesFor(scene.presentation.facing);
@@ -979,7 +1003,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           actor={
             // While the theatre holds the egg, the home's own drawing of it steps aside: one Blobbi on screen
             <div className="contents" style={theater ? { visibility: 'hidden' } : undefined} data-testid="home-actor-slot">
-              <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={bathPresentation} faceName={bathView ? bathFace : dose ? MEDICINE_FACE[dose.phase] : null} inBed={inBed} happyKey={resultKey} onPoke={inCeremony || bathing || dose ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} hatch={hatchBeat} effects={actorEffects} accessories={accessories}>
+              <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={bathPresentation} faceName={bathView ? bathFace : dose ? MEDICINE_FACE[dose.phase] : null} inBed={inBed} happyKey={resultKey} onPoke={inCeremony || bathing || dose || !blobbiHere ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} hatch={hatchBeat} effects={actorEffects} accessories={accessories} journey={presence.journey} absent={blobbiAway}>
                 <NeedBubbles items={sleeping || inCeremony || bathing ? [] : statItems} />
                 <CareFeedback result={feedback} resultKey={resultKey} />
                 {/* The bath on its body (M15): the surface the player rubs, the foam, the water, the tool in hand */}
@@ -992,6 +1016,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           foreground={
             <>
               <div className="absolute inset-x-4 top-16 flex flex-col items-center gap-2">
+                <WorldPresenceNote name={blobbi.name} place={worldPresence.snapshot.place} away={blobbiAway && !worldPresence.snapshot.here} journey={presenceJourney} onCallHome={() => worldPresence.page?.input()} />
                 <CareError error={care.error} />
                 {bathNotice && (
                   <p role="status" className="home-glass rounded-xl px-3 py-2 text-center text-sm" data-testid="bath-notice">
@@ -1042,7 +1067,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           itemCount={usableItemCount}
           lifecycleReady={lifecycleReady}
           onLifecycle={startCeremony}
-          disabled={inCeremony || busyWithObject}
+          disabled={inCeremony || busyWithObject || !blobbiHere}
           floorBackground={surfaceBackground(HOME_SPACE.room.surfaces.floor)}
           blobbi={blobbi}
           mood={mood}

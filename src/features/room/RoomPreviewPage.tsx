@@ -119,6 +119,8 @@ import { useEatingPresentation } from './hooks/useEatingPresentation';
 import { usePetting } from './hooks/usePetting';
 import { useExpression } from '@/features/expression/react/useExpression';
 import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
+import { blobbiIsHome, useWorldPresence, useWorldPresenceSync } from '@/features/presence/useWorldPresence';
+import { WorldPresenceNote } from '@/features/presence/WorldPresenceNote';
 import { PRIORITY } from '@/features/expression/controller';
 import { proceduralFace, type ExpressionName } from '@/features/expression/faces';
 
@@ -334,9 +336,12 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // Coming home (`room-arrival.ts`): decided once, when the room mounts (never by a re-render): a hatched, awake
   // Blobbi is away at first and arrives once the room is on screen; an egg (its first moment is the hatch theatre)
   // and a sleeper are simply here
-  const [arrival, setArrival] = useState<'waiting' | 'done' | 'none'>(() => (arrivesOnEntry({ stage: blobbi.stage, sleeping: isSleeping }) ? 'waiting' : 'none'));
+  // World presence (features/presence): a Blobbi playing in another Blobbi app when the room opens is away, and no
+  // arrival plays; it comes home when the room is played in (the sync below)
+  const [awayAtEntry] = useState(() => !isEgg && !isSleeping && !blobbiIsHome(pubkey));
+  const [arrival, setArrival] = useState<'waiting' | 'done' | 'none'>(() => (awayAtEntry ? 'done' : arrivesOnEntry({ stage: blobbi.stage, sleeping: isSleeping }) ? 'waiting' : 'none'));
   const presence = usePresence({
-    initial: arrival === 'waiting' ? 'absent' : 'present',
+    initial: arrival === 'waiting' || awayAtEntry ? 'absent' : 'present',
     reducedMotion: () => reduceMotionRef.current,
     onCue: (cue) => {
       play(cue);
@@ -920,6 +925,18 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const travelBusy = care.busy || theater || lifecycle.pending !== null || decorator.editing || transitioning || bathing;
   // A companion chosen meanwhile in another Blobbi game waits for these moments to end (src/features/companion)
   useCompanionSwitchHold(travelBusy || care.offer !== null || !!interactions.dose || departure.phase !== 'idle');
+  // ─── World presence: away while the player plays in another Blobbi app, home again when the room is played in ───
+  // The room's own journeys come first: its arrival on entry and a trip to another world drive the teleport alone.
+  // An egg and a sleeper stay home. Nothing is written to Nostr; the companion choice is untouched.
+  const worldPresence = useWorldPresence(pubkey);
+  const [presenceJourney, setPresenceJourney] = useState<{ kind: 'enter' | 'leave'; place: string; key: number } | null>(null);
+  useWorldPresenceSync({
+    page: worldPresence.page,
+    presence,
+    busy: travelBusy || care.offer !== null || !!interactions.dose,
+    paused: isEgg || isSleeping || arrival === 'waiting' || departure.phase !== 'idle',
+    onJourney: (kind, place) => setPresenceJourney((j) => ({ kind, place, key: (j?.key ?? 0) + 1 })),
+  });
   const travel = useCallback(
     (world: Parameters<typeof departure.go>[0]) => {
       // A write still out finishes here first: leaving mid-signature could lose it
@@ -1133,6 +1150,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         statusHud={!isEgg && !bathing && <RoomStatusHud stage={blobbi.stage} stats={projected?.stats} onGuide={isSleeping ? undefined : setChosenRoom} />}
         middleSlot={
           <>
+            <WorldPresenceNote name={blobbi.name} place={worldPresence.snapshot.place} away={absent && !worldPresence.snapshot.here && departure.phase === 'idle'} journey={presenceJourney} onCallHome={() => worldPresence.page?.input()} />
             {hatchReady && !theater && (
               <button type="button" className="hatch-invite" onClick={inviteHatch} data-testid="room-hatch-invite">
                 <Sparkles className="h-4 w-4" aria-hidden /> Your egg is ready: tap it to hatch

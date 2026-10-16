@@ -10,6 +10,8 @@ import { shadowFor } from './shadow';
 import { useReducedMotion } from './SceneSettings';
 import type { BlobbiPresentation } from './presentation';
 import { EXPRESSIONS, type ExpressionName } from '@/features/expression/faces';
+import { TeleportFrame2D } from '@/features/teleport/react/TeleportFrame2D';
+import type { Journey } from '@/features/teleport/presence';
 
 /** A hatch ceremony's beat, as the actor draws it (the ceremony decides it; see `useLifecycleCeremony`). */
 export interface ActorHatch {
@@ -47,6 +49,10 @@ interface BlobbiActorProps {
    * closed under the shower), one of the app's named expressions (`features/expression/faces.ts`); null for none.
    */
   faceName?: ExpressionName | null;
+  /** A journey under way (it is leaving for, or coming back from, another Blobbi app): drawn around the drawing. */
+  journey?: Journey | null;
+  /** Away in another Blobbi app: nothing of it is drawn, and it cannot be poked. */
+  absent?: boolean;
 }
 
 /**
@@ -63,7 +69,7 @@ interface BlobbiActorProps {
  * about how the Blobbi looks. It never touches Nostr.
  */
 export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function BlobbiActor(
-  { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, hatch = null, effects, accessories, children, inBed = false, faceName = null },
+  { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, hatch = null, effects, accessories, children, inBed = false, faceName = null, journey = null, absent = false },
   ref,
 ) {
   // A named face over the presentation's emotion (a sleeper keeps its closed eyes)
@@ -140,15 +146,16 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-hatch-rock={hatch ? (reducedMotion ? 0 : rock) : undefined}
       data-x={presentation.position.x.toFixed(3)}
       data-y={presentation.position.y.toFixed(3)}
+      data-presence={absent ? 'absent' : journey ? journey.kind : 'present'}
       style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale), '--walk-cycle': `${playedWalkCycleFor(blobbi.stage, blobbi.visualGeneration)}s`, '--walk-tempo': String(walkTempoFor(blobbi.stage)), '--blobbi-motion-phase': String(motionPhase) } as React.CSSProperties}
     >
       <div className="scene-actor__body">
-        {!inBed && <div aria-hidden className="scene-actor__shadow" data-measured={shadowStyle ? 'true' : undefined} style={shadowStyle ?? undefined} />}
-        {children}
+        {!inBed && !absent && <div aria-hidden className="scene-actor__shadow" data-measured={shadowStyle ? 'true' : undefined} style={shadowStyle ?? undefined} />}
+        {!absent && !journey && children}
         {/* The one sleep cue. The renderer draws the creature asleep (closed
             eyes, `sleepIndicator="none"` below keeps its artwork's own Zzz
             off); the "Zzz" beside it is the home's, animated in the home's style. */}
-        {isSleeping && (
+        {isSleeping && !absent && (
           <span aria-hidden className="scene-actor__zzz scene-text animate-sparkle">
             z<span className="text-lg">z</span>
           </span>
@@ -161,10 +168,12 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
           type="button"
           className={`scene-actor__box ${happyKey > 0 ? 'animate-blobbi-happy' : ''}`}
           onClick={onPoke}
-          disabled={!onPoke}
+          disabled={!onPoke || absent || !!journey}
           aria-label={tapLabel ?? `Poke ${blobbi.name}`}
           data-testid="blobbi-poke"
         >
+          {/* A journey to or from another Blobbi app is drawn around the kit's drawing, never in it (as in the room) */}
+          <TeleportFrame2D journey={journey} absent={absent} fallbackTint={visual.baseColor}>
           <BlobbiRenderer
             visual={visual}
             instanceId={instanceId}
@@ -182,6 +191,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
             transparent
             style={{ width: '100%', height: '100%' }}
           />
+          </TeleportFrame2D>
         </button>
         {/* The hatching moment: light gathers over the shell while the write is
             out and clears off the newborn once it landed. Decoration only. */}
