@@ -221,9 +221,10 @@ describe('the companion shared with the other Blobbi apps', () => {
     await waitFor(() => expect(view.result.current.current?.d).toBe(dC));
   });
 
-  it('offline: the choice shows, waits, and is shared when the connection comes back', async () => {
+  it('offline: the choice shows and waits; back online it is never signed by itself, Try again shares it', async () => {
     const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
     const view = await ready(net);
+    const signs = vi.spyOn(signedIn.user!.signer, 'signEvent');
     act(() => view.result.current.select(dB));
     await waitFor(() => expect(view.result.current.companion?.status).toEqual({ kind: 'waiting', reason: 'offline' }));
     expect(view.result.current.current?.d).toBe(dB);
@@ -232,7 +233,30 @@ describe('the companion shared with the other Blobbi apps', () => {
     await act(async () => {
       window.dispatchEvent(new Event('online'));
     });
+    // Nothing was signed offline: the signer is not asked out of the blue (an extension or remote signer would show it)
+    await waitFor(() => expect(view.result.current.companion?.status).toEqual({ kind: 'waiting', reason: 'not-sent' }));
+    expect(signs).not.toHaveBeenCalled();
+    expect(profilesSent(net)).toHaveLength(0);
+    act(() => view.result.current.companion!.retry());
     await waitFor(() => expect(view.result.current.companion?.status.kind).toBe('saved'));
+    expect(signs).toHaveBeenCalledTimes(1);
+    expect(companionOn(net)).toBe(dB);
+  });
+
+  it('a write already signed is resent by itself when the connection comes back, without asking the signer again', async () => {
+    for (const r of net.relays.values()) r.refuse = true;
+    const view = await ready(net);
+    const signs = vi.spyOn(signedIn.user!.signer, 'signEvent');
+    act(() => view.result.current.select(dB));
+    await waitFor(() => expect(view.result.current.companion?.status).toEqual({ kind: 'waiting', reason: 'failed' }));
+    expect(signs).toHaveBeenCalledTimes(1);
+    for (const r of net.relays.values()) r.refuse = false;
+    await act(async () => {
+      window.dispatchEvent(new Event('online'));
+    });
+    await waitFor(() => expect(view.result.current.companion?.status.kind).toBe('saved'));
+    expect(signs).toHaveBeenCalledTimes(1);
+    expect(new Set(profilesSent(net).map((e) => e.id)).size).toBe(1);
     expect(companionOn(net)).toBe(dB);
   });
 

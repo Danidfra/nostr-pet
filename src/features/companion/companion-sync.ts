@@ -14,6 +14,15 @@
  * Blobbi was chosen again: a reload leaves an unshared choice waiting for the
  * player's Try again.
  *
+ * WHO IS ASKED TO SIGN. Only the player's own acts (the choice, Try again)
+ * may ask the signer: an extension or a remote signer shows the player a
+ * request, which must never come out of the blue. An automatic retry only
+ * resends a write already signed; one that would need a new signature stops
+ * (`needs-signature`) and the choice waits for Try again.
+ *
+ * ONE PROFILE WRITE AT A TIME. The write runs in the account's profile queue
+ * (`profile-queue.ts`), with every other profile write this home builds.
+ *
  * WHO. The account the choice belongs to, signed by that account's own
  * signer; if the signed-in account changes while a write is out, it stops
  * before anything is sent (`stillAccount`), and the new account never sees
@@ -21,6 +30,7 @@
  */
 import type { NostrEvent } from '@blobbi-kit/core';
 import { companionChoices, needsSync, type CompanionChoice } from './choice-store';
+import { profileQueue } from './profile-queue';
 import { writeCompanionProfile, type ProfileRelays, type ProfileWriteOutcome, type UnsignedProfile } from './profile-write';
 
 export type SyncStatus =
@@ -56,6 +66,8 @@ interface AccountSync {
   status: SyncStatus;
   running: Promise<void> | null;
   again: boolean;
+  /** Whether the run asked for meanwhile was the player's own (it may ask the signer). */
+  againByPlayer: boolean;
   /** Automatic retries left in this visit (set by a choice or a Try again). */
   autoLeft: number;
   timer: ReturnType<typeof setTimeout> | null;
@@ -69,7 +81,7 @@ const IDLE: SyncStatus = { kind: 'idle' };
 function stateOf(account: string): AccountSync {
   let s = states.get(account);
   if (!s) {
-    s = { status: IDLE, running: null, again: false, autoLeft: 0, timer: null };
+    s = { status: IDLE, running: null, again: false, againByPlayer: false, autoLeft: 0, timer: null };
     states.set(account, s);
   }
   return s;
@@ -115,6 +127,8 @@ function apply(account: string, d: string, outcome: ProfileWriteOutcome): SyncSt
       return IDLE;
     case 'wrong-account':
       return IDLE;
+    case 'needs-signature':
+      return { kind: 'waiting', reason: 'not-sent' };
     case 'offline':
     case 'unsafe':
     case 'partial':
@@ -126,7 +140,8 @@ function apply(account: string, d: string, outcome: ProfileWriteOutcome): SyncSt
 
 function scheduleRetry(account: string): void {
   const s = stateOf(account);
-  if (s.timer || s.autoLeft <= 0 || s.status.kind !== 'waiting' || s.status.reason === 'sign-failed') return;
+  // A refused signature, or one only the player may ask for (`not-sent`), waits for Try again
+  if (s.timer || s.autoLeft <= 0 || s.status.kind !== 'waiting' || s.status.reason === 'sign-failed' || s.status.reason === 'not-sent') return;
   const delay = RETRY_DELAYS_MS[AUTO_RETRIES - s.autoLeft] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
   s.timer = setTimeout(() => {
     s.timer = null;
@@ -134,11 +149,15 @@ function scheduleRetry(account: string): void {
   }, delay);
 }
 
-/** Write the account's stored choice out, if it needs it. One at a time; a newer choice runs after. */
-export async function runSync(account: string): Promise<void> {
+/**
+ * Write the account's stored choice out, if it needs it. One at a time; a newer choice runs after. `byPlayer`: the
+ * player's own act (a choice, Try again), which may ask the signer; an automatic retry may not.
+ */
+export async function runSync(account: string, byPlayer = false): Promise<void> {
   const s = stateOf(account);
   if (s.running) {
     s.again = true;
+    s.againByPlayer ||= byPlayer;
     return s.running;
   }
   const env = envs.get(account);
@@ -153,7 +172,7 @@ export async function runSync(account: string): Promise<void> {
   s.running = (async () => {
     let outcome: ProfileWriteOutcome;
     try {
-      outcome = await writeCompanionProfile(
+      outcome = await profileQueue.run(account, () => writeCompanionProfile(
         { owner: account, d, at: choice!.at ?? 0, over: choice!.over ?? null, pending: choice!.pending },
         {
           relays: env.relays,
@@ -164,11 +183,12 @@ export async function runSync(account: string): Promise<void> {
           },
           stillAccount: () => env.account() === account && companionChoices.get(account)?.d === d,
           online: env.online ?? defaultOnline,
+          maySign: byPlayer,
           now: env.now ?? Date.now,
           sleep: env.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, Math.min(ms, syncTiming.readBackPauseMs)))),
           timeoutMs: env.timeoutMs ?? syncTiming.timeoutMs,
         },
-      );
+      ));
     } catch {
       outcome = { kind: 'failed', event: null };
     }
@@ -182,8 +202,10 @@ export async function runSync(account: string): Promise<void> {
     s.running = null;
   }
   if (s.again) {
+    const byPlayerAgain = s.againByPlayer;
     s.again = false;
-    return runSync(account);
+    s.againByPlayer = false;
+    return runSync(account, byPlayerAgain);
   }
   scheduleRetry(account);
 }
@@ -203,7 +225,7 @@ export const companionSync = {
   /** The player chose (or re-chose, after a question) a Blobbi: write it out, with retries in this visit. */
   start(account: string): Promise<void> {
     stateOf(account).autoLeft = AUTO_RETRIES;
-    return runSync(account);
+    return runSync(account, true);
   },
   /** Try again, asked by the player. */
   retry(account: string): Promise<void> {

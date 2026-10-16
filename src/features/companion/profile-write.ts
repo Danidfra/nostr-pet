@@ -88,6 +88,8 @@ export type ProfileWriteOutcome =
   | { kind: 'sign-failed'; message: string }
   /** The account changed, or the signer answered for another key. */
   | { kind: 'wrong-account' }
+  /** A new signature is needed and this attempt may not ask for one (an automatic retry): nothing signed or sent. */
+  | { kind: 'needs-signature' }
   /** Sent, but not yet seen on enough relays: kept pending, the same event goes out again on retry. */
   | { kind: 'partial'; event: NostrEvent; holders: string[] }
   | { kind: 'failed'; event: NostrEvent | null };
@@ -101,6 +103,11 @@ export interface ProfileWriteDeps {
   /** The account is still the one this write is for. */
   stillAccount: () => boolean;
   online: () => boolean;
+  /**
+   * Whether this attempt may ask the signer (default yes). An automatic retry may not: an extension or a remote
+   * signer would ask the player out of the blue. It may still resend a write already signed.
+   */
+  maySign?: boolean;
   now: () => number;
   timeoutMs?: number;
   sleep?: (ms: number) => Promise<void>;
@@ -268,6 +275,7 @@ export async function writeCompanionProfile(req: ProfileWriteRequest, deps: Prof
       const template = buildCompanionProfile(base, owner, d, Math.floor(deps.now() / 1000));
       if (!preservesProfile(base, template, d)) return { kind: 'failed', event: null };
       if (!deps.stillAccount()) return { kind: 'wrong-account' };
+      if (deps.maySign === false) return { kind: 'needs-signature' };
       let signed: NostrEvent;
       try {
         signed = await deps.sign(template);

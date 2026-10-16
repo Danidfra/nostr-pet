@@ -258,6 +258,21 @@ describe('the companion choice written into the profile', () => {
     expect(run.pending()?.event.id).toBe(run.signed[0].id);
   });
 
+  it('an attempt that may not ask the signer (an automatic retry) signs nothing, and still resends a stored write', async () => {
+    const acc = testAccount();
+    const net = fakeNetwork();
+    const base = profileEvent(acc, { has: [dOf(acc.pubkey, 1)], companion: dOf(acc.pubkey, 1), createdAt: S - 100 });
+    net.seed(base);
+    const run = deps(net, acc, { maySign: false });
+    expect((await writeCompanionProfile({ owner: acc.pubkey, d: dOf(acc.pubkey, 2), at: NOW, over: null, pending: null }, run.deps)).kind).toBe('needs-signature');
+    expect(run.signed).toHaveLength(0);
+    expect(net.sent()).toHaveLength(0);
+    const stored = acc.sign(buildCompanionProfile(base, acc.pubkey, dOf(acc.pubkey, 2), S));
+    const resent = await writeCompanionProfile({ owner: acc.pubkey, d: dOf(acc.pubkey, 2), at: NOW, over: null, pending: { event: stored, base: { id: base.id, createdAt: base.created_at } } }, run.deps);
+    expect(resent.kind).toBe('saved');
+    expect(run.signed).toHaveLength(0);
+  });
+
   it('a stored write is never resent for an account that is no longer signed in', async () => {
     const acc = testAccount();
     const net = fakeNetwork();
