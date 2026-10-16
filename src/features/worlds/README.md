@@ -12,7 +12,7 @@ step is a decision and not a surprise.
 | **Blobbi identity** | kind 31124, `d` = `blobbi-<pubkey12>-<petId>` | Yes: every app reads the same events. |
 | **App identity** | each app is its own origin (`island.`, `rumble.`, `farm.blobbi.pet`, `blobbi.pet`) | No, and should stay so: separate storage, separate sessions. |
 | **Navigation** | a plain link from one origin to another | Implemented here (this folder). |
-| **Presence / location** ("where is my Blobbi now") | not modelled anywhere | No. |
+| **Presence / location** ("where is my Blobbi now") | world presence v1 (`src/features/presence/`): one short lease in a first-party cookie, on one browser | Between this home and Blobbi Pixel on the same site; never across devices, never on Nostr. |
 | **Shared inventory** | item ownership on Nostr (kind 31124 content, issuer item events) | Yes, read-only here; each app writes its own kinds (see the ecosystem repo map). |
 | **Gameplay state** (stats, stage, streak) | kind 31124 tags | Yes, last write wins per replaceable event. |
 
@@ -65,6 +65,11 @@ about where the Blobbi was. See below for what real presence would need.
 - **No new event kinds.**
 
 ## If presence is wanted later
+
+> Same-browser presence is now implemented without any protocol change
+> (`src/features/presence/README.md`). The paragraph below still holds for
+> presence ACROSS DEVICES, which that README proposes as an ephemeral kind,
+> awaiting approval.
 
 A "where is my Blobbi" fact would need either a new tag on 31124 (every app
 must agree and every write path must keep it), or a new kind. Both are

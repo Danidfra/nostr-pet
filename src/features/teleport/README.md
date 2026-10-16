@@ -131,6 +131,16 @@ coordinates.
 
 ## 3. Cross-app presence coordination (design only)
 
+> **Update (world presence v1, `src/features/presence/`):** the same-browser part
+> is now implemented, in a different form from the plan below. Instead of
+> per-tab `BroadcastChannel` messages, there is one lease in a first-party cookie,
+> so it works across the apps' origins (this home and Blobbi Pixel) as well as
+> across tabs. A claim is a real input (a trusted press or key) in a visible,
+> focused page, never focus or visibility, so the principle in 3.1 holds: the
+> player's own act moves the Blobbi. The controller is unchanged, and a
+> coordinator drives it through `leave()`/`enter()`. Across devices (3.4) nothing
+> is implemented, and the proposal is in `presence/README.md`.
+
 The goal: one Blobbi is visibly in one place at a time. The places could be
 the Blobbi home, Blobbi Island, Ditto, several tabs, or several devices. When
 it moves, the old place plays the departure and the new one plays the
