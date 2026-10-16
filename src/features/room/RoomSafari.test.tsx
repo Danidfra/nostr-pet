@@ -375,7 +375,8 @@ describe('the room on a phone, end to end', () => {
     quietErrors();
     renderApp();
     const dialog = await screen.findByTestId('mode-intro');
-    expect(within(dialog).getByTestId('mode-intro-stage-3d')).toHaveAttribute('data-stage', 'ready');
+    // The 3D preview becomes ready in an effect after it mounts: waited for, still required
+    await waitFor(() => expect(within(dialog).getByTestId('mode-intro-stage-3d')).toHaveAttribute('data-stage', 'ready'));
     const held = heldState();
     fireEvent.click(within(dialog).getByTestId('mode-intro-preview-3d'));
     fireEvent.click(within(dialog).getByTestId('mode-intro-explore'));
