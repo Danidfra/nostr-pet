@@ -10,6 +10,8 @@ import { render, screen } from '@testing-library/react';
 import { parseModernBlobbiEvent } from '@blobbi-kit/core';
 import { availableCareActions } from '@/features/care';
 import { verbEntries, type CareEntry } from '@/features/care-ui/care-entries';
+import { buildGameItemAddress } from '@nostr-games/inventory';
+import { OFFICIAL_ITEM_ISSUER } from '@/features/inventory/issuers';
 import { blobbiEvent } from '@/test/fixtures';
 import { BlobbiStatusPanel } from '../BlobbiStatusPanel';
 import { CareOptions } from './CareOptions';
@@ -31,6 +33,17 @@ describe('Care', () => {
       items: [owned('blobbi:medicine:vitamins', 'A Vitamin', 'medicine'), owned('blobbi:hygiene:soap', 'Soap', 'clean')],
     });
     expect(entries.map((e) => `${e.action}:${e.name}:${e.choice.source}`)).toEqual(['clean:Soap:starter', 'clean:Shampoo:starter', 'clean:Soap:owned', 'medicine:Bandage:starter', 'medicine:A Vitamin:owned']);
+  });
+
+  it('the official Shampoo and Soft Towel are not care actions of their own (M15 cleanup): never offered, as a starter or owned; another issuer\'s item of the same name is', () => {
+    const official = (d: string, name: string) => ({ ...item(d, name, 'clean'), address: buildGameItemAddress(OFFICIAL_ITEM_ISSUER, d) });
+    const entries = verbEntries('clean', {
+      starters: [starter('blobbi:hygiene:soap', 'Soap', 'clean'), { item: official('blobbi:hygiene:shampoo', 'Shampoo'), usability: { ok: true } } as never, { item: official('blobbi:hygiene:soft-towel', 'Soft Towel'), usability: { ok: true } } as never],
+      items: [{ item: official('blobbi:hygiene:shampoo', 'Shampoo'), usability: { ok: true }, quantity: 3, inventoryAddress: 'inv:1' } as never, owned('blobbi:hygiene:shampoo', 'Shampoo', 'clean')],
+    });
+    // Only the soap, and the other issuer's "Shampoo" (its own item, not the official one)
+    expect(entries.map((e) => `${e.name}:${e.choice.source}`)).toEqual(['Soap:starter', 'Shampoo:owned']);
+    expect(entries[1].choice.source === 'owned' && entries[1].choice.entry.item.address).toBe('30078:x:blobbi:hygiene:shampoo');
   });
 
   it('other verbs keep their order: their starters, then what the player owns', () => {

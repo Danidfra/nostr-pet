@@ -12,6 +12,8 @@ import { resolveHomeItem, itemUsability } from '@/features/inventory/item-model'
 import { indexDefinitions, type HomeInventoryItem } from '@/features/inventory/useHomeInventory';
 import { blobbiEvent } from '@/test/fixtures';
 import { ISLAND_INVENTORY, OFFICIAL_APPLE, OFFICIAL_BALL, OFFICIAL_SOAP, officialCareDefinition } from '@/test/inventory-fixtures';
+import { buildGameItemAddress } from '@nostr-games/inventory';
+import { OFFICIAL_ITEM_ISSUER } from '@/features/inventory/issuers';
 import type { RoomId } from '@/features/home/rooms/rooms';
 import { ROOM_GRID } from './room-geometry';
 import { isHandFed, planDrop, planUse, setDownNear, shelfEntries, shelfKey, type CareShelf } from './room-care';
@@ -44,6 +46,26 @@ describe('what a room offers', () => {
     expect([...actions(room('home'))]).toEqual(['play']);
     expect(shelfEntries(room('rest'), inventory)).toEqual([]);
     expect(shelfEntries(room('closet'), inventory)).toEqual([]);
+  });
+
+  it('Shampoo and Soft Towel are not care actions of their own (M15 cleanup): the care room offers neither, as a starter or owned; Soap and Bubble Bath stay', () => {
+    const shampoo = buildGameItemAddress(OFFICIAL_ITEM_ISSUER, 'blobbi:hygiene:shampoo');
+    const towel = buildGameItemAddress(OFFICIAL_ITEM_ISSUER, 'blobbi:hygiene:soft-towel');
+    // The starter kit still has both (nothing about the items changed)
+    expect(inventory.starters.map((s) => s.item.address)).toEqual(expect.arrayContaining([shampoo, towel]));
+    const defs = indexDefinitions([
+      officialCareDefinition('blobbi:hygiene:shampoo', 'Shampoo', 'hygiene', 'clean', { hygiene: 50 }),
+      officialCareDefinition('blobbi:hygiene:soft-towel', 'Soft Towel', 'hygiene', 'clean', { hygiene: 25 }),
+    ]);
+    const ownedExtra = [shampoo, towel].map((address) => {
+      const item = resolveHomeItem(address, defs.get(address));
+      return { item, quantity: 2, inventoryAddress: ISLAND_INVENTORY, source: 'blobbi:island' as never, usability: itemUsability(item, b), unverified: false };
+    });
+    const care = shelfEntries(room('care'), { ...inventory, items: [...inventory.items, ...ownedExtra] });
+    const addresses = care.map((e) => e.choice.entry.item.address);
+    expect(addresses).not.toContain(shampoo);
+    expect(addresses).not.toContain(towel);
+    expect(care.map((e) => e.name)).toEqual(expect.arrayContaining(['Soap', 'Bubble Bath']));
   });
 
   it('starters come first, free and unlimited; owned items after, with their counts, and only while some are left', () => {

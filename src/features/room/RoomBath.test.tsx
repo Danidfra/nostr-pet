@@ -26,7 +26,8 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { MemoryRouter } from 'react-router-dom';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { KIND_BLOBBI_INTERACTION, KIND_BLOBBI_STATE, getTagValue } from '@blobbi-kit/core';
-import { KIND_GAME_INVENTORY_SPEND } from '@nostr-games/inventory';
+import { KIND_GAME_INVENTORY_SPEND, buildGameItemAddress } from '@nostr-games/inventory';
+import { OFFICIAL_ITEM_ISSUER } from '@/features/inventory/issuers';
 
 import AppRouter from '@/AppRouter';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
@@ -160,6 +161,9 @@ function renderRoom() {
 const NOW = Math.floor(Date.now() / 1000);
 const brook = (set: Record<string, string> = {}) => blobbiEvent('0000000001', { name: 'Brook', stage: 'adult', state: 'active', visualGeneration: 'v3', createdAt: NOW - 120, set: { hunger: '40', happiness: '50', hygiene: '45', energy: '70', ...set } });
 const definitions = () => [officialCareDefinition('blobbi:hygiene:soap', 'Soap', 'hygiene', 'clean', { hygiene: 25 }, { stages: ['egg', 'baby', 'adult'] })];
+/** Shampoo and Soft Towel (M15 cleanup: not offered as care actions), with the ritual each still plays and its first stage. */
+const EXTRAS = [['blobbi:hygiene:shampoo', 'Shampoo', 'wash', 'lather'], ['blobbi:hygiene:soft-towel', 'Soft Towel', 'towel', 'dry']] as const;
+const address = (d: string) => buildGameItemAddress(OFFICIAL_ITEM_ISSUER, d);
 const stock = () => [inventoryEvent('blobbi:island', { [OFFICIAL_SOAP]: 1 })];
 const kinds = () => relay.published.map((e) => e.kind);
 const shell = () => screen.getByTestId('room-shell');
@@ -330,23 +334,36 @@ describe('the bath in the room', () => {
     expect(kinds().filter((k) => k === KIND_GAME_INVENTORY_SPEND)).toHaveLength(1);
   }, 25_000);
 
-  it('Shampoo and Soft Towel: in place, the scene told no tub (the tub item stays itself), one write each', async () => {
+  it('Shampoo and Soft Towel are not care actions of their own (M15 cleanup): the care room never offers them; owned, from the bag, each is still its own ritual in place, one write each', async () => {
+    relay.all = [brook(), ...definitions(), ...EXTRAS.map(([d, name]) => officialCareDefinition(d, name, 'hygiene', 'clean', { hygiene: 25 }, { stages: ['egg', 'baby', 'adult'] })), inventoryEvent('blobbi:island', { [OFFICIAL_SOAP]: 1, [address(EXTRAS[0][0])]: 1, [address(EXTRAS[1][0])]: 1 })];
+    // The Items sheet opens from the Blobbi's sheet, which waits behind the room's first-visit introduction (one layer at a time)
+    window.localStorage.setItem('blobbi:home:3d-intro:v1', 'seen');
     renderRoom();
     await ready();
-    await goTo('care');
-    for (const [name, ritual, firstStage] of [['Shampoo', 'wash', 'lather'], ['Soft Towel', 'towel', 'dry']] as const) {
+    for (const [d, , ritual, firstStage] of EXTRAS) {
       relay.published = [];
-      fireEvent.click(focusOn(name, 'starter'));
+      // From the bag: the Blobbi's sheet, Items, the item, Use (a cleaning item from the bag is a bath where it stands)
+      fireEvent.click(screen.getByTestId('room-bar-blobbi'));
+      fireEvent.click(await screen.findByTestId('room-open-items'));
+      fireEvent.click(await screen.findByTestId(`inventory-item-${d}`));
+      fireEvent.click(screen.getByTestId('inventory-use'));
       await waitFor(() => expect(screen.getByTestId('bath-layer')).toHaveAttribute('data-stage', firstStage), { timeout: 3000 });
       await waitFor(() => expect(lastBath()).toMatchObject({ ritual, place: 'in-place', anchor: { tubIndex: null } }));
       expect(scene.state.walks).toEqual([]);
       await playBath();
-      await waitFor(() => expect(kinds()).toEqual([KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
+      await waitFor(() => expect(kinds()).toEqual([KIND_GAME_INVENTORY_SPEND, KIND_BLOBBI_STATE, KIND_BLOBBI_INTERACTION]), { timeout: 4000 });
       await waitFor(() => expect(screen.queryByTestId('bath-bar')).toBeNull(), { timeout: 4000 });
       expect(scene.state.baths.filter(Boolean).every((b) => (b!.anchor as { tubIndex: number | null }).tubIndex === null)).toBe(true);
       expect(scene.state.scripts.filter(Boolean)).toEqual([]);
     }
-  }, 30_000);
+    // The care room's dock: Soap and Bubble Bath, never Shampoo or Soft Towel (as a starter or an owned copy)
+    await goTo('care');
+    await waitFor(() => expect(carouselItems().some((i) => i.name === 'Soap' && i.source === 'owned')).toBe(true));
+    const names = carouselItems().map((i) => i.name);
+    expect(names).toEqual(expect.arrayContaining(['Soap', 'Bubble Bath']));
+    expect(names).not.toContain('Shampoo');
+    expect(names).not.toContain('Soft Towel');
+  }, 40_000);
 
   it('Stop at the soap: nothing written, nothing spent, the scene drawing nothing, the carousel back', async () => {
     renderRoom();
