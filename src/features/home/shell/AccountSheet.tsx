@@ -16,6 +16,8 @@ import { DITTO_BLOBBI_URL } from '@/config/ecosystem';
 import { KeyBackup } from '@/features/onboarding/KeyBackup';
 import { ProfileForm } from '@/features/onboarding/screens';
 import { useProfileSetup } from '@/features/onboarding/useProfileSetup';
+import { travelMode } from '@/features/presence/travel-mode';
+import { setActivePresence, useActivePresenceChoice, usePresenceStatus } from '@/features/presence/active-presence-choice';
 
 interface AccountSheetProps {
   open: boolean;
@@ -71,6 +73,7 @@ export function AccountSheet({ open, onClose }: AccountSheetProps) {
             <KeyBackup nsec={sessionNsec} />
           </section>
         )}
+        {travelMode() === 'nostr' && loginType && loginType !== 'guest' && <ActivePresenceToggle pubkey={user.pubkey} prompts={loginType !== 'nsec'} />}
         <section className="menu-section" aria-labelledby="account-session">
           <h3 id="account-session" className="menu-section__title">
             Session
@@ -85,6 +88,43 @@ export function AccountSheet({ open, onClose }: AccountSheetProps) {
         </section>
       </div>
     </GameOverlay>
+  );
+}
+
+const PRESENCE_STATUS_LINE: Record<string, string> = {
+  'paused-prompting': 'Paused: your signer asks each time, so Blobbi stopped asking. Allow these notes in your signer, then turn this on again.',
+  declined: 'Paused: your signer said no. Turn this on again to try once more.',
+  unavailable: 'Not available with this sign-in.',
+};
+
+/**
+ * Active Presence (M16): off unless the player turns it on. With it on, while they play here the home signs a short
+ * note at most once a minute that lasts two minutes (kind 21124; relays pass it on and do not keep it), so their other
+ * Blobbi worlds can tell the Blobbi is being played. It never moves the Blobbi, and it never asks a signer over and
+ * over: one that asks each time pauses it for the session.
+ */
+function ActivePresenceToggle({ pubkey, prompts }: { pubkey: string; prompts: boolean }) {
+  const on = useActivePresenceChoice(pubkey);
+  const status = usePresenceStatus(pubkey);
+  return (
+    <section className="menu-section" aria-labelledby="account-presence" data-testid="active-presence-section" data-world-travel="ignore">
+      <h3 id="account-presence" className="menu-section__title">
+        Other Blobbi worlds
+      </h3>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" checked={on} onChange={(e) => setActivePresence(pubkey, e.target.checked)} data-testid="active-presence-toggle" className="mt-1" />
+        <span>Let my other Blobbi worlds know when I'm playing here</span>
+      </label>
+      <p className="text-xs text-muted-foreground">
+        While you play, Blobbi signs a short note that lasts two minutes, at most once a minute. It never moves your Blobbi.
+        {prompts ? ' If your signer asks you each time, Blobbi stops asking until you turn this on again.' : ''}
+      </p>
+      {on && status && PRESENCE_STATUS_LINE[status] && (
+        <p className="text-xs text-muted-foreground" data-testid="active-presence-status" data-status={status}>
+          {PRESENCE_STATUS_LINE[status]}
+        </p>
+      )}
+    </section>
   );
 }
 

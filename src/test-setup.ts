@@ -5,6 +5,7 @@ import { setRoomArrivalEnabled } from '@/features/room/lib/room-arrival';
 import { setDailyXpEnabled } from '@/features/progression/daily-xp-switch';
 import { resetBlockingLayers } from '@/lib/blocking-layer';
 import { setWorldPresenceEnabled } from '@/features/presence/presence-switch';
+import { setTravelMode } from '@/features/presence/travel-mode';
 
 // The room's home-coming (M12.1) starts the Blobbi absent for a moment: suites about other things meet it present,
 // as before; the arrival's own suite turns it on
@@ -15,6 +16,9 @@ setDailyXpEnabled(false);
 // World presence reads a cookie jsdom keeps between tests: suites about other things meet the Blobbi home, as before;
 // the presence suites turn it on
 setWorldPresenceEnabled(false);
+// World travel on Nostr (M16) is off unless switched on: suites meet world presence v1 (itself off, above); the
+// Nostr travel suites force it on
+setTravelMode('v1');
 
 // jsdom has no matchMedia; the theme provider and hover checks read it.
 Object.defineProperty(window, 'matchMedia', {

@@ -119,7 +119,9 @@ import { useEatingPresentation } from './hooks/useEatingPresentation';
 import { usePetting } from './hooks/usePetting';
 import { useExpression } from '@/features/expression/react/useExpression';
 import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
-import { blobbiIsHome, useWorldPresence, useWorldPresenceSync } from '@/features/presence/useWorldPresence';
+import { travelStartsAway, useHomeTravel } from '@/features/presence/useHomeTravel';
+import { travelMode } from '@/features/presence/travel-mode';
+import { WORLD_HOME } from '@blobbi-kit/core';
 import { WorldPresenceNote } from '@/features/presence/WorldPresenceNote';
 import { PRIORITY } from '@/features/expression/controller';
 import { proceduralFace, type ExpressionName } from '@/features/expression/faces';
@@ -338,7 +340,10 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // and a sleeper are simply here
   // World presence (features/presence): a Blobbi playing in another Blobbi app when the room opens is away, and no
   // arrival plays; it comes home when the room is played in (the sync below)
-  const [awayAtEntry] = useState(() => !isEgg && !isSleeping && !blobbiIsHome(pubkey));
+  const [awayAtEntry] = useState(() => !isEgg && !isSleeping && travelStartsAway(pubkey, blobbi.d));
+  // Nostr travel (M16): the arrival on entry waits for the relays' first answer, and does not play at all when the
+  // Blobbi turns out to be in another world (it would arrive, then vanish)
+  const [entryGate, setEntryGate] = useState<'wait' | 'away' | 'go'>(() => (travelMode() === 'nostr' ? 'wait' : 'go'));
   const [arrival, setArrival] = useState<'waiting' | 'done' | 'none'>(() => (awayAtEntry ? 'done' : arrivesOnEntry({ stage: blobbi.stage, sleeping: isSleeping }) ? 'waiting' : 'none'));
   const presence = usePresence({
     initial: arrival === 'waiting' || awayAtEntry ? 'absent' : 'present',
@@ -379,7 +384,11 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [navStatus, arrivalWaiting]);
   const enterPresence = presence.enter;
   useEffect(() => {
-    if (arrival !== 'waiting') return;
+    if (arrival !== 'waiting' || entryGate === 'wait') return;
+    if (entryGate === 'away') {
+      setArrival('done');
+      return;
+    }
     const delay = arrivalDelay(sceneStatus, entryBuilt);
     if (delay === null) return;
     const timer = setTimeout(() => {
@@ -387,7 +396,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       enterPresence();
     }, delay);
     return () => clearTimeout(timer);
-  }, [arrival, sceneStatus, entryBuilt, enterPresence]);
+  }, [arrival, sceneStatus, entryBuilt, enterPresence, entryGate]);
   // Whether the Blobbi can play a room transition's scene: here, awake, hatched
   const canActRef = useRef(false);
   canActRef.current = present && !isEgg && !isSleeping;
@@ -925,18 +934,25 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const travelBusy = care.busy || theater || lifecycle.pending !== null || decorator.editing || transitioning || bathing;
   // A companion chosen meanwhile in another Blobbi game waits for these moments to end (src/features/companion)
   useCompanionSwitchHold(travelBusy || care.offer !== null || !!interactions.dose || departure.phase !== 'idle');
-  // ─── World presence: away while the player plays in another Blobbi app, home again when the room is played in ───
+  // ─── World presence: away while the player plays in another Blobbi world, home again when the room is played in ───
   // The room's own journeys come first: its arrival on entry and a trip to another world drive the teleport alone.
-  // An egg and a sleeper stay home. Nothing is written to Nostr; the companion choice is untouched.
-  const worldPresence = useWorldPresence(pubkey);
+  // An egg and a sleeper stay home. v1: a cookie, nothing on Nostr; Nostr travel (M16): the Blobbi's World Location,
+  // moved only by the player's act. The companion choice is untouched.
   const [presenceJourney, setPresenceJourney] = useState<{ kind: 'enter' | 'leave'; place: string; key: number } | null>(null);
-  useWorldPresenceSync({
-    page: worldPresence.page,
+  const worldTravel = useHomeTravel({
+    pubkey,
+    d: blobbi.d,
+    travels: !isEgg && !isSleeping,
     presence,
     busy: travelBusy || care.offer !== null || !!interactions.dose,
     paused: isEgg || isSleeping || arrival === 'waiting' || departure.phase !== 'idle',
     onJourney: (kind, place) => setPresenceJourney((j) => ({ kind, place, key: (j?.key ?? 0) + 1 })),
   });
+  const travelKnown = worldTravel.known;
+  const travelAway = !worldTravel.here && worldTravel.place !== WORLD_HOME;
+  useEffect(() => {
+    if (entryGate === 'wait' && travelKnown) setEntryGate(travelAway ? 'away' : 'go');
+  }, [entryGate, travelKnown, travelAway]);
   const travel = useCallback(
     (world: Parameters<typeof departure.go>[0]) => {
       // A write still out finishes here first: leaving mid-signature could lose it
@@ -1150,7 +1166,18 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         statusHud={!isEgg && !bathing && <RoomStatusHud stage={blobbi.stage} stats={projected?.stats} onGuide={isSleeping ? undefined : setChosenRoom} />}
         middleSlot={
           <>
-            <WorldPresenceNote name={blobbi.name} place={worldPresence.snapshot.place} away={absent && !worldPresence.snapshot.here && departure.phase === 'idle'} journey={presenceJourney} onCallHome={() => worldPresence.page?.input()} />
+            <WorldPresenceNote
+              name={blobbi.name}
+              place={worldTravel.place}
+              away={absent && !worldTravel.here && departure.phase === 'idle' && arrival !== 'waiting'}
+              journey={presenceJourney}
+              onCallHome={worldTravel.callHome}
+              nameOf={worldTravel.nameOf}
+              travel={worldTravel.snapshot?.travel}
+              playedThere={worldTravel.snapshot ? !!worldTravel.snapshot.presence.there : undefined}
+              onRetry={worldTravel.retry}
+            />
+            {worldTravel.status}
             {hatchReady && !theater && (
               <button type="button" className="hatch-invite" onClick={inviteHatch} data-testid="room-hatch-invite">
                 <Sparkles className="h-4 w-4" aria-hidden /> Your egg is ready: tap it to hatch
