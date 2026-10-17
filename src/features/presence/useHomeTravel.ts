@@ -1,9 +1,8 @@
 /**
- * Where the home's Blobbi is, in whichever presence this page runs (`travel-mode.ts`), behind one interface for the
- * classic home and the room:
+ * Where the home's Blobbi is, behind one interface for the classic home and the room (`travel-mode.ts`):
  *
- *   v1     the cookie lease of world presence v1 (`useWorldPresence`), exactly as before;
- *   nostr  world travel on Nostr (M16): the Blobbi's World Location (kind 31126) is the authority, read from the
+ *   off    the default: the Blobbi is home. No session, no location read or written, nothing signed, no listener;
+ *   nostr  world travel on Nostr (M16): the Blobbi's World Location (kind 31126) is the only authority, read from the
  *          relays every Blobbi world uses (`BLOBBI_WORLD_TRAVEL_RELAYS`), on any device. The protocol is the kit's
  *          (`@blobbi-kit/core` world-travel, `useWorldTravel`); this hook only wires the home to it:
  *            - only a signed-in account (never a guest, never a dev fixture) has a session; anyone else's Blobbi is
@@ -18,10 +17,13 @@
  *              (`view: 'looking'`); the first answer is settled, never played as a journey;
  *            - signed by the account's own signer (`usePublishAdapter().sign`): an nsec login signs silently, an
  *              extension or a remote signer may ask;
- *            - optional Active Presence (kind 21124), the player's choice (`active-presence-choice.ts`).
- *          The cookie is never read or written in this mode.
+ *            - optional Active Presence (kind 21124), the player's choice (`active-presence-choice.ts`); it never
+ *              moves the Blobbi, and its expiry leaves it where its World Location says.
  *
- * The companion choice (11125) is untouched in both: which Blobbi it is stays `current_companion`'s business.
+ * Nothing else says where a Blobbi is: no cookie, no page storage of its own (the kit keeps the last SIGNED location
+ * on this device, a cache of the relays' answer, never a source of moves).
+ *
+ * The companion choice (11125) is untouched: which Blobbi it is stays `current_companion`'s business.
  */
 import { createElement, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNostr } from '@nostrify/react';
@@ -52,9 +54,7 @@ import { usePublishAdapter } from '@/features/care/usePublishAdapter';
 import { canAskRelays } from '@/features/companion/pool-relays';
 import type { Presence } from '@/features/teleport/react/usePresence';
 import { ARRIVE } from '@/features/teleport/timeline';
-import { blobbiIsHome, useWorldPresence, useWorldPresenceSync } from './useWorldPresence';
-import { placeName } from './world-presence';
-import { isTrustedInput, travelMode } from './travel-mode';
+import { isTrustedInput, travelMode, type TravelMode } from './travel-mode';
 import { reportPresenceStatus, useActivePresenceChoice } from './active-presence-choice';
 
 /** The page's storage for the kit's session, every access guarded (a refusing browser keeps nothing). */
@@ -102,8 +102,7 @@ const safeVerify = (e: NostrEvent) => {
  * on load). Nostr: the last signed location this device kept, if any (the relays decide a moment later).
  */
 export function travelStartsAway(pubkey: string | null | undefined, d: string): boolean {
-  if (travelMode() === 'v1') return !blobbiIsHome(pubkey);
-  if (!pubkey) return false;
+  if (travelMode() !== 'nostr' || !pubkey) return false;
   const loc = storedWorldLocation(pageStore, { owner: pubkey, d, verify: safeVerify });
   return !!loc && currentWorld(loc) !== WORLD_HOME;
 }
@@ -146,23 +145,23 @@ export interface HomeTravelOptions {
 }
 
 export interface HomeTravel {
-  mode: 'v1' | 'nostr';
-  /** Where the Blobbi is (v1: `home`/`pixel`; nostr: a World id such as `blobbi-pixel`). */
+  mode: TravelMode;
+  /** Where the Blobbi is: a World id such as `blobbi-pixel` (`blobbi-home` when off). */
   place: string;
-  /** It belongs here now (and, on Nostr, is not still on its way). */
+  /** It belongs here now (and is not still on its way). Always true when off. */
   here: boolean;
-  /** The place known (v1: always; nostr: kept on this device, the relays answered, or there is no session). */
+  /** The place known (off: always; nostr: kept on this device, the relays answered, or there is no session). */
   known: boolean;
   /**
    * What the home shows of its place (the kit's `travelView`): `looking` (not known yet: neither here nor away),
    * `here`, `away`, `coming` (a move here under way: checking, signing, publishing, the departure window).
    */
   view: TravelViewKind;
-  /** Nostr: no relay answered the first look (the kept place, or home by default, is shown); v1: false. */
+  /** Nostr: no relay answered the first look (the kept place, or home by default, is shown); off: false. */
   unreachable: boolean;
   /** Nostr: read the relays again now (the "can't reach" hint's button). */
   refresh(): void;
-  /** Nostr: the interactions counted toward following the player here (null: none, v1). */
+  /** Nostr: the interactions counted toward following the player here (null: none, off). */
   follow: FollowState | null;
   /** A place, for the words around a journey ("Blobbi Pixel", "another Blobbi world"). */
   nameOf(place: string): string;
@@ -170,7 +169,7 @@ export interface HomeTravel {
   callHome(): void;
   /** Nostr only: try again after a failure (the same signed move when it is recent, else a new explicit request). */
   retry(): void;
-  /** Nostr only: the session's snapshot (null in v1, signed out, a guest, a fixture). */
+  /** Nostr only: the session's snapshot (null when off, signed out, a guest, a fixture). */
   snapshot: WorldTravelSnapshot | null;
   /** Nostr only: a hidden element stating place, phase and presence for tests and diagnostics. */
   status: ReactNode;
@@ -178,35 +177,9 @@ export interface HomeTravel {
 
 export function useHomeTravel(o: HomeTravelOptions): HomeTravel {
   const [mode] = useState(travelMode);
-  const v1 = useV1Travel(mode === 'v1' ? o : null);
-  const nostr = useNostrTravel(mode === 'nostr' ? o : null);
-  return mode === 'v1' ? v1 : nostr;
-}
-
-function useV1Travel(o: HomeTravelOptions | null): HomeTravel {
-  const worldPresence = useWorldPresence(o ? o.pubkey : null);
-  useWorldPresenceSync({
-    page: worldPresence.page,
-    presence: o?.presence ?? NO_PRESENCE,
-    busy: o?.busy ?? false,
-    paused: o ? o.paused || !o.travels : true,
-    onJourney: o?.onJourney,
-  });
-  return {
-    mode: 'v1',
-    place: worldPresence.snapshot.place,
-    here: worldPresence.snapshot.here,
-    known: true,
-    view: worldPresence.snapshot.here ? 'here' : 'away',
-    unreachable: false,
-    refresh: () => {},
-    follow: null,
-    nameOf: placeName,
-    callHome: () => worldPresence.page?.input(),
-    retry: () => worldPresence.page?.input(),
-    snapshot: null,
-    status: null,
-  };
+  // Off: the same hook with no options, so no session, no sync, no listener and nothing signed; the Blobbi is home
+  const travel = useNostrTravel(mode === 'nostr' ? o : null);
+  return mode === 'nostr' ? travel : { ...travel, mode: 'off', status: null };
 }
 
 const nameOfWorld = (place: string) => (place === WORLD_HOME ? 'home' : (knownWorld(place)?.name ?? 'another Blobbi world'));
@@ -376,6 +349,3 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
     status,
   };
 }
-
-/** A teleport that is never driven (the v1 sync with no page does nothing with it). */
-const NO_PRESENCE = { controller: { isDisposed: () => true } } as unknown as Presence;

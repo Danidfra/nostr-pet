@@ -56,8 +56,6 @@ vi.mock('@/features/room/hooks/useRoomScene', () => ({
 }));
 
 import AppRouter from '@/AppRouter';
-import { setWorldPresenceEnabled } from './presence-switch';
-import { cookieName } from './presence-page';
 import { setTravelMode, setTrustedInputCheck } from './travel-mode';
 import { ACTIVE_PRESENCE_KEY } from './active-presence-choice';
 import { useHomeTravel, useTravelStartsUnknown } from './useHomeTravel';
@@ -91,6 +89,9 @@ interface FakeRelay {
   published: NostrEvent[];
 }
 const relays = new Map<string, FakeRelay>();
+/** Reads and subscriptions that asked for a travel kind (31126 or 21124), on any relay. */
+const travelAsks = { count: 0 };
+const asksTravel = (filters: NostrFilter[]) => filters.some((f) => f.kinds?.some((k) => k === 31126 || k === 21124));
 const base = { all: [] as NostrEvent[], poolEvents: [] as NostrEvent[] };
 
 function matches(e: NostrEvent, f: NostrFilter): boolean {
@@ -139,6 +140,7 @@ const pool = {
     if (!r) throw new Error(`no relay ${url} in this test`);
     return {
       query: async (filters: NostrFilter[], opts?: { signal?: AbortSignal }) => {
+        if (asksTravel(filters)) travelAsks.count++;
         if (r.readHangs) await new Promise<void>((res) => opts?.signal?.addEventListener('abort', () => res()));
         if (r.readDelay) await new Promise((res) => setTimeout(res, r.readDelay));
         if (r.readFails || r.readHangs) throw new Error('unreachable: test');
@@ -150,6 +152,7 @@ const pool = {
         accept(r, structuredClone(e));
       },
       req: (filters: NostrFilter[], { signal }: { signal: AbortSignal }) => {
+        if (asksTravel(filters)) travelAsks.count++;
         const queue: unknown[] = [['EOSE', 'sub']];
         let wake: (() => void) | null = null;
         let ended = false;
@@ -235,7 +238,7 @@ beforeAll(() => {
   setTrustedInputCheck(() => true);
 });
 afterAll(() => {
-  setTravelMode('v1');
+  setTravelMode('off');
   setTrustedInputCheck(null);
 });
 beforeEach(() => {
@@ -247,6 +250,7 @@ beforeEach(() => {
   base.poolEvents = [];
   signing.refuse = false;
   signing.kinds = [];
+  travelAsks.count = 0;
   signer.signEvent.mockClear();
   scene.state.journeys = [];
   signIn('nsec');
@@ -520,18 +524,51 @@ describe('the classic home, on Nostr', () => {
     expect(signer.signEvent).not.toHaveBeenCalled();
   });
 
-  it('the cookie of world presence v1 is never read or written in this mode', async () => {
-    document.cookie = `${cookieName(PK)}=${encodeURIComponent(`1.pixel.tab.${Date.now().toString(36)}.${(Date.now() + 40_000).toString(36)}`)}; path=/`;
-    setWorldPresenceEnabled(true);
-    try {
-      renderAt('/');
-      await waitFor(() => expect(status()).toHaveAttribute('data-travel-status', 'ready'));
-      expect(presenceOf()).toBe('present');
+  it('the place is only ever the World Location: nothing about it is kept in a cookie', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    renderAt('/');
+    await screen.findByTestId('world-presence-away', undefined, WAIT);
+    await playThrice();
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    expect(sent(31126)).toHaveLength(1);
+    expect(document.cookie).not.toMatch(/blobbi/i);
+  }, 20_000);
+});
+
+describe('world travel off (the default build)', () => {
+  beforeEach(() => setTravelMode('off'));
+  afterEach(() => setTravelMode('nostr'));
+
+  for (const path of ['/', '/room'] as const) {
+    it(`${path === '/' ? 'the classic home' : 'the 3D room'}: the Blobbi is home whatever the relays say; no travel read, no signature, no cookie`, async () => {
+      remoteMove('blobbi-pixel', Date.now() - 60_000);
+      const view = renderAt(path);
+      if (path === '/') await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+      else await screen.findByTestId('room-preview', undefined, WAIT);
+      await playThrice();
+      view.again();
+      await pause(600);
       expect(screen.queryByTestId('world-presence-away')).toBeNull();
-    } finally {
-      setWorldPresenceEnabled(false);
-      document.cookie = `${cookieName(PK)}=; max-age=0; path=/`;
-    }
+      expect(screen.queryByTestId('world-travel-looking')).toBeNull();
+      expect(screen.queryByTestId('world-travel-status')).toBeNull();
+      if (path === '/') expect(presenceOf()).toBe('present');
+      expect(travelAsks.count).toBe(0);
+      expect(signer.signEvent).not.toHaveBeenCalled();
+      expect(sent(31126)).toEqual([]);
+      expect(sent(21124)).toEqual([]);
+      expect(base.poolEvents.filter((e) => e.kind === 31126 || e.kind === 21124)).toEqual([]);
+      expect(document.cookie).not.toMatch(/blobbi/i);
+    }, 20_000);
+  }
+
+  it('a signed location kept on this device from an earlier session is not read: the Blobbi starts home', async () => {
+    localStorage.setItem(worldLocationStoreKey(PK, D), JSON.stringify(remoteMove('blobbi-pixel', Date.now() - 60_000)));
+    renderAt('/');
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    await pause(300);
+    expect(presenceOf()).toBe('present');
+    expect(screen.queryByTestId('world-presence-away')).toBeNull();
+    expect(travelAsks.count).toBe(0);
   });
 });
 
@@ -850,11 +887,11 @@ describe('loading: where it is, before the relays answer (M16.1)', () => {
     // Read once: a re-render never changes the start
     rerender({ pk: PK });
     expect(result.current).toBe(true);
-    // v1: never
-    setTravelMode('v1');
+    // Travel off: never
+    setTravelMode('off');
     try {
-      const v1 = renderHook(() => useTravelStartsUnknown(PK, `${D}x`), { wrapper: hookWrapper() });
-      await waitFor(() => expect(v1.result.current).toBe(false));
+      const off = renderHook(() => useTravelStartsUnknown(PK, `${D}x`), { wrapper: hookWrapper() });
+      await waitFor(() => expect(off.result.current).toBe(false));
     } finally {
       setTravelMode('nostr');
     }

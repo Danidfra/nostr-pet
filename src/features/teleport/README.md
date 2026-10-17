@@ -131,17 +131,14 @@ coordinates.
 
 ## 3. Cross-app presence coordination (design only)
 
-> **Update (world presence v1, `src/features/presence/`):** the same-browser part
-> is now implemented, in a different form from the plan below. Instead of
-> per-tab `BroadcastChannel` messages, there is one lease in a first-party cookie,
-> so it works across the apps' origins (this home and Blobbi Pixel) as well as
-> across tabs. A claim is a real input (a trusted press or key) in a visible,
-> focused page, never focus or visibility, so the principle in 3.1 holds: the
-> player's own act moves the Blobbi. The controller is unchanged, and a
-> coordinator drives it through `leave()`/`enter()`. Across devices (3.4), M16 adds
-> world travel on Nostr behind a switch (the Blobbi's World Location, kind 31126,
-> `presence/README.md`). The controller gained `settle()`, so a place learned on
-> load is shown as it is and never replayed as a journey.
+> **Update (M16):** implemented, in a different form from the plan below, as
+> world travel on Nostr (`src/features/presence/`, off by default): the
+> Blobbi's World Location (kind 31126) says where it is, across tabs, apps and
+> devices alike. A move is the player's own act (three interactions, or Call
+> home), so the principle in 3.1 holds. The controller is driven through
+> `leave()`/`enter()`, and gained `settle()`, so a place learned on load is shown
+> as it is and never replayed as a journey. An earlier same-browser version
+> (world presence v1, a cookie lease) was removed: Nostr is the only model.
 
 The goal: one Blobbi is visibly in one place at a time. The places could be
 the Blobbi home, Blobbi Island, Ditto, several tabs, or several devices. When

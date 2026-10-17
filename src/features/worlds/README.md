@@ -12,7 +12,7 @@ step is a decision and not a surprise.
 | **Blobbi identity** | kind 31124, `d` = `blobbi-<pubkey12>-<petId>` | Yes: every app reads the same events. |
 | **App identity** | each app is its own origin (`island.`, `rumble.`, `farm.blobbi.pet`, `blobbi.pet`) | No, and should stay so: separate storage, separate sessions. |
 | **Navigation** | a plain link from one origin to another | Implemented here (this folder). |
-| **Presence / location** ("where is my Blobbi now") | world presence v1 (`src/features/presence/`): one short lease in a first-party cookie, on one browser | v1: between this home and Blobbi Pixel on the same site. M16 (behind a switch, provisional kinds): across devices on Nostr, through the Blobbi's World Location (kind 31126), `presence/README.md`. |
+| **Presence / location** ("where is my Blobbi now") | world travel on Nostr (`src/features/presence/`): the Blobbi's World Location (kind 31126) | Off by default (experimental kinds); when on, across devices and Blobbi worlds, `presence/README.md`. The earlier cookie-based world presence v1 was removed. |
 | **Shared inventory** | item ownership on Nostr (kind 31124 content, issuer item events) | Yes, read-only here; each app writes its own kinds (see the ecosystem repo map). |
 | **Gameplay state** (stats, stage, streak) | kind 31124 tags | Yes, last write wins per replaceable event. |
 
@@ -66,10 +66,10 @@ about where the Blobbi was. See below for what real presence would need.
 
 ## If presence is wanted later
 
-> Same-browser presence is now implemented without any protocol change
-> (`src/features/presence/README.md`). The paragraph below still holds for
-> presence ACROSS DEVICES, which that README proposes as an ephemeral kind,
-> awaiting approval.
+> Superseded by M16: a Blobbi's place is its World Location (kind 31126), a new
+> addressable kind (not a tag on 31124), with optional Active Presence (kind
+> 21124), both experimental (`src/features/presence/README.md`). The paragraph
+> below is the original reasoning.
 
 A "where is my Blobbi" fact would need either a new tag on 31124 (every app
 must agree and every write path must keep it), or a new kind. Both are

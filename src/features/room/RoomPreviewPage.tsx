@@ -938,10 +938,10 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const travelBusy = care.busy || theater || lifecycle.pending !== null || decorator.editing || transitioning || bathing;
   // A companion chosen meanwhile in another Blobbi game waits for these moments to end (src/features/companion)
   useCompanionSwitchHold(travelBusy || care.offer !== null || !!interactions.dose || departure.phase !== 'idle');
-  // ─── World presence: away while the player plays in another Blobbi world, home again when the room is played in ───
+  // ─── World travel (M16, off unless switched on): away while its World Location names another Blobbi world ───
   // The room's own journeys come first: its arrival on entry and a trip to another world drive the teleport alone.
-  // An egg and a sleeper stay home. v1: a cookie, nothing on Nostr; Nostr travel (M16): the Blobbi's World Location,
-  // moved only by the player's act. The companion choice is untouched.
+  // An egg and a sleeper stay home. The World Location is moved only by the player's act; off, the Blobbi is simply
+  // home. The companion choice is untouched.
   const [presenceJourney, setPresenceJourney] = useState<{ kind: 'enter' | 'leave'; place: string; key: number } | null>(null);
   const worldTravel = useHomeTravel({
     pubkey,

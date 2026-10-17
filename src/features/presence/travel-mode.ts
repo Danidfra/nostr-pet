@@ -1,17 +1,18 @@
 /**
- * Which kind of world presence runs in this page. A module of its own, with no imports, so the test setup can reach
- * it before any hook loads (the same seam as `presence-switch.ts`).
+ * Whether world travel runs in this page. A module of its own, with no imports, so the test setup can reach it before
+ * any hook loads.
  *
- *   'v1'     world presence v1 (README.md): one short lease in a first-party cookie, on one browser. The default.
+ *   'off'    the default. The Blobbi is simply home: no location is read or written anywhere, nothing is signed or
+ *            published, and the home plays exactly as a single-world app.
  *   'nostr'  world travel on Nostr (M16, README.md "World travel on Nostr"): the Blobbi's World Location (kind 31126)
- *            is the authority, across devices; the cookie is never read or written.
+ *            is the only authority for where it is, across devices and Blobbi worlds.
  *
  * Nostr travel is on only when the build says so (`VITE_BLOBBI_WORLD_TRAVEL=nostr`, the owner's release decision:
  * its two kinds are experimental), or on a development server when the page's storage says
  * `localStorage['blobbi:world-travel:v1'] = 'nostr'`. A production build ignores the storage flag, so no page can
  * switch a player onto the new kinds.
  */
-export type TravelMode = 'v1' | 'nostr';
+export type TravelMode = 'off' | 'nostr';
 
 export const TRAVEL_MODE_KEY = 'blobbi:world-travel:v1';
 
@@ -25,11 +26,11 @@ export function setTravelMode(mode: TravelMode | null): void {
 export function travelMode(env: { build?: string; dev?: boolean } = readEnv()): TravelMode {
   if (forced) return forced;
   if (env.build === 'nostr') return 'nostr';
-  if (!env.dev) return 'v1';
+  if (!env.dev) return 'off';
   try {
-    return globalThis.localStorage?.getItem(TRAVEL_MODE_KEY) === 'nostr' ? 'nostr' : 'v1';
+    return globalThis.localStorage?.getItem(TRAVEL_MODE_KEY) === 'nostr' ? 'nostr' : 'off';
   } catch {
-    return 'v1';
+    return 'off';
   }
 }
 

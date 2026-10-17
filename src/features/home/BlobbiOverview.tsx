@@ -821,10 +821,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // A hatch in progress: its beat for what is on screen, and a shell that never un-cracks while it runs.
   const hatchBeat = hatchOnScreen(ceremony.presentation.hatch, blobbi.stage);
   const eggCrack = ceremony.presentation.eggCrack ?? (hatchBeat ? 'heavy' : lifecycle.view.eggCrack);
-  // World presence (features/presence): while the player plays in another Blobbi world, the Blobbi is there and not
-  // here; it leaves and comes back with the teleport's own journey. An egg and a sleeper stay home (an egg cannot
-  // travel, a sleeper is in its bed). v1: a cookie on this browser, nothing on Nostr. Nostr travel (M16, off unless
-  // switched on): the Blobbi's World Location, moved only by the player's act here. The companion choice is untouched.
+  // World travel (features/presence, M16, off unless switched on): while the Blobbi's World Location names another
+  // Blobbi world, it is there and not here; it leaves and comes back with the teleport's own journey, moved only by the
+  // player's act. Off, it is simply home. An egg and a sleeper stay home (an egg cannot travel, a sleeper is in its
+  // bed). The companion choice is untouched.
   const travels = !isEgg && !sleeping;
   // On Nostr, a Blobbi whose place this device does not know yet starts unseen ("looking for it"), never home for a
   // moment before the relays say it is elsewhere

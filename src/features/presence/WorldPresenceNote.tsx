@@ -1,38 +1,37 @@
 /**
- * The words around world presence, in a child's words and with no protocol in them: while the Blobbi is in another
- * Blobbi world, a small card says where and offers to call it home; when it leaves or comes back, a short line says so
- * and goes. Shared by the classic home and the room, in both presence modes (`useHomeTravel`). On Nostr (M16) the
- * card also says what a call home is doing: waiting for the signer, on the way, or what went wrong, with Try again;
- * that the Blobbi noticed the player playing here (an interaction counted toward it following them home); and,
- * when no relay answered, an honest line with a way to look again.
+ * The words around world travel (M16), in a child's words and with no protocol in them: while the Blobbi is in
+ * another Blobbi world, a small card says where and offers to call it home; when it leaves or comes back, a short line
+ * says so and goes. Shared by the classic home and the room (`useHomeTravel`). The card also says what a call home is
+ * doing: waiting for the signer, on the way, or what went wrong, with Try again; that the Blobbi noticed the player
+ * playing here (an interaction counted toward it following them home); and, when no relay answered, an honest line
+ * with a way to look again. With world travel off it never shows (the Blobbi is always home).
  */
 import { useEffect, useState } from 'react';
 import { Home, RotateCcw } from 'lucide-react';
 import type { TravelPhase } from '@blobbi-kit/core';
-import { placeName } from './world-presence';
 
 export interface WorldPresenceNoteProps {
   name: string;
-  /** Where the Blobbi is (`home`, `pixel`, `blobbi-pixel`, …). */
+  /** Where the Blobbi is: a World id (`blobbi-pixel`, …). */
   place: string;
   /** The Blobbi is away from this home and its departure has finished. */
   away: boolean;
   /** The last journey the sync began, with a key that changes per journey. */
   journey: { kind: 'enter' | 'leave'; place: string; key: number } | null;
   onCallHome: () => void;
-  /** A place's words (v1's `placeName` by default). */
-  nameOf?: (place: string) => string;
-  /** Nostr: what a call home is doing now. */
+  /** A place's words (`useHomeTravel`'s `nameOf`). */
+  nameOf: (place: string) => string;
+  /** What a call home is doing now. */
   travel?: TravelPhase;
-  /** Nostr: whether its World shows recent play ("playing there right now", or else "last there"); v1: unset. */
+  /** Whether its World shows recent play ("playing there right now", or else "last there"). */
   playedThere?: boolean;
-  /** Nostr: try again after a failure. */
+  /** Try again after a failure. */
   onRetry?: () => void;
-  /** Nostr: interactions counted toward it following the player home (0 or unset: none). */
+  /** Interactions counted toward it following the player home (0 or unset: none). */
   noticed?: number;
-  /** Nostr: no relay answered the first look; the place shown is the kept one, or home by default. */
+  /** No relay answered the first look; the place shown is the kept one, or home by default. */
   unreachable?: boolean;
-  /** Nostr: look again (the unreachable line's button). */
+  /** Look again (the unreachable line's button). */
   onRefresh?: () => void;
 }
 
@@ -46,7 +45,7 @@ const FAILED: Record<string, (name: string) => string> = {
   failed: (n) => `${n} couldn't come home just now.`,
 };
 
-export function WorldPresenceNote({ name, place, away, journey, onCallHome, nameOf = placeName, travel, playedThere, onRetry, noticed = 0, unreachable = false, onRefresh }: WorldPresenceNoteProps) {
+export function WorldPresenceNote({ name, place, away, journey, onCallHome, nameOf, travel, playedThere, onRetry, noticed = 0, unreachable = false, onRefresh }: WorldPresenceNoteProps) {
   const [line, setLine] = useState<string | null>(null);
   useEffect(() => {
     if (!journey) return;

@@ -4,7 +4,6 @@ import { cleanup } from '@testing-library/react';
 import { setRoomArrivalEnabled } from '@/features/room/lib/room-arrival';
 import { setDailyXpEnabled } from '@/features/progression/daily-xp-switch';
 import { resetBlockingLayers } from '@/lib/blocking-layer';
-import { setWorldPresenceEnabled } from '@/features/presence/presence-switch';
 import { setTravelMode } from '@/features/presence/travel-mode';
 
 // The room's home-coming (M12.1) starts the Blobbi absent for a moment: suites about other things meet it present,
@@ -13,12 +12,9 @@ setRoomArrivalEnabled(false);
 // Today's missions write to the profile (progress, and the day's award). The kit's store of the day outlives a test,
 // so suites about other things would pay a day an earlier test finished; the progression suites turn it on
 setDailyXpEnabled(false);
-// World presence reads a cookie jsdom keeps between tests: suites about other things meet the Blobbi home, as before;
-// the presence suites turn it on
-setWorldPresenceEnabled(false);
-// World travel on Nostr (M16) is off unless switched on: suites meet world presence v1 (itself off, above); the
+// World travel on Nostr (M16) is off unless switched on, as in a default build: suites meet the Blobbi home; the
 // Nostr travel suites force it on
-setTravelMode('v1');
+setTravelMode('off');
 
 // jsdom has no matchMedia; the theme provider and hover checks read it.
 Object.defineProperty(window, 'matchMedia', {
