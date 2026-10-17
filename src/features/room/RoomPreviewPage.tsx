@@ -119,10 +119,11 @@ import { useEatingPresentation } from './hooks/useEatingPresentation';
 import { usePetting } from './hooks/usePetting';
 import { useExpression } from '@/features/expression/react/useExpression';
 import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
-import { travelStartsAway, useHomeTravel } from '@/features/presence/useHomeTravel';
+import { travelStartsAway, useHomeTravel, useTravelStartsUnknown } from '@/features/presence/useHomeTravel';
 import { travelMode } from '@/features/presence/travel-mode';
 import { WORLD_HOME } from '@blobbi-kit/core';
 import { WorldPresenceNote } from '@/features/presence/WorldPresenceNote';
+import { TravelCue } from '@/features/presence/TravelCue';
 import { PRIORITY } from '@/features/expression/controller';
 import { proceduralFace, type ExpressionName } from '@/features/expression/faces';
 
@@ -341,12 +342,14 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // World presence (features/presence): a Blobbi playing in another Blobbi app when the room opens is away, and no
   // arrival plays; it comes home when the room is played in (the sync below)
   const [awayAtEntry] = useState(() => !isEgg && !isSleeping && travelStartsAway(pubkey, blobbi.d));
+  // Nostr travel: a place not known yet on this device is never shown as here (it may be elsewhere)
+  const startsUnknown = useTravelStartsUnknown(pubkey, blobbi.d) && !isEgg && !isSleeping;
   // Nostr travel (M16): the arrival on entry waits for the relays' first answer, and does not play at all when the
   // Blobbi turns out to be in another world (it would arrive, then vanish)
   const [entryGate, setEntryGate] = useState<'wait' | 'away' | 'go'>(() => (travelMode() === 'nostr' ? 'wait' : 'go'));
   const [arrival, setArrival] = useState<'waiting' | 'done' | 'none'>(() => (awayAtEntry ? 'done' : arrivesOnEntry({ stage: blobbi.stage, sleeping: isSleeping }) ? 'waiting' : 'none'));
   const presence = usePresence({
-    initial: arrival === 'waiting' || awayAtEntry ? 'absent' : 'present',
+    initial: arrival === 'waiting' || awayAtEntry || startsUnknown ? 'absent' : 'present',
     reducedMotion: () => reduceMotionRef.current,
     onCue: (cue) => {
       play(cue);
@@ -949,6 +952,9 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     onJourney: (kind, place) => setPresenceJourney((j) => ({ kind, place, key: (j?.key ?? 0) + 1 })),
   });
   const travelKnown = worldTravel.known;
+  // Where it stands while unseen: "looking for it" while its place is not known (the arrival on entry waits for it),
+  // or a call home under way just before its arrival
+  const travelCue = !isEgg && !isSleeping && absent && departure.phase === 'idle' && (worldTravel.view === 'looking' || worldTravel.view === 'coming') ? worldTravel.view : null;
   const travelAway = !worldTravel.here && worldTravel.place !== WORLD_HOME;
   useEffect(() => {
     if (entryGate === 'wait' && travelKnown) setEntryGate(travelAway ? 'away' : 'go');
@@ -1137,6 +1143,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         onPropTap={interactions.onPropTap}
         onRoomBuilt={onRoomBuilt}
         onStatusChange={onSceneStatus}
+        blobbiCue={travelCue ? <TravelCue kind={travelCue} name={blobbi.name} tint={nameTag.color} /> : undefined}
         blobbiOverlay={
           <RoomBlobbiOverlay ref={gazeBoxRef} feedback={care.feedback} handed={null} heart={petting.heart}>
             {/* The bath on its body (M15): the surface the player rubs; the foam and the tools too, unless the 3D model draws them */}
@@ -1169,13 +1176,16 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             <WorldPresenceNote
               name={blobbi.name}
               place={worldTravel.place}
-              away={absent && !worldTravel.here && departure.phase === 'idle' && arrival !== 'waiting'}
+              away={absent && !worldTravel.here && worldTravel.view !== 'looking' && departure.phase === 'idle' && arrival !== 'waiting'}
               journey={presenceJourney}
               onCallHome={worldTravel.callHome}
               nameOf={worldTravel.nameOf}
               travel={worldTravel.snapshot?.travel}
               playedThere={worldTravel.snapshot ? !!worldTravel.snapshot.presence.there : undefined}
               onRetry={worldTravel.retry}
+              noticed={worldTravel.follow?.count}
+              unreachable={worldTravel.unreachable && !isEgg && !isSleeping}
+              onRefresh={worldTravel.refresh}
             />
             {worldTravel.status}
             {hatchReady && !theater && (

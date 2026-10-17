@@ -217,6 +217,11 @@ export interface RoomShellProps {
    * `--blobbi-tiles` set so it can rise to its head.
    */
   blobbiOverlay?: ReactNode;
+  /**
+   * Drawn where the user's Blobbi stands while it is not shown (world travel's "looking for it" and "calling it"
+   * cues): placed at its feet each frame like the overlay, in a box its size.
+   */
+  blobbiCue?: ReactNode;
   /** The HUD's right-hand slot (opposite the decorate button). */
   hudEnd?: ReactNode;
   /**
@@ -327,6 +332,7 @@ export function RoomShell({
   blobbiVisible,
   blobbiModel = null,
   blobbiOverlay,
+  blobbiCue,
   hudEnd,
   blobbiName,
   blobbiWanders = true,
@@ -922,6 +928,11 @@ export function RoomShell({
 
       {/* Things standing in the room, placed by the scene each frame */}
       <div ref={worldAnchorsRef} className="absolute inset-0 z-[5] pointer-events-none" aria-hidden={!stage}>
+        {blobbiCue && !blobbiVisible && !isEditing && (
+          <div data-anchor="blobbi" data-testid="room-blobbi-cue" className={cx('absolute left-0 top-0', status === 'loading' && 'invisible')} style={{ '--blobbi-tiles': blobbiTiles } as CSSProperties}>
+            <div className="room-blobbi-overlay">{blobbiCue}</div>
+          </div>
+        )}
         {(stage || blobbiOverlay || blobbiName) && blobbiVisible && (
           <div
             data-anchor="blobbi"

@@ -2,7 +2,9 @@
  * The words around world presence, in a child's words and with no protocol in them: while the Blobbi is in another
  * Blobbi world, a small card says where and offers to call it home; when it leaves or comes back, a short line says so
  * and goes. Shared by the classic home and the room, in both presence modes (`useHomeTravel`). On Nostr (M16) the
- * card also says what a call home is doing: waiting for the signer, on the way, or what went wrong, with Try again.
+ * card also says what a call home is doing: waiting for the signer, on the way, or what went wrong, with Try again;
+ * that the Blobbi noticed the player playing here (an interaction counted toward it following them home); and,
+ * when no relay answered, an honest line with a way to look again.
  */
 import { useEffect, useState } from 'react';
 import { Home, RotateCcw } from 'lucide-react';
@@ -26,6 +28,12 @@ export interface WorldPresenceNoteProps {
   playedThere?: boolean;
   /** Nostr: try again after a failure. */
   onRetry?: () => void;
+  /** Nostr: interactions counted toward it following the player home (0 or unset: none). */
+  noticed?: number;
+  /** Nostr: no relay answered the first look; the place shown is the kept one, or home by default. */
+  unreachable?: boolean;
+  /** Nostr: look again (the unreachable line's button). */
+  onRefresh?: () => void;
 }
 
 const LINE_MS = 3_200;
@@ -38,7 +46,7 @@ const FAILED: Record<string, (name: string) => string> = {
   failed: (n) => `${n} couldn't come home just now.`,
 };
 
-export function WorldPresenceNote({ name, place, away, journey, onCallHome, nameOf = placeName, travel, playedThere, onRetry }: WorldPresenceNoteProps) {
+export function WorldPresenceNote({ name, place, away, journey, onCallHome, nameOf = placeName, travel, playedThere, onRetry, noticed = 0, unreachable = false, onRefresh }: WorldPresenceNoteProps) {
   const [line, setLine] = useState<string | null>(null);
   useEffect(() => {
     if (!journey) return;
@@ -64,7 +72,17 @@ export function WorldPresenceNote({ name, place, away, journey, onCallHome, name
           {playedThere === false ? `${name} was last in ${nameOf(place)}` : `${name} is playing in ${nameOf(place)}${playedThere ? ' right now' : ''}`}
         </p>
         <p className="text-xs opacity-80" data-testid="world-presence-detail">
-          {phase === 'signing' ? `Approve in your signer to call ${name} home.` : working ? `Calling ${name} home…` : failed ? (FAILED[failed] ?? FAILED.failed)(name) : `${name} comes home when you play here.`}
+          {phase === 'signing'
+            ? `Approve in your signer to call ${name} home.`
+            : working
+              ? `Calling ${name} home…`
+              : failed
+                ? (FAILED[failed] ?? FAILED.failed)(name)
+                : unreachable
+                  ? `Couldn't reach the Blobbi relays: this is where ${name} was last seen.`
+                  : noticed > 0
+                    ? `${name} noticed you playing here…`
+                    : `${name} comes home when you play here.`}
         </p>
         {failed && onRetry ? (
           <button type="button" className="lifecycle-pill !animate-none !px-3 !py-1.5 !text-xs" onClick={onRetry} data-testid="world-travel-retry">
@@ -80,7 +98,21 @@ export function WorldPresenceNote({ name, place, away, journey, onCallHome, name
       </div>
     );
   }
-  if (!line) return null;
+  if (!line) {
+    if (!unreachable) return null;
+    // Shown home by default (no relay answered, nothing kept here): said honestly, with a way to look again
+    return (
+      <p className="world-presence-line home-glass flex items-center gap-2" role="status" data-testid="world-travel-unreachable">
+        <span>Couldn't reach the Blobbi relays, so {name} is shown at home.</span>
+        {onRefresh && (
+          <button type="button" className="lifecycle-pill !animate-none !px-2.5 !py-1 !text-xs" onClick={onRefresh} data-testid="world-travel-refresh" data-world-travel="ignore">
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+            Look again
+          </button>
+        )}
+      </p>
+    );
+  }
   return (
     <p className="world-presence-line home-glass" role="status" data-testid="world-presence-line">
       {line}

@@ -8,9 +8,14 @@
  *          (`@blobbi-kit/core` world-travel, `useWorldTravel`); this hook only wires the home to it:
  *            - only a signed-in account (never a guest, never a dev fixture) has a session; anyone else's Blobbi is
  *              simply home;
- *            - the player's act moves it: a trusted press or key in a visible, focused page while it is away (never
- *              one inside a sheet or a menu, `[data-overlay]`, or `[data-world-travel="ignore"]`), or the away
- *              card's "Call home" (explicit). Never a load, a focus, a timer or a re-render;
+ *            - the player's act moves it: playing here while it is away, the THIRD meaningful interaction within
+ *              a rolling 20 s (`session.interact`: a trusted press or key in a visible, focused page, never one
+ *              inside a sheet or a menu, `[data-overlay]`, or `[data-world-travel="ignore"]`, never a held key's
+ *              auto-repeat), or the away card's "Call home" (explicit, at once). Never a load, a focus, a timer,
+ *              a visibility change or a re-render;
+ *            - while its place is not known yet (`resolution: 'pending'`: a fresh device, the first look under
+ *              way) it is neither here nor away: the teleport starts absent and the home shows "looking for it"
+ *              (`view: 'looking'`); the first answer is settled, never played as a journey;
  *            - signed by the account's own signer (`usePublishAdapter().sign`): an nsec login signs silently, an
  *              extension or a remote signer may ask;
  *            - optional Active Presence (kind 21124), the player's choice (`active-presence-choice.ts`).
@@ -18,7 +23,7 @@
  *
  * The companion choice (11125) is untouched in both: which Blobbi it is stays `current_companion`'s business.
  */
-import { createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createElement, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useNostrLogin } from '@nostrify/react/login';
 import { verifyEvent } from 'nostr-tools/pure';
@@ -30,7 +35,10 @@ import {
   isPlayedNow,
   knownWorld,
   storedWorldLocation,
+  travelView,
+  type FollowState,
   type NostrEvent,
+  type TravelViewKind,
   type ShownBlobbi,
   type WorldTravelOptions,
   type WorldTravelSession,
@@ -43,6 +51,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePublishAdapter } from '@/features/care/usePublishAdapter';
 import { canAskRelays } from '@/features/companion/pool-relays';
 import type { Presence } from '@/features/teleport/react/usePresence';
+import { ARRIVE } from '@/features/teleport/timeline';
 import { blobbiIsHome, useWorldPresence, useWorldPresenceSync } from './useWorldPresence';
 import { placeName } from './world-presence';
 import { isTrustedInput, travelMode } from './travel-mode';
@@ -99,6 +108,28 @@ export function travelStartsAway(pubkey: string | null | undefined, d: string): 
   return !!loc && currentWorld(loc) !== WORLD_HOME;
 }
 
+/**
+ * Whether this page's Blobbi starts with its place unknown: Nostr travel, a session for this account (a real login,
+ * not a guest, not a fixture), and no signed location kept on this device. Its teleport then starts absent (never
+ * standing here for a moment before the relays say it is elsewhere), and the home shows "looking for it". Read once,
+ * for the first render.
+ */
+export function useTravelStartsUnknown(pubkey: string | null | undefined, d: string): boolean {
+  const owner = useTravelOwner(pubkey ?? undefined);
+  const [unknown] = useState(() => travelMode() === 'nostr' && !!owner && !storedWorldLocation(pageStore, { owner, d, verify: safeVerify }));
+  return unknown;
+}
+
+/** The account that may have a travel session for `pubkey` here (only a real login: never a guest, never a dev fixture). */
+function useTravelOwner(pubkey: string | undefined): string | null {
+  const { nostr } = useNostr();
+  const { logins } = useNostrLogin();
+  const { user } = useCurrentUser();
+  const fixture = useContext(DevFixtureContext);
+  const login = logins[0];
+  return pubkey && !fixture && login && user?.pubkey === pubkey && canAskRelays(nostr) ? pubkey : null;
+}
+
 export interface HomeTravelOptions {
   pubkey: string | undefined;
   /** The Blobbi on screen. */
@@ -120,8 +151,19 @@ export interface HomeTravel {
   place: string;
   /** It belongs here now (and, on Nostr, is not still on its way). */
   here: boolean;
-  /** The place known for sure (v1: always; nostr: the relays answered once, or there is no session). */
+  /** The place known (v1: always; nostr: kept on this device, the relays answered, or there is no session). */
   known: boolean;
+  /**
+   * What the home shows of its place (the kit's `travelView`): `looking` (not known yet: neither here nor away),
+   * `here`, `away`, `coming` (a move here under way: checking, signing, publishing, the departure window).
+   */
+  view: TravelViewKind;
+  /** Nostr: no relay answered the first look (the kept place, or home by default, is shown); v1: false. */
+  unreachable: boolean;
+  /** Nostr: read the relays again now (the "can't reach" hint's button). */
+  refresh(): void;
+  /** Nostr: the interactions counted toward following the player here (null: none, v1). */
+  follow: FollowState | null;
   /** A place, for the words around a journey ("Blobbi Pixel", "another Blobbi world"). */
   nameOf(place: string): string;
   /** The away card's button: the player's explicit act. */
@@ -155,6 +197,10 @@ function useV1Travel(o: HomeTravelOptions | null): HomeTravel {
     place: worldPresence.snapshot.place,
     here: worldPresence.snapshot.here,
     known: true,
+    view: worldPresence.snapshot.here ? 'here' : 'away',
+    unreachable: false,
+    refresh: () => {},
+    follow: null,
     nameOf: placeName,
     callHome: () => worldPresence.page?.input(),
     retry: () => worldPresence.page?.input(),
@@ -169,11 +215,11 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
   const { nostr } = useNostr();
   const { logins } = useNostrLogin();
   const { user } = useCurrentUser();
-  const fixture = useContext(DevFixtureContext);
   const publisher = usePublishAdapter();
   const login = logins[0];
   // Only a real login moves a Blobbi: a guest's Blobbi and a dev fixture's live on this device only
-  const owner = o && o.pubkey && !fixture && login && user?.pubkey === o.pubkey && canAskRelays(nostr) ? o.pubkey : null;
+  const accountOwner = useTravelOwner(o?.pubkey);
+  const owner = o ? accountOwner : null;
   const presenceOn = useActivePresenceChoice(owner);
 
   const sessionRef = useRef<WorldTravelSession | null>(null);
@@ -199,11 +245,21 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
       },
       stillAccount: () => latest.current.user?.pubkey === owner && latest.current.owner === owner,
       isActive: () => isPlayedNow({ visible: typeof document === 'undefined' || document.visibilityState !== 'hidden', lastInputAt: lastInputAt.current, now: Date.now() }),
+      // The teleport's arrival plays its "incoming" motes before the body forms: started that much earlier, the body
+      // forms at the session's `formAt` (the departure window's end, and no sooner than MIN_TRAVEL_MS after the act)
+      arrivalLeadMs: ARRIVE.incoming,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one session per owner, Blobbi and relay set
   }, [owner, o?.d, relays]);
   const travel = useWorldTravel(options ? { ...options, presenceEnabled: presenceOn } : null);
-  const { session, snapshot } = travel;
+  const { session } = travel;
+  // The kit makes its session in an effect: until its first snapshot, a session that is coming says what it will
+  // start with (the location kept on this device, or `pending`), so no render shows the Blobbi home meanwhile
+  const kept = useMemo(() => (options ? storedWorldLocation(pageStore, { owner: options.owner, d: options.d, verify: safeVerify }) : null), [options]);
+  const snapshot = travel.snapshot && options && travel.snapshot.owner === options.owner && travel.snapshot.d === options.d ? travel.snapshot : null;
+  const coming = !!options && !snapshot;
+  const view: TravelViewKind = snapshot ? travelView(snapshot).kind : coming ? (kept ? (currentWorld(kept) === WORLD_HOME ? 'here' : 'away') : 'looking') : 'here';
+  const resolution = snapshot ? snapshot.resolution : coming ? (kept ? 'cached' : 'pending') : 'none';
   sessionRef.current = session;
 
   const presenceStatus = snapshot?.presence.status ?? null;
@@ -215,6 +271,12 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
 
   const controller = o?.presence.controller;
   const travels = !!o?.travels;
+  // Not known where it is (a fresh device, a new account or Blobbi): not standing here meanwhile. Before the paint, so
+  // no frame shows it home; settled with no journey (the first answer is settled too, by the sync)
+  useLayoutEffect(() => {
+    if (view !== 'looking' || !travels || !controller || controller.isDisposed() || o?.paused) return;
+    if (controller.getState() !== 'absent') controller.settle('absent');
+  }, [view, travels, controller, o?.paused]);
   useWorldTravelSync({
     session,
     blobbi: (): ShownBlobbi | null =>
@@ -226,9 +288,8 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
     onJourney: o?.onJourney,
   });
 
-  // The player's act: a trusted press or key here, while the Blobbi is away; every such input is also activity
-  const latestSnap = useRef(snapshot);
-  latestSnap.current = snapshot;
+  // The player's act: a trusted press or key here is activity, and while the Blobbi is away an interaction toward
+  // bringing it over (the kit counts: the third within its window starts the move; a held key's repeat never counts)
   const travelsRef = useRef(travels);
   travelsRef.current = travels;
   useEffect(() => {
@@ -246,12 +307,14 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
       }
       if (!isMeaningfulInput({ trusted: isTrustedInput(e), visible, focused })) return;
       lastInputAt.current = Date.now();
-      session.noteActivity();
-      // The away card's own button asks explicitly (its click); a press on it is not a second, casual request
-      if (inside('[data-world-travel="explicit"]')) return;
-      const s = latestSnap.current;
-      if (!s || s.status === 'loading' || !travelsRef.current) return;
-      if (s.place !== WORLD_HOME && s.travel.phase !== 'signing' && s.travel.phase !== 'publishing' && s.travel.phase !== 'checking') void session.travel();
+      // The away card's own button asks explicitly (its click); a press on it is not also a casual interaction. An
+      // egg or a sleeper stays home: its presses are activity only
+      if (inside('[data-world-travel="explicit"]') || !travelsRef.current) {
+        session.noteActivity();
+        return;
+      }
+      // The kit ignores it while the place is not known, while it is here or on its way, after a refusal, read-only
+      void session.interact({ repeat: e.type === 'keydown' && !!(e as KeyboardEvent).repeat });
     };
     window.addEventListener('pointerdown', onInput, { capture: true, passive: true });
     window.addEventListener('keydown', onInput, { capture: true, passive: true });
@@ -272,6 +335,7 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
       });
     } else void s.travel({ explicit: true });
   }, []);
+  const refresh = useCallback(() => void sessionRef.current?.refresh(), []);
 
   const status = createElement('span', {
     hidden: true,
@@ -283,17 +347,28 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
     'data-travel-status': snapshot?.status ?? 'none',
     'data-travel-phase': snapshot?.travel.phase ?? 'idle',
     'data-travel-reason': snapshot?.travel.phase === 'failed' ? snapshot.travel.reason : undefined,
+    'data-travel-at': snapshot?.travel.phase === 'arriving' ? String(snapshot.travel.at) : undefined,
+    'data-travel-form-at': snapshot?.travel.phase === 'arriving' ? String(snapshot.travel.formAt) : undefined,
     'data-travel-change': snapshot ? `${snapshot.change.kind}:${snapshot.change.key}` : undefined,
     'data-travel-location': snapshot?.location?.id,
+    'data-travel-resolution': resolution,
+    'data-travel-view': view,
+    'data-follow-count': snapshot ? String(snapshot.follow.count) : '0',
+    'data-follow-suspended': snapshot?.follow.suspended ? 'true' : undefined,
     'data-presence-status': snapshot?.presence.status ?? 'off',
     'data-presence-there': snapshot?.presence.there?.world,
   });
 
   return {
     mode: 'nostr',
-    place: snapshot?.place ?? WORLD_HOME,
-    here: snapshot ? snapshot.here : true,
-    known: !snapshot || snapshot.status !== 'loading' || !!snapshot.location,
+    place: snapshot?.place ?? (kept && coming ? currentWorld(kept) : WORLD_HOME),
+    // Not known yet: neither here nor away
+    here: view === 'looking' ? false : snapshot ? snapshot.here : kept && coming ? currentWorld(kept) === WORLD_HOME : true,
+    known: view !== 'looking',
+    view,
+    unreachable: resolution === 'unreachable',
+    refresh,
+    follow: snapshot?.follow ?? null,
     nameOf: nameOfWorld,
     callHome,
     retry,

@@ -1250,6 +1250,84 @@
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: none; }
   }
+  /* Where the Blobbi stands while it cannot be seen (presence/TravelCue): "looking for it" while its place is not
+     known yet, and a call home under way just before its arrival. A box the Blobbi's size, feet at the bottom */
+  .travel-cue {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .travel-cue__glow {
+    position: absolute;
+    left: 50%;
+    bottom: -4%;
+    width: 58%;
+    height: 14%;
+    transform: translateX(-50%);
+    border-radius: 100%;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--cue-tint, hsl(var(--primary))) 55%, white) 0%, color-mix(in srgb, var(--cue-tint, hsl(var(--primary))) 30%, transparent) 55%, transparent 100%);
+    opacity: 0.55;
+    filter: blur(2px);
+  }
+  .travel-cue[data-kind='coming'] .travel-cue__glow {
+    opacity: 0.85;
+  }
+  .travel-cue__mote {
+    position: absolute;
+    width: 7%;
+    aspect-ratio: 1 / 1;
+    border-radius: 100%;
+    background: radial-gradient(closest-side, white 0%, color-mix(in srgb, var(--cue-tint, hsl(var(--primary))) 70%, white) 45%, transparent 100%);
+    opacity: 0;
+  }
+  .travel-cue__mote:nth-of-type(2) { left: 30%; top: 48%; }
+  .travel-cue__mote:nth-of-type(3) { left: 62%; top: 34%; width: 5%; }
+  .travel-cue__mote:nth-of-type(4) { left: 47%; top: 62%; width: 6%; }
+  .travel-cue__label {
+    position: absolute;
+    left: 50%;
+    bottom: 14%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 0.9;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .travel-cue__mote { opacity: 0.6; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .travel-cue { animation: world-presence-in 320ms ease-out both; }
+    /* Looking: a slow breath on the floor and faint twinkles, never urgent */
+    .travel-cue[data-kind='looking'] .travel-cue__glow { animation: travel-cue-breathe 1.8s ease-in-out infinite; }
+    .travel-cue[data-kind='looking'] .travel-cue__mote { animation: travel-cue-twinkle 1.8s ease-in-out infinite; }
+    .travel-cue[data-kind='looking'] .travel-cue__mote:nth-of-type(3) { animation-delay: 0.6s; }
+    .travel-cue[data-kind='looking'] .travel-cue__mote:nth-of-type(4) { animation-delay: 1.2s; }
+    /* Coming: the glow gathers and motes drift down onto it, the teleport's "incoming" direction */
+    .travel-cue[data-kind='coming'] .travel-cue__glow { animation: travel-cue-gather 0.9s ease-in-out infinite alternate; }
+    .travel-cue[data-kind='coming'] .travel-cue__mote { animation: travel-cue-descend 1.1s ease-in infinite; }
+    .travel-cue[data-kind='coming'] .travel-cue__mote:nth-of-type(3) { animation-delay: 0.35s; }
+    .travel-cue[data-kind='coming'] .travel-cue__mote:nth-of-type(4) { animation-delay: 0.7s; }
+  }
+  @keyframes travel-cue-breathe {
+    0%, 100% { opacity: 0.3; transform: translateX(-50%) scale(0.9); }
+    50% { opacity: 0.6; transform: translateX(-50%) scale(1); }
+  }
+  @keyframes travel-cue-twinkle {
+    0%, 100% { opacity: 0; transform: scale(0.6); }
+    50% { opacity: 0.7; transform: scale(1); }
+  }
+  @keyframes travel-cue-gather {
+    from { opacity: 0.55; transform: translateX(-50%) scale(0.85); }
+    to { opacity: 0.95; transform: translateX(-50%) scale(1.05); }
+  }
+  @keyframes travel-cue-descend {
+    0% { opacity: 0; top: 4%; transform: scale(0.7); }
+    25% { opacity: 0.9; }
+    100% { opacity: 0; top: 86%; transform: scale(1); }
+  }
   /* Development only: the room's dev tools (RoomDevTools), one surface over the room */
   .devtools__pills {
     position: fixed;

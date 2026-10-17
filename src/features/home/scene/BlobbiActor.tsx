@@ -53,6 +53,10 @@ interface BlobbiActorProps {
   journey?: Journey | null;
   /** Away in another Blobbi app: nothing of it is drawn, and it cannot be poked. */
   absent?: boolean;
+  /** Drawn where it stands while it is absent (world travel's "looking for it" or "calling it" cue). */
+  absentCue?: ReactNode;
+  /** Seen again with no journey (its place just looked up): a short fade in instead of a pop. Off: as before. */
+  fadeOnReturn?: boolean;
 }
 
 /**
@@ -69,7 +73,7 @@ interface BlobbiActorProps {
  * about how the Blobbi looks. It never touches Nostr.
  */
 export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function BlobbiActor(
-  { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, hatch = null, effects, accessories, children, inBed = false, faceName = null, journey = null, absent = false },
+  { blobbi, presentation, happyKey = 0, onPoke, tapLabel, invite = false, eggCrack, hatch = null, effects, accessories, children, inBed = false, faceName = null, journey = null, absent = false, absentCue, fadeOnReturn = false },
   ref,
 ) {
   // A named face over the presentation's emotion (a sleeper keeps its closed eyes)
@@ -115,6 +119,17 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
   }, [rock, reducedMotion]);
   const burst = hatch && hatch.burst !== 'none' && !reducedMotion ? hatch.burst : null;
 
+  // Back with no journey (settled, not arrived): a short fade, so a place looked up never pops the Blobbi in
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const wasAbsent = useRef(absent);
+  useEffect(() => {
+    const before = wasAbsent.current;
+    wasAbsent.current = absent;
+    const body = bodyRef.current;
+    if (!fadeOnReturn || !before || absent || journey || reducedMotion || !body || typeof body.animate !== 'function') return;
+    body.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: 'ease-out' });
+  }, [absent, journey, fadeOnReturn, reducedMotion]);
+
   // The ground shadow goes where the DRAWING stands, and is as wide as what
   // stands there: the renderer measures its own artwork (the feet of an
   // adult, the air under a floating baby, each individual's own width) and
@@ -149,7 +164,8 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
       data-presence={absent ? 'absent' : journey ? journey.kind : 'present'}
       style={{ left: placement.left, top: placement.top, zIndex: placement.zIndex, '--actor-scale': String(placement.scale), '--walk-cycle': `${playedWalkCycleFor(blobbi.stage, blobbi.visualGeneration)}s`, '--walk-tempo': String(walkTempoFor(blobbi.stage)), '--blobbi-motion-phase': String(motionPhase) } as React.CSSProperties}
     >
-      <div className="scene-actor__body">
+      <div ref={bodyRef} className="scene-actor__body">
+        {absent && absentCue && <div className="contents" style={{ '--cue-tint': visual.baseColor } as React.CSSProperties}>{absentCue}</div>}
         {!inBed && !absent && <div aria-hidden className="scene-actor__shadow" data-measured={shadowStyle ? 'true' : undefined} style={shadowStyle ?? undefined} />}
         {!absent && !journey && children}
         {/* The one sleep cue. The renderer draws the creature asleep (closed
