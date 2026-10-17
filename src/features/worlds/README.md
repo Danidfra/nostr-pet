@@ -12,7 +12,7 @@ step is a decision and not a surprise.
 | **Blobbi identity** | kind 31124, `d` = `blobbi-<pubkey12>-<petId>` | Yes: every app reads the same events. |
 | **App identity** | each app is its own origin (`island.`, `rumble.`, `farm.blobbi.pet`, `blobbi.pet`) | No, and should stay so: separate storage, separate sessions. |
 | **Navigation** | a plain link from one origin to another | Implemented here (this folder). |
-| **Presence / location** ("where is my Blobbi now") | world presence v1 (`src/features/presence/`): one short lease in a first-party cookie, on one browser | Between this home and Blobbi Pixel on the same site; never across devices, never on Nostr. |
+| **Presence / location** ("where is my Blobbi now") | world presence v1 (`src/features/presence/`): one short lease in a first-party cookie, on one browser | v1: between this home and Blobbi Pixel on the same site. M16 (behind a switch, provisional kinds): across devices on Nostr, through the Blobbi's World Location (kind 31126), `presence/README.md`. |
 | **Shared inventory** | item ownership on Nostr (kind 31124 content, issuer item events) | Yes, read-only here; each app writes its own kinds (see the ecosystem repo map). |
 | **Gameplay state** (stats, stage, streak) | kind 31124 tags | Yes, last write wins per replaceable event. |
 

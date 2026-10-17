@@ -138,8 +138,10 @@ coordinates.
 > across tabs. A claim is a real input (a trusted press or key) in a visible,
 > focused page, never focus or visibility, so the principle in 3.1 holds: the
 > player's own act moves the Blobbi. The controller is unchanged, and a
-> coordinator drives it through `leave()`/`enter()`. Across devices (3.4) nothing
-> is implemented, and the proposal is in `presence/README.md`.
+> coordinator drives it through `leave()`/`enter()`. Across devices (3.4), M16 adds
+> world travel on Nostr behind a switch (the Blobbi's World Location, kind 31126,
+> `presence/README.md`). The controller gained `settle()`, so a place learned on
+> load is shown as it is and never replayed as a journey.
 
 The goal: one Blobbi is visibly in one place at a time. The places could be
 the Blobbi home, Blobbi Island, Ditto, several tabs, or several devices. When

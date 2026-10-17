@@ -1,5 +1,8 @@
 # World presence v1: where the Blobbi is, across the Blobbi apps
 
+> **M16 update:** world travel on Nostr (across devices) is implemented behind a switch, and v1 below stays the
+> default. See ["World travel on Nostr (M16)"](#world-travel-on-nostr-m16) at the end.
+
 **Status: implemented, local to one browser.** The Blobbi home (this app) and
 Blobbi Pixel agree, on the same browser, on which app the player's Blobbi is in.
 Nothing is published to Nostr, no new event kind exists, and no identity, signing,
@@ -137,3 +140,105 @@ import-free seam as `daily-xp-switch.ts`), and the presence suites turn it on.
     lapse drifting home, an egg, the off switch, signed out;
   - the 3D room: away at entry with no arrival, then Call home; Pixel taking it.
   - Nothing is ever published.
+
+## World travel on Nostr (M16)
+
+**Status: implemented and tested locally, off by default.** The kinds are provisional, and live use waits for the
+owner's approval.
+
+With travel on Nostr, the Blobbi's **World Location** (kind 31126, addressable, one event per move) is the authority
+everywhere, on any device. The protocol, its rules and its tests are in `@blobbi-kit/core`: `WORLD-TRAVEL.md` in
+blobbi-kit, plus `world-travel*.ts`. This folder only wires the home to it, in `useHomeTravel.ts`. That hook runs
+either mode behind one interface, for the classic home and the room.
+
+### Turning it on
+
+- **A build:** `VITE_BLOBBI_WORLD_TRAVEL=nostr npm run build` (or `npm run dev`). This is the owner's release
+  decision.
+- **A development server only:** `localStorage['blobbi:world-travel:v1'] = 'nostr'`, then reload. A production build
+  ignores this flag (`travel-mode.ts`).
+- **Otherwise:** world presence v1 above, unchanged. On Nostr, the v1 cookie is never read or written; a newer signed
+  event always wins over the device's stored last location.
+
+### What happens
+
+- **Who.** Only a real login has a session: an nsec, an extension or a remote signer. A guest's Blobbi and a dev
+  fixture's stay home.
+- **Relays.** The session reads and writes `BLOBBI_WORLD_TRAVEL_RELAYS`, which are `wss://relay.ditto.pub` and
+  `wss://relay.primal.net`, one relay at a time (`poolWorldTravelRelays` over the app's pool). It keeps a live
+  stream, resubscribes with backoff, and looks again every minute, when shown, and when back online.
+- **Load.** The last signed location this device kept decides the first frame (`travelStartsAway`), and the relays
+  decide a moment later. Either way it is *historical*: shown as it is (teleport `settle`), never replayed as a
+  departure. Until the relays have answered, the Blobbi is not cared for or poked here. In the room, the arrival on
+  entry waits for that answer and does not play when the Blobbi is elsewhere.
+- **The player's act.** Either of these brings it home with one signed World Location:
+  - a trusted press or key in a visible, focused page while the Blobbi is away;
+  - the away card's **Call home** (explicit), which is marked `data-world-travel="explicit"` so a press on it is
+    not also a casual request.
+
+  Presses inside a sheet or a menu (`[data-overlay="true"]`) or inside `[data-world-travel="ignore"]` never move it.
+  Nothing moves it on load, focus, visibility, a timer or a re-render.
+- **Another World or device taking it.** Its event comes in on the stream, live, and the home departs once its own
+  moment ends (care in flight, a ceremony, the hatch theatre, a bath, medicine, an item on its way: the same `busy`
+  as v1). Eggs and sleepers never travel.
+- **Signers.**
+  - An nsec login is `silent`. An extension or a remote signer (NIP-46) is `prompt`: the away card says "Approve in
+    your signer…".
+  - A refusal or a failure is said, with **Try again**. Casual presses do not ask again for a minute.
+  - "Couldn't reach the relays" resends the same signed event: once automatically, then on Try again or a reload
+    within 30 s. It is never sent after a newer location exists.
+- **Active Presence (kind 21124).**
+  - The account sheet has "Let my other Blobbi worlds know when I'm playing here" (`active-presence-choice.ts`).
+    It is stored per account as `localStorage['blobbi:active-presence:v1:<pubkey>'] = 'on'`, and is off by
+    default.
+  - While it is on and the Blobbi is here and played (a real input within two minutes), the home signs a note at
+    most once a minute that lasts two minutes. With a prompting signer, the first note waits for a real input; if
+    signing takes longer than 1.5 s (a person was asked), it pauses for the session.
+  - It never moves the Blobbi. When Pixel shows recent presence, the card says "playing in Blobbi Pixel right now"
+    (instead of "was last in"), and the arrival waits about 3 s so Pixel's departure can play first.
+
+### For browser tests
+
+While Nostr travel is on, a hidden element is always on the page: `[data-testid="world-travel-status"]`. It carries:
+
+| Attribute | Value |
+|---|---|
+| `data-travel-session` | `on` / `none` |
+| `data-travel-place` | a World id |
+| `data-travel-here` | `true` / `false` |
+| `data-travel-status` | `loading` / `ready` / `unreachable` / `none` |
+| `data-travel-phase` | `idle` / `checking` / `signing` / `publishing` / `arriving` / `failed` |
+| `data-travel-reason` | set on failure |
+| `data-travel-change` | `historical:<n>` / `live:<n>` |
+| `data-travel-location` | the event id |
+| `data-presence-status` | the presence status |
+| `data-presence-there` | set when another World shows recent play |
+
+Other selectors:
+
+- the classic actor: `[data-testid="blobbi-actor"][data-presence]` (`present`, `depart`, `absent`, `arrive`);
+- the card: `world-presence-away` (with `data-place` and `data-travel-phase`), `world-presence-call-home`,
+  `world-travel-retry`, `world-presence-detail`, `world-presence-line`;
+- the presence choice: `active-presence-toggle`.
+
+### Tests
+
+- `WorldTravel.test.tsx` runs end to end through the router, on two in-memory relays at the travel urls, with
+  real signatures. It covers:
+  - away at load with no departure;
+  - Call home publishing exactly one 31126, then arriving, and nothing more when the Blobbi is home;
+  - a press anywhere versus an ignored area;
+  - another device taking it (a live departure);
+  - the departure waiting for the home's moment;
+  - eggs and sleepers;
+  - a refused signature, then the cooldown;
+  - unreachable relays, then Try again without a second signature;
+  - a reload during a move;
+  - relays disagreeing, and a forged event;
+  - an extension never asked on load, on re-render or by the presence timer;
+  - presence off by default and on only while played;
+  - signed out;
+  - the v1 cookie ignored;
+  - the room both ways.
+- `travel-mode.test.ts` covers the switch.
+- The protocol's own tests are in blobbi-kit.

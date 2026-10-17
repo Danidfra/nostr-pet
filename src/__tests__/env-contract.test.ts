@@ -27,7 +27,7 @@ const reads = sources.flatMap(({ path, text }) =>
   text.split('\n').flatMap((line, i) => [...line.matchAll(/import\.meta\.env\.([A-Z_]+)/g)].map((m) => ({ path: `${path}:${i + 1}`, name: m[1], line }))),
 );
 
-const DOCUMENTED = ['VITE_BLOBBI_ISLAND_URL', 'VITE_BLOBBI_DEV_TOOLS'];
+const DOCUMENTED = ['VITE_BLOBBI_ISLAND_URL', 'VITE_BLOBBI_DEV_TOOLS', 'VITE_BLOBBI_WORLD_TRAVEL'];
 const DEV_ONLY = ['VITE_BLOBBI_DEV_TOOLS'];
 
 describe('the environment contract', () => {
