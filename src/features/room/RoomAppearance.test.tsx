@@ -74,7 +74,8 @@ describe('the Blobbi\'s appearance in the room', () => {
   it('is the canonical 2D drawing by default; 3D draws the model in its place, and 2D brings the drawing back', async () => {
     signedInWith('adult');
     renderRoom();
-    await screen.findByTestId('room-blobbi-anchor');
+    // The first room of the file loads its page cold: more than the default second on a busy machine
+    await screen.findByTestId('room-blobbi-anchor', undefined, { timeout: 5_000 });
     expect(shell()).toHaveAttribute('data-blobbi-render', '2d');
     // The look is chosen in the Blobbi's sheet, under Appearance (M14.2); the menu's room settings hold graphics and the view only
     fireEvent.click(screen.getByTestId('room-menu'));

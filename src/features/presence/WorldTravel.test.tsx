@@ -13,7 +13,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { MemoryRouter } from 'react-router-dom';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-import { KIND_BLOBBI_STATE, buildEggTags, buildPresenceTemplate, buildWorldLocationTemplate, parseWorldLocation } from '@blobbi-kit/core';
+import { KIND_BLOBBI_STATE, buildEggTags, buildPresenceTemplate, buildWorldLocationTemplate, parseWorldLocation, worldLocationStoreKey } from '@blobbi-kit/core';
 
 const currentUser = vi.hoisted(() => ({ user: undefined as { pubkey: string; signer: unknown } | undefined }));
 vi.mock('@/hooks/useCurrentUser', () => ({
@@ -60,8 +60,9 @@ import { setWorldPresenceEnabled } from './presence-switch';
 import { cookieName } from './presence-page';
 import { setTravelMode, setTrustedInputCheck } from './travel-mode';
 import { ACTIVE_PRESENCE_KEY } from './active-presence-choice';
-import { useHomeTravel } from './useHomeTravel';
+import { useHomeTravel, useTravelStartsUnknown } from './useHomeTravel';
 import { usePresence } from '@/features/teleport/react/usePresence';
+import { setRoomArrivalEnabled } from '@/features/room/lib/room-arrival';
 
 // ─── The account (a real key) and its Blobbi ───
 
@@ -82,6 +83,10 @@ const URLS = ['wss://relay.ditto.pub', 'wss://relay.primal.net'];
 interface FakeRelay {
   stored: NostrEvent[];
   refuse: boolean;
+  /** Reads: answered this late (ms), failed outright, or never answered at all. */
+  readDelay: number;
+  readFails: boolean;
+  readHangs: boolean;
   subs: Set<{ filters: NostrFilter[]; push: (m: unknown) => void }>;
   published: NostrEvent[];
 }
@@ -133,7 +138,12 @@ const pool = {
     const r = relays.get(url);
     if (!r) throw new Error(`no relay ${url} in this test`);
     return {
-      query: async (filters: NostrFilter[]) => r.stored.filter((e) => filters.some((f) => matches(e, f))).map((e) => structuredClone(e)),
+      query: async (filters: NostrFilter[], opts?: { signal?: AbortSignal }) => {
+        if (r.readHangs) await new Promise<void>((res) => opts?.signal?.addEventListener('abort', () => res()));
+        if (r.readDelay) await new Promise((res) => setTimeout(res, r.readDelay));
+        if (r.readFails || r.readHangs) throw new Error('unreachable: test');
+        return r.stored.filter((e) => filters.some((f) => matches(e, f))).map((e) => structuredClone(e));
+      },
       event: async (e: NostrEvent) => {
         r.published.push(e);
         if (r.refuse) throw new Error('blocked: test');
@@ -209,6 +219,15 @@ const WAIT = { timeout: 9_000 };
 /** A press of the player's (trusted, by this suite's word) on an element. */
 const press = (el: Element | Window = document.body) => fireEvent.pointerDown(el);
 const pause = (ms: number) => act(() => new Promise((r) => setTimeout(r, ms)));
+/** Inputs closer than a second are one gesture to the kit: interactions a little more than that apart. */
+const GAP = 1_050;
+/** Three interactions of the player's, each its own gesture. */
+async function playThrice(input: () => void = () => press()) {
+  for (let i = 0; i < 3; i++) {
+    if (i > 0) await pause(GAP);
+    act(() => input());
+  }
+}
 
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as unknown as HTMLCanvasElement['getContext'];
@@ -223,7 +242,7 @@ beforeEach(() => {
   localStorage.clear();
   window.localStorage.setItem('blobbi:home:3d-intro:v1', 'seen');
   relays.clear();
-  for (const url of URLS) relays.set(url, { stored: [], refuse: false, subs: new Set(), published: [] });
+  for (const url of URLS) relays.set(url, { stored: [], refuse: false, readDelay: 0, readFails: false, readHangs: false, subs: new Set(), published: [] });
   base.all = [blobbi()];
   base.poolEvents = [];
   signing.refuse = false;
@@ -295,7 +314,8 @@ describe('the classic home, on Nostr', () => {
     press(inner);
     await pause(300);
     expect(signer.signEvent).not.toHaveBeenCalled();
-    press(screen.getByTestId('care-dock'));
+    // Three interactions (a second apart) bring it over
+    await playThrice(() => press(screen.getByTestId('care-dock')));
     await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
     expect(sent(31126)).toHaveLength(1);
     ignored.remove();
@@ -378,9 +398,11 @@ describe('the classic home, on Nostr', () => {
     signing.refuse = true;
     renderAt('/');
     await screen.findByTestId('world-presence-away');
-    press();
+    await playThrice();
     await waitFor(() => expect(screen.getByTestId('world-presence-detail')).toHaveTextContent('did not approve'));
-    for (let i = 0; i < 4; i++) press();
+    // Casual following is suspended for the session: playing on asks nothing more
+    expect(status()).toHaveAttribute('data-follow-suspended', 'true');
+    await playThrice();
     await pause(300);
     expect(signer.signEvent).toHaveBeenCalledTimes(1);
     signing.refuse = false;
@@ -534,5 +556,373 @@ describe('the 3D room, on Nostr', () => {
     act(() => void remoteMove('blobbi-pixel'));
     await waitFor(() => expect(scene.state.journeys).toContain('depart'), WAIT);
     expect(await screen.findByTestId('world-presence-away', undefined, WAIT)).toBeInTheDocument();
+  }, 20_000);
+});
+
+/** A wrapper for the hook alone, with this suite's relays and login. */
+function hookWrapper() {
+  const client = new QueryClient();
+  return ({ children }: { children: ReactNode }) => (
+    <NostrLoginProvider storageKey="test:login">
+      <NostrContext.Provider value={{ nostr: pool }}>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      </NostrContext.Provider>
+    </NostrLoginProvider>
+  );
+}
+const followCount = () => Number(status().getAttribute('data-follow-count'));
+
+describe('following the player home: three interactions (M16.1)', () => {
+  it('the first and second interactions do not bring it over (it notices); the third does', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    renderAt('/');
+    await screen.findByTestId('world-presence-away');
+    press();
+    await waitFor(() => expect(followCount()).toBe(1));
+    expect(screen.getByTestId('world-presence-detail')).toHaveTextContent('Brook noticed you playing here…');
+    await pause(GAP);
+    press();
+    await waitFor(() => expect(followCount()).toBe(2));
+    await pause(300);
+    expect(signer.signEvent).not.toHaveBeenCalled();
+    expect(presenceOf()).toBe('absent');
+    await pause(GAP - 300);
+    press();
+    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    expect(followCount()).toBe(0);
+  }, 20_000);
+
+  it('presses within one gesture (under a second apart) count once', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    renderAt('/');
+    await screen.findByTestId('world-presence-away');
+    for (let i = 0; i < 6; i++) press();
+    await pause(300);
+    expect(followCount()).toBe(1);
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  });
+
+  it('a window that expired starts the count over', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    renderAt('/');
+    await screen.findByTestId('world-presence-away');
+    press();
+    await pause(GAP);
+    press();
+    await waitFor(() => expect(followCount()).toBe(2));
+    // More than the rolling 20 s later: the two earlier ones have left the window
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 21_000 });
+    try {
+      press();
+      await waitFor(() => expect(followCount()).toBe(1));
+      await pause(300);
+      expect(signer.signEvent).not.toHaveBeenCalled();
+      expect(presenceOf()).toBe('absent');
+    } finally {
+      vi.useRealTimers();
+    }
+  }, 20_000);
+
+  it('Call home is explicit and immediate: one click, no count', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    renderAt('/');
+    fireEvent.click(await screen.findByTestId('world-presence-call-home'));
+    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+    expect(followCount()).toBe(0);
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+  }, 20_000);
+
+  it('a held key’s auto-repeat is never counted', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    renderAt('/');
+    await screen.findByTestId('world-presence-away');
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+    await waitFor(() => expect(followCount()).toBe(1));
+    for (let i = 0; i < 2; i++) {
+      await pause(GAP);
+      fireEvent.keyDown(document.body, { key: 'ArrowRight', repeat: true });
+    }
+    await pause(300);
+    expect(followCount()).toBe(1);
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  }, 20_000);
+
+  it('a script’s (untrusted) events are never counted', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    renderAt('/');
+    await screen.findByTestId('world-presence-away');
+    setTrustedInputCheck(() => false);
+    try {
+      await playThrice();
+      await playThrice(() => fireEvent.keyDown(document.body, { key: 'a' }));
+      await pause(300);
+      expect(followCount()).toBe(0);
+      expect(signer.signEvent).not.toHaveBeenCalled();
+    } finally {
+      setTrustedInputCheck(() => true);
+    }
+  }, 20_000);
+
+  it('no input at all: away it stays, nothing is signed (load, timers and re-renders are not interactions)', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    const view = renderAt('/');
+    await screen.findByTestId('world-presence-away');
+    for (let i = 0; i < 3; i++) view.again();
+    act(() => void window.dispatchEvent(new Event('focus')));
+    act(() => void document.dispatchEvent(new Event('visibilitychange')));
+    await pause(2_000);
+    expect(followCount()).toBe(0);
+    expect(presenceOf()).toBe('absent');
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  });
+
+  it('just moved to Pixel from another device: playing here does not pull it straight back (contended); Call home does', async () => {
+    renderAt('/');
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-status', 'ready'));
+    await pause(1_600);
+    act(() => void remoteMove('blobbi-pixel'));
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel'));
+    await playThrice();
+    await pause(300);
+    expect(signer.signEvent).not.toHaveBeenCalled();
+    expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel');
+    fireEvent.click(await screen.findByTestId('world-presence-call-home', undefined, WAIT));
+    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+  }, 20_000);
+
+  it('a Blobbi switch and an account switch start the count over', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    const { result, rerender } = renderHook(
+      ({ d }) => {
+        const presence = usePresence();
+        return useHomeTravel({ pubkey: currentUser.user?.pubkey, d, travels: true, presence, busy: false, paused: false });
+      },
+      { wrapper: hookWrapper(), initialProps: { d: D } },
+    );
+    await waitFor(() => expect(result.current.place).toBe('blobbi-pixel'));
+    press();
+    await pause(GAP);
+    press();
+    await waitFor(() => expect(result.current.follow?.count).toBe(2));
+    // Another Blobbi of the same account: a new session, nothing counted
+    rerender({ d: `blobbi-${PK.slice(0, 12)}-0000000002` });
+    await waitFor(() => expect(result.current.snapshot?.d).toBe(`blobbi-${PK.slice(0, 12)}-0000000002`));
+    expect(result.current.follow?.count).toBe(0);
+    // Back to the first: counted afresh too (the session is new)
+    rerender({ d: D });
+    await waitFor(() => expect(result.current.snapshot?.d).toBe(D));
+    expect(result.current.follow?.count).toBe(0);
+    press();
+    await waitFor(() => expect(result.current.follow?.count).toBe(1));
+    // Signed out: no session; signed in again: a new one, nothing counted
+    currentUser.user = undefined;
+    rerender({ d: D });
+    await waitFor(() => expect(result.current.snapshot).toBeNull());
+    signIn('nsec');
+    rerender({ d: D });
+    await waitFor(() => expect(result.current.snapshot?.place).toBe('blobbi-pixel'));
+    expect(result.current.follow?.count).toBe(0);
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  }, 20_000);
+});
+
+describe('loading: where it is, before the relays answer (M16.1)', () => {
+  const slow = (ms: number) => {
+    for (const r of relays.values()) r.readDelay = ms;
+  };
+
+  it('a fresh device, the Blobbi in Pixel: never shown home meanwhile, "looking for it", then away with no journey', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 3_600_000);
+    slow(700);
+    const seen = watchActor();
+    renderAt('/');
+    await screen.findByTestId('blobbi-actor');
+    expect(seen[0] ?? presenceOf()).toBe('absent');
+    expect(screen.getByTestId('world-travel-looking')).toHaveTextContent('Looking for Brook…');
+    expect(status()).toHaveAttribute('data-travel-resolution', 'pending');
+    expect(screen.queryByTestId('world-presence-away')).toBeNull();
+    expect(screen.getByTestId('blobbi-poke')).toBeDisabled();
+    await screen.findByTestId('world-presence-away', undefined, WAIT);
+    expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed');
+    expect(screen.queryByTestId('world-travel-looking')).toBeNull();
+    expect(seen).not.toContain('present');
+    expect(seen).not.toContain('depart');
+    expect(presenceOf()).toBe('absent');
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  });
+
+  it('a fresh device, the Blobbi home: looking, then it appears (settled, no arrival replayed)', async () => {
+    remoteMove('blobbi-home', Date.now() - 3_600_000);
+    slow(500);
+    const seen = watchActor();
+    renderAt('/');
+    await screen.findByTestId('blobbi-actor');
+    expect(seen[0] ?? presenceOf()).toBe('absent');
+    expect(screen.getByTestId('world-travel-looking')).toBeInTheDocument();
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    expect(seen).not.toContain('arrive');
+    expect(screen.queryByTestId('world-travel-looking')).toBeNull();
+    expect(screen.queryByTestId('world-presence-away')).toBeNull();
+    expect(screen.getByTestId('blobbi-poke')).not.toBeDisabled();
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  });
+
+  it('a fresh device, no location anywhere (it never travelled): home, with no journey', async () => {
+    slow(300);
+    const seen = watchActor();
+    renderAt('/');
+    await screen.findByTestId('blobbi-actor');
+    expect(seen[0] ?? presenceOf()).toBe('absent');
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed');
+    expect(seen).not.toContain('arrive');
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  });
+
+  it('no relay answering: home by default, said honestly with a way to look again; never stuck looking', async () => {
+    for (const r of relays.values()) r.readFails = true;
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    renderAt('/');
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'unreachable'), WAIT);
+    expect(presenceOf()).toBe('present');
+    expect(screen.queryByTestId('world-travel-looking')).toBeNull();
+    expect(screen.getByTestId('world-travel-unreachable')).toHaveTextContent("Couldn't reach the Blobbi relays");
+    // The relays back: looking again finds it in Pixel (a live answer now: it leaves as a journey would)
+    for (const r of relays.values()) r.readFails = false;
+    fireEvent.click(screen.getByTestId('world-travel-refresh'));
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'), WAIT);
+    expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel');
+    expect(screen.queryByTestId('world-travel-unreachable')).toBeNull();
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  }, 20_000);
+
+  it('relays that never answer: the look ends at the timeout (about 4 s), the Blobbi home', async () => {
+    for (const r of relays.values()) r.readHangs = true;
+    renderAt('/');
+    expect(await screen.findByTestId('world-travel-looking')).toBeInTheDocument();
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'unreachable'), WAIT);
+    expect(presenceOf()).toBe('present');
+    expect(screen.queryByTestId('world-travel-looking')).toBeNull();
+    expect(screen.getByTestId('world-travel-unreachable')).toBeInTheDocument();
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  }, 20_000);
+
+  it('a reload with a signed location kept on this device: shown at once (no looking), then confirmed', async () => {
+    const e = remoteMove('blobbi-pixel', Date.now() - 60_000);
+    localStorage.setItem(worldLocationStoreKey(PK, D), JSON.stringify(e));
+    slow(600);
+    const seen = watchActor();
+    renderAt('/');
+    await screen.findByTestId('blobbi-actor');
+    expect(seen[0] ?? presenceOf()).toBe('absent');
+    expect(screen.queryByTestId('world-travel-looking')).toBeNull();
+    expect(await screen.findByTestId('world-presence-away')).toHaveTextContent('Blobbi Pixel');
+    expect(status()).toHaveAttribute('data-travel-resolution', 'cached');
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'), WAIT);
+    expect(seen).not.toContain('present');
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  });
+
+  it('presses while looking count for nothing and sign nothing', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    slow(2_800);
+    renderAt('/');
+    await playThrice();
+    expect(status()).toHaveAttribute('data-travel-resolution', 'pending');
+    expect(followCount()).toBe(0);
+    await screen.findByTestId('world-presence-away', undefined, WAIT);
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  }, 20_000);
+
+  it('only a session that is coming starts unknown: never a signed-out page (or a guest), never with a kept location', async () => {
+    const { result, rerender } = renderHook(({ pk }) => useTravelStartsUnknown(pk, D), { wrapper: hookWrapper(), initialProps: { pk: PK as string | undefined } });
+    await waitFor(() => expect(result.current).toBe(true));
+    const out = renderHook(() => useTravelStartsUnknown(undefined, D), { wrapper: hookWrapper() });
+    await waitFor(() => expect(out.result.current).toBe(false));
+    currentUser.user = undefined;
+    const signedOut = renderHook(() => useTravelStartsUnknown(PK, D), { wrapper: hookWrapper() });
+    await waitFor(() => expect(signedOut.result.current).toBe(false));
+    signIn('nsec');
+    localStorage.setItem(worldLocationStoreKey(PK, D), JSON.stringify(remoteMove('blobbi-pixel', Date.now() - 60_000)));
+    const kept = renderHook(() => useTravelStartsUnknown(PK, D), { wrapper: hookWrapper() });
+    await waitFor(() => expect(kept.result.current).toBe(false));
+    // Read once: a re-render never changes the start
+    rerender({ pk: PK });
+    expect(result.current).toBe(true);
+    // v1: never
+    setTravelMode('v1');
+    try {
+      const v1 = renderHook(() => useTravelStartsUnknown(PK, `${D}x`), { wrapper: hookWrapper() });
+      await waitFor(() => expect(v1.result.current).toBe(false));
+    } finally {
+      setTravelMode('nostr');
+    }
+  });
+
+  it('the 3D room on a fresh device: looking where it stands, no arrival on entry until the answer; away: none at all', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 3_600_000);
+    slow(2_500);
+    renderAt('/room');
+    // The room's page loads first (a chunk of its own)
+    expect(await screen.findByTestId('world-travel-looking', undefined, WAIT)).toHaveTextContent('Looking for Brook…');
+    expect(screen.getByTestId('room-blobbi-cue')).toBeInTheDocument();
+    expect(screen.queryByTestId('world-presence-away')).toBeNull();
+    await screen.findByTestId('world-presence-away', undefined, WAIT);
+    expect(screen.queryByTestId('world-travel-looking')).toBeNull();
+    await pause(600);
+    expect(scene.state.journeys.filter(Boolean)).toEqual([]);
+    expect(signer.signEvent).not.toHaveBeenCalled();
+  }, 20_000);
+
+  it('the 3D room on a fresh device, the Blobbi home: looking, then the room’s own entry arrival (once)', async () => {
+    setRoomArrivalEnabled(true);
+    try {
+      slow(1_500);
+      renderAt('/room');
+      expect(await screen.findByTestId('world-travel-looking', undefined, WAIT)).toBeInTheDocument();
+      expect(scene.state.journeys).not.toContain('arrive');
+      await waitFor(() => expect(scene.state.journeys).toContain('arrive'), WAIT);
+      expect(screen.queryByTestId('world-travel-looking')).toBeNull();
+      await pause(3_000);
+      expect(scene.state.journeys.filter((j) => j === 'arrive')).toHaveLength(1);
+      expect(signer.signEvent).not.toHaveBeenCalled();
+    } finally {
+      setRoomArrivalEnabled(false);
+    }
+  }, 20_000);
+
+  it('the 3D room on a fresh device without the entry arrival: still never shown home before the answer', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 3_600_000);
+    slow(1_500);
+    renderAt('/room');
+    expect(await screen.findByTestId('world-travel-looking', undefined, WAIT)).toBeInTheDocument();
+    await screen.findByTestId('world-presence-away', undefined, WAIT);
+    expect(scene.state.journeys.filter(Boolean)).toEqual([]);
+  }, 20_000);
+});
+
+describe('one sequence: the call, then the arrival (M16.1)', () => {
+  it('a call home shows the calling cue where it stands until the arrival starts; the body forms the teleport’s lead later', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    renderAt('/');
+    await screen.findByTestId('world-presence-away');
+    // Played in Pixel right now: the arrival waits Pixel's departure window
+    act(() => everywhere(finalizeEvent(buildPresenceTemplate({ owner: PK, d: D, world: 'blobbi-pixel', now: Date.now() }), SK) as NostrEvent));
+    await waitFor(() => expect(screen.getByTestId('world-presence-away')).toHaveTextContent('right now'));
+    fireEvent.click(screen.getByTestId('world-presence-call-home'));
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-phase', 'arriving'));
+    expect(screen.getByTestId('world-travel-coming')).toBeInTheDocument();
+    expect(status()).toHaveAttribute('data-travel-view', 'coming');
+    const at = Number(status().getAttribute('data-travel-at'));
+    const formAt = Number(status().getAttribute('data-travel-form-at'));
+    expect(formAt - at).toBe(550);
+    await waitFor(() => expect(presenceOf()).toBe('arrive'), WAIT);
+    expect(screen.queryByTestId('world-travel-coming')).toBeNull();
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    // One arrival, no loop
+    await pause(500);
+    expect(presenceOf()).toBe('present');
+    expect(sent(31126)).toHaveLength(1);
   }, 20_000);
 });
