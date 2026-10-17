@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Plugin } from "vite";
 import { CSP_META } from "./src/config/content-security-policy";
+import { checkTravelBuild } from "./src/features/presence/travel-build";
 
 /**
  * The production page carries its Content-Security-Policy itself, as a
@@ -36,10 +37,22 @@ function devTls() {
   return { cert: readFileSync(cert), key: readFileSync(key) };
 }
 
+/** M16: a world-travel setting this build cannot honour stops it, and a build that carries world travel says so. */
+function worldTravelGuard(): Plugin {
+  return {
+    name: "blobbi-world-travel-guard",
+    configResolved(config) {
+      const check = checkTravelBuild({ travel: config.env.VITE_BLOBBI_WORLD_TRAVEL, command: config.command });
+      if (!check.ok) throw new Error(check.message);
+      if (check.message) config.logger.warn(check.message);
+    },
+  };
+}
+
 export default defineConfig({
   // "::" binds every interface (IPv6 any, with IPv4 on macOS), so a phone on the same Wi-Fi can open the Mac's address
   server: { host: "::", port: 8080, https: devTls() },
-  plugins: [react(), contentSecurityPolicy()],
+  plugins: [react(), contentSecurityPolicy(), worldTravelGuard()],
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
   build: {
     rollupOptions: {

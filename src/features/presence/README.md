@@ -23,8 +23,12 @@ With travel off, the same hook has no session: no relay read, no listener, no si
 
 ## Turning it on
 
-- **A build:** `VITE_BLOBBI_WORLD_TRAVEL=nostr npm run build` (or `npm run dev`). This is the owner's release
-  decision.
+- **A public beta build:** `VITE_BLOBBI_WORLD_TRAVEL=nostr npm run build`. This is the owner's release decision. The
+  build says `World travel: ON in this build…`; an unknown value (`on`, `true`, a typo) stops the build
+  (`travel-build.ts`, checked by `vite.config.ts`), so it is never quietly off. This app has no rehearsal mode (its
+  other events are always published), so this one flag is the whole decision; Blobbi Pixel also needs its live build.
+- **`npm run dev` with the same variable** turns it on in the development server too, and the server warns that moves
+  go to the PUBLIC travel relays.
 - **A development server only:** `localStorage['blobbi:world-travel:v1'] = 'nostr'`, then reload. A production build
   ignores this flag (`travel-mode.ts`).
 - **Otherwise:** off. The Blobbi is home, whatever any relay or this device kept says. On Nostr, a newer signed
