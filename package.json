@@ -14,8 +14,8 @@
     "check": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
-    "@blobbi-kit/core": "file:../blobbi-kit-m16-packs/blobbi-kit-core-0.11.0-m16.0.tgz",
-    "@blobbi-kit/react": "file:../blobbi-kit-m16-packs/blobbi-kit-react-0.11.0-m16.0.tgz",
+    "@blobbi-kit/core": "file:../blobbi-kit-m16-packs/blobbi-kit-core-0.11.0-m16.1.tgz",
+    "@blobbi-kit/react": "file:../blobbi-kit-m16-packs/blobbi-kit-react-0.11.0-m16.1.tgz",
     "@blobbi-kit/renderer": "^0.6.0",
     "@fontsource-variable/comfortaa": "^5.2.6",
     "@nostr-games/inventory": "^0.5.0",

@@ -29,7 +29,7 @@ import {
   isMeaningfulInput,
   isPlayedNow,
   knownWorld,
-  parseWorldLocation,
+  storedWorldLocation,
   type NostrEvent,
   type ShownBlobbi,
   type WorldTravelOptions,
@@ -47,9 +47,6 @@ import { blobbiIsHome, useWorldPresence, useWorldPresenceSync } from './useWorld
 import { placeName } from './world-presence';
 import { isTrustedInput, travelMode } from './travel-mode';
 import { reportPresenceStatus, useActivePresenceChoice } from './active-presence-choice';
-
-/** Where the kit keeps the last signed location of a Blobbi (the same key as `createWorldTravel`'s store). */
-const storedLocationKey = (owner: string, d: string) => `blobbi-kit:world-location:v1:${owner}:${d}`;
 
 /** The page's storage for the kit's session, every access guarded (a refusing browser keeps nothing). */
 const pageStore: WorldTravelStore = {
@@ -98,14 +95,8 @@ const safeVerify = (e: NostrEvent) => {
 export function travelStartsAway(pubkey: string | null | undefined, d: string): boolean {
   if (travelMode() === 'v1') return !blobbiIsHome(pubkey);
   if (!pubkey) return false;
-  const raw = pageStore.get(storedLocationKey(pubkey, d));
-  if (!raw) return false;
-  try {
-    const loc = parseWorldLocation(JSON.parse(raw), { verify: safeVerify });
-    return !!loc && loc.owner === pubkey && loc.d === d && currentWorld(loc) !== WORLD_HOME;
-  } catch {
-    return false;
-  }
+  const loc = storedWorldLocation(pageStore, { owner: pubkey, d, verify: safeVerify });
+  return !!loc && currentWorld(loc) !== WORLD_HOME;
 }
 
 export interface HomeTravelOptions {
