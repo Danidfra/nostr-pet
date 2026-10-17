@@ -20,6 +20,7 @@ export interface Presence extends PresenceSnapshot {
   leave: () => boolean;
   enter: () => boolean;
   cancel: () => void;
+  settle: (state: 'present' | 'absent') => void;
   getState: () => PresenceState;
   /** The controller itself, for a coordinator that drives it from outside React. */
   controller: PresenceController;
@@ -55,6 +56,7 @@ export function usePresence({ initial = 'present', reducedMotion, onCue, onCompl
   const leave = useCallback(() => controller.leave(), [controller]);
   const enter = useCallback(() => controller.enter(), [controller]);
   const cancel = useCallback(() => controller.cancel(), [controller]);
+  const settle = useCallback((s: 'present' | 'absent') => controller.settle(s), [controller]);
   const getState = useCallback(() => controller.getState(), [controller]);
-  return { ...snapshot, leave, enter, cancel, getState, controller };
+  return { ...snapshot, leave, enter, cancel, settle, getState, controller };
 }

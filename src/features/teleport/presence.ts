@@ -20,7 +20,8 @@
  *  - turning back mid-journey continues from the SAME visible amount of
  *    body: an arrival started during a departure picks up where that much
  *    of the body is formed, and the other way round; nothing pops;
- *  - `cancel` ends any journey at once, the Blobbi present;
+ *  - `cancel` ends any journey at once, the Blobbi present; `settle` ends
+ *    it at once in either state (present or absent), with no journey;
  *  - completion and sound cues run on plain timers, not animation frames,
  *    so a hidden tab still completes its journey (silently: the app's
  *    sound already stays quiet in a hidden tab);
@@ -70,6 +71,11 @@ export interface PresenceController {
   enter(): boolean;
   /** End any journey at once, the Blobbi present. */
   cancel(): void;
+  /**
+   * Be present or absent at once, with no journey (a journey under way ends): a place learned on load is shown as it
+   * is, never replayed as a departure or an arrival. No cue, no `onComplete`.
+   */
+  settle(state: 'present' | 'absent'): void;
   subscribe(listener: (snapshot: PresenceSnapshot) => void): () => void;
   dispose(): void;
   isDisposed(): boolean;
@@ -183,6 +189,13 @@ export function createPresenceController({
       clearAll();
       journey = null;
       state = 'present';
+      emit();
+    },
+    settle(target) {
+      if (disposed || (state === target && !journey)) return;
+      clearAll();
+      journey = null;
+      state = target;
       emit();
     },
     subscribe(listener) {

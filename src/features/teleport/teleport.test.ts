@@ -238,6 +238,28 @@ describe('the presence controller', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('settle: present or absent at once, no journey, no cue, no completion; a journey under way just ends', () => {
+    const { controller, cues, completed } = make();
+    const states: string[] = [];
+    controller.subscribe((s) => states.push(s.state));
+    controller.settle('absent');
+    expect(controller.snapshot()).toEqual({ state: 'absent', journey: null });
+    controller.settle('absent'); // already so: nothing
+    expect(states).toEqual(['absent']);
+    controller.enter();
+    vi.advanceTimersByTime(100);
+    controller.settle('present');
+    expect(controller.snapshot()).toEqual({ state: 'present', journey: null });
+    controller.leave();
+    controller.settle('absent');
+    const heard = cues.length;
+    vi.advanceTimersByTime(10_000);
+    expect(controller.getState()).toBe('absent');
+    expect(completed).toEqual([]);
+    expect(cues).toHaveLength(heard);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('once disposed, nothing fires and nothing starts', () => {
     const { controller, cues, completed } = make();
     controller.leave();
