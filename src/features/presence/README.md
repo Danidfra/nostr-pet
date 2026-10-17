@@ -143,8 +143,8 @@ import-free seam as `daily-xp-switch.ts`), and the presence suites turn it on.
 
 ## World travel on Nostr (M16)
 
-**Status: implemented and tested locally, off by default.** The kinds are provisional, and live use waits for the
-owner's approval.
+**Status: implemented and tested locally, off by default.** The kinds are experimental (`@blobbi-kit/core` 0.11.0,
+from npm). Turning it on for players is the owner's release decision.
 
 With travel on Nostr, the Blobbi's **World Location** (kind 31126, addressable, one event per move) is the authority
 everywhere, on any device. The protocol, its rules and its tests are in `@blobbi-kit/core`: `WORLD-TRAVEL.md` in

@@ -7,7 +7,7 @@
  *            is the authority, across devices; the cookie is never read or written.
  *
  * Nostr travel is on only when the build says so (`VITE_BLOBBI_WORLD_TRAVEL=nostr`, the owner's release decision:
- * its two kinds are provisional), or on a development server when the page's storage says
+ * its two kinds are experimental), or on a development server when the page's storage says
  * `localStorage['blobbi:world-travel:v1'] = 'nostr'`. A production build ignores the storage flag, so no page can
  * switch a player onto the new kinds.
  */

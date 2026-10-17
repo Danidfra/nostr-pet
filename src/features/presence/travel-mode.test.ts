@@ -15,7 +15,7 @@ describe('which world presence runs (travel-mode.ts)', () => {
     expect(travelMode({ build: undefined, dev: true })).toBe('v1');
     localStorage.setItem(TRAVEL_MODE_KEY, 'nostr');
     expect(travelMode({ build: undefined, dev: true })).toBe('nostr');
-    // A production build ignores the page's storage: no page can switch a player onto the provisional kinds
+    // A production build ignores the page's storage: no page can switch a player onto the experimental kinds
     expect(travelMode({ build: undefined, dev: false })).toBe('v1');
     expect(travelMode({ build: 'off', dev: false })).toBe('v1');
   });
