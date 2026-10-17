@@ -11,6 +11,9 @@
  *            going on); the teleport's arrival takes over on the same spot, so the call and the arrival read as one.
  *
  * Under reduced motion both are still: the glow and the label, no movement.
+ *
+ * Both are decorative (`aria-hidden`), M16.2: the room draws them inside its aria-hidden 3D anchor layer, where a
+ * status could never be heard. Screen readers hear `TravelAnnouncer` instead.
  */
 import type { CSSProperties } from 'react';
 
@@ -27,9 +30,8 @@ export function TravelCue({ kind, name, tint }: TravelCueProps) {
       className="travel-cue"
       data-kind={kind}
       data-testid={kind === 'looking' ? 'world-travel-looking' : 'world-travel-coming'}
-      role={kind === 'looking' ? 'status' : undefined}
-      aria-label={kind === 'looking' ? `Looking for ${name}` : undefined}
-      aria-hidden={kind === 'coming' ? true : undefined}
+      // Decoration only: what it means is said by the one live region (`TravelAnnouncer`), which no aria-hidden layer covers
+      aria-hidden
       style={tint ? ({ '--cue-tint': tint } as CSSProperties) : undefined}
     >
       <span className="travel-cue__glow" aria-hidden />

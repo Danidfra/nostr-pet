@@ -62,6 +62,7 @@ import { usePresence } from '@/features/teleport/react/usePresence';
 import { travelStartsAway, useHomeTravel, useTravelStartsUnknown } from '@/features/presence/useHomeTravel';
 import { WorldPresenceNote } from '@/features/presence/WorldPresenceNote';
 import { TravelCue } from '@/features/presence/TravelCue';
+import { TravelAnnouncer } from '@/features/presence/TravelAnnouncer';
 import type { LifecycleTask } from '@/features/lifecycle';
 import type { HealthLevel } from '@/lib/relay-health';
 
@@ -1040,6 +1041,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                   onRefresh={worldTravel.refresh}
                 />
                 {worldTravel.status}
+                <TravelAnnouncer active={worldTravel.mode === 'nostr' && travels} view={worldTravel.view} place={worldTravel.place} name={blobbi.name} nameOf={worldTravel.nameOf} unreachable={worldTravel.unreachable} />
                 <CareError error={care.error} />
                 {bathNotice && (
                   <p role="status" className="home-glass rounded-xl px-3 py-2 text-center text-sm" data-testid="bath-notice">

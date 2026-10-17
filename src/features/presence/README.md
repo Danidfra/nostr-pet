@@ -287,3 +287,22 @@ Other selectors:
   - the room both ways.
 - `travel-mode.test.ts` covers the switch.
 - The protocol's own tests are in blobbi-kit.
+
+### Accessibility (M16.2)
+
+- **The cues are decoration.** `TravelCue` ("looking", "coming") is
+  `aria-hidden`. The room draws it inside its `aria-hidden` 3D anchor layer,
+  where a status could never be heard.
+- **One live region speaks instead.** `TravelAnnouncer` is a visually hidden
+  `role="status"`, `aria-live="polite"`, `aria-atomic` region, portalled into
+  `document.body`, so no `aria-hidden` ancestor can silence it. It is mounted
+  by both the classic home and the room. Test id: `world-travel-announcer`.
+- **It speaks only on a change:**
+  - "Looking for Brook…", only if the first look lasts more than 800 ms;
+  - "Brook is in Blobbi Pixel.";
+  - "Calling Brook home…";
+  - "Brook is here.", only after one of the above;
+  - the relays being unreachable.
+
+  A plain load with the Blobbi home says nothing, and re-renders repeat
+  nothing.

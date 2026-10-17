@@ -875,6 +875,35 @@ describe('loading: where it is, before the relays answer (M16.1)', () => {
     expect(signer.signEvent).not.toHaveBeenCalled();
   }, 20_000);
 
+  it('a11y (M16.2): the room says "Looking for Brook…" in a live region no aria-hidden layer covers, then where it is, once each', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 3_600_000);
+    slow(2_500);
+    renderAt('/room');
+    const region = await screen.findByTestId('world-travel-announcer', undefined, WAIT);
+    expect(region).toHaveAttribute('role', 'status');
+    expect(region).toHaveAttribute('aria-live', 'polite');
+    expect(region.closest('[aria-hidden="true"]')).toBeNull();
+    await waitFor(() => expect(region).toHaveTextContent('Looking for Brook…'), WAIT);
+    // The visual cue is decoration only (it sits in the room's aria-hidden 3D layer)
+    expect(screen.getByTestId('world-travel-looking').closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(screen.queryByRole('status', { name: /Looking for/ })).toBeNull();
+    await waitFor(() => expect(region).toHaveTextContent('Brook is in Blobbi Pixel.'), WAIT);
+    const said: string[] = [];
+    const watch = new MutationObserver(() => said.push(region.textContent ?? ''));
+    watch.observe(region, { childList: true, characterData: true, subtree: true });
+    await pause(1_500);
+    watch.disconnect();
+    expect(said).toEqual([]); // nothing repeated while nothing changes
+  }, 20_000);
+
+  it('a11y (M16.2): the classic home on a quick load says nothing, and its live region is outside any aria-hidden layer', async () => {
+    renderAt('/');
+    const region = await screen.findByTestId('world-travel-announcer', undefined, WAIT);
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'), WAIT);
+    expect(region).toHaveTextContent(/^$/);
+    expect(region.closest('[aria-hidden="true"]')).toBeNull();
+  }, 20_000);
+
   it('the 3D room on a fresh device, the Blobbi home: looking, then the room’s own entry arrival (once)', async () => {
     setRoomArrivalEnabled(true);
     try {

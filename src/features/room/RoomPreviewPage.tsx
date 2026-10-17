@@ -124,6 +124,7 @@ import { travelMode } from '@/features/presence/travel-mode';
 import { WORLD_HOME } from '@blobbi-kit/core';
 import { WorldPresenceNote } from '@/features/presence/WorldPresenceNote';
 import { TravelCue } from '@/features/presence/TravelCue';
+import { TravelAnnouncer } from '@/features/presence/TravelAnnouncer';
 import { PRIORITY } from '@/features/expression/controller';
 import { proceduralFace, type ExpressionName } from '@/features/expression/faces';
 
@@ -1188,6 +1189,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               onRefresh={worldTravel.refresh}
             />
             {worldTravel.status}
+            <TravelAnnouncer active={worldTravel.mode === 'nostr' && !isEgg && !isSleeping} view={worldTravel.view} place={worldTravel.place} name={blobbi.name} nameOf={worldTravel.nameOf} unreachable={worldTravel.unreachable} />
             {hatchReady && !theater && (
               <button type="button" className="hatch-invite" onClick={inviteHatch} data-testid="room-hatch-invite">
                 <Sparkles className="h-4 w-4" aria-hidden /> Your egg is ready: tap it to hatch
