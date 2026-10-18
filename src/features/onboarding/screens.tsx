@@ -5,6 +5,7 @@ import type { NostrConnectParams, NostrConnectStatus } from '@nostrify/react/log
 import type { NostrMetadata } from '@nostrify/nostrify';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import { EnterIslandButton } from '@/features/home/EnterIslandButton';
+import { SOURCE_CODE_URL } from '@/config/ecosystem';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { useSound } from '@/features/sound';
@@ -124,6 +125,12 @@ export function AboutBlobbiSheet({ open, onClose, testId = 'welcome-about' }: { 
       <div className="mt-3 flex justify-center">
         <EnterIslandButton variant="secondary" />
       </div>
+      <p className="welcome-about__text text-center">
+        Blobbi is free software under the AGPL.{' '}
+        <a href={SOURCE_CODE_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2" data-testid="source-code-link">
+          Source code
+        </a>
+      </p>
     </GameOverlay>
   );
 }

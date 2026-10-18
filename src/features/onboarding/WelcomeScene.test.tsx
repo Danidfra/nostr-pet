@@ -88,6 +88,9 @@ describe('the welcome scene', () => {
     const sheet = screen.getByTestId('welcome-about');
     expect(sheet).toHaveTextContent(/Nostr/);
     expect(sheet).toHaveTextContent(/One of a kind/);
+    const source = within(sheet).getByRole('link', { name: 'Source code' });
+    expect(source).toHaveAttribute('href', 'https://github.com/Danidfra/nostr-pet');
+    expect(source).toHaveAttribute('rel', 'noopener noreferrer');
   });
 });
 
