@@ -20,6 +20,9 @@ export const DITTO_URL = 'https://ditto.pub';
 /** Where a Blobbi is adopted today. */
 export const DITTO_BLOBBI_URL = `${DITTO_URL}/blobbi`;
 
+/** This app's source code (AGPL-3.0-or-later): what the About sheet links to. */
+export const SOURCE_CODE_URL = 'https://github.com/Danidfra/nostr-pet';
+
 /**
  * Resolve the Island destination: the env override when it is an absolute
  * `http(s):` URL, the ecosystem default otherwise. Anything else (a relative

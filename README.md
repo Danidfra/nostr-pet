@@ -301,3 +301,14 @@ Two more scripts matter for releases:
   interface; live definitions from the trusted issuer always win.
 - The learning journal in `scratchpad/learning/` is a local, git-excluded
   maintainer notebook and is never part of a release.
+
+## License
+
+GNU Affero General Public License v3.0 or later. See [LICENSE](LICENSE).
+
+Parts of the 3D room are derived from [Ditto](https://gitlab.com/soapbox-pub/ditto)
+(AGPL-3.0-or-later). [NOTICE.md](NOTICE.md) lists them with their authors and the other
+components. AI-generated artwork is described in [ASSETS.md](ASSETS.md).
+
+If you run a modified version of this app for other people, the AGPL asks you to offer
+them its source code.
