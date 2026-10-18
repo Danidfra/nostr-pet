@@ -147,33 +147,43 @@ describe('the companion choice written into the profile', () => {
     expect(written.tags.filter((t) => t[0] === 'has').map((t) => t[1])).toContain(c);
   });
 
-  it('a relay that refuses leaves the write partial; the retry sends the very same event, not a new one', async () => {
+  it('one relay holding it is saved (relay.ditto.pub refusing or down never holds the choice back)', async () => {
+    for (const fault of ['refuse', 'down'] as const) {
+      const acc = testAccount();
+      const net = fakeNetwork();
+      net.seed(profileEvent(acc, { has: [dOf(acc.pubkey, 1)], companion: dOf(acc.pubkey, 1), createdAt: S - 100 }));
+      const run = deps(net, acc);
+      // Down: the complete read needs ditto, so it is down only for the send (the read already answered)
+      if (fault === 'refuse') net.relays.get(DITTO)!.refuse = true;
+      else {
+        const port = net.port;
+        const publish = port.publish;
+        port.publish = async (url, e, s) => (url === DITTO ? Promise.reject(new Error('unreachable')) : publish(url, e, s));
+      }
+      const out = await writeCompanionProfile({ owner: acc.pubkey, d: dOf(acc.pubkey, 2), at: NOW, over: null, pending: null }, run.deps);
+      expect(out.kind).toBe('saved');
+      expect(companion(newestOn(net, PRIMAL))).toBe(dOf(acc.pubkey, 2));
+      expect(run.signed).toHaveLength(1);
+    }
+  });
+
+  it('read back nowhere: partial (a relay said OK); the retry sends the very same event, not a new one', async () => {
     const acc = testAccount();
     const net = fakeNetwork();
     net.seed(profileEvent(acc, { has: [dOf(acc.pubkey, 1)], companion: dOf(acc.pubkey, 1), createdAt: S - 100 }));
-    net.relays.get(PRIMAL)!.refuse = true;
+    net.relays.get(DITTO)!.forget = true;
+    net.relays.get(PRIMAL)!.forget = true;
     net.relays.get(BAND)!.down = true;
     const run = deps(net, acc);
     const first = await writeCompanionProfile({ owner: acc.pubkey, d: dOf(acc.pubkey, 2), at: NOW, over: null, pending: null }, run.deps);
     expect(first.kind).toBe('partial');
     const pending = run.pending()!;
     expect(pending).not.toBeNull();
-    net.relays.get(PRIMAL)!.refuse = false;
+    net.relays.get(PRIMAL)!.forget = false;
     const again = await writeCompanionProfile({ owner: acc.pubkey, d: dOf(acc.pubkey, 2), at: NOW, over: null, pending }, run.deps);
     expect(again.kind).toBe('saved');
     expect(run.signed).toHaveLength(1);
     expect(new Set(net.sent().map((e) => e.id))).toEqual(new Set([pending.event.id]));
-    // Ditto already held it: it was not sent there again
-    expect(net.relays.get(DITTO)!.sent).toHaveLength(1);
-  });
-
-  it('a relay that says OK and loses the event is not counted as saved', async () => {
-    const acc = testAccount();
-    const net = fakeNetwork();
-    net.seed(profileEvent(acc, { has: [dOf(acc.pubkey, 1)], companion: dOf(acc.pubkey, 1), createdAt: S - 100 }));
-    net.relays.get(DITTO)!.forget = true;
-    const out = await writeCompanionProfile({ owner: acc.pubkey, d: dOf(acc.pubkey, 2), at: NOW, over: null, pending: null }, deps(net, acc).deps);
-    expect(out.kind).toBe('partial');
   });
 
   it('nothing accepted anywhere: failed, and the signed event is kept for the retry', async () => {

@@ -15,6 +15,7 @@ import { useGuestUser } from '@/features/guest/useGuest';
 import { DevFixtureContext } from '@/dev/DevFixtureContext';
 import { usePublishAdapter } from '@/features/care/usePublishAdapter';
 import { canAskRelays, poolProfileRelays } from '@/features/companion/pool-relays';
+import { profileDelivery } from '@/features/companion/profile-delivery';
 import { useCompanionChoice } from '@/features/companion/useCompanionChoice';
 import type { SyncEnv, SyncStatus } from '@/features/companion/companion-sync';
 
@@ -143,6 +144,10 @@ export function useHomeBlobbi(): HomeBlobbi {
     };
   }, [networked, nostr, publisher, queryClient, pubkey]);
   const companion = useCompanionChoice({ pubkey: networked ? pubkey : undefined, ownedDs, profile: profile.data, env, ready: networked && collection.status === 'ready' && !profile.isPending });
+  // Profile writes saved while a relay was down: that relay is sent the same signed events later (only when owed)
+  useEffect(() => {
+    if (env) profileDelivery.start(env.relays);
+  }, [env]);
 
   // ─── A guest or a dev fixture: the device pick, as before ───
   const [localSelection, setLocalSelection] = useState<string | undefined>(() => readLocalSelection(pubkey));

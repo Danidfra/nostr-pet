@@ -44,13 +44,12 @@ function matches(e: NostrEvent, f: ProfileFilter): boolean {
   return f.kinds.includes(e.kind) && f.authors.includes(e.pubkey) && (!f['#d'] || e.tags.some((t) => t[0] === 'd' && f['#d'].includes(t[1])));
 }
 
-export function fakeNetwork(urls: readonly string[] = [DITTO, PRIMAL, BAND], opts: { required?: readonly string[]; anchor?: string; quorum?: number } = {}): FakeNetwork {
+export function fakeNetwork(urls: readonly string[] = [DITTO, PRIMAL, BAND], opts: { required?: readonly string[]; quorum?: number } = {}): FakeNetwork {
   const relays = new Map<string, FakeRelay>(urls.map((u) => [u, { events: [], down: false, silent: false, refuse: false, forget: false, sent: [] }]));
   const port: ProfileRelays = {
     urls,
     required: opts.required ?? [DITTO, PRIMAL],
-    anchor: opts.anchor ?? DITTO,
-    quorum: opts.quorum ?? 2,
+    quorum: opts.quorum ?? 1,
     async query(url, filter, signal) {
       const r = relays.get(url)!;
       if (r.down) throw new Error('unreachable');

@@ -21,6 +21,7 @@ import { writeProfileSafely as writeWithKit, type NostrEvent, type ProfileBuild,
 import type { ProfileWriter } from '@blobbi-kit/react';
 import { verifyEvent } from 'nostr-tools/pure';
 import { profileFilter, type ProfileRelays } from './profile-write';
+import { profileDelivery } from './profile-delivery';
 
 export type ProfileTemplate = ProfileWriteTemplate;
 export type { ProfileBuild };
@@ -44,7 +45,11 @@ export function writeProfileSafely<R extends string>(deps: SafeWriteDeps, build:
   // The kit only ever asks for the owner's profile, with a filter identical to this home's `profileFilter` (both
   // profile kinds, the owner, the profile's d values, limit 20): each relay is asked with that one
   const kitRelays: KitProfileRelays = { urls: relays.urls, required: relays.required, query: (url, _filter, signal) => relays.query(url, profileFilter(deps.owner), signal), publish: (url, event, signal) => relays.publish(url, event, signal) };
-  return writeWithKit<R>({ ...deps, relays: kitRelays, verify: deps.verify ?? verifyEvent }, build, opts);
+  return writeWithKit<R>({ ...deps, relays: kitRelays, verify: deps.verify ?? verifyEvent }, build, opts).then((out) => {
+    // Sent (one relay at least): the relays that missed it are sent this very event later (`profile-delivery.ts`)
+    if (out.kind === 'sent') profileDelivery.owe(out.event, relays);
+    return out;
+  });
 }
 
 /**

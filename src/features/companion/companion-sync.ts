@@ -32,6 +32,7 @@ import type { NostrEvent } from '@blobbi-kit/core';
 import { companionChoices, needsSync, type CompanionChoice } from './choice-store';
 import { profileQueue } from './profile-queue';
 import { writeCompanionProfile, type ProfileRelays, type ProfileWriteOutcome, type UnsignedProfile } from './profile-write';
+import { profileDelivery } from './profile-delivery';
 
 export type SyncStatus =
   | { kind: 'idle' }
@@ -208,7 +209,11 @@ export async function runSync(account: string, byPlayer = false): Promise<void> 
       outcome = { kind: 'failed', event: null };
     }
     setStatus(account, apply(account, d, outcome));
-    if (outcome.kind === 'saved') env.onPublished?.(outcome.event);
+    if (outcome.kind === 'saved') {
+      env.onPublished?.(outcome.event);
+      // Saved on one relay at least: the relays that missed it are sent this very event later
+      profileDelivery.owe(outcome.event, env.relays);
+    }
     if (outcome.kind === 'saved' || outcome.kind === 'unchanged' || outcome.kind === 'superseded' || outcome.kind === 'ambiguous') env.refreshProfile?.();
   })();
   try {

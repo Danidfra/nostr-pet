@@ -76,25 +76,27 @@ describe('automatic retries of a share', () => {
   });
 
   it('sent but not confirmed yet: "Still telling…" while a retry is on its way; the warning (and Try again) once retries are used up', async () => {
-    // Only ditto keeps it: one relay of the two a share must be read back from
+    // Accepted and kept nowhere (read back from no relay): sent, not saved
+    net.relays.get(DITTO)!.forget = true;
     net.relays.get(PRIMAL)!.forget = true;
     net.relays.get(BAND)!.down = true;
     choose(dOf(acc.pubkey, 2));
     await companionSync.start(acc.pubkey);
     expect(status()).toEqual({ kind: 'waiting', reason: 'partial', retrying: true });
     expect(syncNote(status(), 'Bambu')).toBe('Still telling your other Blobbi games about Bambu...');
-    expect(net.relays.get(DITTO)!.events.some((e) => e.kind === 11125 && e.tags.some((t) => t[0] === 'current_companion' && t[1] === dOf(acc.pubkey, 2)))).toBe(true);
     await advance(15_000 + 60_000 + 180_000);
     expect(status()).toEqual({ kind: 'waiting', reason: 'partial' });
     expect(syncNote(status(), 'Bambu')).toBe("Your other Blobbi games don't know about Bambu yet.");
     // Primal keeps it again: the player's Try again confirms it, with the same signed event
     net.relays.get(PRIMAL)!.forget = false;
     await companionSync.retry(acc.pubkey);
+    expect(net.relays.get(PRIMAL)!.events.some((e) => e.kind === 11125 && e.tags.some((t) => t[0] === 'current_companion' && t[1] === dOf(acc.pubkey, 2)))).toBe(true);
     expect(status()).toEqual({ kind: 'saved' });
     expect(signs).toBe(1);
   });
 
   it('a partial share confirmed by its automatic retry: said as on its way, then saved, nothing asked of the player', async () => {
+    net.relays.get(DITTO)!.forget = true;
     net.relays.get(PRIMAL)!.forget = true;
     net.relays.get(BAND)!.down = true;
     choose(dOf(acc.pubkey, 2));

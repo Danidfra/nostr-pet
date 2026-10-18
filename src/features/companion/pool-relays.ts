@@ -6,7 +6,7 @@
  */
 import type { NPool, NostrFilter } from '@nostrify/nostrify';
 import type { NostrEvent } from '@blobbi-kit/core';
-import { BASE_RELAYS, PROFILE_ANCHOR_RELAY, PROFILE_REQUIRED_RELAYS, PROFILE_WRITE_QUORUM } from '@/config/relays';
+import { BASE_RELAYS, PROFILE_REQUIRED_RELAYS, PROFILE_WRITE_QUORUM } from '@/config/relays';
 import type { ProfileRelays } from './profile-write';
 
 /** Whether this transport can be asked relay by relay (the real pool; not a guest's world or a dev fixture). */
@@ -20,7 +20,6 @@ export function poolProfileRelays(nostr: NPool, urls: readonly string[] = BASE_R
   return {
     urls,
     required: shared.length ? shared : urls,
-    anchor: PROFILE_ANCHOR_RELAY,
     quorum: PROFILE_WRITE_QUORUM,
     async query(url, filter, signal) {
       return (await nostr.relay(url).query([{ ...filter } as NostrFilter], { signal })) as NostrEvent[];

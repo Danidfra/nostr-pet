@@ -33,10 +33,12 @@
  *             meanwhile by another app is built over (once), never replaced.
  *   send      only while the account is still the one signed in (checked
  *             again right before, after the reads); to every relay; then
- *             READ BACK: saved only when at least
- *             `quorum` relays, `anchor` among them, hold it (or a newer
- *             profile naming the same Blobbi). Fewer: `partial` (the same
- *             event is resent to the missing relays on retry).
+ *             READ BACK: saved once `quorum` relays (one, by default) hold
+ *             it (or a newer profile naming the same Blobbi), so one relay
+ *             down never holds the choice back; the relays still missing it
+ *             are sent that very event later (`profile-delivery.ts`). Read
+ *             back nowhere: `partial` if a relay accepted it (the same event
+ *             is resent on retry), else `failed`.
  *
  * A pending write found superseded by a newer profile is dropped, never sent:
  * the caller decides again with the ordering rules (`choice-order.ts`).
@@ -60,9 +62,7 @@ export interface ProfileRelays {
   urls: readonly string[];
   /** A read is complete only when each of these answered. */
   required: readonly string[];
-  /** A write is confirmed only when this relay holds it (when it is in `urls`). */
-  anchor: string;
-  /** How many relays must hold a write. */
+  /** How many relays must hold a write (read back) for it to count as saved; at least one. */
   quorum: number;
   /** Resolves with the relay's stored events once it says it has sent them all (EOSE); rejects otherwise. */
   query(url: string, filter: ProfileFilter, signal: AbortSignal): Promise<NostrEvent[]>;
@@ -238,7 +238,7 @@ function holders(c: Census, ours: NostrEvent, owner: string, d: string, verify: 
 
 function confirmedBy(relays: ProfileRelays, held: readonly string[]): boolean {
   const mine = held.filter((h) => relays.urls.includes(h));
-  return mine.length >= Math.min(relays.quorum, relays.urls.length) && (!relays.urls.includes(relays.anchor) || mine.includes(relays.anchor));
+  return mine.length >= Math.max(1, Math.min(relays.quorum, relays.urls.length));
 }
 
 export async function writeCompanionProfile(req: ProfileWriteRequest, deps: ProfileWriteDeps): Promise<ProfileWriteOutcome> {
