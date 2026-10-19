@@ -58,6 +58,8 @@ import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
 import { JourneySheet } from '@/features/journey/JourneySheet';
 import type { ObjectiveAction } from '@/features/journey/journey';
 import { WorldsSheet } from '@/features/worlds/WorldsSheet';
+import { DepartureCard } from '@/features/worlds/DepartureCard';
+import { useWorldDeparture } from '@/features/worlds/useWorldDeparture';
 import { usePresence } from '@/features/teleport/react/usePresence';
 import { travelStartsAway, useHomeTravel, useTravelStartsUnknown } from '@/features/presence/useHomeTravel';
 import { WorldPresenceNote } from '@/features/presence/WorldPresenceNote';
@@ -535,6 +537,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const [bathFace, setBathFace] = useState<ExpressionName | null>(null);
   const [bathGaze, setBathGaze] = useState<EyeOffset | null>(null);
   const [bathGesture, setBathGesture] = useState<ActiveGesture | null>(null);
+  // Leaving for a world (`useWorldDeparture`): its surprised then happy face; its goodbye wiggle is `playBathGesture`'s
+  const [departureFace, setDepartureFace] = useState<ExpressionName | null>(null);
   const bathGestureKey = useRef(0);
   const bathGestureTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playBathGesture = useCallback((kind: PokeGesture) => {
@@ -743,7 +747,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const bathTub = bathView && !bathView.inPlace ? (bathView.stageId === 'jump-in' ? 'in' : 'using') : tubOut ? 'out' : null;
   const inMoment = !!bathView || !!dose;
   const bathPresentation = useMemo(
-    () => (inMoment ? { ...scene.presentation, eyeOffset: bathGaze ?? scene.presentation.eyeOffset, gesture: bathGesture ?? scene.presentation.gesture } : scene.presentation),
+    () => (inMoment ? { ...scene.presentation, eyeOffset: bathGaze ?? scene.presentation.eyeOffset, gesture: bathGesture ?? scene.presentation.gesture } : bathGesture ? { ...scene.presentation, gesture: bathGesture } : scene.presentation),
     [inMoment, scene.presentation, bathGaze, bathGesture],
   );
 
@@ -830,6 +834,17 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // moment before the relays say it is elsewhere
   const startsUnknown = useTravelStartsUnknown(pubkey, blobbi.d);
   const presence = usePresence({ initial: travels && (startsUnknown || travelStartsAway(pubkey, blobbi.d)) ? 'absent' : 'present', reducedMotion: () => reducedMotionRef.current, onCue: (cue) => play(cue) });
+  // Travel: the Blobbi says goodbye and dissolves (the teleport's own departure), then the page goes; the room's too
+  const departure = useWorldDeparture({
+    presence,
+    canAct: travels && presence.state === 'present',
+    reducedMotion,
+    showFace: (_source, name) => setDepartureFace(name),
+    clearFace: () => setDepartureFace(null),
+    gesture: playBathGesture,
+    play,
+  });
+  const departing = departure.phase !== 'idle' && departure.phase !== 'failed';
   const [presenceJourney, setPresenceJourney] = useState<{ kind: 'enter' | 'leave'; place: string; key: number } | null>(null);
   const worldTravel = useHomeTravel({
     pubkey,
@@ -837,7 +852,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     travels,
     presence,
     busy: care.isPending || useItem.isPending || useStarter.isPending || inCeremony || theater || offer !== null || bathing || !!dose,
-    paused: false,
+    // A trip to another world drives the teleport alone while it lasts, as in the room
+    paused: departure.phase !== 'idle',
     onJourney: (kind, place) => setPresenceJourney((j) => ({ kind, place, key: (j?.key ?? 0) + 1 })),
   });
   // A sleeper or an egg is always shown home, whatever the teleport was doing
@@ -850,7 +866,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const blobbiAway = presence.state === 'absent';
   // Where it stands while unseen: "looking for it" (place not known yet), or a call home under way just before its arrival
   const travelCue = travels && blobbiAway && (worldTravel.view === 'looking' || worldTravel.view === 'coming') ? worldTravel.view : null;
-  const interactive = !sleeping && canWalk && !inCeremony && blobbiHere;
+  // Saying goodbye before a trip is a moment of its own: no walk or care starts under it
+  const interactive = !sleeping && canWalk && !inCeremony && blobbiHere && departure.phase === 'idle';
   const usableItemCount = inventory.items.filter((i) => i.usability.ok && !i.unverified).length;
   const offerObject = offer ? itemObjectAt('offer', offer.choice.entry.item.name, offer.spot.position, offer.spot.approach) : null;
   const accessories = blobbi.stage === 'egg' ? undefined : worn.accessoriesFor(scene.presentation.facing);
@@ -892,7 +909,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // An item on the way or in use, or a walk to a piece, holds the verbs; a write in flight is `pendingAction`'s.
   const busyWithObject = offer !== null || stage?.phase === 'walking' || bathing;
   // A companion chosen meanwhile in another Blobbi game waits for these moments to end (src/features/companion)
-  useCompanionSwitchHold(care.isPending || useItem.isPending || useStarter.isPending || inCeremony || theater || busyWithObject || !!dose);
+  useCompanionSwitchHold(care.isPending || useItem.isPending || useStarter.isPending || inCeremony || theater || busyWithObject || !!dose || departure.phase !== 'idle');
   // The flame only after real care, never for hatching alone (`flameDays`, M14.1)
   const streakForHud = useMemo(() => ({ days: flameDays(blobbi.careStreak, careGiven), bumpKey: streakBump }), [blobbi.careStreak, careGiven, streakBump]);
 
@@ -1013,7 +1030,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           actor={
             // While the theatre holds the egg, the home's own drawing of it steps aside: one Blobbi on screen
             <div className="contents" style={theater ? { visibility: 'hidden' } : undefined} data-testid="home-actor-slot">
-              <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={bathPresentation} faceName={bathView ? bathFace : dose ? MEDICINE_FACE[dose.phase] : null} inBed={inBed} happyKey={resultKey} onPoke={inCeremony || bathing || dose || !blobbiHere ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} hatch={hatchBeat} effects={actorEffects} accessories={accessories} journey={presence.journey} absent={blobbiAway} absentCue={travelCue ? <TravelCue kind={travelCue} name={blobbi.name} /> : undefined} fadeOnReturn={worldTravel.mode === 'nostr'}>
+              <BlobbiActor ref={actorRef} blobbi={shownBlobbi} presentation={bathPresentation} faceName={bathView ? bathFace : dose ? MEDICINE_FACE[dose.phase] : departureFace} inBed={inBed} happyKey={resultKey} onPoke={inCeremony || bathing || dose || !blobbiHere || departure.phase !== 'idle' ? undefined : onPoke} eggCrack={blobbi.stage === 'egg' ? eggCrack : undefined} hatch={hatchBeat} effects={actorEffects} accessories={accessories} journey={presence.journey} absent={blobbiAway} absentCue={travelCue ? <TravelCue kind={travelCue} name={blobbi.name} /> : undefined} fadeOnReturn={worldTravel.mode === 'nostr'}>
                 <NeedBubbles items={sleeping || inCeremony || bathing ? [] : statItems} />
                 <CareFeedback result={feedback} resultKey={resultKey} />
                 {/* The bath on its body (M15): the surface the player rubs, the foam, the water, the tool in hand */}
@@ -1164,12 +1181,19 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               setWorldsOpen(false);
               requestSave();
             }}
+            departing={departing}
             onTravel={(world) => {
-              // No key travels: the other world asks for its own sign-in; a new tab keeps the home as it is
-              if (world.url) window.open(world.url, '_blank', 'noopener');
-              setWorldsOpen(false);
+              // A write still out finishes here first: leaving mid-signature could lose it
+              if (care.isPending || useItem.isPending || useStarter.isPending || inCeremony || theater || busyWithObject || !!dose) {
+                play('invalid');
+                setBathNotice('One moment: something is still being saved.');
+                return;
+              }
+              // No key travels: the other world asks for its own sign-in; the page goes once the Blobbi has left
+              if (departure.go(world)) setWorldsOpen(false);
             }}
           />
+          {departure.phase !== 'idle' && departure.world && <DepartureCard phase={departure.phase} world={departure.world} name={blobbi.name} onStay={departure.cancel} onRetry={() => departure.go({ ...departure.world!, open: true })} />}
           <GuestStatusSheet open={statusOpen && guestActive} onClose={() => setStatusOpen(false)} name={blobbi.name} onSave={requestSave} storageOk={guest.storageOk} />
           <InventorySheet
             open={itemsOpen}

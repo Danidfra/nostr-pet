@@ -12,6 +12,7 @@ import { worldById } from './worlds';
 
 const island = worldById('island')!;
 const pixel = worldById('pixel')!;
+const closed = { ...pixel, url: null, open: false };
 
 function setup({ canAct = true, reducedMotion = false, leaveWorks = true } = {}) {
   const navigate = vi.fn();
@@ -90,10 +91,20 @@ describe('leaving for another world', () => {
     expect(navigate).toHaveBeenCalledWith(island.url);
   });
 
+  it('the Pixel world leaves the same way, for its own address', async () => {
+    const { hook, navigate, calls } = setup();
+    act(() => void hook.result.current.d.go(pixel));
+    await tick(DEPARTURE.noticeMs + DEPARTURE.waveMs);
+    expect(calls.leave).toBe(1);
+    expect(navigate).not.toHaveBeenCalled();
+    await tick(700);
+    expect(navigate).toHaveBeenCalledWith('https://pixel.blobbi.pet/');
+  });
+
   it('a world that is not open is refused', () => {
     const { hook, navigate } = setup();
     let started = true;
-    act(() => void (started = hook.result.current.d.go(pixel)));
+    act(() => void (started = hook.result.current.d.go(closed)));
     expect(started).toBe(false);
     expect(hook.result.current.d.phase).toBe('idle');
     expect(navigate).not.toHaveBeenCalled();
@@ -146,6 +157,21 @@ describe('leaving for another world', () => {
     expect(hook.result.current.state).toBe('present');
     act(() => void hook.result.current.d.go(island));
     expect(hook.result.current.d.phase).toBe('noticing');
+  });
+
+  it('back from the other world (a cached page): the Blobbi that left comes back, nothing half way', async () => {
+    const { hook, navigate, calls } = setup();
+    act(() => void hook.result.current.d.go(island));
+    await tick(DEPARTURE.noticeMs + DEPARTURE.waveMs + 700);
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.state).toBe('absent');
+    act(() => void window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+    expect(hook.result.current.d.phase).toBe('idle');
+    expect(calls.enter).toBe(1);
+    expect(hook.result.current.state).toBe('present');
+    // And the failure timer of that navigation never fires afterwards
+    await tick(DEPARTURE.failMs);
+    expect(hook.result.current.d.phase).toBe('idle');
   });
 
   it('a navigation that throws is a failure, not a crash', () => {

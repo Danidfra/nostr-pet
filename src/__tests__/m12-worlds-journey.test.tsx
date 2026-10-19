@@ -97,20 +97,19 @@ beforeEach(() => {
 });
 
 describe('worlds from the room', () => {
-  it('lists the open worlds as buttons and the upcoming one as a label, never a link', async () => {
+  it('lists every open world as a button, the Pixel world among them, never a link', async () => {
     relay.all = [brook(), profileEvent({ currentCompanion: getTagValue(brook().tags, 'd') })];
     renderRoom();
     await userEvent.click(await screen.findByTestId('room-menu'));
     await userEvent.click(await screen.findByTestId('menu-worlds'));
     const sheet = await screen.findByTestId('worlds-sheet');
-    for (const id of ['island', 'rumble', 'farm']) {
+    for (const id of ['island', 'rumble', 'farm', 'pixel']) {
       const card = within(sheet).getByTestId(`world-${id}`);
       expect(card.tagName).toBe('BUTTON');
       expect(card).toHaveAttribute('data-open', 'true');
+      expect(card).toHaveTextContent('Visit');
     }
-    const pixel = within(sheet).getByTestId('world-pixel');
-    expect(pixel.tagName).not.toBe('BUTTON');
-    expect(pixel).toHaveTextContent('Coming soon');
+    expect(sheet).not.toHaveTextContent('Coming soon');
     // Nothing in the sheet is an address to follow: travel is the Blobbi's departure, then the page
     expect(sheet.querySelector('a[href]')).toBeNull();
     expect(within(sheet).getByTestId('worlds-note')).toHaveTextContent(/key never travels/);

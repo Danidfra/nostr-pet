@@ -23,9 +23,11 @@ interface WorldsSheetProps {
    */
   guest?: boolean;
   onSave?: () => void;
+  /** A departure is under way: no door opens a second one until it ends (or Stay ends it). */
+  departing?: boolean;
 }
 
-export function WorldsSheet({ open, onClose, blobbi, onTravel, guest = false, onSave }: WorldsSheetProps) {
+export function WorldsSheet({ open, onClose, blobbi, onTravel, guest = false, onSave, departing = false }: WorldsSheetProps) {
   const list = worlds();
   return (
     <GameOverlay
@@ -62,7 +64,7 @@ export function WorldsSheet({ open, onClose, blobbi, onTravel, guest = false, on
                   {body}
                 </button>
               ) : w.open ? (
-                <button type="button" className="world-card" onClick={() => onTravel(w)} data-testid={`world-${w.id}`} data-open="true" aria-label={`Visit ${w.name}. ${w.tagline}`}>
+                <button type="button" className="world-card" onClick={() => onTravel(w)} disabled={departing} aria-busy={departing || undefined} data-testid={`world-${w.id}`} data-open="true" aria-label={`Visit ${w.name}. ${w.tagline}`}>
                   {body}
                 </button>
               ) : (

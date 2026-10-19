@@ -6,15 +6,16 @@ import { describe, expect, it } from 'vitest';
 import { isTravelUrl, worldById, worlds } from './worlds';
 
 describe('the worlds', () => {
-  it('opens exactly the worlds with a checked address, and labels the rest upcoming', () => {
+  it('opens exactly the worlds with a checked address', () => {
     const list = worlds();
     expect(list.map((w) => [w.id, w.open])).toEqual([
       ['island', true],
       ['rumble', true],
       ['farm', true],
-      ['pixel', false],
+      ['pixel', true],
     ]);
-    expect(worldById('pixel')!.url).toBeNull();
+    // Deployed and checked on 2026-10-18
+    expect(worldById('pixel')!.url).toBe('https://pixel.blobbi.pet/');
   });
 
   it('every open address is https on blobbi.pet, with no query, fragment or credentials (nothing travels)', () => {

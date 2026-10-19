@@ -151,9 +151,12 @@ export function useWorldDeparture({ presence, canAct, reducedMotion, showFace, c
   useEffect(() => {
     const onShow = (e: PageTransitionEvent) => {
       if (!e.persisted) return;
+      const left = phaseRef.current === 'gone';
       clearTimers();
       live.current.clearFace(FACE);
-      live.current.presence.cancel();
+      // It had dissolved before the page went: it comes back (cancel only ends a journey still under way)
+      if (left && live.current.presence.state === 'absent') live.current.presence.enter();
+      else live.current.presence.cancel();
       setWorld(null);
       set('idle');
     };

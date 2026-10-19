@@ -211,6 +211,48 @@ describe('Home: one Blobbi', () => {
   });
 });
 
+describe('Home: travel to a world', () => {
+  it('the Pixel world is a door: the Blobbi says goodbye and leaves before the page goes, never a new tab', async () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    relay.state = [BROOK];
+    renderHome();
+    await screen.findByTestId('blobbi-chip');
+    await openMenu();
+    await userEvent.click(screen.getByTestId('menu-worlds'));
+    const pixel = await screen.findByTestId('world-pixel');
+    expect(pixel.tagName).toBe('BUTTON');
+    expect(pixel).toHaveTextContent('Visit');
+    await userEvent.click(pixel);
+    expect(screen.queryByTestId('worlds-sheet')).toBeNull();
+    const card = await screen.findByTestId('departure-card');
+    expect(card).toHaveTextContent('Brook is off to Blobbi Pixel');
+    // While it leaves, the worlds' doors are shut: no second departure
+    await openMenu();
+    await userEvent.click(screen.getByTestId('menu-worlds'));
+    expect(await screen.findByTestId('world-island')).toBeDisabled();
+    await userEvent.keyboard('{Escape}');
+    // The departure plays to its end, and only then is the page asked to go
+    await waitFor(() => expect(screen.getByTestId('departure-card')).toHaveAttribute('data-phase', 'gone'), { timeout: 4_000 });
+    expect(screen.getByTestId('departure-card')).toHaveTextContent('Opening Blobbi Pixel');
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it('Stay keeps the Blobbi home, and the doors open again', async () => {
+    relay.state = [BROOK];
+    renderHome();
+    await screen.findByTestId('blobbi-chip');
+    await openMenu();
+    await userEvent.click(screen.getByTestId('menu-worlds'));
+    await userEvent.click(await screen.findByTestId('world-island'));
+    await userEvent.click(await screen.findByTestId('departure-stay'));
+    expect(screen.queryByTestId('departure-card')).toBeNull();
+    await openMenu();
+    await userEvent.click(screen.getByTestId('menu-worlds'));
+    expect(await screen.findByTestId('world-island')).toBeEnabled();
+  });
+});
+
 describe('Home: several Blobbis', () => {
   it('follows the profile current_companion and offers a selector', async () => {
     relay.state = [BROOK, ELDER, SHELL];

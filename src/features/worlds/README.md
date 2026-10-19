@@ -18,7 +18,9 @@ step is a decision and not a surprise.
 
 ## What travel does (implemented)
 
-1. The player opens **Worlds** in the room and picks an open world.
+1. The player opens **Worlds** in either home (the 2D home or the 3D room, the
+   same sheet and the same departure) and picks an open world. While it
+   leaves, the worlds' doors are disabled.
 2. The Blobbi notices, waves, and dissolves with the teleport's own
    departure (`useWorldDeparture` over `usePresence`).
 3. Only then: `window.location.assign(url)` with the world's checked URL.
@@ -26,7 +28,7 @@ step is a decision and not a surprise.
    the player to sign in its own way (often already signed in there).
 4. If the page is still here 5 s later (blocked, offline), the Blobbi comes
    back and the card says so. Back from the other app (bfcache) restores
-   the room.
+   the home (the Blobbi that left comes back).
 
 Rules: a world is open only with an `https:` address checked to answer as
 that app (`worlds.ts`, with the date); an unchecked one is labelled "Coming

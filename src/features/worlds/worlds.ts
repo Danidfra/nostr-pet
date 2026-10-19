@@ -12,7 +12,8 @@
  *   https://island.blobbi.pet/                → 200, "Blobbi Island - Virtual Pet Adventure"
  *   https://rumble.blobbi.pet/                → 302 to /rumble.html?network=1, "Blobbi Rumble"
  *   https://farm.blobbi.pet/                  → 200, "Nostr Farm"
- *   https://pixel.blobbi.pet/                 → no answer (upcoming)
+ * Checked 2026-10-18 when the Pixel game was deployed:
+ *   https://pixel.blobbi.pet/                 → 200, "Blobbi Pixel"
  */
 import { BLOBBI_ISLAND_URL } from '@/config/ecosystem';
 
@@ -29,13 +30,13 @@ export interface World {
   colors: readonly [string, string];
 }
 
-export const WORLDS_CHECKED_ON = '2026-10-12';
+export const WORLDS_CHECKED_ON = '2026-10-18';
 
 const DEFINED: readonly World[] = [
   { id: 'island', name: 'Blobbi Island', tagline: 'Explore the island and meet other Blobbis.', url: BLOBBI_ISLAND_URL, colors: ['#7dd3fc', '#fde68a'] },
   { id: 'rumble', name: 'Blobbi Rumble', tagline: 'A playful arena for friendly matches.', url: 'https://rumble.blobbi.pet/', colors: ['#fca5a5', '#fdba74'] },
   { id: 'farm', name: 'Nostr Farm', tagline: 'Grow crops and gather produce.', url: 'https://farm.blobbi.pet/', colors: ['#86efac', '#bef264'] },
-  { id: 'pixel', name: 'Blobbi Pixel', tagline: 'A pixel adventure, on its way.', url: null, colors: ['#c4b5fd', '#f9a8d4'] },
+  { id: 'pixel', name: 'Blobbi Pixel', tagline: 'A pixel adventure with your Blobbi.', url: 'https://pixel.blobbi.pet/', colors: ['#c4b5fd', '#f9a8d4'] },
 ];
 
 /** An address a world may be opened at: absolute https (http only on localhost, for development), no credentials. */
