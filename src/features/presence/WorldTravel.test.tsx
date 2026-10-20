@@ -3,6 +3,10 @@
  * Location (kind 31126) on two in-memory relays (the ditto and primal urls, never a real socket) is the authority.
  * The account signs with a real key here (the kit checks every signature), as an nsec login (silent) or an extension
  * (it may prompt). Another device is played by writing its signed events straight to the relays.
+ *
+ * Revised 2026-10-19 (`world-travel-departure.ts`): opening the home is the player's intention to bring the Blobbi
+ * here (one move per page load, once the place is confirmed), and choosing a world in the sheet moves it there from
+ * here before the page goes. Nothing rides in a URL; no input moves the Blobbi.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
@@ -13,8 +17,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { MemoryRouter } from 'react-router-dom';
 import type { NPool, NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-import { KIND_BLOBBI_STATE, KIND_WORLD_LOCATION, buildEggTags, buildPresenceTemplate, buildWorldLocationTemplate, parseWorldLocation, worldLocationStoreKey } from '@blobbi-kit/core';
-import { verifyEvent } from 'nostr-tools/pure';
+import { KIND_BLOBBI_STATE, KIND_WORLD_LOCATION, buildEggTags, buildPresenceTemplate, buildWorldLocationTemplate, parseWorldLocation, worldLocationStoreKey, type WorldLocation } from '@blobbi-kit/core';
 
 const currentUser = vi.hoisted(() => ({ user: undefined as { pubkey: string; signer: unknown } | undefined }));
 vi.mock('@/hooks/useCurrentUser', () => ({
@@ -62,16 +65,17 @@ import { ACTIVE_PRESENCE_KEY } from './active-presence-choice';
 import { useHomeTravel, useTravelStartsUnknown } from './useHomeTravel';
 import { usePresence } from '@/features/teleport/react/usePresence';
 import { setRoomArrivalEnabled } from '@/features/room/lib/room-arrival';
-import { setCapturedHandoff } from './handoff-capture';
-import { HANDOFF_PARAM, decodeHandoff } from './world-travel-handoff';
 import { WORLD_ISLAND, worldById } from '@/features/worlds/worlds';
+import { DEPARTURE } from '@/features/worlds/useWorldDeparture';
+import { ARRIVAL_INTENT_TTL_MS, SIGN_PROMPT_TIMEOUT_MS } from './world-travel-departure';
 
 // ─── The account (a real key) and its Blobbi ───
+// A fresh key per test: each test is its own page, and the page's one arrival decision is kept per owner and Blobbi
 
-const SK = generateSecretKey();
-const PK = getPublicKey(SK);
+let SK = generateSecretKey();
+let PK = getPublicKey(SK);
 const PET = '0000000001';
-const D = `blobbi-${PK.slice(0, 12)}-${PET}`;
+let D = `blobbi-${PK.slice(0, 12)}-${PET}`;
 const T0 = 1_757_000_000;
 
 function blobbi(o: { stage?: string; state?: string } = {}): NostrEvent {
@@ -123,16 +127,24 @@ function accept(r: FakeRelay, e: NostrEvent): void {
 function everywhere(e: NostrEvent) {
   for (const r of relays.values()) accept(r, e);
 }
-function remoteMove(world: string, atMs = Date.now(), latest = newestLocation()): NostrEvent {
-  const e = finalizeEvent(buildWorldLocationTemplate({ owner: PK, d: D, world, latest, now: atMs }), SK) as NostrEvent;
+function remoteMove(world: string, atMs = Date.now(), latest: WorldLocation | null = newestLocation(), d = D): NostrEvent {
+  const e = finalizeEvent(buildWorldLocationTemplate({ owner: PK, d, world, latest, now: atMs }), SK) as NostrEvent;
   everywhere(e);
   return e;
 }
-function newestLocation() {
-  const all = [...relays.values()].flatMap((r) => r.stored).filter((e) => e.kind === 31126);
+function newestLocation(d = D): WorldLocation | null {
+  const all = [...relays.values()].flatMap((r) => r.stored).filter((e) => e.kind === 31126 && e.tags.some((t) => t[0] === 'd' && t[1] === d));
   return all.map((e) => parseWorldLocation(e)!).sort((a, b) => b.createdAt - a.createdAt || (a.id < b.id ? -1 : 1))[0] ?? null;
 }
+/** The distinct events of a kind the page sent to any relay (accepted or refused). */
 const sent = (kind: number) => [...new Set([...relays.values()].flatMap((r) => r.published).filter((e) => e.kind === kind).map((e) => e.id))];
+/** The newest World Location the page published, parsed (the kit may also resend an older one to a lagging relay). */
+const published = () =>
+  [...relays.values()]
+    .flatMap((r) => r.published)
+    .filter((e) => e.kind === 31126)
+    .map((e) => parseWorldLocation(e)!)
+    .sort((a, b) => b.createdAt - a.createdAt || (a.id < b.id ? -1 : 1))[0];
 
 const pool = {
   query: vi.fn(async (filters: NostrFilter[]) => base.all.filter((e) => filters.some((f) => matches(e, f)))),
@@ -184,11 +196,17 @@ const pool = {
 
 // ─── The account's signer ───
 
-const signing = { refuse: false, kinds: [] as number[] };
+/** `hang`: a prompt left open; `release` answers it late (the stale prompt approved after all). */
+const signing = { refuse: false, hang: false, kinds: [] as number[], release: null as (() => void) | null };
 const signer = {
   getPublicKey: async () => PK,
   signEvent: vi.fn(async (t: { kind: number; created_at: number; tags: string[][]; content: string }) => {
     signing.kinds.push(t.kind);
+    if (t.kind === 31126 && signing.hang) {
+      await new Promise<void>((resolve) => {
+        signing.release = resolve;
+      });
+    }
     if (t.kind === 31126 && signing.refuse) throw new Error('user rejected');
     return finalizeEvent(t, SK);
   }),
@@ -226,14 +244,13 @@ const WAIT = { timeout: 9_000 };
 /** A press of the player's (trusted, by this suite's word) on an element. */
 const press = (el: Element | Window = document.body) => fireEvent.pointerDown(el);
 const pause = (ms: number) => act(() => new Promise((r) => setTimeout(r, ms)));
-/** Inputs closer than a second are one gesture to the kit: interactions a little more than that apart. */
-const GAP = 1_050;
-/** Interactions of the player's, each its own gesture: three, more than enough to bring it over (two do). */
-async function playThrice(input: () => void = () => press()) {
-  for (let i = 0; i < 3; i++) {
-    if (i > 0) await pause(GAP);
-    act(() => input());
-  }
+/** Things that are not the player's intention: re-renders, a focus, a visibility change, presses. */
+function noise(view: { again: () => void }) {
+  for (let i = 0; i < 3; i++) view.again();
+  act(() => void window.dispatchEvent(new Event('focus')));
+  act(() => void document.dispatchEvent(new Event('visibilitychange')));
+  press();
+  press();
 }
 
 beforeAll(() => {
@@ -246,6 +263,9 @@ afterAll(() => {
   setTrustedInputCheck(null);
 });
 beforeEach(() => {
+  SK = generateSecretKey();
+  PK = getPublicKey(SK);
+  D = `blobbi-${PK.slice(0, 12)}-${PET}`;
   localStorage.clear();
   window.localStorage.setItem('blobbi:home:3d-intro:v1', 'seen');
   relays.clear();
@@ -253,7 +273,9 @@ beforeEach(() => {
   base.all = [blobbi()];
   base.poolEvents = [];
   signing.refuse = false;
+  signing.hang = false;
   signing.kinds = [];
+  signing.release = null;
   travelAsks.count = 0;
   signer.signEvent.mockClear();
   scene.state.journeys = [];
@@ -275,32 +297,35 @@ function watchActor(): string[] {
   return seen;
 }
 
+/** A wrapper for the hook alone, with this suite's relays and login. */
+function hookWrapper() {
+  const client = new QueryClient();
+  return ({ children }: { children: ReactNode }) => (
+    <NostrLoginProvider storageKey="test:login">
+      <NostrContext.Provider value={{ nostr: pool }}>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      </NostrContext.Provider>
+    </NostrLoginProvider>
+  );
+}
+
 describe('the classic home, on Nostr', () => {
-  it('away in Pixel at load: shown away at once (no departure replayed), where it was last, nothing signed', async () => {
+  it('away in Pixel at load: shown away first (no departure replayed), then opening the home brings it here with one World Location naming home, and the arrival plays', async () => {
     remoteMove('blobbi-pixel', Date.now() - 3_600_000);
     const seen = watchActor();
     renderAt('/');
     await waitFor(() => expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel'));
-    await waitFor(() => expect(presenceOf()).toBe('absent'));
-    expect(seen).not.toContain('depart');
-    const note = await screen.findByTestId('world-presence-away');
-    expect(note).toHaveTextContent('Brook was last in Blobbi Pixel');
-    expect(screen.getByTestId('blobbi-poke')).toBeDisabled();
-    await pause(500);
-    expect(signer.signEvent).not.toHaveBeenCalled();
-  });
-
-  it('Call home publishes exactly one World Location to the relays, then the arrival plays; again publishes nothing', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
-    renderAt('/');
-    fireEvent.click(await screen.findByTestId('world-presence-call-home'));
-    await waitFor(() => expect(presenceOf()).toBe('arrive'), WAIT);
+    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+    expect(published()).toMatchObject({ world: 'blobbi-home', from: 'blobbi-pixel', owner: PK, d: D });
     await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
-    expect(sent(31126)).toHaveLength(1);
-    const mine = parseWorldLocation(relays.get(URLS[0])!.stored.find((e) => e.kind === 31126))!;
-    expect(mine).toMatchObject({ world: 'blobbi-home', from: 'blobbi-pixel', owner: PK, d: D });
+    // Never shown home before its arrival, and nothing replayed as a departure
+    expect(seen).not.toContain('depart');
+    expect(seen.filter((s) => s === 'arrive')).toHaveLength(1);
+    expect(seen.indexOf('present')).toBeGreaterThan(seen.indexOf('arrive'));
     expect(screen.getByTestId('world-presence-line')).toHaveTextContent('Brook is back home!');
     expect(status()).toHaveAttribute('data-travel-here', 'true');
+    expect(status()).toHaveAttribute('data-travel-change', expect.stringMatching(/^live:/));
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
     // Already home: presses publish nothing more
     press();
     press();
@@ -310,39 +335,118 @@ describe('the classic home, on Nostr', () => {
     expect(base.poolEvents.filter((e) => e.kind === 31126 || e.kind === 21124)).toEqual([]);
   }, 20_000);
 
-  it('a press anywhere while away brings it home; a press inside an ignored area (a sheet, a setting) does not', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
-    renderAt('/');
-    await screen.findByTestId('world-presence-away');
-    const ignored = document.createElement('div');
-    ignored.setAttribute('data-world-travel', 'ignore');
-    const inner = document.createElement('button');
-    ignored.appendChild(inner);
-    document.body.appendChild(ignored);
-    press(inner);
-    await pause(300);
-    expect(signer.signEvent).not.toHaveBeenCalled();
-    // Three interactions (a second apart) bring it over
-    await playThrice(() => press(screen.getByTestId('care-dock')));
-    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
-    expect(sent(31126)).toHaveLength(1);
-    ignored.remove();
-  }, 20_000);
-
-  it('no location at all is home: presses publish nothing, and nothing is signed on load or re-render', async () => {
+  it('already home (no location at all, or one naming home): nothing is signed on load, on presses or on re-renders', async () => {
     const view = renderAt('/');
     await waitFor(() => expect(status()).toHaveAttribute('data-travel-status', 'ready'));
     expect(presenceOf()).toBe('present');
-    press();
-    for (let i = 0; i < 3; i++) view.again();
+    noise(view);
     expect(presenceOf()).toBe('present');
+    await pause(400);
+    expect(signer.signEvent).not.toHaveBeenCalled();
+    expect(sent(31126)).toEqual([]);
+    view.unmount();
+    remoteMove('blobbi-home', Date.now() - 60_000);
+    const again = renderAt('/');
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'));
+    noise(again);
     await pause(400);
     expect(signer.signEvent).not.toHaveBeenCalled();
     expect(sent(31126)).toEqual([]);
   });
 
-  it('another device taking it to Pixel: the home departs live, then says where it went', async () => {
+  it('the signer refusing on opening: said so, nothing published, and the page never asks again by itself; Try again (the player asking) publishes one', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    signIn('extension');
+    signing.refuse = true;
+    const view = renderAt('/');
+    await waitFor(() => expect(screen.getByTestId('world-presence-detail')).toHaveTextContent('did not approve'), WAIT);
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+    expect(sent(31126)).toEqual([]);
+    expect(presenceOf()).toBe('absent');
+    noise(view);
+    await pause(1_200);
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+    signing.refuse = false;
+    fireEvent.click(screen.getByTestId('world-travel-retry'));
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    expect(signer.signEvent).toHaveBeenCalledTimes(2);
+    expect(sent(31126)).toHaveLength(1);
+    expect(published()).toMatchObject({ world: 'blobbi-home', from: 'blobbi-pixel' });
+  }, 20_000);
+
+  it('a signer that never answers: the card waits on it, nothing is published, and nothing else is asked; after a minute the move is declined (the retry offered), a late approval is dropped, and Call home publishes one event and one arrival', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    signIn('extension');
+    signing.hang = true;
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
+    try {
+      const seen = watchActor();
+      const view = renderAt('/');
+      await waitFor(() => expect(status()).toHaveAttribute('data-travel-phase', 'signing'), WAIT);
+      expect(screen.getByTestId('world-presence-detail')).toHaveTextContent('Approve in your signer');
+      noise(view);
+      await pause(1_500);
+      expect(signer.signEvent).toHaveBeenCalledTimes(1);
+      expect(sent(31126)).toEqual([]);
+      expect(presenceOf()).toBe('absent');
+      // The prompt left open a minute (`boundedSigner`): the kit's move ends as declined; nothing was published
+      await act(() => vi.advanceTimersByTimeAsync(SIGN_PROMPT_TIMEOUT_MS));
+      await waitFor(() => expect(status()).toHaveAttribute('data-travel-reason', 'declined'), WAIT);
+      expect(screen.getByTestId('world-presence-detail')).toHaveTextContent('did not approve');
+      expect(sent(31126)).toEqual([]);
+      expect(presenceOf()).toBe('absent');
+      // The stale prompt approved now: dropped by the wrapper, never published, nothing moves
+      expect(signing.release).not.toBeNull();
+      act(() => signing.release?.());
+      await pause(800);
+      expect(sent(31126)).toEqual([]);
+      expect(presenceOf()).toBe('absent');
+      expect(status()).toHaveAttribute('data-travel-reason', 'declined');
+      // Call home (the retry): a signature of its own, one event, one arrival
+      signing.hang = false;
+      fireEvent.click(screen.getByTestId('world-travel-retry'));
+      await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+      expect(signer.signEvent).toHaveBeenCalledTimes(2);
+      expect(sent(31126)).toHaveLength(1);
+      expect(published()).toMatchObject({ world: 'blobbi-home', from: 'blobbi-pixel' });
+      await pause(300);
+      expect(seen.filter((s) => s === 'arrive')).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  }, 30_000);
+
+  it('no relay accepting on opening: said so; Try again sends the same signed event (no second signature)', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    for (const r of relays.values()) r.refuse = true;
     renderAt('/');
+    await waitFor(() => expect(screen.getByTestId('world-presence-detail')).toHaveTextContent("Couldn't reach"), WAIT);
+    expect(status()).toHaveAttribute('data-travel-reason', 'unreachable');
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+    expect(newestLocation()?.world).toBe('blobbi-pixel');
+    for (const r of relays.values()) r.refuse = false;
+    fireEvent.click(screen.getByTestId('world-travel-retry'));
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+    expect(sent(31126)).toHaveLength(1);
+    expect(newestLocation()?.world).toBe('blobbi-home');
+  }, 20_000);
+
+  it('a reload during a move: the signed move is sent on load, with no new signature', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    for (const r of relays.values()) r.refuse = true;
+    const first = renderAt('/');
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-reason', 'unreachable'), WAIT);
+    first.unmount();
+    for (const r of relays.values()) r.refuse = false;
+    renderAt('/');
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-place', 'blobbi-home'), WAIT);
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+    expect(newestLocation()?.world).toBe('blobbi-home');
+  }, 20_000);
+
+  it('another device taking it to Pixel: the home departs live, says where it went, and never pulls it back by itself', async () => {
+    const view = renderAt('/');
     await waitFor(() => expect(status()).toHaveAttribute('data-travel-status', 'ready'));
     await pause(1_600); // the page has been visible past the grace
     act(() => void remoteMove('blobbi-pixel'));
@@ -350,25 +454,22 @@ describe('the classic home, on Nostr', () => {
     expect(screen.getByTestId('world-presence-line')).toHaveTextContent('Brook hopped over to Blobbi Pixel!');
     await waitFor(() => expect(presenceOf()).toBe('absent'), WAIT);
     expect(await screen.findByTestId('world-presence-away')).toHaveTextContent('Blobbi Pixel');
+    // This page already decided on opening (it was home): nothing automatic now, however the page is poked
+    noise(view);
+    await pause(1_500);
     expect(signer.signEvent).not.toHaveBeenCalled();
+    expect(presenceOf()).toBe('absent');
+    expect(screen.getByTestId('world-presence-call-home')).toBeInTheDocument();
   }, 20_000);
 
   it('a departure waits for the home’s own moment (care in flight, a bath, a ceremony), then plays', async () => {
-    const client = new QueryClient();
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <NostrLoginProvider storageKey="test:login">
-        <NostrContext.Provider value={{ nostr: pool }}>
-          <QueryClientProvider client={client}>{children}</QueryClientProvider>
-        </NostrContext.Provider>
-      </NostrLoginProvider>
-    );
     const { result, rerender } = renderHook(
       ({ busy }) => {
         const presence = usePresence();
         const travel = useHomeTravel({ pubkey: PK, d: D, travels: true, presence, busy, paused: false });
         return { presence, travel };
       },
-      { wrapper, initialProps: { busy: false } },
+      { wrapper: hookWrapper(), initialProps: { busy: false } },
     );
     await waitFor(() => expect(result.current.travel.snapshot?.status).toBe('ready'));
     await pause(1_600);
@@ -381,88 +482,47 @@ describe('the classic home, on Nostr', () => {
     await waitFor(() => expect(result.current.presence.state).toBe('departing'), WAIT);
   }, 20_000);
 
-  it('an egg and a sleeper stay home whatever the location says, and a press never moves them', async () => {
+  it('an egg and a sleeper stay home whatever the location says, and opening the home never moves them', async () => {
     remoteMove('blobbi-pixel', Date.now() - 60_000);
     base.all = [blobbi({ stage: 'egg' })];
     const egg = renderAt('/');
-    await waitFor(() => expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel'));
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'));
+    expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel');
     expect(presenceOf()).toBe('present');
     expect(screen.queryByTestId('world-presence-away')).toBeNull();
     press();
-    await pause(300);
+    await pause(500);
     egg.unmount();
     base.all = [blobbi({ state: 'sleeping' })];
     renderAt('/');
-    await waitFor(() => expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel'));
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'));
+    expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel');
     expect(presenceOf()).toBe('present');
     press();
-    await pause(300);
+    await pause(500);
     expect(signer.signEvent).not.toHaveBeenCalled();
+    expect(sent(31126)).toEqual([]);
   });
 
-  it('a refused signature: said so, and further presses do not ask again (cooldown); Try again is the player asking', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
-    signIn('extension');
-    signing.refuse = true;
-    renderAt('/');
-    await screen.findByTestId('world-presence-away');
-    await playThrice();
-    await waitFor(() => expect(screen.getByTestId('world-presence-detail')).toHaveTextContent('did not approve'));
-    // Casual following is suspended for the session: playing on asks nothing more
-    expect(status()).toHaveAttribute('data-follow-suspended', 'true');
-    await playThrice();
-    await pause(300);
-    expect(signer.signEvent).toHaveBeenCalledTimes(1);
-    signing.refuse = false;
-    fireEvent.click(screen.getByTestId('world-travel-retry'));
-    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
-    expect(signer.signEvent).toHaveBeenCalledTimes(2);
-  }, 20_000);
-
-  it('no relay accepting: said so; Try again sends the same signed event (no second signature)', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
-    renderAt('/');
-    await screen.findByTestId('world-presence-away');
-    for (const r of relays.values()) r.refuse = true;
-    fireEvent.click(screen.getByTestId('world-presence-call-home'));
-    await waitFor(() => expect(screen.getByTestId('world-presence-detail')).toHaveTextContent("Couldn't reach"));
-    expect(status()).toHaveAttribute('data-travel-reason', 'unreachable');
-    for (const r of relays.values()) r.refuse = false;
-    fireEvent.click(screen.getByTestId('world-travel-retry'));
-    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
-    expect(signer.signEvent).toHaveBeenCalledTimes(1);
-    expect(sent(31126)).toHaveLength(1);
-  }, 20_000);
-
-  it('a reload during a move: the signed move is sent on load, with no new signature', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
-    const first = renderAt('/');
-    await screen.findByTestId('world-presence-away');
-    for (const r of relays.values()) r.refuse = true;
-    fireEvent.click(screen.getByTestId('world-presence-call-home'));
-    await waitFor(() => expect(status()).toHaveAttribute('data-travel-reason', 'unreachable'));
-    first.unmount();
-    for (const r of relays.values()) r.refuse = false;
-    renderAt('/');
-    await waitFor(() => expect(status()).toHaveAttribute('data-travel-place', 'blobbi-home'), WAIT);
-    expect(signer.signEvent).toHaveBeenCalledTimes(1);
-    expect(newestLocation()?.world).toBe('blobbi-home');
-  }, 20_000);
-
-  it('relays disagreeing: the newest valid location wins, whichever relay holds it', async () => {
+  it('relays disagreeing: the newest valid location wins, whichever relay holds it, and the opening’s move follows it (`prev`, `from`)', async () => {
     const older = finalizeEvent(buildWorldLocationTemplate({ owner: PK, d: D, world: 'blobbi-home', latest: null, now: Date.now() - 120_000 }), SK) as NostrEvent;
     const newer = finalizeEvent(buildWorldLocationTemplate({ owner: PK, d: D, world: 'blobbi-pixel', latest: parseWorldLocation(older), now: Date.now() - 60_000 }), SK) as NostrEvent;
     accept(relays.get(URLS[0])!, older);
     accept(relays.get(URLS[1])!, newer);
     renderAt('/');
-    await waitFor(() => expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel'));
-    // A forged event naming home (a bad signature) changes nothing
-    act(() => everywhere({ ...older, created_at: older.created_at + 999, sig: '0'.repeat(128) }));
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-here', 'true'), WAIT);
+    // The page's own move (the kit may also have healed the lagging relay with the newer event: not a move)
+    expect(published()).toMatchObject({ world: 'blobbi-home', from: 'blobbi-pixel', prev: newer.id });
+    expect(sent(31126).filter((id) => id !== newer.id)).toHaveLength(1);
+    expect(status()).toHaveAttribute('data-travel-place', 'blobbi-home');
+    // A forged event naming Pixel (a bad signature) changes nothing
+    act(() => everywhere({ ...newer, created_at: Math.floor(Date.now() / 1000) + 5, sig: '0'.repeat(128) }));
     await pause(300);
-    expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel');
-  });
+    expect(status()).toHaveAttribute('data-travel-place', 'blobbi-home');
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+  }, 20_000);
 
-  it('an extension signer is never asked on load, on re-renders or by the presence timer, even with presence on', async () => {
+  it('an extension signer is never asked on load, on re-renders or by the presence timer while the Blobbi is home, even with presence on', async () => {
     signIn('extension');
     localStorage.setItem(ACTIVE_PRESENCE_KEY(PK), 'on');
     renderAt('/');
@@ -505,17 +565,15 @@ describe('the classic home, on Nostr', () => {
     expect(activePresenceOn(PK)).toBe(false);
   });
 
-  it('a recent presence in Pixel: "playing there right now", and the arrival waits the departure window', async () => {
+  it('played in Pixel right now: the opening’s move says "on the way home" and its arrival waits Pixel’s departure window', async () => {
     remoteMove('blobbi-pixel', Date.now() - 60_000);
+    everywhere(finalizeEvent(buildPresenceTemplate({ owner: PK, d: D, world: 'blobbi-pixel', now: Date.now() }), SK) as NostrEvent);
     renderAt('/');
-    await screen.findByTestId('world-presence-away');
-    act(() => everywhere(finalizeEvent(buildPresenceTemplate({ owner: PK, d: D, world: 'blobbi-pixel', now: Date.now() }), SK) as NostrEvent));
-    await waitFor(() => expect(screen.getByTestId('world-presence-away')).toHaveTextContent('Brook is playing in Blobbi Pixel right now'));
-    fireEvent.click(screen.getByTestId('world-presence-call-home'));
-    await waitFor(() => expect(screen.getByTestId('world-presence-line')).toHaveTextContent('Brook is on the way home…'));
+    await waitFor(() => expect(screen.getByTestId('world-presence-line')).toHaveTextContent('Brook is on the way home…'), WAIT);
     expect(status()).toHaveAttribute('data-travel-phase', 'arriving');
     expect(presenceOf()).toBe('absent');
     await waitFor(() => expect(presenceOf()).toBe('arrive'), WAIT);
+    expect(sent(31126)).toHaveLength(1);
   }, 20_000);
 
   it('signed out or a guest: no session at all, the Blobbi home, nothing read from the travel relays', async () => {
@@ -526,13 +584,12 @@ describe('the classic home, on Nostr', () => {
     await pause(1_000);
     expect(screen.queryByTestId('world-presence-away')).toBeNull();
     expect(signer.signEvent).not.toHaveBeenCalled();
+    expect(travelAsks.count).toBe(0);
   });
 
   it('the place is only ever the World Location: nothing about it is kept in a cookie', async () => {
     remoteMove('blobbi-pixel', Date.now() - 60_000);
     renderAt('/');
-    await screen.findByTestId('world-presence-away', undefined, WAIT);
-    await playThrice();
     await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
     expect(sent(31126)).toHaveLength(1);
     expect(document.cookie).not.toMatch(/blobbi/i);
@@ -549,8 +606,7 @@ describe('world travel off (the default build)', () => {
       const view = renderAt(path);
       if (path === '/') await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
       else await screen.findByTestId('room-preview', undefined, WAIT);
-      await playThrice();
-      view.again();
+      noise(view);
       await pause(600);
       expect(screen.queryByTestId('world-presence-away')).toBeNull();
       expect(screen.queryByTestId('world-travel-looking')).toBeNull();
@@ -574,195 +630,178 @@ describe('world travel off (the default build)', () => {
     expect(screen.queryByTestId('world-presence-away')).toBeNull();
     expect(travelAsks.count).toBe(0);
   });
+
+  it('leaving for the Island with travel off: the page goes to the plain address and nothing is signed or published', async () => {
+    const originalLocation = window.location;
+    const assign = vi.fn();
+    Object.defineProperty(window, 'location', { value: { ...originalLocation, assign }, writable: true, configurable: true });
+    try {
+      renderAt('/');
+      await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+      fireEvent.click(screen.getByTestId('menu-button'));
+      fireEvent.click(await screen.findByTestId('menu-worlds'));
+      fireEvent.click(await screen.findByTestId('world-island'));
+      await waitFor(() => expect(assign).toHaveBeenCalledWith(worldById('island')!.url), WAIT);
+      expect(signer.signEvent).not.toHaveBeenCalled();
+      expect(sent(31126)).toEqual([]);
+    } finally {
+      Object.defineProperty(window, 'location', { value: originalLocation, writable: true, configurable: true });
+    }
+  }, 20_000);
 });
 
 describe('the 3D room, on Nostr', () => {
-  it('away at entry: no arrival on entry, the word in the room; Call home plays the arrival in the scene', async () => {
+  it('away at entry: no arrival on entry; opening the room brings it here, and the room plays the arrival in the scene', async () => {
     remoteMove('blobbi-pixel', Date.now() - 60_000);
     renderAt('/room');
-    const note = await screen.findByTestId('world-presence-away', undefined, WAIT);
-    expect(note).toHaveTextContent('Brook was last in Blobbi Pixel');
-    await pause(600);
-    expect(scene.state.journeys.filter(Boolean)).toEqual([]);
-    fireEvent.click(screen.getByTestId('world-presence-call-home'));
+    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+    expect(published()).toMatchObject({ world: 'blobbi-home', from: 'blobbi-pixel' });
     await waitFor(() => expect(scene.state.journeys).toContain('arrive'), WAIT);
     await waitFor(() => expect(screen.queryByTestId('world-presence-away')).toBeNull());
-    expect(sent(31126)).toHaveLength(1);
+    expect(scene.state.journeys.filter((j) => j === 'arrive')).toHaveLength(1);
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
   }, 20_000);
 
-  it('another device taking it while the room is open: the room plays its departure', async () => {
+  it('another device taking it while the room is open: the room plays its departure, and nothing pulls it back', async () => {
     renderAt('/room');
     await waitFor(() => expect(status()).toHaveAttribute('data-travel-status', 'ready'), WAIT);
     await pause(1_600);
     act(() => void remoteMove('blobbi-pixel'));
     await waitFor(() => expect(scene.state.journeys).toContain('depart'), WAIT);
     expect(await screen.findByTestId('world-presence-away', undefined, WAIT)).toBeInTheDocument();
+    await pause(1_000);
+    expect(signer.signEvent).not.toHaveBeenCalled();
   }, 20_000);
 });
 
-/** A wrapper for the hook alone, with this suite's relays and login. */
-function hookWrapper() {
-  const client = new QueryClient();
-  return ({ children }: { children: ReactNode }) => (
-    <NostrLoginProvider storageKey="test:login">
-      <NostrContext.Provider value={{ nostr: pool }}>
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
-      </NostrContext.Provider>
-    </NostrLoginProvider>
-  );
-}
-const followCount = () => Number(status().getAttribute('data-follow-count'));
-
-describe('following the player home: two interactions (M16.1, the threshold of 2026-10-19)', () => {
-  it('the first interaction does not bring it over (it notices); the second does, with exactly one World Location', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
-    renderAt('/');
-    await screen.findByTestId('world-presence-away');
-    press();
-    await waitFor(() => expect(followCount()).toBe(1));
-    expect(screen.getByTestId('world-presence-detail')).toHaveTextContent('Brook noticed you playing here…');
-    await pause(300);
-    expect(signer.signEvent).not.toHaveBeenCalled();
-    expect(presenceOf()).toBe('absent');
-    await pause(GAP - 300);
-    press();
-    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
-    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
-    expect(followCount()).toBe(0);
-    expect(signer.signEvent).toHaveBeenCalledTimes(1);
-    // More play writes nothing more
-    await playThrice();
-    await pause(300);
-    expect(sent(31126)).toHaveLength(1);
-  }, 20_000);
-
-  it('presses within one gesture (under a second apart) count once', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
-    renderAt('/');
-    await screen.findByTestId('world-presence-away');
-    for (let i = 0; i < 6; i++) press();
-    await pause(300);
-    expect(followCount()).toBe(1);
-    expect(signer.signEvent).not.toHaveBeenCalled();
-  });
-
-  it('a window that expired starts the count over', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
-    renderAt('/');
-    await screen.findByTestId('world-presence-away');
-    press();
-    await waitFor(() => expect(followCount()).toBe(1));
-    // More than the rolling 20 s later: the earlier one has left the window
-    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 21_000 });
-    try {
-      press();
-      await waitFor(() => expect(followCount()).toBe(1));
-      await pause(300);
-      expect(signer.signEvent).not.toHaveBeenCalled();
-      expect(presenceOf()).toBe('absent');
-    } finally {
-      vi.useRealTimers();
-    }
-  }, 20_000);
-
-  it('Call home is explicit and immediate: one click, no count', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
-    renderAt('/');
-    fireEvent.click(await screen.findByTestId('world-presence-call-home'));
-    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
-    expect(followCount()).toBe(0);
-    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
-  }, 20_000);
-
-  it('a held key’s auto-repeat is never counted', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
-    renderAt('/');
-    await screen.findByTestId('world-presence-away');
-    fireEvent.keyDown(document.body, { key: 'ArrowRight' });
-    await waitFor(() => expect(followCount()).toBe(1));
-    for (let i = 0; i < 2; i++) {
-      await pause(GAP);
-      fireEvent.keyDown(document.body, { key: 'ArrowRight', repeat: true });
-    }
-    await pause(300);
-    expect(followCount()).toBe(1);
-    expect(signer.signEvent).not.toHaveBeenCalled();
-  }, 20_000);
-
-  it('a script’s (untrusted) events are never counted', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
-    renderAt('/');
-    await screen.findByTestId('world-presence-away');
-    setTrustedInputCheck(() => false);
-    try {
-      await playThrice();
-      await playThrice(() => fireEvent.keyDown(document.body, { key: 'a' }));
-      await pause(300);
-      expect(followCount()).toBe(0);
-      expect(signer.signEvent).not.toHaveBeenCalled();
-    } finally {
-      setTrustedInputCheck(() => true);
-    }
-  }, 20_000);
-
-  it('no input at all: away it stays, nothing is signed (load, timers and re-renders are not interactions)', async () => {
-    remoteMove('blobbi-pixel', Date.now() - 60_000);
+describe('opening the home brings it here: once per page (2026-10-19)', () => {
+  it('direct opening with the Blobbi in the Island: one World Location naming home after the first confirmed answer; re-renders, a relay update, a focus and visibility toggles publish no second one', async () => {
+    remoteMove(WORLD_ISLAND, Date.now() - 60_000);
     const view = renderAt('/');
-    await screen.findByTestId('world-presence-away');
-    for (let i = 0; i < 3; i++) view.again();
-    act(() => void window.dispatchEvent(new Event('focus')));
-    act(() => void document.dispatchEvent(new Event('visibilitychange')));
-    await pause(2_000);
-    expect(followCount()).toBe(0);
-    expect(presenceOf()).toBe('absent');
-    expect(signer.signEvent).not.toHaveBeenCalled();
-  });
-
-  it('just moved to Pixel from another device: playing here does not pull it straight back (contended); Call home does', async () => {
-    renderAt('/');
-    await waitFor(() => expect(status()).toHaveAttribute('data-travel-status', 'ready'));
-    await pause(1_600);
-    act(() => void remoteMove('blobbi-pixel'));
-    await waitFor(() => expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel'));
-    await playThrice();
-    await pause(300);
-    expect(signer.signEvent).not.toHaveBeenCalled();
-    expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel');
-    fireEvent.click(await screen.findByTestId('world-presence-call-home', undefined, WAIT));
     await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+    expect(published()).toMatchObject({ world: 'blobbi-home', from: WORLD_ISLAND, owner: PK, d: D });
+    expect(signing.kinds).toEqual([KIND_WORLD_LOCATION]);
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    noise(view);
+    // A relay update that is not a move (a presence note from the Island), and a look again
+    act(() => everywhere(finalizeEvent(buildPresenceTemplate({ owner: PK, d: D, world: WORLD_ISLAND, now: Date.now() }), SK) as NostrEvent));
+    await pause(1_500);
+    expect(sent(31126)).toHaveLength(1);
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
   }, 20_000);
 
-  it('a Blobbi switch and an account switch start the count over', async () => {
+  it('the hook refreshed, re-rendered, unmounted and mounted again: the page’s one decision stands; a Blobbi switch gets its own, once', async () => {
+    const D2 = `blobbi-${PK.slice(0, 12)}-0000000002`;
     remoteMove('blobbi-pixel', Date.now() - 60_000);
-    const { result, rerender } = renderHook(
+    remoteMove('blobbi-pixel', Date.now() - 60_000, null, D2);
+    const first = renderHook(
       ({ d }) => {
         const presence = usePresence();
-        return useHomeTravel({ pubkey: currentUser.user?.pubkey, d, travels: true, presence, busy: false, paused: false });
+        return useHomeTravel({ pubkey: PK, d, travels: true, presence, busy: false, paused: false });
       },
       { wrapper: hookWrapper(), initialProps: { d: D } },
     );
-    await waitFor(() => expect(result.current.place).toBe('blobbi-pixel'));
-    press();
-    await waitFor(() => expect(result.current.follow?.count).toBe(1));
-    // Another Blobbi of the same account: a new session, nothing counted
-    rerender({ d: `blobbi-${PK.slice(0, 12)}-0000000002` });
-    await waitFor(() => expect(result.current.snapshot?.d).toBe(`blobbi-${PK.slice(0, 12)}-0000000002`));
-    expect(result.current.follow?.count).toBe(0);
-    // Back to the first: counted afresh too (the session is new)
-    rerender({ d: D });
-    await waitFor(() => expect(result.current.snapshot?.d).toBe(D));
-    expect(result.current.follow?.count).toBe(0);
-    press();
-    await waitFor(() => expect(result.current.follow?.count).toBe(1));
-    // Signed out: no session; signed in again: a new one, nothing counted
-    currentUser.user = undefined;
-    rerender({ d: D });
-    await waitFor(() => expect(result.current.snapshot).toBeNull());
-    signIn('nsec');
-    rerender({ d: D });
-    await waitFor(() => expect(result.current.snapshot?.place).toBe('blobbi-pixel'));
-    expect(result.current.follow?.count).toBe(0);
+    await waitFor(() => expect(first.result.current.place).toBe('blobbi-home'), WAIT);
+    expect(sent(31126)).toHaveLength(1);
+    act(() => first.result.current.refresh());
+    first.rerender({ d: D });
+    await pause(600);
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+    // Another Blobbi of the account, also away: its own one move
+    first.rerender({ d: D2 });
+    await waitFor(() => expect(first.result.current.snapshot?.d).toBe(D2), WAIT);
+    await waitFor(() => expect(sent(31126)).toHaveLength(2), WAIT);
+    expect(newestLocation(D2)?.world).toBe('blobbi-home');
+    // Back to the first, and the hook mounted anew: nothing more (the page already decided for both)
+    first.rerender({ d: D });
+    await waitFor(() => expect(first.result.current.snapshot?.d).toBe(D), WAIT);
+    first.unmount();
+    const second = renderHook(
+      () => {
+        const presence = usePresence();
+        return useHomeTravel({ pubkey: PK, d: D, travels: true, presence, busy: false, paused: false });
+      },
+      { wrapper: hookWrapper() },
+    );
+    await waitFor(() => expect(second.result.current.resolution).toBe('confirmed'), WAIT);
+    // Even taken away again meanwhile: this page never reclaims it by itself
+    act(() => void remoteMove('blobbi-pixel'));
+    await waitFor(() => expect(second.result.current.place).toBe('blobbi-pixel'), WAIT);
+    await pause(1_000);
+    expect(signer.signEvent).toHaveBeenCalledTimes(2);
+    expect(sent(31126)).toHaveLength(2);
+    // Call home is the player asking: it moves
+    act(() => second.result.current.callHome());
+    await waitFor(() => expect(second.result.current.place).toBe('blobbi-home'), WAIT);
+    expect(signer.signEvent).toHaveBeenCalledTimes(3);
+  }, 30_000);
+
+  it('an old page (shown later than ARRIVAL_INTENT_TTL_MS after its navigation start, as a background tab is) moves nothing by itself: nothing signed or published when the place confirms or on visibility changes; Call home still publishes one', async () => {
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    const realNow = performance.now.bind(performance);
+    const now = vi.spyOn(performance, 'now').mockImplementation(() => realNow() + ARRIVAL_INTENT_TTL_MS + 1);
+    try {
+      const view = renderAt('/');
+      await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'), WAIT);
+      noise(view);
+      await pause(1_500);
+      expect(signer.signEvent).not.toHaveBeenCalled();
+      expect(sent(31126)).toEqual([]);
+      expect(presenceOf()).toBe('absent');
+      expect(status()).toHaveAttribute('data-travel-phase', 'idle');
+      // The player's own word still moves it, once
+      fireEvent.click(screen.getByTestId('world-presence-call-home'));
+      await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+      expect(signer.signEvent).toHaveBeenCalledTimes(1);
+      expect(sent(31126)).toHaveLength(1);
+      expect(published()).toMatchObject({ world: 'blobbi-home', from: 'blobbi-pixel' });
+    } finally {
+      now.mockRestore();
+    }
+  }, 20_000);
+
+  it('a tab opened hidden moves nothing until it is first seen; then once', async () => {
+    let visibility: DocumentVisibilityState = 'hidden';
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
+    try {
+      remoteMove('blobbi-pixel', Date.now() - 60_000);
+      renderAt('/');
+      await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'), WAIT);
+      expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel');
+      await pause(1_200);
+      expect(signer.signEvent).not.toHaveBeenCalled();
+      expect(sent(31126)).toEqual([]);
+      visibility = 'visible';
+      act(() => void document.dispatchEvent(new Event('visibilitychange')));
+      await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+      expect(published()).toMatchObject({ world: 'blobbi-home', from: 'blobbi-pixel' });
+      await waitFor(() => expect(status()).toHaveAttribute('data-travel-here', 'true'), WAIT);
+      // Hidden and shown again: nothing more
+      visibility = 'hidden';
+      act(() => void document.dispatchEvent(new Event('visibilitychange')));
+      visibility = 'visible';
+      act(() => void document.dispatchEvent(new Event('visibilitychange')));
+      await pause(800);
+      expect(signer.signEvent).toHaveBeenCalledTimes(1);
+    } finally {
+      delete (document as unknown as { visibilityState?: unknown }).visibilityState;
+    }
+  }, 20_000);
+
+  it('unreachable relays on opening: nothing is signed; once they answer, this page still moves nothing by itself, and Call home works', async () => {
+    for (const r of relays.values()) r.readFails = true;
+    remoteMove('blobbi-pixel', Date.now() - 60_000);
+    renderAt('/');
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'unreachable'), WAIT);
     expect(signer.signEvent).not.toHaveBeenCalled();
+    for (const r of relays.values()) r.readFails = false;
+    fireEvent.click(screen.getByTestId('world-travel-refresh'));
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-place', 'blobbi-pixel'), WAIT);
+    await pause(1_000);
+    expect(signer.signEvent).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByTestId('world-presence-call-home', undefined, WAIT));
+    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
   }, 20_000);
 });
 
@@ -771,7 +810,7 @@ describe('loading: where it is, before the relays answer (M16.1)', () => {
     for (const r of relays.values()) r.readDelay = ms;
   };
 
-  it('a fresh device, the Blobbi in Pixel: never shown home meanwhile, "looking for it", then away with no journey', async () => {
+  it('a fresh device, the Blobbi in Pixel: never shown home meanwhile, "looking for it", then the opening’s move and its arrival', async () => {
     remoteMove('blobbi-pixel', Date.now() - 3_600_000);
     slow(700);
     const seen = watchActor();
@@ -782,14 +821,15 @@ describe('loading: where it is, before the relays answer (M16.1)', () => {
     expect(status()).toHaveAttribute('data-travel-resolution', 'pending');
     expect(screen.queryByTestId('world-presence-away')).toBeNull();
     expect(screen.getByTestId('blobbi-poke')).toBeDisabled();
-    await screen.findByTestId('world-presence-away', undefined, WAIT);
-    expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed');
-    expect(screen.queryByTestId('world-travel-looking')).toBeNull();
-    expect(seen).not.toContain('present');
-    expect(seen).not.toContain('depart');
-    expect(presenceOf()).toBe('absent');
     expect(signer.signEvent).not.toHaveBeenCalled();
-  });
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'), WAIT);
+    expect(screen.queryByTestId('world-travel-looking')).toBeNull();
+    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    expect(seen).not.toContain('depart');
+    expect(seen.indexOf('present')).toBeGreaterThan(seen.indexOf('arrive'));
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+  }, 20_000);
 
   it('a fresh device, the Blobbi home: looking, then it appears (settled, no arrival replayed)', async () => {
     remoteMove('blobbi-home', Date.now() - 3_600_000);
@@ -847,7 +887,7 @@ describe('loading: where it is, before the relays answer (M16.1)', () => {
     expect(signer.signEvent).not.toHaveBeenCalled();
   }, 20_000);
 
-  it('a reload with a signed location kept on this device: shown at once (no looking), then confirmed', async () => {
+  it('a reload with a signed location kept on this device: shown away at once (no looking), nothing signed until confirmed, then the opening’s move', async () => {
     const e = remoteMove('blobbi-pixel', Date.now() - 60_000);
     localStorage.setItem(worldLocationStoreKey(PK, D), JSON.stringify(e));
     slow(600);
@@ -858,20 +898,27 @@ describe('loading: where it is, before the relays answer (M16.1)', () => {
     expect(screen.queryByTestId('world-travel-looking')).toBeNull();
     expect(await screen.findByTestId('world-presence-away')).toHaveTextContent('Blobbi Pixel');
     expect(status()).toHaveAttribute('data-travel-resolution', 'cached');
-    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'), WAIT);
-    expect(seen).not.toContain('present');
     expect(signer.signEvent).not.toHaveBeenCalled();
-  });
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'), WAIT);
+    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    expect(seen.indexOf('present')).toBeGreaterThan(seen.indexOf('arrive'));
+  }, 20_000);
 
-  it('presses while looking count for nothing and sign nothing', async () => {
+  it('presses while looking sign nothing; the opening’s move waits for the answer', async () => {
     remoteMove('blobbi-pixel', Date.now() - 60_000);
     slow(2_800);
     renderAt('/');
-    await playThrice();
+    await screen.findByTestId('world-travel-status', undefined, WAIT);
+    press();
+    press();
+    press();
+    await pause(300);
     expect(status()).toHaveAttribute('data-travel-resolution', 'pending');
-    expect(followCount()).toBe(0);
-    await screen.findByTestId('world-presence-away', undefined, WAIT);
     expect(signer.signEvent).not.toHaveBeenCalled();
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'), WAIT);
+    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
   }, 20_000);
 
   it('only a session that is coming starts unknown: never a signed-out page (or a guest), never with a kept location', async () => {
@@ -899,7 +946,7 @@ describe('loading: where it is, before the relays answer (M16.1)', () => {
     }
   });
 
-  it('the 3D room on a fresh device: looking where it stands, no arrival on entry until the answer; away: none at all', async () => {
+  it('the 3D room on a fresh device: looking where it stands, no journey until the answer; then the opening’s move and the room’s arrival', async () => {
     remoteMove('blobbi-pixel', Date.now() - 3_600_000);
     slow(2_500);
     renderAt('/room');
@@ -907,14 +954,17 @@ describe('loading: where it is, before the relays answer (M16.1)', () => {
     expect(await screen.findByTestId('world-travel-looking', undefined, WAIT)).toHaveTextContent('Looking for Brook…');
     expect(screen.getByTestId('room-blobbi-cue')).toBeInTheDocument();
     expect(screen.queryByTestId('world-presence-away')).toBeNull();
-    await screen.findByTestId('world-presence-away', undefined, WAIT);
-    expect(screen.queryByTestId('world-travel-looking')).toBeNull();
-    await pause(600);
     expect(scene.state.journeys.filter(Boolean)).toEqual([]);
     expect(signer.signEvent).not.toHaveBeenCalled();
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-resolution', 'confirmed'), WAIT);
+    expect(screen.queryByTestId('world-travel-looking')).toBeNull();
+    await waitFor(() => expect(sent(31126)).toHaveLength(1), WAIT);
+    await waitFor(() => expect(scene.state.journeys).toContain('arrive'), WAIT);
+    expect(scene.state.journeys.filter(Boolean)).toEqual(['arrive']);
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
   }, 20_000);
 
-  it('a11y (M16.2): the room says "Looking for Brook…" in a live region no aria-hidden layer covers, then where it is, once each', async () => {
+  it('a11y (M16.2): the room says "Looking for Brook…" in a live region no aria-hidden layer covers, then the call home, then that it is here, once each', async () => {
     remoteMove('blobbi-pixel', Date.now() - 3_600_000);
     slow(2_500);
     renderAt('/room');
@@ -926,13 +976,15 @@ describe('loading: where it is, before the relays answer (M16.1)', () => {
     // The visual cue is decoration only (it sits in the room's aria-hidden 3D layer)
     expect(screen.getByTestId('world-travel-looking').closest('[aria-hidden="true"]')).not.toBeNull();
     expect(screen.queryByRole('status', { name: /Looking for/ })).toBeNull();
-    await waitFor(() => expect(region).toHaveTextContent('Brook is in Blobbi Pixel.'), WAIT);
     const said: string[] = [];
     const watch = new MutationObserver(() => said.push(region.textContent ?? ''));
     watch.observe(region, { childList: true, characterData: true, subtree: true });
+    await waitFor(() => expect(region).toHaveTextContent('Brook is here.'), WAIT);
+    expect(said).toContain('Calling Brook home…');
+    const before = said.length;
     await pause(1_500);
     watch.disconnect();
-    expect(said).toEqual([]); // nothing repeated while nothing changes
+    expect(said.slice(before)).toEqual([]); // nothing repeated while nothing changes
   }, 20_000);
 
   it('a11y (M16.2): the classic home on a quick load says nothing, and its live region is outside any aria-hidden layer', async () => {
@@ -960,26 +1012,24 @@ describe('loading: where it is, before the relays answer (M16.1)', () => {
     }
   }, 20_000);
 
-  it('the 3D room on a fresh device without the entry arrival: still never shown home before the answer', async () => {
+  it('the 3D room on a fresh device without the entry arrival: never shown home before the answer; the only journey is the opening’s arrival', async () => {
     remoteMove('blobbi-pixel', Date.now() - 3_600_000);
     slow(1_500);
     renderAt('/room');
     expect(await screen.findByTestId('world-travel-looking', undefined, WAIT)).toBeInTheDocument();
-    await screen.findByTestId('world-presence-away', undefined, WAIT);
     expect(scene.state.journeys.filter(Boolean)).toEqual([]);
+    await waitFor(() => expect(scene.state.journeys).toContain('arrive'), WAIT);
+    expect(scene.state.journeys.filter(Boolean)).toEqual(['arrive']);
   }, 20_000);
 });
 
 describe('one sequence: the call, then the arrival (M16.1)', () => {
-  it('a call home shows the calling cue where it stands until the arrival starts; the body forms the teleport’s lead later', async () => {
+  it('a move here shows the calling cue where it stands until the arrival starts; the body forms the teleport’s lead later', async () => {
     remoteMove('blobbi-pixel', Date.now() - 60_000);
-    renderAt('/');
-    await screen.findByTestId('world-presence-away');
     // Played in Pixel right now: the arrival waits Pixel's departure window
-    act(() => everywhere(finalizeEvent(buildPresenceTemplate({ owner: PK, d: D, world: 'blobbi-pixel', now: Date.now() }), SK) as NostrEvent));
-    await waitFor(() => expect(screen.getByTestId('world-presence-away')).toHaveTextContent('right now'));
-    fireEvent.click(screen.getByTestId('world-presence-call-home'));
-    await waitFor(() => expect(status()).toHaveAttribute('data-travel-phase', 'arriving'));
+    everywhere(finalizeEvent(buildPresenceTemplate({ owner: PK, d: D, world: 'blobbi-pixel', now: Date.now() }), SK) as NostrEvent);
+    renderAt('/');
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-phase', 'arriving'), WAIT);
     expect(screen.getByTestId('world-travel-coming')).toBeInTheDocument();
     expect(status()).toHaveAttribute('data-travel-view', 'coming');
     const at = Number(status().getAttribute('data-travel-at'));
@@ -995,100 +1045,210 @@ describe('one sequence: the call, then the arrival (M16.1)', () => {
   }, 20_000);
 });
 
-// ─── The World Travel hand-off (an explicit trip from or to another world) ───
+// ─── Leaving for another world: the origin moves the Blobbi there, then the page goes (2026-10-19) ───
 
-describe('the World Travel hand-off', () => {
+describe('leaving for another world (the Worlds sheet)', () => {
   const originalLocation = window.location;
   let assign: ReturnType<typeof vi.fn>;
-  /** As it comes out of a fragment: JSON only (no library's cached "verified" mark travels with it). */
-  const plain = <T,>(e: T): T => JSON.parse(JSON.stringify(e)) as T;
-  const handoffStatus = () => status().getAttribute('data-handoff');
+  /** How many World Locations had been sent at the moment the page was asked to go. */
+  let sentAtAssign = -1;
   beforeEach(() => {
-    setCapturedHandoff(null);
-    assign = vi.fn();
+    sentAtAssign = -1;
+    assign = vi.fn(() => {
+      sentAtAssign = sent(31126).length;
+    });
     Object.defineProperty(window, 'location', { value: { ...originalLocation, assign }, writable: true, configurable: true });
   });
   afterEach(() => {
-    setCapturedHandoff(null);
     Object.defineProperty(window, 'location', { value: originalLocation, writable: true, configurable: true });
   });
 
-  it('arriving from Blobbi Island with a signed move: nothing is signed here, the move is published once, the home plays the arrival', async () => {
-    signIn('extension');
-    const island = remoteMove(WORLD_ISLAND, Date.now() - 60_000);
-    const signedAtIsland = plain(finalizeEvent(buildWorldLocationTemplate({ owner: PK, d: D, world: 'blobbi-home', latest: parseWorldLocation(island)!, now: Date.now(), departureWindowS: 0 }), SK));
-    setCapturedHandoff(signedAtIsland);
-    const seen = watchActor();
-    renderAt('/');
-    await waitFor(() => expect(handoffStatus()).toBe('done'), WAIT);
-    expect(sent(31126)).toEqual([signedAtIsland.id]);
-    expect(signer.signEvent).not.toHaveBeenCalled();
-    await waitFor(() => expect(status()).toHaveAttribute('data-travel-here', 'true'), WAIT);
-    expect(status()).toHaveAttribute('data-travel-change', expect.stringMatching(/^live:/));
+  async function openIsland() {
+    fireEvent.click(screen.getByTestId('menu-button'));
+    fireEvent.click(await screen.findByTestId('menu-worlds'));
+    fireEvent.click(await screen.findByTestId('world-island'));
+  }
+  /** The departure card's phases as they came, each with what the signer had been asked and what had been sent by then. */
+  function watchCard(): { phase: string; signed: number; sent: number }[] {
+    const seen: { phase: string; signed: number; sent: number }[] = [];
+    const obs = new MutationObserver(() => {
+      const phase = document.querySelector('[data-testid="departure-card"]')?.getAttribute('data-phase');
+      if (phase && seen.at(-1)?.phase !== phase) seen.push({ phase, signed: signer.signEvent.mock.calls.length, sent: sent(31126).length });
+    });
+    obs.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-phase'], childList: true });
+    return seen;
+  }
+  async function homeReady() {
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-status', 'ready'));
     await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
-    expect(seen).toContain('arrive');
-    expect(seen.filter((s) => s === 'arrive')).toHaveLength(1);
-    // Play afterwards writes nothing more
-    await playThrice();
-    await pause(300);
-    expect(sent(31126)).toHaveLength(1);
-  }, 20_000);
+  }
 
-  it('a hand-off for another World, or stale, is dropped: nothing published, the Blobbi away with Call home', async () => {
-    const island = remoteMove(WORLD_ISLAND, Date.now() - 60_000);
-    // Signed for Pixel, not for the home
-    setCapturedHandoff(plain(finalizeEvent(buildWorldLocationTemplate({ owner: PK, d: D, world: 'blobbi-pixel', latest: parseWorldLocation(island)!, now: Date.now() }), SK)));
-    const view = renderAt('/');
-    await waitFor(() => expect(handoffStatus()).toBe('dropped'), WAIT);
-    expect(status()).toHaveAttribute('data-handoff-reason', 'wrong-world');
-    expect(sent(31126)).toEqual([]);
-    expect(await screen.findByTestId('world-presence-away')).toHaveTextContent('Blobbi Island');
-    expect(screen.getByTestId('world-presence-call-home')).toBeInTheDocument();
-    view.unmount();
-    // Signed at the Island, but another device moved it to Pixel meanwhile
-    const stale = plain(finalizeEvent(buildWorldLocationTemplate({ owner: PK, d: D, world: 'blobbi-home', latest: parseWorldLocation(island)!, now: Date.now() - 30_000 }), SK));
-    remoteMove('blobbi-pixel', Date.now() - 10_000);
-    setCapturedHandoff(stale);
+  it.each([['noticing'], ['leaving']])('Stay during the goodbye (while %s): no signer prompt, nothing published, no navigation, the Blobbi back home', async (phase) => {
+    signIn('extension');
+    remoteMove('blobbi-home', Date.now() - 60_000);
     renderAt('/');
-    await waitFor(() => expect(handoffStatus()).toBe('dropped'), WAIT);
-    expect(status()).toHaveAttribute('data-handoff-reason', 'stale');
+    await homeReady();
+    await openIsland();
+    const card = await screen.findByTestId('departure-card');
+    expect(card).toHaveTextContent('Brook is off to Blobbi Island');
+    await waitFor(() => expect(card).toHaveAttribute('data-phase', phase), WAIT);
+    fireEvent.click(screen.getByTestId('departure-stay'));
+    expect(screen.queryByTestId('departure-card')).toBeNull();
+    await pause(DEPARTURE.noticeMs + DEPARTURE.waveMs + 1_500);
+    expect(signer.signEvent).not.toHaveBeenCalled();
     expect(sent(31126)).toEqual([]);
-    expect(await screen.findByTestId('world-presence-away')).toHaveTextContent('Blobbi Pixel');
+    expect(assign).not.toHaveBeenCalled();
+    expect(presenceOf()).toBe('present');
+    expect(newestLocation()?.world).toBe('blobbi-home');
   }, 20_000);
 
-  it('leaving for the Island: the move is signed here, once, on the choice; the page goes with it in the fragment; nothing is published', async () => {
+  it('the door press to the end: nothing is signed or published while Stay is offered; the one World Location is signed and published only once the goodbye is over (`gone`), and the page goes to the plain address after it', async () => {
+    signIn('extension');
+    remoteMove('blobbi-home', Date.now() - 60_000);
+    renderAt('/');
+    await homeReady();
+    const phases = watchCard();
+    await openIsland();
+    await waitFor(() => expect(assign).toHaveBeenCalledTimes(1), WAIT);
+    expect(phases.map((p) => p.phase)).toEqual(['noticing', 'waving', 'leaving', 'gone']);
+    for (const p of phases) if (p.phase !== 'gone') expect(p).toMatchObject({ signed: 0, sent: 0 });
+    expect(sentAtAssign).toBe(1);
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+    expect(sent(31126)).toHaveLength(1);
+    expect(assign.mock.calls[0][0]).toBe(worldById('island')!.url);
+    expect(published()).toMatchObject({ world: WORLD_ISLAND, from: 'blobbi-home' });
+  }, 20_000);
+
+  it('after the move was published, a navigation that does not happen: the Blobbi has left (not brought back), Try again asks for the address again with no new move, and Dismiss hides the card without re-entering it', async () => {
+    remoteMove('blobbi-home', Date.now() - 60_000);
+    renderAt('/');
+    await homeReady();
+    await openIsland();
+    await waitFor(() => expect(assign).toHaveBeenCalledTimes(1), WAIT);
+    expect(sent(31126)).toHaveLength(1);
+    // Still here after the departure's failMs: the move stands, and nothing offers to undo it
+    const card = screen.getByTestId('departure-card');
+    await waitFor(() => expect(card).toHaveAttribute('data-phase', 'failed'), { timeout: DEPARTURE.failMs + 4_000 });
+    expect(card).toHaveTextContent('Brook has left for Blobbi Island, but it did not open.');
+    expect(screen.queryByTestId('departure-stay')).toBeNull();
+    expect(screen.getByTestId('departure-retry')).toHaveTextContent('Try again');
+    expect(screen.getByTestId('departure-dismiss')).toHaveTextContent('Dismiss');
+    expect(presenceOf()).toBe('absent');
+    fireEvent.click(screen.getByTestId('departure-retry'));
+    await waitFor(() => expect(assign).toHaveBeenCalledTimes(2), WAIT);
+    expect(assign.mock.calls[1][0]).toBe(worldById('island')!.url);
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+    expect(sent(31126)).toHaveLength(1);
+    await waitFor(() => expect(screen.getByTestId('departure-card')).toHaveAttribute('data-phase', 'failed'), { timeout: DEPARTURE.failMs + 4_000 });
+    expect(screen.getByTestId('departure-card')).toHaveTextContent('has left for Blobbi Island');
+    fireEvent.click(screen.getByTestId('departure-dismiss'));
+    expect(screen.queryByTestId('departure-card')).toBeNull();
+    await pause(1_200);
+    expect(presenceOf()).toBe('absent');
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+    expect(sent(31126)).toHaveLength(1);
+    expect(newestLocation()?.world).toBe(WORLD_ISLAND);
+    expect(status()).toHaveAttribute('data-travel-place', WORLD_ISLAND);
+  }, 40_000);
+
+  it('Home → Island: one World Location naming the Island (from home, over the canonical one) is signed and published from here BEFORE the page goes to the plain address', async () => {
     signIn('extension');
     const home = remoteMove('blobbi-home', Date.now() - 60_000);
     renderAt('/');
     await waitFor(() => expect(status()).toHaveAttribute('data-travel-status', 'ready'));
     await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
-    fireEvent.click(screen.getByTestId('menu-button'));
-    fireEvent.click(await screen.findByTestId('menu-worlds'));
-    fireEvent.click(await screen.findByTestId('world-island'));
+    await openIsland();
     await waitFor(() => expect(assign).toHaveBeenCalledTimes(1), WAIT);
+    expect(sentAtAssign).toBe(1);
     expect(signer.signEvent).toHaveBeenCalledTimes(1);
     expect(signing.kinds).toEqual([KIND_WORLD_LOCATION]);
-    const url = new URL(assign.mock.calls[0][0] as string);
-    expect(url.origin + url.pathname).toBe(new URL(worldById('island')!.url!).href);
-    expect(url.search).toBe('');
-    const carried = decodeHandoff(new URLSearchParams(url.hash.slice(1)).get(HANDOFF_PARAM));
-    expect(parseWorldLocation(carried!, { verify: (e) => verifyEvent(e as never) })).toMatchObject({ owner: PK, d: D, world: WORLD_ISLAND, from: 'blobbi-home', prev: home.id });
-    expect(sent(31126)).toEqual([]);
+    const url = assign.mock.calls[0][0] as string;
+    expect(url).toBe(worldById('island')!.url);
+    expect(url).not.toContain('#');
+    expect(published()).toMatchObject({ owner: PK, d: D, world: WORLD_ISLAND, from: 'blobbi-home', prev: home.id });
+    expect(newestLocation()?.world).toBe(WORLD_ISLAND);
+    // Nothing went to the app's general pool
+    expect(base.poolEvents.filter((e) => e.kind === 31126)).toEqual([]);
   }, 20_000);
 
-  it('refused at the door: the page still goes, with nothing attached, and nothing is published', async () => {
+  it('a Blobbi that never travelled leaves the same way (no `prev`), with the goodbye played first', async () => {
+    const seen = watchActor();
+    renderAt('/');
+    await waitFor(() => expect(status()).toHaveAttribute('data-travel-status', 'ready'));
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    await openIsland();
+    expect(await screen.findByTestId('departure-card')).toHaveTextContent('Brook is off to Blobbi Island');
+    await waitFor(() => expect(assign).toHaveBeenCalledTimes(1), WAIT);
+    expect(seen).toContain('depart');
+    expect(sentAtAssign).toBe(1);
+    expect(published()).toMatchObject({ world: WORLD_ISLAND, from: 'blobbi-home', prev: null });
+    expect(assign.mock.calls[0][0]).toBe(worldById('island')!.url);
+  }, 20_000);
+
+  it('refused at the door: the page still goes, to the plain address, and nothing is published (the Blobbi stays home on the relays)', async () => {
     signIn('extension');
     remoteMove('blobbi-home', Date.now() - 60_000);
     signing.refuse = true;
     renderAt('/');
     await waitFor(() => expect(status()).toHaveAttribute('data-travel-status', 'ready'));
     await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
-    fireEvent.click(screen.getByTestId('menu-button'));
-    fireEvent.click(await screen.findByTestId('menu-worlds'));
-    fireEvent.click(await screen.findByTestId('world-island'));
+    await openIsland();
     await waitFor(() => expect(assign).toHaveBeenCalledTimes(1), WAIT);
     expect(signer.signEvent).toHaveBeenCalledTimes(1);
     expect(assign.mock.calls[0][0]).toBe(worldById('island')!.url);
     expect(sent(31126)).toEqual([]);
+    expect(newestLocation()?.world).toBe('blobbi-home');
+  }, 20_000);
+
+  it('no relay accepting at the door: the page still goes, nothing is left on the relays', async () => {
+    remoteMove('blobbi-home', Date.now() - 60_000);
+    renderAt('/');
+    await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
+    for (const r of relays.values()) r.refuse = true;
+    await openIsland();
+    await waitFor(() => expect(assign).toHaveBeenCalledTimes(1), WAIT);
+    expect(assign.mock.calls[0][0]).toBe(worldById('island')!.url);
+    expect(newestLocation()?.world).toBe('blobbi-home');
+  }, 20_000);
+
+  it('the hook alone: a signer that never answers publishes nothing and the departure does not resolve meanwhile (the wait is bounded by DEPART_SIGN_TIMEOUT_MS, tested with the module)', async () => {
+    signIn('extension');
+    signing.hang = true;
+    const { result } = renderHook(
+      () => {
+        const presence = usePresence();
+        return useHomeTravel({ pubkey: PK, d: D, travels: true, presence, busy: false, paused: false });
+      },
+      { wrapper: hookWrapper() },
+    );
+    await waitFor(() => expect(result.current.resolution).toBe('confirmed'), WAIT);
+    let outcome: string | null = null;
+    void result.current.departTo(WORLD_ISLAND).then((o) => (outcome = o));
+    await pause(1_500);
+    expect(outcome).toBeNull();
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
+    expect(sent(31126)).toEqual([]);
+    // Without a session (signed out) it says so at once and asks nothing
+    currentUser.user = undefined;
+    localStorage.removeItem('test:login');
+  }, 20_000);
+
+  it('the hook alone: already in the destination publishes nothing; a trip while the Blobbi is away moves it from where it is', async () => {
+    remoteMove(WORLD_ISLAND, Date.now() - 60_000);
+    const { result } = renderHook(
+      () => {
+        const presence = usePresence();
+        // An egg's hook: it never travels by itself, so the Blobbi stays in the Island for this test
+        return useHomeTravel({ pubkey: PK, d: D, travels: false, presence, busy: false, paused: true });
+      },
+      { wrapper: hookWrapper() },
+    );
+    await waitFor(() => expect(result.current.place).toBe(WORLD_ISLAND), WAIT);
+    await waitFor(() => expect(result.current.resolution).toBe('confirmed'), WAIT);
+    expect(await result.current.departTo(WORLD_ISLAND)).toBe('already-there');
+    expect(signer.signEvent).not.toHaveBeenCalled();
+    expect(await result.current.departTo('blobbi-pixel')).toBe('moved');
+    expect(published()).toMatchObject({ world: 'blobbi-pixel', from: WORLD_ISLAND });
+    expect(signer.signEvent).toHaveBeenCalledTimes(1);
   }, 20_000);
 });

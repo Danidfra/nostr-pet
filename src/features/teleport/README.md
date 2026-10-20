@@ -134,7 +134,7 @@ coordinates.
 > **Update (M16):** implemented, in a different form from the plan below, as
 > world travel on Nostr (`src/features/presence/`, off by default): the
 > Blobbi's World Location (kind 31126) says where it is, across tabs, apps and
-> devices alike. A move is the player's own act (three interactions, or Call
+> devices alike. A move is the player's own act (opening a world, or Call
 > home), so the principle in 3.1 holds. The controller is driven through
 > `leave()`/`enter()`, and gained `settle()`, so a place learned on load is shown
 > as it is and never replayed as a journey. An earlier same-browser version

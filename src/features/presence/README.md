@@ -57,22 +57,32 @@ With travel off, the same hook has no session: no relay read, no listener, no si
     relays, so Brook is shown at home." and **Look again** (`session.refresh()`). "Looking" never lasts longer.
 
   The first answer is always *historical*: shown as it is (teleport `settle`), never replayed as a journey. Nothing is
-  signed or published while looking (the kit asks nothing of the Blobbi while `pending`, and `interact` ignores it).
-- **The player's act: three interactions, or Call home.** Either brings it home with one signed World Location:
-  - **playing here while it is away**: each trusted press or key in a visible, focused page is
-    `session.interact({ repeat })`. The **third** within a rolling 20 s starts the move (`travel()`, casual).
-    Inputs under 1 s apart are one gesture and count once; a held key's auto-repeat (`KeyboardEvent.repeat`) never
-    counts; a script's (untrusted) event, a load, a timer, a re-render, a focus or a visibility change never is an
-    interaction at all. After the first one counted, the away card says "Brook noticed you playing here…" (one line,
-    no progress bar), until the count expires;
-  - the away card's **Call home** (explicit, at once), which is marked `data-world-travel="explicit"` so a press on
-    it is not also counted.
-
-  Presses inside a sheet or a menu (`[data-overlay="true"]`) or inside `[data-world-travel="ignore"]` never count.
-  Eggs and sleepers stay home: their presses are activity only. A Blobbi just moved elsewhere (under 5 s ago) is not
-  pulled straight back by casual play (`contended`, nothing signed); Call home still works. A refusal suspends casual
-  following for the session (`snapshot.follow.suspended`) until an explicit move succeeds. A Blobbi switch, an
-  account switch or a sign-out is a new session: the count starts over.
+  signed or published while looking (the opening's move below waits for `confirmed`).
+- **Opening the home is the player's intention to bring the Blobbi here** (2026-10-19, `world-travel-departure.ts`,
+  the same file in Island and Pixel). Once the account is signed in and the place is `confirmed`, an away Blobbi is
+  moved here at once with the kit's own explicit move (`session.travel({ explicit: true })`: one signature, one
+  World Location), then the arrival plays through the sync. Already here: nothing is published. **Once per page
+  load** per owner and Blobbi (`autoArrivalDecision` over a module-level `ArrivalIntent`): never again on a
+  re-render, a remount, a reconnect, a relay update or a focus or visibility change; a reload is a new page and may
+  move again; a tab that already decided never reclaims the Blobbi by itself (two open tabs can never ping-pong).
+  The decision also counts as opening the world only while the page is **fresh**: within `ARRIVAL_INTENT_TTL_MS`
+  (5 min) of its navigation start (`pageIsFresh(pageAgeMs())`, `performance.now`) and visible. A background tab
+  shown later than that, or a page left signing in for longer, moves nothing by itself (Call home remains); a
+  back/forward-cache restore keeps the page's state, so its earlier decision stands. `unreachable` on the first
+  look decides "nothing" too: the page moves nothing later by itself. The kit's signer is wrapped in
+  `boundedSigner` (`SIGN_PROMPT_TIMEOUT_MS`, 60 s): a prompt left open longer ends the move as `declined` (the away
+  card offers its retry), and a late approval is dropped by the wrapper, never published. If the signer is missing,
+  refuses or times out, nothing moves and the away card says so.
+- **Call home** (the away card's button, and Try again after a failure) is the player's explicit act: an explicit
+  `travel()`, at once, as often as asked. No input moves the Blobbi: a trusted press or key is activity
+  (`session.noteActivity()`) for Active Presence only. Eggs and sleepers stay home and are never moved.
+- **Leaving for another world** (the Worlds sheet, `useHomeTravel.departTo`): the home moves the Blobbi there from
+  here once the goodbye is over and Stay can no longer be pressed (the departure's `navigate`, at `gone`; nothing
+  is signed or published before, and Stay publishes nothing): a fresh read, one kind 31126 naming the destination,
+  published to the travel relays, one acceptance or a bounded timeout, then the plain navigation. Already there:
+  nothing published. A navigation that does not happen after a published move leaves the Blobbi gone (Try again
+  asks for the address again, no new move; Dismiss re-enters nothing). Nothing rides in the URL. See
+  `features/worlds/README.md`.
 - **One sequence: the call, then the arrival.** While a move here is under way (`travelView` kind `coming`: checking,
   signing, publishing, the other World's departure window) a **calling cue** shows where it will stand
   (`TravelCue` `coming`: the same floor glow, brighter, gathering on a 0.9 s cycle, with motes drifting down onto it,
@@ -87,7 +97,7 @@ With travel off, the same hook has no session: no relay read, no listener, no si
 - **Signers.**
   - An nsec login is `silent`. An extension or a remote signer (NIP-46) is `prompt`: the away card says "Approve in
     your signer…".
-  - A refusal or a failure is said, with **Try again**. Casual presses do not ask again for a minute.
+  - A refusal or a failure is said, with **Try again**. The page itself never asks a second time.
   - "Couldn't reach the relays" resends the same signed event: once automatically, then on Try again or a reload
     within 30 s. It is never sent after a newer location exists.
 - **Active Presence (kind 21124).**
@@ -117,8 +127,6 @@ While Nostr travel is on, a hidden element is always on the page: `[data-testid=
 | `data-travel-resolution` | `pending` / `cached` / `confirmed` / `unreachable` / `none` (no session) |
 | `data-travel-view` | `looking` / `here` / `away` / `coming` |
 | `data-travel-at`, `data-travel-form-at` | while `arriving`: when the arrival starts and when the body has formed (ms) |
-| `data-follow-count` | interactions counted toward following the player here |
-| `data-follow-suspended` | `true` after a refusal (casual following off for the session) |
 | `data-presence-status` | the presence status |
 | `data-presence-there` | set when another World shows recent play |
 
@@ -136,24 +144,25 @@ Other selectors:
 
 - `WorldTravel.test.tsx` runs end to end through the router, on two in-memory relays at the travel urls, with
   real signatures. It covers:
-  - away at load with no departure;
-  - Call home publishing exactly one 31126, then arriving, and nothing more when the Blobbi is home;
-  - three interactions anywhere versus an ignored area;
-  - following the player (M16.1): the first and second interactions do not move it, the third does; one gesture
-    counts once; an expired window starts over; Call home at once; a key's auto-repeat and a script's events never
-    count; no input never signs; contended right after another device's move; a Blobbi switch, a sign-out and a
-    sign-in start the count over;
+  - away at load: shown away first (no departure replayed), then the opening's one move home (`from` the World it
+    was in) and one arrival; already home publishes nothing on load, presses or re-renders;
+  - once per page: re-renders, remounts of the hook, a refresh, relay updates, focus and visibility toggles publish
+    no second event; a Blobbi switch gets its own one move; a tab opened hidden acts on first visibility; a page
+    that opened unreachable moves nothing later by itself, and Call home works;
+  - a signer that refuses: nothing published, said so, never asked again by the page; Try again publishes one;
+    a signer that never answers publishes nothing;
+  - unreachable relays on opening, then Try again without a second signature; a reload during a move;
+  - relays disagreeing: the newest wins and the move names it as `prev`; a forged event changes nothing;
+  - leaving for the Island (the Worlds sheet): one 31126 naming the Island, published from here before
+    `window.location.assign` is called with the plain URL (no fragment); refused at the door or no relay accepting:
+    the page still goes and nothing is left on the relays; `departTo` alone: already there, away, a hanging signer;
   - loading (M16.1): a fresh device never shows it home before the answer (Pixel, home, never travelled), relays
     failing and relays never answering (the timeout), a kept location shown at once, presses while looking, who
     starts unknown, the room both ways (with and without its entry arrival);
   - the call then the arrival: the calling cue until the arrival, `formAt - at` = 550 ms, one arrival;
-  - another device taking it (a live departure);
+  - another device taking it (a live departure), and nothing pulling it back by itself;
   - the departure waiting for the home's moment;
   - eggs and sleepers;
-  - a refused signature, then the cooldown;
-  - unreachable relays, then Try again without a second signature;
-  - a reload during a move;
-  - relays disagreeing, and a forged event;
   - an extension never asked on load, on re-render or by the presence timer;
   - presence off by default and on only while played;
   - signed out;
@@ -161,6 +170,10 @@ Other selectors:
   - travel off (the default build): the Blobbi home whatever the relays or a kept location say, no travel read, no
     signature, nothing published, in the classic home and the room;
   - the room both ways.
+- `world-travel-departure.test.ts` covers the shared module without a page: `departTo` (one event, `from` and
+  `prev`, already there, not confirmed, refused, the bounded sign timeout, read-only, wrong account, a slow signature
+  re-read and `stale`, unreachable relays, one move at a time, the kit's lock name), `autoArrivalDecision` and
+  `ArrivalIntent`, and the old hand-off leftovers dropped.
 - `travel-mode.test.ts` covers the switch.
 - The protocol's own tests are in blobbi-kit.
 
@@ -183,16 +196,16 @@ Other selectors:
   A plain load with the Blobbi home says nothing, and re-renders repeat
   nothing.
 
-## 2026-10-19: two interactions, the hand-off, and nothing kept believed
+## 2026-10-19: opening a world is the trip, and nothing kept believed
 
-- `HOME_FOLLOW_AFTER` = 2: an away Blobbi comes home on the second meaningful
-  interaction (the kit's `followAfter`; its gap, window and suspension
-  unchanged), as in Island and Pixel.
-- The hand-off: an explicit trip from the Island arrives by itself
-  (`world-travel-handoff.ts`, `handoff-capture.ts`, `useHomeTravel`); leaving
-  for the Island or Pixel signs the move here on the door press and carries
-  it in the fragment. See `features/worlds/README.md` and Island's
-  `docs/world-travel-handoff.md`.
+- Opening the home brings an away Blobbi here by itself, once per page load
+  (`world-travel-departure.ts`: `autoArrivalDecision`, `ArrivalIntent`), and
+  leaving for a world moves it there from here before the page goes
+  (`departTo`). The earlier rules are gone: no interaction counting
+  (`followAfter`, `session.interact`), no signed hand-off in the URL fragment
+  and no destination-side publication of an origin-signed event. An old link's
+  `#blobbi-travel=` fragment and the `blobbi:world-travel:handoff-used:v1`
+  storage are dropped unread on load (`main.tsx`).
 - On Nostr the Blobbi starts unseen until the relays answered
   (`useTravelStartsUnseen`; the sync stands aside while the place is only
   `cached`), and the room's arrival on entry waits for the first look's

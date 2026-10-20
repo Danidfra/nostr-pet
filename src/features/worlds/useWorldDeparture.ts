@@ -10,10 +10,18 @@
  *   leaving    the teleport's departure plays; at its end, navigation
  *   gone       navigation was asked for; if the page is still here after
  *              `FAIL_MS` (a blocked or failed navigation), it comes back
- *              (arrives) and says so
+ *              (arrives) and says so, unless `navigate` answered `'left'`:
+ *              the Blobbi was moved to that world before the page was asked
+ *              to go, so it is NOT brought back (it is there now; the home's
+ *              own sync shows it away). The card then offers Try again (the
+ *              address again, no new move) and Dismiss (`dismiss`: the card
+ *              goes, the Blobbi stays as it is)
  *
  * Stay (`cancel`) ends it at any moment before navigation: the Blobbi is
- * simply here again. Reduced motion: no wave, the teleport's short fade.
+ * simply here again. Nothing is signed or published before that moment:
+ * whatever moves the Blobbi happens inside `navigate`, which runs only once
+ * the scene is over (`gone`, when Stay is no longer offered). Reduced
+ * motion: no wave, the teleport's short fade.
  * A Blobbi that cannot act (an egg, asleep, away) does not perform: the
  * page goes at once. Coming back with the browser's Back from a cached page
  * restores it, here.
@@ -47,12 +55,16 @@ export interface UseWorldDepartureOptions {
   gesture: (kind: PokeGesture) => void;
   play: (sound: BlobbiSoundId) => void;
   /**
-   * How the page goes somewhere else (default: this tab's navigation). It may take a moment first (the signer's word
-   * on the World Travel hand-off): the wait for a navigation that never happens starts once it has returned.
+   * How the page goes somewhere else (default: this tab's navigation). It may take a moment first (the move to that
+   * world, signed and published from here): the wait for a navigation that never happens starts once it has returned.
+   * Answering `'left'` says the Blobbi was moved there: a navigation that then fails does not bring it back.
    */
-  navigate?: (url: string, world: World) => void | Promise<unknown>;
+  navigate?: (url: string, world: World) => NavigateOutcome | void | Promise<NavigateOutcome | void>;
   failMs?: number;
 }
+
+/** What `navigate` may answer: `'left'`, the Blobbi has been moved to that world (published), whatever the page does next. */
+export type NavigateOutcome = 'left';
 
 export interface WorldDeparture {
   phase: DeparturePhase;
@@ -61,6 +73,10 @@ export interface WorldDeparture {
   go: (world: World & { open: boolean }) => boolean;
   /** Stay: ends the departure before the page goes. */
   cancel: () => void;
+  /** The Blobbi was moved to the world (`navigate` answered `'left'`): a failed navigation does not bring it back. */
+  left: boolean;
+  /** Ends a failed departure without touching the Blobbi (the card goes; what the Blobbi shows is the home's business). */
+  dismiss: () => void;
 }
 
 const FACE = 'departure';
@@ -68,7 +84,9 @@ const FACE = 'departure';
 export function useWorldDeparture({ presence, canAct, reducedMotion, showFace, clearFace, gesture, play, navigate = (url) => window.location.assign(url), failMs = DEPARTURE.failMs }: UseWorldDepartureOptions): WorldDeparture {
   const [phase, setPhase] = useState<DeparturePhase>('idle');
   const [world, setWorld] = useState<World | null>(null);
+  const [left, setLeftState] = useState(false);
   const phaseRef = useRef<DeparturePhase>('idle');
+  const leftRef = useRef(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const live = useRef({ presence, showFace, clearFace, gesture, play, navigate, reducedMotion, failMs });
   live.current = { presence, showFace, clearFace, gesture, play, navigate, reducedMotion, failMs };
@@ -76,6 +94,10 @@ export function useWorldDeparture({ presence, canAct, reducedMotion, showFace, c
   const set = useCallback((next: DeparturePhase) => {
     phaseRef.current = next;
     setPhase(next);
+  }, []);
+  const setLeft = useCallback((next: boolean) => {
+    leftRef.current = next;
+    setLeftState(next);
   }, []);
   const clearTimers = () => {
     timers.current.forEach(clearTimeout);
@@ -91,9 +113,10 @@ export function useWorldDeparture({ presence, canAct, reducedMotion, showFace, c
       if (phaseRef.current !== 'gone') return;
       set('failed');
       live.current.clearFace(FACE);
-      live.current.presence.enter();
+      // Moved to that world already: it is not here to come back; the home shows it away by itself
+      if (!leftRef.current) live.current.presence.enter();
     };
-    let asked: Promise<unknown>;
+    let asked: Promise<NavigateOutcome | void>;
     try {
       asked = Promise.resolve(live.current.navigate(target.url!, target));
     } catch {
@@ -101,7 +124,8 @@ export function useWorldDeparture({ presence, canAct, reducedMotion, showFace, c
       return;
     }
     asked.then(
-      () => {
+      (outcome) => {
+        if (outcome === 'left') setLeft(true);
         // Asked: still here a while later, the navigation did not happen (blocked, offline, refused)
         if (phaseRef.current !== 'gone') return;
         after(live.current.failMs, () => {
@@ -111,12 +135,14 @@ export function useWorldDeparture({ presence, canAct, reducedMotion, showFace, c
       },
       () => back(),
     );
-  }, [set]);
+  }, [set, setLeft]);
 
   const go = useCallback((target: World & { open: boolean }): boolean => {
     if (!target.open || !isTravelUrl(target.url)) return false;
     if (phaseRef.current !== 'idle' && phaseRef.current !== 'failed') return false;
     clearTimers();
+    // A new trip from here starts with the Blobbi here; a try again after a move keeps what it knows
+    if (phaseRef.current === 'idle') setLeft(false);
     setWorld(target);
     const o = live.current;
     if (!canAct) {
@@ -143,7 +169,7 @@ export function useWorldDeparture({ presence, canAct, reducedMotion, showFace, c
       else leave();
     });
     return true;
-  }, [canAct, goNow, set]);
+  }, [canAct, goNow, set, setLeft]);
 
   // The departure has played to its end: now the page goes
   useEffect(() => {
@@ -157,8 +183,18 @@ export function useWorldDeparture({ presence, canAct, reducedMotion, showFace, c
     live.current.clearFace(FACE);
     live.current.presence.cancel();
     setWorld(null);
+    setLeft(false);
     set('idle');
-  }, [set]);
+  }, [set, setLeft]);
+
+  const dismiss = useCallback(() => {
+    if (phaseRef.current !== 'failed') return;
+    clearTimers();
+    live.current.clearFace(FACE);
+    setWorld(null);
+    setLeft(false);
+    set('idle');
+  }, [set, setLeft]);
 
   // Back from the other world with the browser's Back (a cached page): here again, nothing half way
   useEffect(() => {
@@ -171,12 +207,13 @@ export function useWorldDeparture({ presence, canAct, reducedMotion, showFace, c
       if (left && live.current.presence.state === 'absent') live.current.presence.enter();
       else live.current.presence.cancel();
       setWorld(null);
+      setLeft(false);
       set('idle');
     };
     window.addEventListener('pageshow', onShow);
     return () => window.removeEventListener('pageshow', onShow);
-  }, [set]);
+  }, [set, setLeft]);
   useEffect(() => () => clearTimers(), []);
 
-  return { phase, world, go, cancel };
+  return { phase, world, go, cancel, left, dismiss };
 }

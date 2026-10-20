@@ -2,9 +2,9 @@
  * The words around world travel (M16), in a child's words and with no protocol in them: while the Blobbi is in
  * another Blobbi world, a small card says where and offers to call it home; when it leaves or comes back, a short line
  * says so and goes. Shared by the classic home and the room (`useHomeTravel`). The card also says what a call home is
- * doing: waiting for the signer, on the way, or what went wrong, with Try again; that the Blobbi noticed the player
- * playing here (an interaction counted toward it following them home); and, when no relay answered, an honest line
- * with a way to look again. With world travel off it never shows (the Blobbi is always home).
+ * doing: waiting for the signer, on the way, or what went wrong, with Try again (opening the home brings an away
+ * Blobbi here by itself, once per page; Call home is the player asking again); and, when no relay answered, an
+ * honest line with a way to look again. With world travel off it never shows (the Blobbi is always home).
  */
 import { useEffect, useState } from 'react';
 import { Home, RotateCcw } from 'lucide-react';
@@ -27,8 +27,6 @@ export interface WorldPresenceNoteProps {
   playedThere?: boolean;
   /** Try again after a failure. */
   onRetry?: () => void;
-  /** Interactions counted toward it following the player home (0 or unset: none). */
-  noticed?: number;
   /** No relay answered the first look; the place shown is the kept one, or home by default. */
   unreachable?: boolean;
   /** Look again (the unreachable line's button). */
@@ -45,7 +43,7 @@ const FAILED: Record<string, (name: string) => string> = {
   failed: (n) => `${n} couldn't come home just now.`,
 };
 
-export function WorldPresenceNote({ name, place, away, journey, onCallHome, nameOf, travel, playedThere, onRetry, noticed = 0, unreachable = false, onRefresh }: WorldPresenceNoteProps) {
+export function WorldPresenceNote({ name, place, away, journey, onCallHome, nameOf, travel, playedThere, onRetry, unreachable = false, onRefresh }: WorldPresenceNoteProps) {
   const [line, setLine] = useState<string | null>(null);
   useEffect(() => {
     if (!journey) return;
@@ -79,9 +77,7 @@ export function WorldPresenceNote({ name, place, away, journey, onCallHome, name
                 ? (FAILED[failed] ?? FAILED.failed)(name)
                 : unreachable
                   ? `Couldn't reach the Blobbi relays: this is where ${name} was last seen.`
-                  : noticed > 0
-                    ? `${name} noticed you playing here…`
-                    : `${name} comes home when you play here.`}
+                  : `Call ${name} home to bring it back here.`}
         </p>
         {failed && onRetry ? (
           <button type="button" className="lifecycle-pill !animate-none !px-3 !py-1.5 !text-xs" onClick={onRetry} data-testid="world-travel-retry">

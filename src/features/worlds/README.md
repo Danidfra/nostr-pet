@@ -23,11 +23,16 @@ step is a decision and not a surprise.
    leaves, the worlds' doors are disabled.
 2. The Blobbi notices, waves, and dissolves with the teleport's own
    departure (`useWorldDeparture` over `usePresence`).
-3. Only then: `window.location.assign(url)` with the world's checked URL.
-   No key, no session, no query string, no fragment. The other app asks
-   the player to sign in its own way (often already signed in there).
+3. Only then (`gone`, when Stay is no longer offered): the move to that
+   world, if travel is on Nostr (below), and `window.location.assign(url)`
+   with the world's checked URL. No key, no session, no query string, no
+   fragment. The other app asks the player to sign in its own way (often
+   already signed in there).
 4. If the page is still here 5 s later (blocked, offline), the Blobbi comes
-   back and the card says so. Back from the other app (bfcache) restores
+   back and the card says so, unless its move was already published: then
+   it has left, the card says so and offers Try again (the address again,
+   no new move) and Dismiss (nothing re-enters it; the home's sync shows it
+   away). Back from the other app (bfcache) restores
    the home (the Blobbi that left comes back).
 
 Rules: a world is open only with an `https:` address checked to answer as
@@ -56,28 +61,36 @@ timeline, same drawings. Rules (`src/features/room/lib/room-arrival.ts`):
 This is a **visual convention only**. Nothing is written and nothing is read
 about where the Blobbi was. See below for what real presence would need.
 
-## The hand-off (2026-10-19): the Blobbi follows an explicit trip
+## Opening a world is the trip (2026-10-19): the origin moves the Blobbi
 
-Choosing a world in the sheet now signs, here and on the press, the World
-Location (kind 31126) the destination will publish, naming that world
-(`useHomeTravel.handoffFor`, `features/presence/world-travel-handoff.ts`);
-an extension asks here, where the choice was made, and the goodbye plays
-meanwhile. The page goes with the signed event in the address's fragment
-(`#blobbi-travel=v1.…`) and nothing else; a refusal or a slow signer goes
-without it. The destination checks and publishes it, so the Blobbi arrives
-there with no further press. Arriving here the same way from the Island:
-`handoff-capture.ts` takes the fragment out of the address first,
-`useHomeTravel` holds it until the relays confirmed the place, publishes it
-once, and the room's or the classic home's teleport plays the arrival. The
-protocol and its security assumptions are written in Island's
-`docs/world-travel-handoff.md`; the file is the same in the three apps.
+With world travel on Nostr, choosing a world in the sheet moves the Blobbi
+there FROM HERE, once the goodbye is over and Stay can no longer be pressed
+(inside the departure's `navigate`, at `gone`; nothing is signed or
+published while Stay is offered, and Stay publishes nothing)
+(`useHomeTravel.departTo`, `features/presence/world-travel-departure.ts`,
+the same file in Island and Pixel): the home reads the authoritative World
+Location again, and if the Blobbi is not already there signs ONE kind 31126
+naming that world (an extension asks here, where the choice was made),
+publishes it to the travel relays, waits for one acceptance or a bounded
+timeout, and only then goes to the world's plain address. The destination
+reads the latest event, finds itself named, publishes nothing and plays its
+arrival. A refusal, a slow signer or relays that do not answer still let the
+page go, with nothing published: the destination then brings the Blobbi over
+itself on opening (see below). Nothing ever rides in the URL; an old link's
+`#blobbi-travel=` fragment is removed unread (`main.tsx`).
+
+Arriving here the same way, or opening the home directly (the address bar, a
+bookmark, a reload) while the Blobbi is elsewhere: once the account is signed
+in and the relays confirmed the place, the home starts the kit's own explicit
+move (one signature, one event), once per page load, and the room's or the
+classic home's teleport plays the arrival (`presence/README.md`).
 
 ## What is NOT implemented, on purpose
 
 - **No key sharing** between subdomains (no postMessage, no cookie on
   `.blobbi.pet`, no URL parameter for identity). A secret key in a URL ends
-  in history, logs and referrers. The hand-off's fragment carries a signed,
-  public World Location and nothing else.
+  in history, logs and referrers. Nothing about a trip rides in the URL
+  either: the Blobbi's place is read from the relays.
 - **No shared session backend.** Each app keeps its own login.
 - **No presence protocol.** The Blobbi's arrival in the room is a picture,
   not a fact: Island shows it because Island reads the same 31124 event.

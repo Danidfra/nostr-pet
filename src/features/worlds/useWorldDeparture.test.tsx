@@ -2,7 +2,9 @@
  * Leaving for a world: the goodbye in order, the page asked to go exactly
  * once and only after the Blobbi has gone, repeated taps ignored, Stay at
  * any moment before, reduced motion without the wiggle, an immediate go when
- * the Blobbi cannot act, and a navigation that never happened brought back.
+ * the Blobbi cannot act, and a navigation that never happened brought back,
+ * unless `navigate` said the Blobbi had left (moved to that world): then it
+ * stays gone, and Dismiss ends the card without touching it.
  */
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -172,6 +174,62 @@ describe('leaving for another world', () => {
     // And the failure timer of that navigation never fires afterwards
     await tick(DEPARTURE.failMs);
     expect(hook.result.current.d.phase).toBe('idle');
+  });
+
+  it('navigate answering `left` (the Blobbi was moved there first): still here long after, it is NOT brought back; Dismiss ends it without touching the Blobbi', async () => {
+    const { hook, navigate, calls } = setup();
+    navigate.mockResolvedValue('left');
+    act(() => void hook.result.current.d.go(island));
+    expect(hook.result.current.d.left).toBe(false);
+    // Dismiss is for a failed departure only: nothing happens to the goodbye
+    act(() => hook.result.current.d.dismiss());
+    expect(hook.result.current.d.phase).toBe('noticing');
+    await tick(DEPARTURE.noticeMs + DEPARTURE.waveMs + 700);
+    expect(navigate).toHaveBeenCalledTimes(1);
+    await tick(0);
+    expect(hook.result.current.d.left).toBe(true);
+    await tick(DEPARTURE.failMs);
+    expect(hook.result.current.d.phase).toBe('failed');
+    expect(hook.result.current.d.left).toBe(true);
+    expect(calls.enter).toBe(0);
+    expect(hook.result.current.state).toBe('absent');
+    act(() => hook.result.current.d.dismiss());
+    expect(hook.result.current.d.phase).toBe('idle');
+    expect(hook.result.current.d.world).toBeNull();
+    expect(hook.result.current.d.left).toBe(false);
+    expect(calls.enter).toBe(0);
+    expect(calls.cancel).toBe(0);
+    expect(hook.result.current.state).toBe('absent');
+  });
+
+  it('after a failed navigation with `left`, Try again (go) asks again at once when it cannot act, keeps `left`, and the next fresh trip starts without it', async () => {
+    const { hook, navigate, calls } = setup({ canAct: false });
+    navigate.mockResolvedValueOnce('left');
+    act(() => void hook.result.current.d.go(island));
+    expect(navigate).toHaveBeenCalledTimes(1);
+    await tick(0);
+    await tick(DEPARTURE.failMs);
+    expect(hook.result.current.d.phase).toBe('failed');
+    expect(hook.result.current.d.left).toBe(true);
+    expect(calls.enter).toBe(0);
+    // Try again: the address again (whatever navigate answers now, it was moved already)
+    act(() => void hook.result.current.d.go(island));
+    expect(navigate).toHaveBeenCalledTimes(2);
+    expect(navigate).toHaveBeenLastCalledWith(island.url, expect.objectContaining({ id: island.id }));
+    await tick(0);
+    await tick(DEPARTURE.failMs);
+    expect(hook.result.current.d.phase).toBe('failed');
+    expect(hook.result.current.d.left).toBe(true);
+    expect(calls.enter).toBe(0);
+    act(() => hook.result.current.d.dismiss());
+    // A fresh trip (from idle) with no `left` answer: brought back as before
+    act(() => void hook.result.current.d.go(island));
+    expect(hook.result.current.d.left).toBe(false);
+    await tick(0);
+    await tick(DEPARTURE.failMs);
+    expect(hook.result.current.d.phase).toBe('failed');
+    expect(hook.result.current.d.left).toBe(false);
+    expect(calls.enter).toBe(1);
   });
 
   it('a navigation that throws is a failure, not a crash', () => {
