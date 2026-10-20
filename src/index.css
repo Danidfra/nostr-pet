@@ -4031,6 +4031,7 @@
     color: hsl(0 0% 100% / 0.95); box-shadow: inset 0 -6px 0 hsl(0 0% 0% / 0.06);
   }
   .world-card__sky svg { width: 1.5rem; height: 1.5rem; filter: drop-shadow(0 1px 1px hsl(0 0% 0% / 0.2)); }
+  .world-card__sky img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
   .world-card__text { display: flex; min-width: 0; flex: 1; flex-direction: column; }
   .world-card__name { font-weight: 700; font-size: 0.95rem; }
   .world-card__tagline { font-size: 0.8rem; color: hsl(var(--muted-foreground)); }

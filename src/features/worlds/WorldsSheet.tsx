@@ -4,6 +4,7 @@
  * left); an upcoming one is a card labelled "Coming soon", never a link. What
  * travels: nothing. The other app asks for its own sign-in.
  */
+import { useState } from 'react';
 import { Globe2, Lock } from 'lucide-react';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
@@ -27,6 +28,20 @@ interface WorldsSheetProps {
   departing?: boolean;
 }
 
+/**
+ * The card's picture: the other app's own icon over the world's sky. An icon that cannot load (an old build, a
+ * blocked image) leaves the sky with the globe on it, as the cards looked before; a closed door shows the lock.
+ */
+export function WorldCardIcon({ world, open }: { world: World; open: boolean }) {
+  const [failed, setFailed] = useState(false);
+  const sky = { background: `linear-gradient(135deg, ${world.colors[0]}, ${world.colors[1]})` };
+  return (
+    <span className="world-card__sky" style={sky} aria-hidden data-testid={`world-icon-${world.id}`} data-fallback={failed || !open ? 'true' : undefined}>
+      {!open ? <Lock /> : failed ? <Globe2 /> : <img src={world.icon} alt="" width={52} height={52} loading="lazy" decoding="async" onError={() => setFailed(true)} />}
+    </span>
+  );
+}
+
 export function WorldsSheet({ open, onClose, blobbi, onTravel, guest = false, onSave, departing = false }: WorldsSheetProps) {
   const list = worlds();
   return (
@@ -44,12 +59,9 @@ export function WorldsSheet({ open, onClose, blobbi, onTravel, guest = false, on
     >
       <ul className="worlds-list" data-testid="worlds-list">
         {list.map((w) => {
-          const sky = { background: `linear-gradient(135deg, ${w.colors[0]}, ${w.colors[1]})` };
           const body = (
             <>
-              <span className="world-card__sky" style={sky} aria-hidden>
-                {w.open ? <Globe2 /> : <Lock />}
-              </span>
+              <WorldCardIcon world={w} open={w.open} />
               <span className="world-card__text">
                 <span className="world-card__name">{w.name}</span>
                 <span className="world-card__tagline">{w.tagline}</span>
