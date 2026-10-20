@@ -61,7 +61,9 @@ import { WorldsSheet } from '@/features/worlds/WorldsSheet';
 import { DepartureCard } from '@/features/worlds/DepartureCard';
 import { useWorldDeparture } from '@/features/worlds/useWorldDeparture';
 import { usePresence } from '@/features/teleport/react/usePresence';
-import { travelStartsAway, useHomeTravel, useTravelStartsUnknown } from '@/features/presence/useHomeTravel';
+import { travelStartsAway, useHomeTravel, useTravelStartsUnknown, useTravelStartsUnseen, type HomeTravel } from '@/features/presence/useHomeTravel';
+import { handoffFragment } from '@/features/presence/world-travel-handoff';
+import type { TravelPhase } from '@blobbi-kit/core';
 import { WorldPresenceNote } from '@/features/presence/WorldPresenceNote';
 import { TravelCue } from '@/features/presence/TravelCue';
 import { TravelAnnouncer } from '@/features/presence/TravelAnnouncer';
@@ -833,7 +835,30 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // On Nostr, a Blobbi whose place this device does not know yet starts unseen ("looking for it"), never home for a
   // moment before the relays say it is elsewhere
   const startsUnknown = useTravelStartsUnknown(pubkey, blobbi.d);
-  const presence = usePresence({ initial: travels && (startsUnknown || travelStartsAway(pubkey, blobbi.d)) ? 'absent' : 'present', reducedMotion: () => reducedMotionRef.current, onCue: (cue) => play(cue) });
+  // A session coming on Nostr: nothing kept on this device is believed either, until the relays answer (the sync
+  // settles it home or away then, with no journey)
+  const startsUnseen = useTravelStartsUnseen(pubkey, blobbi.d);
+  const presence = usePresence({ initial: travels && (startsUnknown || startsUnseen || travelStartsAway(pubkey, blobbi.d)) ? 'absent' : 'present', reducedMotion: () => reducedMotionRef.current, onCue: (cue) => play(cue) });
+  // The World Travel hand-off for the trip under way: the move the destination will publish, signed here on the
+  // door press (`worldTravel.handoffFor`), awaited only when the page is about to go; Stay before then discards it
+  const worldTravelRef = useRef<HomeTravel | null>(null);
+  const handoffRef = useRef<Promise<NostrEvent | null> | null>(null);
+  const [handoffSigning, setHandoffSigning] = useState(false);
+  const navigateWithHandoff = useCallback(async (url: string) => {
+    const pending = handoffRef.current;
+    handoffRef.current = null;
+    let event: NostrEvent | null = null;
+    if (pending) {
+      setHandoffSigning(!!worldTravelRef.current?.signerPrompts);
+      try {
+        event = await pending;
+      } finally {
+        setHandoffSigning(false);
+      }
+    }
+    // No key travels: the other world asks for its own sign-in; the signed move rides in the fragment, nothing else
+    window.location.assign(event ? `${url}#${handoffFragment(event)}` : url);
+  }, []);
   // Travel: the Blobbi says goodbye and dissolves (the teleport's own departure), then the page goes; the room's too
   const departure = useWorldDeparture({
     presence,
@@ -843,6 +868,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     clearFace: () => setDepartureFace(null),
     gesture: playBathGesture,
     play,
+    navigate: navigateWithHandoff,
   });
   const departing = departure.phase !== 'idle' && departure.phase !== 'failed';
   const [presenceJourney, setPresenceJourney] = useState<{ kind: 'enter' | 'leave'; place: string; key: number } | null>(null);
@@ -856,6 +882,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     paused: departure.phase !== 'idle',
     onJourney: (kind, place) => setPresenceJourney((j) => ({ kind, place, key: (j?.key ?? 0) + 1 })),
   });
+  worldTravelRef.current = worldTravel;
+  // A hand-off under way is the Blobbi on its way; one no relay accepted is said as such, with Try again
+  const handoffComing = worldTravel.handoff?.status === 'holding' || worldTravel.handoff?.status === 'publishing';
+  const handoffTravel: TravelPhase | undefined = worldTravel.handoff?.status === 'failed' ? { phase: 'failed', reason: 'unreachable' } : handoffComing ? { phase: 'publishing' } : worldTravel.snapshot?.travel;
   // A sleeper or an egg is always shown home, whatever the teleport was doing
   const presenceCancel = presence.cancel;
   useEffect(() => {
@@ -1050,7 +1080,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                   journey={presenceJourney}
                   onCallHome={worldTravel.callHome}
                   nameOf={worldTravel.nameOf}
-                  travel={worldTravel.snapshot?.travel}
+                  travel={handoffTravel}
                   playedThere={worldTravel.snapshot ? !!worldTravel.snapshot.presence.there : undefined}
                   onRetry={worldTravel.retry}
                   noticed={worldTravel.follow?.count}
@@ -1190,10 +1220,13 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                 return;
               }
               // No key travels: the other world asks for its own sign-in; the page goes once the Blobbi has left
-              if (departure.go(world)) setWorldsOpen(false);
+              if (!departure.go(world)) return;
+              setWorldsOpen(false);
+              // Signed now, on the choice (an extension asks here, where the choice was made); carried once it has left
+              handoffRef.current = worldTravel.handoffFor(world.travelId);
             }}
           />
-          {departure.phase !== 'idle' && departure.world && <DepartureCard phase={departure.phase} world={departure.world} name={blobbi.name} onStay={departure.cancel} onRetry={() => departure.go({ ...departure.world!, open: true })} />}
+          {departure.phase !== 'idle' && departure.world && <DepartureCard phase={departure.phase} world={departure.world} name={blobbi.name} onStay={departure.cancel} onRetry={() => departure.go({ ...departure.world!, open: true })} signing={handoffSigning} />}
           <GuestStatusSheet open={statusOpen && guestActive} onClose={() => setStatusOpen(false)} name={blobbi.name} onSave={requestSave} storageOk={guest.storageOk} />
           <InventorySheet
             open={itemsOpen}

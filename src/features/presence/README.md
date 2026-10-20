@@ -182,3 +182,19 @@ Other selectors:
 
   A plain load with the Blobbi home says nothing, and re-renders repeat
   nothing.
+
+## 2026-10-19: two interactions, the hand-off, and nothing kept believed
+
+- `HOME_FOLLOW_AFTER` = 2: an away Blobbi comes home on the second meaningful
+  interaction (the kit's `followAfter`; its gap, window and suspension
+  unchanged), as in Island and Pixel.
+- The hand-off: an explicit trip from the Island arrives by itself
+  (`world-travel-handoff.ts`, `handoff-capture.ts`, `useHomeTravel`); leaving
+  for the Island or Pixel signs the move here on the door press and carries
+  it in the fragment. See `features/worlds/README.md` and Island's
+  `docs/world-travel-handoff.md`.
+- On Nostr the Blobbi starts unseen until the relays answered
+  (`useTravelStartsUnseen`; the sync stands aside while the place is only
+  `cached`), and the room's arrival on entry waits for the first look's
+  answer, not for a kept location: a kept "home" may be stale after a trip.
+

@@ -36,10 +36,12 @@ import {
   isMeaningfulInput,
   isPlayedNow,
   knownWorld,
+  registerWorld,
   storedWorldLocation,
   travelView,
   type FollowState,
   type NostrEvent,
+  type TravelResolution,
   type TravelViewKind,
   type ShownBlobbi,
   type WorldTravelOptions,
@@ -54,8 +56,24 @@ import { usePublishAdapter } from '@/features/care/usePublishAdapter';
 import { canAskRelays } from '@/features/companion/pool-relays';
 import type { Presence } from '@/features/teleport/react/usePresence';
 import { ARRIVE } from '@/features/teleport/timeline';
+import { WORLD_FARM, WORLD_ISLAND, WORLD_RUMBLE } from '@/features/worlds/worlds';
+import { dropHandoff, peekHandoff } from './handoff-capture';
 import { isTrustedInput, travelMode, type TravelMode } from './travel-mode';
 import { reportPresenceStatus, useActivePresenceChoice } from './active-presence-choice';
+import { createHandoffArrival, signHandoff, usedHandoffs, type HandoffArrival, type HandoffState } from './world-travel-handoff';
+
+// The worlds the kit does not know by name, for the words around a journey ("Brook is in Blobbi Island")
+registerWorld({ id: WORLD_ISLAND, name: 'Blobbi Island' });
+registerWorld({ id: WORLD_FARM, name: 'Nostr Farm' });
+registerWorld({ id: WORLD_RUMBLE, name: 'Blobbi Rumble' });
+
+/**
+ * How many meaningful interactions with the home bring an away Blobbi over by themselves (the kit's `followAfter`;
+ * its default is 3). Two, as in Blobbi Island and Pixel (the owner's product decision of 2026-10-19): a player who
+ * opened the home directly and plays a moment is followed without a button, while one stray press still pulls
+ * nothing out of the World the Blobbi was just moved to (the kit's gap, window and suspension are unchanged).
+ */
+export const HOME_FOLLOW_AFTER = 2;
 
 /** The page's storage for the kit's session, every access guarded (a refusing browser keeps nothing). */
 const pageStore: WorldTravelStore = {
@@ -119,6 +137,18 @@ export function useTravelStartsUnknown(pubkey: string | null | undefined, d: str
   return unknown;
 }
 
+/**
+ * Whether this page's Blobbi starts unseen on Nostr: a session for this account is coming, so nothing about its
+ * place is believed until the relays answer, not even the location this device kept (the origin of a trip never
+ * learns the move the destination made, so a kept "home" may be stale). The sync settles it once confirmed. Read
+ * once, for the first render.
+ */
+export function useTravelStartsUnseen(pubkey: string | null | undefined, d: string): boolean {
+  const owner = useTravelOwner(pubkey ?? undefined);
+  const [unseen] = useState(() => travelMode() === 'nostr' && !!owner && !!d);
+  return unseen;
+}
+
 /** The account that may have a travel session for `pubkey` here (only a real login: never a guest, never a dev fixture). */
 function useTravelOwner(pubkey: string | undefined): string | null {
   const { nostr } = useNostr();
@@ -159,6 +189,11 @@ export interface HomeTravel {
   view: TravelViewKind;
   /** Nostr: no relay answered the first look (the kept place, or home by default, is shown); off: false. */
   unreachable: boolean;
+  /**
+   * How sure the place is (the kit's resolution), or `none` when no session runs (off, a guest, signed out): the
+   * room's arrival on entry waits on it.
+   */
+  resolution: TravelResolution | 'none';
   /** Nostr: read the relays again now (the "can't reach" hint's button). */
   refresh(): void;
   /** Nostr: the interactions counted toward following the player here (null: none, off). */
@@ -171,6 +206,19 @@ export interface HomeTravel {
   retry(): void;
   /** Nostr only: the session's snapshot (null when off, signed out, a guest, a fixture). */
   snapshot: WorldTravelSnapshot | null;
+  /**
+   * Nostr only: the World Travel hand-off this page opened with (`world-travel-handoff.ts`), while it is held,
+   * published, failed (Try again) or until it was honoured or dropped; null without one.
+   */
+  handoff: HandoffState | null;
+  /**
+   * Leaving for `destination` (a World id): the World Location the destination will publish, signed by the account
+   * now (an extension may ask), or null when there is none to carry (off, no session, the place not confirmed,
+   * refused, too slow). Never publishes.
+   */
+  handoffFor(destination: string): Promise<NostrEvent | null>;
+  /** The account's signer may ask the player (an extension, a remote signer), so a wait for it is worth a word. */
+  signerPrompts: boolean;
   /** Nostr only: a hidden element stating place, phase and presence for tests and diagnostics. */
   status: ReactNode;
 }
@@ -221,6 +269,8 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
       // The teleport's arrival plays its "incoming" motes before the body forms: started that much earlier, the body
       // forms at the session's `formAt` (the departure window's end, and no sooner than MIN_TRAVEL_MS after the act)
       arrivalLeadMs: ARRIVE.incoming,
+      // Two meaningful interactions bring an away Blobbi over (the kit's count, gap and window otherwise unchanged)
+      followAfter: HOME_FOLLOW_AFTER,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one session per owner, Blobbi and relay set
   }, [owner, o?.d, relays]);
@@ -257,9 +307,48 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
         ? { state: () => controller.getState(), enter: () => void controller.enter(), leave: () => void controller.leave(), settle: (s) => controller.settle(s) }
         : null,
     busy: o?.busy ?? false,
-    paused: o ? o.paused || !o.travels : true,
+    // A kept location is never shown as the place: the sync stands aside until the relays have answered
+    paused: o ? o.paused || !o.travels || resolution === 'cached' : true,
     onJourney: o?.onJourney,
   });
+
+  // THE HAND-OFF this page opened with (an explicit trip from another world): held until this session has confirmed
+  // the place, then checked and published as signed (`createHandoffArrival`); the session's look then brings the
+  // arrival. One controller per session; the captured event is dropped once honoured or rejected
+  const relaysRef = useRef(relays);
+  relaysRef.current = relays;
+  const [handoff, setHandoff] = useState<HandoffState | null>(null);
+  const arrivalRef = useRef<HandoffArrival | null>(null);
+  const sessionKey = options ? `${options.owner}|${options.d}` : null;
+  useEffect(() => {
+    const event = peekHandoff();
+    if (!event || !sessionKey) return;
+    const arrival = createHandoffArrival({
+      event,
+      world: WORLD_HOME,
+      session: () => sessionRef.current,
+      relays: () => relaysRef.current,
+      verify: safeVerify,
+      lock: webLock(),
+      used: usedHandoffs(pageStore),
+      stillAccount: (owner) => latest.current.user?.pubkey === owner && latest.current.owner === owner,
+      onChange: (s) => {
+        setHandoff(s);
+        if (s.status === 'done' || s.status === 'dropped') dropHandoff();
+      },
+    });
+    arrivalRef.current = arrival;
+    setHandoff(arrival.state());
+    return () => {
+      arrival.dispose();
+      if (arrivalRef.current === arrival) arrivalRef.current = null;
+      setHandoff(null);
+    };
+  }, [sessionKey]);
+  // The session's snapshot changed (its first look answered, a refresh): the hand-off looks at it
+  useEffect(() => {
+    arrivalRef.current?.update();
+  }, [snapshot, session]);
 
   // The player's act: a trusted press or key here is activity, and while the Blobbi is away an interaction toward
   // bringing it over (the kit counts: the third within its window starts the move; a held key's repeat never counts)
@@ -299,6 +388,12 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
 
   const callHome = useCallback(() => void sessionRef.current?.travel({ explicit: true }), []);
   const retry = useCallback(() => {
+    // A hand-off no relay accepted: the same signed event again, before anything the session itself tried
+    const arrival = arrivalRef.current;
+    if (arrival && arrival.state().status === 'failed') {
+      void arrival.retry();
+      return;
+    }
     const s = sessionRef.current;
     if (!s) return;
     const phase = s.snapshot().travel;
@@ -309,6 +404,17 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
     } else void s.travel({ explicit: true });
   }, []);
   const refresh = useCallback(() => void sessionRef.current?.refresh(), []);
+  // Leaving for another world: the move the destination will publish, signed here on the player's choice
+  const handoffFor = useCallback(async (destination: string): Promise<NostrEvent | null> => {
+    const s = sessionRef.current;
+    const { user: u, login: l, publisher: p, owner: own } = latest.current;
+    if (!s || !u || !l || !own) return null;
+    const snap = s.snapshot();
+    // Only a place the relays confirmed is worth signing over: a kept or unknown place may be stale
+    if (snap.owner !== own || snap.resolution !== 'confirmed') return null;
+    return signHandoff({ owner: own, d: snap.d, destination, canonical: snap.location, sign: (t) => p.sign(t), verify: safeVerify });
+  }, []);
+  const signerPrompts = !!login && login.type !== 'nsec';
 
   const status = createElement('span', {
     hidden: true,
@@ -330,6 +436,8 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
     'data-follow-suspended': snapshot?.follow.suspended ? 'true' : undefined,
     'data-presence-status': snapshot?.presence.status ?? 'off',
     'data-presence-there': snapshot?.presence.there?.world,
+    'data-handoff': handoff?.status,
+    'data-handoff-reason': handoff?.reason,
   });
 
   return {
@@ -340,12 +448,16 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
     known: view !== 'looking',
     view,
     unreachable: resolution === 'unreachable',
+    resolution,
     refresh,
     follow: snapshot?.follow ?? null,
     nameOf: nameOfWorld,
     callHome,
     retry,
     snapshot,
+    handoff,
+    handoffFor,
+    signerPrompts,
     status,
   };
 }

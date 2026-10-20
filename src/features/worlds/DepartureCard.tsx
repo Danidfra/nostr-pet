@@ -12,11 +12,19 @@ interface DepartureCardProps {
   name: string;
   onStay: () => void;
   onRetry: () => void;
+  /** The player's signer is being asked to let the Blobbi travel along (the page goes once it answers). */
+  signing?: boolean;
 }
 
-export function DepartureCard({ phase, world, name, onStay, onRetry }: DepartureCardProps) {
+export function DepartureCard({ phase, world, name, onStay, onRetry, signing = false }: DepartureCardProps) {
   const failed = phase === 'failed';
-  const text = failed ? `${world.name} did not open. ${name} is back home.` : phase === 'gone' ? `Opening ${world.name}…` : `${name} is off to ${world.name}…`;
+  const text = failed
+    ? `${world.name} did not open. ${name} is back home.`
+    : phase === 'gone'
+      ? signing
+        ? `Approve the trip in your signer so ${name} comes along…`
+        : `Opening ${world.name}…`
+      : `${name} is off to ${world.name}…`;
   return (
     <div className={`departure-card ${failed ? 'departure-card--failed' : ''}`} role={failed ? 'alert' : 'status'} aria-live="polite" data-testid="departure-card" data-phase={phase}>
       <span className="departure-card__sky" style={{ background: `linear-gradient(135deg, ${world.colors[0]}, ${world.colors[1]})` }} aria-hidden />

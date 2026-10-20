@@ -70,7 +70,7 @@ describe('leaving for another world', () => {
     expect(hook.result.current.state).toBe('absent');
     expect(hook.result.current.d.phase).toBe('gone');
     expect(navigate).toHaveBeenCalledTimes(1);
-    expect(navigate).toHaveBeenCalledWith(island.url);
+    expect(navigate).toHaveBeenCalledWith(island.url, expect.objectContaining({ id: island.id }));
     await tick(1_000);
     expect(navigate).toHaveBeenCalledTimes(1);
   });
@@ -88,7 +88,7 @@ describe('leaving for another world', () => {
     await tick(DEPARTURE.waveMs + 700);
     expect(calls.leave).toBe(1);
     expect(navigate).toHaveBeenCalledTimes(1);
-    expect(navigate).toHaveBeenCalledWith(island.url);
+    expect(navigate).toHaveBeenCalledWith(island.url, expect.objectContaining({ id: island.id }));
   });
 
   it('the Pixel world leaves the same way, for its own address', async () => {
@@ -98,7 +98,7 @@ describe('leaving for another world', () => {
     expect(calls.leave).toBe(1);
     expect(navigate).not.toHaveBeenCalled();
     await tick(700);
-    expect(navigate).toHaveBeenCalledWith('https://pixel.blobbi.pet/');
+    expect(navigate).toHaveBeenCalledWith('https://pixel.blobbi.pet/', expect.objectContaining({ id: 'pixel' }));
   });
 
   it('a world that is not open is refused', () => {

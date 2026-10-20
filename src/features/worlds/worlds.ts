@@ -15,12 +15,20 @@
  * Checked 2026-10-18 when the Pixel game was deployed:
  *   https://pixel.blobbi.pet/                 → 200, "Blobbi Pixel"
  */
+import { WORLD_PIXEL } from '@blobbi-kit/core';
 import { BLOBBI_ISLAND_URL } from '@/config/ecosystem';
+
+/** The World ids the kit's World Travel protocol uses for the worlds the home is not (`WORLD_HOME` is this one). */
+export const WORLD_ISLAND = 'blobbi-island';
+export const WORLD_FARM = 'nostr-farm';
+export const WORLD_RUMBLE = 'blobbi-rumble';
 
 export type WorldId = 'island' | 'rumble' | 'farm' | 'pixel';
 
 export interface World {
   id: WorldId;
+  /** The World id the kit's World Travel protocol uses for the same place (the hand-off names it). */
+  travelId: string;
   name: string;
   /** One line: what you do there. */
   tagline: string;
@@ -33,10 +41,10 @@ export interface World {
 export const WORLDS_CHECKED_ON = '2026-10-18';
 
 const DEFINED: readonly World[] = [
-  { id: 'island', name: 'Blobbi Island', tagline: 'Explore the island and meet other Blobbis.', url: BLOBBI_ISLAND_URL, colors: ['#7dd3fc', '#fde68a'] },
-  { id: 'rumble', name: 'Blobbi Rumble', tagline: 'A playful arena for friendly matches.', url: 'https://rumble.blobbi.pet/', colors: ['#fca5a5', '#fdba74'] },
-  { id: 'farm', name: 'Nostr Farm', tagline: 'Grow crops and gather produce.', url: 'https://farm.blobbi.pet/', colors: ['#86efac', '#bef264'] },
-  { id: 'pixel', name: 'Blobbi Pixel', tagline: 'A pixel adventure with your Blobbi.', url: 'https://pixel.blobbi.pet/', colors: ['#c4b5fd', '#f9a8d4'] },
+  { id: 'island', travelId: WORLD_ISLAND, name: 'Blobbi Island', tagline: 'Explore the island and meet other Blobbis.', url: BLOBBI_ISLAND_URL, colors: ['#7dd3fc', '#fde68a'] },
+  { id: 'rumble', travelId: WORLD_RUMBLE, name: 'Blobbi Rumble', tagline: 'A playful arena for friendly matches.', url: 'https://rumble.blobbi.pet/', colors: ['#fca5a5', '#fdba74'] },
+  { id: 'farm', travelId: WORLD_FARM, name: 'Nostr Farm', tagline: 'Grow crops and gather produce.', url: 'https://farm.blobbi.pet/', colors: ['#86efac', '#bef264'] },
+  { id: 'pixel', travelId: WORLD_PIXEL, name: 'Blobbi Pixel', tagline: 'A pixel adventure with your Blobbi.', url: 'https://pixel.blobbi.pet/', colors: ['#c4b5fd', '#f9a8d4'] },
 ];
 
 /** An address a world may be opened at: absolute https (http only on localhost, for development), no credentials. */

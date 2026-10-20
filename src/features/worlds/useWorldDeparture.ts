@@ -46,8 +46,11 @@ export interface UseWorldDepartureOptions {
   clearFace: (source: string) => void;
   gesture: (kind: PokeGesture) => void;
   play: (sound: BlobbiSoundId) => void;
-  /** Test seam: how the page goes somewhere else. */
-  navigate?: (url: string) => void;
+  /**
+   * How the page goes somewhere else (default: this tab's navigation). It may take a moment first (the signer's word
+   * on the World Travel hand-off): the wait for a navigation that never happens starts once it has returned.
+   */
+  navigate?: (url: string, world: World) => void | Promise<unknown>;
   failMs?: number;
 }
 
@@ -84,20 +87,30 @@ export function useWorldDeparture({ presence, canAct, reducedMotion, showFace, c
 
   const goNow = useCallback((target: World) => {
     set('gone');
-    try {
-      live.current.navigate(target.url!);
-    } catch {
-      set('failed');
-      return;
-    }
-    // Still here a while later: the navigation did not happen (blocked, offline, refused)
-    after(live.current.failMs, () => {
+    const back = () => {
       if (phaseRef.current !== 'gone') return;
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       set('failed');
       live.current.clearFace(FACE);
       live.current.presence.enter();
-    });
+    };
+    let asked: Promise<unknown>;
+    try {
+      asked = Promise.resolve(live.current.navigate(target.url!, target));
+    } catch {
+      back();
+      return;
+    }
+    asked.then(
+      () => {
+        // Asked: still here a while later, the navigation did not happen (blocked, offline, refused)
+        if (phaseRef.current !== 'gone') return;
+        after(live.current.failMs, () => {
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+          back();
+        });
+      },
+      () => back(),
+    );
   }, [set]);
 
   const go = useCallback((target: World & { open: boolean }): boolean => {

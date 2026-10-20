@@ -119,7 +119,9 @@ import { useEatingPresentation } from './hooks/useEatingPresentation';
 import { usePetting } from './hooks/usePetting';
 import { useExpression } from '@/features/expression/react/useExpression';
 import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
-import { travelStartsAway, useHomeTravel, useTravelStartsUnknown } from '@/features/presence/useHomeTravel';
+import { travelStartsAway, useHomeTravel, useTravelStartsUnknown, type HomeTravel } from '@/features/presence/useHomeTravel';
+import { handoffFragment } from '@/features/presence/world-travel-handoff';
+import type { TravelPhase } from '@blobbi-kit/core';
 import { travelMode } from '@/features/presence/travel-mode';
 import { WORLD_HOME } from '@blobbi-kit/core';
 import { WorldPresenceNote } from '@/features/presence/WorldPresenceNote';
@@ -934,7 +936,27 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [petting.petting, notePetted]);
 
   // ─── Travel: the Blobbi says goodbye and dissolves (the teleport's own departure), then the page goes ───
-  const departure = useWorldDeparture({ presence, canAct: present && !isEgg && !isSleeping, reducedMotion, showFace, clearFace, gesture, play });
+  // The World Travel hand-off for the trip under way: the move the destination will publish, signed here on the
+  // door press (`worldTravel.handoffFor`), awaited only when the page is about to go; Stay before then discards it
+  const worldTravelRef = useRef<HomeTravel | null>(null);
+  const handoffRef = useRef<Promise<NostrEvent | null> | null>(null);
+  const [handoffSigning, setHandoffSigning] = useState(false);
+  const navigateWithHandoff = useCallback(async (url: string) => {
+    const pending = handoffRef.current;
+    handoffRef.current = null;
+    let event: NostrEvent | null = null;
+    if (pending) {
+      setHandoffSigning(!!worldTravelRef.current?.signerPrompts);
+      try {
+        event = await pending;
+      } finally {
+        setHandoffSigning(false);
+      }
+    }
+    // No key travels: the other world asks for its own sign-in; the signed move rides in the fragment, nothing else
+    window.location.assign(event ? `${url}#${handoffFragment(event)}` : url);
+  }, []);
+  const departure = useWorldDeparture({ presence, canAct: present && !isEgg && !isSleeping, reducedMotion, showFace, clearFace, gesture, play, navigate: navigateWithHandoff });
   const travelBusy = care.busy || theater || lifecycle.pending !== null || decorator.editing || transitioning || bathing;
   // A companion chosen meanwhile in another Blobbi game waits for these moments to end (src/features/companion)
   useCompanionSwitchHold(travelBusy || care.offer !== null || !!interactions.dose || departure.phase !== 'idle');
@@ -952,14 +974,20 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     paused: isEgg || isSleeping || arrival === 'waiting' || departure.phase !== 'idle',
     onJourney: (kind, place) => setPresenceJourney((j) => ({ kind, place, key: (j?.key ?? 0) + 1 })),
   });
-  const travelKnown = worldTravel.known;
+  worldTravelRef.current = worldTravel;
+  // A hand-off under way is the Blobbi on its way; one no relay accepted is said as such, with Try again
+  const handoffComing = worldTravel.handoff?.status === 'holding' || worldTravel.handoff?.status === 'publishing';
+  const handoffTravel: TravelPhase | undefined = worldTravel.handoff?.status === 'failed' ? { phase: 'failed', reason: 'unreachable' } : handoffComing ? { phase: 'publishing' } : worldTravel.snapshot?.travel;
+  // The arrival on entry waits for the relays' first answer itself (`confirmed`, or `unreachable` within the kit's
+  // timeout), never for a location this device merely kept: a kept "home" may be stale after a trip
+  const travelResolved = worldTravel.resolution === 'confirmed' || worldTravel.resolution === 'unreachable' || worldTravel.resolution === 'none';
   // Where it stands while unseen: "looking for it" while its place is not known (the arrival on entry waits for it),
   // or a call home under way just before its arrival
   const travelCue = !isEgg && !isSleeping && absent && departure.phase === 'idle' && (worldTravel.view === 'looking' || worldTravel.view === 'coming') ? worldTravel.view : null;
   const travelAway = !worldTravel.here && worldTravel.place !== WORLD_HOME;
   useEffect(() => {
-    if (entryGate === 'wait' && travelKnown) setEntryGate(travelAway ? 'away' : 'go');
-  }, [entryGate, travelKnown, travelAway]);
+    if (entryGate === 'wait' && travelResolved) setEntryGate(travelAway ? 'away' : 'go');
+  }, [entryGate, travelResolved, travelAway]);
   const travel = useCallback(
     (world: Parameters<typeof departure.go>[0]) => {
       // A write still out finishes here first: leaving mid-signature could lose it
@@ -968,9 +996,12 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         care.notify('One moment: something is still being saved.');
         return;
       }
-      if (departure.go(world)) setWorldsOpen(false);
+      if (!departure.go(world)) return;
+      setWorldsOpen(false);
+      // Signed now, on the choice (an extension asks here, where the choice was made); carried once it has left
+      handoffRef.current = worldTravel.handoffFor(world.travelId);
     },
-    [travelBusy, departure, play, care],
+    [travelBusy, departure, play, care, worldTravel],
   );
   const onJourneyAction = useCallback((action: ObjectiveAction) => {
     setJourneyOpen(false);
@@ -1181,7 +1212,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               journey={presenceJourney}
               onCallHome={worldTravel.callHome}
               nameOf={worldTravel.nameOf}
-              travel={worldTravel.snapshot?.travel}
+              travel={handoffTravel}
               playedThere={worldTravel.snapshot ? !!worldTravel.snapshot.presence.there : undefined}
               onRetry={worldTravel.retry}
               noticed={worldTravel.follow?.count}
@@ -1342,7 +1373,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           )}
         </GameOverlay>
       )}
-      {departure.phase !== 'idle' && departure.world && <DepartureCard phase={departure.phase} world={departure.world} name={blobbi.name} onStay={departure.cancel} onRetry={() => departure.go({ ...departure.world!, open: true })} />}
+      {departure.phase !== 'idle' && departure.world && <DepartureCard phase={departure.phase} world={departure.world} name={blobbi.name} onStay={departure.cancel} onRetry={() => departure.go({ ...departure.world!, open: true })} signing={handoffSigning} />}
       {journeyBook.celebrate && <ChapterToast chapter={journeyBook.chapters.find((c) => c.id === journeyBook.celebrate)!} onDone={journeyBook.dismissCelebration} play={play} reducedMotion={reducedMotion} />}
       <RoomBlobbiSheet
         open={sheetOpen}

@@ -56,11 +56,28 @@ timeline, same drawings. Rules (`src/features/room/lib/room-arrival.ts`):
 This is a **visual convention only**. Nothing is written and nothing is read
 about where the Blobbi was. See below for what real presence would need.
 
+## The hand-off (2026-10-19): the Blobbi follows an explicit trip
+
+Choosing a world in the sheet now signs, here and on the press, the World
+Location (kind 31126) the destination will publish, naming that world
+(`useHomeTravel.handoffFor`, `features/presence/world-travel-handoff.ts`);
+an extension asks here, where the choice was made, and the goodbye plays
+meanwhile. The page goes with the signed event in the address's fragment
+(`#blobbi-travel=v1.…`) and nothing else; a refusal or a slow signer goes
+without it. The destination checks and publishes it, so the Blobbi arrives
+there with no further press. Arriving here the same way from the Island:
+`handoff-capture.ts` takes the fragment out of the address first,
+`useHomeTravel` holds it until the relays confirmed the place, publishes it
+once, and the room's or the classic home's teleport plays the arrival. The
+protocol and its security assumptions are written in Island's
+`docs/world-travel-handoff.md`; the file is the same in the three apps.
+
 ## What is NOT implemented, on purpose
 
 - **No key sharing** between subdomains (no postMessage, no cookie on
-  `.blobbi.pet`, no URL parameter). A secret key in a URL ends in history,
-  logs and referrers.
+  `.blobbi.pet`, no URL parameter for identity). A secret key in a URL ends
+  in history, logs and referrers. The hand-off's fragment carries a signed,
+  public World Location and nothing else.
 - **No shared session backend.** Each app keeps its own login.
 - **No presence protocol.** The Blobbi's arrival in the room is a picture,
   not a fact: Island shows it because Island reads the same 31124 event.
