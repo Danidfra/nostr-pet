@@ -180,9 +180,13 @@ describe('Home: one Blobbi', () => {
     expect(screen.getByTestId('last-interaction')).toHaveTextContent(/min ago/);
     await userEvent.keyboard('{Escape}');
 
+    // The Island is one of the Worlds (the top-left button, unlocked for an account); the door in the room is the other way
+    expect(screen.getByTestId('worlds-button')).toHaveAttribute('data-locked', 'false');
+    expect(screen.queryByTestId('worlds-button-lock')).toBeNull();
     await openMenu();
-    // The Island is one of the Worlds since M14.1 (menu → Worlds); the door in the room is the other way
-    await userEvent.click(screen.getByTestId('menu-worlds'));
+    expect(screen.queryByTestId('menu-worlds')).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByTestId('worlds-button'));
     const island = await screen.findByTestId('world-island');
     expect(island.tagName).toBe('BUTTON');
     expect(island).toHaveAttribute('data-open', 'true');
@@ -217,8 +221,7 @@ describe('Home: travel to a world', () => {
     relay.state = [BROOK];
     renderHome();
     await screen.findByTestId('blobbi-chip');
-    await openMenu();
-    await userEvent.click(screen.getByTestId('menu-worlds'));
+    await userEvent.click(screen.getByTestId('worlds-button'));
     const pixel = await screen.findByTestId('world-pixel');
     expect(pixel.tagName).toBe('BUTTON');
     expect(pixel).toHaveTextContent('Visit');
@@ -227,8 +230,7 @@ describe('Home: travel to a world', () => {
     const card = await screen.findByTestId('departure-card');
     expect(card).toHaveTextContent('Brook is off to Blobbi Pixel');
     // While it leaves, the worlds' doors are shut: no second departure
-    await openMenu();
-    await userEvent.click(screen.getByTestId('menu-worlds'));
+    await userEvent.click(screen.getByTestId('worlds-button'));
     expect(await screen.findByTestId('world-island')).toBeDisabled();
     await userEvent.keyboard('{Escape}');
     // The departure plays to its end, and only then is the page asked to go
@@ -242,13 +244,11 @@ describe('Home: travel to a world', () => {
     relay.state = [BROOK];
     renderHome();
     await screen.findByTestId('blobbi-chip');
-    await openMenu();
-    await userEvent.click(screen.getByTestId('menu-worlds'));
+    await userEvent.click(screen.getByTestId('worlds-button'));
     await userEvent.click(await screen.findByTestId('world-island'));
     await userEvent.click(await screen.findByTestId('departure-stay'));
     expect(screen.queryByTestId('departure-card')).toBeNull();
-    await openMenu();
-    await userEvent.click(screen.getByTestId('menu-worlds'));
+    await userEvent.click(screen.getByTestId('worlds-button'));
     expect(await screen.findByTestId('world-island')).toBeEnabled();
   });
 });

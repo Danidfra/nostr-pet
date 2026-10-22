@@ -638,8 +638,7 @@ describe('world travel off (the default build)', () => {
     try {
       renderAt('/');
       await waitFor(() => expect(presenceOf()).toBe('present'), WAIT);
-      fireEvent.click(screen.getByTestId('menu-button'));
-      fireEvent.click(await screen.findByTestId('menu-worlds'));
+      fireEvent.click(await screen.findByTestId('worlds-button'));
       fireEvent.click(await screen.findByTestId('world-island'));
       await waitFor(() => expect(assign).toHaveBeenCalledWith(worldById('island')!.url), WAIT);
       expect(signer.signEvent).not.toHaveBeenCalled();
@@ -1064,8 +1063,7 @@ describe('leaving for another world (the Worlds sheet)', () => {
   });
 
   async function openIsland() {
-    fireEvent.click(screen.getByTestId('menu-button'));
-    fireEvent.click(await screen.findByTestId('menu-worlds'));
+    fireEvent.click(await screen.findByTestId('worlds-button'));
     fireEvent.click(await screen.findByTestId('world-island'));
   }
   /** The departure card's phases as they came, each with what the signer had been asked and what had been sent by then. */

@@ -253,7 +253,7 @@ describe('M14.1: the top, the dock, the menus', () => {
     await userEvent.click(chip);
     const sheet = await screen.findByTestId('blobbi-sheet');
     expect(within(sheet).getByTestId('stage-track')).toHaveAttribute('data-stage', 'baby');
-    // The Journey is the Blobbi's (its sheet), the worlds are the menu's; neither is a button up top
+    // The Journey is the Blobbi's (its sheet); the worlds are the globe at the top left, locked for a guest, not the menu's
     await userEvent.click(within(sheet).getByTestId('sheet-journey'));
     expect(await screen.findByTestId('journey-sheet')).toBeInTheDocument();
     await userEvent.keyboard('{Escape}');
@@ -261,9 +261,13 @@ describe('M14.1: the top, the dock, the menus', () => {
     const menu = await screen.findByTestId('menu-sheet');
     expect(within(menu).queryByTestId('enter-island')).toBeNull();
     expect(within(menu).getByTestId('menu-about')).toBeInTheDocument();
-    await userEvent.click(within(menu).getByTestId('menu-worlds'));
-    const worlds = await screen.findByTestId('worlds-sheet');
-    expect(within(worlds).getByTestId('world-island')).toHaveAttribute('data-guest', 'true');
+    expect(within(menu).queryByTestId('menu-worlds')).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    const globe = within(screen.getByTestId('hud-top')).getByTestId('worlds-button');
+    expect(globe).toHaveAttribute('data-locked', 'true');
+    await userEvent.click(globe);
+    expect(screen.queryByTestId('worlds-sheet')).toBeNull();
+    expect(screen.getByTestId('worlds-locked-word')).toHaveTextContent('Worlds open once Pip is saved to an account.');
   }, 30_000);
 
   it('in the room the name is centred and display only too; worlds and journey are reached the same way; no top buttons for them', async () => {
@@ -276,6 +280,8 @@ describe('M14.1: the top, the dock, the menus', () => {
     expect(name).toHaveTextContent('Pip');
     expect(screen.queryByTestId('room-worlds')).toBeNull();
     expect(screen.queryByTestId('room-journey')).toBeNull();
+    // The worlds' globe stands at the left of the room's header too, locked for a guest
+    expect(within(screen.getByTestId('room-header')).getByTestId('worlds-button')).toHaveAttribute('data-locked', 'true');
     await userEvent.click(screen.getByTestId('room-bar-blobbi'));
     const sheet = await screen.findByTestId('room-blobbi-sheet');
     expect(within(sheet).getByTestId('stage-track')).toBeInTheDocument();

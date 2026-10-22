@@ -6,6 +6,7 @@ import { ROOM_PATH } from '@/lib/home-experience';
 import { RoomLoading } from '@/features/room/RoomLoading';
 import { GuestLayers } from '@/features/guest/GuestLayers';
 import { CompanionLayer } from '@/features/companion/CompanionLayer';
+import { WorldsAccessWatch } from '@/features/worlds/WorldsAccessWatch';
 
 /**
  * The 3D room (`/room`, beta): in every build, loaded only when visited
@@ -27,6 +28,8 @@ export function AppRouter({ devLab = null }: { devLab?: ReactNode }) {
     <>
       {/* The guest's save, sign-in and conflict layers, above whichever home is shown (M14.1) */}
       <GuestLayers />
+      {/* The Worlds door watched across both homes, so a save that opens it is seen whole (src/features/worlds) */}
+      <WorldsAccessWatch />
       {/* The companion shared with the other Blobbi games: a word when it could not be, a question when unclear */}
       <CompanionLayer />
       <Routes>

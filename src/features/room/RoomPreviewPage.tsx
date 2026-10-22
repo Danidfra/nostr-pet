@@ -68,6 +68,8 @@ import { useRoomItemDrag } from './hooks/useRoomItemDrag';
 import { RoomBottomBar, RoomCareCards } from './components/RoomCarePanel';
 import { RoomHeader } from './components/RoomHeader';
 import { WorldsSheet } from '@/features/worlds/WorldsSheet';
+import { WorldsButton } from '@/features/worlds/WorldsButton';
+import { useWorldsAccess } from '@/features/worlds/useWorldsAccess';
 import { useGuest, useGuestUi, useSaveInvite } from '@/features/guest';
 import { GuestInvite } from '@/features/guest/GuestInvite';
 import { GuestStatusPill, GuestStatusSheet, SavedPill } from '@/features/guest/GuestStatus';
@@ -666,6 +668,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [lookGuide]);
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [worldsOpen, setWorldsOpen] = useState(false);
+  // The worlds' own button, top left, locked until a guest's Blobbi is saved (src/features/worlds)
+  const worldsDoor = useWorldsAccess();
   const [statusOpen, setStatusOpen] = useState(false);
   const [adoptOpen, setAdoptOpen] = useState(false);
   const { noteCare, noteNapped } = journeyBook;
@@ -1195,7 +1199,12 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             stage={blobbi.stage}
             onOpenMenu={() => setMenuOpen(true)}
             // The guest's status by the name (M14.1); "Saved to Nostr" once a save landed on this visit
-            leading={guestActive ? <GuestStatusPill onOpen={() => setStatusOpen(true)} /> : guestUi.saved ? <SavedPill /> : null}
+            leading={
+              <>
+                <WorldsButton door={worldsDoor} name={blobbi.name} variant="room" reducedMotion={reducedMotion} onOpen={() => setWorldsOpen(true)} onSave={guestUi.requestSave} />
+                {guestActive ? <GuestStatusPill onOpen={() => setStatusOpen(true)} /> : guestUi.saved ? <SavedPill /> : null}
+              </>
+            }
             // A guest's world is on this device: the relays' health is not its business (M14)
             connection={guestActive ? undefined : connection}
             streak={streak}
@@ -1334,7 +1343,6 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         inRoom
-        onOpenWorlds={() => setWorldsOpen(true)}
         roomSettings={
           <RoomSettings
             quality={{ preference: quality.preference, level: quality.level, onChange: quality.setPreference }}
@@ -1343,7 +1351,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         }
       />
       <WorldsSheet
-        open={worldsOpen}
+        open={worldsOpen && !worldsDoor.locked}
         onClose={() => setWorldsOpen(false)}
         blobbi={blobbi}
         onTravel={travel}

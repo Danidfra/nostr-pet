@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Check, ChevronRight, Globe2, HelpCircle, KeyRound, Moon, Sparkles, Sun, Sunrise, UserRound, Volume2, VolumeX } from 'lucide-react';
+import { Check, ChevronRight, HelpCircle, KeyRound, Moon, Sparkles, Sun, Sunrise, UserRound, Volume2, VolumeX } from 'lucide-react';
 import { deviceOnlyLine, noStorageLine, useGuestSnapshot, useGuestUi } from '@/features/guest';
 import { parseModernBlobbiEvent } from '@blobbi-kit/core';
 import { guestBlobbiEvent } from '@/features/guest/guest-world';
@@ -19,8 +19,6 @@ interface MenuSheetProps {
   inRoom?: boolean;
   /** The 3D room's own settings (how the Blobbi is drawn, graphics, the view), shown as one section when in the room. */
   roomSettings?: ReactNode;
-  /** The connected worlds (the Worlds sheet), from either home. */
-  onOpenWorlds?: () => void;
 }
 
 const APPEARANCE_ICON = { island: Sunrise, day: Sun, night: Moon } as const;
@@ -29,14 +27,16 @@ const APPEARANCE_ICON = { island: Sunrise, day: Sun, night: Moon } as const;
  * The game menu: the one settings entry of the game, a screen over the home
  * with a few large controls, not a settings list. On the classic home the
  * way out to the Island first; in the room the Island is one of the Worlds
- * (the globe in the header), so the menu does not repeat it (M12.1). Then
+ * (the globe in the header), so the menu does not repeat it (M12.1). The
+ * Worlds themselves are the globe at the top left of both homes, not a tile
+ * here. Then
  * the account as one clearly named tile (its own screen: the profile, the
  * key backup, sign out; M14.1), the room's settings when in the room, sound
  * and lighting as big toggles. Which home opens is the switch in the upper
  * right of both homes, not a setting here (M14.1). A guest sees Save my
  * Blobbi and I already have an account instead of the account.
  */
-export function MenuSheet({ open, onClose, inRoom = false, roomSettings, onOpenWorlds }: MenuSheetProps) {
+export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuSheetProps) {
   const env = useEnvironment();
   const sound = useSound();
   const { user, metadata } = useCurrentUser();
@@ -63,10 +63,6 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings, onOpenW
   const openAbout = () => {
     onClose();
     setAboutOpen(true);
-  };
-  const openWorlds = () => {
-    onClose();
-    onOpenWorlds?.();
   };
 
   return (
@@ -102,19 +98,6 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings, onOpenW
                 <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
               </button>
             </section>
-          )}
-
-          {user && onOpenWorlds && (
-            <button type="button" onClick={openWorlds} data-testid="menu-worlds" className={`menu-tile ${guest ? '' : 'menu-tile--hero'}`}>
-              <span className="menu-tile__icon">
-                <Globe2 className="h-7 w-7" aria-hidden />
-              </span>
-              <span className="menu-tile__text">
-                <span className="menu-tile__title">Worlds</span>
-                <span className="menu-tile__sub">{guest ? `Blobbi Island, Rumble and Nostr Farm. The doors open once ${guestName} is saved.` : 'Blobbi Island, Rumble and Nostr Farm. The same Blobbi goes with you.'}</span>
-              </span>
-              <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
-            </button>
           )}
 
           {user && !guest && (

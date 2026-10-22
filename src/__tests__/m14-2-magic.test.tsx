@@ -154,10 +154,13 @@ describe('M14.2: the words', () => {
     expect(within(menu).getByTestId('menu-save-blobbi')).toHaveTextContent(/return to from other devices/);
     expect(guestBlock.textContent).not.toMatch(/relay|Nostr/i);
     expect(guestBlock.textContent).not.toContain(';');
-    await userEvent.click(within(menu).getByTestId('menu-worlds'));
-    const worlds = await screen.findByTestId('worlds-sheet');
-    expect(within(worlds).getByTestId('worlds-note')).toHaveTextContent(/Save Pip and these doors open/);
-    expect(within(worlds).getByTestId('worlds-note').textContent).not.toContain(';');
+    await userEvent.keyboard('{Escape}');
+    // The locked worlds say why by name, in a sentence without a semicolon
+    await userEvent.click(screen.getByTestId('worlds-button'));
+    const word = screen.getByTestId('worlds-locked-word');
+    expect(word).toHaveTextContent(/Worlds open once Pip is saved/);
+    expect(word.textContent).not.toContain(';');
+    expect(word.textContent).not.toMatch(/relay|Nostr/i);
     await userEvent.keyboard('{Escape}');
     // The invitation to save: the little world, other devices, the key said simply; no relays
     await userEvent.click(screen.getByTestId('menu-button'));

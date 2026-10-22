@@ -58,6 +58,8 @@ import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
 import { JourneySheet } from '@/features/journey/JourneySheet';
 import type { ObjectiveAction } from '@/features/journey/journey';
 import { WorldsSheet } from '@/features/worlds/WorldsSheet';
+import { WorldsButton } from '@/features/worlds/WorldsButton';
+import { useWorldsAccess } from '@/features/worlds/useWorldsAccess';
 import { DepartureCard } from '@/features/worlds/DepartureCard';
 import { useWorldDeparture, type NavigateOutcome } from '@/features/worlds/useWorldDeparture';
 import type { World } from '@/features/worlds/worlds';
@@ -954,10 +956,17 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const modeSwitch = useModeSwitch();
   // The guest's status, by the name (M14.1): a word, and a short explanation on tap; "Saved to Nostr" once a save landed
   const [statusOpen, setStatusOpen] = useState(false);
-  const leading = guestActive ? <GuestStatusPill onOpen={() => setStatusOpen(true)} /> : guestUi.saved ? <SavedPill /> : null;
-  // The Journey and the worlds, from the Blobbi's sheet and the menu (M14.1): the same screens the 3D room has
+  // The Journey (from the Blobbi's sheet) and the worlds (the top-left button): the same screens the 3D room has
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [worldsOpen, setWorldsOpen] = useState(false);
+  // The worlds' own button, top left, locked until a guest's Blobbi is saved (src/features/worlds)
+  const worldsDoor = useWorldsAccess();
+  const leading = (
+    <>
+      <WorldsButton door={worldsDoor} name={blobbi.name} variant="hud" reducedMotion={reducedMotion} onOpen={() => setWorldsOpen(true)} onSave={requestSave} />
+      {guestActive ? <GuestStatusPill onOpen={() => setStatusOpen(true)} /> : guestUi.saved ? <SavedPill /> : null}
+    </>
+  );
   const saveInvite = useSaveInvite({ hatched: !isEgg, quiet: homeQuiet && !statusOpen && !journeyOpen && !worldsOpen });
   const evolveTasks = lifecycle.view.process === 'evolving' ? lifecycle.view.tasks : NO_TASKS;
   const journeyBook = useJourney({ pubkey, companions, current: blobbi, profile, evolveTasks });
@@ -1199,10 +1208,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               setJourneyOpen(true);
             }}
           />
-          <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} onOpenWorlds={() => setWorldsOpen(true)} />
+          <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} />
           <JourneySheet open={journeyOpen} onClose={() => setJourneyOpen(false)} chapters={journeyBook.chapters} onAction={onJourneyAction} progress={{ xp: profile?.xp, level: journeyBook.level }} daily={daily} canAdoptMore={false} />
           <WorldsSheet
-            open={worldsOpen}
+            open={worldsOpen && !worldsDoor.locked}
             onClose={() => setWorldsOpen(false)}
             blobbi={blobbi}
             guest={guestActive}

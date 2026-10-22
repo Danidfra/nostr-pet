@@ -4590,6 +4590,61 @@
   @media (prefers-reduced-motion: reduce) {
     .look-guide, .look-guide__target > div:first-child, .look-card--lit { animation: none !important; }
   }
+  /* The same bubble hanging under a control at the top of the screen, its point upward */
+  .look-guide--below { top: calc(100% + 0.5em); bottom: auto; }
+  .look-guide--below .look-guide__bubble::after {
+    top: -0.42em;
+    bottom: auto;
+    left: 1.05em;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: inherit;
+    border-top: inherit;
+  }
+
+  /* The Worlds button, top left of both homes: the menu's round control, the globe tinted, a lock while locked */
+  .worlds-slot { position: relative; display: inline-flex; flex-shrink: 0; }
+  .worlds-button { position: relative; color: hsl(var(--primary)); }
+  .worlds-button.hud-icon-button svg { width: 1.3rem; height: 1.3rem; }
+  .worlds-button.room-header-back { background: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); }
+  .worlds-button.room-header-back:hover { background: hsl(var(--primary) / 0.16); color: hsl(var(--primary)); }
+  .worlds-button--locked,
+  .worlds-button--locked.room-header-back,
+  .worlds-button--locked.room-header-back:hover { color: hsl(var(--foreground) / 0.5); }
+  .worlds-button--locked.room-header-back { background: hsl(var(--foreground) / 0.06); }
+  .worlds-button__lock {
+    position: absolute;
+    right: -0.2rem;
+    bottom: -0.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 9999px;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground) / 0.85);
+    box-shadow: 0 2px 6px -2px hsl(var(--foreground) / 0.35);
+  }
+  .worlds-button .worlds-button__lock svg { width: 0.68rem; height: 0.68rem; }
+  /* Just opened by a save: the look guide's glow, for as long as its bubble stays */
+  .worlds-button--guide { animation: look-guide-glow 1.8s ease-in-out infinite; }
+  .worlds-button--still { animation: none !important; box-shadow: 0 0 0 3px hsl(var(--primary) / 0.5); }
+  @media (prefers-reduced-motion: reduce) {
+    .worlds-button--guide { animation: none !important; box-shadow: 0 0 0 3px hsl(var(--primary) / 0.5); }
+  }
+  /* Why it is locked: the bubble wraps, with the save's own door under the line */
+  .worlds-word { white-space: normal; width: max-content; max-width: min(15rem, calc(100vw - 2rem)); }
+  .worlds-word__bubble { display: flex; flex-direction: column; align-items: flex-start; gap: 0.55em; font-weight: 600; }
+  .worlds-word__save {
+    padding: 0.4em 0.85em;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-weight: 700;
+  }
+  .worlds-word__save:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
 
   /* The Appearance card: its own icon, the look in force named, the two looks with the Blobbi small in each */
   .look-card { border-color: hsl(var(--primary) / 0.35); background: linear-gradient(180deg, hsl(var(--primary) / 0.08), hsl(var(--card)) 60%); }
@@ -4732,7 +4787,7 @@
 @layer components {
   /* The Blobbi's name, centred on the screen above both homes, display only */
   .hud-top { justify-content: space-between; }
-  .hud-top__left { display: flex; align-items: center; min-width: 2.75rem; pointer-events: auto; }
+  .hud-top__left { display: flex; align-items: center; gap: 0.4rem; min-width: 2.75rem; pointer-events: auto; }
   .hud-name {
     position: absolute;
     left: 50%;
@@ -4826,6 +4881,12 @@
   .status-pill--guest:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--card)), 0 0 0 4px hsl(var(--ring)); }
   .status-pill--saved { color: hsl(150 60% 25%); border-color: hsl(150 60% 45% / 0.7); }
   @media (max-width: 359px) { .status-pill span { display: none; } .status-pill { padding: 0 0.55rem; } }
+  /* Beside the Worlds button the word fits only on a wide top; narrower, the pill keeps its icon (and its label) */
+  .hud-top, .room-header { container: game-top / inline-size; }
+  @container game-top (max-width: 639px) { .worlds-slot ~ .status-pill--guest > span { display: none; } .worlds-slot ~ .status-pill--guest { padding: 0 0.55rem; } }
+  @container game-top (max-width: 419px) { .worlds-slot ~ .status-pill--saved > span { display: none; } .worlds-slot ~ .status-pill--saved { padding: 0 0.55rem; } }
+  /* The narrowest tops: a long name stops short of the Worlds button and the pill beside it */
+  @container game-top (max-width: 379px) { .hud-name { max-width: 38%; } .room-header-name { max-width: 42%; } }
   .room-header .status-pill { font-size: 0.68em; height: 2.1em; }
 
   .guest-status { display: flex; flex-direction: column; gap: 0.8rem; padding-top: 0.25rem; }

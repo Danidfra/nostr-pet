@@ -95,8 +95,7 @@ describe('the fixture route', () => {
     fireEvent.click(screen.getByTestId('sheet-journey'));
     expect(await screen.findByTestId('journey-sheet')).toBeInTheDocument();
     fireEvent.keyDown(screen.getByTestId('journey-sheet'), { key: 'Escape' });
-    fireEvent.click(screen.getByTestId('room-menu'));
-    fireEvent.click(screen.getByTestId('menu-worlds'));
+    fireEvent.click(screen.getByTestId('worlds-button'));
     expect(await screen.findByTestId('worlds-sheet')).toBeInTheDocument();
     fireEvent.keyDown(screen.getByTestId('worlds-sheet'), { key: 'Escape' });
     await new Promise((r) => setTimeout(r, 100));

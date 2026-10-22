@@ -100,8 +100,7 @@ describe('worlds from the room', () => {
   it('lists every open world as a button, the Pixel world among them, never a link', async () => {
     relay.all = [brook(), profileEvent({ currentCompanion: getTagValue(brook().tags, 'd') })];
     renderRoom();
-    await userEvent.click(await screen.findByTestId('room-menu'));
-    await userEvent.click(await screen.findByTestId('menu-worlds'));
+    await userEvent.click(await screen.findByTestId('worlds-button'));
     const sheet = await screen.findByTestId('worlds-sheet');
     for (const id of ['island', 'rumble', 'farm', 'pixel']) {
       const card = within(sheet).getByTestId(`world-${id}`);
@@ -125,18 +124,17 @@ describe('worlds from the room', () => {
     // The rest of the menu stays: the classic home, and the account
     expect(within(menu).getByTestId('menu-room-settings')).toBeInTheDocument();
     expect(within(menu).getByRole('heading', { name: /account/i })).toBeInTheDocument();
-    // The Worlds door still leads to the Island
+    // The Worlds are no tile of the menu any more: the globe at the top left is their one door, and leads to the Island
+    expect(within(menu).queryByTestId('menu-worlds')).toBeNull();
     await userEvent.keyboard('{Escape}');
-    await userEvent.click(await screen.findByTestId('room-menu'));
-    await userEvent.click(await screen.findByTestId('menu-worlds'));
+    await userEvent.click(await screen.findByTestId('worlds-button'));
     expect(within(await screen.findByTestId('worlds-sheet')).getByTestId('world-island')).toHaveAttribute('data-open', 'true');
   });
 
   it('a world chosen: the Blobbi says goodbye; Stay keeps it home and nothing navigates or is written', async () => {
     relay.all = [brook()];
     renderRoom();
-    await userEvent.click(await screen.findByTestId('room-menu'));
-    await userEvent.click(await screen.findByTestId('menu-worlds'));
+    await userEvent.click(await screen.findByTestId('worlds-button'));
     await userEvent.click(await screen.findByTestId('world-island'));
     expect(screen.queryByTestId('worlds-sheet')).toBeNull();
     const card = await screen.findByTestId('departure-card');

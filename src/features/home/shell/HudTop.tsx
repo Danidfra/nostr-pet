@@ -12,15 +12,15 @@ interface HudTopProps {
   onOpenMenu: () => void;
   /** Connection health; the chip shows only when it is not healthy. */
   connection?: { level: HealthLevel; online: boolean; onRetry: () => void };
-  /** Something small on the left (the guest's "On this device", the saved mark). */
+  /** On the left: the Worlds button, then a word (the guest's "On this device", the saved mark). */
   leading?: ReactNode;
 }
 
 /**
  * The top of the HUD (M14.1): the Blobbi's name in the middle of the screen,
  * display only, readable over any room; on the right the streak, when there
- * is one, the connection dot or chip, and the menu; on the left whatever the
- * home wants to say in a word (a guest's status). Everything about the
+ * is one, the connection dot or chip, and the menu; on the left the Worlds
+ * button and whatever the home wants to say in a word (a guest's status). Everything about the
  * Blobbi (its numbers, its stage, the other Blobbis, its lifecycle) is the
  * dock's Blobbi button, bottom left, so nothing up here is a door to it.
  * Root is pointer-transparent; only the controls take taps.
