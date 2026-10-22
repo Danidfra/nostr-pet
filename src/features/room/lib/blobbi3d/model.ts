@@ -29,6 +29,7 @@ import { buildAppendage3d, type AppendageKind, type Built3dAppendage } from './a
 import { assertSupported } from './compat';
 import { faceKey, type ProceduralFace } from '@/features/expression/faces';
 import { domeHeight } from './eyes';
+import { LID_LINE_LIFT, lidClip, lidGrid, lidHeight } from './lid';
 
 export type { Ring, Surface } from './surface';
 export type { EyeRig } from './eyes';
@@ -345,16 +346,20 @@ function buildFeatures(face: Face, surface: Surface, parts: Parts, front: Front,
     if (!lid?.closed) closed = false;
     if (!lid) continue;
     if (!lid.closed) {
-      // The lid's skin, over the eye's dome and above all the eye's layers; its colour the skin's, shaded as the kit tints it
+      // The lid's skin, clipped to the eye as the drawing's is and raised over the dome and every layer on it (lid.ts);
+      // its colour the skin's, shaded as the kit tints it
       const colour = new THREE.Color(skinColour).multiplyScalar(1 - 0.5 * Math.min(0.25, Math.max(0, lid.tint ?? 0)));
-      const height = (x: number, y: number) => domeHeight(eye.white, x, y) + 5.2;
+      const material = parts.track(new THREE.MeshStandardMaterial({ color: colour, roughness: 0.78, side: THREE.DoubleSide }));
       for (const d of [lid.upper, lid.lower]) {
-        if (!d) continue;
-        const fill = pathFill(d, surface, height, parts, parts.track(new THREE.MeshStandardMaterial({ color: colour, roughness: 0.78, side: THREE.DoubleSide })));
-        if (fill) group.add(fill);
+        const skin = d ? lidSkin(d, eye.white, surface, parts, material) : null;
+        if (skin) group.add(skin);
       }
     }
-    group.add(parts.tube(surfacePoints(surface, lid.line, (domeHeight(eye.white, eye.white.cx, eye.white.cy) + 5.6) * U), (lid.lineWidth / 2) * U, parts.material(palette.feature, lid.lineOpacity ?? 1)));
+    // The edge, inked on the lid's own surface so the two move as one; a shut eye has no lid skin, its line stays over the dome
+    const line = lid.closed
+      ? surfacePoints(surface, lid.line, (domeHeight(eye.white, eye.white.cx, eye.white.cy) + 5.6) * U)
+      : samplePath(lid.line, 8).flatMap((poly) => poly.points.map((p) => raisedOnSkin(surface, p.x, p.y, lidHeight(eye.white, p.x, p.y) + LID_LINE_LIFT)));
+    group.add(parts.tube(line, (lid.lineWidth / 2) * U, parts.material(palette.feature, lid.lineOpacity ?? 1)));
   }
   return { group, closed, irisScale: face.eyes[0]?.iris && face.eyes[0]?.white ? irisScaleOf(face) : 1 };
 }
@@ -363,6 +368,30 @@ function buildFeatures(face: Face, surface: Surface, parts: Parts, front: Front,
 function irisScaleOf(face: Face): number {
   const eye = face.eyes[0];
   return eye.iris.rx > 0 && eye.white.rx > 0 ? eye.iris.rx / eye.white.rx : 1;
+}
+
+/** A front-view point on the skin raised toward the viewer of the front view by `height` root units, as the eyes are (eyes.ts). */
+function raisedOnSkin(surface: Surface, x: number, y: number, height: number): THREE.Vector3 {
+  return surface.at(x, y).position.add(new THREE.Vector3(0, 0, height * U));
+}
+
+/** A lid's skin region, clipped to its eye and laid over it as a grid that follows the dome (lid.ts). */
+function lidSkin(d: string, white: Ellipse, surface: Surface, parts: Parts, material: THREE.Material): THREE.Mesh | null {
+  const region = samplePath(d, 8)[0];
+  const grid = region ? lidGrid(region.points, lidClip(white)) : null;
+  if (!grid) return null;
+  const positions: number[] = [];
+  for (const p of grid.points) {
+    const v = raisedOnSkin(surface, p.x, p.y, lidHeight(white, p.x, p.y));
+    positions.push(v.x, v.y, v.z);
+  }
+  const geometry = parts.track(new THREE.BufferGeometry());
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(grid.index);
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = 'lid';
+  return mesh;
 }
 
 /** A closed path filled and laid on the skin, raised by `height` root units at each point. */
