@@ -22,10 +22,26 @@ describe('finalizeTemplate', () => {
   it('stamps a replaceable republish strictly after the event it replaces, even within the same second', () => {
     const prev = blobbiEvent('0000000001', { createdAt: 500 });
     expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500).created_at).toBe(501);
-    // A device clock behind the last write still writes after it
-    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 420).created_at).toBe(501);
+    // A device clock a little behind the last write still writes after it
+    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 470).created_at).toBe(501);
+    // Beyond the bound (80 s behind), the clock is used: prev is not chased
+    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 420).created_at).toBe(420);
     // Time has moved on: the clock decides
     expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 900).created_at).toBe(900);
+  });
+
+  it('never follows a prev stamped far in the future (a wrong clock elsewhere)', () => {
+    const prev = blobbiEvent('0000000001', { createdAt: 500 + 3600 });
+    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500).created_at).toBe(500);
+  });
+
+  it('keeps rapid republishes, each over the last, within a minute of the clock', () => {
+    let prev = blobbiEvent('0000000001', { createdAt: 500 });
+    for (let i = 0; i < 100; i++) {
+      const out = finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500);
+      expect(out.created_at - 500).toBeLessThanOrEqual(60);
+      prev = { ...prev, created_at: out.created_at };
+    }
   });
 
   it('keeps a created_at the template chose, and bumps only over the same replaceable kind', () => {

@@ -23,6 +23,7 @@
 import { KIND_BLOBBI_STATE, isModernBlobbiEvent, parseModernBlobbiEvent, updateBlobbiTags, type BlobbiCompanion, type NostrEvent } from '@blobbi-kit/core';
 import type { PublishEventTemplate } from '@blobbi-kit/react';
 import { normalizeBlobbiName } from '@/features/adoption/adoption-plan';
+import { stampAfter } from '@/lib/created-at';
 
 export type NameCheck = { ok: true; name: string } | { ok: false; reason: 'empty' | 'too-long' | 'unchanged' };
 
@@ -35,13 +36,13 @@ export function checkNewName(raw: string, current: string): NameCheck {
   return { ok: true, name: out.name };
 }
 
-/** The republish: only `name` changes; content, every other tag and the identity stay; `created_at` after the base's. */
+/** The republish: only `name` changes; content, every other tag and the identity stay; `created_at` after the base's, within a bound (`stampAfter`). */
 export function planRename(companion: BlobbiCompanion, name: string, now: number): PublishEventTemplate & { tags: string[][]; content: string; created_at: number; prev: NostrEvent } {
   return {
     kind: KIND_BLOBBI_STATE,
     content: companion.event.content,
     tags: updateBlobbiTags(companion.allTags, { name }),
-    created_at: Math.max(now, companion.event.created_at + 1),
+    created_at: stampAfter(companion.event.created_at, now),
     prev: companion.event,
   };
 }

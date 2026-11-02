@@ -6,6 +6,7 @@ import type { NostrEvent } from '@blobbi-kit/core';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { carryGate } from '@/lib/sync-consent';
 import { t } from '@/i18n';
+import { stampAfter } from '@/lib/created-at';
 
 /** NIP-89 client name stamped on every event this app publishes. */
 export const CLIENT_NAME = 'Blobbi';
@@ -20,7 +21,7 @@ export function isReplaceableKind(kind: number): boolean {
  * Finish a kit event template into what the signer receives: the `client`
  * tag, and `published_at` preserved from `prev` (or set to `created_at` on a
  * first publish) for replaceable kinds. A replaceable republish over `prev`
- * is stamped strictly after it (`created_at` at least `prev.created_at + 1`)
+ * is stamped after it within a bounded window (`stampAfter`, `lib/created-at`)
  * unless the template chose its own: in the same second NIP-01 keeps the
  * lower id, so two quick writes (two cares in a row) could otherwise leave
  * the older state as the one relays keep. Pure, so the invariants are
@@ -30,8 +31,8 @@ export function finalizeTemplate(template: PublishEventTemplate, now: number = M
   const { prev, ...rest } = template;
   const tags = [...(rest.tags ?? [])];
   if (!tags.some(([name]) => name === 'client')) tags.push(['client', CLIENT_NAME]);
-  const after = prev && prev.kind === rest.kind && isReplaceableKind(rest.kind) ? prev.created_at + 1 : 0;
-  const created_at = rest.created_at ?? Math.max(now, after);
+  const over = prev && prev.kind === rest.kind && isReplaceableKind(rest.kind) ? prev.created_at : undefined;
+  const created_at = rest.created_at ?? stampAfter(over, now);
   if (isReplaceableKind(rest.kind) && !tags.some(([name]) => name === 'published_at')) {
     const previous = prev?.tags.find(([name]) => name === 'published_at');
     tags.push(['published_at', previous ? previous[1] : String(created_at)]);
