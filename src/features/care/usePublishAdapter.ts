@@ -19,14 +19,19 @@ export function isReplaceableKind(kind: number): boolean {
 /**
  * Finish a kit event template into what the signer receives: the `client`
  * tag, and `published_at` preserved from `prev` (or set to `created_at` on a
- * first publish) for replaceable kinds. Pure, so the invariants are testable
- * without a signer.
+ * first publish) for replaceable kinds. A replaceable republish over `prev`
+ * is stamped strictly after it (`created_at` at least `prev.created_at + 1`)
+ * unless the template chose its own: in the same second NIP-01 keeps the
+ * lower id, so two quick writes (two cares in a row) could otherwise leave
+ * the older state as the one relays keep. Pure, so the invariants are
+ * testable without a signer.
  */
 export function finalizeTemplate(template: PublishEventTemplate, now: number = Math.floor(Date.now() / 1000)) {
   const { prev, ...rest } = template;
   const tags = [...(rest.tags ?? [])];
   if (!tags.some(([name]) => name === 'client')) tags.push(['client', CLIENT_NAME]);
-  const created_at = rest.created_at ?? now;
+  const after = prev && prev.kind === rest.kind && isReplaceableKind(rest.kind) ? prev.created_at + 1 : 0;
+  const created_at = rest.created_at ?? Math.max(now, after);
   if (isReplaceableKind(rest.kind) && !tags.some(([name]) => name === 'published_at')) {
     const previous = prev?.tags.find(([name]) => name === 'published_at');
     tags.push(['published_at', previous ? previous[1] : String(created_at)]);
