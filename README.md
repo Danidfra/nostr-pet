@@ -213,9 +213,12 @@ Two things to know:
     mkcert's docs say), then
     `BLOBBI_DEV_TLS_CERT=./192.168.1.4+1.pem BLOBBI_DEV_TLS_KEY=./192.168.1.4+1-key.pem npm run dev`
     and open `https://192.168.1.4:8080/`;
-  - **Tailscale** (`tailscale serve --bg 8080`): a `https://<mac>.<tailnet>.ts.net`
-    address with a publicly valid certificate, reachable from the phone on
-    the same tailnet, nothing installed on the phone.
+  - **Tailscale** (`tailscale serve --bg 8080`, undone with
+    `tailscale serve reset`): a `https://<mac>.<tailnet>.ts.net` address
+    with a publicly valid certificate, nothing to trust by hand. The phone
+    needs the Tailscale app, signed in to the same tailnet. The dev server
+    allows `*.ts.net` hosts for this (`server.allowedHosts` in
+    `vite.config.ts`); any other unknown host still gets a 403.
 
   Never put a self-signed or production certificate in the repo, and never
   work around the missing API with a weaker random source.
