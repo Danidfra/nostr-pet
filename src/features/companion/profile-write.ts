@@ -50,6 +50,7 @@ import { verifyEvent } from 'nostr-tools/pure';
 import { CHOICE_FRESH_MS, orderChoices, replaces, type ProfileStamp, type SeenProfile } from './choice-order';
 import { profileTemplate } from '@/features/adoption/adoption-plan';
 import type { PendingWrite } from './choice-store';
+import { stampAfter } from '@/lib/created-at';
 
 export interface ProfileFilter {
   kinds: number[];
@@ -167,7 +168,7 @@ export function buildCompanionProfile(base: NostrEvent, owner: string, d: string
   const has = tags.filter((t) => t[0] === 'has' && t[1]).map((t) => t[1]);
   const updates: Record<string, string | string[]> = { current_companion: d };
   if (!has.includes(d)) updates.has = [...has, d];
-  return { kind: KIND_BLOBBONAUT_PROFILE, created_at: Math.max(nowSeconds, base.created_at + 1), tags: updateBlobbonautTags(tags, updates), content: base.content };
+  return { kind: KIND_BLOBBONAUT_PROFILE, created_at: stampAfter(base.created_at, nowSeconds), tags: updateBlobbonautTags(tags, updates), content: base.content };
 }
 
 /**

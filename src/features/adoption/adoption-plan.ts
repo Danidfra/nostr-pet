@@ -55,6 +55,7 @@ import {
 } from '@blobbi-kit/core';
 import { createHatchMissions, type PublishEventTemplate } from '@blobbi-kit/react';
 import { t } from '@/i18n';
+import { stampAfter } from '@/lib/created-at';
 
 /**
  * THE CREATION RULE OF THIS APP: which visual generation a Blobbi adopted
@@ -160,8 +161,8 @@ export function profileTemplate({ ownerPubkey, profile, d, suggestedName, now }:
   const has = mergeHasForAdoption(profile.has, profile.has, d);
   const withoutCurrent = profile.allTags.filter(([name]) => name !== 'current_companion');
   const tags = updateBlobbonautTags(withoutCurrent, { has, current_companion: d });
-  // After the profile it replaces, even when this device's clock is behind (an older one would lose on every relay)
-  const created_at = now !== undefined ? Math.max(now, profile.event.created_at + 1) : undefined;
+  // After the profile it replaces, even when this device's clock is a little behind (an older one would lose on every relay); never chasing a far-future one
+  const created_at = now !== undefined ? stampAfter(profile.event.created_at, now) : undefined;
   return { kind: KIND_BLOBBONAUT_PROFILE, tags, content: profile.content, prev: profile.event, ...(created_at !== undefined ? { created_at } : {}) };
 }
 

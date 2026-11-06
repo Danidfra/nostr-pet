@@ -29,6 +29,7 @@ import type { NostrEvent, NPool } from '@nostrify/nostrify';
 import { readPlannedCensus } from '@/lib/relay-census';
 import { BASE_RELAYS, PROFILE_REQUIRED_RELAYS } from '@/config/relays';
 import type { ProfileFormInput } from './profile-plan';
+import { stampAfter } from '@/lib/created-at';
 
 export const METADATA_READ_TIMEOUT_MS = 6_000;
 
@@ -104,7 +105,7 @@ export function planMetadataWrite(census: MetadataCensus, form: ProfileFormInput
   const raw = base ? parseRawMetadata(base) : null;
   if (base && raw === null) return { kind: 'refused', reason: 'malformed' };
   const tags = [...(base?.tags ?? []).filter(([name]) => name !== 'client').map((tag) => [...tag]), ['client', client]];
-  return { kind: 'ready', content: JSON.stringify(mergeRawMetadata(raw, form)), tags, createdAt: Math.max(now, base ? base.created_at + 1 : now), base };
+  return { kind: 'ready', content: JSON.stringify(mergeRawMetadata(raw, form)), tags, createdAt: stampAfter(base?.created_at, now), base };
 }
 
 /** A newer kind 0 than the base appeared while signing (and it is not the one just signed). */
