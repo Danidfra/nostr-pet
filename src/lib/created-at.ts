@@ -19,10 +19,13 @@
  *     write of this Blobbi into the future after it, and relays refuse events
  *     too far ahead (strfry 960 s, the Blobbi relay 900 s for most kinds).
  *
- * 60 s is far inside every relay's future window and far above anything a
- * person can cause by tapping.
+ * 600 s tolerates another device's clock running up to ten minutes ahead
+ * (a profile written by such a device is still replaced), and leaves 300 s
+ * of margin under the strictest future window these writes meet (the Blobbi
+ * relay's 900 s), for this device's own clock running fast. Drifting that far
+ * by quick writes alone would take 600 writes faster than one a second.
  */
-export const MAX_STAMP_AHEAD_S = 60;
+export const MAX_STAMP_AHEAD_S = 600;
 
 /** `created_at` for a republish over an event stamped `prevCreatedAt` (none: a first publish), at `now` (seconds). */
 export function stampAfter(prevCreatedAt: number | undefined, now: number): number {

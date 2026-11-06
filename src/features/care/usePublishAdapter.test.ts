@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, KIND_BLOBBI_INTERACTION } from '@blobbi-kit/core';
 import { blobbiEvent } from '@/test/fixtures';
 import { CLIENT_NAME, finalizeTemplate, isReplaceableKind } from './usePublishAdapter';
+import { MAX_STAMP_AHEAD_S } from '@/lib/created-at';
 
 describe('finalizeTemplate', () => {
   it('stamps the client tag once and keeps a caller-provided one', () => {
@@ -24,8 +25,8 @@ describe('finalizeTemplate', () => {
     expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500).created_at).toBe(501);
     // A device clock a little behind the last write still writes after it
     expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 470).created_at).toBe(501);
-    // Beyond the bound (80 s behind), the clock is used: prev is not chased
-    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 420).created_at).toBe(420);
+    // Beyond the bound (over ten minutes behind), the clock is used: prev is not chased
+    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500 - 1000).created_at).toBe(500 - 1000);
     // Time has moved on: the clock decides
     expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 900).created_at).toBe(900);
   });
@@ -35,11 +36,11 @@ describe('finalizeTemplate', () => {
     expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500).created_at).toBe(500);
   });
 
-  it('keeps rapid republishes, each over the last, within a minute of the clock', () => {
+  it('keeps rapid republishes, each over the last, within the bound of the clock', () => {
     let prev = blobbiEvent('0000000001', { createdAt: 500 });
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 1000; i++) {
       const out = finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500);
-      expect(out.created_at - 500).toBeLessThanOrEqual(60);
+      expect(out.created_at - 500).toBeLessThanOrEqual(MAX_STAMP_AHEAD_S);
       prev = { ...prev, created_at: out.created_at };
     }
   });
