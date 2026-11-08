@@ -1565,9 +1565,33 @@ The home reads three kinds of relay knowledge and configures only one:
 
 | Tier | What | Where | Used for |
 | --- | --- | --- | --- |
-| Application relays | `BASE_RELAYS` (ditto, primal, nostr.band) | `src/config/relays.ts` | every read; the ONLY publish targets |
+| Primary relay (2026-11-11) | `PRIMARY_RELAY` (`wss://relay.blobbi.pet`) | `src/config/relays.ts` | asked first and written first for the Blobbi kinds it accepts (`PRIMARY_KINDS`); no other flow |
+| Application relays | `BASE_RELAYS` (ditto, primal, nostr.band) | `src/config/relays.ts` | every read; a publish target of every write; the secondaries of a Blobbi flow |
 | Ecosystem read hints | where Island and the Farm write inventories, spends, folds, equipment | `src/features/inventory/relay-hints.ts` | kinds 31633 / 1416 / 1417 / 31634 |
 | Issuer relays | where each trusted issuer's definitions live | `TrustedIssuer.relays` (`issuers.ts`) | kind 31632 requests naming that issuer |
+
+**The primary relay (2026-11-11).** `wss://relay.blobbi.pet` is the default
+primary for the Blobbi kinds; the application relays are its secondaries.
+The paragraphs below describe the tiers as audited on 2026-09-24 and still
+hold for everything that is not a Blobbi kind (kind 0, NIP-46 kind 24133,
+the Ditto theme kinds): those never reach the primary. For a Blobbi read the
+pool asks each relay on its own and puts the answers together with the kit's
+rules (`src/lib/blobbi-relay-routing.ts`, vendored from `@blobbi-kit/core`
+until the release that contains it is installed): the NIP-01 winner across
+relays, and "none" believed only when each of `ABSENCE_REQUIRED_RELAYS`
+(primary, ditto, primal) reached EOSE, otherwise the read fails
+(`RelayReadUnknownError`) and the home keeps what it had. A write resolves on
+the first acceptance as before, and every destination's verdict goes to
+`src/lib/relay-sync.ts`, which also carries the player's own events to a
+relay of their flow that certainly lacks them (same id, same signature;
+`SyncLedger` stops repeats). That carrying of EXISTING events is OFF until
+the account turns it on (Account sheet, "Relays"; `src/lib/sync-consent.ts`,
+per pubkey, for exactly the relays shown): opening the home or restoring a
+sign-in sends no event. The same gate stands in front of the profile
+redelivery (`profile-delivery.ts`) and world travel's repair
+(`travel-relays.ts`); an event signed in the current visit passes it. Profile writes keep `PROFILE_REQUIRED_RELAYS`
+(ditto, primal): the primary is asked and written, never required. World
+travel: `src/features/presence/travel-relays.ts`.
 
 The pool (`src/lib/home-pool.ts`) has two routers that share nothing.
 Reads go through `routeReadFilters` (`src/lib/relay-routing.ts`, pure): every

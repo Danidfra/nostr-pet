@@ -18,6 +18,7 @@ import { ProfileForm } from '@/features/onboarding/screens';
 import { useProfileSetup } from '@/features/onboarding/useProfileSetup';
 import { travelMode } from '@/features/presence/travel-mode';
 import { setActivePresence, useActivePresenceChoice, usePresenceStatus } from '@/features/presence/active-presence-choice';
+import { useCopyChoice } from '@/hooks/useRelaySync';
 
 interface AccountSheetProps {
   open: boolean;
@@ -74,6 +75,7 @@ export function AccountSheet({ open, onClose }: AccountSheetProps) {
           </section>
         )}
         {travelMode() === 'nostr' && loginType && loginType !== 'guest' && <ActivePresenceToggle pubkey={user.pubkey} prompts={loginType !== 'nsec'} />}
+        {loginType && loginType !== 'guest' && <RelayCopyToggle pubkey={user.pubkey} />}
         <section className="menu-section" aria-labelledby="account-session">
           <h3 id="account-session" className="menu-section__title">
             Session
@@ -122,6 +124,40 @@ function ActivePresenceToggle({ pubkey, prompts }: { pubkey: string; prompts: bo
       {on && status && PRESENCE_STATUS_LINE[status] && (
         <p className="text-xs text-muted-foreground" data-testid="active-presence-status" data-status={status}>
           {PRESENCE_STATUS_LINE[status]}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Copying what the player ALREADY has to the relays that lack it: off unless they turn it on here, for exactly the
+ * relays listed (`lib/sync-consent.ts`). Off, the home only reads: opening it sends nothing. New things the player
+ * does are saved to the relays either way. Nothing is signed by this: the copies are the events as they were signed.
+ */
+function RelayCopyToggle({ pubkey }: { pubkey: string }) {
+  const copy = useCopyChoice(pubkey);
+  return (
+    <section className="menu-section" aria-labelledby="account-relay-copy" data-testid="relay-copy-section">
+      <h3 id="account-relay-copy" className="menu-section__title">
+        Relays
+      </h3>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" checked={copy.on && !copy.stale} onChange={(e) => copy.set(e.target.checked)} data-testid="relay-copy-toggle" className="mt-1" />
+        <span>Copy what I already have to the relays that are missing it</span>
+      </label>
+      <p className="text-xs text-muted-foreground">
+        Off, Blobbi only reads what is already there. On, your Blobbi, your Blobbi profile, your care notes and your items are copied, exactly as you signed them, to whichever of these relays does not have them yet:
+      </p>
+      <ul className="text-xs text-muted-foreground" data-testid="relay-copy-destinations">
+        {copy.destinations.map((url) => (
+          <li key={url}>{url.replace(/^wss:\/\//, '')}</li>
+        ))}
+      </ul>
+      <p className="text-xs text-muted-foreground">What you do from now on is saved to them either way.</p>
+      {copy.stale && (
+        <p className="text-xs text-muted-foreground" data-testid="relay-copy-stale">
+          This list changed since you turned it on. Turn it on again to include the new relay.
         </p>
       )}
     </section>

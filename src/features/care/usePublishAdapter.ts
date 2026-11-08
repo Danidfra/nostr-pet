@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import type { PublishAdapter, PublishEventTemplate } from '@blobbi-kit/react';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { carryGate } from '@/lib/sync-consent';
 
 /** NIP-89 client name stamped on every event this app publishes. */
 export const CLIENT_NAME = 'Blobbi';
@@ -85,6 +86,9 @@ export function usePublishAdapter(): HomePublisher {
       if (event.pubkey !== user.pubkey) {
         throw new Error('The signer answered for a different account.');
       }
+      // Signed in this visit, as the player's own act: offering it again to a relay that was silent is part of
+      // publishing it. Everything else is an existing event, copied nowhere unless the account said so
+      carryGate.markSigned(event.id);
       return event;
     };
     const broadcast = async (event: NostrEvent): Promise<void> => {

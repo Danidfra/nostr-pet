@@ -2,9 +2,14 @@
  * Which relays a READ goes to. Pure; the pool calls it for every request.
  *
  * ```
- *   every filter            →  every application relay
- *   a filter a hint covers  →  the hint's relays as well (only that filter)
+ *   a filter for a primary kind  →  the primary relay, first (only that filter)
+ *   every filter                 →  every application relay
+ *   a filter a hint covers       →  the hint's relays as well (only that filter)
  * ```
+ *
+ * The primary (`wss://relay.blobbi.pet`) is asked for the kinds it holds and
+ * for nothing else: a profile-metadata, theme or NIP-46 request never reaches
+ * it, and a filter without `kinds` does not either.
  *
  * A hint covers a filter when they share a kind and, if the hint names
  * authors, the filter asks for one of them. So a kind 31632 request for the
@@ -24,7 +29,7 @@
  * the same for an event from a hint as from an application relay.
  */
 import type { NostrFilter } from '@nostrify/nostrify';
-import { MAX_RELAYS_PER_READ, relaySet } from '@/config/relays';
+import { MAX_RELAYS_PER_READ, normalizeRelayUrl, relaySet } from '@/config/relays';
 
 export interface ReadHint {
   /** Why these relays are hinted, for tests and the journal. */
@@ -38,6 +43,8 @@ export interface ReadHint {
 }
 
 export interface ReadRoutingPolicy {
+  /** The primary relay (normalized) and the kinds it is asked for; null when there is none. */
+  primary: { url: string; kinds: readonly number[] } | null;
   /** Normalized application relays: every read, in this order. */
   appRelays: readonly string[];
   hints: readonly ReadHint[];
@@ -46,11 +53,14 @@ export interface ReadRoutingPolicy {
 }
 
 /** Normalize every URL once so routing compares canonical strings. Invalid entries vanish here. */
-export function buildReadRoutingPolicy(input: { appRelays: readonly unknown[]; hints: readonly ReadHint[]; maxRelays?: number }): ReadRoutingPolicy {
+export function buildReadRoutingPolicy(input: { appRelays: readonly unknown[]; hints: readonly ReadHint[]; maxRelays?: number; primary?: { url: unknown; kinds: readonly number[] } | null }): ReadRoutingPolicy {
   const max = input.maxRelays ?? MAX_RELAYS_PER_READ;
+  const primaryUrl = input.primary ? normalizeRelayUrl(input.primary.url) : null;
   return {
-    appRelays: relaySet([input.appRelays], max),
-    hints: input.hints.map((hint) => ({ ...hint, relays: relaySet([hint.relays], max) })),
+    primary: primaryUrl && input.primary ? { url: primaryUrl, kinds: [...input.primary.kinds] } : null,
+    // The primary is routed by kind, never as an application relay
+    appRelays: relaySet([input.appRelays], max).filter((url) => url !== primaryUrl),
+    hints: input.hints.map((hint) => ({ ...hint, relays: relaySet([hint.relays], max).filter((url) => url !== primaryUrl) })),
     maxRelays: max,
   };
 }
@@ -77,15 +87,23 @@ export function hintedRelaysFor(filter: NostrFilter, policy: ReadRoutingPolicy):
   return out;
 }
 
+/** Whether the primary relay is asked for this filter: it names a kind the primary holds. */
+export function primaryCovers(filter: NostrFilter, policy: ReadRoutingPolicy): boolean {
+  return !!policy.primary && !!filter.kinds && filter.kinds.some((k) => policy.primary!.kinds.includes(k));
+}
+
 /**
  * The pool's request routes: relay URL → the filters to send there.
- * Application relays get every filter; a hinted relay gets exactly the
- * filters it was hinted for. The cap keeps application relays and drops
- * the last hints first.
+ * The primary comes first, with exactly the filters for its kinds;
+ * application relays get every filter; a hinted relay gets exactly the
+ * filters it was hinted for. The cap keeps the primary and the application
+ * relays and drops the last hints first.
  */
 export function routeReadFilters(filters: NostrFilter[], policy: ReadRoutingPolicy): Map<string, NostrFilter[]> {
   const max = policy.maxRelays ?? MAX_RELAYS_PER_READ;
   const routes = new Map<string, NostrFilter[]>();
+  const forPrimary = filters.filter((filter) => primaryCovers(filter, policy));
+  if (policy.primary && forPrimary.length > 0) routes.set(policy.primary.url, forPrimary);
   for (const url of policy.appRelays) routes.set(url, filters);
   for (const filter of filters) {
     for (const url of hintedRelaysFor(filter, policy)) {

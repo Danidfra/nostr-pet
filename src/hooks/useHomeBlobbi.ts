@@ -9,6 +9,7 @@ import { useBlobbonautProfile } from './useBlobbonautProfile';
 import { selectCurrentBlobbi } from '@/lib/select-current-blobbi';
 import { useSetCurrentCompanion, type SetCurrentCompanionResult } from '@/features/care/useSetCurrentCompanion';
 import { useRelayHealth } from './useRelayHealth';
+import { useRelaySync } from './useRelaySync';
 import { RelayTransportError } from '@/lib/relay-transport';
 import { keepCollectionCanonical, markLocalWrite } from '@/lib/canonical-cache';
 import { useGuestUser } from '@/features/guest/useGuest';
@@ -25,10 +26,13 @@ import type { SyncEnv, SyncStatus } from '@/features/companion/companion-sync';
  * - `signed-out`: no user; nothing is read.
  * - `loading`: the collection (or the profile that decides the default pick)
  *   is still in flight.
- * - `empty`: the read completed and the player owns no modern Blobbi.
+ * - `empty`: the read completed, on every relay that must answer, and the
+ *   player owns no modern Blobbi. A read that could not be completed is
+ *   never `empty`: it is `error`, or `ready` over what was already known.
  * - `ready`: at least one modern Blobbi, and `current` is set.
- * - `error`: the collection read failed, or no relay can be reached from
- *   this page at all (`RelayHealth.blocked`); `error` is set.
+ * - `error`: the collection read failed with nothing known from before, or
+ *   no relay can be reached from this page at all (`RelayHealth.blocked`);
+ *   `error` is set.
  */
 export type HomeBlobbiStatus = 'signed-out' | 'loading' | 'empty' | 'ready' | 'error';
 
@@ -123,6 +127,11 @@ export function useHomeBlobbi(): HomeBlobbi {
   // dev fixture stay on this device, as before.
   const networked = !!pubkey && !guest && !fixture && !blocked && canAskRelays(nostr);
   const profile = useBlobbonautProfile(pubkey, { watch: networked });
+  // Only a signed-in player's own events are ever carried from one relay to another (`relay-sync.ts`)
+  const relaySync = useRelaySync();
+  useEffect(() => {
+    relaySync.setAccount(networked && pubkey ? pubkey : null);
+  }, [relaySync, networked, pubkey]);
 
   const ownedDs = useMemo(() => collection.companions.map((c) => c.d), [collection.companions]);
 
@@ -187,7 +196,9 @@ export function useHomeBlobbi(): HomeBlobbi {
     if (blockedError) return 'error';
     switch (collection.status) {
       case 'error':
-        return 'error';
+        // A later read that failed (relays silent: the state is unknown) keeps the Blobbi already read: the home
+        // stays, the connection dot says the rest, and nothing is written over a state it could not read
+        return collection.companions.length > 0 && !profile.isPending ? 'ready' : 'error';
       case 'empty':
         return 'empty';
       case 'ready':

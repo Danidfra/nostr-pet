@@ -14,8 +14,9 @@
  *             legacy 31125; NIP-01 order: newer created_at, then lower id).
  *             None at all: `no-profile`; a profile is created here only for
  *             an adoption whose own profile write never landed (`create`),
- *             and only on that COMPLETE read: an incomplete one never counts
- *             as "none".
+ *             and only on that COMPLETE read in which the primary relay
+ *             answered too (`absence`): an incomplete one never counts as
+ *             "none".
  *   order     a choice made clearly later elsewhere is never overwritten:
  *             unless this is the share right after the choice
  *             (`CHOICE_FRESH_MS`), the rules of `choice-order.ts` decide
@@ -62,6 +63,11 @@ export interface ProfileRelays {
   urls: readonly string[];
   /** A read is complete only when each of these answered. */
   required: readonly string[];
+  /**
+   * "No profile at all" is believed, and one created from nothing, only when each of these answered as well
+   * (`required` when omitted). Wider than `required`: the primary relay may be the only one holding the profile.
+   */
+  absence?: readonly string[];
   /** How many relays must hold a write (read back) for it to count as saved; at least one. */
   quorum: number;
   /** Resolves with the relay's stored events once it says it has sent them all (EOSE); rejects otherwise. */
@@ -185,6 +191,8 @@ export function preservesProfile(base: NostrEvent, next: UnsignedProfile, d: str
 
 interface Census {
   complete: boolean;
+  /** Complete, and every relay whose word "there is no profile" needs answered too. */
+  absenceKnown: boolean;
   byRelay: Map<string, NostrEvent[] | null>;
   newest: NostrEvent | null;
 }
@@ -213,17 +221,18 @@ async function census(relays: ProfileRelays, owner: string, timeoutMs: number, v
     }),
   );
   const complete = relays.required.every((url) => byRelay.get(url) != null);
+  const absenceKnown = complete && (relays.absence ?? relays.required).every((url) => byRelay.get(url) != null);
   const all = [...byRelay.values()].flatMap((evs) => evs ?? []);
-  return { complete, byRelay, newest: newestProfile(all, owner, verify) };
+  return { complete, absenceKnown, byRelay, newest: newestProfile(all, owner, verify) };
 }
 
 /**
  * A complete read of the owner's profile (every required relay answered), for other writers of the profile
  * (adoption): `complete` false means the newest profile out there is not known, and nothing may replace it.
  */
-export async function readProfileCensus(relays: ProfileRelays, owner: string, timeoutMs = 8_000, verify: (e: NostrEvent) => boolean = verifyEvent): Promise<{ complete: boolean; newest: NostrEvent | null }> {
+export async function readProfileCensus(relays: ProfileRelays, owner: string, timeoutMs = 8_000, verify: (e: NostrEvent) => boolean = verifyEvent): Promise<{ complete: boolean; absenceKnown: boolean; newest: NostrEvent | null }> {
   const c = await census(relays, owner, timeoutMs, verify);
-  return { complete: c.complete, newest: c.newest };
+  return { complete: c.complete, absenceKnown: c.absenceKnown, newest: c.newest };
 }
 
 /** The relays whose newest profile is `ours`, or a newer one that names the same Blobbi. */
@@ -273,6 +282,8 @@ export async function writeCompanionProfile(req: ProfileWriteRequest, deps: Prof
       const base = first.newest;
       if (!base) {
         if (!req.create) return { kind: 'no-profile' };
+        // "None" with a relay that may hold the profile silent (the primary) is not known: nothing is created over it
+        if (!first.absenceKnown) return { kind: 'unsafe' };
         // No profile on a complete read: the adoption's own profile, created now (`has` and `current_companion` = d)
         const fresh = profileTemplate({ ownerPubkey: owner, profile: null, d, suggestedName: req.create.name });
         const template: UnsignedProfile = { kind: fresh.kind, created_at: Math.floor(deps.now() / 1000), tags: fresh.tags, content: fresh.content };
@@ -286,7 +297,7 @@ export async function writeCompanionProfile(req: ProfileWriteRequest, deps: Prof
         }
         if (created.pubkey !== owner || !safeVerify(verify, created) || !deps.stillAccount()) return { kind: 'wrong-account' };
         const again = await census(relays, owner, timeoutMs, verify);
-        if (!again.complete) {
+        if (!again.complete || (!again.newest && !again.absenceKnown)) {
           deps.onSigned({ event: created, base: NO_BASE });
           return { kind: 'unsafe' };
         }

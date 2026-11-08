@@ -79,3 +79,18 @@ export class RelayTimeoutError extends Error {
     this.name = 'RelayTimeoutError';
   }
 }
+
+/**
+ * A read that found nothing, while a relay that must answer did not: whether
+ * there is nothing is NOT known. Never to be read as "empty" (no Blobbi, no
+ * inventory, no profile): the caller keeps what it had, or offers Try again.
+ */
+export class RelayReadUnknownError extends Error {
+  /** The relays that had to answer and did not. */
+  readonly silent: readonly string[];
+  constructor(silent: readonly string[]) {
+    super('Some relays did not answer, so this could not be read for certain. Check the connection and try again.');
+    this.name = 'RelayReadUnknownError';
+    this.silent = silent;
+  }
+}

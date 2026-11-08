@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CloudOff, RefreshCw, WifiOff } from 'lucide-react';
 import type { HealthLevel } from '@/lib/relay-health';
+import { usePrimarySync } from '@/hooks/useRelaySync';
 
 interface ConnectionChipProps {
   level: HealthLevel;
@@ -28,6 +29,12 @@ export const OFFLINE_HOLD_MS = 4_000;
  * with Try again only when OFFLINE (the browser says so, or every
  * application relay is failing) and it has stayed so for a moment. A write
  * that fails says so where it was asked, whatever this shows.
+ *
+ * The same dot is shown, with its own title, while something the player did
+ * is saved on the other relays and still on its way to the Blobbi relay
+ * (`relay-sync.ts`, `pending`): saved, nothing to do, said only to whoever
+ * looks. A relay that REFUSED (its write list) is not news for the player and
+ * shows nothing; the status store keeps the relay's own words.
  */
 export function ConnectionChip({ level, online, onRetry, busy = false, holdMs = OFFLINE_HOLD_MS }: ConnectionChipProps) {
   const offline = level === 'offline' || !online;
@@ -42,7 +49,11 @@ export function ConnectionChip({ level, online, onRetry, busy = false, holdMs = 
     return () => clearTimeout(timer);
   }, [offline, holdMs]);
 
-  if (level === 'healthy' && online) return null;
+  const primary = usePrimarySync();
+  if (level === 'healthy' && online) {
+    if (primary.state !== 'pending') return null;
+    return <span className="conn-dot" role="status" aria-label="Saved. Still syncing with the Blobbi relay" title="Saved. Still syncing with the Blobbi relay; nothing for you to do." data-testid="connection-dot" data-level="degraded" data-primary-sync="pending" />;
+  }
   if (!offline || !held) {
     if (level === 'healthy') return null;
     const title = offline ? 'Reconnecting to the relays…' : 'Some application relays are not answering. Reads and writes go through the rest.';

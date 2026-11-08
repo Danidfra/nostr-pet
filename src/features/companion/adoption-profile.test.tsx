@@ -15,6 +15,7 @@ import { useAdoptEgg } from '@/features/adoption/useAdoptEgg';
 import { newEggPreview, profileTemplate } from '@/features/adoption/adoption-plan';
 import { companionChoices } from './choice-store';
 import { companionSync } from './companion-sync';
+import { PROFILE_RELAYS } from './pool-relays';
 import { DITTO, PRIMAL, dOf, fakeNetwork, profileEvent, testAccount, type FakeNetwork, type TestAccount } from './test/fake-relays';
 
 const signedIn = vi.hoisted(() => ({ user: undefined as unknown }));
@@ -49,7 +50,8 @@ beforeEach(() => {
   companionSync.reset();
   acc = testAccount();
   signedIn.user = { pubkey: acc.pubkey, signer: { signEvent: async (t: never) => acc.sign(t), getPublicKey: async () => acc.pubkey } };
-  net = fakeNetwork();
+  // The relays of a profile as the home asks them: the primary relay first, then the application relays
+  net = fakeNetwork(PROFILE_RELAYS);
 });
 
 const newestOn = (net: FakeNetwork, url = DITTO) => net.relays.get(url)!.events.filter((e) => e.kind === 11125).sort((a, b) => b.created_at - a.created_at)[0];

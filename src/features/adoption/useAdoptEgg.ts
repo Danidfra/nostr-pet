@@ -122,8 +122,11 @@ export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refre
         if (networked) {
           const relays = poolProfileRelays(nostr);
           // A relay a moment slow is asked once more (a read, nothing signed) before giving up
-          let complete = (await readProfileCensus(relays, pubkey)).complete;
-          if (!complete) complete = (await readProfileCensus(relays, pubkey, PROFILE_SECOND_READ_MS)).complete;
+          // "No profile" is only believed when every relay that may hold one answered, the primary included
+          // (`absence`): a profile is never created over one that could not be read
+          const settled = (c: { complete: boolean; absenceKnown: boolean; newest: NostrEvent | null }) => c.complete && (c.newest !== null || c.absenceKnown);
+          let complete = settled(await readProfileCensus(relays, pubkey));
+          if (!complete) complete = settled(await readProfileCensus(relays, pubkey, PROFILE_SECOND_READ_MS));
           if (!complete) throw new Error('your profile could not be reached right now');
           const out = await writeProfileSafely(
             { owner: pubkey, relays, sign: (t) => publisher.sign(t), stillAccount: () => signedInRef.current === pubkey },
