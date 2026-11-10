@@ -3,7 +3,7 @@
  *
  *   off    the default: the Blobbi is home. No session, no location read or written, nothing signed, no listener;
  *   nostr  world travel on Nostr (M16): the Blobbi's World Location (kind 31126) is the only authority, read from the
- *          relays every Blobbi world uses (`BLOBBI_WORLD_TRAVEL_RELAYS`), on any device. The protocol is the kit's
+ *          primary relay and the relays every Blobbi world uses (`travel-relays.ts`), on any device. The protocol is the kit's
  *          (`@blobbi-kit/core` world-travel, `useWorldTravel`); this hook only wires the home to it:
  *            - only a signed-in account (never a guest, never a dev fixture) has a session; anyone else's Blobbi is
  *              simply home;
@@ -37,7 +37,6 @@ import { useNostr } from '@nostrify/react';
 import { useNostrLogin } from '@nostrify/react/login';
 import { verifyEvent } from 'nostr-tools/pure';
 import {
-  BLOBBI_WORLD_TRAVEL_RELAYS,
   WORLD_HOME,
   currentWorld,
   isMeaningfulInput,
@@ -57,6 +56,7 @@ import {
 } from '@blobbi-kit/core';
 import { poolWorldTravelRelays, useWorldTravel, useWorldTravelSync, type TravelPoolLike } from '@blobbi-kit/react';
 import { DevFixtureContext } from '@/dev/DevFixtureContext';
+import { HOME_WORLD_TRAVEL_RELAYS, gateExistingEvents, guardEmptyPrimary } from './travel-relays';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePublishAdapter } from '@/features/care/usePublishAdapter';
 import { canAskRelays } from '@/features/companion/pool-relays';
@@ -250,7 +250,9 @@ function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
   const latest = useRef({ publisher, user, login, owner });
   latest.current = { publisher, user, login, owner };
 
-  const relays = useMemo(() => (canAskRelays(nostr) ? poolWorldTravelRelays(nostr as unknown as TravelPoolLike, BLOBBI_WORLD_TRAVEL_RELAYS, { onReconnect: () => void sessionRef.current?.refresh() }) : null), [nostr]);
+  // The primary relay first, then the kit's two; the primary's empty answer alone is never "never travelled", and a
+  // location signed before this visit is re-sent nowhere unless the account turned copying on (`travel-relays.ts`)
+  const relays = useMemo(() => (canAskRelays(nostr) ? gateExistingEvents(guardEmptyPrimary(poolWorldTravelRelays(nostr as unknown as TravelPoolLike, HOME_WORLD_TRAVEL_RELAYS, { onReconnect: () => void sessionRef.current?.refresh() }))) : null), [nostr]);
   const relaysRef = useRef(relays);
   relaysRef.current = relays;
   const options = useMemo<WorldTravelOptions | null>(() => {

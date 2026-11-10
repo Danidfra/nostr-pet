@@ -86,6 +86,7 @@ function blobbi(o: { stage?: string; state?: string } = {}): NostrEvent {
 // ─── Two in-memory relays at the travel urls ───
 
 const URLS = ['wss://relay.ditto.pub', 'wss://relay.primal.net'];
+const PRIMARY_RELAY = 'wss://relay.blobbi.pet';
 interface FakeRelay {
   stored: NostrEvent[];
   refuse: boolean;
@@ -269,7 +270,8 @@ beforeEach(() => {
   localStorage.clear();
   window.localStorage.setItem('blobbi:home:3d-intro:v1', 'seen');
   relays.clear();
-  for (const url of URLS) relays.set(url, { stored: [], refuse: false, readDelay: 0, readFails: false, readHangs: false, subs: new Set(), published: [] });
+  // The two travel relays the kit names, and the primary relay the home asks first (`travel-relays.ts`)
+  for (const url of [...URLS, PRIMARY_RELAY]) relays.set(url, { stored: [], refuse: false, readDelay: 0, readFails: false, readHangs: false, subs: new Set(), published: [] });
   base.all = [blobbi()];
   base.poolEvents = [];
   signing.refuse = false;
