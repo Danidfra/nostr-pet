@@ -20,7 +20,7 @@
  * Not published: the guest days' kind 1124 care receipts. They are social
  * receipts, best-effort by every producer; the care itself is in the Blobbi's
  * tags (stats, streak, experience) and travels with it. The Journey's day
- * count therefore starts at the save (`RELEASE_READINESS`, M14).
+ * count therefore starts at the save (M14).
  *
  * Idempotent and resumable: before each publish the relays are asked whether
  * the account already holds that event (a resumed save, a refresh after a
