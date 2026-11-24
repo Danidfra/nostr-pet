@@ -1,4 +1,5 @@
 import type { BlobbiCompanion, BlobbonautProfile } from '@blobbi-kit/core';
+import { Chip } from './Chip';
 import { ChevronRight, Map as MapIcon, Moon, Snowflake, Sparkles } from 'lucide-react';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
@@ -33,20 +34,6 @@ interface BlobbiSheetProps {
   devForce?: (kind: CeremonyKind) => void;
   /** A guest's Blobbi (M14): evolving waits for a saved Blobbi; the panel says so instead of offering it. */
   guest?: boolean;
-}
-
-function Chip({ children, testId, tone = 'neutral' }: { children: React.ReactNode; testId?: string; tone?: 'neutral' | 'sleep' | 'cold' | 'grow' }) {
-  const tones = {
-    neutral: 'bg-foreground/10 text-foreground',
-    sleep: 'bg-indigo-500/20 text-indigo-900 dark:text-indigo-200',
-    cold: 'bg-sky-500/20 text-sky-900 dark:text-sky-200',
-    grow: 'bg-amber-500/20 text-amber-900 dark:text-amber-200',
-  } as const;
-  return (
-    <span data-testid={testId} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${tones[tone]}`}>
-      {children}
-    </span>
-  );
 }
 
 /**

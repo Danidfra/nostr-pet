@@ -11,6 +11,7 @@
  * one-time guide can light it when the sheet opens.
  */
 import type { BlobbiCompanion, BlobbonautProfile } from '@blobbi-kit/core';
+import { Chip } from '@/features/home/shell/Chip';
 import { useEffect, useRef } from 'react';
 import { Backpack, ChevronRight, Map as MapIcon, Moon, Palette, Snowflake, Sparkles } from 'lucide-react';
 import { BlobbiAppearanceControl, type BlobbiAppearanceControlProps } from './RoomSettings';
@@ -98,21 +99,6 @@ function AppearanceCard({ blobbi, appearance, highlight, onSeen, reducedMotion }
   );
 }
 
-
-function Chip({ children, testId, tone = 'neutral' }: { children: React.ReactNode; testId?: string; tone?: 'neutral' | 'sleep' | 'cold' | 'grow' }) {
-  const tones = {
-    neutral: 'bg-foreground/10 text-foreground',
-    sleep: 'bg-indigo-500/20 text-indigo-900 dark:text-indigo-200',
-    cold: 'bg-sky-500/20 text-sky-900 dark:text-sky-200',
-    grow: 'bg-amber-500/20 text-amber-900 dark:text-amber-200',
-  } as const;
-  return (
-    <span data-testid={testId} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${tones[tone]}`}>
-      {children}
-    </span>
-  );
-}
-
 export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, onOpenItems, usableItemCount, onOpenJourney, onOpenPhoto, guest = false, appearance, highlightAppearance = false, onAppearanceSeen, reducedMotion = false }: RoomBlobbiSheetProps) {
   const portrait = (
     <span className="overlay-portrait" aria-hidden>
@@ -186,7 +172,6 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
         {onOpenPhoto && <PhotoTile name={blobbi.name} onOpen={onOpenPhoto} />}
 
         <LifecyclePanel name={blobbi.name} lifecycle={lifecycle} ceremony={ceremony} onCeremony={onCeremony} firstBlobbi={firstBlobbi} embedded guest={guest} />
-
 
         {companions.length > 1 && (
           <section aria-label={t('room.sheet.yourBlobbis')} className="overlay-card">

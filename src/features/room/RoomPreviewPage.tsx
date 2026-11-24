@@ -34,7 +34,8 @@ import { MenuSheet } from '@/features/home/shell';
 import { InventorySheet, useWornEquipment } from '@/features/inventory';
 import { ownedEntry } from '@/features/care-ui/care-entries';
 import { useFirstBlobbiHatch, useLifecycle, type CeremonyKind } from '@/features/lifecycle';
-import { detectStreakIncrease, flameDays, type StreakChange } from '@/features/home/streak';
+import { flameDays } from '@/features/home/streak';
+import { useStreakMoment } from '@/features/home/useStreakMoment';
 import { useCareGiven } from '@/features/journey/care-receipts';
 import { StreakMoment } from '@/features/home/StreakMoment';
 import { describeMood } from '@/features/home/mood';
@@ -74,8 +75,8 @@ import { useWorldsAccess } from '@/features/worlds/useWorldsAccess';
 import { useGuest, useGuestUi, useSaveInvite } from '@/features/guest';
 import { GuestInvite } from '@/features/guest/GuestInvite';
 import { GuestStatusPill, GuestStatusSheet, SavedPill } from '@/features/guest/GuestStatus';
-import { useWorldDeparture, type NavigateOutcome } from '@/features/worlds/useWorldDeparture';
-import type { World } from '@/features/worlds/worlds';
+import { useWorldDeparture } from '@/features/worlds/useWorldDeparture';
+import { useDepartureNavigation } from '@/features/worlds/useDepartureNavigation';
 import { DepartureCard } from '@/features/worlds/DepartureCard';
 import { useJourney } from '@/features/journey/useJourney';
 import { useDailyXp } from '@/features/progression/useDailyXp';
@@ -124,7 +125,7 @@ import { useEatingPresentation } from './hooks/useEatingPresentation';
 import { usePetting } from './hooks/usePetting';
 import { useExpression } from '@/features/expression/react/useExpression';
 import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
-import { travelStartsAway, useHomeTravel, useTravelStartsUnknown, type DepartureOutcome, type HomeTravel } from '@/features/presence/useHomeTravel';
+import { travelStartsAway, useHomeTravel, useTravelStartsUnknown } from '@/features/presence/useHomeTravel';
 import { travelMode } from '@/features/presence/travel-mode';
 import { WORLD_HOME } from '@blobbi-kit/core';
 import { WorldPresenceNote } from '@/features/presence/WorldPresenceNote';
@@ -774,18 +775,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     return () => clearTimeout(timer);
   }, [inviteDue, startCeremony]);
   const inviteHatch = useCallback(() => void startCeremony('hatch'), [startCeremony]);
-  // The streak: noticed only when the authoritative number goes up between two versions of this Blobbi
-  const [streakMoment, setStreakMoment] = useState<StreakChange | null>(null);
-  const [streakBump, setStreakBump] = useState(0);
-  const streakRef = useRef(blobbi.careStreak);
-  useEffect(() => {
-    const change = detectStreakIncrease(streakRef.current, blobbi.careStreak);
-    streakRef.current = blobbi.careStreak;
-    if (!change) return;
-    setStreakBump((k) => k + 1);
-    setStreakMoment(change);
-  }, [blobbi.careStreak]);
-  const dismissStreakMoment = useCallback(() => setStreakMoment(null), []);
+  // The streak's moment (useStreakMoment): only an increase of the authoritative number, never a page load
+  const { moment: streakMoment, bump: streakBump, dismiss: dismissStreakMoment } = useStreakMoment(blobbi.careStreak);
   // The flame only after real care, never for hatching alone (`flameDays`, M14.1): the same rule as the 2D home's
   const [caredThisVisit, setCaredThisVisit] = useState(false);
   const careGiven = useCareGiven(pubkey, caredThisVisit);
@@ -943,31 +934,9 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   }, [petting.petting, notePetted]);
 
   // ─── Travel: the Blobbi says goodbye and dissolves (the teleport's own departure), then the page goes ───
-  // The move to the world chosen (`worldTravel.departTo`: one World Location signed and published from here) happens
-  // HERE, when the goodbye is over and the page is about to go: nothing is signed or published while Stay is still
-  // offered (`useWorldDeparture` calls `navigate` only at `gone`). One event per trip: once it was published
-  // (`leftRef` names the world), a try again after a navigation that did not happen only asks for the address again
-  const worldTravelRef = useRef<HomeTravel | null>(null);
-  const leftRef = useRef<string | null>(null);
-  const [departSigning, setDepartSigning] = useState(false);
-  const navigateAfterDeparture = useCallback(async (url: string, world: World): Promise<NavigateOutcome | void> => {
-    let left = leftRef.current === world.travelId;
-    const travel = worldTravelRef.current;
-    if (!left && travel) {
-      setDepartSigning(travel.signerPrompts);
-      try {
-        const outcome: DepartureOutcome = await travel.departTo(world.travelId);
-        left = outcome === 'moved' || outcome === 'already-there';
-      } finally {
-        setDepartSigning(false);
-      }
-    }
-    if (left) leftRef.current = world.travelId;
-    // No key travels, and nothing rides in the address: the other world asks for its own sign-in and reads the move
-    window.location.assign(url);
-    return left ? 'left' : undefined;
-  }, []);
-  const departure = useWorldDeparture({ presence, canAct: present && !isEgg && !isSleeping, reducedMotion, showFace, clearFace, gesture, play, navigate: navigateAfterDeparture });
+  // Leaving for another world: the move is published only once the goodbye is over (useDepartureNavigation)
+  const departNav = useDepartureNavigation();
+  const departure = useWorldDeparture({ presence, canAct: present && !isEgg && !isSleeping, reducedMotion, showFace, clearFace, gesture, play, navigate: departNav.navigate });
   const travelBusy = care.busy || theater || lifecycle.pending !== null || decorator.editing || transitioning || bathing;
   // A companion chosen meanwhile in another Blobbi game waits for these moments to end (src/features/companion)
   useCompanionSwitchHold(travelBusy || care.offer !== null || !!interactions.dose || departure.phase !== 'idle');
@@ -985,7 +954,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     paused: isEgg || isSleeping || arrival === 'waiting' || departure.phase !== 'idle',
     onJourney: (kind, place) => setPresenceJourney((j) => ({ kind, place, key: (j?.key ?? 0) + 1 })),
   });
-  worldTravelRef.current = worldTravel;
+  departNav.travelRef.current = worldTravel;
   // The arrival on entry waits for the relays' first answer itself (`confirmed`, or `unreachable` within the kit's
   // timeout), never for a location this device merely kept: a kept "home" may be stale after a trip
   const travelResolved = worldTravel.resolution === 'confirmed' || worldTravel.resolution === 'unreachable' || worldTravel.resolution === 'none';
@@ -1004,13 +973,13 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         care.notify(t('room.page.stillSaving'));
         return;
       }
-      // A new trip: nothing of it is published yet (the move happens in `navigateAfterDeparture`, once the goodbye
+      // A new trip: nothing of it is published yet (the move happens in `departNav.navigate`, once the goodbye
       // is over and Stay is no longer offered); the page goes after, whatever it came to
-      leftRef.current = null;
+      departNav.newTrip();
       if (!departure.go(world)) return;
       setWorldsOpen(false);
     },
-    [travelBusy, departure, play, care],
+    [travelBusy, departure, play, care, departNav],
   );
   const onJourneyAction = useCallback((action: ObjectiveAction) => {
     setJourneyOpen(false);
@@ -1385,7 +1354,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           )}
         </GameOverlay>
       )}
-      {departure.phase !== 'idle' && departure.world && <DepartureCard phase={departure.phase} world={departure.world} name={blobbi.name} onStay={departure.cancel} onRetry={() => departure.go({ ...departure.world!, open: true })} onDismiss={departure.dismiss} left={departure.left} signing={departSigning} />}
+      {departure.phase !== 'idle' && departure.world && <DepartureCard phase={departure.phase} world={departure.world} name={blobbi.name} onStay={departure.cancel} onRetry={() => departure.go({ ...departure.world!, open: true })} onDismiss={departure.dismiss} left={departure.left} signing={departNav.signing} />}
       {journeyBook.celebrate && <ChapterToast chapter={journeyBook.chapters.find((c) => c.id === journeyBook.celebrate)!} onDone={journeyBook.dismissCelebration} play={play} reducedMotion={reducedMotion} />}
       <RoomBlobbiSheet
         open={sheetOpen}
