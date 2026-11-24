@@ -15,9 +15,9 @@ import { ArcBackground } from './ArcBackground';
 import { ConnectionChip } from '@/features/home/shell/ConnectionChip';
 import type { HealthLevel } from '@/lib/relay-health';
 import { t, tp } from '@/i18n';
+import { stageLabel } from '@/features/home/labels';
 
 /** The stage, as one word after the name. */
-const stageWord = (stage: BlobbiCompanion['stage']) => t(`room.stage.${stage}`);
 
 interface RoomHeaderProps {
   name: string;
@@ -41,7 +41,7 @@ export function RoomHeader({ name, stage, onOpenMenu, connection, streak, leadin
         {/* The name in the middle of the screen, whatever stands at the sides: absolute, so the sides never push it */}
         <p className="room-header-name" data-testid="room-header-name" aria-live="polite">
           <span className="room-header-name__text">{name}</span>
-          <span className="room-header-name__stage"> · {stageWord(stage)}</span>
+          <span className="room-header-name__stage"> · {stageLabel(stage)}</span>
         </p>
         <span className="flex shrink-0 items-center gap-[0.35em]">
           {connection && <ConnectionChip level={connection.level} online={connection.online} onRetry={connection.onRetry} />}

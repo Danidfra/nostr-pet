@@ -160,11 +160,6 @@ export const room = {
     stat: '{stat} {percent}%',
     statGo: '{stat} {percent}%, go to the {room}',
   },
-  stage: {
-    egg: 'Egg',
-    baby: 'Baby',
-    adult: 'Adult',
-  },
   header: {
     streak: 'Care streak',
     streakDays_one: 'Care streak: {count} day',

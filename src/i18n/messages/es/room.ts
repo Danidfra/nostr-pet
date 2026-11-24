@@ -163,11 +163,6 @@ export const room: MessageShape<typeof source> = {
     stat: '{stat} {percent}%',
     statGo: '{stat} {percent}%, ir a: {room}',
   },
-  stage: {
-    egg: 'Huevo',
-    baby: 'Bebé',
-    adult: 'Adulto',
-  },
   header: {
     streak: 'Racha de cuidados',
     streakDays_one: 'Racha de cuidados: {count} día',

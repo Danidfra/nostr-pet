@@ -18,6 +18,7 @@ import { LOOK_GUIDE_SHEET_MS, lookTitle, shownLook } from '../lib/look-guide';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { t, tp } from '@/i18n';
+import { stageLabel } from '@/features/home/labels';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import { PhotoTile } from '@/features/photo';
 import { BlobbiStatusPanel, type StatItem } from '@/features/home/BlobbiStatusPanel';
@@ -120,7 +121,7 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
   );
   const chips = (
     <div className="flex flex-wrap items-center gap-1.5">
-      <Chip testId="room-stage-badge">{t(`room.stage.${blobbi.stage}`)}</Chip>
+      <Chip testId="room-stage-badge">{stageLabel(blobbi.stage)}</Chip>
       {blobbi.state === 'sleeping' && (
         <Chip tone="sleep" testId="room-state-badge">
           <Moon className="h-3.5 w-3.5" aria-hidden /> {t('room.sheet.sleeping')}
