@@ -1,0 +1,19 @@
+import type { MessageShape } from '../../types';
+import type { common as source } from '../en/common';
+
+/** Spanish: words shared across the game. */
+export const common: MessageShape<typeof source> = {
+  close: 'Cerrar',
+  back: 'Volver',
+  cancel: 'Cancelar',
+  save: 'Guardar',
+  done: 'Listo',
+  retry: 'Reintentar',
+  loading: 'Cargando…',
+  phase: {
+    dawn: 'amanecer',
+    day: 'día',
+    sunset: 'atardecer',
+    night: 'noche',
+  },
+};

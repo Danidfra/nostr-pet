@@ -11,6 +11,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { shortNpub } from '@/lib/format';
 import { AboutBlobbiSheet } from '@/features/onboarding/screens';
+import { LOCALES, LOCALE_NAMES, changeLocale, getLocale, t } from '@/i18n';
 
 interface MenuSheetProps {
   open: boolean;
@@ -48,7 +49,9 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
   const saveBegun = !!guestSnapshot.doc?.migration;
   // The guest Blobbi's name, for the words (M14.2): "Save Lupa", not "Save my Blobbi"
   const guestRecord = guestSnapshot.doc ? guestBlobbiEvent(guestSnapshot.doc.events, guestSnapshot.doc.blobbiD) : null;
-  const guestName = (guestRecord && parseModernBlobbiEvent(guestRecord)?.name) || 'your Blobbi';
+  const recordName = (guestRecord && parseModernBlobbiEvent(guestRecord)?.name) || null;
+  const guestName = recordName ?? t('menu.guest.yourBlobbiInSentence');
+  const locale = getLocale();
   const ask = (what: 'save' | 'sign-in') => {
     onClose();
     if (what === 'save') guestUi.requestSave();
@@ -67,12 +70,12 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
 
   return (
     <>
-      <GameOverlay open={open} onClose={onClose} title="Menu" testId="menu-sheet" size="medium">
+      <GameOverlay open={open} onClose={onClose} title={t('menu.title')} testId="menu-sheet" size="medium">
         <div className="menu">
           {guest && (
             <section className="menu-section" aria-labelledby="menu-guest" data-testid="menu-guest">
               <h3 id="menu-guest" className="menu-section__title">
-                {guestName === 'your Blobbi' ? 'Your Blobbi' : guestName}
+                {recordName ?? t('menu.guest.yourBlobbi')}
               </h3>
               <p className="menu-section__hint" data-testid="menu-guest-line">
                 {guestSnapshot.storageOk ? deviceOnlyLine(guestName) : noStorageLine(guestName)}
@@ -82,8 +85,8 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
                   <Sparkles className="h-7 w-7" aria-hidden />
                 </span>
                 <span className="menu-tile__text">
-                  <span className="menu-tile__title">{saveBegun ? `Finish saving ${guestName}` : `Save ${guestName}`}</span>
-                  <span className="menu-tile__sub">A home you can return to from other devices, and the door to new worlds. The very same Blobbi.</span>
+                  <span className="menu-tile__title">{saveBegun ? t('menu.guest.finishSaving', { name: guestName }) : t('menu.guest.save', { name: guestName })}</span>
+                  <span className="menu-tile__sub">{t('menu.guest.saveSub')}</span>
                 </span>
                 <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
               </button>
@@ -92,8 +95,8 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
                   <KeyRound className="h-6 w-6" aria-hidden />
                 </span>
                 <span className="menu-tile__text">
-                  <span className="menu-tile__title">I already have an account</span>
-                  <span className="menu-tile__sub">Sign in with the account your Blobbis live in. {guestName === 'your Blobbi' ? 'The guest Blobbi' : guestName} stays here on this device.</span>
+                  <span className="menu-tile__title">{t('menu.guest.signIn')}</span>
+                  <span className="menu-tile__sub">{t('menu.guest.signInSub', { name: recordName ?? t('menu.guest.theGuestBlobbi') })}</span>
                 </span>
                 <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
               </button>
@@ -103,7 +106,7 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
           {user && !guest && (
             <section className="menu-section" aria-labelledby="menu-account">
               <h3 id="menu-account" className="menu-section__title">
-                Account
+                {t('menu.account.title')}
               </h3>
               <button type="button" onClick={openAccount} data-testid="menu-account" className="menu-tile">
                 <span className="menu-tile__icon">
@@ -111,7 +114,7 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
                 </span>
                 <span className="menu-tile__text">
                   <span className="menu-tile__title">{metadata?.display_name || metadata?.name || shortNpub(user.pubkey)}</span>
-                  <span className="menu-tile__sub">Your name and picture, your key backup, and sign out.</span>
+                  <span className="menu-tile__sub">{t('menu.account.sub')}</span>
                 </span>
                 <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
               </button>
@@ -121,7 +124,7 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
           {inRoom && roomSettings && (
             <section className="menu-section" aria-labelledby="menu-room-settings" data-testid="menu-room-settings">
               <h3 id="menu-room-settings" className="menu-section__title">
-                3D room
+                {t('menu.room.title')}
               </h3>
               {roomSettings}
             </section>
@@ -129,29 +132,47 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
 
           <section className="menu-section" aria-labelledby="menu-sound">
             <h3 id="menu-sound" className="menu-section__title">
-              Sound
+              {t('menu.sound.title')}
             </h3>
             <button type="button" role="switch" aria-checked={sound.enabled} onClick={() => sound.setEnabled(!sound.enabled)} data-testid="sound-toggle" className={`menu-tile ${sound.enabled ? 'menu-tile--on' : ''}`}>
               <span className="menu-tile__icon">{sound.enabled ? <Volume2 className="h-6 w-6" aria-hidden /> : <VolumeX className="h-6 w-6" aria-hidden />}</span>
               <span className="menu-tile__text">
-                <span className="menu-tile__title">{sound.enabled ? 'Sounds on' : 'Sounds off'}</span>
-                <span className="menu-tile__sub">A few soft sounds when you care for your Blobbi.</span>
+                <span className="menu-tile__title">{sound.enabled ? t('menu.sound.on') : t('menu.sound.off')}</span>
+                <span className="menu-tile__sub">{t('menu.sound.sub')}</span>
               </span>
               <span className="menu-switch" aria-hidden data-on={sound.enabled ? 'true' : 'false'} />
             </button>
           </section>
 
+          <section className="menu-section" aria-labelledby="menu-language" data-testid="menu-language">
+            <h3 id="menu-language" className="menu-section__title">
+              {t('menu.language.title')}
+            </h3>
+            <p className="menu-section__hint">{t('menu.language.hint')}</p>
+            <div role="radiogroup" aria-labelledby="menu-language" className="menu-choices">
+              {LOCALES.map((id) => {
+                const selected = locale === id;
+                return (
+                  <button key={id} type="button" role="radio" lang={id} aria-checked={selected} onClick={() => changeLocale(id)} data-testid={`locale-${id}`} className={`menu-choice ${selected ? 'menu-choice--on' : ''}`}>
+                    <span className="menu-choice__title">{LOCALE_NAMES[id]}</span>
+                    {selected && <Check className="menu-choice__check h-4 w-4" aria-hidden />}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
           <section className="menu-section" aria-labelledby="menu-help">
             <h3 id="menu-help" className="menu-section__title">
-              Help
+              {t('menu.help.title')}
             </h3>
             <button type="button" onClick={openAbout} data-testid="menu-about" className="menu-tile">
               <span className="menu-tile__icon">
                 <HelpCircle className="h-6 w-6" aria-hidden />
               </span>
               <span className="menu-tile__text">
-                <span className="menu-tile__title">What is Blobbi?</span>
-                <span className="menu-tile__sub">What a Blobbi is, what Nostr is, and where the worlds are.</span>
+                <span className="menu-tile__title">{t('menu.help.about')}</span>
+                <span className="menu-tile__sub">{t('menu.help.aboutSub')}</span>
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
             </button>
@@ -159,9 +180,9 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
 
           <section className="menu-section" aria-labelledby="menu-appearance">
             <h3 id="menu-appearance" className="menu-section__title">
-              Home lighting
+              {t('menu.lighting.title')}
             </h3>
-            <p className="menu-section__hint">It is {env.island.phase} on the Island right now. Your Blobbi looks the same in every light.</p>
+            <p className="menu-section__hint">{t('menu.lighting.hint', { phase: t(`common.phase.${env.island.phase}`) })}</p>
             <div role="radiogroup" aria-labelledby="menu-appearance" className="menu-choices">
               {env.appearances.map((id) => {
                 const selected = env.appearance === id;
