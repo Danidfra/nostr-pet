@@ -4,7 +4,7 @@ The 2D home shows **one** space (`../space/home-space.ts`), built from this
 module's definitions: the room registry (`rooms.ts`), Ditto-compatible
 surfaces (`surfaces.ts`) and furniture (`furniture-registry.ts`, artwork under
 `public/furniture/`), the layout schema and local store (`layout-schema.ts`,
-`layout-store.ts`) and toys set down in a room (`toy-store.ts`).
+`layout-store.ts`) and the storage key of toys an older build set down (`toy-store.ts`).
 
 The living room's surfaces and decor are drawn by `RoomBackdrop`, furniture by
 `FurnitureLayer`; the bed and the tub are brought out for a care moment by

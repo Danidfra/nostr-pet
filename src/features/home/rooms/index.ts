@@ -10,5 +10,4 @@ export { createLocalLayoutStore, layoutStorageKey, LAYOUT_STORAGE_PREFIX } from 
 export type { LayoutStore } from './layout-store';
 export { surfaceBackground, parseSurface, isHexColor, WALL_STYLES, FLOOR_STYLES, SURFACE_VARIANTS } from './surfaces';
 export type { SurfaceLayout, RoomSurfaces, WallStyle, FloorStyle, SurfaceVariant } from './surfaces';
-export { parsePlacedToys, toyStorageKey, toyKey, toyApproach, MAX_TOYS_PER_ROOM, TOY_STORAGE_PREFIX } from './toy-store';
-export type { PlacedToy, PlacedToys } from './toy-store';
+export { toyStorageKey, TOY_STORAGE_PREFIX } from './toy-store';
