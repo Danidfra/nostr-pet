@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Check, ChevronRight, HelpCircle, KeyRound, Moon, Sparkles, Sun, Sunrise, UserRound, Volume2, VolumeX } from 'lucide-react';
+import { Check, ChevronRight, HelpCircle, KeyRound, Moon, Music, Sparkles, Sun, Sunrise, UserRound, Volume2, VolumeX } from 'lucide-react';
 import { deviceOnlyLine, noStorageLine, useGuestSnapshot, useGuestUi } from '@/features/guest';
 import { parseModernBlobbiEvent } from '@blobbi-kit/core';
 import { guestBlobbiEvent } from '@/features/guest/guest-world';
@@ -134,6 +134,16 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
             <h3 id="menu-sound" className="menu-section__title">
               {t('menu.sound.title')}
             </h3>
+            <button type="button" role="switch" aria-checked={sound.music} onClick={() => sound.setMusic(!sound.music)} data-testid="music-toggle" className={`menu-tile ${sound.music ? 'menu-tile--on' : ''}`}>
+              <span className="menu-tile__icon">
+                <Music className={`h-6 w-6 ${sound.music ? '' : 'opacity-50'}`} aria-hidden />
+              </span>
+              <span className="menu-tile__text">
+                <span className="menu-tile__title">{sound.music ? t('menu.music.on') : t('menu.music.off')}</span>
+                <span className="menu-tile__sub">{t('menu.music.sub')}</span>
+              </span>
+              <span className="menu-switch" aria-hidden data-on={sound.music ? 'true' : 'false'} />
+            </button>
             <button type="button" role="switch" aria-checked={sound.enabled} onClick={() => sound.setEnabled(!sound.enabled)} data-testid="sound-toggle" className={`menu-tile ${sound.enabled ? 'menu-tile--on' : ''}`}>
               <span className="menu-tile__icon">{sound.enabled ? <Volume2 className="h-6 w-6" aria-hidden /> : <VolumeX className="h-6 w-6" aria-hidden />}</span>
               <span className="menu-tile__text">

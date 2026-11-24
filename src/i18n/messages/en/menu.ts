@@ -24,6 +24,11 @@ export const menu = {
     off: 'Sounds off',
     sub: 'A few soft sounds when you care for your Blobbi.',
   },
+  music: {
+    on: 'Music on',
+    off: 'Music off',
+    sub: 'A gentle tune while you are at home.',
+  },
   language: {
     title: 'Language',
     hint: 'The game reloads in the language you choose.',

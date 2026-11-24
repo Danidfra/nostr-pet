@@ -67,3 +67,6 @@ export const VOICE_SOUNDS: readonly BlobbiSoundId[] = ['curious', 'poke', 'happy
 export type SoundId = BlobbiSoundId;
 
 export const SOUND_STORAGE_KEY = 'blobbi:sound:v1';
+
+/** The home's music, on or off: its own choice, apart from the sounds. */
+export const MUSIC_STORAGE_KEY = 'blobbi:music:v1';

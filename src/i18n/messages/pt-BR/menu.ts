@@ -27,6 +27,11 @@ export const menu: MessageShape<typeof source> = {
     off: 'Sons desligados',
     sub: 'Alguns sons suaves quando você cuida do seu Blobbi.',
   },
+  music: {
+    on: 'Música ligada',
+    off: 'Música desligada',
+    sub: 'Uma melodia suave enquanto você está em casa.',
+  },
   language: {
     title: 'Idioma',
     hint: 'O jogo recarrega no idioma que você escolher.',
