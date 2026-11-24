@@ -17,6 +17,7 @@
  * A signed-in player always wins over the guest (nobody is forced into guest
  * mode), and a guest record is never changed by a sign-in.
  */
+import { t } from '@/i18n';
 import type { GuestDocument } from './guest-store';
 
 export type GuestMode = 'none' | 'active' | 'promoting' | 'dormant';
@@ -72,7 +73,7 @@ export function guestEverSaved(doc: Pick<GuestDocument, 'migration'>): boolean {
 
 /** The invitation's one line. */
 export function inviteLine(name: string): string {
-  return `${name} loves being with you. Want to take them on adventures?`;
+  return t('wayIn.guest.invite.line', { name });
 }
 
 /**
@@ -80,12 +81,9 @@ export function inviteLine(name: string): string {
  * words, no relays). Two short sentences, honest, no fear.
  */
 export function deviceOnlyLine(name: string): string {
-  return `Right now, ${name} lives only on this device. If its data disappears, ${name} could disappear too.`;
+  return t('wayIn.guest.status.deviceOnly', { name });
 }
 /** The same when this browser is remembering nothing (private browsing, storage blocked). */
 export function noStorageLine(name: string): string {
-  return `This browser is not remembering anything right now, so ${name} will be gone when you leave. Saving ${name} keeps it.`;
+  return t('wayIn.guest.status.noStorage', { name });
 }
-/** The line without a name, where none is known (the menu before a Blobbi). */
-export const DEVICE_ONLY_LINE = deviceOnlyLine('your Blobbi');
-export const NO_STORAGE_LINE = noStorageLine('your Blobbi');

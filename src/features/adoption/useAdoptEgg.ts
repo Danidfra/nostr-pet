@@ -36,6 +36,7 @@ import { writeProfileSafely } from '@/features/companion/safe-profile-write';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { companionChoices } from '@/features/companion/choice-store';
 import { timeoutSignal } from '@/lib/abort';
+import { t } from '@/i18n';
 import { eggTemplate, isOwnedBlobbiEvent, profileTemplate, type EggPreview } from './adoption-plan';
 
 export type AdoptionResult =
@@ -85,8 +86,8 @@ export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refre
 
   const mutation = useMutation<AdoptionResult, Error, EggPreview>({
     mutationFn: async (preview) => {
-      if (!pubkey) throw new Error('Sign in to adopt an egg.');
-      if (preview.ownerPubkey !== pubkey) throw new Error('This egg was prepared for a different account.');
+      if (!pubkey) throw new Error(t('wayIn.adopt.signInFirst'));
+      if (preview.ownerPubkey !== pubkey) throw new Error(t('wayIn.adopt.otherAccount'));
 
       setStep('checking');
       const owned = (await nostr.query([{ kinds: [KIND_BLOBBI_STATE], authors: [pubkey] }], { signal: timeoutSignal(PREFLIGHT_TIMEOUT_MS) })).filter(isOwnedBlobbiEvent);
@@ -127,7 +128,7 @@ export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refre
           const settled = (c: { complete: boolean; absenceKnown: boolean; newest: NostrEvent | null }) => c.complete && (c.newest !== null || c.absenceKnown);
           let complete = settled(await readProfileCensus(relays, pubkey));
           if (!complete) complete = settled(await readProfileCensus(relays, pubkey, PROFILE_SECOND_READ_MS));
-          if (!complete) throw new Error('your profile could not be reached right now');
+          if (!complete) throw new Error(t('wayIn.adopt.profileUnreachable'));
           const out = await writeProfileSafely(
             { owner: pubkey, relays, sign: (t) => publisher.sign(t), stillAccount: () => signedInRef.current === pubkey },
             (base) => {
@@ -137,7 +138,7 @@ export function useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refre
             },
             { create: true },
           );
-          if (out.kind !== 'sent') throw new Error(out.kind === 'failed' ? out.message : out.kind === 'stale' ? 'your profile changed while saving' : out.kind === 'wrong-account' ? 'the account changed' : 'your profile could not be reached right now');
+          if (out.kind !== 'sent') throw new Error(out.kind === 'failed' ? out.message : out.kind === 'stale' ? t('wayIn.adopt.profileChanged') : out.kind === 'wrong-account' ? t('wayIn.adopt.accountChanged') : t('wayIn.adopt.profileUnreachable'));
           profileEvent = out.event;
         } else {
           profileEvent = await publisher.publish(profileTemplate({ ownerPubkey: pubkey, profile, d: preview.d, suggestedName: name, now: Math.floor(Date.now() / 1000) }));

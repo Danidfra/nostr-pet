@@ -54,6 +54,7 @@ import {
   type NostrEvent,
 } from '@blobbi-kit/core';
 import { createHatchMissions, type PublishEventTemplate } from '@blobbi-kit/react';
+import { t } from '@/i18n';
 
 /**
  * THE CREATION RULE OF THIS APP: which visual generation a Blobbi adopted
@@ -73,15 +74,17 @@ export function adoptionEggOptions(generation: BlobbiVisualGeneration = ADOPTION
   return { visualGeneration: generation };
 }
 
-/** The name the egg carries until the player picks one. */
-export const DEFAULT_EGG_NAME = 'Egg';
+/** The name the egg carries until the player picks one, in the page's language ("Egg", "Ovo", "Huevo"). */
+export function defaultEggName(): string {
+  return t('wayIn.adopt.defaultName');
+}
 export const NAME_MAX_LENGTH = 24;
 
 /** A name a Blobbi may carry: trimmed, printable, short. Empty means the default. */
 export function normalizeBlobbiName(raw: string): { ok: true; name: string } | { ok: false; reason: string } {
   const name = raw.replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/\s+/g, ' ').trim();
-  if (name.length === 0) return { ok: true, name: DEFAULT_EGG_NAME };
-  if (name.length > NAME_MAX_LENGTH) return { ok: false, reason: `Keep it under ${NAME_MAX_LENGTH} characters.` };
+  if (name.length === 0) return { ok: true, name: defaultEggName() };
+  if (name.length > NAME_MAX_LENGTH) return { ok: false, reason: t('wayIn.adopt.nameTooLong', { max: NAME_MAX_LENGTH }) };
   return { ok: true, name };
 }
 
@@ -99,7 +102,7 @@ export interface EggPreview {
  * The seed is the one the egg will have: on V3 its address (author, d), on V1 and V2 the stated
  * seed, which also hashes the birth time.
  */
-export function newEggPreview(ownerPubkey: string, name: string = DEFAULT_EGG_NAME, now: number = Math.floor(Date.now() / 1000)): EggPreview {
+export function newEggPreview(ownerPubkey: string, name: string = defaultEggName(), now: number = Math.floor(Date.now() / 1000)): EggPreview {
   const petId = generatePetId10();
   const d = getCanonicalBlobbiD(ownerPubkey, petId);
   const seed = ADOPTION_VISUAL_GENERATION === 'v3' ? deriveBlobbiV3Seed(ownerPubkey, d) : deriveBlobbiSeedV1(ownerPubkey, d, now);

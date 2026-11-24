@@ -9,7 +9,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { SceneSettingsProvider } from '@/features/home/scene';
 import { WelcomeScreen } from './screens';
 import { WelcomeStage } from './WelcomeStage';
-import { GREETING, GREETING_MS, INVITATION, REACTIONS, gazeToward, reactionFor } from './welcome-hero';
+import { GREETING_MS, REACTIONS, gazeToward, greeting, invitation, reactionFor } from './welcome-hero';
 
 vi.mock('@/lib/relay-transport', () => ({ checkRelayTransport: () => null }));
 
@@ -33,8 +33,8 @@ describe('the welcome scene', () => {
     const { onCreate, onExisting } = scene();
     const cast = screen.getByTestId('welcome-cast');
     expect(cast.querySelectorAll('[data-blobbi-renderer]')).toHaveLength(3);
-    expect(screen.getByTestId('welcome-hero-says')).toHaveTextContent(GREETING);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(INVITATION);
+    expect(screen.getByTestId('welcome-hero-says')).toHaveTextContent(greeting());
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(invitation());
     // Nothing to wait for: the doors are there and answer at once
     fireEvent.click(screen.getByTestId('onboarding-create'));
     expect(onCreate).toHaveBeenCalledTimes(1);

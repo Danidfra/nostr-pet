@@ -11,7 +11,8 @@ import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { useSound } from '@/features/sound';
 import { StagePanel } from './WelcomeStage';
 import { WelcomeHero } from './WelcomeHero';
-import { INVITATION } from './welcome-hero';
+import { invitation } from './welcome-hero';
+import { t } from '@/i18n';
 import { welcomeCast } from './welcome-cast';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { isNsec, readNsecFromText } from './new-account';
@@ -20,9 +21,9 @@ import { signInMessage, withTimeout } from './sign-in';
 import { PROFILE_ABOUT_MAX, PROFILE_NAME_MAX, checkProfileForm, profileFormFrom, type ProfileFormInput } from './profile-plan';
 
 /** What the little guide says beside each step: friendly, never instead of the step's own plain words. */
-const GUIDE_LINES: Record<string, string> = {
-  'onboarding-existing-account': 'Welcome back! I missed you.',
-};
+function guideLine(testId: string): string {
+  return testId === 'onboarding-existing-account' ? t('wayIn.guide.welcomeBack') : t('wayIn.guide.hello');
+}
 
 /** A step of the way in: the card, in the welcome's world, with the Blobbi guide beside it. `plain`: the card alone (inside another surface). */
 function Card({ children, testId, busy, plain = false }: { children: React.ReactNode; testId: string; busy?: boolean; plain?: boolean }) {
@@ -32,14 +33,14 @@ function Card({ children, testId, busy, plain = false }: { children: React.React
     </section>
   );
   if (plain) return card;
-  return <StagePanel line={GUIDE_LINES[testId] ?? 'Hello again!'}>{card}</StagePanel>;
+  return <StagePanel line={guideLine(testId)}>{card}</StagePanel>;
 }
 
-function BackButton({ onClick, label = 'Back' }: { onClick: () => void; label?: string }) {
+function BackButton({ onClick, label }: { onClick: () => void; label?: string }) {
   return (
     <button type="button" onClick={onClick} className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground" data-testid="onboarding-back">
       <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-      {label}
+      {label ?? t('common.back')}
     </button>
   );
 }
@@ -78,7 +79,7 @@ export function WelcomeScreen({ onCreate, onExisting }: { onCreate: () => void; 
       {/* The invitation and the two doors, there from the first frame: nobody waits for an animation */}
       <div className="wscene__band">
         <h1 id="welcome-title" className="wscene__title">
-          {INVITATION}
+          {invitation()}
         </h1>
         {blocked && (
           <p role="alert" className="welcome-card__warning" data-testid="welcome-blocked">
@@ -88,18 +89,18 @@ export function WelcomeScreen({ onCreate, onExisting }: { onCreate: () => void; 
         <div className="wscene__actions">
           <button type="button" className="onboard-btn onboard-btn--primary welcome-card__primary" onClick={onCreate} data-testid="onboarding-create">
             <Sparkles className="h-4 w-4" aria-hidden />
-            Meet your Blobbi!
+            {t('wayIn.welcome.meet')}
           </button>
           <button type="button" className="onboard-btn onboard-btn--secondary" onClick={onExisting} aria-describedby="welcome-back-hint" data-testid="onboarding-existing">
             <KeyRound className="h-4 w-4" aria-hidden />
-            I already have an account
+            {t('wayIn.welcome.haveAccount')}
           </button>
           <span id="welcome-back-hint" className="sr-only">
-            Welcome back: sign in with the Nostr account your Blobbi lives under
+            {t('wayIn.welcome.haveAccountHint')}
           </span>
         </div>
         <button type="button" className="wscene__about" onClick={() => setAboutOpen(true)} data-testid="welcome-what-is-nostr">
-          What is Blobbi?
+          {t('wayIn.welcome.whatIs')}
         </button>
       </div>
       <AboutBlobbiSheet open={aboutOpen} onClose={() => setAboutOpen(false)} />
@@ -110,25 +111,21 @@ export function WelcomeScreen({ onCreate, onExisting }: { onCreate: () => void; 
 /** What Blobbi is, in a sheet: the welcome's "What is Blobbi?" and the menu's About (M14.1), one and the same. */
 export function AboutBlobbiSheet({ open, onClose, testId = 'welcome-about' }: { open: boolean; onClose: () => void; testId?: string }) {
   return (
-    <GameOverlay open={open} onClose={onClose} title="What is Blobbi?" testId={testId}>
-      <ul className="welcome-card__points welcome-about__points" aria-label="What you can do">
-        <li><Egg aria-hidden /> One of a kind, from the moment it is an egg</li>
-        <li><Heart aria-hidden /> It notices you, eats, plays and naps</li>
-        <li><Home aria-hidden /> A home with rooms to walk and decorate</li>
+    <GameOverlay open={open} onClose={onClose} title={t('wayIn.about.title')} testId={testId}>
+      <ul className="welcome-card__points welcome-about__points" aria-label={t('wayIn.about.pointsLabel')}>
+        <li><Egg aria-hidden /> {t('wayIn.about.unique')}</li>
+        <li><Heart aria-hidden /> {t('wayIn.about.alive')}</li>
+        <li><Home aria-hidden /> {t('wayIn.about.home')}</li>
       </ul>
-      <p className="welcome-about__text">Free, with no email, and you can start right away. Your first Blobbi lives on this device until you choose to save it.</p>
-      <p className="welcome-about__text">
-        Saving gives your Blobbi a home you can return to from other devices, and a little key that opens it. That home is powered by Nostr, an open network
-        where your identity belongs to you. The same key and the same Blobbi then work in Blobbi Island and Ditto. If you already use Nostr, choose I already
-        have an account and sign in with it.
-      </p>
+      <p className="welcome-about__text">{t('wayIn.about.free')}</p>
+      <p className="welcome-about__text">{t('wayIn.about.saving')}</p>
       <div className="mt-3 flex justify-center">
         <EnterIslandButton variant="secondary" />
       </div>
       <p className="welcome-about__text text-center">
-        Blobbi is free software under the AGPL.{' '}
+        {t('wayIn.about.license')}{' '}
         <a href={SOURCE_CODE_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2" data-testid="source-code-link">
-          Source code
+          {t('wayIn.about.source')}
         </a>
       </p>
     </GameOverlay>
@@ -149,7 +146,7 @@ function SceneFriend({ blobbi, where }: { blobbi: ReturnType<typeof welcomeCast>
         setHop((h) => h + 1);
         play(blobbi.stage === 'egg' ? 'poke' : 'happy');
       }}
-      aria-label={blobbi.stage === 'egg' ? 'An egg, waiting for someone' : `${blobbi.name}, a grown-up Blobbi`}
+      aria-label={blobbi.stage === 'egg' ? t('wayIn.welcome.eggFriend') : t('wayIn.welcome.grownUpFriend', { name: blobbi.name })}
       tabIndex={-1}
     >
       <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`welcome-${blobbi.d}`} size="100%" eggCrack="none" transparent style={{ width: '100%', height: '100%' }} expression={blobbi.stage === 'egg' ? undefined : 'happy'} />
@@ -169,12 +166,12 @@ function hasExtension(): boolean {
 
 /** The text of a small file (the backup); never more than a few KB is read. */
 function readFileText(file: File): Promise<string> {
-  if (file.size > 4_096) return Promise.reject(new Error('That is not a key backup file.'));
+  if (file.size > 4_096) return Promise.reject(new Error(t('wayIn.signIn.notBackup')));
   if (typeof file.text === 'function') return file.text();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error ?? new Error('Could not read the file.'));
+    reader.onerror = () => reject(reader.error ?? new Error(t('wayIn.signIn.readFailed')));
     reader.readAsText(file);
   });
 }
@@ -213,7 +210,7 @@ export function ExistingAccountScreen({ onBack, plain = false }: { onBack?: () =
     event.preventDefault();
     if (!bunkerValid) return;
     void run('bunker', async () => {
-      await withTimeout(login.bunker(bunkerUri.trim()), SIGNER_TIMEOUT_MS, 'The signer did not answer. Check it is online and approve Blobbi there, then try again.');
+      await withTimeout(login.bunker(bunkerUri.trim()), SIGNER_TIMEOUT_MS, t('wayIn.signIn.bunkerTimeout'));
       setBunkerUri('');
     });
   };
@@ -230,7 +227,7 @@ export function ExistingAccountScreen({ onBack, plain = false }: { onBack?: () =
     const text = await readFileText(file);
     const found = readNsecFromText(text);
     if (!found) {
-      setError('That file does not hold one secret key.');
+      setError(t('wayIn.signIn.fileNoKey'));
       return;
     }
     // The key goes straight into the session; the file is not kept anywhere.
@@ -244,48 +241,48 @@ export function ExistingAccountScreen({ onBack, plain = false }: { onBack?: () =
       {onBack && <BackButton onClick={onBack} />}
       <div className="space-y-1">
         <h2 className="text-xl font-semibold" id="login-heading">
-          Welcome back
+          {t('wayIn.signIn.title')}
         </h2>
-        <p className="text-sm text-muted-foreground">Sign in with the account your Blobbis live in. A signer app keeps your key with it, which is safest.</p>
+        <p className="text-sm text-muted-foreground">{t('wayIn.signIn.lead')}</p>
       </div>
 
-      <button type="button" onClick={() => void run('extension', () => withTimeout(login.extension(), SIGNER_TIMEOUT_MS, 'The extension did not answer. Open it, approve Blobbi, then try again.'))} disabled={!extensionAvailable || busy !== null} className="onboard-btn onboard-btn--primary" data-testid="login-extension">
+      <button type="button" onClick={() => void run('extension', () => withTimeout(login.extension(), SIGNER_TIMEOUT_MS, t('wayIn.signIn.extensionTimeout')))} disabled={!extensionAvailable || busy !== null} className="onboard-btn onboard-btn--primary" data-testid="login-extension">
         <ShieldCheck className="h-4 w-4" aria-hidden />
-        {busy === 'extension' ? 'Signing in…' : 'Sign in with extension'}
+        {busy === 'extension' ? t('wayIn.signIn.signingIn') : t('wayIn.signIn.extension')}
       </button>
-      {!extensionAvailable && <p className="text-center text-xs text-muted-foreground">No NIP-07 extension detected in this browser.</p>}
+      {!extensionAvailable && <p className="text-center text-xs text-muted-foreground">{t('wayIn.signIn.noExtension')}</p>}
 
       <SignerAppConnect disabled={busy !== null} />
 
       <form onSubmit={withBunker} className="space-y-2">
         <label htmlFor="bunker-uri" className="block text-sm font-medium">
-          Or paste a bunker address
+          {t('wayIn.signIn.bunkerLabel')}
         </label>
         <input id="bunker-uri" value={bunkerUri} onChange={(e) => setBunkerUri(e.target.value)} placeholder="bunker://…" autoComplete="off" spellCheck={false} className="onboard-input" />
-        {bunkerUri && !bunkerValid && <p className="text-xs text-destructive">URI must start with bunker://</p>}
+        {bunkerUri && !bunkerValid && <p className="text-xs text-destructive">{t('wayIn.signIn.bunkerInvalid')}</p>}
         <button type="submit" disabled={!bunkerValid || busy !== null} className="onboard-btn onboard-btn--secondary" data-testid="login-bunker">
           <KeyRound className="h-4 w-4" aria-hidden />
-          {busy === 'bunker' ? 'Connecting…' : 'Connect bunker'}
+          {busy === 'bunker' ? t('wayIn.signIn.connecting') : t('wayIn.signIn.connectBunker')}
         </button>
       </form>
 
       <details className="rounded-2xl border border-border bg-background/60 p-3" data-testid="login-key-section" open={showKey} onToggle={(e) => setShowKey((e.target as HTMLDetailsElement).open)}>
-        <summary className="cursor-pointer text-sm font-medium">Sign in with a secret key</summary>
+        <summary className="cursor-pointer text-sm font-medium">{t('wayIn.signIn.keySummary')}</summary>
         <form onSubmit={withNsec} className="mt-2 space-y-2">
-          <p className="text-xs text-muted-foreground">For an account made here, or a backup file. The key is kept on this device by the sign-in store; prefer a signer when you have one.</p>
+          <p className="text-xs text-muted-foreground">{t('wayIn.signIn.keyHint')}</p>
           <label htmlFor="nsec-input" className="sr-only">
-            Secret key (nsec)
+            {t('wayIn.signIn.keyLabel')}
           </label>
           <input id="nsec-input" type="password" value={nsecInput} onChange={(e) => setNsecInput(e.target.value)} placeholder="nsec1…" autoComplete="off" spellCheck={false} className="onboard-input" data-testid="login-nsec-input" />
-          {nsecInput && !nsecValid && <p className="text-xs text-destructive">That is not a valid nsec.</p>}
+          {nsecInput && !nsecValid && <p className="text-xs text-destructive">{t('wayIn.signIn.nsecInvalid')}</p>}
           <div className="grid grid-cols-2 gap-2">
             <button type="button" className="onboard-btn onboard-btn--secondary" onClick={() => fileRef.current?.click()} disabled={busy !== null} data-testid="login-nsec-file">
               <FileUp className="h-4 w-4" aria-hidden />
-              Backup file
+              {t('wayIn.signIn.backupFile')}
             </button>
             <button type="submit" disabled={!nsecValid || busy !== null} className="onboard-btn onboard-btn--primary" data-testid="login-nsec">
               <KeyRound className="h-4 w-4" aria-hidden />
-              Sign in
+              {t('wayIn.signIn.submit')}
             </button>
           </div>
           <input ref={fileRef} type="file" accept=".txt,text/plain" className="sr-only" onChange={(e) => void fromFile(e.target.files?.[0])} data-testid="login-nsec-file-input" />
@@ -303,7 +300,9 @@ export function ExistingAccountScreen({ onBack, plain = false }: { onBack?: () =
 
 /* ─── A signer app, by QR or deep link (NIP-46, nostrconnect://) ───────── */
 
-const STATUS_WORD: Record<NostrConnectStatus, string> = { 'awaiting-connect': 'Waiting for your signer app…', 'getting-public-key': 'Signer found. Confirming…' };
+function statusWord(status: NostrConnectStatus): string {
+  return status === 'awaiting-connect' ? t('wayIn.signer.waiting') : t('wayIn.signer.confirming');
+}
 
 function isTouchDevice(): boolean {
   return typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -356,7 +355,7 @@ function SignerAppConnect({ disabled }: { disabled: boolean }) {
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) return;
-        setError(err instanceof Error ? err.message : 'The signer did not answer.');
+        setError(err instanceof Error ? err.message : t('wayIn.signer.noAnswer'));
         stop();
       });
   };
@@ -375,9 +374,9 @@ function SignerAppConnect({ disabled }: { disabled: boolean }) {
       <div className="space-y-2">
         <button type="button" onClick={start} disabled={disabled} className="onboard-btn onboard-btn--secondary" data-testid="login-signer-app">
           <Smartphone className="h-4 w-4" aria-hidden />
-          Connect a signer app
+          {t('wayIn.signer.connect')}
         </button>
-        <p className="text-center text-xs text-muted-foreground">Amber, nsec.app and other NIP-46 signers. Your key stays in the app.</p>
+        <p className="text-center text-xs text-muted-foreground">{t('wayIn.signer.connectHint')}</p>
         {error && (
           <p role="alert" className="text-center text-sm text-destructive" data-testid="signer-app-error">
             {error}
@@ -389,27 +388,27 @@ function SignerAppConnect({ disabled }: { disabled: boolean }) {
   return (
     <div className="signer-connect" data-testid="signer-app-session" aria-live="polite">
       {!mobile && (
-        <div className="signer-connect__qr" aria-label="Scan with your signer app">
-          {qr ? <img src={qr} alt="QR code for your signer app" width={224} height={224} data-testid="signer-app-qr" /> : <span className="text-xs text-muted-foreground">Making the code…</span>}
+        <div className="signer-connect__qr" aria-label={t('wayIn.signer.scanLabel')}>
+          {qr ? <img src={qr} alt={t('wayIn.signer.qrAlt')} width={224} height={224} data-testid="signer-app-qr" /> : <span className="text-xs text-muted-foreground">{t('wayIn.signer.makingCode')}</span>}
         </div>
       )}
       <p className="text-center text-sm font-semibold" data-testid="signer-app-status">
         <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" aria-hidden />
-        {status ? STATUS_WORD[status] : ''}
+        {status ? statusWord(status) : ''}
       </p>
-      <p className="text-center text-xs text-muted-foreground">{mobile ? 'Open your signer app with the button, approve Blobbi there, then come back.' : 'Scan the code with your signer app, or open it on this device.'}</p>
+      <p className="text-center text-xs text-muted-foreground">{mobile ? t('wayIn.signer.mobileHint') : t('wayIn.signer.desktopHint')}</p>
       <div className="grid grid-cols-2 gap-2">
         <a href={session.uri} className="onboard-btn onboard-btn--primary" data-testid="signer-app-open">
           <Smartphone className="h-4 w-4" aria-hidden />
-          Open signer app
+          {t('wayIn.signer.open')}
         </a>
         <button type="button" className="onboard-btn onboard-btn--secondary" onClick={copy} data-testid="signer-app-copy">
           <Copy className="h-4 w-4" aria-hidden />
-          {copied ? 'Copied' : 'Copy link'}
+          {copied ? t('wayIn.signer.copied') : t('wayIn.signer.copyLink')}
         </button>
       </div>
       <button type="button" className="inline-flex w-full justify-center text-xs font-semibold text-muted-foreground hover:text-foreground" onClick={stop} data-testid="signer-app-cancel">
-        Cancel
+        {t('common.cancel')}
       </button>
     </div>
   );
@@ -459,7 +458,7 @@ export function ProfileForm({ existing, onSave, onUpload, pending, error, saved 
       const url = await onUpload(file);
       setForm((f) => ({ ...f, picture: url }));
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed.');
+      setUploadError(err instanceof Error ? err.message : t('wayIn.profile.uploadFailed'));
     } finally {
       setUploading(false);
     }
@@ -467,20 +466,20 @@ export function ProfileForm({ existing, onSave, onUpload, pending, error, saved 
 
   return (
     <form onSubmit={submit} className="space-y-3" data-testid="profile-form" aria-busy={pending}>
-      <p className="text-xs text-muted-foreground">Your Nostr profile: shared with every app you sign into with this key. Everything here is optional.</p>
+      <p className="text-xs text-muted-foreground">{t('wayIn.profile.intro')}</p>
       <div className="flex items-center gap-3">
         <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background" aria-hidden>
           {form.picture ? <img src={form.picture} alt="" className="h-full w-full object-cover" /> : <UserRound className="h-6 w-6 text-muted-foreground" />}
         </span>
         <div className="min-w-0 flex-1 space-y-1">
           <label htmlFor="profile-picture" className="block text-sm font-medium">
-            Picture
+            {t('wayIn.profile.picture')}
           </label>
           <input id="profile-picture" value={form.picture} onChange={(e) => setForm((f) => ({ ...f, picture: e.target.value }))} placeholder="https://…" autoComplete="off" spellCheck={false} className="onboard-input" data-testid="profile-picture" />
           {onUpload && (
             <button type="button" className="inline-flex items-center gap-1 text-xs font-semibold text-primary" onClick={() => fileRef.current?.click()} disabled={uploading || pending} data-testid="profile-upload">
               {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <ImagePlus className="h-3.5 w-3.5" aria-hidden />}
-              {uploading ? 'Uploading…' : 'Upload an image'}
+              {uploading ? t('wayIn.profile.uploading') : t('wayIn.profile.upload')}
             </button>
           )}
           <input ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={(e) => void upload(e.target.files?.[0])} data-testid="profile-upload-input" />
@@ -489,13 +488,13 @@ export function ProfileForm({ existing, onSave, onUpload, pending, error, saved 
       </div>
       <div>
         <label htmlFor="profile-name" className="block text-sm font-medium">
-          Name
+          {t('wayIn.profile.name')}
         </label>
         <input id="profile-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} maxLength={PROFILE_NAME_MAX + 8} autoComplete="nickname" spellCheck={false} className="onboard-input mt-1" data-testid="profile-name" />
       </div>
       <div>
         <label htmlFor="profile-about" className="block text-sm font-medium">
-          About you
+          {t('wayIn.profile.about')}
         </label>
         <textarea id="profile-about" value={form.about} onChange={(e) => setForm((f) => ({ ...f, about: e.target.value }))} maxLength={PROFILE_ABOUT_MAX + 20} rows={2} className="onboard-input mt-1 resize-none" data-testid="profile-about" />
       </div>
@@ -511,11 +510,11 @@ export function ProfileForm({ existing, onSave, onUpload, pending, error, saved 
       )}
       <button type="submit" className="onboard-btn onboard-btn--primary" disabled={pending || uploading} data-testid="profile-save">
         {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <UserRound className="h-4 w-4" aria-hidden />}
-        {pending ? 'Saving…' : 'Save my profile'}
+        {pending ? t('wayIn.profile.saving') : t('wayIn.profile.save')}
       </button>
       {saved && !pending && !error && (
         <p role="status" className="text-center text-xs text-muted-foreground" data-testid="profile-saved">
-          Saved.
+          {t('wayIn.profile.saved')}
         </p>
       )}
     </form>

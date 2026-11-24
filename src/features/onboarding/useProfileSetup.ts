@@ -18,6 +18,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { DevFixtureContext } from '@/dev/DevFixtureContext';
 import { CLIENT_NAME } from '@/features/care/usePublishAdapter';
 import { BLOSSOM_SERVERS } from '@/config/blossom';
+import { t } from '@/i18n';
 import { mergeProfileMetadata, type ProfileFormInput } from './profile-plan';
 
 const PUBLISH_TIMEOUT_MS = 8_000;
@@ -33,7 +34,7 @@ export function useProfileSetup(pubkey: string | undefined) {
 
   const publish = useMutation<NostrEvent, Error, ProfileFormInput>({
     mutationFn: async (form) => {
-      if (!user || !pubkey) throw new Error('Sign in first.');
+      if (!user || !pubkey) throw new Error(t('wayIn.profile.signInFirst'));
       const [fresh] = await nostr.query([{ kinds: [0], authors: [pubkey], limit: 1 }], { signal: AbortSignal.timeout(2_500) }).catch(() => [] as NostrEvent[]);
       let existing: NostrMetadata | undefined;
       if (fresh) {
@@ -45,7 +46,7 @@ export function useProfileSetup(pubkey: string | undefined) {
       }
       const metadata = mergeProfileMetadata(existing, form);
       const event = await user.signer.signEvent({ kind: 0, content: JSON.stringify(metadata), tags: [['client', CLIENT_NAME]], created_at: Math.floor(Date.now() / 1000) });
-      if (event.pubkey !== pubkey) throw new Error('The signer answered for a different account.');
+      if (event.pubkey !== pubkey) throw new Error(t('wayIn.profile.wrongAccount'));
       await nostr.event(event, { signal: AbortSignal.timeout(PUBLISH_TIMEOUT_MS) });
       queryClient.setQueryData(['author', pubkey], { event, metadata });
       return event;
@@ -54,10 +55,10 @@ export function useProfileSetup(pubkey: string | undefined) {
 
   const upload = useMutation<string, Error, File>({
     mutationFn: async (file) => {
-      if (!user) throw new Error('Sign in first.');
+      if (!user) throw new Error(t('wayIn.profile.signInFirst'));
       if (fixture) throw new Error('Pictures are not uploaded in fixture mode.');
-      if (!file.type.startsWith('image/')) throw new Error('Choose an image.');
-      if (file.size > MAX_PICTURE_BYTES) throw new Error('Choose an image under 5 MB.');
+      if (!file.type.startsWith('image/')) throw new Error(t('wayIn.profile.chooseImage'));
+      if (file.size > MAX_PICTURE_BYTES) throw new Error(t('wayIn.profile.imageTooBig'));
       const uploader = new BlossomUploader({
         servers: [...BLOSSOM_SERVERS],
         signer: user.signer,

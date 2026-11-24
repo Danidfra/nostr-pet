@@ -35,6 +35,7 @@ import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import type { GuestDocument } from './guest-store';
 import { guestBlobbiOf } from './guest-world';
 import { guestEverSaved } from './guest-session';
+import { t } from '@/i18n';
 
 function Portrait({ blobbi, id }: { blobbi: BlobbiCompanion | undefined; id: string }) {
   if (!blobbi) return null;
@@ -59,30 +60,23 @@ interface GuestConflictSheetProps {
 export function GuestConflictSheet({ open, doc, onKeep, onLater, onRemove }: GuestConflictSheetProps) {
   const { blobbi, name } = guestBlobbiOf(doc);
   return (
-    <GameOverlay open={open} onClose={onLater} title={`${name} is still here`} testId="guest-conflict" subtitle="You signed in to a different account." lead={<Portrait blobbi={blobbi} id="conflict" />}>
+    <GameOverlay open={open} onClose={onLater} title={t('wayIn.guest.conflict.title', { name })} testId="guest-conflict" subtitle={t('wayIn.guest.conflict.subtitle')} lead={<Portrait blobbi={blobbi} id="conflict" />}>
       <div className="space-y-3 text-sm" data-testid="guest-conflict-text">
-        <p>
-          {name} lives on this device, and this account does not know {name}. Nothing has changed and nothing was deleted.
-        </p>
-        <p className="text-muted-foreground">
-          To play with {name} again, sign out. To give {name} a home of its own, sign out and choose Save {name}.
-        </p>
+        <p>{t('wayIn.guest.conflict.body', { name })}</p>
+        <p className="text-muted-foreground">{t('wayIn.guest.conflict.howTo', { name })}</p>
         <details className="guest-status__more" data-testid="guest-conflict-why">
-          <summary>Why can’t {name} join this account?</summary>
-          <p className="pt-1 text-xs text-muted-foreground">
-            Every Blobbi is born from its own key, and {name}’s colours and shape came from the key waiting on this device. Under this account’s key, {name} would be a
-            different Blobbi. So {name} keeps its own key, and you can save {name} with it whenever you like.
-          </p>
+          <summary>{t('wayIn.guest.conflict.why', { name })}</summary>
+          <p className="pt-1 text-xs text-muted-foreground">{t('wayIn.guest.conflict.whyText', { name })}</p>
         </details>
         <div className="grid gap-2 pt-1">
           <button type="button" className="onboard-btn onboard-btn--primary" onClick={onKeep} data-testid="guest-conflict-keep">
-            Keep {name} here
+            {t('wayIn.guest.conflict.keep', { name })}
           </button>
           <button type="button" className="onboard-btn onboard-btn--secondary" onClick={onLater} data-testid="guest-conflict-later">
-            Decide later
+            {t('wayIn.guest.conflict.later')}
           </button>
           <button type="button" className="guest-invite__later guest-conflict__remove" onClick={onRemove} data-testid="guest-conflict-remove">
-            Remove {name} from this device…
+            {t('wayIn.guest.conflict.remove', { name })}
           </button>
         </div>
       </div>
@@ -114,38 +108,32 @@ export function GuestRemoveSheet({ open, doc, onCancel, onRemove }: GuestRemoveS
   const [acknowledged, setAcknowledged] = useState(false);
   const ready = acknowledged;
   return (
-    <GameOverlay open={open} onClose={onCancel} title={`Remove ${name} from this device?`} testId="guest-remove" lead={<Portrait blobbi={blobbi} id="remove" />}>
+    <GameOverlay open={open} onClose={onCancel} title={t('wayIn.guest.remove.title', { name })} testId="guest-remove" lead={<Portrait blobbi={blobbi} id="remove" />}>
       <div className="space-y-3 text-sm" data-testid="guest-remove-text">
         {saved ? (
-          <p data-testid="guest-remove-saved">
-            {name} was saved to an account, so only this device’s copy goes. {name} stays in that account. To open it again, you will need the key you kept.
-          </p>
+          <p data-testid="guest-remove-saved">{t('wayIn.guest.remove.saved', { name })}</p>
         ) : unfinished ? (
           <div className="space-y-1 rounded-2xl border border-destructive/40 bg-destructive/5 p-3" role="alert" data-testid="guest-remove-unfinished">
-            <p className="font-semibold">{name}’s save did not finish.</p>
-            <p className="text-xs text-muted-foreground">
-              {name} may be saved, but the key kept here may be the only one. Without it, {name} may never come back.
-            </p>
+            <p className="font-semibold">{t('wayIn.guest.remove.unfinishedTitle', { name })}</p>
+            <p className="text-xs text-muted-foreground">{t('wayIn.guest.remove.unfinishedText', { name })}</p>
           </div>
         ) : (
           <div className="space-y-1 rounded-2xl border border-destructive/40 bg-destructive/5 p-3" role="alert" data-testid="guest-remove-warning">
-            <p className="font-semibold">{name} has never been saved.</p>
-            <p className="text-xs text-muted-foreground">
-              Removing {name} deletes it for good: its key, its care and its days here. There is no way to bring {name} back.
-            </p>
+            <p className="font-semibold">{t('wayIn.guest.remove.neverTitle', { name })}</p>
+            <p className="text-xs text-muted-foreground">{t('wayIn.guest.remove.neverText', { name })}</p>
           </div>
         )}
-        <p className="text-muted-foreground">Your signed-in account is not touched.</p>
+        <p className="text-muted-foreground">{t('wayIn.guest.remove.untouched')}</p>
         <label className="flex items-start gap-2 text-xs font-semibold">
           <input type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} data-testid="guest-remove-ack" />
-          <span>{saved ? `I have ${name}’s key somewhere safe.` : `I understand ${name} may not be brought back.`}</span>
+          <span>{saved ? t('wayIn.guest.remove.ackSaved', { name }) : t('wayIn.guest.remove.ackUnsaved', { name })}</span>
         </label>
         <div className="grid grid-cols-2 gap-2 pt-1">
           <button type="button" className="onboard-btn onboard-btn--secondary" onClick={onCancel} data-testid="guest-remove-cancel">
-            Keep {name}
+            {t('wayIn.guest.remove.keep', { name })}
           </button>
           <button type="button" className="onboard-btn onboard-btn--primary !bg-destructive" onClick={onRemove} disabled={!ready} data-testid="guest-remove-confirm">
-            Remove {name}
+            {t('wayIn.guest.remove.confirm', { name })}
           </button>
         </div>
       </div>

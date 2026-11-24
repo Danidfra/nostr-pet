@@ -18,7 +18,8 @@ import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { useSound } from '@/features/sound';
 import { useReducedMotion } from '@/features/home/scene/SceneSettings';
-import { AT_REST, BLINK_MS, GREETING, GREETING_MS, NOTICING, gazeToward, nextBlinkIn, reactionFor, type HeroMove } from './welcome-hero';
+import { t } from '@/i18n';
+import { AT_REST, BLINK_MS, GREETING_MS, NOTICING, gazeToward, nextBlinkIn, greeting, reactionFor, type HeroMove } from './welcome-hero';
 
 export interface WelcomeHeroProps {
   blobbi: BlobbiCompanion;
@@ -37,7 +38,7 @@ export function WelcomeHero({ blobbi, variant = 'hero', line, testId = 'welcome-
   const { play } = useSound();
   const hero = variant === 'hero';
   const [face, setFace] = useState<BlobbiExpression>(hero ? NOTICING : AT_REST);
-  const [said, setSaid] = useState<string | null>(hero ? GREETING : line ?? null);
+  const [said, setSaid] = useState<string | null>(() => (hero ? greeting() : line ?? null));
   const [blink, setBlink] = useState(false);
   const [gaze, setGaze] = useState<{ x: number; y: number } | undefined>(undefined);
   const [move, setMove] = useState<{ kind: HeroMove; key: number } | null>(null);
@@ -49,7 +50,7 @@ export function WelcomeHero({ blobbi, variant = 'hero', line, testId = 'welcome-
   useEffect(() => {
     if (!hero) return;
     const glad = setTimeout(() => setFace(AT_REST), reduced ? 500 : 900);
-    const quiet = setTimeout(() => setSaid((s) => (s === GREETING ? null : s)), GREETING_MS);
+    const quiet = setTimeout(() => setSaid((s) => (s === greeting() ? null : s)), GREETING_MS);
     return () => {
       clearTimeout(glad);
       clearTimeout(quiet);
@@ -139,7 +140,7 @@ export function WelcomeHero({ blobbi, variant = 'hero', line, testId = 'welcome-
         type="button"
         className="whero__body"
         onClick={onTap}
-        aria-label={`${blobbi.name}, a Blobbi. Say hello`}
+        aria-label={t('wayIn.welcome.heroLabel', { name: blobbi.name })}
         data-move={move && !reduced ? move.kind : undefined}
         // Two copies of each hop, taken in turn, so the same hop coming round again restarts (the button keeps its
         // focus: no re-mount)

@@ -5,6 +5,8 @@
  * not cancelled (a late answer is still a login, which is what the player
  * wanted); the screen simply stops waiting for it.
  */
+import { t } from '@/i18n';
+
 export class SignInTimeoutError extends Error {
   constructor(message: string) {
     super(message);
@@ -24,6 +26,6 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, message: string)
 export function signInMessage(error: unknown): string {
   if (error instanceof SignInTimeoutError) return error.message;
   const text = error instanceof Error ? error.message : String(error ?? '');
-  if (/reject|denied|cancel|declin|user closed/i.test(text)) return 'Sign-in was cancelled. Try again whenever you are ready.';
-  return text || 'Sign-in failed. Try again.';
+  if (/reject|denied|cancel|declin|user closed/i.test(text)) return t('wayIn.signIn.cancelled');
+  return text || t('wayIn.signIn.failed');
 }

@@ -34,7 +34,7 @@ import { applyGuestEvent } from '@/features/guest/guest-world';
 import { withEvents } from '@/features/guest/guest-context';
 import { eggTemplate, newEggPreview, profileTemplate } from '@/features/adoption/adoption-plan';
 import { finalizeTemplate } from '@/features/care/usePublishAdapter';
-import { UNFRIENDLY_LINE } from '@/features/onboarding/profile-guard';
+import { unfriendlyLine } from '@/features/onboarding/profile-guard';
 import { SURPRISE_MS } from '@/features/guest/ceremony-life';
 import { EXPERIENCE_STORAGE_KEY, ROOM_INTRO_STORAGE_KEY } from '@/lib/home-experience';
 
@@ -249,7 +249,7 @@ describe('M14.2: the profile, one step at a time', () => {
     await userEvent.type(name, 'sh1t');
     await userEvent.click(within(scene).getByTestId('profile-next'));
     expect(step()).toBe('1');
-    expect(within(scene).getByTestId('profile-reason')).toHaveTextContent(UNFRIENDLY_LINE);
+    expect(within(scene).getByTestId('profile-reason')).toHaveTextContent(unfriendlyLine());
     expect(within(scene).getByTestId('profile-reason').textContent).not.toMatch(/sh1t|shit/i);
     expect(name).toHaveValue('sh1t');
     await wait(SURPRISE_MS + 60);
@@ -265,7 +265,7 @@ describe('M14.2: the profile, one step at a time', () => {
     await userEvent.type(within(scene).getByTestId('profile-about'), 'you are all b1tches');
     await userEvent.click(within(scene).getByTestId('profile-next'));
     expect(step()).toBe('3');
-    expect(within(scene).getByTestId('profile-reason')).toHaveTextContent(UNFRIENDLY_LINE);
+    expect(within(scene).getByTestId('profile-reason')).toHaveTextContent(unfriendlyLine());
     expect(published(0)).toEqual([]);
   }, 60_000);
 });

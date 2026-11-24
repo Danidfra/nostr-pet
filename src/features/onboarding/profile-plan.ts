@@ -8,6 +8,7 @@
  * part of a profile.
  */
 import type { NostrMetadata } from '@nostrify/nostrify';
+import { t } from '@/i18n';
 
 export const PROFILE_NAME_MAX = 50;
 export const PROFILE_ABOUT_MAX = 300;
@@ -30,15 +31,15 @@ export function checkProfileForm(input: ProfileFormInput, { allowEmptyName = fal
   const name = input.name.trim().replace(/\s+/g, ' ');
   const about = input.about.trim();
   const picture = input.picture.trim();
-  if (name.length === 0 && !allowEmptyName) return { ok: false, reason: 'Pick a name, or skip this for now.' };
-  if (name.length > PROFILE_NAME_MAX) return { ok: false, reason: `Keep the name under ${PROFILE_NAME_MAX} characters.` };
-  if (about.length > PROFILE_ABOUT_MAX) return { ok: false, reason: `Keep the bio under ${PROFILE_ABOUT_MAX} characters.` };
+  if (name.length === 0 && !allowEmptyName) return { ok: false, reason: t('wayIn.profile.nameMissing') };
+  if (name.length > PROFILE_NAME_MAX) return { ok: false, reason: t('wayIn.profile.nameTooLong', { max: PROFILE_NAME_MAX }) };
+  if (about.length > PROFILE_ABOUT_MAX) return { ok: false, reason: t('wayIn.profile.bioTooLong', { max: PROFILE_ABOUT_MAX }) };
   if (picture) {
     try {
       const url = new URL(picture);
-      if (url.protocol !== 'https:' && url.protocol !== 'http:') return { ok: false, reason: 'The picture must be a web address.' };
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return { ok: false, reason: t('wayIn.profile.pictureUrl') };
     } catch {
-      return { ok: false, reason: 'The picture must be a web address.' };
+      return { ok: false, reason: t('wayIn.profile.pictureUrl') };
     }
   }
   return { ok: true, value: { name, about, picture } };

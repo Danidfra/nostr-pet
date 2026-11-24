@@ -37,6 +37,7 @@ import { ArrowLeft, Check, Globe2, ImagePlus, KeyRound, Loader2, RotateCcw, Spar
 import { nip19 } from 'nostr-tools';
 import { useReducedMotion } from '@/features/home/scene/SceneSettings';
 import { useSound } from '@/features/sound';
+import { t } from '@/i18n';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { usePublishAdapter } from '@/features/care/usePublishAdapter';
 import { KeyGift, KeyStage } from '@/features/onboarding/KeyScene';
@@ -64,7 +65,7 @@ export function SaveCeremony({ doc, updateCompanionEvent, onDone }: SaveCeremony
   const stage = doc.migration?.stage ?? null;
   const record = guestBlobbiEvent(doc.events, doc.blobbiD);
   const blobbi = useMemo(() => (record ? parseModernBlobbiEvent(record) : undefined), [record]);
-  const name = blobbi?.name ?? 'Your Blobbi';
+  const name = blobbi?.name ?? t('wayIn.save.yourBlobbi');
   const reduced = useReducedMotion();
 
   if (stage === null) return <IntroStep name={name} blobbi={blobbi} reduced={reduced} onGo={() => guest.setStage('key')} onLater={() => onDone(false)} />;
@@ -115,29 +116,29 @@ function IntroStep({ name, blobbi, reduced, onGo, onLater }: { name: string; blo
     play('gather');
   }, [play]);
   return (
-    <Scene reduced={reduced} testId="save-intro" blobbi={blobbi} label={`Save ${name}`} life={life}>
-      <h2 className="savescene__title">Ready to explore beyond this little world?</h2>
+    <Scene reduced={reduced} testId="save-intro" blobbi={blobbi} label={t('wayIn.save.intro.label', { name })} life={life}>
+      <h2 className="savescene__title">{t('wayIn.save.intro.title')}</h2>
       <p className="savescene__text" data-testid="save-intro-benefit">
-        Give {name} a home you can return to from other devices. Your adventures can continue wherever you sign in.
+        {t('wayIn.save.intro.benefit', { name })}
       </p>
-      <ul className="savescene__points" aria-label="What saving does">
+      <ul className="savescene__points" aria-label={t('wayIn.save.intro.pointsLabel')}>
         <li>
-          <Sparkles aria-hidden /> {name} stays exactly the same. Same colours, same name, same stage.
+          <Sparkles aria-hidden /> {t('wayIn.save.intro.same', { name })}
         </li>
         <li>
-          <Globe2 aria-hidden /> New worlds can meet {name}: Blobbi Island, Rumble and Nostr Farm.
+          <Globe2 aria-hidden /> {t('wayIn.save.intro.worlds', { name })}
         </li>
         <li>
-          <KeyRound aria-hidden /> You get a little key that opens {name}’s home. Free, and no email needed.
+          <KeyRound aria-hidden /> {t('wayIn.save.intro.key', { name })}
         </li>
       </ul>
       <div className="savescene__actions">
         <button type="button" className="onboard-btn onboard-btn--primary" onClick={onGo} data-testid="save-go">
           <Sparkles className="h-4 w-4" aria-hidden />
-          Let’s go
+          {t('wayIn.save.intro.go')}
         </button>
         <button type="button" className="savescene__quiet" onClick={onLater} data-testid="save-later">
-          Maybe later
+          {t('wayIn.save.intro.later')}
         </button>
       </div>
     </Scene>
@@ -166,9 +167,9 @@ function KeyStep({ doc, name, onBack }: { doc: GuestDocument; name: string; onBa
   if (!account) {
     return (
       <div className="savescene savescene--key" data-testid="save-key">
-        <KeyStage onBack={onBack} headline={`${name}’s key is not here.`}>
+        <KeyStage onBack={onBack} headline={t('wayIn.save.key.missingHeadline', { name })}>
           <p role="alert" className="keyscene__error" data-testid="save-key-missing">
-            The key reserved for {name} could not be read on this device, so {name} cannot be saved from here. Nothing was changed.
+            {t('wayIn.save.key.missing', { name })}
           </p>
         </KeyStage>
       </div>
@@ -180,14 +181,14 @@ function KeyStep({ doc, name, onBack }: { doc: GuestDocument; name: string; onBa
         account={account}
         onBack={onBack}
         signIn={signIn}
-        headline={`A little key, for ${name} and you.`}
+        headline={t('wayIn.save.key.headline', { name })}
         intro={
           <p className="keyscene__intro" data-testid="save-key-intro">
-            {name}’s colours and shape were born from this key. It has waited on this device since the egg, and nothing has been sent anywhere. Now it is yours.
+            {t('wayIn.save.key.intro', { name })}
           </p>
         }
-        continueLabel={`Save ${name}!`}
-        aside="You can see your key again later, in the menu under Account."
+        continueLabel={t('wayIn.save.key.continue', { name })}
+        aside={t('wayIn.save.key.aside')}
       />
     </div>
   );
@@ -245,10 +246,10 @@ function ProfileSteps({ doc, name, blobbi, reduced }: { doc: GuestDocument; name
     setAt((i) => Math.max(0, i - 1));
   }, []);
 
-  const label = `Who is ${name}’s Blobbonaut? Step ${at + 1} of ${PROFILE_STEPS.length}`;
+  const label = t('wayIn.save.profile.label', { name, step: at + 1, total: PROFILE_STEPS.length });
   return (
     <Scene reduced={reduced} testId="save-profile" blobbi={blobbi} label={label} life={life}>
-      <ol className="savescene__dots" aria-label={`Step ${at + 1} of ${PROFILE_STEPS.length}`} data-testid="profile-progress" data-step={at + 1}>
+      <ol className="savescene__dots" aria-label={t('wayIn.save.profile.stepOf', { step: at + 1, total: PROFILE_STEPS.length })} data-testid="profile-progress" data-step={at + 1}>
         {PROFILE_STEPS.map((id, i) => (
           <li key={id} className={`savescene__dot ${i < at ? 'savescene__dot--done' : i === at ? 'savescene__dot--now' : ''}`} aria-current={i === at ? 'step' : undefined} />
         ))}
@@ -297,7 +298,7 @@ function ProfileSteps({ doc, name, blobbi, reduced }: { doc: GuestDocument; name
 }
 
 /** The frame of a profile step: the title, a line, the field, Continue, Skip and Back, in that order. */
-function StepFrame({ title, line, children, onContinue, onSkip, onBack, continueLabel = 'Continue', pending = false, reason, error, testId }: { title: string; line: string; children: ReactNode; onContinue: () => void; onSkip: () => void; onBack?: () => void; continueLabel?: string; pending?: boolean; reason: string | null; error?: Error | null; testId: string }) {
+function StepFrame({ title, line, children, onContinue, onSkip, onBack, continueLabel, pending = false, reason, error, testId }: { title: string; line: string; children: ReactNode; onContinue: () => void; onSkip: () => void; onBack?: () => void; continueLabel?: string; pending?: boolean; reason: string | null; error?: Error | null; testId: string }) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!pending) onContinue();
@@ -314,22 +315,22 @@ function StepFrame({ title, line, children, onContinue, onSkip, onBack, continue
       )}
       {error && (
         <p className="savescene__reason" role="alert" data-testid="profile-error">
-          {error.message} Try again, or skip this for now.
+          {t('wayIn.save.profile.errorTail', { error: error.message })}
         </p>
       )}
       <div className="savescene__actions">
         <button type="submit" className="onboard-btn onboard-btn--primary" disabled={pending} data-testid="profile-next">
           {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
-          {pending ? 'Saving…' : continueLabel}
+          {pending ? t('wayIn.save.profile.saving') : continueLabel ?? t('wayIn.save.profile.continue')}
         </button>
         <div className="savescene__row">
           {onBack && (
             <button type="button" className="savescene__quiet" onClick={onBack} disabled={pending} data-testid="profile-back">
-              <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Back
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> {t('common.back')}
             </button>
           )}
           <button type="button" className="savescene__quiet" onClick={onSkip} disabled={pending} data-testid="save-profile-skip">
-            Skip
+            {t('wayIn.save.profile.skip')}
           </button>
         </div>
       </div>
@@ -362,7 +363,7 @@ function NameStep({ name, value, onChange, reason, onReason, onContinue, onSkip,
   const next = () => {
     const trimmed = value.trim();
     if (trimmed.length > PROFILE_NAME_MAX) {
-      onReason(`Keep your name under ${PROFILE_NAME_MAX} characters.`);
+      onReason(t('wayIn.save.profile.nameTooLong', { max: PROFILE_NAME_MAX }));
       return;
     }
     const friendly = checkPublicText(trimmed);
@@ -375,9 +376,9 @@ function NameStep({ name, value, onChange, reason, onReason, onContinue, onSkip,
     onContinue();
   };
   return (
-    <StepFrame title={`What should ${name} call you?`} line="Your name, as other players will see it. You can change it any time." onContinue={next} onSkip={onSkip} reason={reason} testId="profile-step-name">
+    <StepFrame title={t('wayIn.save.profile.nameTitle', { name })} line={t('wayIn.save.profile.nameLine')} onContinue={next} onSkip={onSkip} reason={reason} testId="profile-step-name">
       <label htmlFor="profile-name" className="sr-only">
-        Your name
+        {t('wayIn.save.profile.nameLabel')}
       </label>
       <input
         id="profile-name"
@@ -389,7 +390,7 @@ function NameStep({ name, value, onChange, reason, onReason, onContinue, onSkip,
         maxLength={PROFILE_NAME_MAX + 8}
         autoComplete="nickname"
         spellCheck={false}
-        placeholder="Your name"
+        placeholder={t('wayIn.save.profile.nameLabel')}
         className="onboard-input savescene__input"
         data-testid="profile-name"
       />
@@ -411,7 +412,7 @@ function PictureStep({ name, value, onChange, onUpload, reason, onReason, onCont
       onChange(url);
       stage.react('named');
     } catch (err) {
-      onReason(err instanceof Error ? err.message : 'That picture could not be uploaded.');
+      onReason(err instanceof Error ? err.message : t('wayIn.save.profile.uploadFailed'));
     } finally {
       setUploading(false);
     }
@@ -423,26 +424,26 @@ function PictureStep({ name, value, onChange, onUpload, reason, onReason, onCont
         const url = new URL(picture);
         if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error();
       } catch {
-        onReason('A picture needs a web address, or upload one.');
+        onReason(t('wayIn.save.profile.pictureUrl'));
         return;
       }
     }
     onContinue();
   };
   return (
-    <StepFrame title="A picture of you?" line={`Upload one, or paste a link. ${name} already knows your face, so skipping is fine.`} onContinue={next} onSkip={onSkip} onBack={onBack} reason={reason} pending={uploading} testId="profile-step-picture">
+    <StepFrame title={t('wayIn.save.profile.pictureTitle')} line={t('wayIn.save.profile.pictureLine', { name })} onContinue={next} onSkip={onSkip} onBack={onBack} reason={reason} pending={uploading} testId="profile-step-picture">
       <div className="savescene__picture">
         <span className="savescene__avatar" aria-hidden>
           {value ? <img src={value} alt="" /> : <UserRound />}
         </span>
         <button type="button" className="onboard-btn onboard-btn--secondary" onClick={() => fileRef.current?.click()} disabled={uploading} data-testid="profile-upload">
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ImagePlus className="h-4 w-4" aria-hidden />}
-          {uploading ? 'Uploading…' : 'Upload a picture'}
+          {uploading ? t('wayIn.save.profile.uploading') : t('wayIn.save.profile.upload')}
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={(e) => void upload(e.target.files?.[0])} data-testid="profile-upload-input" />
       </div>
       <label htmlFor="profile-picture" className="sr-only">
-        Picture link
+        {t('wayIn.save.profile.pictureLabel')}
       </label>
       <input
         id="profile-picture"
@@ -467,7 +468,7 @@ function AboutStep({ name, value, onChange, reason, onReason, pending, error, on
   const next = () => {
     const about = value.trim();
     if (about.length > PROFILE_ABOUT_MAX) {
-      onReason(`Keep it under ${PROFILE_ABOUT_MAX} characters.`);
+      onReason(t('wayIn.save.profile.aboutTooLong', { max: PROFILE_ABOUT_MAX }));
       return;
     }
     const friendly = checkPublicText(about);
@@ -479,9 +480,9 @@ function AboutStep({ name, value, onChange, reason, onReason, pending, error, on
     onContinue();
   };
   return (
-    <StepFrame title="A line about you?" line={`A few words for the friends ${name} will make. Optional, like everything here.`} onContinue={next} onSkip={onSkip} onBack={onBack} continueLabel="Finish" reason={reason} error={error} pending={pending} testId="profile-step-about">
+    <StepFrame title={t('wayIn.save.profile.aboutTitle')} line={t('wayIn.save.profile.aboutLine', { name })} onContinue={next} onSkip={onSkip} onBack={onBack} continueLabel={t('wayIn.save.profile.finish')} reason={reason} error={error} pending={pending} testId="profile-step-about">
       <label htmlFor="profile-about" className="sr-only">
-        About you
+        {t('wayIn.save.profile.aboutLabel')}
       </label>
       <textarea
         id="profile-about"
@@ -492,7 +493,7 @@ function AboutStep({ name, value, onChange, reason, onReason, pending, error, on
         onBlur={field.onBlur}
         maxLength={PROFILE_ABOUT_MAX + 20}
         rows={2}
-        placeholder="I like…"
+        placeholder={t('wayIn.save.profile.aboutPlaceholder')}
         className="onboard-input savescene__input resize-none"
         data-testid="profile-about"
       />
@@ -516,7 +517,7 @@ function ConnectStep({ doc, name, blobbi, reduced, updateCompanionEvent, onDone 
   const running = useRef(false);
   const latest = useRef({ doc, updateCompanionEvent });
   latest.current = { doc, updateCompanionEvent };
-  const stepLabel: Record<MigrationStep, string> = { blobbi: name, profile: 'Your profile' };
+  const stepLabel: Record<MigrationStep, string> = { blobbi: name, profile: t('wayIn.save.connect.yourProfile') };
 
   const landed = useCallback(
     (step: MigrationStep, event: NostrEvent) => {
@@ -575,12 +576,12 @@ function ConnectStep({ doc, name, blobbi, reduced, updateCompanionEvent, onDone 
   const progress = MIGRATION_STEPS.filter((s) => steps[s] === 'landed' || steps[s] === 'found').length;
   const done = run.state === 'done';
   return (
-    <Scene reduced={reduced} testId="save-connect" blobbi={blobbi} progress={done ? MIGRATION_STEPS.length : progress} label={done ? `${name} has a new home` : `Saving ${name}`} life={life}>
+    <Scene reduced={reduced} testId="save-connect" blobbi={blobbi} progress={done ? MIGRATION_STEPS.length : progress} label={done ? t('wayIn.save.connect.labelDone', { name }) : t('wayIn.save.connect.labelSaving', { name })} life={life}>
       <h2 className="savescene__title" data-testid="save-connect-title">
-        {done ? `${name} has a new home!` : run.state === 'failed' ? 'Not quite yet.' : `Giving ${name} a home…`}
+        {done ? t('wayIn.save.connect.titleDone', { name }) : run.state === 'failed' ? t('wayIn.save.connect.titleFailed') : t('wayIn.save.connect.titleSaving', { name })}
       </h2>
       {!done && (
-        <ol className="savescene__steps" aria-label="Saving" data-testid="save-steps">
+        <ol className="savescene__steps" aria-label={t('wayIn.save.connect.stepsLabel')} data-testid="save-steps">
           {MIGRATION_STEPS.map((step) => (
             <li key={step} data-step={step} data-state={steps[step]} data-testid={`save-step-${step}`}>
               <span className="savescene__step-mark" aria-hidden>
@@ -588,14 +589,14 @@ function ConnectStep({ doc, name, blobbi, reduced, updateCompanionEvent, onDone 
               </span>
               <span>
                 {stepLabel[step]}
-                {steps[step] === 'found' && <span className="savescene__step-note"> (already there)</span>}
+                {steps[step] === 'found' && <span className="savescene__step-note"> {t('wayIn.save.connect.already')}</span>}
               </span>
             </li>
           ))}
         </ol>
       )}
       {done && (
-        <ol className="savescene__steps savescene__steps--done sr-only" aria-label="Saved" data-testid="save-steps">
+        <ol className="savescene__steps savescene__steps--done sr-only" aria-label={t('wayIn.save.connect.stepsDoneLabel')} data-testid="save-steps">
           {MIGRATION_STEPS.map((step) => (
             <li key={step} data-step={step} data-state={steps[step]} data-testid={`save-step-${step}`}>
               {stepLabel[step]}
@@ -605,30 +606,30 @@ function ConnectStep({ doc, name, blobbi, reduced, updateCompanionEvent, onDone 
       )}
       {run.state === 'verifying' && (
         <p className="savescene__text" role="status" data-testid="save-verifying">
-          <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" aria-hidden /> Making sure {name} is really there…
+          <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" aria-hidden /> {t('wayIn.save.connect.verifying', { name })}
         </p>
       )}
       {run.state === 'failed' && (
         <div className="savescene__failed" role="alert" data-testid="save-failed">
-          <p className="font-semibold">{run.failedStep ? `${stepLabel[run.failedStep]} did not get through.` : 'Something did not get through.'}</p>
+          <p className="font-semibold">{run.failedStep ? t('wayIn.save.connect.failedStep', { step: stepLabel[run.failedStep] }) : t('wayIn.save.connect.failedAny')}</p>
           <p className="text-sm opacity-80">
-            {run.error} {name} is still safe on this device. Nothing was lost.
+            {t('wayIn.save.connect.failedSafe', { error: run.error ?? '', name })}
           </p>
           <button type="button" className="onboard-btn onboard-btn--primary mt-3" onClick={() => void start()} data-testid="save-retry">
-            <RotateCcw className="h-4 w-4" aria-hidden /> Try again
+            <RotateCcw className="h-4 w-4" aria-hidden /> {t('common.retry')}
           </button>
         </div>
       )}
       {done && (
         <>
           <p className="savescene__text" data-testid="save-done-text">
-            Your little friend is now connected to a bigger world. You hold the key to that home.
+            {t('wayIn.save.connect.doneText')}
           </p>
           <p className="savescene__fine" data-testid="save-done-nostr">
-            That world is powered by Nostr, an open network where your identity belongs to you. Keep your key safe. It is the only way back in.
+            {t('wayIn.save.connect.doneNostr')}
           </p>
           <button type="button" className="onboard-btn onboard-btn--primary" onClick={finish} data-testid="save-done">
-            <Sparkles className="h-4 w-4" aria-hidden /> Back to {name}
+            <Sparkles className="h-4 w-4" aria-hidden /> {t('wayIn.save.connect.back', { name })}
           </button>
         </>
       )}

@@ -3,7 +3,7 @@ export { useGuest, useGuestSnapshot, useGuestUser, useGuestUi, useLoginPubkey } 
 export type { Guest } from './useGuest';
 export { createGuestStore, GuestStoreContext, GuestUserContext } from './guest-context';
 export type { GuestStore, GuestSnapshot, GuestUser } from './guest-context';
-export { resolveGuestMode, inviteDue, GUEST_MAX_BLOBBIS, DEVICE_ONLY_LINE, NO_STORAGE_LINE, deviceOnlyLine, noStorageLine } from './guest-session';
+export { resolveGuestMode, inviteDue, GUEST_MAX_BLOBBIS, deviceOnlyLine, noStorageLine } from './guest-session';
 export type { GuestMode } from './guest-session';
 export { GUEST_STORAGE_KEY, readGuestDocument, storageAvailable } from './guest-store';
 export type { GuestDocument, GuestIdentity, GuestMigration, GuestMigrationStage } from './guest-store';
