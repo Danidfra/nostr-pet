@@ -5,7 +5,7 @@ import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { t, tp, type MessageKey } from '@/i18n';
-import { NAME_MAX_LENGTH, defaultEggName, newEggPreview, normalizeBlobbiName, previewCompanion, renamePreview, type EggPreview } from './adoption-plan';
+import { NAME_MAX_LENGTH, localizedDefaultEggName, newEggPreview, normalizeBlobbiName, previewCompanion, renamePreview, type EggPreview } from './adoption-plan';
 import { useAdoptEgg } from './useAdoptEgg';
 
 interface AdoptionFlowProps {
@@ -40,7 +40,8 @@ function stepCopy(step: 'idle' | 'checking' | 'egg' | 'profile', guest: boolean)
  * a disabled Adopt, with nothing said).
  */
 export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refresh, additional = false, guest = false }: AdoptionFlowProps) {
-  const eggName = defaultEggName();
+  // The default name as shown here, in the page's language; a blank name is still published as DEFAULT_EGG_NAME
+  const eggName = localizedDefaultEggName();
   const [made, setMade] = useState<{ pubkey: string; preview: EggPreview | null }>(() => ({ pubkey, preview: safePreview(pubkey) }));
   if (made.pubkey !== pubkey) setMade({ pubkey, preview: safePreview(pubkey) });
   const preview = made.pubkey === pubkey ? made.preview : null;
@@ -48,7 +49,7 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
   const adoption = useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refresh, additional });
 
   const name = normalizeBlobbiName(nameInput);
-  const companion = useMemo(() => (preview ? previewCompanion(renamePreview(preview, name.ok ? name.name : eggName)) : null), [preview, name, eggName]);
+  const companion = useMemo(() => (preview ? previewCompanion(renamePreview(preview, name.ok && !name.isDefault ? name.name : eggName)) : null), [preview, name, eggName]);
   // The egg could not be made or drawn here: said so, with a way on (a new egg), never an Adopt over nothing
   const eggMissing = companion === null;
   // Adopt is offered only over an egg that is drawn, named and not already on its way

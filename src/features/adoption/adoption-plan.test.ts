@@ -27,7 +27,10 @@ import { HATCH_MISSIONS } from '@blobbi-kit/react';
 import { PUBKEY, profileEvent } from '@/test/fixtures';
 import { createBlobbiV3Identity, normalizeBlobbiV3Visual, renderBlobbiSvg } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
-import { ADOPTION_VISUAL_GENERATION, adoptionEggOptions, defaultEggName, eggTemplate, isOwnedBlobbiEvent, newEggPreview, normalizeBlobbiName, previewCompanion, profileTemplate, renamePreview } from './adoption-plan';
+import { setMessages } from '@/i18n';
+import { en } from '@/i18n/messages/en';
+import { ptBR } from '@/i18n/messages/pt-BR';
+import { ADOPTION_VISUAL_GENERATION, adoptionEggOptions, DEFAULT_EGG_NAME, eggTemplate, isOwnedBlobbiEvent, localizedDefaultEggName, newEggPreview, normalizeBlobbiName, previewCompanion, profileTemplate, renamePreview } from './adoption-plan';
 
 const NOW = 1_800_000_000;
 
@@ -108,8 +111,8 @@ describe('newEggPreview / eggTemplate', () => {
   });
 
   it('two previews are two identities; renaming keeps the identity', () => {
-    const a = newEggPreview(PUBKEY, defaultEggName(), NOW);
-    const b = newEggPreview(PUBKEY, defaultEggName(), NOW);
+    const a = newEggPreview(PUBKEY, DEFAULT_EGG_NAME, NOW);
+    const b = newEggPreview(PUBKEY, DEFAULT_EGG_NAME, NOW);
     expect(a.d).not.toBe(b.d);
     const renamed = renamePreview(a, 'Mo');
     expect(renamed.d).toBe(a.d);
@@ -158,12 +161,27 @@ describe('profileTemplate', () => {
 
 describe('normalizeBlobbiName', () => {
   it('trims, collapses spaces, strips control characters, defaults when empty, caps the length', () => {
-    expect(normalizeBlobbiName('')).toEqual({ ok: true, name: defaultEggName() });
-    expect(normalizeBlobbiName('   ')).toEqual({ ok: true, name: defaultEggName() });
-    expect(normalizeBlobbiName('  Pip   Pop ')).toEqual({ ok: true, name: 'Pip Pop' });
-    expect(normalizeBlobbiName('Pi p​')).toEqual({ ok: true, name: 'Pip' });
+    expect(normalizeBlobbiName('')).toEqual({ ok: true, name: 'Egg', isDefault: true });
+    expect(normalizeBlobbiName('   ')).toEqual({ ok: true, name: 'Egg', isDefault: true });
+    expect(normalizeBlobbiName('  Pip   Pop ')).toEqual({ ok: true, name: 'Pip Pop', isDefault: false });
+    expect(normalizeBlobbiName('Pi p​')).toEqual({ ok: true, name: 'Pip', isDefault: false });
     expect(normalizeBlobbiName('x'.repeat(25)).ok).toBe(false);
-    expect(normalizeBlobbiName('🍎 Apple')).toEqual({ ok: true, name: '🍎 Apple' });
+    expect(normalizeBlobbiName('🍎 Apple')).toEqual({ ok: true, name: '🍎 Apple', isDefault: false });
+  });
+});
+
+describe('the default egg name', () => {
+  it('is published as "Egg" in every language; only the adoption screen shows it translated', () => {
+    try {
+      setMessages('pt-BR', ptBR);
+      expect(normalizeBlobbiName('')).toEqual({ ok: true, name: 'Egg', isDefault: true });
+      expect(newEggPreview(PUBKEY, undefined, NOW).name).toBe('Egg');
+      expect(localizedDefaultEggName()).toBe('Ovo');
+      // A name the player typed is never replaced, even one that matches the default
+      expect(normalizeBlobbiName('Egg')).toEqual({ ok: true, name: 'Egg', isDefault: false });
+    } finally {
+      setMessages('en', en);
+    }
   });
 });
 
