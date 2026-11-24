@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useBlockingLayer } from '@/lib/blocking-layer';
+import { t } from '@/i18n';
 
 interface GameOverlayProps {
   open: boolean;
@@ -102,7 +103,7 @@ export function GameOverlay({ open, onClose, title, children, testId, lead, subt
             </h2>
             {subtitle && <div className="overlay-subtitle">{subtitle}</div>}
           </div>
-          <button ref={closeRef} type="button" onClick={onClose} className="overlay-close" aria-label="Close" data-testid={testId ? `${testId}-close` : undefined}>
+          <button ref={closeRef} type="button" onClick={onClose} className="overlay-close" aria-label={t('common.close')} data-testid={testId ? `${testId}-close` : undefined}>
             <X className="h-5 w-5" aria-hidden />
           </button>
         </header>

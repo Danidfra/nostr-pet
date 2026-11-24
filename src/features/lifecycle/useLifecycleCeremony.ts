@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BlobbiEggCrack, BlobbiVisualEffect } from '@blobbi-kit/renderer';
+import { t as translate } from '@/i18n';
 
 export type CeremonyKind = 'hatch' | 'evolve';
 
@@ -185,7 +186,7 @@ export function useLifecycleCeremony({ perform, reducedMotion, timings, onReveal
         const [landed] = await Promise.all([latest.current.perform(kind), hatching && t.burstMs ? wait(t.burstMs) : undefined]);
         if (!mountedRef.current) return;
         if (!landed) {
-          setState((s) => ({ ...s, phase: 'failed', step: 0, error: s.error ?? new Error('The change did not reach the relays.') }));
+          setState((s) => ({ ...s, phase: 'failed', step: 0, error: s.error ?? new Error(translate('home.lifecycle.error.notReached')) }));
           return;
         }
         setState((s) => ({ ...s, phase: 'revealing', step: 3 }));

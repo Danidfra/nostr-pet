@@ -9,6 +9,8 @@ import { ProgressionStrip } from '../ProgressionStrip';
 import { BlobbiSelector } from '../BlobbiSelector';
 import { LifecyclePanel } from '@/features/lifecycle';
 import type { Lifecycle, CeremonyKind, CeremonyPhase } from '@/features/lifecycle';
+import { t } from '@/i18n';
+import { stageLabel } from '../labels';
 
 interface BlobbiSheetProps {
   open: boolean;
@@ -32,8 +34,6 @@ interface BlobbiSheetProps {
   /** A guest's Blobbi (M14): evolving waits for a saved Blobbi; the panel says so instead of offering it. */
   guest?: boolean;
 }
-
-const STAGE_LABEL: Record<BlobbiCompanion['stage'], string> = { egg: 'Egg', baby: 'Baby', adult: 'Adult' };
 
 function Chip({ children, testId, tone = 'neutral' }: { children: React.ReactNode; testId?: string; tone?: 'neutral' | 'sleep' | 'cold' | 'grow' }) {
   const tones = {
@@ -63,22 +63,22 @@ export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, c
   );
   const chips = (
     <div className="flex flex-wrap items-center gap-1.5">
-      <Chip testId="stage-badge">{STAGE_LABEL[blobbi.stage]}</Chip>
+      <Chip testId="stage-badge">{stageLabel(blobbi.stage)}</Chip>
       {blobbi.state === 'sleeping' && (
         <Chip tone="sleep" testId="state-badge">
-          <Moon className="h-3.5 w-3.5" aria-hidden /> Sleeping
+          <Moon className="h-3.5 w-3.5" aria-hidden /> {t('home.sheet.sleeping')}
         </Chip>
       )}
       {blobbi.state === 'hibernating' && (
         <Chip tone="cold" testId="state-badge">
-          <Snowflake className="h-3.5 w-3.5" aria-hidden /> Hibernating
+          <Snowflake className="h-3.5 w-3.5" aria-hidden /> {t('home.sheet.hibernating')}
         </Chip>
       )}
-      {blobbi.state === 'active' && <Chip testId="state-badge">Awake</Chip>}
+      {blobbi.state === 'active' && <Chip testId="state-badge">{t('home.sheet.awake')}</Chip>}
       {blobbi.progressionState !== 'none' && (
         <Chip tone="grow" testId="progression-badge">
           <Sparkles className="h-3.5 w-3.5" aria-hidden />
-          {blobbi.progressionState === 'incubating' ? 'Incubating' : 'Evolving'}
+          {blobbi.progressionState === 'incubating' ? t('home.sheet.incubating') : t('home.sheet.evolving')}
         </Chip>
       )}
     </div>
@@ -88,11 +88,11 @@ export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, c
     <GameOverlay open={open} onClose={onClose} title={blobbi.name} testId="blobbi-sheet" lead={portrait} subtitle={chips} size="medium">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground" data-testid="mood-line">
-          {blobbi.name} {mood}
+          {t('home.sheet.moodLine', { name: blobbi.name, mood })}
         </p>
 
-        <section aria-label="Condition and progress" className="overlay-card">
-          <h3 className="overlay-card__title">Condition</h3>
+        <section aria-label={t('home.sheet.conditionAndProgress')} className="overlay-card">
+          <h3 className="overlay-card__title">{t('home.sheet.condition')}</h3>
           <BlobbiStatusPanel items={statItems} />
           <div className="mt-3 border-t border-border/60 pt-3">
             <ProgressionStrip blobbi={blobbi} profile={profile} />
@@ -105,8 +105,8 @@ export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, c
               <MapIcon className="h-6 w-6" aria-hidden />
             </span>
             <span className="menu-tile__text">
-              <span className="menu-tile__title">Journey</span>
-              <span className="menu-tile__sub">Chapters, today’s missions and your Blobbonaut level.</span>
+              <span className="menu-tile__title">{t('home.sheet.journey')}</span>
+              <span className="menu-tile__sub">{t('home.sheet.journeySub')}</span>
             </span>
             <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
           </button>
@@ -115,8 +115,8 @@ export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, c
         <LifecyclePanel name={blobbi.name} lifecycle={lifecycle} ceremony={ceremony} onCeremony={onCeremony} firstBlobbi={firstBlobbi} devForce={devForce} embedded guest={guest} />
 
         {companions.length > 1 && (
-          <section aria-label="Your Blobbis" className="overlay-card">
-            <h3 className="overlay-card__title">Your Blobbis</h3>
+          <section aria-label={t('home.sheet.yourBlobbis')} className="overlay-card">
+            <h3 className="overlay-card__title">{t('home.sheet.yourBlobbis')}</h3>
             <BlobbiSelector companions={companions} currentD={blobbi.d} onSelect={onSelect} />
           </section>
         )}

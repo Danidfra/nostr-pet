@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CloudOff, RefreshCw, WifiOff } from 'lucide-react';
 import type { HealthLevel } from '@/lib/relay-health';
 import { usePrimarySync } from '@/hooks/useRelaySync';
+import { t } from '@/i18n';
 
 interface ConnectionChipProps {
   level: HealthLevel;
@@ -52,20 +53,20 @@ export function ConnectionChip({ level, online, onRetry, busy = false, holdMs = 
   const primary = usePrimarySync();
   if (level === 'healthy' && online) {
     if (primary.state !== 'pending') return null;
-    return <span className="conn-dot" role="status" aria-label="Saved. Still syncing with the Blobbi relay" title="Saved. Still syncing with the Blobbi relay; nothing for you to do." data-testid="connection-dot" data-level="degraded" data-primary-sync="pending" />;
+    return <span className="conn-dot" role="status" aria-label={t('home.connection.syncing')} title={t('home.connection.syncingTitle')} data-testid="connection-dot" data-level="degraded" data-primary-sync="pending" />;
   }
   if (!offline || !held) {
     if (level === 'healthy') return null;
-    const title = offline ? 'Reconnecting to the relays…' : 'Some application relays are not answering. Reads and writes go through the rest.';
-    return <span className="conn-dot" role="status" aria-label={offline ? 'Reconnecting to the relays' : 'Some relays are not answering'} title={title} data-testid="connection-dot" data-level={offline ? 'offline' : level} />;
+    const title = offline ? t('home.connection.reconnectingTitle') : t('home.connection.degradedTitle');
+    return <span className="conn-dot" role="status" aria-label={offline ? t('home.connection.reconnecting') : t('home.connection.degraded')} title={title} data-testid="connection-dot" data-level={offline ? 'offline' : level} />;
   }
-  const label = !online ? 'Offline' : 'Relays unreachable';
-  const title = !online ? 'Your device is offline. Care will not reach the relays until it is back.' : 'No application relay is answering. What you see may be out of date.';
+  const label = !online ? t('home.connection.offline') : t('home.connection.unreachable');
+  const title = !online ? t('home.connection.offlineTitle') : t('home.connection.unreachableTitle');
   return (
     <span className="conn-chip conn-chip--offline" role="status" aria-live="polite" title={title} data-testid="connection-chip" data-level="offline">
       {!online ? <WifiOff className="h-3.5 w-3.5" aria-hidden /> : <CloudOff className="h-3.5 w-3.5" aria-hidden />}
       <span className="conn-chip__label">{label}</span>
-      <button type="button" className="conn-chip__retry" onClick={onRetry} disabled={busy} aria-label="Try the relays again" data-testid="connection-retry">
+      <button type="button" className="conn-chip__retry" onClick={onRetry} disabled={busy} aria-label={t('home.connection.retry')} data-testid="connection-retry">
         <RefreshCw className={`h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`} aria-hidden />
       </button>
     </span>

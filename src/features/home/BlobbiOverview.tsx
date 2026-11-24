@@ -71,6 +71,7 @@ import { TravelCue } from '@/features/presence/TravelCue';
 import { TravelAnnouncer } from '@/features/presence/TravelAnnouncer';
 import type { LifecycleTask } from '@/features/lifecycle';
 import type { HealthLevel } from '@/lib/relay-health';
+import { t } from '@/i18n';
 
 interface BlobbiOverviewProps {
   blobbi: BlobbiCompanion;
@@ -104,15 +105,15 @@ const DEV_PREVIEW: StageObjectKind | null = DEV_LIFECYCLE_TOOLS && typeof window
 function hatchCaption(beat: HatchBeat, name: string): string {
   switch (beat) {
     case 'stirring':
-      return 'Something is stirring inside the egg…';
+      return t('home.hatch.stirring');
     case 'cracking':
-      return 'The shell is cracking…';
+      return t('home.hatch.cracking');
     case 'breaking':
-      return 'Almost there…';
+      return t('home.hatch.breaking');
     case 'hatching':
-      return `${name} is hatching!`;
+      return t('home.hatch.hatching', { name });
     case 'hatched':
-      return `${name} has hatched!`;
+      return t('home.hatch.hatched', { name });
   }
 }
 
@@ -433,7 +434,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     clearLifecycleError();
     // The first egg's shortcut (no missions) only once the relays confirm it is still the first; fails closed
     if (firstBlobbi.qualifies && !(await confirmFirstBlobbi())) {
-      setHatchError('Your egg could not be confirmed with the relays yet.');
+      setHatchError(t('home.hatch.notConfirmed'));
       return false;
     }
     return lifecycleHatch();
@@ -678,7 +679,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         const started = choice.source === 'owned' ? startUse({ entry: choice.entry, blobbiD: liveBlobbi.current.d }) : startStarter({ entry: choice.entry, blobbiD: liveBlobbi.current.d });
         if (!started) {
           bathCommit.current = null;
-          resolve({ kind: 'failed', error: 'Another use is still finishing. Try again in a moment.' });
+          resolve({ kind: 'failed', error: t('home.notice.useFinishing') });
         }
       }),
     [resetUse, resetStarter, startUse, startStarter],
@@ -916,7 +917,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const lifecycleNext = lifecycle.view.next;
   const firstHatchReady = firstBlobbi.qualifies;
   const lifecycleReady = useMemo(
-    () => (lifecycleNext === 'hatch' || firstHatchReady ? { kind: 'hatch' as const, label: 'Hatch!' } : lifecycleNext === 'evolve' ? { kind: 'evolve' as const, label: 'Evolve!' } : null),
+    () => (lifecycleNext === 'hatch' || firstHatchReady ? { kind: 'hatch' as const, label: t('home.hatch.ready') } : lifecycleNext === 'evolve' ? { kind: 'evolve' as const, label: t('home.hatch.evolveReady') } : null),
     [lifecycleNext, firstHatchReady],
   );
   const ceremonyView = { phase: ceremony.phase, kind: ceremony.kind, error: ceremony.error, dismiss: ceremony.dismiss };
@@ -1001,9 +1002,9 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       scene={
         <HomeScene
           ref={sceneRef}
-          label={`${blobbi.name}'s home`}
+          label={t('home.scene.homeOf', { name: blobbi.name })}
           room="home"
-          floorLabel={sleeping ? `${blobbi.name} is asleep` : canWalk ? `Call ${blobbi.name} here` : `${blobbi.name} stays put`}
+          floorLabel={t(sleeping ? 'home.scene.asleep' : canWalk ? 'home.scene.callHere' : 'home.scene.staysPut', { name: blobbi.name })}
           onFloorTap={interactive && !bathing && !dose ? onFloorTap : undefined}
           pointerHandlers={scene.scenePointerHandlers}
           objects={
@@ -1031,12 +1032,12 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                       }}
                     >
                       <MapPin className="h-4 w-4" aria-hidden />
-                      Save to visit the Island
+                      {t('home.island.saveToVisit')}
                     </button>
                   ) : (
                     <a href={BLOBBI_ISLAND_URL} target="_blank" rel="noopener noreferrer" className="door-prompt lifecycle-pill !animate-none" data-testid="door-prompt" onClick={() => setDoorPrompt(false)}>
                       <MapPin className="h-4 w-4" aria-hidden />
-                      Go to the Island
+                      {t('home.island.goTo')}
                     </a>
                   ))
                 }
@@ -1053,10 +1054,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                     offer.phase === 'failed' && (
                       <div className="offer-prompt" data-testid="offer-prompt">
                         <button type="button" className="lifecycle-pill !animate-none !px-3 !py-1.5 !text-xs" onClick={() => offerItem(offer.choice)} data-testid="offer-retry">
-                          Try again
+                          {t('common.retry')}
                         </button>
                         <button type="button" className="home-glass rounded-full px-3 py-1.5 text-xs font-semibold" onClick={putAway} data-testid="offer-put-away">
-                          Put away
+                          {t('home.scene.putAway')}
                         </button>
                       </div>
                     )
@@ -1122,7 +1123,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                         ceremony.dismiss();
                       }}
                     >
-                      Dismiss
+                      {t('home.scene.dismiss')}
                     </button>
                   </p>
                 )}
@@ -1185,7 +1186,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               play={play}
               onDone={endTheater}
               onRecover={refresh}
-              savingNote={guestActive ? 'Keeping the hatch on this device' : undefined}
+              savingNote={guestActive ? t('home.hatch.savingNote') : undefined}
             />
           )}
           <BlobbiSheet
@@ -1232,7 +1233,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               // A write still out finishes here first: leaving mid-signature could lose it
               if (care.isPending || useItem.isPending || useStarter.isPending || inCeremony || theater || busyWithObject || !!dose) {
                 play('invalid');
-                setBathNotice('One moment: something is still being saved.');
+                setBathNotice(t('home.notice.stillSaving'));
                 return;
               }
               // A new trip: nothing of it is published yet (the move happens in `navigateAfterDeparture`, once the
@@ -1266,5 +1267,5 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 function describeWriteError(error: Error): string {
   if (error.message) return error.message;
   const inner = error instanceof AggregateError ? (error.errors[0] as Error | undefined)?.message : undefined;
-  return inner || 'The relays did not accept it.';
+  return inner || t('home.notice.notAccepted');
 }

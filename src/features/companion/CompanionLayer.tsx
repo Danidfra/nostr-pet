@@ -22,6 +22,7 @@ import { useHomeBlobbi } from '@/hooks/useHomeBlobbi';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import { syncNote } from './sync-note';
+import { t } from '@/i18n';
 
 /** Nothing without the relays' provider (a router rendered on its own, a test): the layer is the signed-in home's. */
 export function CompanionLayer() {
@@ -35,7 +36,7 @@ function CompanionLayerInner() {
   const byD = useMemo(() => new Map(home.companions.map((c) => [c.d, c])), [home.companions]);
   const ready = home.status === 'ready' && !!companion;
   const status = companion?.status ?? { kind: 'idle' as const };
-  const name = home.current?.name || 'your Blobbi';
+  const name = home.current?.name || t('home.companion.yourBlobbi');
   const note = ready ? syncNote(status, name) : null;
 
   // On its way (sent, a retry scheduled): said, with no Try again; a failure the player must act on keeps it
@@ -66,19 +67,19 @@ function CompanionLayerInner() {
           {!onItsWay && (
             <button type="button" className="chapter-toast__ok" onClick={() => companion!.retry()} data-testid="companion-retry">
               <RefreshCw className="mr-1 inline h-3.5 w-3.5" aria-hidden />
-              Try again
+              {t('common.retry')}
             </button>
           )}
-          <button type="button" className="companion-note__close" onClick={() => setDismissed(statusKey)} aria-label="Not now" data-testid="companion-note-close">
+          <button type="button" className="companion-note__close" onClick={() => setDismissed(statusKey)} aria-label={t('home.companion.notNow')} data-testid="companion-note-close">
             <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
       )}
       {ambiguity && here && there && (
-        <GameOverlay open onClose={() => setLater(askKey)} title="Who's your companion?" testId="companion-choice" size="medium">
+        <GameOverlay open onClose={() => setLater(askKey)} title={t('home.companion.question')} testId="companion-choice" size="medium">
           <div className="space-y-3 text-sm">
             <p data-testid="companion-choice-text">
-              You picked {here.name || 'a Blobbi'} here, and {there.name || 'another Blobbi'} in another Blobbi game, at almost the same time. Who should come along?
+              {t('home.companion.choice', { here: here.name || t('home.companion.aBlobbi'), there: there.name || t('home.companion.anotherBlobbi') })}
             </p>
             <div className="grid grid-cols-2 gap-2">
               <ChoiceButton blobbi={here} onClick={() => companion!.resolve('local')} testId="companion-choice-local" />

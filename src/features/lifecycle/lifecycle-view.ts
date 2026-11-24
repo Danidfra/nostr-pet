@@ -10,6 +10,7 @@
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import type { HatchTask } from '@blobbi-kit/react';
 import type { BlobbiEggCrack } from '@blobbi-kit/renderer';
+import { t, tp } from '@/i18n';
 
 export type LifecycleProcess = 'none' | 'incubating' | 'evolving';
 
@@ -60,6 +61,52 @@ export interface TaskSource {
 }
 
 /**
+ * The kit's hatch and evolve missions (its `HATCH_MISSIONS`, `EVOLVE_MISSIONS` and the evolve stat task), by id, so
+ * their words follow the page's language; an id not listed here keeps the kit's own words.
+ */
+const MISSION_KEY = {
+  create_theme: 'createTheme',
+  color_moment: 'colorMoment',
+  interactions: 'interactions',
+  create_themes: 'createThemes',
+  color_moments: 'colorMoments',
+  edit_profile: 'editProfile',
+  maintain_stats: 'maintainStats',
+} as const;
+type MissionKey = (typeof MISSION_KEY)[keyof typeof MISSION_KEY];
+
+function missionKey(id: string): MissionKey | undefined {
+  return Object.prototype.hasOwnProperty.call(MISSION_KEY, id) ? MISSION_KEY[id as keyof typeof MISSION_KEY] : undefined;
+}
+
+/** A mission's name and description in the page's language (the kit's words for one it does not know). */
+export function missionText(task: Pick<HatchTask, 'id' | 'name' | 'description' | 'required'>): { name: string; description: string } {
+  const key = missionKey(task.id);
+  if (!key) return { name: task.name, description: task.description };
+  const name = t(`home.missions.${key}.name`);
+  switch (key) {
+    case 'interactions':
+      return { name, description: tp('home.missions.interactions.description', task.required) };
+    case 'createThemes':
+    case 'colorMoments':
+      return { name, description: t(`home.missions.${key}.description`, { count: task.required }) };
+    case 'maintainStats':
+      return { name, description: t('home.missions.maintainStats.description', { value: task.required }) };
+    default:
+      return { name, description: t(`home.missions.${key}.description`) };
+  }
+}
+
+/** A mission link's label in the page's language: the kit's for a mission it does not know, else a plain Open. */
+function linkLabel(task: HatchTask, fallback: 'open' | 'openInDitto'): string {
+  const key = missionKey(task.id);
+  if (key === 'createTheme' || key === 'createThemes') return t('home.missions.link.createTheme');
+  if (key === 'colorMoment' || key === 'colorMoments') return t('home.missions.link.openEspy');
+  if (key === 'editProfile') return t('home.missions.link.editProfile');
+  return task.actionLabel ?? t(`home.missions.link.${fallback}`);
+}
+
+/**
  * Turn a kit task's action into a link the home can offer. `navigate` targets
  * are Ditto routes (the missions were designed there); `external_link` is
  * used as-is; `open_modal` has no equivalent here.
@@ -70,11 +117,11 @@ export function taskLink(task: HatchTask, dittoUrl: string): LifecycleTaskLink |
     // The targets are the kit's own bundled mission data, but a link the home
     // renders is only ever an absolute http(s) URL; anything else is dropped.
     if (!isHttpUrl(task.actionTarget)) return undefined;
-    return { href: task.actionTarget, label: task.actionLabel ?? 'Open' };
+    return { href: task.actionTarget, label: linkLabel(task, 'open') };
   }
   if (task.action === 'navigate') {
     if (!task.actionTarget.startsWith('/') || task.actionTarget.startsWith('//')) return undefined;
-    return { href: `${dittoUrl.replace(/\/$/, '')}${task.actionTarget}`, label: task.actionLabel ?? 'Open in Ditto' };
+    return { href: `${dittoUrl.replace(/\/$/, '')}${task.actionTarget}`, label: linkLabel(task, 'openInDitto') };
   }
   return undefined;
 }
@@ -114,8 +161,8 @@ export function eggCrackForProgress(completed: number, total: number, ready: boo
  * offers it is this app's, as the first egg's hatch already was.
  */
 export function homeMissionsDone(tasks: readonly LifecycleTask[]): boolean {
-  const here = tasks.filter((t) => !t.link);
-  return here.length > 0 && here.every((t) => t.completed);
+  const here = tasks.filter((task) => !task.link);
+  return here.length > 0 && here.every((task) => task.completed);
 }
 
 export interface BuildLifecycleViewInput {
@@ -133,17 +180,16 @@ export function buildLifecycleView({ companion, hatch, evolve, dittoUrl }: Build
   const source = stage === 'egg' ? hatch : stage === 'baby' ? evolve : undefined;
   const active = source && process !== 'none';
   const tasks: LifecycleTask[] = active
-    ? source.tasks.map((t) => ({
-        id: t.id,
-        name: t.name,
-        description: t.description,
-        current: t.current,
-        required: t.required,
-        completed: t.completed,
-        link: taskLink(t, dittoUrl),
+    ? source.tasks.map((task) => ({
+        id: task.id,
+        ...missionText(task),
+        current: task.current,
+        required: task.required,
+        completed: task.completed,
+        link: taskLink(task, dittoUrl),
       }))
     : [];
-  const completed = tasks.filter((t) => t.completed).length;
+  const completed = tasks.filter((task) => task.completed).length;
   const total = tasks.length;
   const ready = !!active && total > 0 && (source.allCompleted || homeMissionsDone(tasks));
 

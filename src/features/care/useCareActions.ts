@@ -17,6 +17,7 @@ import { countCareForMissions, countSleepForMissions } from '@/features/progress
 import { usePublishAdapter } from './usePublishAdapter';
 import { availableCareActions, planCareAction, type CareAction } from './care-plan';
 import { tallyCareInteraction } from '@/features/lifecycle/mission-tally';
+import { t } from '@/i18n';
 
 export interface CareResult {
   action: CareAction;
@@ -60,15 +61,15 @@ export function useCareActions({ pubkey, updateCompanionEvent, invalidate }: Use
 
   const mutation = useMutation<CareResult, Error, { d: string; action: CareAction }>({
     mutationFn: async ({ d, action }) => {
-      if (!pubkey) throw new Error('Sign in to care for your Blobbi.');
+      if (!pubkey) throw new Error(t('home.care.error.signInToCare'));
 
       const fresh = await fetchFreshEvent(nostr, { kinds: [KIND_BLOBBI_STATE], authors: [pubkey], '#d': [d] });
-      if (!fresh || !isModernBlobbiEvent(fresh)) throw new Error('Could not read the latest state of your Blobbi.');
+      if (!fresh || !isModernBlobbiEvent(fresh)) throw new Error(t('home.care.error.readFailed'));
       const companion = parseModernBlobbiEvent(fresh);
-      if (!companion) throw new Error('Could not read the latest state of your Blobbi.');
+      if (!companion) throw new Error(t('home.care.error.readFailed'));
 
       const availability = availableCareActions(companion).find((a) => a.action === action);
-      if (!availability?.available) throw new Error(availability?.reason ?? 'Not right now.');
+      if (!availability?.available) throw new Error(availability?.reason ?? t('home.care.reason.notRightNow'));
 
       const now = Math.floor(Date.now() / 1000);
       // An interaction counts towards the active hatch or evolve missions;

@@ -1,6 +1,7 @@
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
+import { t } from '@/i18n';
 
 interface BlobbiSelectorProps {
   companions: readonly BlobbiCompanion[];
@@ -17,7 +18,7 @@ export function BlobbiSelector({ companions, currentD, onSelect }: BlobbiSelecto
   if (companions.length < 2) return null;
 
   return (
-    <div role="radiogroup" aria-label="Choose your Blobbi" className="flex flex-wrap items-end justify-center gap-2 sm:gap-3">
+    <div role="radiogroup" aria-label={t('home.selector.label')} className="flex flex-wrap items-end justify-center gap-2 sm:gap-3">
       {companions.map((c) => {
         const selected = c.d === currentD;
         return (

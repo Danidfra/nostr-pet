@@ -7,6 +7,7 @@
  * that number went UP between two versions of the same Blobbi. A page load
  * is not an increase; a care write that bumps the tag is.
  */
+import { t } from '@/i18n';
 
 /** Days that deserve a bigger moment. */
 export const STREAK_MILESTONES: readonly number[] = [3, 7, 14, 30, 60, 100, 365];
@@ -27,9 +28,9 @@ export function detectStreakIncrease(previous: number | undefined, next: number 
 
 /** A line for the moment. */
 export function streakLine(change: StreakChange): string {
-  if (change.milestone) return `${change.to} days in a row!`;
-  if (change.to === 1) return 'A new streak begins.';
-  return `${change.to} days in a row.`;
+  if (change.milestone) return t('home.streak.milestone', { days: change.to });
+  if (change.to === 1) return t('home.streak.begins');
+  return t('home.streak.inARow', { days: change.to });
 }
 
 /**

@@ -9,6 +9,7 @@ import { buildGameItemAddress } from '@nostr-games/inventory';
 import { optionKey, VERB_ITEM_ACTIONS, type CareChoice, type CareVerb } from '@/features/home/care-model';
 import { OFFICIAL_ITEM_ISSUER } from '@/features/inventory/issuers';
 import type { HomeInventory, HomeInventoryItem, HomeItem, ItemAction, ItemGlyphModel, StarterEntry } from '@/features/inventory';
+import { t } from '@/i18n';
 
 /** One item a carousel offers. */
 export interface CareEntry {
@@ -27,12 +28,12 @@ export interface CareEntry {
 
 export function starterEntry(entry: StarterEntry): CareEntry {
   const choice: CareChoice = { source: 'starter', entry };
-  return { key: optionKey(choice), choice, name: entry.item.name, glyph: entry.item.glyph, action: entry.item.care!.action, quantity: null, usable: entry.usability.ok, reason: entry.usability.ok ? null : entry.usability.reason ?? 'Not right now.' };
+  return { key: optionKey(choice), choice, name: entry.item.name, glyph: entry.item.glyph, action: entry.item.care!.action, quantity: null, usable: entry.usability.ok, reason: entry.usability.ok ? null : entry.usability.reason ?? t('home.care.reason.notRightNow') };
 }
 
 export function ownedEntry(entry: HomeInventoryItem): CareEntry {
   const choice: CareChoice = { source: 'owned', entry };
-  const reason = entry.unverified ? "This inventory's balance can't be verified right now." : !entry.usability.ok ? entry.usability.reason ?? 'Not right now.' : null;
+  const reason = entry.unverified ? t('home.care.reason.unverified') : !entry.usability.ok ? entry.usability.reason ?? t('home.care.reason.notRightNow') : null;
   return { key: optionKey(choice), choice, name: entry.item.name, glyph: entry.item.glyph, action: entry.item.care!.action, quantity: entry.quantity, usable: reason === null, reason };
 }
 

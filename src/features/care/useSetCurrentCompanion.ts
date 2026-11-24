@@ -9,6 +9,7 @@ import {
   type NostrEvent,
 } from '@blobbi-kit/core';
 import { usePublishAdapter } from './usePublishAdapter';
+import { t } from '@/i18n';
 
 export type SetCurrentCompanionResult =
   | { published: true; event: NostrEvent }
@@ -30,8 +31,8 @@ export function useSetCurrentCompanion(pubkey: string | undefined) {
 
   return useMutation<SetCurrentCompanionResult, Error, { d: string; ownedDs: readonly string[] }>({
     mutationFn: async ({ d, ownedDs }) => {
-      if (!pubkey) throw new Error('Sign in first.');
-      if (!ownedDs.includes(d)) throw new Error('That Blobbi is not yours.');
+      if (!pubkey) throw new Error(t('home.care.error.signInFirst'));
+      if (!ownedDs.includes(d)) throw new Error(t('home.care.error.notYours'));
 
       const profile = await fetchFreshBlobbonautProfile(nostr, pubkey);
       if (!profile) return { published: false, reason: 'no-profile' };

@@ -1,5 +1,7 @@
 import type { BlobbiStats } from '@blobbi-kit/core';
-import { STAT_WORD, describeCareResult, type FeedbackResult } from './care-feedback-text';
+import { describeCareResult, type FeedbackResult } from './care-feedback-text';
+import { statWord } from './labels';
+import { t } from '@/i18n';
 
 interface CareFeedbackProps {
   result: FeedbackResult | undefined;
@@ -35,13 +37,12 @@ export function CareFeedback({ result, resultKey }: CareFeedbackProps) {
               className="animate-float-up rounded-full bg-card/90 px-2.5 py-1 text-sm font-bold shadow"
               style={{ animationDelay: `${index * 120}ms`, color: delta > 0 ? '#16a34a' : '#dc2626' }}
             >
-              {delta > 0 ? '+' : ''}
-              {delta} {STAT_WORD[stat as keyof BlobbiStats]}
+              {t('home.feedback.change', { delta: `${delta > 0 ? '+' : ''}${delta}`, stat: statWord(stat as keyof BlobbiStats) })}
             </span>
           ))}
         {result && result.xpGained > 0 && (
           <span key={`${resultKey}-xp`} className="animate-float-up rounded-full bg-primary/90 px-2.5 py-1 text-sm font-bold text-primary-foreground shadow" style={{ animationDelay: `${changes.length * 120}ms` }}>
-            +{result.xpGained} XP
+            {t('home.feedback.xp', { xp: result.xpGained })}
           </span>
         )}
       </div>

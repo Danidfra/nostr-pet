@@ -30,6 +30,7 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { ItemGlyph, type ItemGlyphModel } from '@/features/inventory';
 import { CONTROL_SURFACE as ROOM_CONTROL_SURFACE, GUIDE_HIGHLIGHT as ROOM_GUIDE_HIGHLIGHT, cx } from './ui';
 import { isHandFed, type CareEntry as RoomCareEntry } from './care-entries';
+import { t } from '@/i18n';
 
 interface ItemCarouselProps {
   items: readonly RoomCareEntry[];
@@ -97,7 +98,7 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
   if (count === 0) {
     return (
       <div className="flex items-center justify-center h-[3.6em]" data-testid={`${idPrefix}-empty`}>
-        <p className="text-[0.8em] text-muted-foreground">Nothing here yet</p>
+        <p className="text-[0.8em] text-muted-foreground">{t('home.carousel.empty')}</p>
       </div>
     );
   }
@@ -106,7 +107,10 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
   const isThisActive = activeKey === current.key;
   const showPreviews = count >= 3;
   const draggable = !!onDragStart && !disabled && current.usable;
-  const verb = isHandFed(current.action) ? 'Give' : 'Use';
+  // What tapping the middle item does, in a line: give or use it, how many are left, why not
+  const what = t(isHandFed(current.action) ? 'home.carousel.give' : 'home.carousel.use', { name: current.name });
+  const counted = current.quantity === null ? what : t('home.carousel.left', { what, count: current.quantity });
+  const useLabel = current.usable ? counted : t('home.carousel.blocked', { what: counted, reason: current.reason ?? '' });
 
   const arrow = (dir: 1 | -1) => (
     <button
@@ -114,7 +118,7 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
       onClick={() => step(dir)}
       disabled={disabled}
       className={cx(ARROW_CLASS, disabled && 'opacity-30 pointer-events-none')}
-      aria-label={dir === 1 ? 'Next item' : 'Previous item'}
+      aria-label={dir === 1 ? t('home.carousel.next') : t('home.carousel.previous')}
       data-testid={dir === 1 ? `${idPrefix}-next` : `${idPrefix}-prev`}
     >
       {dir === 1 ? <ChevronRight className="size-[1.3em]" /> : <ChevronLeft className="size-[1.3em]" />}
@@ -143,12 +147,12 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
         onPointerDown={draggable ? (e) => onDragStart!(e, current) : undefined}
         disabled={disabled}
         data-room-drag={draggable ? '' : undefined}
-        aria-label={`${verb} ${current.name}${current.quantity === null ? '' : `, ${current.quantity} left`}${current.usable ? '' : `. ${current.reason}`}`}
+        aria-label={useLabel}
         data-testid={`${idPrefix}-use`}
         data-entry-key={current.key}
         data-item-id={current.choice.entry.item.itemId}
         data-definition={current.choice.entry.item.definitionSource}
-        title={current.choice.entry.item.definitionSource === 'builtin' ? 'Details are built-in; the definition relay did not answer' : undefined}
+        title={current.choice.entry.item.definitionSource === 'builtin' ? t('home.carousel.builtin') : undefined}
         data-source={current.choice.source}
         data-usable={current.usable}
         className={cx(
@@ -179,7 +183,9 @@ export function ItemCarousel({ items, focusedKey, onFocus, onUse, onBlocked, onD
 
       <p className="sr-only" aria-live="polite" data-testid={`${idPrefix}-status`}>
         {/* A starter's availability is not a price: no "free", just its name; an owned item says how many are left */}
-        {current.name}, {current.quantity === null ? '' : `${current.quantity} left, `}{index + 1} of {count}
+        {current.quantity === null
+          ? t('home.carousel.position', { name: current.name, position: index + 1, count })
+          : t('home.carousel.positionLeft', { name: current.name, left: current.quantity, position: index + 1, count })}
       </p>
     </div>
   );

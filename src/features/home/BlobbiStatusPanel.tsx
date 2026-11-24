@@ -1,5 +1,7 @@
 import type { BlobbiStats } from '@blobbi-kit/core';
 import { Droplets, Heart, Smile, Utensils, Zap, type LucideIcon } from 'lucide-react';
+import { t } from '@/i18n';
+import { statLabel, statLevelWord } from './labels';
 
 export type StatStatus = 'critical' | 'warning' | 'normal';
 
@@ -9,23 +11,17 @@ export interface StatItem {
   status: StatStatus;
 }
 
-const STAT_META: Record<keyof BlobbiStats, { label: string; color: string; icon: LucideIcon }> = {
-  hunger: { label: 'Food', color: '#F97316', icon: Utensils },
-  happiness: { label: 'Joy', color: '#EAB308', icon: Smile },
-  hygiene: { label: 'Clean', color: '#06B6D4', icon: Droplets },
-  energy: { label: 'Energy', color: '#8B5CF6', icon: Zap },
-  health: { label: 'Health', color: '#10B981', icon: Heart },
+const STAT_META: Record<keyof BlobbiStats, { color: string; icon: LucideIcon }> = {
+  hunger: { color: '#F97316', icon: Utensils },
+  happiness: { color: '#EAB308', icon: Smile },
+  hygiene: { color: '#06B6D4', icon: Droplets },
+  energy: { color: '#8B5CF6', icon: Zap },
+  health: { color: '#10B981', icon: Heart },
 };
 
 const STATUS_COLOR: Record<Exclude<StatStatus, 'normal'>, string> = {
   warning: '#F59E0B',
   critical: '#EF4444',
-};
-
-const STATUS_WORD: Record<StatStatus, string> = {
-  normal: 'fine',
-  warning: 'low',
-  critical: 'very low',
 };
 
 function StatRing({ stat, value, status }: StatItem) {
@@ -37,6 +33,7 @@ function StatRing({ stat, value, status }: StatItem) {
   const Icon = meta.icon;
   const strokeColor = status === 'normal' ? meta.color : STATUS_COLOR[status];
   const rounded = Math.round(clamped);
+  const label = statLabel(stat);
 
   return (
     <div
@@ -47,8 +44,8 @@ function StatRing({ stat, value, status }: StatItem) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={rounded}
-      aria-label={`${meta.label}: ${rounded} of 100, ${STATUS_WORD[status]}`}
-      title={`${meta.label} ${rounded}`}
+      aria-label={t('home.stats.meter', { stat: label, value: rounded, status: statLevelWord(status) })}
+      title={t('home.stats.valueTitle', { stat: label, value: rounded })}
     >
       <div className="relative h-12 w-12 sm:h-16 sm:w-16">
         <svg viewBox="0 0 60 60" className="h-full w-full -rotate-90" aria-hidden>
@@ -80,7 +77,7 @@ function StatRing({ stat, value, status }: StatItem) {
         )}
       </div>
       <span className="text-[11px] font-semibold leading-none text-foreground/80" aria-hidden>
-        {meta.label}
+        {label}
       </span>
       <span className="text-xs font-bold leading-none" style={{ color: strokeColor }} aria-hidden>
         {rounded}
@@ -102,7 +99,7 @@ interface BlobbiStatusPanelProps {
 export function BlobbiStatusPanel({ items }: BlobbiStatusPanelProps) {
   if (items.length === 0) return null;
   return (
-    <div className="flex flex-wrap justify-center gap-2 sm:gap-5" role="group" aria-label="Care status">
+    <div className="flex flex-wrap justify-center gap-2 sm:gap-5" role="group" aria-label={t('home.stats.group')}>
       {items.map((item) => (
         <StatRing key={item.stat} {...item} />
       ))}

@@ -1,9 +1,10 @@
 import { Droplets, Heart, Smile, Utensils, Zap, type LucideIcon } from 'lucide-react';
 import type { BlobbiStats } from '@blobbi-kit/core';
 import type { StatItem } from '../BlobbiStatusPanel';
+import { t } from '@/i18n';
+import { needWord } from '../labels';
 
 const ICON: Record<keyof BlobbiStats, LucideIcon> = { hunger: Utensils, happiness: Smile, hygiene: Droplets, energy: Zap, health: Heart };
-const WORD: Record<keyof BlobbiStats, string> = { hunger: 'hungry', happiness: 'lonely', hygiene: 'dirty', energy: 'tired', health: 'unwell' };
 
 interface NeedBubblesProps {
   items: readonly StatItem[];
@@ -24,11 +25,11 @@ export function NeedBubbles({ items, max = 2 }: NeedBubblesProps) {
     .slice(0, max);
   if (needs.length === 0) return null;
   return (
-    <div className="need-bubbles" role="list" aria-label="Needs" data-testid="need-bubbles">
+    <div className="need-bubbles" role="list" aria-label={t('home.stats.needs')} data-testid="need-bubbles">
       {needs.map(({ stat, status }) => {
         const Icon = ICON[stat];
         return (
-          <span key={stat} role="listitem" className={status === 'critical' ? 'need-bubble need-bubble--critical' : 'need-bubble'} aria-label={`${WORD[stat]}${status === 'critical' ? ', urgently' : ''}`} data-testid={`need-${stat}`} data-status={status}>
+          <span key={stat} role="listitem" className={status === 'critical' ? 'need-bubble need-bubble--critical' : 'need-bubble'} aria-label={status === 'critical' ? t('home.stats.needUrgent', { need: needWord(stat) }) : needWord(stat)} data-testid={`need-${stat}`} data-status={status}>
             <Icon className="h-3.5 w-3.5" aria-hidden />
           </span>
         );

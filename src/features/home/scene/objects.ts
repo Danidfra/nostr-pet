@@ -1,4 +1,5 @@
 import type { FloorPoint } from './geometry';
+import { t } from '@/i18n';
 
 /**
  * Where things are in the home, and what they are.
@@ -52,7 +53,18 @@ export const OFFER_SPOT: FloorPoint = { x: 0.36, y: 0.7 };
 export const OFFER_APPROACH: FloorPoint = { x: 0.47, y: 0.66 };
 
 export const SCENE_OBJECTS: readonly SceneObjectDef[] = [
-  { id: 'door', kind: 'furniture', label: 'Door to Blobbi Island', position: DOOR_POSITION, approach: DOOR_APPROACH, width: 0.26, wall: true },
+  {
+    id: 'door',
+    kind: 'furniture',
+    // A getter: the label is read when the door is drawn, in the page's language
+    get label() {
+      return t('home.island.door');
+    },
+    position: DOOR_POSITION,
+    approach: DOOR_APPROACH,
+    width: 0.26,
+    wall: true,
+  },
 ];
 
 /**

@@ -4,6 +4,7 @@ import type { PublishAdapter, PublishEventTemplate } from '@blobbi-kit/react';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { carryGate } from '@/lib/sync-consent';
+import { t } from '@/i18n';
 
 /** NIP-89 client name stamped on every event this app publishes. */
 export const CLIENT_NAME = 'Blobbi';
@@ -53,7 +54,7 @@ export const SIGN_TIMEOUT_MS = 45_000;
 
 export class SignTimeoutError extends Error {
   constructor() {
-    super('Your signer did not answer. Check it is open and approve Blobbi there, then try again.');
+    super(t('home.care.error.signTimeout'));
     this.name = 'SignTimeoutError';
   }
 }
@@ -80,11 +81,11 @@ export function usePublishAdapter(): HomePublisher {
 
   return useMemo<HomePublisher>(() => {
     const sign = async (template: PublishEventTemplate): Promise<NostrEvent> => {
-      if (!user) throw new Error('Sign in to do that.');
+      if (!user) throw new Error(t('home.care.error.signInToDoThat'));
       const unsigned = finalizeTemplate(template);
       const event = await withSignTimeout(user.signer.signEvent(unsigned));
       if (event.pubkey !== user.pubkey) {
-        throw new Error('The signer answered for a different account.');
+        throw new Error(t('home.care.error.wrongAccount'));
       }
       // Signed in this visit, as the player's own act: offering it again to a relay that was silent is part of
       // publishing it. Everything else is an existing event, copied nowhere unless the account said so
