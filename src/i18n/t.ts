@@ -93,13 +93,3 @@ export function tp(key: PluralKey, count: number, params?: MessageParams): strin
 export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
   return new Intl.NumberFormat(currentLocale, options).format(value);
 }
-
-/** A date written the way this page's language writes it. */
-export function formatDate(value: Date | number, options?: Intl.DateTimeFormatOptions): string {
-  return new Intl.DateTimeFormat(currentLocale, options).format(value);
-}
-
-/** A list ("a, b and c") in this page's language. */
-export function formatList(items: readonly string[], type: 'conjunction' | 'disjunction' = 'conjunction'): string {
-  return new Intl.ListFormat(currentLocale, { style: 'long', type }).format(items);
-}

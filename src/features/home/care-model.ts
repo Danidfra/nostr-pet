@@ -19,7 +19,6 @@ import type { CareAction, CareAvailability } from '@/features/care';
 import type { HomeInventoryItem, ItemAction, StarterEntry } from '@/features/inventory';
 
 export type CareVerb = CareAction;
-export const CARE_VERBS: readonly CareVerb[] = ['feed', 'play', 'clean', 'rest'];
 
 /** Which item actions answer a verb. */
 export const VERB_ITEM_ACTIONS: Record<CareVerb, readonly ItemAction[]> = {

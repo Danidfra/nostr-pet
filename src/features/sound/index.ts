@@ -3,7 +3,7 @@ export { BLOBBI_SOUNDS, VOICE_SOUNDS, SOUND_STORAGE_KEY, MUSIC_STORAGE_KEY } fro
 export { createMusicEngine, MUSIC_VOLUME } from './music/music-engine';
 export type { MusicEngine } from './music/music-engine';
 export { HOME_LOOP, MUSIC_BPM, noteHz } from './music/theme';
-export type { BlobbiSoundId, SoundId } from './sounds';
+export type { BlobbiSoundId } from './sounds';
 export { VOICE, variantOf } from './blobbi-voice';
 export type { Recipe, Layer, Variant } from './blobbi-voice';
 export { createVoiceEngine } from './voice-engine';

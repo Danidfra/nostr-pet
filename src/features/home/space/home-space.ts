@@ -14,7 +14,6 @@
  * (`home-composition.test.tsx` seeds those keys and checks).
  */
 import { clampToFloor, type FloorPoint } from '../scene/geometry';
-import { floorFromRoom } from './room-space';
 import { roomById, type RoomDefinition } from '../rooms/rooms';
 import type { Placement } from '../rooms/layout-schema';
 
@@ -59,9 +58,3 @@ export const STAGE_OBJECTS = {
   toySpot: clampToFloor({ x: 0.32, y: 0.72 }),
   toyApproach: clampToFloor({ x: 0.44, y: 0.7 }),
 } as const;
-
-/** A stage object's feet in floor units (for tests and gaze). */
-export function stageObjectFloorPoint(kind: StageObjectKind): FloorPoint {
-  const p = STAGE_OBJECTS[kind];
-  return floorFromRoom({ x: p.x, y: p.y });
-}

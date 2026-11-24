@@ -25,11 +25,6 @@ function EmptyRoom({ label, children }: { label: string; children: ReactNode }) 
   );
 }
 
-/** The signed-out home: the way in, held up in front of the empty room. */
-export function HomeSignedOut({ children }: { children: ReactNode }) {
-  return <EmptyRoom label={t('home.states.empty')}>{children}</EmptyRoom>;
-}
-
 export function HomeLoading() {
   return (
     <EmptyRoom label={t('home.states.looking')}>
@@ -41,11 +36,6 @@ export function HomeLoading() {
       </div>
     </EmptyRoom>
   );
-}
-
-/** The empty home: profile and adoption steps, in front of the room a first egg will live in. */
-export function HomeEmpty({ children }: { children: ReactNode }) {
-  return <EmptyRoom label={t('home.states.noBlobbi')}>{children}</EmptyRoom>;
 }
 
 interface HomeErrorProps {

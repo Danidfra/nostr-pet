@@ -23,7 +23,6 @@ export const EDGE_INSET = 0.3;
 export type CellPick = (cell: BathCell) => boolean;
 
 export const isBody: CellPick = (c) => c.body;
-export const isWet: CellPick = (c) => c.wet;
 export const isDry: CellPick = (c) => c.dry;
 /** Still wet: not yet rubbed dry with the towel. */
 export const isWetNotDry: CellPick = (c) => c.wet && !c.dry;

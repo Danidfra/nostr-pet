@@ -73,40 +73,6 @@ export function parsePlacedToys(input: unknown): PlacedToys | undefined {
   return out;
 }
 
-type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-
-function safeStorage(): StorageLike | null {
-  try {
-    return typeof window !== 'undefined' ? window.localStorage : null;
-  } catch {
-    return null;
-  }
-}
-
-export function readPlacedToys(pubkey: string | undefined, blobbiD: string, room: RoomId, storage: StorageLike | null = safeStorage()): PlacedToy[] {
-  try {
-    return parsePlacedToys(storage?.getItem(toyStorageKey(pubkey, blobbiD)) ?? undefined)?.by_room[room] ?? [];
-  } catch {
-    return [];
-  }
-}
-
-export function writePlacedToys(pubkey: string | undefined, blobbiD: string, room: RoomId, toys: readonly PlacedToy[], storage: StorageLike | null = safeStorage()): void {
-  let current: PlacedToys | undefined;
-  try {
-    current = parsePlacedToys(storage?.getItem(toyStorageKey(pubkey, blobbiD)) ?? undefined);
-  } catch {
-    current = undefined;
-  }
-  const byRoom = { ...(current?.by_room ?? {}) };
-  byRoom[room] = toys.slice(0, MAX_TOYS_PER_ROOM).map((t) => ({ ...t }));
-  try {
-    storage?.setItem(toyStorageKey(pubkey, blobbiD), JSON.stringify({ v: 1, by_room: byRoom }));
-  } catch {
-    /* the placement still holds for this session */
-  }
-}
-
 /** Where a Blobbi stands to play with a toy lying at `at`: just beside it, facing it. */
 export function toyApproach(at: FloorPoint): FloorPoint {
   return clampToFloor({ x: at.x + (at.x < 0.5 ? 0.11 : -0.11), y: Math.min(at.y + 0.02, 0.82) });

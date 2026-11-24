@@ -63,9 +63,6 @@ export const BLOBBI_SOUNDS: readonly BlobbiSoundId[] = [
 /** The sounds the Blobbi makes itself (its voice), as against the room's. */
 export const VOICE_SOUNDS: readonly BlobbiSoundId[] = ['curious', 'poke', 'happy', 'excited', 'chirp', 'bite', 'eat', 'yum', 'pet', 'upset', 'sleepy', 'surprise', 'hatch', 'evolve', 'clean', 'drink', 'tada', 'crouch', 'jump', 'fall', 'peek', 'gather', 'rise', 'descend'];
 
-/** @deprecated kept as an alias for the vocabulary type; the files are gone. */
-export type SoundId = BlobbiSoundId;
-
 export const SOUND_STORAGE_KEY = 'blobbi:sound:v1';
 
 /** The home's music, on or off: its own choice, apart from the sounds. */

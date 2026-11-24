@@ -10,8 +10,6 @@ import { t } from '@/i18n';
 /** The theatre's pace: longer than the classic home's, every beat its own moment. */
 export const THEATER_TIMINGS: CeremonyTimings = { leadMs: 1_900, stepMs: 950, finalMs: 1_300, burstMs: 900, revealMs: 5_400 };
 export const REDUCED_THEATER_TIMINGS: CeremonyTimings = { leadMs: 700, stepMs: 450, finalMs: 600, burstMs: 0, revealMs: 2_600 };
-/** How long the room takes to darken before the egg is presented. */
-export const VEIL_MS = 700;
 
 /** After the light clears, what the baby does, by time into the reveal (ms). */
 export interface RevealMoment {

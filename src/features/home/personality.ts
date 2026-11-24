@@ -55,9 +55,3 @@ export function pokeReaction({ stage, state, stats, recentPokes }: PokeInput): P
   return { mood: 'glad', gesture: 'bounce', expression: 'happy', durationMs: 1_200 };
 }
 
-/** A glance toward a spot on the floor from where the Blobbi stands: left, right, and a little down. */
-export function glanceToward(from: { x: number; y: number }, to: { x: number; y: number }): { x: number; y: number } {
-  const dx = to.x - from.x;
-  return { x: Math.max(-0.8, Math.min(0.8, dx * 3)), y: to.y > from.y ? 0.5 : 0.1 };
-}
-

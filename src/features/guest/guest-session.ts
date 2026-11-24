@@ -28,9 +28,6 @@ export function resolveGuestMode(doc: GuestDocument | null, loginPubkey: string 
   return loginPubkey === doc.identity.pubkey ? 'promoting' : 'dormant';
 }
 
-/** Guest mode supports exactly one Blobbi: another egg needs an account. */
-export const GUEST_MAX_BLOBBIS = 1;
-
 /**
  * The invitation to save (M15): after the player has really cared for their
  * hatched Blobbi AND played with it for a while, once, when the home is

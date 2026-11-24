@@ -2,13 +2,13 @@ export { ROOM_ORDER, DEFAULT_ROOM, SLEEP_ROOM, ROOM_STORAGE_PREFIX, isRoomId, ro
 export type { RoomId, RoomDefinition, RoomActivity, RoomDecor, RoomFixture } from './rooms';
 export { RoomBackdrop, WINDOW_DECOR } from './RoomBackdrop';
 export { FurnitureLayer } from './FurnitureLayer';
-export { FURNITURE, FURNITURE_CATEGORY_LABEL, furnitureById, canPlaceInRoom, furnitureForRoom } from './furniture-registry';
+export { FURNITURE, furnitureById, canPlaceInRoom } from './furniture-registry';
 export type { FurnitureDefinition, FurnitureCategory, FurnitureUse } from './furniture-registry';
-export { parseRoomLayouts, normalizePlacement, normalizeRoomPlacements, placementExtent, placementZIndex, MAX_FURNITURE_PER_ROOM, MIN_SCALE, MAX_SCALE, PLACEMENT_LAYERS } from './layout-schema';
+export { parseRoomLayouts, normalizePlacement, placementExtent, placementZIndex, MAX_FURNITURE_PER_ROOM, MIN_SCALE, MAX_SCALE, PLACEMENT_LAYERS } from './layout-schema';
 export type { Placement, RoomLayouts } from './layout-schema';
-export { createLocalLayoutStore, localLayoutStore, layoutStorageKey, LAYOUT_STORAGE_PREFIX } from './layout-store';
+export { createLocalLayoutStore, layoutStorageKey, LAYOUT_STORAGE_PREFIX } from './layout-store';
 export type { LayoutStore } from './layout-store';
 export { surfaceBackground, parseSurface, isHexColor, WALL_STYLES, FLOOR_STYLES, SURFACE_VARIANTS } from './surfaces';
 export type { SurfaceLayout, RoomSurfaces, WallStyle, FloorStyle, SurfaceVariant } from './surfaces';
-export { readPlacedToys, writePlacedToys, parsePlacedToys, toyStorageKey, toyKey, toyApproach, MAX_TOYS_PER_ROOM, TOY_STORAGE_PREFIX } from './toy-store';
+export { parsePlacedToys, toyStorageKey, toyKey, toyApproach, MAX_TOYS_PER_ROOM, TOY_STORAGE_PREFIX } from './toy-store';
 export type { PlacedToy, PlacedToys } from './toy-store';

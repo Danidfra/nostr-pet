@@ -144,5 +144,3 @@ export function useRoomItemDrag(options: UseRoomItemDragOptions) {
 
   return { session, ghostRef, start, cancel };
 }
-
-export type RoomItemDrag = ReturnType<typeof useRoomItemDrag>;
