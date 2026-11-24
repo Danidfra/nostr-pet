@@ -30,7 +30,7 @@ vi.mock('../lib/blobbi3d/model', async (importOriginal) => {
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { blobbiEvent } from '@/test/fixtures';
 import { genomeOf, morphologyOf } from '../lib/blobbi3d/identity';
-import { FAILED_3D, useRoomActorModel, unavailable3dReason } from './useRoomActorModel';
+import { failed3dNote, useRoomActorModel, unavailable3dReason } from './useRoomActorModel';
 import type { BlobbiAppearance } from '../lib/blobbi-appearance';
 
 function blobbi(stage: 'egg' | 'baby' | 'adult', generation: 'v1' | 'v2' | 'v3' = 'v3', extra: [string, string][] = []): BlobbiCompanion {
@@ -113,7 +113,7 @@ describe('a 3D model that cannot be built', () => {
     const { result, rerender } = renderHook(({ a }: { a: BlobbiAppearance }) => useRoomActorModel(fern, a), { initialProps: { a: '3d' as BlobbiAppearance } });
     expect(result.current.model).toBeNull();
     expect(result.current.failed).toBe(true);
-    expect(result.current.unavailable3d).toBe(FAILED_3D);
+    expect(result.current.unavailable3d).toBe(failed3dNote());
     rerender({ a: '3d' });
     rerender({ a: '2d' });
     expect(built.calls).toHaveLength(1);

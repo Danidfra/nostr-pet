@@ -15,6 +15,7 @@
  * this table does not know, a future one) is a plain wash with the soap's
  * look: the safe default, a game every Blobbi can play in place.
  */
+import { t } from '@/i18n';
 import type { BathTool } from './bath-machine';
 
 export type RitualId = 'wash' | 'soak' | 'towel';
@@ -45,8 +46,8 @@ export interface RitualDef {
 /** How long the Bubble Bath's play in the water lasts. */
 export const SOAK_PLAY_MS = 4_200;
 
-const LATHER = (tool: string): RitualStage => ({ id: 'lather', kind: 'rub', tool: 'soap', guidance: (name) => `Rub the ${tool} all over ${name}.` });
-const RINSE: RitualStage = { id: 'rinse', kind: 'rinse', tool: 'shower', guidance: (name) => `Hold the shower over ${name} to rinse off the foam.` };
+const LATHER = (tool: 'soap' | 'shampoo'): RitualStage => ({ id: 'lather', kind: 'rub', tool: 'soap', guidance: (name) => t(`room.bath.lather.${tool}`, { name }) });
+const RINSE: RitualStage = { id: 'rinse', kind: 'rinse', tool: 'shower', guidance: (name) => t('room.bath.rinse', { name }) };
 
 export const RITUALS = {
   soap: { id: 'wash', style: 'soap', place: 'in-place', stages: [LATHER('soap'), RINSE] },
@@ -55,16 +56,16 @@ export const RITUALS = {
     id: 'towel',
     style: 'towel',
     place: 'in-place',
-    stages: [{ id: 'dry', kind: 'dry-rub', tool: 'towel', guidance: (name) => `Rub ${name} with the soft towel.` }],
+    stages: [{ id: 'dry', kind: 'dry-rub', tool: 'towel', guidance: (name) => t('room.bath.dry', { name }) }],
   },
   soak: {
     id: 'soak',
     style: 'bubbles',
     place: 'tub',
     stages: [
-      { id: 'jump-in', kind: 'script', durationMs: 700, tool: null, guidance: (name) => `${name} is jumping into the bubbles…` },
-      { id: 'play', kind: 'timed', durationMs: SOAK_PLAY_MS, tool: null, guidance: (name) => `${name} is splashing in the bubbles!` },
-      { id: 'jump-out', kind: 'script', durationMs: 700, tool: null, guidance: (name) => `${name} is jumping out…` },
+      { id: 'jump-in', kind: 'script', durationMs: 700, tool: null, guidance: (name) => t('room.bath.jumpIn', { name }) },
+      { id: 'play', kind: 'timed', durationMs: SOAK_PLAY_MS, tool: null, guidance: (name) => t('room.bath.play', { name }) },
+      { id: 'jump-out', kind: 'script', durationMs: 700, tool: null, guidance: (name) => t('room.bath.jumpOut', { name }) },
     ],
   },
 } as const satisfies Record<string, RitualDef>;

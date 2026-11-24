@@ -14,17 +14,21 @@ import { AlertTriangle, Droplets, Gamepad2, Heart, Utensils, Zap, type LucideIco
 import { getBlobbiStatDisplayState, getVisibleStats, type BlobbiCompanion, type BlobbiStats, type CareState } from '@blobbi-kit/core';
 
 import { roomById, type RoomId } from '@/features/home/rooms/rooms';
+import { t } from '@/i18n';
 import { cx } from '../lib/cx';
 
 type StatKey = keyof BlobbiStats;
 
-const STAT_STYLE: Record<StatKey, { text: string; bg: string; hex: string; icon: LucideIcon; label: string }> = {
-  hunger: { text: 'text-orange-500', bg: 'bg-orange-500/10', hex: '#f97316', icon: Utensils, label: 'Hunger' },
-  happiness: { text: 'text-yellow-500', bg: 'bg-yellow-500/10', hex: '#eab308', icon: Gamepad2, label: 'Happiness' },
-  health: { text: 'text-green-500', bg: 'bg-green-500/10', hex: '#22c55e', icon: Heart, label: 'Health' },
-  hygiene: { text: 'text-blue-500', bg: 'bg-blue-500/10', hex: '#3b82f6', icon: Droplets, label: 'Hygiene' },
-  energy: { text: 'text-violet-500', bg: 'bg-violet-500/10', hex: '#8b5cf6', icon: Zap, label: 'Energy' },
+const STAT_STYLE: Record<StatKey, { text: string; bg: string; hex: string; icon: LucideIcon }> = {
+  hunger: { text: 'text-orange-500', bg: 'bg-orange-500/10', hex: '#f97316', icon: Utensils },
+  happiness: { text: 'text-yellow-500', bg: 'bg-yellow-500/10', hex: '#eab308', icon: Gamepad2 },
+  health: { text: 'text-green-500', bg: 'bg-green-500/10', hex: '#22c55e', icon: Heart },
+  hygiene: { text: 'text-blue-500', bg: 'bg-blue-500/10', hex: '#3b82f6', icon: Droplets },
+  energy: { text: 'text-violet-500', bg: 'bg-violet-500/10', hex: '#8b5cf6', icon: Zap },
 };
+
+/** A stat's name, in this page's language. */
+const statLabel = (stat: StatKey) => t(`room.stat.${stat}`);
 
 /** The room that restores each stat (Ditto's `STAT_ROOM_MAP`). */
 const STAT_ROOM: Record<StatKey, RoomId> = { health: 'care', hygiene: 'care', hunger: 'kitchen', happiness: 'home', energy: 'rest' };
@@ -60,18 +64,17 @@ export function RoomStatusHud({ stage, stats, onGuide }: RoomStatusHudProps) {
   if (shown.length === 0) return null;
 
   return (
-    <div className="flex items-start justify-center gap-[0.6em]" role="group" aria-label="Your Blobbi's needs" data-testid="room-status-hud">
+    <div className="flex items-start justify-center gap-[0.6em]" role="group" aria-label={t('room.hud.needs')} data-testid="room-status-hud">
       {shown.map((s, i) => {
         const room = STAT_ROOM[s.stat];
-        const style = STAT_STYLE[s.stat];
         const percent = Math.round(s.value);
         return (
           <div key={s.stat} style={{ transform: `translateY(${arcOffset(i, shown.length) / 16}em)` }}>
             <button
               type="button"
               className={cx('rounded-full transition-transform duration-200 active:scale-90 motion-reduce:active:scale-100', 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', onGuide && 'cursor-pointer')}
-              aria-label={onGuide ? `${style.label} ${percent}%, go to the ${roomById(room).label}` : `${style.label} ${percent}%`}
-              title={style.label}
+              aria-label={onGuide ? t('room.hud.statGo', { stat: statLabel(s.stat), percent, room: roomById(room).label }) : t('room.hud.stat', { stat: statLabel(s.stat), percent })}
+              title={statLabel(s.stat)}
               onClick={onGuide ? () => onGuide(room) : undefined}
               data-testid={`room-stat-${s.stat}`}
               data-care={s.careState}

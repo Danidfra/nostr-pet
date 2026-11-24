@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BlobbiCompanion } from '@blobbi-kit/core';
 
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
+import { t } from '@/i18n';
 import type { BlobbiAppearance } from '../lib/blobbi-appearance';
 import { buildBlobbiModel } from '../lib/blobbi3d/model';
 import { createBlobbiActor, type ActorModel } from '../lib/blobbi3d/actor';
@@ -25,7 +26,9 @@ import { prefersReducedMotion } from '../lib/blobbi3d/stage';
 import { walkCycleSecondsFor } from '../lib/room-pace';
 
 /** Why the drawing stands in when the 3D model could not be built here. */
-export const FAILED_3D = 'The 3D Blobbi could not be drawn on this device, so it is shown in 2D.';
+export function failed3dNote(): string {
+  return t('room.model.failed');
+}
 
 export interface RoomActorModel {
   /** The model to stand in the room, or null to draw the 2D Blobbi. */
@@ -38,8 +41,8 @@ export interface RoomActorModel {
 
 /** Why a Blobbi has no 3D model, or null when it has one. */
 export function unavailable3dReason(blobbi: Pick<BlobbiCompanion, 'stage' | 'visualGeneration'>, hasGenome: boolean): string | null {
-  if (blobbi.stage === 'egg') return 'An egg is always drawn in 2D. 3D comes once it hatches.';
-  if (blobbi.visualGeneration !== 'v3' || !hasGenome) return 'The 3D model is only for the newest Blobbi art (V3).';
+  if (blobbi.stage === 'egg') return t('room.model.egg');
+  if (blobbi.visualGeneration !== 'v3' || !hasGenome) return t('room.model.oldArt');
   return null;
 }
 
@@ -86,5 +89,5 @@ export function useRoomActorModel(blobbi: BlobbiCompanion, appearance: BlobbiApp
     };
   }, [actor]);
 
-  return { model: wanted ? actor : null, unavailable3d: built.failed ? FAILED_3D : unavailable3d, failed: built.failed };
+  return { model: wanted ? actor : null, unavailable3d: built.failed ? failed3dNote() : unavailable3d, failed: built.failed };
 }

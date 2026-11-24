@@ -17,6 +17,7 @@ import { BlobbiAppearanceControl, type BlobbiAppearanceControlProps } from './Ro
 import { LOOK_GUIDE_SHEET_MS, lookTitle, shownLook } from '../lib/look-guide';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
+import { t, tp } from '@/i18n';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import { PhotoTile } from '@/features/photo';
 import { BlobbiStatusPanel, type StatItem } from '@/features/home/BlobbiStatusPanel';
@@ -62,8 +63,8 @@ function AppearanceCard({ blobbi, appearance, highlight, onSeen, reducedMotion }
   useEffect(() => {
     if (!highlight) return;
     ref.current?.scrollIntoView?.({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' });
-    const t = setTimeout(() => onSeen?.(), LOOK_GUIDE_SHEET_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => onSeen?.(), LOOK_GUIDE_SHEET_MS);
+    return () => clearTimeout(timer);
   }, [highlight, onSeen, reducedMotion]);
   const shown = shownLook(appearance.value, appearance.unavailable3d);
   return (
@@ -83,9 +84,9 @@ function AppearanceCard({ blobbi, appearance, highlight, onSeen, reducedMotion }
         </span>
         <span className="look-card__text">
           <h3 id="room-appearance-title" className="look-card__title">
-            Appearance
+            {t('room.sheet.appearance')}
           </h3>
-          <span className="look-card__sub">How {blobbi.name} looks in the 3D room. The same Blobbi either way, and only on this device.</span>
+          <span className="look-card__sub">{t('room.sheet.appearanceSub', { name: blobbi.name })}</span>
         </span>
         <span className="look-card__now" data-testid="room-appearance-current" data-appearance={shown}>
           {lookTitle(shown)}
@@ -96,7 +97,6 @@ function AppearanceCard({ blobbi, appearance, highlight, onSeen, reducedMotion }
   );
 }
 
-const STAGE_LABEL: Record<BlobbiCompanion['stage'], string> = { egg: 'Egg', baby: 'Baby', adult: 'Adult' };
 
 function Chip({ children, testId, tone = 'neutral' }: { children: React.ReactNode; testId?: string; tone?: 'neutral' | 'sleep' | 'cold' | 'grow' }) {
   const tones = {
@@ -120,22 +120,22 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
   );
   const chips = (
     <div className="flex flex-wrap items-center gap-1.5">
-      <Chip testId="room-stage-badge">{STAGE_LABEL[blobbi.stage]}</Chip>
+      <Chip testId="room-stage-badge">{t(`room.stage.${blobbi.stage}`)}</Chip>
       {blobbi.state === 'sleeping' && (
         <Chip tone="sleep" testId="room-state-badge">
-          <Moon className="h-3.5 w-3.5" aria-hidden /> Sleeping
+          <Moon className="h-3.5 w-3.5" aria-hidden /> {t('room.sheet.sleeping')}
         </Chip>
       )}
       {blobbi.state === 'hibernating' && (
         <Chip tone="cold" testId="room-state-badge">
-          <Snowflake className="h-3.5 w-3.5" aria-hidden /> Hibernating
+          <Snowflake className="h-3.5 w-3.5" aria-hidden /> {t('room.sheet.hibernating')}
         </Chip>
       )}
-      {blobbi.state === 'active' && <Chip testId="room-state-badge">Awake</Chip>}
+      {blobbi.state === 'active' && <Chip testId="room-state-badge">{t('room.sheet.awake')}</Chip>}
       {blobbi.progressionState !== 'none' && (
         <Chip tone="grow" testId="room-progression-badge">
           <Sparkles className="h-3.5 w-3.5" aria-hidden />
-          {blobbi.progressionState === 'incubating' ? 'Incubating' : 'Evolving'}
+          {blobbi.progressionState === 'incubating' ? t('room.sheet.incubating') : t('room.sheet.evolving')}
         </Chip>
       )}
     </div>
@@ -145,11 +145,11 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
     <GameOverlay open={open} onClose={onClose} title={blobbi.name} testId="room-blobbi-sheet" lead={portrait} subtitle={chips} size="medium">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground" data-testid="room-mood-line">
-          {blobbi.name} {mood}
+          {t('room.sheet.mood', { name: blobbi.name, mood })}
         </p>
 
-        <section aria-label="Condition and progress" className="overlay-card">
-          <h3 className="overlay-card__title">Condition</h3>
+        <section aria-label={t('room.sheet.conditionAndProgress')} className="overlay-card">
+          <h3 className="overlay-card__title">{t('room.sheet.condition')}</h3>
           <BlobbiStatusPanel items={statItems} />
           <div className="mt-3 border-t border-border/60 pt-3">
             <ProgressionStrip blobbi={blobbi} profile={profile} />
@@ -163,8 +163,8 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
             <Backpack className="h-6 w-6" aria-hidden />
           </span>
           <span className="menu-tile__text">
-            <span className="menu-tile__title">Items</span>
-            <span className="menu-tile__sub">{usableItemCount > 0 ? `${usableItemCount} you can use now, and everything else you own.` : 'Everything you own, from every game.'}</span>
+            <span className="menu-tile__title">{t('room.sheet.items')}</span>
+            <span className="menu-tile__sub">{usableItemCount > 0 ? tp('room.sheet.itemsUsable', usableItemCount) : t('room.sheet.itemsAll')}</span>
           </span>
         </button>
 
@@ -174,8 +174,8 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
               <MapIcon className="h-6 w-6" aria-hidden />
             </span>
             <span className="menu-tile__text">
-              <span className="menu-tile__title">Journey</span>
-              <span className="menu-tile__sub">Chapters, today’s missions and your Blobbonaut level.</span>
+              <span className="menu-tile__title">{t('room.sheet.journey')}</span>
+              <span className="menu-tile__sub">{t('room.sheet.journeySub')}</span>
             </span>
             <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
           </button>
@@ -188,8 +188,8 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
 
 
         {companions.length > 1 && (
-          <section aria-label="Your Blobbis" className="overlay-card">
-            <h3 className="overlay-card__title">Your Blobbis</h3>
+          <section aria-label={t('room.sheet.yourBlobbis')} className="overlay-card">
+            <h3 className="overlay-card__title">{t('room.sheet.yourBlobbis')}</h3>
             <BlobbiSelector companions={companions} currentD={blobbi.d} onSelect={onSelect} />
           </section>
         )}

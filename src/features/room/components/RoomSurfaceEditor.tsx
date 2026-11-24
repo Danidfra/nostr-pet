@@ -9,6 +9,7 @@ import { useCallback, useId } from 'react';
 import { RotateCw } from 'lucide-react';
 
 import { FLOOR_STYLES, WALL_STYLES, surfaceBackground, type FloorStyle, type SurfaceVariant, type WallStyle } from '@/features/home/rooms/surfaces';
+import { t, type MessageKey } from '@/i18n';
 import { cx } from '../lib/cx';
 import type { RoomSurfaceLayout } from '../lib/room-layout';
 import { getStyleVariants, supportsAngle } from '../lib/surface-options';
@@ -19,8 +20,10 @@ interface RoomSurfaceEditorProps {
   onChange: (value: RoomSurfaceLayout) => void;
 }
 
-const STYLE_LABELS: Record<string, string> = { solid: 'Solid', stripes: 'Stripes', dots: 'Dots', gradient: 'Gradient', wood: 'Wood', tile: 'Tile', carpet: 'Carpet' };
-const VARIANT_LABELS: Record<SurfaceVariant, string> = { soft: 'Soft', medium: 'Medium', bold: 'Bold', wide: 'Wide', narrow: 'Narrow' };
+const STYLES_WITH_LABELS = new Set(['solid', 'stripes', 'dots', 'gradient', 'wood', 'tile', 'carpet']);
+/** A pattern's name in this page's language; an unknown style shows its id. */
+const styleLabel = (style: string) => (STYLES_WITH_LABELS.has(style) ? t(`room.surface.style.${style}` as MessageKey) : style);
+const variantLabel = (variant: SurfaceVariant) => t(`room.surface.variant.${variant}`);
 
 /** Angle presets for quick selection; tile has only square and diamond. */
 const ANGLE_PRESETS = [0, 45, 90, 135, 180] as const;
@@ -70,34 +73,34 @@ export function RoomSurfaceEditor({ type, value, onChange }: RoomSurfaceEditorPr
   return (
     <div className="space-y-4" data-testid={`surface-editor-${type}`}>
       <div>
-        <p className="decor-label">Pattern</p>
+        <p className="decor-label">{t('room.surface.pattern')}</p>
         <div className="flex flex-wrap gap-2">
           {styles.map((style) => (
             <button key={style} type="button" onClick={() => handleStyleChange(style as WallStyle | FloorStyle)} aria-pressed={value.style === style} className={cx('decor-chip', value.style === style && 'decor-chip--on')} data-testid={`surface-style-${style}`}>
-              {STYLE_LABELS[style] ?? style}
+              {styleLabel(style)}
             </button>
           ))}
         </div>
       </div>
 
       <div>
-        <p className="decor-label">Colors</p>
+        <p className="decor-label">{t('room.surface.colors')}</p>
         <div className="flex items-center gap-4">
-          <ColorField label="Base" value={value.palette[0] ?? '#ffffff'} onChange={(c) => setColor(0, c)} />
-          {value.style !== 'solid' && <ColorField label="Accent" value={value.palette[1] ?? value.palette[0] ?? '#000000'} onChange={(c) => setColor(1, c)} />}
+          <ColorField label={t('room.surface.base')} value={value.palette[0] ?? '#ffffff'} onChange={(c) => setColor(0, c)} />
+          {value.style !== 'solid' && <ColorField label={t('room.surface.accent')} value={value.palette[1] ?? value.palette[0] ?? '#000000'} onChange={(c) => setColor(1, c)} />}
           <div className="ml-auto decor-swatch" style={{ background: surfaceBackground(value, 0.6) }} aria-hidden data-testid="surface-swatch" />
         </div>
       </div>
 
       {variants && (
         <div>
-          <p className="decor-label">Detail</p>
+          <p className="decor-label">{t('room.surface.detail')}</p>
           <div className="flex flex-wrap items-center gap-2">
             {variants.map((v, i) => (
               <span key={v} className="contents">
                 {i > 0 && variants[i - 1] === 'wide' && (v === 'soft' || v === 'bold') && <span className="w-px h-6 bg-border/60 mx-1" aria-hidden />}
                 <button type="button" onClick={() => onChange({ ...value, variant: v })} aria-pressed={value.variant === v} className={cx('decor-chip', value.variant === v && 'decor-chip--on')} data-testid={`surface-variant-${v}`}>
-                  {VARIANT_LABELS[v]}
+                  {variantLabel(v)}
                 </button>
               </span>
             ))}
@@ -110,7 +113,7 @@ export function RoomSurfaceEditor({ type, value, onChange }: RoomSurfaceEditorPr
           <p className="decor-label">
             <span className="inline-flex items-center gap-1">
               <RotateCw className="size-3.5" aria-hidden />
-              Angle
+              {t('room.surface.angle')}
             </span>
           </p>
           <div className="flex flex-wrap items-center gap-2">

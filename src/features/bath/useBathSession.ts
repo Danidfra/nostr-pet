@@ -38,6 +38,7 @@ import type { EyeOffset } from '@/features/home/scene/gaze';
 import type { PokeGesture } from '@/features/home/personality';
 import type { BlobbiSoundId } from '@/features/sound/sounds';
 import type { ExpressionName } from '@/features/expression/faces';
+import { t } from '@/i18n';
 import { createDirector, type CancelReason, type Interaction, type Run } from '@/features/room/lib/room-interaction';
 import { createBath, currentStage, defaultMask, frameSource, guidanceFor, headFor, isBathActive, isHandStage, reduce, toolFor, type BathEvent, type BathPoint, type BathState, type BathStatus, type BathTool, type BoxPx } from './bath-machine';
 import { frameFromState, type BathFrame } from './bath-frame';
@@ -403,7 +404,7 @@ export function useBathSession(host: BathHost): BathSession {
     const o = live.current;
     if (machine.current && isBathActive(machine.current.status)) return false;
     if (o.hygiene !== undefined && o.hygiene >= STAT_MAX) {
-      o.notify?.(`${o.name} is already squeaky clean. Nothing to wash yet!`);
+      o.notify?.(t('room.bath.alreadyClean', { name: o.name }));
       return false;
     }
     const ritual = ritualFor(bathItem.choice.entry.item.itemId);

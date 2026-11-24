@@ -21,6 +21,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { writeExperience, type FromRoomState } from '@/lib/home-experience';
+import { t } from '@/i18n';
 import { useBlobbiAppearance } from '../lib/blobbi-appearance';
 import { pageDiagnostics, recordRuntimeError } from '../lib/runtime-errors';
 
@@ -91,19 +92,19 @@ function RoomCrash({ error, componentStack, onRetry }: CrashProps) {
   };
   return (
     <div className="room-crash" role="alert" data-testid="room-crash">
-      <h2 className="text-lg font-semibold">The room hit an error</h2>
+      <h2 className="text-lg font-semibold">{t('room.crash.title')}</h2>
       <p className="text-sm text-foreground/80">
         {error.message || String(error)}
         <br />
-        Your Blobbi and this page are unchanged; the room was taken down so the rest could stay up.
+        {t('room.crash.unchanged')}
       </p>
       <div className="room-crash__actions">
         <button type="button" className="onboard-btn onboard-btn--primary !w-auto !px-4 !py-2 text-sm" onClick={toClassic} data-testid="room-crash-classic">
-          Go to the 2D home
+          {t('room.crash.toClassic')}
         </button>
         {onRetry && (
           <button type="button" className="onboard-btn onboard-btn--secondary !w-auto !px-4 !py-2 text-sm" onClick={onRetry} data-testid="room-crash-retry">
-            Try again
+            {t('room.crash.retry')}
           </button>
         )}
         {onRetry && appearance === '3d' && (
@@ -116,13 +117,13 @@ function RoomCrash({ error, componentStack, onRetry }: CrashProps) {
             }}
             data-testid="room-crash-2d"
           >
-            Try again with Classic
+            {t('room.crash.retryClassic')}
           </button>
         )}
       </div>
       {!onRetry && (
         <p className="text-sm text-foreground/80" data-testid="room-crash-spent">
-          The room keeps failing on this device. Your Blobbi is waiting in the 2D home.
+          {t('room.crash.spent')}
         </p>
       )}
       {import.meta.env.DEV && (

@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { ArrowLeft, Sparkles } from 'lucide-react';
+import { t, tp } from '@/i18n';
 import { useProjectedBlobbiState } from '@blobbi-kit/react';
 import type { BlobbiCompanion, NostrEvent } from '@blobbi-kit/core';
 
@@ -191,21 +192,21 @@ export default function RoomPreviewPage() {
 function RoomMessage({ status, error, onRetry }: { status: ReturnType<typeof useHomeBlobbi>['status']; error: unknown; onRetry: () => void }) {
   const failed = status === 'error';
   const text =
-    status === 'signed-out' ? 'Sign in on the home screen to see your Blobbi in its room.'
-    : status === 'empty' ? 'Adopt a Blobbi on the home screen first.'
-    : failed ? (error instanceof Error && error.message ? error.message : 'The relays did not answer.')
-    : 'Looking for your Blobbi…';
+    status === 'signed-out' ? t('room.page.signedOut')
+    : status === 'empty' ? t('room.page.empty')
+    : failed ? (error instanceof Error && error.message ? error.message : t('room.page.noAnswer'))
+    : t('room.page.looking');
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center" role={failed ? 'alert' : 'status'} data-testid="room-message" data-status={status}>
       <p className="scene-text max-w-md text-sm text-foreground/80">{text}</p>
       {failed && (
         <button type="button" onClick={onRetry} className="onboard-btn !w-auto !px-4 !py-2 text-sm" data-testid="room-retry">
-          Try again
+          {t('room.page.retry')}
         </button>
       )}
       <Link to="/" className="onboard-btn onboard-btn--secondary !w-auto !px-4 !py-2 text-sm">
         <ArrowLeft className="h-4 w-4" aria-hidden />
-        Home
+        {t('room.page.home')}
       </Link>
     </div>
   );
@@ -213,9 +214,9 @@ function RoomMessage({ status, error, onRetry }: { status: ReturnType<typeof use
 
 /** What a piece of furniture opens when tapped: the items of its activities (the bed is rest, handled on its own). */
 const FURNITURE_SHELVES: Record<Exclude<FurnitureInteraction, 'bed'>, { label: string; activities: readonly RoomActivity[] }> = {
-  fridge: { label: 'From the fridge', activities: ['feed', 'boost'] },
-  bath: { label: 'At the tub', activities: ['clean', 'medicine'] },
-  toys: { label: 'From the toy box', activities: ['play'] },
+  fridge: { get label() { return t('room.shelf.fridge'); }, activities: ['feed', 'boost'] },
+  bath: { get label() { return t('room.shelf.bath'); }, activities: ['clean', 'medicine'] },
+  toys: { get label() { return t('room.shelf.toys'); }, activities: ['play'] },
 };
 
 interface BlobbiRoomProps {
@@ -472,7 +473,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       const at = controlRef.current?.blobbiPosition() ?? { x: 4.5, z: 4.5 };
       const entry = { key: `bath|${name}`, choice, name, glyph: choice.entry.item.glyph, action: 'clean' as const, quantity: null, usable: true, reason: null };
       const placed = c.place(entry, { kind: 'set-down', x: at.x, z: at.z }, roomIdRef.current);
-      if (!placed) return { kind: 'failed', error: 'Another use is still finishing. Try again in a moment.' };
+      if (!placed) return { kind: 'failed', error: t('room.care.stillFinishing') };
       const outcome = await c.begin(placed.key);
       if (outcome.kind === 'landed') {
         c.finish(placed.key, { feedback: outcome.feedback, alreadyApplied: !!outcome.result?.alreadyApplied });
@@ -486,7 +487,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     const c = careRef.current;
     const current = c.offer;
     const again = c.retry();
-    if (!again || !current) return { kind: 'failed', error: 'Nothing to try again.' };
+    if (!again || !current) return { kind: 'failed', error: t('room.care.nothingToRetry') };
     const outcome = await again;
     if (outcome.kind === 'landed') {
       c.finish(current.key, { feedback: outcome.feedback, alreadyApplied: !!outcome.result?.alreadyApplied });
@@ -703,7 +704,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     lifecycle.clearError();
     // The first egg's shortcut (no missions) only once the relays confirm it is still the first; fails closed
     if (firstBlobbi.qualifies && !(await confirmFirstBlobbi())) {
-      setHatchError('Your egg could not be confirmed with the relays yet.');
+      setHatchError(t('room.page.eggUnconfirmed'));
       return false;
     }
     return hatch();
@@ -1000,7 +1001,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       // A write still out finishes here first: leaving mid-signature could lose it
       if (travelBusy) {
         play('invalid');
-        care.notify('One moment: something is still being saved.');
+        care.notify(t('room.page.stillSaving'));
         return;
       }
       // A new trip: nothing of it is published yet (the move happens in `navigateAfterDeparture`, once the goodbye
@@ -1281,7 +1282,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             onUse,
             onBlocked: (entry) => {
               play('invalid');
-              care.notify(entry.reason ?? 'Not right now.');
+              care.notify(entry.reason ?? t('room.fridge.notNow'));
             },
             onDragStart,
             onClose: furnitureShelf ? () => setFurnitureShelf(null) : undefined,
@@ -1297,7 +1298,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             onDecorate: decorator.open,
             guide: lookGuide === 'dock' && !theater && !sheetOpen ? { reducedMotion } : null,
             decorateDisabled: !sceneIs3d || care.busy || interactions.activity !== null || !present || transitioning,
-            decorateUnavailable: sceneIs3d ? null : 'Decorating needs 3D graphics, which this browser has turned off',
+            decorateUnavailable: sceneIs3d ? null : t('room.page.decorateNeeds3d'),
           }}
         />
       </RoomShell>
@@ -1338,7 +1339,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           play={play}
           onDone={endTheater}
           onRecover={refresh}
-          savingNote={guestActive ? 'Keeping the hatch on this device' : undefined}
+          savingNote={guestActive ? t('room.page.savingOnDevice') : undefined}
         />
       )}
       <GuestStatusSheet open={statusOpen && guestActive} onClose={() => setStatusOpen(false)} name={blobbi.name} onSave={guestUi.requestSave} storageOk={guest.storageOk} />
@@ -1374,12 +1375,12 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         canAdoptMore={journeyBook.canAdoptMore}
       />
       {pubkey && !guestActive && (
-        <GameOverlay open={adoptOpen} onClose={() => setAdoptOpen(false)} title="Another Blobbi" testId="room-adopt-sheet">
+        <GameOverlay open={adoptOpen} onClose={() => setAdoptOpen(false)} title={t('room.page.anotherBlobbi')} testId="room-adopt-sheet">
           {journeyBook.canAdoptMore ? (
             <AdoptionFlow pubkey={pubkey} updateCompanionEvent={updateCompanionEvent} refresh={refresh} additional />
           ) : (
             <p className="text-center text-sm text-muted-foreground" data-testid="room-adopt-locked">
-              Your Blobbonaut level allows {journeyBook.maxBlobbis} Blobbi{journeyBook.maxBlobbis === 1 ? '' : 's'} for now. A second egg can join at level 5.
+              {tp('room.page.adoptLocked', journeyBook.maxBlobbis)}
             </p>
           )}
         </GameOverlay>
@@ -1490,9 +1491,9 @@ function useStoreNotice(persistence: { load: LoadStatus | null; save: SaveStatus
   const [notice, setNotice] = useState<string | null>(() => loadNotice(persistence.load));
   const save = persistence.save;
   useEffect(() => {
-    if (save === 'full') setNotice('This browser is out of room, so your decorating is kept for this visit only.');
-    else if (save === 'unavailable') setNotice('This browser would not keep your decorating, so it lasts for this visit only.');
-    else if (save === 'newer') setNotice('A newer version of Blobbi saved these rooms here; they were left as they are.');
+    if (save === 'full') setNotice(t('room.store.full'));
+    else if (save === 'unavailable') setNotice(t('room.store.unavailable'));
+    else if (save === 'newer') setNotice(t('room.store.newerSave'));
     else if (save === 'saved') setNotice(null);
   }, [save]);
   useEffect(() => {
@@ -1504,8 +1505,8 @@ function useStoreNotice(persistence: { load: LoadStatus | null; save: SaveStatus
 }
 
 function loadNotice(load: LoadStatus | null): string | null {
-  if (load === 'repaired') return 'Some saved furniture is no longer available and was left out.';
-  if (load === 'corrupt') return 'Your saved rooms could not be read, so they show their defaults.';
-  if (load === 'newer') return 'These rooms were saved by a newer version of Blobbi, so they show their defaults here.';
+  if (load === 'repaired') return t('room.store.repaired');
+  if (load === 'corrupt') return t('room.store.corrupt');
+  if (load === 'newer') return t('room.store.newerLoad');
   return null;
 }

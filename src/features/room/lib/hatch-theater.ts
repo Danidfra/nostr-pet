@@ -5,6 +5,7 @@
  */
 import type { BlobbiExpression } from '@blobbi-kit/renderer';
 import type { CeremonyTimings } from '@/features/lifecycle';
+import { t } from '@/i18n';
 
 /** The theatre's pace: longer than the classic home's, every beat its own moment. */
 export const THEATER_TIMINGS: CeremonyTimings = { leadMs: 1_900, stepMs: 950, finalMs: 1_300, burstMs: 900, revealMs: 5_400 };
@@ -69,11 +70,11 @@ export function tapCounts(taps: number, lastAt: number | null, at: number): bool
 
 /** What the theatre says while the shell is in the player's hands. */
 export function tapCaption(taps: number): string {
-  if (taps <= 0) return 'Tap your egg to help it hatch!';
-  if (taps === 1) return 'A crack! Keep going…';
-  if (taps === 2) return 'It is working! Tap again…';
-  if (taps === 3) return 'Almost there… one more!';
-  return 'Here it comes…';
+  if (taps <= 0) return t('room.hatch.tap0');
+  if (taps === 1) return t('room.hatch.tap1');
+  if (taps === 2) return t('room.hatch.tap2');
+  if (taps === 3) return t('room.hatch.tap3');
+  return t('room.hatch.hereItComes');
 }
 
 /*
@@ -98,7 +99,7 @@ export const VERY_SLOW_WRITE_MS = 20_000;
 
 /** What the theatre says while the write is out, by how long it has been out. */
 export function writingCaption(elapsedMs: number): string {
-  if (elapsedMs >= VERY_SLOW_WRITE_MS) return 'The relays are slow today. Still saving…';
-  if (elapsedMs >= SLOW_WRITE_MS) return 'Here it comes… saving takes a moment.';
+  if (elapsedMs >= VERY_SLOW_WRITE_MS) return t('room.hatch.verySlow');
+  if (elapsedMs >= SLOW_WRITE_MS) return t('room.hatch.slow');
   return tapCaption(TAPS_TO_HATCH);
 }

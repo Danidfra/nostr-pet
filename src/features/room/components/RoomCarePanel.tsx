@@ -32,7 +32,8 @@ import type { RoomOffer } from '../hooks/useRoomCare';
 import type { RoomCareEntry } from '../lib/room-care';
 import { cx } from '../lib/cx';
 import { ROOM_ACTION_SLOT, ROOM_BOTTOM_BAR_CLASS, ROOM_CONTROL_SURFACE } from '../lib/room-ui';
-import { LOOK_GUIDE_LINE } from '../lib/look-guide';
+import { lookGuideLine } from '../lib/look-guide';
+import { t } from '@/i18n';
 
 /** A bar's layout: a button each side (or an empty slot) and the carousel between. Ditto's, verbatim. */
 function BarLayout({ left, center, right }: { left?: ReactNode; center?: ReactNode; right?: ReactNode }) {
@@ -97,7 +98,7 @@ function BlobbiButton({ blobbi, onClick, guide }: { blobbi: RoomBottomBarProps['
     <div className={cx('relative', ROOM_ACTION_SLOT)} data-testid="room-bar-blobbi-slot" data-guide={guide ? 'true' : undefined}>
       {guide && (
         <button type="button" className="look-guide" onClick={onClick} data-testid="room-look-guide" data-reduced={guide.reducedMotion ? 'true' : undefined}>
-          <span className="look-guide__bubble">{LOOK_GUIDE_LINE}</span>
+          <span className="look-guide__bubble">{lookGuideLine()}</span>
         </button>
       )}
       <RoomActionButton
@@ -123,13 +124,13 @@ function RoomButton({ controls }: { controls: RoomBarControls }) {
   return (
     <RoomActionButton
       icon={<Armchair />}
-      label="Room"
+      label={t('room.bar.room')}
       color="text-amber-600"
       glowHex="#f59e0b"
       onClick={controls.onDecorate}
       disabled={off}
       testId="room-bar-decorate"
-      ariaLabel={controls.decorateUnavailable ?? 'Decorate this room'}
+      ariaLabel={controls.decorateUnavailable ?? t('room.bar.decorate')}
     />
   );
 }
@@ -157,7 +158,7 @@ export function RoomBottomBar({ blobbi, roomId, bath = null, carousel, offer, bu
             highlight={carousel.highlight}
           />
         }
-        right={carousel.onClose ? <RoomActionButton icon={<Undo2 />} label="Back" color="text-muted-foreground" glowHex="#94a3b8" onClick={carousel.onClose} testId="room-shelf-back" /> : room}
+        right={carousel.onClose ? <RoomActionButton icon={<Undo2 />} label={t('room.bar.back')} color="text-muted-foreground" glowHex="#94a3b8" onClick={carousel.onClose} testId="room-shelf-back" /> : room}
       />
     );
   }
@@ -169,7 +170,7 @@ export function RoomBottomBar({ blobbi, roomId, bath = null, carousel, offer, bu
           blobbi.stage !== 'egg' && (
             <RoomActionButton
               icon={asleep ? <Sun /> : <Moon />}
-              label={asleep ? 'Wake up' : 'Sleep'}
+              label={asleep ? t('room.bar.wakeUp') : t('room.bar.sleep')}
               color={asleep ? 'text-amber-500' : 'text-violet-500'}
               glowHex={asleep ? '#f59e0b' : '#8b5cf6'}
               onClick={onRest}
@@ -193,8 +194,8 @@ export function RoomBottomBar({ blobbi, roomId, bath = null, carousel, offer, bu
             <Shirt />
           </span>
           <span className="closet-soon__text">
-            <span className="closet-soon__title">Coming soon</span>
-            <span className="closet-soon__sub">Outfits are still being sewn. {blobbi.name}’s wardrobe opens in a later update.</span>
+            <span className="closet-soon__title">{t('room.closet.title')}</span>
+            <span className="closet-soon__sub">{t('room.closet.sub', { name: blobbi.name })}</span>
           </span>
         </div>
       }

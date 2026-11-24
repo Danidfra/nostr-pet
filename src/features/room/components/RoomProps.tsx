@@ -7,6 +7,7 @@
  */
 import type { CSSProperties } from 'react';
 import { ItemGlyph } from '@/features/inventory';
+import { t } from '@/i18n';
 import type { RoomProp } from '../lib/room-props';
 
 export function RoomFlatProp({ prop, onTap }: { prop: RoomProp; onTap?: (id: string) => void }) {
@@ -18,7 +19,7 @@ export function RoomFlatProp({ prop, onTap }: { prop: RoomProp; onTap?: (id: str
         data-testid="room-prop"
         data-kind="ball"
         data-leaving={prop.leaving ? 'true' : undefined}
-        aria-label="Ball"
+        aria-label={t('room.ball')}
         onClick={() => onTap?.(prop.id)}
       >
         <span className="room-prop__shadow" aria-hidden />

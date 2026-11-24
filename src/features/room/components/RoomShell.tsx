@@ -26,6 +26,7 @@ import type { BlobbiFacing } from '@blobbi-kit/renderer';
 import type { WalkOutcome } from '@/features/home/scene/useBlobbiLocomotion';
 
 import { ROOM_ORDER, neighbourRoom, roomById, type RoomId } from '@/features/home/rooms/rooms';
+import { t } from '@/i18n';
 import { cx } from '../lib/cx';
 import { ArcBackground } from './ArcBackground';
 import { resolveFurniture, type FurnitureInteraction } from '../lib/furniture-3d';
@@ -122,11 +123,7 @@ export interface RoomControl {
 }
 
 /** What the simple room says about why it is simple. */
-const FAILURE_TEXT: Record<Exclude<RoomSceneFailure, null>, string> = {
-  unsupported: 'This browser has 3D graphics turned off, so the room is shown simply. Everything else works.',
-  lost: '3D graphics stopped working on this device, so the room is shown simply for now. Everything else works.',
-  slow: 'The 3D room took too long to start, so it is shown simply for this visit. Everything else works.',
-};
+const failureText = (failure: Exclude<RoomSceneFailure, null>) => t(`room.failure.${failure}`);
 
 /** How far a press must rub across the Blobbi before it is a stroke (px), and how far each further stroke is. */
 const PET_START_PX = 28;
@@ -390,16 +387,16 @@ export function RoomShell({
     // Drags that start on the dock must not switch rooms; nor do touches on chrome, nor stroking the Blobbi.
     if ((e.target as HTMLElement).closest?.('[data-room-drag], [data-room-header], [data-room-top], [data-room-bottom]')) return;
     if (e.timeStamp - notSwipeAt.current < SWIPE_PRESS_MS) return;
-    const t = e.changedTouches[0] ?? e.touches[0];
-    swipe.current = { id: t.identifier, x: t.clientX };
+    const touch = e.changedTouches[0] ?? e.touches[0];
+    swipe.current = { id: touch.identifier, x: touch.clientX };
   }, []);
 
   const onTouchEnd = useCallback((e: React.TouchEvent) => {
     const start = swipe.current;
-    const t = start && Array.from(e.changedTouches).find((c) => c.identifier === start.id);
-    if (!start || !t) return;
+    const touch = start && Array.from(e.changedTouches).find((c) => c.identifier === start.id);
+    if (!start || !touch) return;
     swipe.current = null;
-    const dx = t.clientX - start.x;
+    const dx = touch.clientX - start.x;
     if (isEditing || Math.abs(dx) < SWIPE_THRESHOLD) return;
     if (dx > 0) goLeft();
     else goRight();
@@ -897,8 +894,8 @@ export function RoomShell({
       {/* The 3D room could not be drawn: one honest line, then the simple room carries on (care, items, rooms) */}
       {(failure || notice) && !failureDismissed && (
         <div className="room-fallback-note" role="status" data-testid="room-fallback-note" data-reason={failure ?? 'blobbi-3d'}>
-          <span>{failure ? FAILURE_TEXT[failure] : notice}</span>
-          <button type="button" className="room-fallback-note__close touch-hit" onClick={() => setFailureDismissed(true)} aria-label="Dismiss">
+          <span>{failure ? failureText(failure) : notice}</span>
+          <button type="button" className="room-fallback-note__close touch-hit" onClick={() => setFailureDismissed(true)} aria-label={t('room.shell.dismiss')}>
             ×
           </button>
         </div>
@@ -961,7 +958,7 @@ export function RoomShell({
                 <button
                   type="button"
                   className="room-blobbi-focus"
-                  aria-label={`${blobbiName.text}, your Blobbi`}
+                  aria-label={t('room.shell.yourBlobbi', { name: blobbiName.text })}
                   onFocus={() => setNameBy((n) => ({ ...n, focus: true }))}
                   onBlur={() => setNameBy((n) => ({ ...n, focus: false }))}
                   onClick={() => {
@@ -986,9 +983,9 @@ export function RoomShell({
             {g.node}
           </div>
         ))}
-        {status !== 'loading' && floorThings?.map((t) => (
-          <div key={t.key} data-anchor="floor" data-x={t.x} data-z={t.z} className="absolute left-0 top-0">
-            {t.node}
+        {status !== 'loading' && floorThings?.map((thing) => (
+          <div key={thing.key} data-anchor="floor" data-x={thing.x} data-z={thing.z} className="absolute left-0 top-0">
+            {thing.node}
           </div>
         ))}
         {/* Without the 3D room, the props are drawings on the floor (the scene draws them itself otherwise) */}
@@ -1119,7 +1116,7 @@ function RoomNavButton({ direction, label, onClick }: { direction: 'left' | 'rig
         'transition-colors duration-150 active:scale-90 motion-reduce:active:scale-100',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}
-      aria-label={`Go to ${label}`}
+      aria-label={t('room.shell.goTo', { room: label })}
       data-testid={`room-nav-${direction}`}
     >
       <Icon className="size-[1.3em]" strokeWidth={2.5} />

@@ -10,6 +10,7 @@ import { RotateCcw, Undo2 } from 'lucide-react';
 
 import { ItemGlyph, type ItemGlyphModel } from '@/features/inventory';
 import { CareFeedback } from '@/features/home/CareFeedback';
+import { t } from '@/i18n';
 import { cx } from '../lib/cx';
 import { ROOM_CONTROL_SURFACE } from '../lib/room-ui';
 import type { RoomCareFeedback, RoomOffer } from '../hooks/useRoomCare';
@@ -28,7 +29,7 @@ export function RoomFloorItem({ offer, glyph, onPutAway, physical = false }: { o
         </span>
       )}
       {offer.phase === 'walking' && (
-        <button type="button" className="room-floor-item__cancel" onClick={onPutAway} aria-label={`Put ${offer.name} away`} data-testid="room-floor-item-cancel">
+        <button type="button" className="room-floor-item__cancel" onClick={onPutAway} aria-label={t('room.offer.putAwayItem', { item: offer.name })} data-testid="room-floor-item-cancel">
           <Undo2 className="size-3" aria-hidden />
         </button>
       )}
@@ -39,15 +40,15 @@ export function RoomFloorItem({ offer, glyph, onPutAway, physical = false }: { o
 /** A use that failed, where the player looks: why, Try again (their tap, never by itself) and Put away. Ditto's inline-card look. */
 export function RoomOfferFailure({ offer, onRetry, onPutAway }: { offer: RoomOffer; onRetry: () => void; onPutAway: () => void }) {
   return (
-    <div className={cx('flex flex-wrap items-center gap-2 rounded-2xl px-3 py-2', ROOM_CONTROL_SURFACE)} role="group" aria-label={`${offer.name} was not used`} data-testid="room-offer-failure">
+    <div className={cx('flex flex-wrap items-center gap-2 rounded-2xl px-3 py-2', ROOM_CONTROL_SURFACE)} role="group" aria-label={t('room.offer.notUsed', { item: offer.name })} data-testid="room-offer-failure">
       <p className="min-w-0 flex-1 text-[0.8em] text-destructive" role="alert" data-testid="room-offer-error">
-        {offer.name}: {offer.error ?? 'that did not work.'}
+        {t('room.offer.failed', { item: offer.name, error: offer.error ?? t('room.offer.didNotWork') })}
       </p>
       <button type="button" className="room-chip-button" onClick={onRetry} data-testid="room-offer-retry">
-        <RotateCcw className="size-[1em]" aria-hidden /> Try again
+        <RotateCcw className="size-[1em]" aria-hidden /> {t('room.offer.tryAgain')}
       </button>
       <button type="button" className="room-chip-button room-chip-button--quiet" onClick={onPutAway} data-testid="room-offer-put-away">
-        <Undo2 className="size-[1em]" aria-hidden /> Put away
+        <Undo2 className="size-[1em]" aria-hidden /> {t('room.offer.putAway')}
       </button>
     </div>
   );

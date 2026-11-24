@@ -38,6 +38,7 @@ import type { EyeOffset } from '@/features/home/scene/gaze';
 import type { PokeGesture } from '@/features/home/personality';
 import type { FeedbackResult } from '@/features/home/care-feedback-text';
 import type { RoomId } from '@/features/home/rooms/rooms';
+import { t } from '@/i18n';
 import type { HomeItem } from '@/features/inventory';
 import type { BlobbiSoundId } from '@/features/sound/sounds';
 import { PRIORITY } from '@/features/expression/controller';
@@ -224,7 +225,7 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
     if (outcome === 'arrived') return true;
     // Replaced, stopped (a hand on it, a change of room) or refused: nothing is used, the item goes back
     if (!subject.dry) o.care.clear(subject.key);
-    if (outcome === 'refused') o.care.notify(`${o.blobbiName} can't get to that spot.`);
+    if (outcome === 'refused') o.care.notify(t('room.care.cantReach', { name: o.blobbiName }));
     return false;
   }, [face, lookAt, setGaze]);
 
@@ -378,11 +379,11 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
     const o = live.current;
     const at = o.controlRef.current?.propPosition(ballId);
     if (!at) return;
-    const subject: Subject = { key: -Date.now(), item: { itemId: 'blobbi:toy:ball', name: 'Ball', care: { action: 'play', effects: {}, stages: [] } } as unknown as HomeItem, name: 'Ball', x: at.x, z: at.z, dry: true, prop: 'ball' };
+    const subject: Subject = { key: -Date.now(), item: { itemId: 'blobbi:toy:ball', name: t('room.ball'), care: { action: 'play', effects: {}, stages: [] } } as unknown as HomeItem, name: t('room.ball'), x: at.x, z: at.z, dry: true, prop: 'ball' };
     toy.current = { id: ballId, touchedAt: Date.now() };
     if (!(await noticeAndApproach(run, subject))) return;
     face('excited');
-    const feedback: FeedbackResult = { action: 'play', name: o.blobbiName, statsChanged: {}, xpGained: 0, nextState: 'active', itemName: 'Ball' };
+    const feedback: FeedbackResult = { action: 'play', name: o.blobbiName, statsChanged: {}, xpGained: 0, nextState: 'active', itemName: t('room.ball') };
     // A free game is not celebrated with chips: only the play itself
     await playBall(run, subject, ballId, { kind: 'landed', result: null as never, feedback }, PLAY.replayKicks, true);
   }, [noticeAndApproach, face, playBall]);
@@ -395,7 +396,7 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
       removeProp(ballId);
       return;
     }
-    const subject: Subject = { key: -Date.now(), item: { itemId: 'blobbi:toy:ball', name: 'Ball' } as unknown as HomeItem, name: 'Ball', x: at.x, z: at.z, dry: true, prop: 'ball' };
+    const subject: Subject = { key: -Date.now(), item: { itemId: 'blobbi:toy:ball', name: t('room.ball') } as unknown as HomeItem, name: t('room.ball'), x: at.x, z: at.z, dry: true, prop: 'ball' };
     face('curious');
     lookAt(at);
     run.cleanup(() => {
@@ -434,7 +435,7 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
         return;
       }
     }
-    const outcome = from === 'start' ? await write(run, subject, ON_THE_DISH) : await run.protect(() => live.current.care.retry() ?? Promise.resolve<UseOutcome>({ kind: 'failed', error: 'Nothing to try again.' }));
+    const outcome = from === 'start' ? await write(run, subject, ON_THE_DISH) : await run.protect(() => live.current.care.retry() ?? Promise.resolve<UseOutcome>({ kind: 'failed', error: t('room.care.nothingToRetry') }));
     await eat(run, subject, dishId, outcome);
   }, [addProp, removeProp, noticeAndApproach, write, eat]);
 
@@ -448,14 +449,14 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
         return;
       }
     }
-    const outcome = from === 'start' ? await write(run, subject, { x: 0, y: 0.5 }) : await run.protect(() => live.current.care.retry() ?? Promise.resolve<UseOutcome>({ kind: 'failed', error: 'Nothing to try again.' }));
+    const outcome = from === 'start' ? await write(run, subject, { x: 0, y: 0.5 }) : await run.protect(() => live.current.care.retry() ?? Promise.resolve<UseOutcome>({ kind: 'failed', error: t('room.care.nothingToRetry') }));
     await playBall(run, subject, ballId, outcome);
   }, [addProp, removeProp, noticeAndApproach, write, playBall]);
 
   const plainScene = useCallback((subject: Subject, from: 'start' | 'write') => async (run: Run) => {
     const o = live.current;
     if (from === 'start' && !(await noticeAndApproach(run, subject))) return;
-    const outcome = from === 'start' ? await write(run, subject, { x: 0, y: 0.5 }) : await run.protect(() => o.care.retry() ?? Promise.resolve<UseOutcome>({ kind: 'failed', error: 'Nothing to try again.' }));
+    const outcome = from === 'start' ? await write(run, subject, { x: 0, y: 0.5 }) : await run.protect(() => o.care.retry() ?? Promise.resolve<UseOutcome>({ kind: 'failed', error: t('room.care.nothingToRetry') }));
     if (outcome.kind === 'failed') {
       face(null);
       setGaze(null);
@@ -487,7 +488,7 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
       await run.wait(reduced ? MEDICINE_MOMENT.reducedMs : MEDICINE_MOMENT.wiggleMs);
     }
     // Taken: the write, held against a cancel until it has landed or failed
-    const outcome = from === 'start' ? await run.protect(() => o.care.begin(subject.key)) : await run.protect(() => o.care.retry() ?? Promise.resolve<UseOutcome>({ kind: 'failed', error: 'Nothing to try again.' }));
+    const outcome = from === 'start' ? await run.protect(() => o.care.begin(subject.key)) : await run.protect(() => o.care.retry() ?? Promise.resolve<UseOutcome>({ kind: 'failed', error: t('room.care.nothingToRetry') }));
     if (outcome.kind === 'failed') {
       // The room's failure card offers Try again (the same use) and Put away
       setDose(null);
@@ -620,22 +621,22 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
     if (!current) return;
     const due = Math.max(0, current.touchedAt + toyIdleMs - Date.now());
     const timer = setTimeout(() => {
-      const t = toy.current;
-      if (!t || t.id !== current.id) return;
+      const held = toy.current;
+      if (!held || held.id !== current.id) return;
       const o = live.current;
       // Still played with (a tap started a game): wait again from its end
       if (director.current()) {
-        toy.current = { ...t, touchedAt: Date.now() };
+        toy.current = { ...held, touchedAt: Date.now() };
         setToyTouched((n) => n + 1);
         return;
       }
       toy.current = null;
-      if (!props.some((p) => p.id === t.id)) return;
+      if (!props.some((p) => p.id === held.id)) return;
       if (o.present && o.enabled && o.nav.canWalk) {
         setActivity('playing');
-        const run = director.start('tidying', putAwayScene(t.id));
+        const run = director.start('tidying', putAwayScene(held.id));
         void run.ended.then(() => { if (director.current() === null) setActivity(null); });
-      } else leaveProp(t.id);
+      } else leaveProp(held.id);
     }, due);
     return () => clearTimeout(timer);
     // The toy and when it was last touched decide the wait; the props list only says whether it is still there
@@ -661,10 +662,10 @@ export function useRoomInteractions(options: UseRoomInteractionsOptions): RoomIn
     if (enabled) return;
     director.cancel('disabled');
     // Decorating, a transition: a ball left lying goes (quietly), so nothing of a game is in the way
-    const t = toy.current;
-    if (t) {
+    const held = toy.current;
+    if (held) {
       toy.current = null;
-      leaveProp(t.id);
+      leaveProp(held.id);
     }
   }, [enabled, director, leaveProp]);
   useEffect(() => () => director.cancel('unmount'), [director]);

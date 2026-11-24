@@ -12,6 +12,7 @@
  */
 
 import type { RoomId } from '@/features/home/rooms/rooms';
+import { t, type MessageKey } from '@/i18n';
 
 export type FurnitureCategory = 'furniture' | 'decor' | 'plants' | 'clocks' | 'frames' | 'objects';
 
@@ -44,61 +45,72 @@ export interface FurnitureDefinition3D {
 
 const BEDROOM: RoomId[] = ['rest', 'home'];
 
-export const OFFICIAL_FURNITURE_3D: readonly FurnitureDefinition3D[] = [
+const CATALOG: readonly Omit<FurnitureDefinition3D, 'label'>[] = [
   // Furniture
-  { id: 'official:bed-single', category: 'furniture', label: 'Bed', mount: 'floor', allowedRooms: BEDROOM, interaction: 'bed' },
-  { id: 'official:bed-round', category: 'furniture', label: 'Round Bed', mount: 'floor', allowedRooms: BEDROOM, interaction: 'bed' },
-  { id: 'official:bed-cushion', category: 'furniture', label: 'Cushion Bed', mount: 'floor', allowedRooms: BEDROOM, interaction: 'bed' },
-  { id: 'official:bed-basket', category: 'furniture', label: 'Basket Bed', mount: 'floor', allowedRooms: BEDROOM, interaction: 'bed' },
-  { id: 'official:fridge', category: 'furniture', label: 'Fridge', mount: 'floor', allowedRooms: ['kitchen'], interaction: 'fridge' },
-  { id: 'official:oven', category: 'furniture', label: 'Oven', mount: 'floor', allowedRooms: ['kitchen'] },
-  { id: 'official:bathtub', category: 'furniture', label: 'Bathtub', mount: 'floor', allowedRooms: ['care'], interaction: 'bath' },
-  { id: 'official:toybox', category: 'furniture', label: 'Toy Box', mount: 'floor', interaction: 'toys' },
-  { id: 'official:wardrobe', category: 'furniture', label: 'Wardrobe', mount: 'floor' },
-  { id: 'official:sink', category: 'furniture', label: 'Sink', mount: 'floor', allowedRooms: ['care'] },
-  { id: 'official:table-side', category: 'furniture', label: 'Side Table', mount: 'floor', surface: true },
-  { id: 'official:cabinet-small', category: 'furniture', label: 'Small Cabinet', mount: 'floor', surface: true },
-  { id: 'official:counter', category: 'furniture', label: 'Counter', mount: 'floor', surface: true, allowedRooms: ['kitchen'] },
-  { id: 'official:shelf-books', category: 'furniture', label: 'Bookshelf', mount: 'floor' },
-  { id: 'official:shelf-wall', category: 'furniture', label: 'Wall Shelf', mount: 'wall' },
-  { id: 'official:shelf-floating', category: 'furniture', label: 'Floating Shelf', mount: 'wall' },
+  { id: 'official:bed-single', category: 'furniture', mount: 'floor', allowedRooms: BEDROOM, interaction: 'bed' },
+  { id: 'official:bed-round', category: 'furniture', mount: 'floor', allowedRooms: BEDROOM, interaction: 'bed' },
+  { id: 'official:bed-cushion', category: 'furniture', mount: 'floor', allowedRooms: BEDROOM, interaction: 'bed' },
+  { id: 'official:bed-basket', category: 'furniture', mount: 'floor', allowedRooms: BEDROOM, interaction: 'bed' },
+  { id: 'official:fridge', category: 'furniture', mount: 'floor', allowedRooms: ['kitchen'], interaction: 'fridge' },
+  { id: 'official:oven', category: 'furniture', mount: 'floor', allowedRooms: ['kitchen'] },
+  { id: 'official:bathtub', category: 'furniture', mount: 'floor', allowedRooms: ['care'], interaction: 'bath' },
+  { id: 'official:toybox', category: 'furniture', mount: 'floor', interaction: 'toys' },
+  { id: 'official:wardrobe', category: 'furniture', mount: 'floor' },
+  { id: 'official:sink', category: 'furniture', mount: 'floor', allowedRooms: ['care'] },
+  { id: 'official:table-side', category: 'furniture', mount: 'floor', surface: true },
+  { id: 'official:cabinet-small', category: 'furniture', mount: 'floor', surface: true },
+  { id: 'official:counter', category: 'furniture', mount: 'floor', surface: true, allowedRooms: ['kitchen'] },
+  { id: 'official:shelf-books', category: 'furniture', mount: 'floor' },
+  { id: 'official:shelf-wall', category: 'furniture', mount: 'wall' },
+  { id: 'official:shelf-floating', category: 'furniture', mount: 'wall' },
 
   // Decor
-  { id: 'official:rug-round', category: 'decor', label: 'Round Rug', mount: 'rug' },
-  { id: 'official:rug-rectangle', category: 'decor', label: 'Rectangle Rug', mount: 'rug' },
-  { id: 'official:mirror', category: 'decor', label: 'Mirror', mount: 'wall' },
-  { id: 'official:towel-rack', category: 'decor', label: 'Towel Rack', mount: 'wall' },
-  { id: 'official:rug-runner', category: 'decor', label: 'Runner Rug', mount: 'rug' },
-  { id: 'official:rug-paw', category: 'decor', label: 'Paw Rug', mount: 'rug' },
-  { id: 'official:lamp-floor', category: 'decor', label: 'Floor Lamp', mount: 'floor' },
-  { id: 'official:lamp-table', category: 'decor', label: 'Table Lamp', mount: 'floor', small: true },
-  { id: 'official:lamp-wall', category: 'decor', label: 'Wall Sconce', mount: 'wall' },
-  { id: 'official:lamp-string', category: 'decor', label: 'String Lights', mount: 'wall' },
+  { id: 'official:rug-round', category: 'decor', mount: 'rug' },
+  { id: 'official:rug-rectangle', category: 'decor', mount: 'rug' },
+  { id: 'official:mirror', category: 'decor', mount: 'wall' },
+  { id: 'official:towel-rack', category: 'decor', mount: 'wall' },
+  { id: 'official:rug-runner', category: 'decor', mount: 'rug' },
+  { id: 'official:rug-paw', category: 'decor', mount: 'rug' },
+  { id: 'official:lamp-floor', category: 'decor', mount: 'floor' },
+  { id: 'official:lamp-table', category: 'decor', mount: 'floor', small: true },
+  { id: 'official:lamp-wall', category: 'decor', mount: 'wall' },
+  { id: 'official:lamp-string', category: 'decor', mount: 'wall' },
 
   // Plants
-  { id: 'official:plant-small', category: 'plants', label: 'Small Plant', mount: 'floor', small: true },
-  { id: 'official:plant-tall', category: 'plants', label: 'Tall Plant', mount: 'floor' },
-  { id: 'official:plant-cactus', category: 'plants', label: 'Cactus', mount: 'floor', small: true },
-  { id: 'official:plant-fern', category: 'plants', label: 'Fern', mount: 'floor' },
-  { id: 'official:plant-hanging', category: 'plants', label: 'Hanging Plant', mount: 'wall' },
+  { id: 'official:plant-small', category: 'plants', mount: 'floor', small: true },
+  { id: 'official:plant-tall', category: 'plants', mount: 'floor' },
+  { id: 'official:plant-cactus', category: 'plants', mount: 'floor', small: true },
+  { id: 'official:plant-fern', category: 'plants', mount: 'floor' },
+  { id: 'official:plant-hanging', category: 'plants', mount: 'wall' },
 
   // Clocks
-  { id: 'official:clock-wall', category: 'clocks', label: 'Wall Clock', mount: 'wall' },
-  { id: 'official:clock-wall-modern', category: 'clocks', label: 'Modern Clock', mount: 'wall' },
-  { id: 'official:clock-wall-cute', category: 'clocks', label: 'Cute Clock', mount: 'wall' },
-  { id: 'official:clock-wall-digital', category: 'clocks', label: 'Digital Wall Clock', mount: 'wall' },
-  { id: 'official:clock-wall-flip', category: 'clocks', label: 'Flip Wall Clock', mount: 'wall' },
-  { id: 'official:clock-table', category: 'clocks', label: 'Table Clock', mount: 'floor', small: true },
-  { id: 'official:clock-bedside', category: 'clocks', label: 'Bedside Clock', mount: 'floor', small: true, allowedRooms: BEDROOM },
-  { id: 'official:clock-alarm', category: 'clocks', label: 'Alarm Clock', mount: 'floor', small: true, allowedRooms: BEDROOM },
-  { id: 'official:clock-table-digital', category: 'clocks', label: 'Table Digital Clock', mount: 'floor', small: true, allowedRooms: BEDROOM },
+  { id: 'official:clock-wall', category: 'clocks', mount: 'wall' },
+  { id: 'official:clock-wall-modern', category: 'clocks', mount: 'wall' },
+  { id: 'official:clock-wall-cute', category: 'clocks', mount: 'wall' },
+  { id: 'official:clock-wall-digital', category: 'clocks', mount: 'wall' },
+  { id: 'official:clock-wall-flip', category: 'clocks', mount: 'wall' },
+  { id: 'official:clock-table', category: 'clocks', mount: 'floor', small: true },
+  { id: 'official:clock-bedside', category: 'clocks', mount: 'floor', small: true, allowedRooms: BEDROOM },
+  { id: 'official:clock-alarm', category: 'clocks', mount: 'floor', small: true, allowedRooms: BEDROOM },
+  { id: 'official:clock-table-digital', category: 'clocks', mount: 'floor', small: true, allowedRooms: BEDROOM },
 
   // Frames
-  { id: 'official:picture-frame', category: 'frames', label: 'Picture Frame', mount: 'wall', isFrame: true },
-  { id: 'official:picture-frame-gold', category: 'frames', label: 'Gold Frame', mount: 'wall', isFrame: true },
-  { id: 'official:picture-frame-square', category: 'frames', label: 'Square Frame', mount: 'wall', isFrame: true },
-  { id: 'official:picture-frame-oval', category: 'frames', label: 'Oval Frame', mount: 'wall', isFrame: true },
+  { id: 'official:picture-frame', category: 'frames', mount: 'wall', isFrame: true },
+  { id: 'official:picture-frame-gold', category: 'frames', mount: 'wall', isFrame: true },
+  { id: 'official:picture-frame-square', category: 'frames', mount: 'wall', isFrame: true },
+  { id: 'official:picture-frame-oval', category: 'frames', mount: 'wall', isFrame: true },
 ];
+
+/** `official:bed-single` → `bedSingle`: the piece's message key under `room.furniture`. */
+const furnitureKey = (id: string) => id.replace(/^official:/, '').replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
+
+/** The catalog, each label read in this page's language when asked for (never at import). */
+export const OFFICIAL_FURNITURE_3D: readonly FurnitureDefinition3D[] = CATALOG.map((def) => ({
+  ...def,
+  get label() {
+    return t(`room.furniture.${furnitureKey(def.id)}` as MessageKey);
+  },
+}));
 
 const officialIndex = new Map<string, FurnitureDefinition3D>(OFFICIAL_FURNITURE_3D.map((def) => [def.id, def]));
 
@@ -117,13 +129,13 @@ export function canPlaceInRoom(def: FurnitureDefinition3D, roomId: RoomId): bool
 }
 
 /** Display labels for each category. */
-export const CATEGORY_LABELS: Record<FurnitureCategory, string> = {
-  furniture: 'Furniture',
-  decor: 'Decor',
-  plants: 'Plants',
-  clocks: 'Clocks',
-  frames: 'Frames',
-  objects: '3D Objects',
+export const CATEGORY_LABELS: Readonly<Record<FurnitureCategory, string>> = {
+  get furniture() { return t('room.furnitureCategory.furniture'); },
+  get decor() { return t('room.furnitureCategory.decor'); },
+  get plants() { return t('room.furnitureCategory.plants'); },
+  get clocks() { return t('room.furnitureCategory.clocks'); },
+  get frames() { return t('room.furnitureCategory.frames'); },
+  get objects() { return t('room.furnitureCategory.objects'); },
 };
 
 /** Display order for categories in the catalog (network objects come with a later milestone). */

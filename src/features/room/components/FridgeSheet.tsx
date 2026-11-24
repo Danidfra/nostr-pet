@@ -19,6 +19,7 @@ import { X } from 'lucide-react';
 import { ItemGlyph } from '@/features/inventory';
 import type { RoomCareEntry } from '../lib/room-care';
 import { cx } from '../lib/cx';
+import { t } from '@/i18n';
 
 interface FridgeSheetProps {
   open: boolean;
@@ -63,13 +64,18 @@ export function FridgeSheet({ open, onClose, entries, onUse, busy = false, blobb
   const choose = (entry: RoomCareEntry) => {
     if (busy) return;
     if (!entry.usable) {
-      setBlocked(entry.reason ?? 'Not right now.');
+      setBlocked(entry.reason ?? t('room.fridge.notNow'));
       return;
     }
     onUse(entry);
     onClose();
   };
   const shelves = onShelves(entries);
+  // "Apple, 3 left", and why it cannot be had when it cannot
+  const itemLabel = (entry: RoomCareEntry) => {
+    const named = entry.quantity !== null ? t('room.fridge.itemLeft', { item: entry.name, count: entry.quantity }) : entry.name;
+    return entry.usable ? named : t('room.fridge.itemBlocked', { item: named, reason: entry.reason ?? t('room.fridge.notNowLower') });
+  };
 
   return (
     <div className="fridge-root" data-testid="fridge" onKeyDown={onKeyDown}>
@@ -78,19 +84,19 @@ export function FridgeSheet({ open, onClose, entries, onUse, busy = false, blobb
         <div className="fridge__top" aria-hidden>
           <span className="fridge__magnet fridge__magnet--a" />
           <span className="fridge__magnet fridge__magnet--b" />
-          <span className="fridge__note">for {blobbiName}</span>
+          <span className="fridge__note">{t('room.fridge.note', { name: blobbiName })}</span>
         </div>
         <h2 id={titleId} className="fridge__title">
-          What would {blobbiName} like?
+          {t('room.fridge.title', { name: blobbiName })}
         </h2>
-        <button type="button" className="fridge__close" onClick={onClose} aria-label="Close the fridge" data-testid="fridge-close">
+        <button type="button" className="fridge__close" onClick={onClose} aria-label={t('room.fridge.close')} data-testid="fridge-close">
           <X className="h-5 w-5" aria-hidden />
         </button>
         <div className="fridge__inside">
           <span className="fridge__light" aria-hidden />
           {entries.length === 0 ? (
             <p className="fridge__empty" data-testid="fridge-empty">
-              The fridge is empty right now.
+              {t('room.fridge.empty')}
             </p>
           ) : (
             <div className="fridge__shelves">
@@ -103,7 +109,7 @@ export function FridgeSheet({ open, onClose, entries, onUse, busy = false, blobb
                       className={cx('fridge__item', !entry.usable && 'fridge__item--off')}
                       onClick={() => choose(entry)}
                       disabled={busy}
-                      aria-label={`${entry.name}${entry.quantity !== null ? `, ${entry.quantity} left` : ''}${entry.usable ? '' : `: ${entry.reason ?? 'not right now'}`}`}
+                      aria-label={itemLabel(entry)}
                       data-testid="fridge-item"
                       data-key={entry.key}
                       data-usable={entry.usable ? 'true' : 'false'}

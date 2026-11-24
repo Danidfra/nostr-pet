@@ -21,7 +21,7 @@ import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 import { EXPERIENCE_STORAGE_KEY, ROOM_INTRO_STORAGE_KEY } from '@/lib/home-experience';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { APPEARANCE_STORAGE_KEY } from './lib/blobbi-appearance';
-import { LOOK_GUIDE_LINE, LOOK_GUIDE_STORAGE_KEY } from './lib/look-guide';
+import { LOOK_GUIDE_STORAGE_KEY, lookGuideLine } from './lib/look-guide';
 import { genomeOf } from './lib/blobbi3d/identity';
 import { RoomIntro } from './components/RoomIntro';
 
@@ -172,7 +172,7 @@ describe('the one-time guide to the Appearance card', () => {
     await explore();
     const bubble = guide();
     expect(bubble).not.toBeNull();
-    expect(bubble).toHaveTextContent(LOOK_GUIDE_LINE);
+    expect(bubble).toHaveTextContent(lookGuideLine());
     expect(bubble).not.toHaveAttribute('data-reduced');
     expect(screen.getByTestId('room-bar-blobbi-slot')).toHaveAttribute('data-guide', 'true');
     expect(screen.getByTestId('room-bar-blobbi').className).toMatch(/look-guide__target/);

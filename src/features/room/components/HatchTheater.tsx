@@ -41,6 +41,7 @@ import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { Loader2, RefreshCw, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
 
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
+import { t } from '@/i18n';
 import {
   AUTO_TAP_MS,
   PERFORM_TIMEOUT_MS,
@@ -89,13 +90,13 @@ export type TheaterPhase = 'tapping' | 'writing' | 'revealing' | 'failed' | 'uns
 
 class PerformTimeout extends Error {
   constructor() {
-    super('The hatch is taking too long to save. Nothing was changed; your egg is safe.');
+    super(t('room.hatch.tooLong'));
     this.name = 'PerformTimeout';
   }
 }
 
-export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDone, onRecover, savingNote = 'Saving the hatch to your account', timings, waits }: HatchTheaterProps) {
-  const t = timings ?? (reducedMotion ? REDUCED_THEATER_TIMINGS : THEATER_TIMINGS);
+export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDone, onRecover, savingNote = t('room.hatch.saving'), timings, waits }: HatchTheaterProps) {
+  const beats = timings ?? (reducedMotion ? REDUCED_THEATER_TIMINGS : THEATER_TIMINGS);
   const revealWait = waits?.revealMs ?? REVEAL_WAIT_MS;
   const recoverWait = waits?.recoverMs ?? RECOVER_WAIT_MS;
   const performCeiling = waits?.performMs ?? PERFORM_TIMEOUT_MS;
@@ -137,7 +138,7 @@ export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDo
           return false;
         })
         .finally(() => clearTimeout(ceiling)),
-      t.burstMs ? new Promise((resolve) => setTimeout(resolve, t.burstMs)) : undefined,
+      beats.burstMs ? new Promise((resolve) => setTimeout(resolve, beats.burstMs)) : undefined,
     ]);
     if (!mounted.current) return;
     setWritingSince(null);
@@ -148,7 +149,7 @@ export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDo
     }
     writing.current = false;
     setPhase('failed');
-  }, [t.burstMs, performCeiling]);
+  }, [beats.burstMs, performCeiling]);
 
   const tap = useCallback(() => {
     if (phase !== 'tapping') return;
@@ -226,13 +227,13 @@ export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDo
     };
     tick();
     const interval = setInterval(() => setNow(performance.now() - revealAt), 120);
-    const done = setTimeout(() => latest.current.onDone(true), t.revealMs + 1_600);
+    const done = setTimeout(() => latest.current.onDone(true), beats.revealMs + 1_600);
     return () => {
       cancelAnimationFrame(frame);
       clearInterval(interval);
       clearTimeout(done);
     };
-  }, [revealAt, t.revealMs]);
+  }, [revealAt, beats.revealMs]);
   const moment = revealAt === null ? null : revealMoment(now, reducedMotion);
   const noticed = useRef(false);
   const cheered = useRef(false);
@@ -258,9 +259,9 @@ export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDo
   const visual = useMemo(() => toBlobbiVisual(blobbi), [blobbi]);
   const caption =
     phase === 'failed' || phase === 'unseen' ? null
-    : showBaby && moment ? (moment.caption === 'none' ? null : moment.caption === 'hatched' ? `${blobbi.name} has hatched!` : `Welcome home, ${blobbi.name}`)
+    : showBaby && moment ? (moment.caption === 'none' ? null : moment.caption === 'hatched' ? t('room.hatch.hatched', { name: blobbi.name }) : t('room.hatch.welcomeHome', { name: blobbi.name }))
     : phase === 'writing' ? writingCaption(writingFor)
-    : opening ? (recovering ? 'Looking for the little one…' : tapCaption(TAPS_TO_HATCH))
+    : opening ? (recovering ? t('room.hatch.looking') : tapCaption(TAPS_TO_HATCH))
     : tapCaption(taps);
   // The beat the room's stylesheet draws: the shell stirring, cracking, about to give, the light, the baby
   const beat = phase === 'failed' || phase === 'unseen' ? 'failed' : showBaby ? 'hatched' : opening ? 'hatching' : taps === 0 ? 'stirring' : taps >= 3 ? 'breaking' : 'cracking';
@@ -276,7 +277,7 @@ export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDo
       data-reduced={reducedMotion ? 'true' : undefined}
       role="dialog"
       aria-modal="true"
-      aria-label={`${blobbi.name} is hatching`}
+      aria-label={t('room.hatch.isHatching', { name: blobbi.name })}
     >
       <div className="hatch-theater__veil" aria-hidden />
       <div className="hatch-theater__light" aria-hidden />
@@ -317,7 +318,7 @@ export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDo
             onClick={tap}
             // The egg takes the focus as it is presented, so Enter or Space is a tap from the first moment
             autoFocus
-            aria-label={`Tap ${blobbi.name} to crack the shell, ${taps} of ${TAPS_TO_HATCH}`}
+            aria-label={t('room.hatch.tapEgg', { name: blobbi.name, taps, total: TAPS_TO_HATCH })}
             data-testid="hatch-theater-egg"
           />
         )}
@@ -327,43 +328,43 @@ export function HatchTheater({ blobbi, perform, error, reducedMotion, play, onDo
       </p>
       {phase === 'tapping' && !auto && (
         <button type="button" className="hatch-theater__quiet" onClick={() => setAuto(true)} data-testid="hatch-theater-auto">
-          <Wand2 className="h-3.5 w-3.5" aria-hidden /> Hatch it for me
+          <Wand2 className="h-3.5 w-3.5" aria-hidden /> {t('room.hatch.forMe')}
         </button>
       )}
       {opening && (
         <p className="hatch-theater__note" data-testid="hatch-theater-writing">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> {phase === 'writing' ? savingNote : 'Saved. Waiting for the little one to show'}
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> {phase === 'writing' ? savingNote : t('room.hatch.savedWaiting')}
         </p>
       )}
       {showBaby && moment?.caption === 'home' && (
         <button type="button" className="onboard-btn onboard-btn--primary hatch-theater__go" onClick={() => latest.current.onDone(true)} data-testid="hatch-theater-continue">
-          <Sparkles className="h-4 w-4" aria-hidden /> Go home
+          <Sparkles className="h-4 w-4" aria-hidden /> {t('room.hatch.goHome')}
         </button>
       )}
       {phase === 'failed' && !hatched && (
         <div className="hatch-theater__failed" role="alert" data-testid="hatch-theater-failed">
-          <p className="font-semibold">The egg did not hatch yet.</p>
-          <p className="text-sm opacity-80">{writeError || error || 'The change did not reach the relays.'} Nothing was changed; your egg is safe.</p>
+          <p className="font-semibold">{t('room.hatch.notYet')}</p>
+          <p className="text-sm opacity-80">{t('room.hatch.failedDetail', { error: writeError || error || t('room.hatch.notReached') })}</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button type="button" className="onboard-btn onboard-btn--secondary" onClick={() => latest.current.onDone(false)} data-testid="hatch-theater-later">
-              Later
+              {t('room.hatch.later')}
             </button>
             <button type="button" className="onboard-btn onboard-btn--primary" onClick={() => void write()} data-testid="hatch-theater-retry">
-              <RotateCcw className="h-4 w-4" aria-hidden /> Try again
+              <RotateCcw className="h-4 w-4" aria-hidden /> {t('room.hatch.tryAgain')}
             </button>
           </div>
         </div>
       )}
       {phase === 'unseen' && !hatched && (
         <div className="hatch-theater__failed" role="alert" data-testid="hatch-theater-unseen">
-          <p className="font-semibold">The hatch was saved, but {blobbi.name} is not showing yet.</p>
-          <p className="text-sm opacity-80">This happens when a relay is a moment behind. Checking again usually finds the little one; a reload always does.</p>
+          <p className="font-semibold">{t('room.hatch.unseen', { name: blobbi.name })}</p>
+          <p className="text-sm opacity-80">{t('room.hatch.unseenDetail')}</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button type="button" className="onboard-btn onboard-btn--secondary" onClick={checkAgain} data-testid="hatch-theater-check-again">
-              <RefreshCw className="h-4 w-4" aria-hidden /> Check again
+              <RefreshCw className="h-4 w-4" aria-hidden /> {t('room.hatch.checkAgain')}
             </button>
             <button type="button" className="onboard-btn onboard-btn--primary" onClick={() => window.location.reload()} data-testid="hatch-theater-reload">
-              Reload
+              {t('room.hatch.reload')}
             </button>
           </div>
         </div>

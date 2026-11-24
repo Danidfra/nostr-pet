@@ -18,6 +18,7 @@ import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
+import { t } from '@/i18n';
 import type { BlobbiAppearance } from '../lib/blobbi-appearance';
 import { genomeOf, stage3dOf } from '../lib/blobbi3d/identity';
 import { LOOK_OPTIONS, shownLook } from '../lib/look-guide';
@@ -44,7 +45,8 @@ export interface RoomSettingsProps {
   zoom?: { value: number; onIn: () => void; onOut: () => void; onReset: () => void };
 }
 
-const QUALITY_WORD: Record<QualityLevel, string> = { high: 'High', balanced: 'Balanced', low: 'Low' };
+/** The level Auto settled on, as one word. */
+const qualityWord = (level: QualityLevel) => t(`room.settings.level.${level}`);
 
 /** The Blobbi's look in the room: the drawing or the 3D model. The same Blobbi, the same care, whichever is chosen. */
 export function BlobbiAppearanceControl({ appearance, onChange, unavailable3d, preview, reducedMotion = false }: BlobbiAppearanceControlProps) {
@@ -74,7 +76,7 @@ export function BlobbiAppearanceControl({ appearance, onChange, unavailable3d, p
   };
 
   return (
-    <div role="radiogroup" aria-label="Blobbi appearance" onKeyDown={onRadioKeyDown} className="look-options" data-testid="room-appearance-panel" data-appearance={shown}>
+    <div role="radiogroup" aria-label={t('room.settings.appearance')} onKeyDown={onRadioKeyDown} className="look-options" data-testid="room-appearance-panel" data-appearance={shown}>
       {LOOK_OPTIONS.map((o) => {
         const disabled = o.value === '3d' && !!unavailable3d;
         const checked = shown === o.value;
@@ -122,29 +124,29 @@ export function RoomSettings({ quality, zoom }: RoomSettingsProps) {
     <div className="room-settings" data-testid="room-settings">
       {quality && (
         <label className="room-settings-row" data-testid="room-quality">
-          <span className="flex-1 text-left">Graphics</span>
-          <select className="room-settings-select" value={quality.preference} onChange={(e) => quality.onChange(e.target.value as QualityPreference)} aria-label="Graphics quality" data-testid="room-quality-select">
-            <option value="auto">Auto ({QUALITY_WORD[quality.level]})</option>
-            <option value="high">High</option>
-            <option value="balanced">Balanced</option>
-            <option value="low">Low (saves battery)</option>
+          <span className="flex-1 text-left">{t('room.settings.graphics')}</span>
+          <select className="room-settings-select" value={quality.preference} onChange={(e) => quality.onChange(e.target.value as QualityPreference)} aria-label={t('room.settings.graphicsQuality')} data-testid="room-quality-select">
+            <option value="auto">{t('room.settings.auto', { level: qualityWord(quality.level) })}</option>
+            <option value="high">{t('room.settings.level.high')}</option>
+            <option value="balanced">{t('room.settings.level.balanced')}</option>
+            <option value="low">{t('room.settings.lowSavesBattery')}</option>
           </select>
         </label>
       )}
       {zoom && (
-        <div className="room-settings-row" data-testid="room-zoom" role="group" aria-label="View">
-          <span className="flex-1 text-left">View</span>
-          <button type="button" className="room-zoom-button touch-hit" onClick={zoom.onOut} aria-label="Look from farther" data-testid="room-zoom-out">
+        <div className="room-settings-row" data-testid="room-zoom" role="group" aria-label={t('room.settings.view')}>
+          <span className="flex-1 text-left">{t('room.settings.view')}</span>
+          <button type="button" className="room-zoom-button touch-hit" onClick={zoom.onOut} aria-label={t('room.settings.farther')} data-testid="room-zoom-out">
             −
           </button>
           <span className="room-zoom-value" aria-live="polite" data-testid="room-zoom-value">
             {Math.round(zoom.value * 100)}%
           </span>
-          <button type="button" className="room-zoom-button touch-hit" onClick={zoom.onIn} aria-label="Look closer" data-testid="room-zoom-in">
+          <button type="button" className="room-zoom-button touch-hit" onClick={zoom.onIn} aria-label={t('room.settings.closer')} data-testid="room-zoom-in">
             +
           </button>
-          <button type="button" className="room-zoom-reset" onClick={zoom.onReset} disabled={Math.abs(zoom.value - 1) < 0.005} aria-label="Reset view" title="Back to the recommended view" data-testid="room-zoom-reset">
-            Reset
+          <button type="button" className="room-zoom-reset" onClick={zoom.onReset} disabled={Math.abs(zoom.value - 1) < 0.005} aria-label={t('room.settings.resetView')} title={t('room.settings.resetViewTitle')} data-testid="room-zoom-reset">
+            {t('room.settings.reset')}
           </button>
         </div>
       )}

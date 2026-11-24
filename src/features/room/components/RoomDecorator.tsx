@@ -20,6 +20,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 import { Armchair, Box, Check, ChevronLeft, ChevronRight, Clock, Grid3x3, Image, Lamp, Minus, PaintRoller, Palette, Plus, RotateCw, Sprout, Trash2, X, type LucideIcon } from 'lucide-react';
 
 import { roomById, type RoomId } from '@/features/home/rooms/rooms';
+import { t } from '@/i18n';
 import { cx } from '../lib/cx';
 import { getAvailableFurnitureByCategory, isOfficialFurnitureId, resolveFurniture, type FurnitureCategory, type FurnitureDefinition3D } from '../lib/furniture-3d';
 import { MAX_FURNITURE_PER_ROOM, type FurniturePlacement } from '../lib/room-furniture';
@@ -80,22 +81,22 @@ export function RoomDecoratorOverlay({ roomId, draft, onDraftChange, layout, onL
 
   const tabs: { id: TrayTab; label: string }[] = [
     ...catalog.map((g) => ({ id: g.category as TrayTab, label: g.label })),
-    { id: 'wall', label: 'Wallpaper' },
-    { id: 'floor', label: 'Flooring' },
+    { id: 'wall', label: t('room.decorator.wallpaper') },
+    { id: 'floor', label: t('room.decorator.flooring') },
   ];
   const tabId = (id: TrayTab) => `${trayId}-tab-${id}`;
   const panelId = `${trayId}-panel`;
 
   const handleAdd = useCallback((def: FurnitureDefinition3D) => {
     if (atLimit) {
-      setNotice(`This room is full: rooms hold up to ${MAX_FURNITURE_PER_ROOM} items`);
+      setNotice(t('room.decorator.full', { max: MAX_FURNITURE_PER_ROOM }));
       return;
     }
     const model = getOfficialFurnitureModel(def.id);
     if (!model) return;
     const spot = controlRef.current?.findSpot({ node: model.node, official: isOfficialFurnitureId(def.id), mount: def.mount });
     if (controlRef.current && !spot) {
-      setNotice('No space left: move or put something away first');
+      setNotice(t('room.decorator.noSpace'));
       return;
     }
     const placement: FurniturePlacement = {
@@ -117,28 +118,28 @@ export function RoomDecoratorOverlay({ roomId, draft, onDraftChange, layout, onL
   const hint = notice
     ? notice
     : invalid.size
-      ? 'Some pieces overlap: move them apart'
+      ? t('room.decorator.overlap')
       : selectedIndex === null
-        ? `Tap a piece to pick it up · ${draft.length}/${MAX_FURNITURE_PER_ROOM}`
-        : `${selectedLabel ?? 'Piece'} · drag or use the arrow keys to move`;
+        ? t('room.decorator.tapPiece', { placed: draft.length, max: MAX_FURNITURE_PER_ROOM })
+        : t('room.decorator.moving', { piece: selectedLabel ?? t('room.decorator.piece') });
 
   return (
     <>
       {/* Top bar */}
       <div data-room-top className="pointer-events-auto px-3 pt-3" data-testid="decorator-bar">
         <div className="decor-bar">
-          <button type="button" onClick={onCancel} aria-label="Cancel decorating" className="decor-tool shrink-0" data-testid="decorator-cancel">
+          <button type="button" onClick={onCancel} aria-label={t('room.decorator.cancel')} className="decor-tool shrink-0" data-testid="decorator-cancel">
             <X />
           </button>
           <div className="min-w-0 flex-1 text-center">
-            <p className="truncate text-sm font-bold leading-tight">Decorating {room.label}</p>
+            <p className="truncate text-sm font-bold leading-tight">{t('room.decorator.title', { room: room.label })}</p>
             <p aria-live="polite" className={cx('truncate text-xs leading-tight', invalid.size || notice ? 'text-destructive font-medium' : 'text-muted-foreground')} data-testid="decorator-hint">
               {hint}
             </p>
           </div>
           <button type="button" onClick={onSave} disabled={invalid.size > 0} className="decor-save shrink-0" data-testid="decorator-save">
             <Check />
-            Save
+            {t('room.decorator.save')}
           </button>
         </div>
       </div>
@@ -152,33 +153,33 @@ export function RoomDecoratorOverlay({ roomId, draft, onDraftChange, layout, onL
             className="flex-1 min-w-0"
             innerClassName="gap-1"
             role="tablist"
-            aria-label="Catalog"
+            aria-label={t('room.decorator.catalog')}
             onKeyDown={(e) => {
               // One tab stop; arrows move along the tabs
               const dir = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
               if (!dir) return;
               e.preventDefault();
-              const next = tabs[(tabs.findIndex((t) => t.id === tab) + dir + tabs.length) % tabs.length];
+              const next = tabs[(tabs.findIndex((entry) => entry.id === tab) + dir + tabs.length) % tabs.length];
               setTab(next.id);
               document.getElementById(tabId(next.id))?.focus();
             }}
           >
-            {tabs.map((t) => {
-              const Icon = TAB_ICONS[t.id];
+            {tabs.map((entry) => {
+              const Icon = TAB_ICONS[entry.id];
               return (
-                <button key={t.id} type="button" role="tab" id={tabId(t.id)} tabIndex={tab === t.id ? 0 : -1} aria-selected={tab === t.id} aria-controls={panelId} onClick={() => setTab(t.id)} className={cx('decor-tab', tab === t.id && 'decor-tab--on')} data-testid={`decorator-tab-${t.id}`}>
+                <button key={entry.id} type="button" role="tab" id={tabId(entry.id)} tabIndex={tab === entry.id ? 0 : -1} aria-selected={tab === entry.id} aria-controls={panelId} onClick={() => setTab(entry.id)} className={cx('decor-tab', tab === entry.id && 'decor-tab--on')} data-testid={`decorator-tab-${entry.id}`}>
                   <Icon aria-hidden />
-                  {t.label}
+                  {entry.label}
                 </button>
               );
             })}
           </ScrollRow>
           {/* Keyboard users pick placed pieces in turn; hidden until focused, since pointers just tap them */}
           <div className="flex shrink-0 gap-1 [&:not(:focus-within)]:sr-only">
-            <button type="button" className="decor-tool" onClick={() => selectStep(-1)} disabled={!draft.length} aria-label="Select previous piece" data-testid="decorator-previous-piece">
+            <button type="button" className="decor-tool" onClick={() => selectStep(-1)} disabled={!draft.length} aria-label={t('room.decorator.previousPiece')} data-testid="decorator-previous-piece">
               <ChevronLeft />
             </button>
-            <button type="button" className="decor-tool" onClick={() => selectStep(1)} disabled={!draft.length} aria-label="Select next piece" data-testid="decorator-next-piece">
+            <button type="button" className="decor-tool" onClick={() => selectStep(1)} disabled={!draft.length} aria-label={t('room.decorator.nextPiece')} data-testid="decorator-next-piece">
               <ChevronRight />
             </button>
           </div>
@@ -189,7 +190,7 @@ export function RoomDecoratorOverlay({ roomId, draft, onDraftChange, layout, onL
             <RoomSurfaceEditor type={tab} value={layout[tab]} onChange={(value) => onLayoutChange({ ...layout, [tab]: value })} />
             <button type="button" className="decor-chip mt-3 text-muted-foreground" onClick={() => onLayoutChange({ ...layout, [tab]: getThemeRoomDefaults()[roomId][tab] })} data-testid="decorator-match-theme">
               <Palette className="size-4" aria-hidden />
-              Match my theme
+              {t('room.decorator.matchTheme')}
             </button>
           </div>
         ) : (
@@ -252,12 +253,12 @@ function ScrollRow({ className, innerClassName, children, ...props }: React.HTML
         {children}
       </div>
       {edges.left && (
-        <button type="button" tabIndex={-1} onClick={() => page(-1)} className="decor-scroll-arrow left-1" aria-label="Scroll back">
+        <button type="button" tabIndex={-1} onClick={() => page(-1)} className="decor-scroll-arrow left-1" aria-label={t('room.decorator.scrollBack')}>
           <ChevronLeft />
         </button>
       )}
       {edges.right && (
-        <button type="button" tabIndex={-1} onClick={() => page(1)} className="decor-scroll-arrow right-1" aria-label="Scroll forward">
+        <button type="button" tabIndex={-1} onClick={() => page(1)} className="decor-scroll-arrow right-1" aria-label={t('room.decorator.scrollForward')}>
           <ChevronRight />
         </button>
       )}
@@ -336,20 +337,20 @@ export function RoomDecoratorToolbar({ draft, onDraftChange, selectedIndex, onSe
   const scale = item.scale ?? 1;
 
   return (
-    <div className="decor-toolbar" role="toolbar" aria-label={`${def.label} actions`} data-testid="decorator-toolbar">
+    <div className="decor-toolbar" role="toolbar" aria-label={t('room.decorator.pieceActions', { piece: def.label })} data-testid="decorator-toolbar">
       {item.at === 'floor' && (
-        <ToolButton label="Turn (R)" onClick={rotate} testId="decorator-turn">
+        <ToolButton label={t('room.decorator.turn')} onClick={rotate} testId="decorator-turn">
           <RotateCw />
         </ToolButton>
       )}
-      <ToolButton label="Smaller" onClick={() => resize(-1)} disabled={scale <= SCALE_STEPS[0]} testId="decorator-smaller">
+      <ToolButton label={t('room.decorator.smaller')} onClick={() => resize(-1)} disabled={scale <= SCALE_STEPS[0]} testId="decorator-smaller">
         <Minus />
       </ToolButton>
-      <ToolButton label="Bigger" onClick={() => resize(1)} disabled={scale >= SCALE_STEPS[SCALE_STEPS.length - 1]} testId="decorator-bigger">
+      <ToolButton label={t('room.decorator.bigger')} onClick={() => resize(1)} disabled={scale >= SCALE_STEPS[SCALE_STEPS.length - 1]} testId="decorator-bigger">
         <Plus />
       </ToolButton>
       <div className="mx-0.5 h-6 w-px bg-border" aria-hidden />
-      <ToolButton label="Put away (Delete)" onClick={remove} className="text-destructive" testId="decorator-put-away">
+      <ToolButton label={t('room.decorator.putAway')} onClick={remove} className="text-destructive" testId="decorator-put-away">
         <Trash2 />
       </ToolButton>
     </div>

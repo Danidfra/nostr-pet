@@ -24,6 +24,7 @@ import { BlobbiRenderer } from '@blobbi-kit/renderer';
 
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
+import { t } from '@/i18n';
 import type { BlobbiAppearance } from '../lib/blobbi-appearance';
 import { genomeOf, stage3dOf } from '../lib/blobbi3d/identity';
 import { LOOK_OPTIONS, previewNote3d, shownLook } from '../lib/look-guide';
@@ -100,13 +101,13 @@ export function RoomIntro({ open, blobbi, appearance, unavailable3d, reducedMoti
   };
 
   return (
-    <GameOverlay open={open} onClose={close} title="Your 3D room" testId="mode-intro" size="medium" className="overlay-panel--intro">
+    <GameOverlay open={open} onClose={close} title={t('room.intro.title')} testId="mode-intro" size="medium" className="overlay-panel--intro">
       <div className="mode-intro" data-reduced={reducedMotion ? 'true' : undefined}>
         <p className="mode-intro__lead">
-          <Armchair aria-hidden /> Welcome to the 3D room. It is experimental, so a few things are rough or not there yet.
+          <Armchair aria-hidden /> {t('room.intro.welcome')}
         </p>
 
-        <div className="mode-intro__previews" role="radiogroup" aria-label={`Choose how ${name} looks here`} data-testid="mode-intro-previews" data-current={current} data-selected={selected} onKeyDown={onKeyDown}>
+        <div className="mode-intro__previews" role="radiogroup" aria-label={t('room.intro.chooseLook', { name })} data-testid="mode-intro-previews" data-current={current} data-selected={selected} onKeyDown={onKeyDown}>
           {LOOK_OPTIONS.map((o) => {
             const on = selected === o.value;
             const disabled = o.value === '3d' && !can3d;
@@ -131,7 +132,7 @@ export function RoomIntro({ open, blobbi, appearance, unavailable3d, reducedMoti
               >
                 <span className="mode-intro__frame" ref={o.value === '2d' ? frameRef : undefined} aria-hidden>
                   {o.value === '2d' && <BlobbiRenderer visual={visual} instanceId={`intro-2d-${blobbi.d}`} size="100%" motion={reducedMotion ? 'still' : 'idle'} transparent style={{ width: '100%', height: '100%' }} />}
-                  {o.value === '3d' && model && <Blobbi3dStage genome={model.genome} stage={model.stage} view="front" motion={reducedMotion ? 'still' : 'idle'} size={frameSide} testId="mode-intro-stage-3d" label={`${name} in 3D`} />}
+                  {o.value === '3d' && model && <Blobbi3dStage genome={model.genome} stage={model.stage} view="front" motion={reducedMotion ? 'still' : 'idle'} size={frameSide} testId="mode-intro-stage-3d" label={t('room.intro.in3d', { name })} />}
                   {o.value === '3d' && !model && (
                     <span className="mode-intro__note" data-testid="mode-intro-preview-3d-note">
                       {note3d}
@@ -143,7 +144,7 @@ export function RoomIntro({ open, blobbi, appearance, unavailable3d, reducedMoti
                     {o.title}
                     {on && (
                       <span className="mode-intro__now" data-testid={`mode-intro-selected-${o.value}`}>
-                        <Check aria-hidden /> Selected
+                        <Check aria-hidden /> {t('room.intro.selected')}
                       </span>
                     )}
                   </span>
@@ -155,23 +156,23 @@ export function RoomIntro({ open, blobbi, appearance, unavailable3d, reducedMoti
         </div>
         {refused && note3d && (
           <p className="mode-intro__refused" role="status" data-testid="mode-intro-3d-refused">
-            3D Model can’t be chosen yet. {note3d}
+            {t('room.intro.refused', { note: note3d })}
           </p>
         )}
 
         <p className="mode-intro__lead" data-testid="mode-intro-appearance">
-          <Palette aria-hidden /> Both are the same {name}, with the same care and the same story. Only the look here changes. Pick one above, or later: tap {name} in the dock, then Appearance.
+          <Palette aria-hidden /> {t('room.intro.sameBlobbi', { name })}
         </p>
-        <ul className="mode-intro__points" aria-label="Good to know">
-          <li>The 2D home is always one tap away. The same switch, top right.</li>
+        <ul className="mode-intro__points" aria-label={t('room.intro.goodToKnow')}>
+          <li>{t('room.intro.homeSwitch')}</li>
         </ul>
         <label className="mode-intro__check">
           <input type="checkbox" checked={dismiss} onChange={(e) => setDismiss(e.target.checked)} data-testid="mode-intro-dismiss" />
-          <span>Don’t show this again</span>
+          <span>{t('room.intro.dontShow')}</span>
         </label>
         <div className="mode-intro__actions mode-intro__actions--one">
           <button type="button" className="onboard-btn onboard-btn--primary" onClick={close} data-testid="mode-intro-explore">
-            <Sparkles className="h-4 w-4" aria-hidden /> Let’s explore
+            <Sparkles className="h-4 w-4" aria-hidden /> {t('room.intro.explore')}
           </button>
         </div>
       </div>
