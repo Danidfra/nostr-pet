@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import { en } from './messages/en';
 import { ptBR } from './messages/pt-BR';
 import { es } from './messages/es';
-import { changeLocale, getLocale, setMessages, t, tp, formatNumber } from './t';
+import { changeLocale, getLocale, loadLocale, setMessages, t, tp, formatNumber } from './t';
 import { tRich } from './rich';
 import { LOCALE_STORAGE_KEY, detectLocale, matchLocale } from './locales';
 import type { Messages } from './types';
@@ -42,6 +42,18 @@ describe('choosing a language', () => {
     changeLocale('pt-BR', reload);
     expect(localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('pt-BR');
     expect(reload).toHaveBeenCalledOnce();
+  });
+});
+
+describe('loading a language', () => {
+  it.each([
+    ['pt-BR', 'Idioma'],
+    ['es', 'Idioma'],
+    ['en', 'Language'],
+  ] as const)('loads %s from its own chunk before the first render', async (locale, title) => {
+    await loadLocale(locale);
+    expect(getLocale()).toBe(locale);
+    expect(t('menu.language.title')).toBe(title);
   });
 });
 
