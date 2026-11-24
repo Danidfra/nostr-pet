@@ -66,6 +66,7 @@ import { WORLD_FARM, WORLD_ISLAND, WORLD_RUMBLE } from '@/features/worlds/worlds
 import { isTrustedInput, travelMode, type TravelMode } from './travel-mode';
 import { reportPresenceStatus, useActivePresenceChoice } from './active-presence-choice';
 import { ArrivalIntent, autoArrivalDecision, boundedSigner, departTo as departFromHere, pageAgeMs, pageIsFresh, type DepartureOutcome } from './world-travel-departure';
+import { t } from '@/i18n';
 
 export type { DepartureOutcome } from './world-travel-departure';
 
@@ -232,7 +233,7 @@ export function useHomeTravel(o: HomeTravelOptions): HomeTravel {
   return mode === 'nostr' ? travel : { ...travel, mode: 'off', status: null };
 }
 
-const nameOfWorld = (place: string) => (place === WORLD_HOME ? 'home' : (knownWorld(place)?.name ?? 'another Blobbi world'));
+const nameOfWorld = (place: string) => (place === WORLD_HOME ? t('world.travel.home') : (knownWorld(place)?.name ?? t('world.travel.anotherWorld')));
 
 function useNostrTravel(o: HomeTravelOptions | null): HomeTravel {
   const { nostr } = useNostr();

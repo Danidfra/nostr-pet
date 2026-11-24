@@ -34,6 +34,7 @@ import {
 } from '@blobbi-kit/core';
 import { applyXPGain, calculateInventoryActionXP, getStreakTagUpdates, type PublishEventTemplate } from '@blobbi-kit/react';
 import { CARE_SOURCE } from '@/features/care/care-plan';
+import { t } from '@/i18n';
 import type { HomeItem } from './item-model';
 
 /** The idempotency marker tag on a kind 31124 written for a spend. */
@@ -66,7 +67,7 @@ export function appliedSpendId(tags: readonly string[][]): string | undefined {
  * reference, the same care effect (starter-catalog.ts).
  */
 export function planItemUse(companion: BlobbiCompanion, item: HomeItem, spendId: string | null, now: number, options: ItemUsePlanOptions = {}): ItemUsePlan {
-  if (!item.care) throw new Error(`${item.name} cannot be used on a Blobbi.`);
+  if (!item.care) throw new Error(t('world.items.error.cannotUse', { item: item.name }));
   const interactionAction = INTERNAL_TO_INTERACTION_ACTION[item.care.action];
   if (!interactionAction) throw new Error(`No interaction for ${item.care.action}`);
 

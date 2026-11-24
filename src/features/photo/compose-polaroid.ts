@@ -19,6 +19,7 @@
  * whole run is testable without a canvas.
  */
 import { ACCESSORY_BASE_RATIO, type NormalizedAccessoryPlacement, type RenderBlobbiSvgOptions } from '@blobbi-kit/renderer';
+import { t } from '@/i18n';
 import { renderPortrait } from './blobbi-portrait';
 import { chinText, frameStyle, polaroidLayout, type Decoration, type FrameStyle, type PolaroidFrame, type PolaroidLayout, type Rect } from './polaroid-layout';
 import { isLoadableArtwork, loadImage, svgDataUrl } from './rasterize';
@@ -236,7 +237,7 @@ async function loadAccessory(env: ComposeEnv, placement: NormalizedAccessoryPlac
 function toBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
     try {
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new PhotoError('The picture could not be saved as an image.'))), 'image/png');
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new PhotoError(t('world.photo.error.notSaved')))), 'image/png');
     } catch (error) {
       reject(error);
     }
@@ -250,7 +251,7 @@ interface Loaded {
 
 function draw(canvas: HTMLCanvasElement, input: PolaroidInput, body: Drawable, ground: { y: number; centerX: number; width: number }, worn: readonly Loaded[]) {
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new PhotoError('This browser cannot draw the picture.');
+  if (!ctx) throw new PhotoError(t('world.photo.error.cannotDraw'));
   const layout = polaroidLayout();
   const style = frameStyle(input.frame);
   const paper: Rect = { x: 0, y: 0, width: layout.width, height: layout.height };
@@ -315,14 +316,14 @@ function draw(canvas: HTMLCanvasElement, input: PolaroidInput, body: Drawable, g
 export async function composePolaroid(input: PolaroidInput, env: ComposeEnv = browserEnv()): Promise<PolaroidResult> {
   const layout = polaroidLayout();
   const canvas = env.createCanvas(layout.width, layout.height);
-  if (!canvas) throw new PhotoError('This browser cannot draw the picture.');
+  if (!canvas) throw new PhotoError(t('world.photo.error.cannotDraw'));
 
   const portrait = renderPortrait(input.portrait);
   let body: Drawable;
   try {
     body = await env.loadImage(svgDataUrl(portrait.svg, layout.blobbi.width));
   } catch {
-    throw new PhotoError('The Blobbi could not be drawn for the picture.');
+    throw new PhotoError(t('world.photo.error.blobbiNotDrawn'));
   }
 
   const wanted = input.accessories ?? [];
@@ -334,15 +335,15 @@ export async function composePolaroid(input: PolaroidInput, env: ComposeEnv = br
   try {
     return { blob: await toBlob(canvas), width: layout.width, height: layout.height, skippedAccessories: wanted.length - worn.length };
   } catch (error) {
-    if (error instanceof PhotoError || worn.length === 0) throw error instanceof PhotoError ? error : new PhotoError('The picture could not be saved as an image.');
+    if (error instanceof PhotoError || worn.length === 0) throw error instanceof PhotoError ? error : new PhotoError(t('world.photo.error.notSaved'));
     // Something worn made the canvas unreadable after all: the picture again, on a fresh canvas, with nothing worn
     const clean = env.createCanvas(layout.width, layout.height);
-    if (!clean) throw new PhotoError('This browser cannot draw the picture.');
+    if (!clean) throw new PhotoError(t('world.photo.error.cannotDraw'));
     draw(clean, input, body, portrait.ground, []);
     try {
       return { blob: await toBlob(clean), width: layout.width, height: layout.height, skippedAccessories: wanted.length };
     } catch {
-      throw new PhotoError('The picture could not be saved as an image.');
+      throw new PhotoError(t('world.photo.error.notSaved'));
     }
   }
 }

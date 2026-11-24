@@ -17,6 +17,7 @@ import { KIND_BLOBBI_STATE, buildBlobbiAddress, fetchFreshEvent, isModernBlobbiE
 import { usePublishAdapter } from '@/features/care/usePublishAdapter';
 import { countCareForMissions } from '@/features/progression/daily-xp';
 import { tallyCareInteraction } from '@/features/lifecycle/mission-tally';
+import { t } from '@/i18n';
 import { itemUsability, type HomeItem, type ItemAction } from './item-model';
 import { planItemUse } from './item-use-plan';
 import type { StarterEntry } from './starter-catalog';
@@ -54,15 +55,15 @@ export function useStarterUse({ pubkey, updateCompanionEvent, invalidate }: UseS
 
   const mutation = useMutation<StarterUseResult, Error, StarterUseRequest>({
     mutationFn: async ({ entry, blobbiD }) => {
-      if (!pubkey) throw new Error('Sign in to care for your Blobbi.');
+      if (!pubkey) throw new Error(t('world.items.error.signInCare'));
       const item = entry.item;
-      if (!item.care) throw new Error(`${item.name} cannot be used on a Blobbi.`);
+      if (!item.care) throw new Error(t('world.items.error.cannotUse', { item: item.name }));
       const fresh = await fetchFreshEvent(nostr, { kinds: [KIND_BLOBBI_STATE], authors: [pubkey], '#d': [blobbiD] });
-      if (!fresh || !isModernBlobbiEvent(fresh)) throw new Error('Could not read the latest state of your Blobbi.');
+      if (!fresh || !isModernBlobbiEvent(fresh)) throw new Error(t('world.items.error.readLatest'));
       const companion = parseModernBlobbiEvent(fresh);
-      if (!companion) throw new Error('Could not read the latest state of your Blobbi.');
+      if (!companion) throw new Error(t('world.items.error.readLatest'));
       const usable = itemUsability(item, companion);
-      if (!usable.ok) throw new Error(usable.reason ?? 'Not right now.');
+      if (!usable.ok) throw new Error(usable.reason ?? t('world.items.reason.notNow'));
 
       const now = Math.floor(Date.now() / 1000);
       const plan = planItemUse(companion, item, null, now, { evolution: tallyCareInteraction(companion, pubkey) });

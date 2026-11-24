@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { TravelViewKind } from '@blobbi-kit/core';
+import { t } from '@/i18n';
 
 /** "Looking for …" is said only when the first look lasts this long (ms): a quick answer says nothing at all. */
 export const LOOKING_SAID_AFTER_MS = 800;
@@ -29,17 +30,17 @@ export interface TravelAnnouncerProps {
 
 /** The sentence for a state, or null for "nothing to say" (the Blobbi home, never in question). */
 export function travelAnnouncement(p: Omit<TravelAnnouncerProps, 'active'>, said: string | null): string | null {
-  const relays = p.unreachable ? " Couldn't reach the Blobbi relays." : '';
+  const relays = p.unreachable ? ` ${t('world.travel.unreachable')}` : '';
   switch (p.view) {
     case 'looking':
-      return `Looking for ${p.name}…`;
+      return t('world.travel.looking', { name: p.name });
     case 'coming':
-      return `Calling ${p.name} home…`;
+      return t('world.travel.calling', { name: p.name });
     case 'away':
-      return `${p.name} is in ${p.nameOf(p.place)}.${relays}`;
+      return `${t('world.travel.isIn', { name: p.name, place: p.nameOf(p.place) })}${relays}`;
     case 'here':
       // Only as the end of something said (a look, a call, an absence): never on a plain load
-      return said ? `${p.name} is here.${relays}` : p.unreachable ? `${p.name} is shown at home.${relays}` : null;
+      return said ? `${t('world.travel.isHere', { name: p.name })}${relays}` : p.unreachable ? `${t('world.travel.shownHome', { name: p.name })}${relays}` : null;
   }
 }
 
@@ -50,8 +51,8 @@ export function TravelAnnouncer(p: TravelAnnouncerProps) {
     if (next === null || next === said) return;
     // A look the relays answer at once is not worth a word: "looking" is said only once it has lasted a moment
     if (p.view === 'looking' && said === null) {
-      const t = setTimeout(() => setSaid(next), LOOKING_SAID_AFTER_MS);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setSaid(next), LOOKING_SAID_AFTER_MS);
+      return () => clearTimeout(timer);
     }
     setSaid(next);
   }, [next, said, p.view]);

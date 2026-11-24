@@ -7,12 +7,19 @@
  * One size for every frame: 1080 x 1350 (4:5), a square photo window over a
  * deep chin for the name, the caption and, when asked for, the date.
  */
+import { t } from '@/i18n';
 
 export type PolaroidFrame = 'classic' | 'pastel' | 'playful';
 
 export const POLAROID_FRAMES: readonly PolaroidFrame[] = ['classic', 'pastel', 'playful'];
 
+/** The frames' names in English (the dev lab); the sheet uses `frameLabel`. */
 export const FRAME_LABEL: Record<PolaroidFrame, string> = { classic: 'Classic', pastel: 'Pastel', playful: 'Playful' };
+
+/** A frame's name in the page's language. */
+export function frameLabel(frame: PolaroidFrame): string {
+  return t(`world.photo.frame.${frame}`);
+}
 
 export const DEFAULT_FRAME: PolaroidFrame = 'classic';
 

@@ -48,6 +48,7 @@ import { CLIENT_NAME, usePublishAdapter, type HomePublisher } from '@/features/c
 import { countCareForMissions } from '@/features/progression/daily-xp';
 import { tallyCareInteraction } from '@/features/lifecycle/mission-tally';
 import { timeoutSignal } from '@/lib/abort';
+import { t } from '@/i18n';
 import { deriveBalances, effectiveQuantity, uniqueEvents } from './inventory-state';
 import { itemUsability, resolveHomeItem, type HomeItem, type ItemAction } from './item-model';
 import { appliedSpendId, planItemUse } from './item-use-plan';
@@ -108,15 +109,15 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
 
   const mutation = useMutation<ItemUseResult, Error, UseItemRequest>({
     mutationFn: async ({ entry, blobbiD }) => {
-      if (!pubkey) throw new Error('Sign in to use an item.');
+      if (!pubkey) throw new Error(t('world.items.error.signIn'));
       const open = openRecordFor(pubkey, blobbiD);
       const resumed = !!open;
 
       const readCompanion = async (): Promise<BlobbiCompanion> => {
         const fresh = await fetchFreshEvent(nostr, { kinds: [KIND_BLOBBI_STATE], authors: [pubkey], '#d': [blobbiD] });
-        if (!fresh || !isModernBlobbiEvent(fresh)) throw new Error('Could not read the latest state of your Blobbi.');
+        if (!fresh || !isModernBlobbiEvent(fresh)) throw new Error(t('world.items.error.readLatest'));
         const companion = parseModernBlobbiEvent(fresh);
-        if (!companion) throw new Error('Could not read the latest state of your Blobbi.');
+        if (!companion) throw new Error(t('world.items.error.readLatest'));
         return companion;
       };
 
@@ -128,14 +129,14 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
         item = await resolveItemFor(nostr, open.itemAddress, knownRef.current);
       } else {
         item = entry.item;
-        if (!item.care) throw new Error(`${item.name} cannot be used on a Blobbi.`);
+        if (!item.care) throw new Error(t('world.items.error.cannotUse', { item: item.name }));
         const companion = await readCompanion();
         const usable = itemUsability(item, companion);
-        if (!usable.ok) throw new Error(usable.reason ?? 'Not right now.');
+        if (!usable.ok) throw new Error(usable.reason ?? t('world.items.reason.notNow'));
 
         const balance = await freshBalance(nostr, pubkey, entry.inventoryAddress, item.address);
-        if (balance === 'unresolved') throw new Error("This inventory's balance can't be verified right now, so nothing was used.");
-        if (balance < 1) throw new Error(`No ${item.name} left there.`);
+        if (balance === 'unresolved') throw new Error(t('world.items.error.unverified'));
+        if (balance < 1) throw new Error(t('world.items.error.noneLeft', { item: item.name }));
 
         const template = buildGameInventorySpendEvent({
           inventoryAddress: entry.inventoryAddress,
@@ -146,12 +147,13 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
           purpose: `${item.care.action}:blobbi`,
           client: CLIENT_NAME,
           nonce: mintSpendNonce(),
-          alt: `Used ${item.name} on a Blobbi`,
+          // Published (NIP-31): the event's own name, never the page's language
+          alt: `Used ${item.definition?.name ?? item.name} on a Blobbi`,
         });
         const signed = await publisher.sign(template);
         const now = Date.now();
         record = { spendId: signed.id, inventoryAddress: entry.inventoryAddress, itemAddress: item.address, blobbiD, status: 'signed', event: signed, createdAt: now, updatedAt: now };
-        if (!upsertRecord(pubkey, record)) throw new Error('Could not record the use on this device, so nothing was sent.');
+        if (!upsertRecord(pubkey, record)) throw new Error(t('world.items.error.notRecorded'));
       }
 
       // Establish the spend.
@@ -162,10 +164,10 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
           record = { ...record, status: 'established' };
         } else if (outcome === 'unconfirmed') {
           updateStatus(pubkey, record.spendId, 'unconfirmed');
-          throw new Error(`The relays did not confirm using ${item.name}. Nothing was consumed yet; tap it again to retry.`);
+          throw new Error(t('world.items.error.notConfirmed', { item: item.name }));
         } else {
           removeRecord(pubkey, record.spendId);
-          throw new Error(`The relays refused the spend: ${outcome.reason}`);
+          throw new Error(t('world.items.error.refused', { reason: outcome.reason }));
         }
       }
 
@@ -175,7 +177,7 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
         updateStatus(pubkey, record.spendId, 'applied');
         return { item, action: item.care!.action, name: companion.name, statsChanged: {}, xpGained: 0, event: companion.event, spendId: record.spendId, resumed, alreadyApplied: true };
       }
-      if (!item.care) throw new Error(`${item.name} cannot be used on a Blobbi.`);
+      if (!item.care) throw new Error(t('world.items.error.cannotUse', { item: item.name }));
       const now = Math.floor(Date.now() / 1000);
       const plan = planItemUse(companion, item, record.spendId, now, { evolution: tallyCareInteraction(companion, pubkey) });
       let event: NostrEvent;
@@ -184,7 +186,7 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
       } catch (error) {
         updateStatus(pubkey, record.spendId, 'effect-pending');
         const message = error instanceof Error ? error.message : String(error);
-        throw new Error(`${item.name} was taken from the inventory, but the care write failed (${message}). Tap it again to finish.`);
+        throw new Error(t('world.items.error.careFailed', { item: item.name, message }));
       }
       updateStatus(pubkey, record.spendId, 'applied');
       updateCompanionEvent(event);
@@ -236,7 +238,7 @@ type Nostr = ReturnType<typeof useNostr>['nostr'];
 /** The effective quantity of one item in one inventory, read fresh from the relays. */
 async function freshBalance(nostr: Nostr, pubkey: string, inventoryAddress: string, itemAddress: string): Promise<number | 'unresolved'> {
   const parsed = parseGameInventoryAddress(inventoryAddress);
-  if (!parsed || parsed.pubkey !== pubkey) throw new Error('That inventory is not yours.');
+  if (!parsed || parsed.pubkey !== pubkey) throw new Error(t('world.items.error.notYours'));
   const filters = asNostrFilters([
     buildGameInventoryFilter({ authors: [pubkey], inventoryIds: [parsed.inventoryId] }),
     buildGameInventorySpendFilter({ authors: [pubkey], inventoryAddresses: [inventoryAddress] }),

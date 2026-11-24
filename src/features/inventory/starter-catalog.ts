@@ -36,7 +36,8 @@
  */
 import { buildGameItemAddress, type GameItemDefinition } from '@nostr-games/inventory';
 import { OFFICIAL_ITEM_ISSUER, trustedIssuer } from './issuers';
-import { resolveHomeItem, itemUsability, type HomeItem, type ItemUsability } from './item-model';
+import { t } from '@/i18n';
+import { officialItemName, resolveHomeItem, itemUsability, type HomeItem, type ItemUsability } from './item-model';
 import { OFFICIAL_CATALOG_SNAPSHOT, type OfficialCatalogRow } from './official-catalog-snapshot';
 
 /** A starter item, resolved: the trusted definition when fetched, the snapshot row otherwise. */
@@ -58,7 +59,7 @@ export function builtinStarterItem(row: OfficialCatalogRow): HomeItem {
     issuer: trustedIssuer(OFFICIAL_ITEM_ISSUER) ?? null,
     definition: null,
     definitionSource: 'builtin',
-    name: row.name,
+    name: officialItemName(row.d, row.name),
     description: null,
     kind: 'care',
     glyph: { type: 'emoji', text: row.emoji },
@@ -93,7 +94,7 @@ export function resolveStarterEntries(catalog: ReadonlyMap<string, GameItemDefin
       if (item.care && item.definitionSource === 'nostr') items.set(address, item);
     }
   }
-  const usability = (item: HomeItem): ItemUsability => (blobbi ? itemUsability(item, blobbi) : { ok: false, reason: 'No Blobbi to use it on.' });
+  const usability = (item: HomeItem): ItemUsability => (blobbi ? itemUsability(item, blobbi) : { ok: false, reason: t('world.items.reason.noBlobbi') });
   return [...items.values()]
     .filter((item) => item.care !== null)
     .sort((a, b) => (CATEGORY_ORDER[a.definition?.category ?? categoryOf(a)] ?? 9) - (CATEGORY_ORDER[b.definition?.category ?? categoryOf(b)] ?? 9) || a.name.localeCompare(b.name))

@@ -23,7 +23,8 @@ import type { BlobbiEggCrack, NormalizedAccessoryPlacement } from '@blobbi-kit/r
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import { portraitOf } from './blobbi-portrait';
 import { PhotoError, composePolaroid, type PolaroidInput, type PolaroidResult } from './compose-polaroid';
-import { CAPTION_MAX, DEFAULT_FRAME, FRAME_LABEL, POLAROID_FRAMES, POLAROID_HEIGHT, POLAROID_WIDTH, cleanCaption, displayName, limitCaptionInput, photoDate, photoFilename, type PolaroidFrame } from './polaroid-layout';
+import { getLocale, t, tp } from '@/i18n';
+import { CAPTION_MAX, DEFAULT_FRAME, POLAROID_FRAMES, POLAROID_HEIGHT, POLAROID_WIDTH, cleanCaption, displayName, frameLabel, limitCaptionInput, photoDate, photoFilename, type PolaroidFrame } from './polaroid-layout';
 import { canSharePhoto, downloadPhoto, sharePhoto } from './share';
 
 export interface PolaroidSheetProps {
@@ -81,13 +82,13 @@ export function PolaroidSheet({ open, onClose, blobbi, stats, eggCrack, accessor
     let cancelled = false;
     setDrawing(true);
     const timer = setTimeout(() => {
-      const date = withDate ? photoDate(latest.current.now()) : null;
+      const date = withDate ? photoDate(latest.current.now(), getLocale()) : null;
       latest.current
         .compose({ portrait: latest.current.portrait, frame, name: blobbi.name, caption: cleaned, date, accessories: worn.current })
         .then((result) => {
           if (cancelled) return;
           const url = URL.createObjectURL(result.blob);
-          const alt = `A ${FRAME_LABEL[frame].toLowerCase()} Polaroid of ${name}${cleaned ? `, captioned “${cleaned}”` : ''}${date ? `, dated ${date}` : ''}`;
+          const alt = `${t('world.photo.alt', { frame: t(`world.photo.frameInAlt.${frame}`), name })}${cleaned ? t('world.photo.altCaption', { caption: cleaned }) : ''}${date ? t('world.photo.altDate', { date }) : ''}`;
           setPicture((previous) => {
             if (previous) URL.revokeObjectURL(previous.url);
             return { url, blob: result.blob, skippedAccessories: result.skippedAccessories, alt };
@@ -96,7 +97,7 @@ export function PolaroidSheet({ open, onClose, blobbi, stats, eggCrack, accessor
         })
         .catch((reason: unknown) => {
           if (cancelled) return;
-          setError(reason instanceof PhotoError ? reason.message : 'The picture could not be made here.');
+          setError(reason instanceof PhotoError ? reason.message : t('world.photo.error.notMade'));
         })
         .finally(() => {
           if (!cancelled) setDrawing(false);
@@ -132,22 +133,22 @@ export function PolaroidSheet({ open, onClose, blobbi, stats, eggCrack, accessor
   const onShare = async () => {
     if (!picture) return;
     const outcome = await sharePhoto({ blob: picture.blob, filename, title: name });
-    setStatus(outcome === 'shared' ? 'Shared.' : outcome === 'downloaded' ? 'Saved to your downloads.' : outcome === 'unavailable' ? 'Sharing is not available here. Press and hold the picture to save it.' : null);
+    setStatus(outcome === 'shared' ? t('world.photo.shared') : outcome === 'downloaded' ? t('world.photo.downloaded') : outcome === 'unavailable' ? t('world.photo.unavailable') : null);
   };
   const onSave = () => {
     if (!picture) return;
-    setStatus(downloadPhoto(picture.blob, filename) ? 'Saved to your downloads.' : 'This browser could not save the file. Press and hold the picture to save it.');
+    setStatus(downloadPhoto(picture.blob, filename) ? t('world.photo.downloaded') : t('world.photo.saveFailed'));
   };
 
   return (
-    <GameOverlay open={open} onClose={onClose} title="Photo" subtitle={<span className="text-sm text-muted-foreground">A Polaroid of {name}, to keep or to send.</span>} testId="polaroid-sheet" size="tall">
+    <GameOverlay open={open} onClose={onClose} title={t('world.photo.title')} subtitle={<span className="text-sm text-muted-foreground">{t('world.photo.subtitle', { name })}</span>} testId="polaroid-sheet" size="tall">
       <div className="polaroid">
         <div className="polaroid__stage" data-drawing={drawing || undefined} aria-busy={drawing || undefined}>
           {picture ? (
             <img className="polaroid__picture" src={picture.url} alt={picture.alt} width={POLAROID_WIDTH} height={POLAROID_HEIGHT} aria-describedby={hintId} data-testid="polaroid-preview" data-frame={frame} />
           ) : (
             <div className="polaroid__picture polaroid__picture--waiting" role="status" data-testid="polaroid-waiting">
-              {error ?? 'Developing…'}
+              {error ?? t('world.photo.developing')}
             </div>
           )}
         </div>
@@ -158,49 +159,49 @@ export function PolaroidSheet({ open, onClose, blobbi, stats, eggCrack, accessor
         )}
         {picture && picture.skippedAccessories > 0 && (
           <p className="polaroid__note" data-testid="polaroid-skipped">
-            {picture.skippedAccessories === 1 ? 'One thing it wears could not be put in the picture.' : `${picture.skippedAccessories} things it wears could not be put in the picture.`}
+            {tp('world.photo.skipped', picture.skippedAccessories)}
           </p>
         )}
 
-        <div className="polaroid__frames" role="radiogroup" aria-label="Frame">
+        <div className="polaroid__frames" role="radiogroup" aria-label={t('world.photo.frameGroup')}>
           {POLAROID_FRAMES.map((f) => (
             <button type="button" key={f} role="radio" aria-checked={frame === f} className="polaroid__frame" data-frame={f} onClick={() => setFrame(f)} data-testid={`polaroid-frame-${f}`}>
               <span className="polaroid__swatch" aria-hidden />
-              {FRAME_LABEL[f]}
+              {frameLabel(f)}
             </button>
           ))}
         </div>
 
         <div className="polaroid__field">
           <label htmlFor={captionId} className="polaroid__label">
-            Caption <span className="polaroid__optional">optional</span>
+            {t('world.photo.caption')} <span className="polaroid__optional">{t('world.photo.optional')}</span>
           </label>
-          <input id={captionId} className="onboard-input" value={caption} onChange={(e) => setCaption(limitCaptionInput(e.target.value))} placeholder={`A day with ${name}`} autoComplete="off" enterKeyHint="done" data-testid="polaroid-caption" />
+          <input id={captionId} className="onboard-input" value={caption} onChange={(e) => setCaption(limitCaptionInput(e.target.value))} placeholder={t('world.photo.captionPlaceholder', { name })} autoComplete="off" enterKeyHint="done" data-testid="polaroid-caption" />
           <span className="polaroid__count" aria-hidden data-testid="polaroid-count">
-            {cleaned.length === 0 ? `Up to ${CAPTION_MAX} characters` : `${Array.from(cleaned).length} / ${CAPTION_MAX}`}
+            {cleaned.length === 0 ? t('world.photo.captionMax', { max: CAPTION_MAX }) : `${Array.from(cleaned).length} / ${CAPTION_MAX}`}
           </span>
         </div>
 
         <label htmlFor={dateId} className="polaroid__check">
           <input id={dateId} type="checkbox" checked={withDate} onChange={(e) => setWithDate(e.target.checked)} data-testid="polaroid-date" />
-          Show today’s date
+          {t('world.photo.showDate')}
         </label>
 
         <div className="polaroid__actions">
           {shareable && (
             <button type="button" className="polaroid__action polaroid__action--primary" onClick={() => void onShare()} disabled={!picture} data-testid="polaroid-share">
-              <Share2 className="h-5 w-5" aria-hidden /> Share
+              <Share2 className="h-5 w-5" aria-hidden /> {t('world.photo.share')}
             </button>
           )}
           <button type="button" className={`polaroid__action ${shareable ? '' : 'polaroid__action--primary'}`} onClick={onSave} disabled={!picture} data-testid="polaroid-save">
-            <Download className="h-5 w-5" aria-hidden /> Save image
+            <Download className="h-5 w-5" aria-hidden /> {t('world.photo.saveImage')}
           </button>
         </div>
         <p className="polaroid__status" role="status" aria-live="polite" data-testid="polaroid-status">
           {status}
         </p>
         <p id={hintId} className="polaroid__hint">
-          On a phone you can also press and hold the picture to save it. It stays on this device until you share it.
+          {t('world.photo.hint')}
         </p>
       </div>
     </GameOverlay>

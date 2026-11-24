@@ -21,6 +21,7 @@
  * who signs in to another account, is no such moment. It is remembered for
  * that account the moment it shows, so it never comes back.
  */
+import { t } from '@/i18n';
 import type { GuestMigrationStage, GuestMode } from '@/features/guest';
 
 export type WorldsAccess = 'guest' | 'saving' | 'open';
@@ -48,7 +49,7 @@ export function unlockedBySave(prev: WorldsAccessSeen | null, next: WorldsAccess
 export const WORLDS_GUIDE_STORAGE_PREFIX = 'blobbi:worlds:unlock-guide:v1:';
 
 /** The bubble by the Worlds button once the door opens. */
-export const WORLDS_GUIDE_LINE = 'Worlds are open!';
+export const worldsGuideLine = () => t('world.worlds.button.guide');
 
 export function readWorldsGuideShown(pubkey: string, storage: Pick<Storage, 'getItem'> | null = safeStorage()): boolean {
   try {

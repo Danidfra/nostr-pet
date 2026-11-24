@@ -19,6 +19,8 @@
 import type { BlobbiStage, BlobbiStats, CareItemEffect } from '@blobbi-kit/core';
 import type { InventoryAction } from '@blobbi-kit/react';
 import { getPrimaryItemImage, parseGameItemAddress, type GameItemDefinition } from '@nostr-games/inventory';
+import { t } from '@/i18n';
+import { translatedOr } from '@/lib/translated';
 import { trustedIssuer, type TrustedIssuer } from './issuers';
 
 export type ItemAction = InventoryAction;
@@ -163,7 +165,7 @@ export function resolveHomeItem(address: string, definition: GameItemDefinition 
       issuer,
       definition: null,
       definitionSource: 'nostr',
-      name: issuer ? `Unknown ${issuer.label} item` : 'Unknown item',
+      name: issuer ? t('world.items.unknownFrom', { issuer: issuer.label }) : t('world.items.unknown'),
       description: null,
       kind: 'unknown',
       glyph: { type: 'category', category: 'unknown' },
@@ -186,7 +188,7 @@ export function resolveHomeItem(address: string, definition: GameItemDefinition 
     issuer,
     definition: trusted,
     definitionSource: 'nostr',
-    name: trusted.name,
+    name: issuer.role === 'blobbi' ? officialItemName(itemId, trusted.name) : trusted.name,
     description,
     kind,
     glyph: glyphFor(trusted, kind),
@@ -203,27 +205,40 @@ export interface ItemUsability {
   reason?: string;
 }
 
-const ACTION_WORD: Record<ItemAction, string> = { feed: 'eat', play: 'play with', clean: 'use', medicine: 'take', boost: 'drink' };
+/**
+ * An official Blobbi item's name in the page's language, by its `d`
+ * (`blobbi:food:apple` → `world.items.names.foodApple`): English shows the
+ * event's own name; an item no translation knows keeps it too.
+ */
+export function officialItemName(itemId: string, original: string): string {
+  const key = itemId
+    .replace(/^blobbi:/, '')
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .map((part, i) => (i === 0 ? part : part[0].toUpperCase() + part.slice(1)))
+    .join('');
+  return key ? translatedOr(`world.items.names.${key}`, original) : original;
+}
 
 /** Whether THIS Blobbi could use the item now, before any inventory question. */
 export function itemUsability(item: HomeItem, companion: { stage: BlobbiStage; state: string; name: string }): ItemUsability {
   if (!item.care) {
-    if (item.kind === 'currency') return { ok: false, reason: 'Spent on the Island, not here.' };
-    if (item.equippable) return { ok: false, reason: 'Equip it on the Island.' };
-    return { ok: false, reason: 'Nothing to do with this at home.' };
+    if (item.kind === 'currency') return { ok: false, reason: t('world.items.reason.currency') };
+    if (item.equippable) return { ok: false, reason: t('world.items.reason.equip') };
+    return { ok: false, reason: t('world.items.reason.nothing') };
   }
   if (!item.care.stages.includes(companion.stage)) {
-    return { ok: false, reason: companion.stage === 'egg' ? 'Not until it hatches.' : 'Not at this stage.' };
+    return { ok: false, reason: companion.stage === 'egg' ? t('world.items.reason.notHatched') : t('world.items.reason.notStage') };
   }
-  if (companion.state === 'sleeping') return { ok: false, reason: 'Sleeping right now. Wake up first.' };
-  if (companion.state === 'hibernating') return { ok: false, reason: 'Hibernating. Nothing to do here for now.' };
+  if (companion.state === 'sleeping') return { ok: false, reason: t('world.items.reason.sleeping') };
+  if (companion.state === 'hibernating') return { ok: false, reason: t('world.items.reason.hibernating') };
   return { ok: true };
 }
 
 /** "Brook will eat it", for the sheet. */
 export function describeItemUse(item: HomeItem, name: string): string {
   if (!item.care) return '';
-  return `${name} will ${ACTION_WORD[item.care.action]} it.`;
+  return t(`world.items.willUse.${item.care.action}`, { name });
 }
 
 /**
@@ -235,7 +250,10 @@ export function describeItemUse(item: HomeItem, name: string): string {
 export type ItemShelf = 'food' | 'drinks' | 'toys' | 'care' | 'cosmetics' | 'other';
 
 export const SHELF_ORDER: readonly ItemShelf[] = ['food', 'drinks', 'toys', 'care', 'cosmetics', 'other'];
-export const SHELF_LABEL: Record<ItemShelf, string> = { food: 'Food', drinks: 'Drinks', toys: 'Toys', care: 'Care', cosmetics: 'Cosmetics', other: 'Other' };
+/** A shelf's name in the page's language. */
+export function shelfLabel(shelf: ItemShelf): string {
+  return t(`world.inventory.shelf.${shelf}`);
+}
 
 export function shelfFor(item: Pick<HomeItem, 'care' | 'equippable' | 'definition' | 'kind'>): ItemShelf {
   const category = item.definition?.category?.toLowerCase();

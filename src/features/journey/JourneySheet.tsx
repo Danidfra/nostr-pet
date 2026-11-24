@@ -16,6 +16,7 @@ import { Check, Circle, Clock, Egg, Hourglass, Loader2, Lock, RefreshCw, Smartph
 import { levelToXp, xpProgress, xpToNextLevel, MAX_LEVEL } from '@blobbi-kit/core';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import type { DailyXp } from '@/features/progression/useDailyXp';
+import { t, tp } from '@/i18n';
 import type { Chapter, Objective, ObjectiveAction, ObjectiveStatus } from './journey';
 
 interface JourneySheetProps {
@@ -31,8 +32,8 @@ interface JourneySheetProps {
   canAdoptMore?: boolean;
 }
 
-const ACTION_LABEL: Record<Exclude<ObjectiveAction['kind'], 'link'>, string> = { room: 'Go there', details: 'Open details', adopt: 'Adopt an egg' };
-const STATUS_LABEL: Record<ObjectiveStatus, string> = { done: 'Done', 'in-progress': 'In progress', available: 'To do', waiting: 'Come back later', locked: 'Locked' };
+const actionLabel = (kind: Exclude<ObjectiveAction['kind'], 'link'>) => t(`world.journey.action.${kind}`);
+const statusLabel = (status: ObjectiveStatus) => t(`world.journey.status.${status === 'in-progress' ? 'inProgress' : status}`);
 // Full class names, never built from a template: Tailwind keeps a component class's rule only if its name appears
 // whole in the source (the status chips shipped without their colours before M12.2)
 const STATUS_CLASS: Record<ObjectiveStatus, string> = {
@@ -72,12 +73,12 @@ function ObjectiveRow({ o, onAction, live }: { o: Objective; onAction: (a: Objec
         <span className="journey-objective__title">
           {o.title}
           {o.source === 'device' && (
-            <span className="journey-objective__device" title="Remembered on this device only" aria-label="remembered on this device only">
+            <span className="journey-objective__device" title={t('world.journey.deviceOnlyTitle')} aria-label={t('world.journey.deviceOnlyLabel')}>
               <Smartphone aria-hidden />
             </span>
           )}
           <span className={STATUS_CLASS[o.status]} data-testid={`objective-${o.id}-status`}>
-            {STATUS_LABEL[o.status]}
+            {statusLabel(o.status)}
           </span>
         </span>
         {o.status === 'waiting' && o.waitingFor ? (
@@ -88,7 +89,7 @@ function ObjectiveRow({ o, onAction, live }: { o: Objective; onAction: (a: Objec
           !o.done && <span className="journey-objective__hint">{o.hint}</span>
         )}
         {o.progress && !o.done && (
-          <span className="journey-progress" role="progressbar" aria-valuemin={0} aria-valuemax={o.progress.required} aria-valuenow={o.progress.current} aria-label={`${o.title}: ${o.progress.current} of ${o.progress.required}`}>
+          <span className="journey-progress" role="progressbar" aria-valuemin={0} aria-valuemax={o.progress.required} aria-valuenow={o.progress.current} aria-label={t('world.journey.progressLabel', { title: o.title, current: o.progress.current, required: o.progress.required })}>
             <span className="journey-progress__bar" style={{ width: `${Math.round((o.progress.current / Math.max(1, o.progress.required)) * 100)}%` }} />
             <span className="journey-progress__count">
               {o.progress.current} / {o.progress.required}
@@ -103,7 +104,7 @@ function ObjectiveRow({ o, onAction, live }: { o: Objective; onAction: (a: Objec
           </a>
         ) : (
           <button type="button" className="journey-objective__go" onClick={() => onAction(o.action!)} data-testid={`objective-${o.id}-go`}>
-            {ACTION_LABEL[o.action.kind]}
+            {actionLabel(o.action.kind)}
           </button>
         )
       )}
@@ -118,16 +119,16 @@ function LevelCard({ xp, level }: { xp: number | undefined; level: number }) {
   const into = total - levelToXp(level);
   const span = max ? 1 : levelToXp(level + 1) - levelToXp(level);
   return (
-    <section className="journey-level" data-testid="journey-level" aria-label="Blobbonaut level">
+    <section className="journey-level" data-testid="journey-level" aria-label={t('world.journey.levelLabel')}>
       <span className="journey-level__badge" aria-hidden>
         <Star />
         <span>{level}</span>
       </span>
       <span className="journey-level__text">
-        <span className="journey-level__title">Blobbonaut level {level}</span>
-        <span className="journey-progress" role="progressbar" aria-valuemin={0} aria-valuemax={span} aria-valuenow={max ? span : into} aria-label={max ? 'Highest level' : `${into} of ${span} XP to level ${level + 1}`}>
+        <span className="journey-level__title">{t('world.journey.levelTitle', { level })}</span>
+        <span className="journey-progress" role="progressbar" aria-valuemin={0} aria-valuemax={span} aria-valuenow={max ? span : into} aria-label={max ? t('world.journey.highestLevel') : t('world.journey.levelProgressLabel', { into, span, next: level + 1 })}>
           <span className="journey-progress__bar" style={{ width: `${Math.round(xpProgress(total) * 100)}%` }} />
-          <span className="journey-progress__count">{max ? `${total} XP` : `${total} XP · ${xpToNextLevel(total)} to level ${level + 1}`}</span>
+          <span className="journey-progress__count">{max ? t('world.journey.levelCountMax', { total }) : t('world.journey.levelCount', { total, left: xpToNextLevel(total), next: level + 1 })}</span>
         </span>
       </span>
     </section>
@@ -139,8 +140,8 @@ function TodayMissions({ daily }: { daily: DailyXp }) {
   if (!daily.available) {
     return (
       <section className="journey-today" data-testid="journey-today" data-state="unavailable">
-        <h3 className="journey-today__title">Today's missions</h3>
-        <p className="journey-today__note">Daily missions begin once your Blobbi has hatched. They earn XP towards your Blobbonaut level.</p>
+        <h3 className="journey-today__title">{t('world.today.title')}</h3>
+        <p className="journey-today__note">{t('world.today.unavailable')}</p>
       </section>
     );
   }
@@ -148,11 +149,11 @@ function TodayMissions({ daily }: { daily: DailyXp }) {
   return (
     <section className="journey-today" data-testid="journey-today" data-state={daily.loading ? 'loading' : award.kind}>
       <h3 className="journey-today__title">
-        Today's missions <span className="journey-today__bonus">+{daily.bonusXp} XP for all three</span>
+        {t('world.today.title')} <span className="journey-today__bonus">{t('world.today.bonus', { xp: daily.bonusXp })}</span>
       </h3>
       {daily.loading ? (
         <p className="journey-today__note">
-          <Loader2 className="animate-spin" aria-hidden /> Finding today's missions…
+          <Loader2 className="animate-spin" aria-hidden /> {t('world.today.finding')}
         </p>
       ) : (
         <ul className="journey-missions">
@@ -164,11 +165,11 @@ function TodayMissions({ daily }: { daily: DailyXp }) {
               <span className="journey-objective__text">
                 <span className="journey-objective__title">
                   {m.title}
-                  <span className="journey-mission__xp">+{m.xp} XP</span>
+                  <span className="journey-mission__xp">{t('world.today.xp', { xp: m.xp })}</span>
                 </span>
-                {!m.complete && <span className="journey-objective__hint">{m.here ? m.description : `${m.description}. That one happens in Ditto for now.`}</span>}
+                {!m.complete && <span className="journey-objective__hint">{m.here ? m.description : t('world.today.elsewhere', { description: m.description })}</span>}
                 {!m.complete && m.target > 1 && (
-                  <span className="journey-progress" role="progressbar" aria-valuemin={0} aria-valuemax={m.target} aria-valuenow={m.progress} aria-label={`${m.title}: ${m.progress} of ${m.target}`}>
+                  <span className="journey-progress" role="progressbar" aria-valuemin={0} aria-valuemax={m.target} aria-valuenow={m.progress} aria-label={t('world.journey.progressLabel', { title: m.title, current: m.progress, required: m.target })}>
                     <span className="journey-progress__bar" style={{ width: `${Math.round((m.progress / m.target) * 100)}%` }} />
                     <span className="journey-progress__count">
                       {m.progress} / {m.target}
@@ -177,8 +178,8 @@ function TodayMissions({ daily }: { daily: DailyXp }) {
                 )}
               </span>
               {!m.complete && !m.here && daily.rerollsLeft > 0 && (
-                <button type="button" className="journey-objective__go" onClick={() => daily.swap(m.id)} disabled={daily.swapping} data-testid={`daily-${m.id}-swap`} title={`Swap it for another mission (${daily.rerollsLeft} swap${daily.rerollsLeft === 1 ? '' : 's'} left today)`}>
-                  <RefreshCw aria-hidden /> Swap
+                <button type="button" className="journey-objective__go" onClick={() => daily.swap(m.id)} disabled={daily.swapping} data-testid={`daily-${m.id}-swap`} title={tp('world.today.swapTitle', daily.rerollsLeft)}>
+                  <RefreshCw aria-hidden /> {t('world.today.swap')}
                 </button>
               )}
             </li>
@@ -193,17 +194,17 @@ function TodayMissions({ daily }: { daily: DailyXp }) {
           <p className="journey-today__note" role="status" data-testid="journey-today-progress" data-state={p.kind}>
             {p.kind === 'saving' ? (
               <>
-                <Loader2 className="animate-spin" aria-hidden /> Saving today's progress to your account…
+                <Loader2 className="animate-spin" aria-hidden /> {t('world.today.progressSaving')}
               </>
             ) : (
               <>
                 {p.kind === 'failed' && p.reason === 'storage'
-                  ? "This device couldn't keep today's progress."
+                  ? t('world.today.progressStorage')
                   : p.kind === 'failed'
-                    ? "Today's progress couldn't be saved to your account just now. It's kept on this device."
-                    : "Today's progress is kept on this device, not saved to your account yet."}{' '}
+                    ? t('world.today.progressFailed')
+                    : t('world.today.progressPending')}{' '}
                 <button type="button" className="journey-today__retry" onClick={daily.progress.save} data-testid="journey-today-save">
-                  Save
+                  {t('common.save')}
                 </button>
               </>
             )}
@@ -213,25 +214,25 @@ function TodayMissions({ daily }: { daily: DailyXp }) {
       <p className="journey-today__note" role="status" data-testid="journey-today-award">
         {award.kind === 'saving' ? (
           <>
-            <Loader2 className="animate-spin" aria-hidden /> Saving today's XP to your account…
+            <Loader2 className="animate-spin" aria-hidden /> {t('world.today.awardSaving')}
           </>
         ) : award.kind === 'paid' ? (
           <>
-            <Sparkles aria-hidden /> Well done! +{award.xp} XP today. New missions tomorrow.
+            <Sparkles aria-hidden /> {t('world.today.awardPaid', { xp: award.xp })}
           </>
         ) : award.kind === 'already' ? (
           <>
-            <Check aria-hidden /> Today's XP is already yours. New missions tomorrow.
+            <Check aria-hidden /> {t('world.today.awardAlready')}
           </>
         ) : award.kind === 'failed' ? (
           <>
-            Today's XP is not saved yet: {award.message}{' '}
+            {t('world.today.awardFailed', { message: award.message })}{' '}
             <button type="button" className="journey-today__retry" onClick={daily.retryAward} data-testid="journey-today-retry">
-              Try again
+              {t('common.retry')}
             </button>
           </>
         ) : (
-          <>Care in the room counts. New missions every day; a missed day costs nothing.</>
+          <>{t('world.today.awardIdle')}</>
         )}
       </p>
     </section>
@@ -241,15 +242,15 @@ function TodayMissions({ daily }: { daily: DailyXp }) {
 export function JourneySheet({ open, onClose, chapters, onAction, progress, daily, canAdoptMore = false }: JourneySheetProps) {
   const current = chapters.find((c) => c.status === 'current');
   return (
-    <GameOverlay open={open} onClose={onClose} title="Journey" testId="journey-sheet" subtitle={current ? `Chapter ${current.number}: ${current.title}` : 'Every chapter done. What a team!'}>
+    <GameOverlay open={open} onClose={onClose} title={t('world.journey.title')} testId="journey-sheet" subtitle={current ? t('world.journey.chapter', { number: current.number, title: current.title }) : t('world.journey.allDone')}>
       {progress && <LevelCard xp={progress.xp} level={progress.level} />}
       {daily && <TodayMissions daily={daily} />}
       {canAdoptMore && (
         <button type="button" className="journey-adopt" onClick={() => onAction({ kind: 'adopt' })} data-testid="journey-adopt">
           <Egg aria-hidden />
           <span>
-            <span className="journey-adopt__title">A new egg can join you</span>
-            <span className="journey-adopt__sub">Your level allows another Blobbi. Adopt an egg</span>
+            <span className="journey-adopt__title">{t('world.journey.adoptTitle')}</span>
+            <span className="journey-adopt__sub">{t('world.journey.adoptSub')}</span>
           </span>
         </button>
       )}
@@ -263,10 +264,8 @@ export function JourneySheet({ open, onClose, chapters, onAction, progress, dail
                   {c.status === 'done' ? <Check /> : c.status === 'locked' ? <Lock /> : c.number}
                 </span>
                 <span className="journey-chapter__titles">
-                  <span className="journey-chapter__title">
-                    Chapter {c.number}: {c.title}
-                  </span>
-                  <span className="journey-chapter__story">{c.status === 'locked' ? `Opens after Chapter ${c.number - 1}. ${c.story}` : c.story}</span>
+                  <span className="journey-chapter__title">{t('world.journey.chapter', { number: c.number, title: c.title })}</span>
+                  <span className="journey-chapter__story">{c.status === 'locked' ? t('world.journey.lockedStory', { previous: c.number - 1, story: c.story }) : c.story}</span>
                 </span>
                 {c.status !== 'locked' && (
                   <span className="journey-chapter__count">
@@ -281,19 +280,19 @@ export function JourneySheet({ open, onClose, chapters, onAction, progress, dail
                       <ObjectiveRow key={o.id} o={o} onAction={onAction} live />
                     ))}
                   </ul>
-                  <p className="journey-chapter__opens">Finishing it opens {c.opens}.</p>
+                  <p className="journey-chapter__opens">{t('world.journey.opens', { opens: c.opens })}</p>
                 </>
               )}
               {c.status === 'locked' && (
                 <p className="journey-chapter__inside" data-testid={`chapter-${c.id}-inside`}>
-                  Inside: {c.objectives.map((o) => o.title).join(' · ')}
+                  {t('world.journey.inside', { list: c.objectives.map((o) => o.title).join(' · ') })}
                 </p>
               )}
             </li>
           );
         })}
       </ol>
-      <p className="journey-note">Ticks come from your Blobbi's own record on Nostr, so they follow you to any device. The phone mark means "remembered on this device".</p>
+      <p className="journey-note">{t('world.journey.note')}</p>
     </GameOverlay>
   );
 }

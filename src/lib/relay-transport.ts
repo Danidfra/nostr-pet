@@ -17,6 +17,8 @@
  * the problem; the relay transport is.
  */
 
+import { t } from '@/i18n';
+
 export type TransportBlockReason = 'insecure-context' | 'no-web-crypto';
 
 export interface TransportBlock {
@@ -49,16 +51,16 @@ export function checkRelayTransport(env: TransportEnvironment = describeEnvironm
   const hasUUID = typeof c?.randomUUID === 'function';
   if (hasRandom && hasUUID) return null;
   const insecure = env.isSecureContext === false && (hasRandom || !c);
-  const where = env.location ? `${env.location.protocol}//${env.location.host}` : 'this address';
+  const where = env.location ? `${env.location.protocol}//${env.location.host}` : t('world.relay.thisAddress');
   if (insecure) {
     return {
       reason: 'insecure-context',
-      message: `This page is open over plain HTTP (${where}), which the browser treats as insecure, so it withholds part of Web Crypto and the relays cannot be reached. Open it over https://, or on localhost on this machine. A development fixture link (?fixture=) works here without an account.`,
+      message: t('world.relay.insecure', { where }),
     };
   }
   return {
     reason: 'no-web-crypto',
-    message: 'This browser has no Web Crypto (crypto.getRandomValues and crypto.randomUUID), which the relays need. Use a current browser.',
+    message: t('world.relay.noCrypto'),
   };
 }
 
@@ -75,7 +77,7 @@ export class RelayTransportError extends Error {
 /** No relay answered a read within the home's deadline. */
 export class RelayTimeoutError extends Error {
   constructor(ms: number) {
-    super(`No relay answered within ${Math.round(ms / 1000)} seconds. Check the connection and try again.`);
+    super(t('world.relay.timeout', { seconds: Math.round(ms / 1000) }));
     this.name = 'RelayTimeoutError';
   }
 }
@@ -89,7 +91,7 @@ export class RelayReadUnknownError extends Error {
   /** The relays that had to answer and did not. */
   readonly silent: readonly string[];
   constructor(silent: readonly string[]) {
-    super('Some relays did not answer, so this could not be read for certain. Check the connection and try again.');
+    super(t('world.relay.unknown'));
     this.name = 'RelayReadUnknownError';
     this.silent = silent;
   }
