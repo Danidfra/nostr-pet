@@ -56,6 +56,7 @@ import { GuestStatusPill, GuestStatusSheet, SavedPill } from '@/features/guest/G
 import { useJourney } from '@/features/journey/useJourney';
 import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
 import { JourneySheet } from '@/features/journey/JourneySheet';
+import { PolaroidDoor } from '@/features/photo';
 import type { ObjectiveAction } from '@/features/journey/journey';
 import { WorldsSheet } from '@/features/worlds/WorldsSheet';
 import { WorldsButton } from '@/features/worlds/WorldsButton';
@@ -211,6 +212,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   // Sheets
   const [blobbiSheetOpen, setBlobbiSheetOpen] = useState(false);
+  // The Polaroid (src/features/photo): a portrait to keep or send; nothing is written
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
   const openItems = useCallback(() => setItemsOpen(true), []);
@@ -951,7 +954,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const guestUi = useGuestUi();
   const guestActive = guest.mode === 'active';
   const requestSave = guestUi.requestSave;
-  const homeQuiet = !busyWithObject && !theater && !inCeremony && pendingAction === null && !blobbiSheetOpen && !menuOpen && !itemsOpen && !sleeping;
+  const homeQuiet = !busyWithObject && !theater && !inCeremony && pendingAction === null && !blobbiSheetOpen && !photoOpen && !menuOpen && !itemsOpen && !sleeping;
   // The one switch between the two homes (M14.1), upper right; the first 3D asks first
   const modeSwitch = useModeSwitch();
   // The guest's status, by the name (M14.1): a word, and a short explanation on tap; "Saved to Nostr" once a save landed
@@ -1207,7 +1210,12 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               setBlobbiSheetOpen(false);
               setJourneyOpen(true);
             }}
+            onOpenPhoto={() => {
+              setBlobbiSheetOpen(false);
+              setPhotoOpen(true);
+            }}
           />
+          <PolaroidDoor open={photoOpen} onClose={() => setPhotoOpen(false)} blobbi={blobbi} stats={projected?.stats} eggCrack={isEgg ? eggCrack : undefined} accessories={isEgg ? undefined : worn.accessoriesFor('front')} />
           <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} />
           <JourneySheet open={journeyOpen} onClose={() => setJourneyOpen(false)} chapters={journeyBook.chapters} onAction={onJourneyAction} progress={{ xp: profile?.xp, level: journeyBook.level }} daily={daily} canAdoptMore={false} />
           <WorldsSheet

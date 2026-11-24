@@ -18,6 +18,7 @@ import { LOOK_GUIDE_SHEET_MS, lookTitle, shownLook } from '../lib/look-guide';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
+import { PhotoTile } from '@/features/photo';
 import { BlobbiStatusPanel, type StatItem } from '@/features/home/BlobbiStatusPanel';
 import { ProgressionStrip } from '@/features/home/ProgressionStrip';
 import { BlobbiSelector } from '@/features/home/BlobbiSelector';
@@ -39,6 +40,8 @@ interface RoomBlobbiSheetProps {
   firstBlobbi?: boolean;
   /** The Journey (chapters, today's missions, the level): the Blobbi's progression, from here (M14.1). */
   onOpenJourney?: () => void;
+  /** The Polaroid: a portrait of this Blobbi to keep or to send (src/features/photo). */
+  onOpenPhoto?: () => void;
   /** A guest's Blobbi (M14): the lifecycle runs on this device, and the panel says so. */
   guest?: boolean;
   /** Open the whole inventory (every item the player owns, usable here or not). */
@@ -109,7 +112,7 @@ function Chip({ children, testId, tone = 'neutral' }: { children: React.ReactNod
   );
 }
 
-export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, onOpenItems, usableItemCount, onOpenJourney, guest = false, appearance, highlightAppearance = false, onAppearanceSeen, reducedMotion = false }: RoomBlobbiSheetProps) {
+export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, onOpenItems, usableItemCount, onOpenJourney, onOpenPhoto, guest = false, appearance, highlightAppearance = false, onAppearanceSeen, reducedMotion = false }: RoomBlobbiSheetProps) {
   const portrait = (
     <span className="overlay-portrait" aria-hidden>
       <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`room-details-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
@@ -178,6 +181,8 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
           </button>
 
         )}
+
+        {onOpenPhoto && <PhotoTile name={blobbi.name} onOpen={onOpenPhoto} />}
 
         <LifecyclePanel name={blobbi.name} lifecycle={lifecycle} ceremony={ceremony} onCeremony={onCeremony} firstBlobbi={firstBlobbi} embedded guest={guest} />
 

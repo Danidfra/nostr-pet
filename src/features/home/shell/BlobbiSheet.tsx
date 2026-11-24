@@ -3,6 +3,7 @@ import { ChevronRight, Map as MapIcon, Moon, Snowflake, Sparkles } from 'lucide-
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { GameOverlay } from './GameOverlay';
+import { PhotoTile } from '@/features/photo';
 import { BlobbiStatusPanel, type StatItem } from '../BlobbiStatusPanel';
 import { ProgressionStrip } from '../ProgressionStrip';
 import { BlobbiSelector } from '../BlobbiSelector';
@@ -25,6 +26,8 @@ interface BlobbiSheetProps {
   firstBlobbi?: boolean;
   /** The Journey (chapters, today's missions, the level): the Blobbi's progression, from here (M14.1). */
   onOpenJourney?: () => void;
+  /** The Polaroid: a portrait of this Blobbi to keep or to send (src/features/photo). */
+  onOpenPhoto?: () => void;
   devForce?: (kind: CeremonyKind) => void;
   /** A guest's Blobbi (M14): evolving waits for a saved Blobbi; the panel says so instead of offering it. */
   guest?: boolean;
@@ -52,7 +55,7 @@ function Chip({ children, testId, tone = 'neutral' }: { children: React.ReactNod
  * exact numbers, progression, the lifecycle missions, and the other
  * Blobbis. The home shows only what matters at a glance; this is the rest.
  */
-export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, devForce, guest = false, onOpenJourney }: BlobbiSheetProps) {
+export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, devForce, guest = false, onOpenJourney, onOpenPhoto }: BlobbiSheetProps) {
   const portrait = (
     <span className="overlay-portrait" aria-hidden>
       <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`details-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
@@ -108,6 +111,7 @@ export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, c
             <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
           </button>
         )}
+        {onOpenPhoto && <PhotoTile name={blobbi.name} onOpen={onOpenPhoto} />}
         <LifecyclePanel name={blobbi.name} lifecycle={lifecycle} ceremony={ceremony} onCeremony={onCeremony} firstBlobbi={firstBlobbi} devForce={devForce} embedded guest={guest} />
 
         {companions.length > 1 && (

@@ -4927,3 +4927,202 @@
   .mission__go { display: inline-flex; align-items: center; gap: 0.25rem; flex: none; padding: 0.3rem 0.6rem; border-radius: 9999px; border: 1px solid hsl(var(--border)); background: hsl(var(--background)); font-size: 0.72rem; font-weight: 600; }
   .mission__go svg { width: 0.7rem; height: 0.7rem; }
 }
+
+@layer components {
+  /* ─── The Polaroid (src/features/photo): the picture, its frames, its words ─── */
+  .polaroid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding-top: 0.9rem;
+  }
+  .polaroid__stage {
+    display: flex;
+    justify-content: center;
+    padding: 0.4rem 0 0.2rem;
+  }
+  /* The picture itself: a real image, so a long press saves it. The 3D room turns the callout off for its drags
+     (.room-shell); here it is turned back on, and the image may be selected and dragged out on a desktop. */
+  .polaroid__picture {
+    display: block;
+    width: min(100%, 17rem);
+    height: auto;
+    aspect-ratio: 4 / 5;
+    border-radius: 0.6rem;
+    box-shadow: 0 1px 2px hsl(260 30% 20% / 0.12), 0 18px 34px -18px hsl(260 40% 30% / 0.45);
+    transform: rotate(-1.5deg);
+    -webkit-touch-callout: default;
+    -webkit-user-select: auto;
+    user-select: auto;
+    transition: opacity 160ms ease;
+  }
+  .polaroid__stage[data-drawing] .polaroid__picture {
+    opacity: 0.82;
+  }
+  .polaroid__picture--waiting {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--card));
+    border: 1px dashed hsl(var(--border));
+    box-shadow: none;
+  }
+  .polaroid__note {
+    margin: -0.3rem 0 0;
+    text-align: center;
+    font-size: 0.78rem;
+    color: hsl(var(--muted-foreground));
+  }
+  .polaroid__frames {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  .polaroid__frame {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.75rem;
+    border-radius: 1rem;
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card));
+    padding: 0.6rem 0.4rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .polaroid__frame[aria-checked='true'] {
+    border-color: hsl(var(--primary) / 0.7);
+    background: hsl(var(--primary) / 0.1);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.5);
+  }
+  .polaroid__frame:focus-visible,
+  .polaroid__action:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--card)), 0 0 0 4px hsl(var(--ring));
+  }
+  /* A frame in miniature: its paper round its backdrop */
+  .polaroid__swatch {
+    display: block;
+    width: 2rem;
+    height: 2.4rem;
+    border-radius: 0.25rem;
+    border: 0.22rem solid #fffdf8;
+    border-bottom-width: 0.6rem;
+    background: linear-gradient(#f4eefc, #fff5f7);
+    box-shadow: 0 1px 3px hsl(260 30% 20% / 0.25);
+  }
+  .polaroid__frame[data-frame='pastel'] .polaroid__swatch {
+    border-color: #ecdcff;
+    background: linear-gradient(#e3f1ff, #fdeaf4);
+  }
+  .polaroid__frame[data-frame='playful'] .polaroid__swatch {
+    border-color: #fff1cf;
+    background: radial-gradient(circle at 78% 22%, #fbbf24 0 14%, transparent 15%), radial-gradient(circle at 22% 80%, #fb7185 0 12%, transparent 13%), linear-gradient(#fff1c9, #ffd9e8);
+  }
+  .polaroid__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .polaroid__label {
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+  .polaroid__optional {
+    margin-left: 0.3rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: hsl(var(--muted-foreground));
+  }
+  .polaroid__count {
+    align-self: flex-end;
+    font-size: 0.72rem;
+    color: hsl(var(--muted-foreground));
+  }
+  .polaroid__check {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 2.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .polaroid__check input {
+    width: 1.25rem;
+    height: 1.25rem;
+    accent-color: hsl(var(--primary));
+  }
+  .polaroid__actions {
+    display: flex;
+    gap: 0.6rem;
+  }
+  .polaroid__action {
+    display: inline-flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3rem;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .polaroid__action--primary {
+    border-color: transparent;
+    color: hsl(var(--primary-foreground));
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(320 80% 60%) 100%);
+  }
+  .polaroid__action:disabled {
+    opacity: 0.5;
+  }
+  .polaroid__status {
+    min-height: 1.2rem;
+    margin: -0.3rem 0 0;
+    text-align: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+  .polaroid__hint {
+    margin: 0;
+    text-align: center;
+    font-size: 0.76rem;
+    color: hsl(var(--muted-foreground));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .polaroid__picture {
+      transition: none;
+    }
+  }
+  /* The Dev Lab's contact sheet of Polaroids */
+  .dev-polaroids {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+    gap: 0.6rem;
+  }
+  .dev-polaroids figure {
+    margin: 0;
+    font-size: 0.7rem;
+    text-align: center;
+  }
+  .dev-polaroids img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 5;
+    border-radius: 0.3rem;
+    box-shadow: 0 1px 4px hsl(260 30% 20% / 0.3);
+  }
+}

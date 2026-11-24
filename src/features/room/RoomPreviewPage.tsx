@@ -79,6 +79,7 @@ import { DepartureCard } from '@/features/worlds/DepartureCard';
 import { useJourney } from '@/features/journey/useJourney';
 import { useDailyXp } from '@/features/progression/useDailyXp';
 import { JourneySheet } from '@/features/journey/JourneySheet';
+import { PolaroidDoor } from '@/features/photo';
 import { ChapterToast } from '@/features/journey/ChapterToast';
 import type { ObjectiveAction } from '@/features/journey/journey';
 import type { LifecycleTask } from '@/features/lifecycle';
@@ -605,6 +606,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // ─── The screens over the room: the menu, the Blobbi's details, the whole inventory ───
   const [menuOpen, setMenuOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // The Polaroid (src/features/photo): a portrait to keep or send; nothing is written, and the 3D scene is not read
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
   const statItems = useMemo<StatItem[]>(
     () => (projected ? getVisibleStats(blobbi.stage).map((stat) => ({ stat, value: projected.stats[stat], status: getStatStatus(blobbi.stage, stat, projected.stats[stat]) })) : []),
@@ -1150,7 +1153,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // A guest's room (M15): the same invitation to save as the 2D home's, by the shared rules, in a quiet moment of the
   // room (nothing in use or walking, no ceremony, nothing of the room's open, the Blobbi here and awake)
   const roomQuiet =
-    present && !bathing && !care.busy && care.offer === null && interactions.activity === null && !transitioning && !theater && !isSleeping && !decorator.editing && lifecycle.pending === null && !sheetOpen && !menuOpen && !itemsOpen && !introOpen && !fridgeOpen && !statusOpen && !worldsOpen && !journeyOpen && !adoptOpen && departure.phase === 'idle';
+    present && !bathing && !care.busy && care.offer === null && interactions.activity === null && !transitioning && !theater && !isSleeping && !decorator.editing && lifecycle.pending === null && !sheetOpen && !photoOpen && !menuOpen && !itemsOpen && !introOpen && !fridgeOpen && !statusOpen && !worldsOpen && !journeyOpen && !adoptOpen && departure.phase === 'idle';
   const saveInvite = useSaveInvite({ hatched: blobbi.stage !== 'egg', quiet: roomQuiet });
 
   return (
@@ -1415,8 +1418,14 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           setSheetOpen(false);
           setJourneyOpen(true);
         }}
+        onOpenPhoto={() => {
+          setSheetOpen(false);
+          endLookGuide();
+          setPhotoOpen(true);
+        }}
         guest={guestActive}
       />
+      <PolaroidDoor open={photoOpen} onClose={() => setPhotoOpen(false)} blobbi={blobbi} stats={projected?.stats} eggCrack={isEgg ? lifecycle.view.eggCrack : undefined} accessories={isEgg ? undefined : worn.accessoriesFor('front')} />
       <InventorySheet
         open={itemsOpen}
         onClose={() => setItemsOpen(false)}
