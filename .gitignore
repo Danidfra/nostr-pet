@@ -32,3 +32,5 @@ blobbi-docs
 
 test-dist/
 *.test-dist.js
+.vercel
+.env*
