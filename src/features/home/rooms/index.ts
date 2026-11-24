@@ -1,11 +1,6 @@
 export { ROOM_ORDER, DEFAULT_ROOM, SLEEP_ROOM, ROOM_STORAGE_PREFIX, isRoomId, roomById, allRooms, neighbourRoom, resolveRoom, roomShowsItem, sleepSpotFor, approachSpot, entrySpot, roomStorageKey, readStoredRoom, writeStoredRoom } from './rooms';
 export type { RoomId, RoomDefinition, RoomActivity, RoomDecor, RoomFixture } from './rooms';
-export { useRoom } from './useRoom';
-export type { RoomState } from './useRoom';
-export { useRoomLayout, readRoomPlacements } from './useRoomLayout';
-export type { RoomLayoutState } from './useRoomLayout';
 export { RoomBackdrop, WINDOW_DECOR } from './RoomBackdrop';
-export { RoomArrows, RoomIndicator } from './RoomNav';
 export { FurnitureLayer } from './FurnitureLayer';
 export { FURNITURE, FURNITURE_CATEGORY_LABEL, furnitureById, canPlaceInRoom, furnitureForRoom } from './furniture-registry';
 export type { FurnitureDefinition, FurnitureCategory, FurnitureUse } from './furniture-registry';
@@ -15,13 +10,5 @@ export { createLocalLayoutStore, localLayoutStore, layoutStorageKey, LAYOUT_STOR
 export type { LayoutStore } from './layout-store';
 export { surfaceBackground, parseSurface, isHexColor, WALL_STYLES, FLOOR_STYLES, SURFACE_VARIANTS } from './surfaces';
 export type { SurfaceLayout, RoomSurfaces, WallStyle, FloorStyle, SurfaceVariant } from './surfaces';
-export { useRoomEditor, isLegalPlacement } from './useRoomEditor';
-export type { RoomEditor } from './useRoomEditor';
-export { useFurnitureDrag, DRAG_SLOP_PX } from './useFurnitureDrag';
-export { RoomEditorBar } from './RoomEditorBar';
-export { FurnitureCatalogSheet } from './FurnitureCatalogSheet';
-export { movePlacement, nudgePlacement, cyclePlacementLayer, scalePlacement, flipPlacement, removePlacement, addPlacement, sameLayout, defaultPointFor, NUDGE_STEP, NUDGE_STEP_LARGE, SCALE_STEP } from './layout-edit';
-export { usePlacedToys } from './usePlacedToys';
-export type { PlacedToysState, ToyInRoom } from './usePlacedToys';
 export { readPlacedToys, writePlacedToys, parsePlacedToys, toyStorageKey, toyKey, toyApproach, MAX_TOYS_PER_ROOM, TOY_STORAGE_PREFIX } from './toy-store';
 export type { PlacedToy, PlacedToys } from './toy-store';

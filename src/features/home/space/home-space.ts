@@ -2,10 +2,8 @@
  * The one space the home shows, and the pieces that come out for a care
  * moment.
  *
- * The multi-room registry, the layout store and the editor from M9 are
- * kept in `src/features/home/rooms/` as dormant infrastructure (see the
- * README there); the active product is this single space, built from the
- * same definitions: the living room's surfaces, its window (decor) and its
+ * The room definitions live in `src/features/home/rooms/` (see the README
+ * there); the home is this single space, built from them: the living room's surfaces, its window (decor) and its
  * door (the way to the Island). Nothing else is permanent: no rug, lamp,
  * plant or shelf, no bed, no toy. The bed and the tub are brought out for
  * rest and for a bath and go away after; food and toys are set down for a

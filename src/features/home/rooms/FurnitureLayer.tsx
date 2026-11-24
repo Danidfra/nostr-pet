@@ -82,8 +82,8 @@ function FurnitureLayerImpl({ placements, interactive = false, onUse, stateOf, d
 }
 
 /**
- * A piece's name in the page's language: the bed and the tub the live home brings out are translated; the dormant
- * registry's other pieces (and its editor's words) keep their English labels.
+ * A piece's name in the page's language: the bed and the tub the home brings out are translated; the
+ * registry's other pieces, never shown, keep their English labels.
  */
 function furnitureLabel(def: { id: string; label: string }): string {
   if (def.id === 'home:bed-pet') return t('home.furniture.bed');

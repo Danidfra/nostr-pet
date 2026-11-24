@@ -1,6 +1,5 @@
 export { HomeScene } from './HomeScene';
 export { BlobbiActor } from './BlobbiActor';
-export { SceneBackdrop } from './SceneBackdrop';
 export { SceneObjectView, DoorArt } from './SceneObjectView';
 export { NeedBubbles } from './NeedBubbles';
 export { SceneSettingsProvider, useSceneSettings, useReducedMotion, useHoverCapable } from './SceneSettings';

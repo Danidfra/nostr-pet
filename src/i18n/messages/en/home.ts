@@ -335,7 +335,7 @@ export const home = {
     aBlobbi: 'a Blobbi',
     anotherBlobbi: 'another Blobbi',
   },
-  /** The furniture the live home brings out (the dormant room registry keeps its own English labels). */
+  /** The furniture the live home brings out (the registry's other pieces are never shown). */
   furniture: {
     bed: 'Pet Bed',
     tub: 'Bathtub',
