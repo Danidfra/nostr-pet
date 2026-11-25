@@ -7,6 +7,7 @@
  * account's first never hatched without its incubation.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -95,6 +96,10 @@ beforeEach(() => {
   signCount = 0;
   currentUser.user = { pubkey: PUBKEY, signer };
 });
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('worlds from the room', () => {
   it('lists every open world as a button, the Pixel world among them, never a link', async () => {

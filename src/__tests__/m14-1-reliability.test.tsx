@@ -12,6 +12,7 @@
  * between the homes remembers itself, and the first 3D asks first.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -129,6 +130,10 @@ beforeEach(() => {
   HTMLAnchorElement.prototype.click = () => {};
 });
 afterEach(() => cleanup());
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('M14.1: the account buttons from the 3D room', () => {
   it('Save my Blobbi in the room\'s menu opens the ceremony over the room, the Blobbi still there; Maybe later closes it and nothing changed', async () => {

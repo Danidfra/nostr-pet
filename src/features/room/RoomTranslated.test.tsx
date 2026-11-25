@@ -12,6 +12,7 @@
  * rooms, repeatedly and quickly, and expects the room to stand.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 vi.hoisted(() => {
@@ -89,6 +90,10 @@ afterEach(() => {
   quiet?.mockRestore();
   quiet = null;
 });
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('the room under a page translator', () => {
   it('changes rooms, back and forth and quickly, after its text was moved into <font> elements: no DOM error, no crash card', async () => {

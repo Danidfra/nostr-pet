@@ -15,6 +15,7 @@
  * (the 2D fallback), the room a phone without WebGL gets.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -140,6 +141,10 @@ beforeEach(() => {
 afterEach(() => {
   delete (window as { nostr?: unknown }).nostr;
 });
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('a new player is born into the 2D home', () => {
   it('nothing stored is 2D; junk is 2D too', () => {

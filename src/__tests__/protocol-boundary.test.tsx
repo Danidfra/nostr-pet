@@ -11,7 +11,8 @@
  * furniture, rooms and the 2D/3D switch write nothing; its uses write the
  * home's kinds exactly.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 
 // The classic home (legacy since M11, when the room became the home): these are its own tests, so it is the one opened
 vi.mock('@/lib/home-experience', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/home-experience')>()), readExperience: () => 'classic' as const }));
@@ -155,6 +156,10 @@ beforeEach(() => {
   query.mockClear();
   event.mockClear();
 });
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('Presentation never touches Nostr', () => {
   it('walking, looking, poking, opening the options, setting an item down and putting it back write nothing and read nothing new', async () => {

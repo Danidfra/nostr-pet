@@ -8,6 +8,7 @@
  */
 import { isRoomMemoryKey } from '@/features/room/lib/room-memory';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -103,6 +104,10 @@ beforeEach(() => {
   localStorage.clear();
 });
 afterEach(() => localStorage.clear());
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('decorating kept on this device', () => {
   it('Save keeps a room through room switches and a reload; Cancel and the draft write nothing', async () => {

@@ -13,6 +13,7 @@
  * stylesheet keeps the ceremony to the visible viewport.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
@@ -140,6 +141,10 @@ beforeEach(() => {
   HTMLAnchorElement.prototype.click = () => {};
 });
 afterEach(() => cleanup());
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('M14.2: the words', () => {
   it('the guest surfaces speak of the Blobbi by name, in short sentences without semicolons, and never of relays', async () => {

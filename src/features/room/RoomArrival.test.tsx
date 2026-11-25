@@ -7,6 +7,7 @@
  * it; nothing is ever written.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -108,6 +109,10 @@ beforeEach(() => {
   window.localStorage.setItem('blobbi:home:3d-intro:v1', 'seen');
 });
 afterEach(() => localStorage.clear());
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('when to arrive (pure)', () => {
   it('a hatched, awake Blobbi arrives; an egg and a sleeper do not', () => {
