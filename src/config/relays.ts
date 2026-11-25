@@ -123,11 +123,14 @@ export function syncDestinations(kind: number): readonly string[] {
 }
 
 /**
- * The most relays one read may fan out to, application relays included.
- * Hints are source-controlled constants, so this is a ceiling, not a knob:
- * it caps the damage of a mistaken table, never a player's choice.
+ * The most relays one read may fan out to: the primary, the application
+ * relays and the player's extra read relays (`MAX_EXTRA_RELAYS`) are always
+ * asked; the hints fill what is left. Hints are source-controlled constants,
+ * so this is a ceiling, not a knob: it caps the damage of a mistaken table.
  */
-export const MAX_RELAYS_PER_READ = 8;
+export const MAX_RELAYS_PER_READ = 12;
+/** How many extra relays a player may add in the relay settings. */
+export const MAX_EXTRA_RELAYS = 5;
 
 /**
  * One canonical spelling per relay, or `null` for anything that is not a

@@ -1,7 +1,7 @@
 import { createContext, useContext, useSyncExternalStore } from 'react';
 import type { RelayHealth, RelayHealthStore } from '@/lib/relay-health';
 
-const HEALTHY: RelayHealth = { level: 'healthy', online: true, relays: {}, blocked: null };
+const HEALTHY: RelayHealth = { level: 'healthy', online: true, relays: {}, extras: {}, blocked: null };
 const noopStore: RelayHealthStore = { snapshot: () => HEALTHY, subscribe: () => () => {}, log: () => {}, setOnline: () => {}, reset: () => {} };
 
 /**

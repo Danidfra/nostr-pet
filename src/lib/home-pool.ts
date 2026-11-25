@@ -31,6 +31,13 @@
  *    this page already saw: the newest revision it has read or published
  *    stands in for a relay that did not answer.
  *
+ * THE PLAYER'S EXTRA RELAYS (the relay settings, `setExtraRelays`) join the
+ * routes of the same pool: a read relay is asked with every filter, a write
+ * relay receives every write; neither is ever one whose answer a read needs
+ * or whose acceptance saves a write. A relay taken out is closed once no
+ * write to it is still on its way, so a change never cuts a write off and
+ * never leaves a connection behind. The pool itself is never recreated.
+ *
  * Every other read (profile metadata, themes, an `ids` lookup) is nostrify's
  * own `query`, as before. Two things nostrify leaves to the caller are still
  * decided here, so no read can hang the home forever:
@@ -82,6 +89,21 @@ export const SUSPECT_MS = 5 * 60_000;
 export const SUSPECT_TIMEOUT_MS = 3_000;
 /** How long the destinations of a write are given to answer when the caller set no limit. */
 export const WRITE_SETTLE_MS = 15_000;
+
+/** One of the player's extra relays (normalized URL), as the relay settings give it. */
+export interface ExtraRelay {
+  url: string;
+  read: boolean;
+  write: boolean;
+}
+
+/** What the home's pool can do beyond `NPool`. */
+export interface HomePoolControls {
+  /** The relay settings changed: the extra relays' routes now, connections no route uses closed once idle. */
+  setExtraRelays(extras: readonly ExtraRelay[]): void;
+  /** The browser is online again: every connection's next retry is a short one. */
+  connectivityRestored(): void;
+}
 
 /** What the pool tells whoever keeps track of deliveries and gaps (`relay-sync.ts`). */
 export interface HomePoolObserver {
@@ -161,7 +183,9 @@ interface HomePoolConfig {
   /** Normalized: the relays whose acceptance saves a write of this kind, or null for the first acceptance anywhere. */
   confirmWith: (kind: number) => readonly string[] | null;
   /** Each connection's reconnection schedule (`relay-backoff.ts`), by relay. */
-  backoffs: ReadonlyMap<string, JitteredBackoff>;
+  backoffs: Map<string, JitteredBackoff>;
+  /** Replace the extra relays in the routes; returns the URLs no route uses any more. */
+  applyExtras: (extras: readonly ExtraRelay[]) => string[];
   now: () => number;
   probe?: QueryProbe;
 }
@@ -177,7 +201,12 @@ interface RelayRead {
 
 const MAX_HEADS = 300;
 
-class HomePool extends NPool {
+class HomePool extends NPool implements HomePoolControls {
+  /** Writes still on their way, by relay: a relay taken out of the routes is closed only once it has none. */
+  private readonly writing = new Map<string, number>();
+  /** Relays taken out of the routes while a write to them was still on its way. */
+  private readonly retiring = new Set<string>();
+
   /** When each relay last failed a Blobbi read (ms). */
   private readonly failedAt = new Map<string, number>();
   /** The newest revision of each address this page has read or published, by address. */
@@ -196,6 +225,39 @@ class HomePool extends NPool {
    */
   connectivityRestored(): void {
     for (const backoff of this.cfg.backoffs.values()) backoff.reset();
+  }
+
+  setExtraRelays(extras: readonly ExtraRelay[]): void {
+    for (const url of this.cfg.applyExtras(extras)) {
+      if ((this.writing.get(url) ?? 0) > 0) this.retiring.add(url);
+      else this.closeRelay(url);
+    }
+  }
+
+  private closeRelay(url: string): void {
+    this.retiring.delete(url);
+    this.cfg.backoffs.delete(url);
+    // NPool keeps its connections in this map (typed read-only); a URL asked again later gets a fresh one
+    const connections = this.relays as Map<string, NRelay>;
+    const relay = connections.get(url);
+    if (!relay) return;
+    connections.delete(url);
+    void relay.close().catch(() => {
+      /* closing a relay that never opened is fine */
+    });
+  }
+
+  private writeStarted(url: string): void {
+    this.writing.set(url, (this.writing.get(url) ?? 0) + 1);
+  }
+
+  private writeEnded(url: string): void {
+    const left = (this.writing.get(url) ?? 1) - 1;
+    if (left > 0) this.writing.set(url, left);
+    else {
+      this.writing.delete(url);
+      if (this.retiring.has(url)) this.closeRelay(url);
+    }
   }
 
   private refuse(): void {
@@ -417,6 +479,7 @@ class HomePool extends NPool {
       for (const relay of urls) {
         void (async () => {
           let accepted = false;
+          this.writeStarted(relay);
           try {
             await this.relay(relay).event(event, options);
             accepted = true;
@@ -427,6 +490,8 @@ class HomePool extends NPool {
             // NIP-01: the relay already holds this very event
             if (verdict === 'accepted') accepted = true;
             else errors.push(error);
+          } finally {
+            this.writeEnded(relay);
           }
           answers.push({ relay, accepted });
           if (accepted && counts(relay) && !saved) {
@@ -440,7 +505,7 @@ class HomePool extends NPool {
   }
 }
 
-export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HINTS, primary = null, absenceRequired = ABSENCE_REQUIRED_RELAYS, profileRequired = PROFILE_REQUIRED_RELAYS, open, eoseTimeout, log, readTimeout = READ_TIMEOUT_MS, relayTimeout = RELAY_TIMEOUT_MS, transport, observer, diagnostics }: HomePoolOptions = {}): NPool {
+export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HINTS, primary = null, absenceRequired = ABSENCE_REQUIRED_RELAYS, profileRequired = PROFILE_REQUIRED_RELAYS, open, eoseTimeout, log, readTimeout = READ_TIMEOUT_MS, relayTimeout = RELAY_TIMEOUT_MS, transport, observer, diagnostics }: HomePoolOptions = {}): NPool & HomePoolControls {
   const backoffs = new Map<string, JitteredBackoff>();
   const baseOpen =
     open ??
@@ -451,11 +516,24 @@ export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HI
       return new NRelay1(url, { ...(log ? { log } : {}), backoff });
     });
   const openRelay = diagnostics ? (url: string) => diagnostics.wrap(baseOpen(url), url) : baseOpen;
-  const policy = buildReadRoutingPolicy({ appRelays: relays, hints, primary: primary ? { url: primary.url, kinds: primary.readKinds } : null });
+  const policy: ReadRoutingPolicy = { ...buildReadRoutingPolicy({ appRelays: relays, hints, primary: primary ? { url: primary.url, kinds: primary.readKinds } : null }), extraReads: [] };
   const writeRelays = [...policy.appRelays];
+  // The player's extra relays (`setExtraRelays`): never one of the fixed relays, which keep their own rules
+  let extraWrites: string[] = [];
+  const fixed = new Set([...(policy.primary ? [policy.primary.url] : []), ...policy.appRelays]);
+  const hinted = new Set(policy.hints.flatMap((hint) => hint.relays));
+  const applyExtras = (extras: readonly ExtraRelay[]): string[] => {
+    const before = new Set([...(policy.extraReads ?? []), ...extraWrites]);
+    const usable = extras.map((e) => ({ ...e, url: normalizeRelayUrl(e.url) })).filter((e): e is ExtraRelay => e.url !== null && !fixed.has(e.url));
+    policy.extraReads = [...new Set(usable.filter((e) => e.read).map((e) => e.url))];
+    extraWrites = [...new Set(usable.filter((e) => e.write).map((e) => e.url))];
+    const now = new Set([...policy.extraReads, ...extraWrites]);
+    // Gone from every route (a hint still reads from it now and then: kept)
+    return [...before].filter((url) => !now.has(url) && !hinted.has(url));
+  };
   // The primary first, for the kinds it accepts; a kind it would refuse is never sent to it
   const primaryWrites = policy.primary && primary ? { url: policy.primary.url, kinds: primary.writeKinds } : null;
-  const eventRoutes = (event: NostrEvent) => (primaryWrites && primaryWrites.kinds.includes(event.kind) ? [primaryWrites.url, ...writeRelays] : writeRelays);
+  const eventRoutes = (event: NostrEvent) => [...(primaryWrites && primaryWrites.kinds.includes(event.kind) ? [primaryWrites.url] : []), ...writeRelays, ...extraWrites];
   const blocked = transport === undefined ? checkRelayTransport() : transport;
   const normalized = (urls: readonly string[]) => urls.map((url) => normalizeRelayUrl(url)).filter((url): url is string => url !== null);
   const counted = { absence: normalized(absenceRequired), profile: normalized(profileRequired) };
@@ -483,6 +561,7 @@ export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HI
       eventRoutes,
       confirmWith,
       backoffs,
+      applyExtras,
       now: () => Date.now(),
       probe: diagnostics?.probe,
     },

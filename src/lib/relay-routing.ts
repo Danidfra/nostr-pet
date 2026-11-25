@@ -50,6 +50,11 @@ export interface ReadRoutingPolicy {
   hints: readonly ReadHint[];
   /** Ceiling on relays per read, application relays included. */
   maxRelays?: number;
+  /**
+   * The player's extra read relays (normalized; the relay settings). Asked with every filter, like an
+   * application relay, but never one whose answer a read needs, and never a write target from here.
+   */
+  extraReads?: readonly string[];
 }
 
 /** Normalize every URL once so routing compares canonical strings. Invalid entries vanish here. */
@@ -81,7 +86,7 @@ export function hintedRelaysFor(filter: NostrFilter, policy: ReadRoutingPolicy):
   for (const hint of policy.hints) {
     if (!covers(hint, filter)) continue;
     for (const url of hint.relays) {
-      if (!policy.appRelays.includes(url) && !out.includes(url)) out.push(url);
+      if (!policy.appRelays.includes(url) && !(policy.extraReads ?? []).includes(url) && !out.includes(url)) out.push(url);
     }
   }
   return out;
@@ -105,6 +110,7 @@ export function routeReadFilters(filters: NostrFilter[], policy: ReadRoutingPoli
   const forPrimary = filters.filter((filter) => primaryCovers(filter, policy));
   if (policy.primary && forPrimary.length > 0) routes.set(policy.primary.url, forPrimary);
   for (const url of policy.appRelays) routes.set(url, filters);
+  for (const url of policy.extraReads ?? []) if (!routes.has(url)) routes.set(url, filters);
   for (const filter of filters) {
     for (const url of hintedRelaysFor(filter, policy)) {
       const existing = routes.get(url);
