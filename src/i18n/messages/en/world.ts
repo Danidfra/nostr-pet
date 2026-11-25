@@ -1,6 +1,7 @@
 /** English (the source language): the `world` namespace (items, journey, missions, worlds, travel, photo, lighting). */
 export const world = {
   inventory: {
+    finishing: 'An earlier use of {item} is still finishing. Use any item to finish it first.',
     title: 'Items',
     shelves: 'Shelves',
     all: 'All',
@@ -84,6 +85,9 @@ export const world = {
       notNow: 'Not right now.',
     },
     error: {
+      spendRejected: '{item} was already used up elsewhere (another device got the last one first), so nothing was used here.',
+      verifyLater: '{item} was used; we are still checking it was not already taken elsewhere before it takes effect. Try again in a moment.',
+      incompleteRead: 'Not every relay answered, so your items could not be checked for certain. Nothing was used. Try again in a moment.',
       signIn: 'Sign in to use an item.',
       signInCare: 'Sign in to care for your Blobbi.',
       readLatest: 'Could not read the latest state of your Blobbi.',

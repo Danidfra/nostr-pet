@@ -4,6 +4,7 @@ import type { world as source } from '../en/world';
 /** Spanish: the `world` namespace. */
 export const world: MessageShape<typeof source> = {
   inventory: {
+    finishing: 'Un uso anterior de {item} aún está terminando. Usa cualquier objeto para terminarlo primero.',
     title: 'Objetos',
     shelves: 'Estantes',
     all: 'Todo',
@@ -86,6 +87,9 @@ export const world: MessageShape<typeof source> = {
       notNow: 'Ahora no.',
     },
     error: {
+      spendRejected: '{item} ya se había gastado en otro lugar (otro dispositivo tomó el último antes), así que aquí no se usó nada.',
+      verifyLater: '{item} se usó; aún estamos comprobando que no se tomó en otro lugar antes de que haga efecto. Inténtalo de nuevo en un momento.',
+      incompleteRead: 'No respondieron todos los relays, así que no se pudieron comprobar tus objetos con certeza. No se usó nada. Inténtalo de nuevo en un momento.',
       signIn: 'Inicia sesión para usar un objeto.',
       signInCare: 'Inicia sesión para cuidar a tu Blobbi.',
       readLatest: 'No se pudo leer el estado más reciente de tu Blobbi.',

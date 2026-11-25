@@ -23,6 +23,11 @@
  *
  * What the player can be told, honestly, at each stop is in the errors.
  */
+import { newestRevision } from '@/features/care/rename';
+import type { NPool } from '@nostrify/nostrify';
+import { ABSENCE_REQUIRED_RELAYS, BASE_RELAYS } from '@/config/relays';
+import { canAskRelays } from '@/features/companion/pool-relays';
+import { readCensus } from '@/lib/relay-census';
 import { serializeBlobbiWrite } from '@/features/care/blobbi-writes';
 import { PublishUnconfirmedError } from '@/lib/relay-transport';
 import { useCallback, useRef, useState } from 'react';
@@ -117,7 +122,18 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
       const open = openRecordFor(pubkey, blobbiD);
       const resumed = !!open;
 
+      // The Blobbi as the relays that count hold it: whether an effect landed, and what the next one builds on, never
+      // rest on a revision only another relay took (an effect not confirmed). Complete on the real relays
       const readCompanion = async (): Promise<BlobbiCompanion> => {
+        const pool: NPool = nostr;
+        const networked: boolean = canAskRelays(pool);
+        if (networked) {
+          const census = await readCensus(pool, [{ kinds: [KIND_BLOBBI_STATE], authors: [pubkey], '#d': [blobbiD] }], { required: ABSENCE_REQUIRED_RELAYS, timeoutMs: FRESH_TIMEOUT_MS });
+          if (!census.complete) throw new Error(t('world.items.error.incompleteRead'));
+          const companion = newestRevision(census.events, pubkey, blobbiD);
+          if (!companion) throw new Error(t('world.items.error.readLatest'));
+          return companion;
+        }
         const fresh = await fetchFreshEvent(nostr, { kinds: [KIND_BLOBBI_STATE], authors: [pubkey], '#d': [blobbiD] });
         if (!fresh || !isModernBlobbiEvent(fresh)) throw new Error(t('world.items.error.readLatest'));
         const companion = parseModernBlobbiEvent(fresh);
@@ -175,21 +191,39 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
         }
       }
 
+      // Verify the spend before its effect: a complete read must show it applied, not rejected by a competing spend
+      // (another device's use of the last one). Unknown stays established and is checked again on the next try
+      if (record.status === 'established') {
+        const verdict = await spendVerdict(nostr, pubkey, record);
+        if (verdict === 'rejected') {
+          removeRecord(pubkey, record.spendId);
+          throw new Error(t('world.items.error.spendRejected', { item: item.name }));
+        }
+        if (verdict === 'unknown') throw new Error(t('world.items.error.verifyLater', { item: item.name }));
+        updateStatus(pubkey, record.spendId, 'effect-pending');
+        record = { ...record, status: 'effect-pending' };
+      }
+
       // Apply the effect, exactly once, in turn with every other write of this Blobbi on this page (care, a rename)
       return serializeBlobbiWrite(pubkey, blobbiD, async () => {
         const companion = await readCompanion();
-        if (appliedSpendId(companion.allTags) === record.spendId) {
+        const landed = appliedSpendId(companion.allTags) === record.spendId || (record.effect ? await effectLanded(nostr, record.effect) : false);
+        if (landed) {
           updateStatus(pubkey, record.spendId, 'applied');
           return { item, action: item.care!.action, name: companion.name, statsChanged: {}, xpGained: 0, event: companion.event, spendId: record.spendId, resumed, alreadyApplied: true };
         }
         if (!item.care) throw new Error(t('world.items.error.cannotUse', { item: item.name }));
         const now = Math.floor(Date.now() / 1000);
         const plan = planItemUse(companion, item, record.spendId, now, { evolution: tallyCareInteraction(companion, pubkey) });
+        // Signed and recorded before it is offered: a resume finds this very effect by id instead of applying another
+        const signedEffect = await publisher.sign(plan.event);
+        record = { ...record, status: 'effect-pending', effect: signedEffect, updatedAt: Date.now() };
+        if (!upsertRecord(pubkey, record)) throw new Error(t('world.items.error.notRecorded'));
         let event: NostrEvent;
         try {
-          event = await publisher.publish(plan.event);
+          await publisher.broadcast(signedEffect);
+          event = signedEffect;
         } catch (error) {
-          updateStatus(pubkey, record.spendId, 'effect-pending');
           const message = error instanceof Error ? error.message : String(error);
           throw new Error(t('world.items.error.careFailed', { item: item.name, message }));
         }
@@ -236,13 +270,19 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
     reset: mutation.reset,
     /** Whether an earlier use of this Blobbi is waiting to be finished. */
     hasOpenUse: (blobbiD: string) => (pubkey ? openRecordFor(pubkey, blobbiD) !== undefined : false),
+    /** The item an earlier, unfinished use of this Blobbi was for (its name), or null: shown as "still finishing". */
+    openUseItem: (blobbiD: string): string | null => {
+      const open = pubkey ? openRecordFor(pubkey, blobbiD) : undefined;
+      if (!open) return null;
+      return knownRef.current.find((k) => k.item.address === open.itemAddress)?.item.name ?? t('world.items.unknown');
+    },
   };
 }
 
 type Nostr = ReturnType<typeof useNostr>['nostr'];
 
-/** The effective quantity of one item in one inventory, read fresh from the relays. */
-async function freshBalance(nostr: Nostr, pubkey: string, inventoryAddress: string, itemAddress: string): Promise<number | 'unresolved'> {
+/** The player's inventory, its spends and folds: from every relay that counts, to EOSE, on the real relays. */
+async function readInventory(nostr: Nostr, pubkey: string, inventoryAddress: string): Promise<NostrEvent[]> {
   const parsed = parseGameInventoryAddress(inventoryAddress);
   if (!parsed || parsed.pubkey !== pubkey) throw new Error(t('world.items.error.notYours'));
   const filters = asNostrFilters([
@@ -250,19 +290,61 @@ async function freshBalance(nostr: Nostr, pubkey: string, inventoryAddress: stri
     buildGameInventorySpendFilter({ authors: [pubkey], inventoryAddresses: [inventoryAddress] }),
     buildGameInventoryFoldFilter({ authors: [pubkey], inventoryAddresses: [inventoryAddress] }),
   ]);
-  const events = await nostr.query(filters, { signal: timeoutSignal(FRESH_TIMEOUT_MS) });
+  const pool: NPool = nostr;
+  const networked: boolean = canAskRelays(pool);
+  if (!networked) return pool.query(filters, { signal: timeoutSignal(FRESH_TIMEOUT_MS) });
+  // A relay that counts and did not answer may hold a spend: the balance is unknown, nothing is spent on a guess
+  const census = await readCensus(pool, filters, { required: ABSENCE_REQUIRED_RELAYS, others: BASE_RELAYS, timeoutMs: FRESH_TIMEOUT_MS });
+  if (!census.complete) throw new Error(t('world.items.error.incompleteRead'));
+  return census.events;
+}
+
+function balanceOf(events: readonly NostrEvent[], pubkey: string, inventoryAddress: string, extraSpends: readonly NostrEvent[] = []) {
   const balances = deriveBalances({
     inventories: events.filter((e) => e.kind === 31633),
     spends: uniqueEvents(
       events.filter((e) => e.kind === 1416),
       knownSpendEvents(pubkey),
+      extraSpends,
     ),
     folds: events.filter((e) => e.kind === 1417),
   });
-  const balance = balances.find((b) => b.inventory.address === inventoryAddress);
+  return balances.find((b) => b.inventory.address === inventoryAddress);
+}
+
+/** The effective quantity of one item in one inventory, read fresh and complete. */
+async function freshBalance(nostr: Nostr, pubkey: string, inventoryAddress: string, itemAddress: string): Promise<number | 'unresolved'> {
+  const balance = balanceOf(await readInventory(nostr, pubkey, inventoryAddress), pubkey, inventoryAddress);
   if (!balance) return 0;
   if (balance.resolution !== 'resolved') return 'unresolved';
   return effectiveQuantity(balance, itemAddress);
+}
+
+/**
+ * Whether an established spend took its unit: a complete read, derived in the library's deterministic order.
+ * `rejected` (a competing spend took it, or the chain voided it), `applied`, or `unknown` (not resolvable now).
+ * A competing spend that reaches the relays after this read can still change the answer: no read can rule it out.
+ */
+async function spendVerdict(nostr: Nostr, pubkey: string, record: SpendRecord): Promise<'applied' | 'rejected' | 'unknown'> {
+  const balance = balanceOf(await readInventory(nostr, pubkey, record.inventoryAddress), pubkey, record.inventoryAddress, [record.event]);
+  const derived = balance?.resolution === 'resolved' ? balance.derived : null;
+  if (!derived) return 'unknown';
+  const has = (list: readonly { id: string }[]) => list.some((s) => s.id === record.spendId);
+  if (has(derived.applied) || has(derived.folded)) return 'applied';
+  if (has(derived.rejected) || has(derived.voided)) return 'rejected';
+  return 'unknown';
+}
+
+/** Whether this very effect event is on a relay that counts (looked up by id, to EOSE). */
+async function effectLanded(nostr: Nostr, effect: NostrEvent): Promise<boolean> {
+  const pool: NPool = nostr;
+  const networked: boolean = canAskRelays(pool);
+  if (!networked) return (await pool.query([{ ids: [effect.id], limit: 1 }])).some((e) => e.id === effect.id);
+  const census = await readCensus(pool, [{ ids: [effect.id], limit: 1 }], { required: ABSENCE_REQUIRED_RELAYS, timeoutMs: FRESH_TIMEOUT_MS });
+  if (census.events.some((e) => e.id === effect.id)) return true;
+  // Not found, and not every relay that counts answered: it may be there; nothing is applied twice on a guess
+  if (!census.complete) throw new Error(t('world.items.error.incompleteRead'));
+  return false;
 }
 
 /** Offer the SAME signed bytes; classify what the relays said. */
