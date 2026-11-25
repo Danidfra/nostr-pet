@@ -23,6 +23,7 @@
  *
  * What the player can be told, honestly, at each stop is in the errors.
  */
+import { serializeBlobbiWrite } from '@/features/care/blobbi-writes';
 import { PublishUnconfirmedError } from '@/lib/relay-transport';
 import { useCallback, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -174,34 +175,36 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
         }
       }
 
-      // Apply the effect, exactly once.
-      const companion = await readCompanion();
-      if (appliedSpendId(companion.allTags) === record.spendId) {
+      // Apply the effect, exactly once, in turn with every other write of this Blobbi on this page (care, a rename)
+      return serializeBlobbiWrite(pubkey, blobbiD, async () => {
+        const companion = await readCompanion();
+        if (appliedSpendId(companion.allTags) === record.spendId) {
+          updateStatus(pubkey, record.spendId, 'applied');
+          return { item, action: item.care!.action, name: companion.name, statsChanged: {}, xpGained: 0, event: companion.event, spendId: record.spendId, resumed, alreadyApplied: true };
+        }
+        if (!item.care) throw new Error(t('world.items.error.cannotUse', { item: item.name }));
+        const now = Math.floor(Date.now() / 1000);
+        const plan = planItemUse(companion, item, record.spendId, now, { evolution: tallyCareInteraction(companion, pubkey) });
+        let event: NostrEvent;
+        try {
+          event = await publisher.publish(plan.event);
+        } catch (error) {
+          updateStatus(pubkey, record.spendId, 'effect-pending');
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(t('world.items.error.careFailed', { item: item.name, message }));
+        }
         updateStatus(pubkey, record.spendId, 'applied');
-        return { item, action: item.care!.action, name: companion.name, statsChanged: {}, xpGained: 0, event: companion.event, spendId: record.spendId, resumed, alreadyApplied: true };
-      }
-      if (!item.care) throw new Error(t('world.items.error.cannotUse', { item: item.name }));
-      const now = Math.floor(Date.now() / 1000);
-      const plan = planItemUse(companion, item, record.spendId, now, { evolution: tallyCareInteraction(companion, pubkey) });
-      let event: NostrEvent;
-      try {
-        event = await publisher.publish(plan.event);
-      } catch (error) {
-        updateStatus(pubkey, record.spendId, 'effect-pending');
-        const message = error instanceof Error ? error.message : String(error);
-        throw new Error(t('world.items.error.careFailed', { item: item.name, message }));
-      }
-      updateStatus(pubkey, record.spendId, 'applied');
-      updateCompanionEvent(event);
-      // Landed (and not one already applied): today's missions count it
-      countCareForMissions(pubkey, item.care.action);
+        updateCompanionEvent(event);
+        // Landed (and not one already applied): today's missions count it
+        countCareForMissions(pubkey, item.care.action);
 
-      void publisher.publish(plan.interaction).catch(() => {
-        /* the receipt is informational */
+        void publisher.publish(plan.interaction).catch(() => {
+          /* the receipt is informational */
       });
       queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', buildBlobbiAddress(pubkey, blobbiD)] });
 
       return { item, action: item.care.action, name: companion.name, statsChanged: plan.statsChanged, xpGained: plan.xpGained, event, spendId: record.spendId, resumed, alreadyApplied: false };
+      });
     },
     onSettled: () => {
       inFlightRef.current = false;

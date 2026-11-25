@@ -10,6 +10,7 @@
  * naming the item. What is written is exactly the semantic care write; a
  * retry after a failed publish simply plans again from the fresh state.
  */
+import { serializeBlobbiWrite } from '@/features/care/blobbi-writes';
 import { useCallback, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
@@ -53,29 +54,34 @@ export function useStarterUse({ pubkey, updateCompanionEvent, invalidate }: UseS
   const [pending, setPending] = useState<StarterUseRequest | null>(null);
   const inFlightRef = useRef(false);
 
+  async function starterWrite(pubkey: string, entry: StarterUseRequest['entry'], blobbiD: string): Promise<StarterUseResult> {
+    const item = entry.item;
+    if (!item.care) throw new Error(t('world.items.error.cannotUse', { item: item.name }));
+    const fresh = await fetchFreshEvent(nostr, { kinds: [KIND_BLOBBI_STATE], authors: [pubkey], '#d': [blobbiD] });
+    if (!fresh || !isModernBlobbiEvent(fresh)) throw new Error(t('world.items.error.readLatest'));
+    const companion = parseModernBlobbiEvent(fresh);
+    if (!companion) throw new Error(t('world.items.error.readLatest'));
+    const usable = itemUsability(item, companion);
+    if (!usable.ok) throw new Error(usable.reason ?? t('world.items.reason.notNow'));
+
+    const now = Math.floor(Date.now() / 1000);
+    const plan = planItemUse(companion, item, null, now, { evolution: tallyCareInteraction(companion, pubkey) });
+    const event = await publisher.publish(plan.event);
+    updateCompanionEvent(event);
+    // Landed: today's missions count it
+    countCareForMissions(pubkey, item.care.action);
+    void publisher.publish(plan.interaction).catch(() => {
+      /* the receipt is informational */
+    });
+    queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', buildBlobbiAddress(pubkey, blobbiD)] });
+    return { item, action: item.care.action, name: companion.name, statsChanged: plan.statsChanged, xpGained: plan.xpGained, event, spendId: null, resumed: false, alreadyApplied: false };
+  }
+
   const mutation = useMutation<StarterUseResult, Error, StarterUseRequest>({
     mutationFn: async ({ entry, blobbiD }) => {
       if (!pubkey) throw new Error(t('world.items.error.signInCare'));
-      const item = entry.item;
-      if (!item.care) throw new Error(t('world.items.error.cannotUse', { item: item.name }));
-      const fresh = await fetchFreshEvent(nostr, { kinds: [KIND_BLOBBI_STATE], authors: [pubkey], '#d': [blobbiD] });
-      if (!fresh || !isModernBlobbiEvent(fresh)) throw new Error(t('world.items.error.readLatest'));
-      const companion = parseModernBlobbiEvent(fresh);
-      if (!companion) throw new Error(t('world.items.error.readLatest'));
-      const usable = itemUsability(item, companion);
-      if (!usable.ok) throw new Error(usable.reason ?? t('world.items.reason.notNow'));
-
-      const now = Math.floor(Date.now() / 1000);
-      const plan = planItemUse(companion, item, null, now, { evolution: tallyCareInteraction(companion, pubkey) });
-      const event = await publisher.publish(plan.event);
-      updateCompanionEvent(event);
-      // Landed: today's missions count it
-      countCareForMissions(pubkey, item.care.action);
-      void publisher.publish(plan.interaction).catch(() => {
-        /* the receipt is informational */
-      });
-      queryClient.invalidateQueries({ queryKey: ['blobbi-interactions', buildBlobbiAddress(pubkey, blobbiD)] });
-      return { item, action: item.care.action, name: companion.name, statsChanged: plan.statsChanged, xpGained: plan.xpGained, event, spendId: null, resumed: false, alreadyApplied: false };
+      // In turn with every other write of this Blobbi on this page (care, a rename): the fresh read is inside the turn
+      return serializeBlobbiWrite(pubkey, blobbiD, () => starterWrite(pubkey, entry, blobbiD));
     },
     onSettled: () => {
       inFlightRef.current = false;
