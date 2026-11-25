@@ -1,3 +1,4 @@
+import { trackWrite } from '@/lib/pending-writes';
 import { useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import type { PublishAdapter, PublishEventTemplate } from '@blobbi-kit/react';
@@ -92,17 +93,19 @@ export function usePublishAdapter(): HomePublisher {
       carryGate.markSigned(event.id);
       return event;
     };
-    const broadcast = async (event: NostrEvent): Promise<void> => {
-      await nostr.event(event, { signal: AbortSignal.timeout(PUBLISH_TIMEOUT_MS) });
-    };
+    const broadcast = (event: NostrEvent): Promise<void> => trackWrite(nostr.event(event, { signal: AbortSignal.timeout(PUBLISH_TIMEOUT_MS) }));
     return {
       sign,
       broadcast,
-      async publish(template) {
-        const event = await sign(template);
-        await broadcast(event);
-        return event;
-      },
+      // Pending from the signature on: a page left (a language switch) waits for the whole write
+      publish: (template) =>
+        trackWrite(
+          (async () => {
+            const event = await sign(template);
+            await broadcast(event);
+            return event;
+          })(),
+        ),
     };
   }, [nostr, user]);
 }

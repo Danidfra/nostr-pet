@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Check, ChevronRight, HelpCircle, KeyRound, Moon, Music, Sparkles, Sun, Sunrise, UserRound, Volume2, VolumeX } from 'lucide-react';
 import { deviceOnlyLine, noStorageLine, useGuestSnapshot, useGuestUi } from '@/features/guest';
 import { parseModernBlobbiEvent } from '@blobbi-kit/core';
@@ -11,7 +11,8 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { shortNpub } from '@/lib/format';
 import { AboutBlobbiSheet } from '@/features/onboarding/screens';
-import { LOCALES, LOCALE_NAMES, changeLocale, getLocale, t } from '@/i18n';
+import { LOCALES, LOCALE_NAMES, changeLocale, getLocale, t, type Locale } from '@/i18n';
+import { hasUnsaved, pendingWrites, subscribePendingWrites, whenWritesSettle } from '@/lib/pending-writes';
 
 interface MenuSheetProps {
   open: boolean;
@@ -52,6 +53,16 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
   const recordName = (guestRecord && parseModernBlobbiEvent(guestRecord)?.name) || null;
   const guestName = recordName ?? t('menu.guest.yourBlobbiInSentence');
   const locale = getLocale();
+  // Switching the language reloads the page: never in the middle of a save, never over unsaved work
+  const writing = useSyncExternalStore(subscribePendingWrites, pendingWrites, pendingWrites) > 0;
+  const unsavedWork = useSyncExternalStore(subscribePendingWrites, hasUnsaved, hasUnsaved);
+  const [switchingTo, setSwitchingTo] = useState<Locale | null>(null);
+  const chooseLocale = (id: Locale) => {
+    if (id === locale || unsavedWork || switchingTo) return;
+    setSwitchingTo(id);
+    void whenWritesSettle().then(() => changeLocale(id));
+  };
+  const languageHint = unsavedWork ? t('menu.language.unsaved') : switchingTo && writing ? t('menu.language.waiting') : t('menu.language.hint');
   const ask = (what: 'save' | 'sign-in') => {
     onClose();
     if (what === 'save') guestUi.requestSave();
@@ -158,12 +169,14 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
             <h3 id="menu-language" className="menu-section__title">
               {t('menu.language.title')}
             </h3>
-            <p className="menu-section__hint">{t('menu.language.hint')}</p>
+            <p className="menu-section__hint" aria-live="polite" data-testid="menu-language-hint">
+              {languageHint}
+            </p>
             <div role="radiogroup" aria-labelledby="menu-language" className="menu-choices">
               {LOCALES.map((id) => {
                 const selected = locale === id;
                 return (
-                  <button key={id} type="button" role="radio" lang={id} aria-checked={selected} onClick={() => changeLocale(id)} data-testid={`locale-${id}`} className={`menu-choice ${selected ? 'menu-choice--on' : ''}`}>
+                  <button key={id} type="button" role="radio" lang={id} aria-checked={selected} disabled={unsavedWork || (switchingTo !== null && switchingTo !== id)} onClick={() => chooseLocale(id)} data-testid={`locale-${id}`} className={`menu-choice ${selected ? 'menu-choice--on' : ''}`}>
                     <span className="menu-choice__title">{LOCALE_NAMES[id]}</span>
                     {selected && <Check className="menu-choice__check h-4 w-4" aria-hidden />}
                   </button>

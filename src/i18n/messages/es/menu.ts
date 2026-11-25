@@ -35,6 +35,8 @@ export const menu: MessageShape<typeof source> = {
   language: {
     title: 'Idioma',
     hint: 'El juego se recarga en el idioma que elijas.',
+    waiting: 'Terminando de guardar primero; luego el juego se recarga.',
+    unsaved: 'Guarda o cancela la decoración primero: recargar la haría perder.',
   },
   help: {
     title: 'Ayuda',

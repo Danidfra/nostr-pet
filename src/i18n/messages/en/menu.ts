@@ -32,6 +32,8 @@ export const menu = {
   language: {
     title: 'Language',
     hint: 'The game reloads in the language you choose.',
+    waiting: 'Finishing a save first, then the game reloads.',
+    unsaved: 'Save or cancel the decoration first: reloading would lose it.',
   },
   help: {
     title: 'Help',

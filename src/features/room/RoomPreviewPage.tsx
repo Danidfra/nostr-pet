@@ -82,6 +82,7 @@ import { useJourney } from '@/features/journey/useJourney';
 import { useDailyXp } from '@/features/progression/useDailyXp';
 import { JourneySheet } from '@/features/journey/JourneySheet';
 import { PolaroidDoor } from '@/features/photo';
+import { holdUnsaved } from '@/lib/pending-writes';
 import { ChapterToast } from '@/features/journey/ChapterToast';
 import type { ObjectiveAction } from '@/features/journey/journey';
 import type { LifecycleTask } from '@/features/lifecycle';
@@ -860,6 +861,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // A drag ends without a drop when the room changes, decorating begins, or the item is gone or no longer usable
   const cancelDrag = drag.cancel;
   useEffect(() => cancelDrag(), [roomId, decorator.editing, cancelDrag]);
+  // A room being decorated is unsaved work: a language switch (a reload) waits until it is saved or cancelled
+  useEffect(() => (decorator.editing ? holdUnsaved('room-decorator') : undefined), [decorator.editing]);
   const dragged = drag.session ? entries.find((e) => e.key === drag.session!.key) ?? null : null;
   const draggedGone = drag.session !== null && (!dragged || !dragged.usable || care.busy || (dragged.choice.source === 'owned' && care.inventory.status !== 'ready'));
   useEffect(() => {

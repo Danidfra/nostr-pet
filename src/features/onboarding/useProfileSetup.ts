@@ -17,6 +17,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { NSchema as n, type NPool, type NostrEvent, type NostrMetadata } from '@nostrify/nostrify';
 import { canAskRelays } from '@/features/companion/pool-relays';
+import { trackWrite } from '@/lib/pending-writes';
 import { BlossomUploader } from '@nostrify/nostrify/uploaders';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { DevFixtureContext } from '@/dev/DevFixtureContext';
@@ -38,37 +39,39 @@ export function useProfileSetup(pubkey: string | undefined, { allowCreate = fals
   const fixture = useContext(DevFixtureContext) !== null;
 
   const publish = useMutation<NostrEvent, Error, ProfileFormInput>({
-    mutationFn: async (form) => {
-      if (!user || !pubkey) throw new Error(t('wayIn.profile.signInFirst'));
-      // The real relays are asked one by one; a guest's world or a dev fixture holds everything there is
-      const pool: NPool = nostr;
-      const networked: boolean = canAskRelays(pool);
-      const census = async (): Promise<MetadataCensus> => {
-        if (networked) return readMetadataCensus(pool, pubkey);
-        const events = await pool.query([{ kinds: [0], authors: [pubkey], limit: 1 }]);
-        return { complete: true, missing: [], newest: events.reduce<NostrEvent | null>((a, b) => newerMetadata(a, b), null) };
-      };
-      const plan = planMetadataWrite(await census(), form, { allowCreate: allowCreate || !networked, now: Math.floor(Date.now() / 1000), client: CLIENT_NAME });
-      if (plan.kind === 'refused') throw new Error(t(`wayIn.profile.refused.${plan.reason}`));
-      const event = await user.signer.signEvent({ kind: 0, content: plan.content, tags: plan.tags, created_at: plan.createdAt });
-      if (event.pubkey !== pubkey) throw new Error(t('wayIn.profile.wrongAccount'));
-      // Written elsewhere while the signer was asked: nothing is sent over it
-      if (networked) {
-        const again = await readMetadataCensus(pool, pubkey);
-        if (!again.complete) throw new Error(t('wayIn.profile.refused.incomplete'));
-        if (metadataChangedMeanwhile(again, plan.base, event)) throw new Error(t('wayIn.profile.refused.stale'));
-      }
-      await nostr.event(event, { signal: AbortSignal.timeout(PUBLISH_TIMEOUT_MS) });
-      let metadata: NostrMetadata = {};
-      try {
-        metadata = n.json().pipe(n.metadata()).parse(event.content);
-      } catch {
-        /* shown as the content allows */
-      }
-      queryClient.setQueryData(['author', pubkey], { event, metadata });
-      return event;
-    },
+    mutationFn: (form) => trackWrite(writeMetadata(form)),
   });
+  // A pending write until it settles (`pending-writes.ts`): switching the language waits for it
+  async function writeMetadata(form: ProfileFormInput): Promise<NostrEvent> {
+    if (!user || !pubkey) throw new Error(t('wayIn.profile.signInFirst'));
+    // The real relays are asked one by one; a guest's world or a dev fixture holds everything there is
+    const pool: NPool = nostr;
+    const networked: boolean = canAskRelays(pool);
+    const census = async (): Promise<MetadataCensus> => {
+      if (networked) return readMetadataCensus(pool, pubkey);
+      const events = await pool.query([{ kinds: [0], authors: [pubkey], limit: 1 }]);
+      return { complete: true, missing: [], newest: events.reduce<NostrEvent | null>((a, b) => newerMetadata(a, b), null) };
+    };
+    const plan = planMetadataWrite(await census(), form, { allowCreate: allowCreate || !networked, now: Math.floor(Date.now() / 1000), client: CLIENT_NAME });
+    if (plan.kind === 'refused') throw new Error(t(`wayIn.profile.refused.${plan.reason}`));
+    const event = await user.signer.signEvent({ kind: 0, content: plan.content, tags: plan.tags, created_at: plan.createdAt });
+    if (event.pubkey !== pubkey) throw new Error(t('wayIn.profile.wrongAccount'));
+    // Written elsewhere while the signer was asked: nothing is sent over it
+    if (networked) {
+      const again = await readMetadataCensus(pool, pubkey);
+      if (!again.complete) throw new Error(t('wayIn.profile.refused.incomplete'));
+      if (metadataChangedMeanwhile(again, plan.base, event)) throw new Error(t('wayIn.profile.refused.stale'));
+    }
+    await nostr.event(event, { signal: AbortSignal.timeout(PUBLISH_TIMEOUT_MS) });
+    let metadata: NostrMetadata = {};
+    try {
+      metadata = n.json().pipe(n.metadata()).parse(event.content);
+    } catch {
+      /* shown as the content allows */
+    }
+    queryClient.setQueryData(['author', pubkey], { event, metadata });
+    return event;
+  }
 
   const upload = useMutation<string, Error, File>({
     mutationFn: async (file) => {

@@ -44,6 +44,7 @@
  * A pending write found superseded by a newer profile is dropped, never sent:
  * the caller decides again with the ordering rules (`choice-order.ts`).
  */
+import { trackWrite } from '@/lib/pending-writes';
 import { KIND_BLOBBONAUT_PROFILE, KIND_BLOBBONAUT_PROFILE_LEGACY, getBlobbonautQueryDValues, getCanonicalBlobbonautD, isValidBlobbonautEvent, parseBlobbonautEvent, updateBlobbonautTags, type NostrEvent } from '@blobbi-kit/core';
 import { verifyEvent } from 'nostr-tools/pure';
 import { CHOICE_FRESH_MS, orderChoices, replaces, type ProfileStamp, type SeenProfile } from './choice-order';
@@ -250,7 +251,12 @@ function confirmedBy(relays: ProfileRelays, held: readonly string[]): boolean {
   return mine.length >= Math.max(1, Math.min(relays.quorum, relays.urls.length));
 }
 
-export async function writeCompanionProfile(req: ProfileWriteRequest, deps: ProfileWriteDeps): Promise<ProfileWriteOutcome> {
+export function writeCompanionProfile(req: ProfileWriteRequest, deps: ProfileWriteDeps): Promise<ProfileWriteOutcome> {
+  // A pending write until it settles (`pending-writes.ts`): switching the language waits for it
+  return trackWrite(writeCompanionProfileNow(req, deps));
+}
+
+async function writeCompanionProfileNow(req: ProfileWriteRequest, deps: ProfileWriteDeps): Promise<ProfileWriteOutcome> {
   const { relays } = deps;
   const timeoutMs = deps.timeoutMs ?? 8_000;
   const verify = deps.verify ?? verifyEvent;
