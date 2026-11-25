@@ -13,6 +13,7 @@ import { localRecordSigner } from './guest-signer';
 import { applyGuestEvent } from './guest-world';
 import { withEvents, withLanded, withMigrationStage } from './guest-context';
 import { MIGRATION_STEPS, migrationTemplates, runGuestMigration, verifyGuestMigration } from './guest-migration';
+import { planRename } from '@/features/care/rename';
 
 const sk = generateSecretKey();
 const identity = { nsec: nip19.nsecEncode(sk), pubkey: getPublicKey(sk) };
@@ -45,6 +46,17 @@ function realPublisher(relay: NostrEvent[], refuse: Set<number> = new Set()) {
 const reader = (relay: NostrEvent[]) => ({ query: vi.fn(async (filters: { kinds?: number[]; authors?: string[]; '#d'?: string[] }[]) => relay.filter((e) => filters.some((f) => (!f.kinds || f.kinds.includes(e.kind)) && (!f.authors || f.authors.includes(e.pubkey)) && (!f['#d'] || e.tags.some(([n, v]) => n === 'd' && f['#d']!.includes(v)))))) });
 
 describe('migrationTemplates', () => {
+  it('a guest Blobbi renamed on this device is saved under its new name, every other tag as it was', async () => {
+    const { doc, egg } = await guestWithEgg();
+    const signer = localRecordSigner(identity.pubkey);
+    const renamed = await signer.signEvent(finalizeTemplate(planRename(parseModernBlobbiEvent(egg)!, 'Lupa', 1_700_050_000)));
+    const after = withEvents(doc, applyGuestEvent(doc.events, renamed), renamed);
+    const tpl = migrationTemplates(after, 1_700_100_000).blobbi!;
+    expect(tpl.tags.find(([n]) => n === 'name')).toEqual(['name', 'Lupa']);
+    const others = (tags: string[][]) => tags.filter(([n]) => n !== 'name' && n !== 'published_at').map((t) => t.join('|')).sort();
+    expect(others(tpl.tags)).toEqual(others(egg.tags));
+  });
+
   it('keeps the address, every tag and the content, and lets the adapter set published_at afresh', async () => {
     const { doc, egg } = await guestWithEgg();
     const templates = migrationTemplates(doc, 1_700_100_000);

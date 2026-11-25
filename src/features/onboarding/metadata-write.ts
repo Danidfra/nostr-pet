@@ -25,7 +25,8 @@
  * `created_at` is always after the base's, and the base's tags are kept
  * (NIP-39 identities and the like), with this app's `client` tag.
  */
-import type { NostrEvent, NostrFilter, NPool } from '@nostrify/nostrify';
+import type { NostrEvent, NPool } from '@nostrify/nostrify';
+import { readToEose } from '@/lib/relay-census';
 import { BASE_RELAYS, PROFILE_REQUIRED_RELAYS } from '@/config/relays';
 import type { ProfileFormInput } from './profile-plan';
 
@@ -66,30 +67,6 @@ export async function readMetadataCensus(
   for (const answer of answers) for (const event of answer.events) if (event.kind === 0 && event.pubkey === pubkey) newest = newerMetadata(newest, event);
   const missing = answers.filter((a) => !a.ok && required.includes(a.url)).map((a) => a.url);
   return { complete: missing.length === 0, missing, newest };
-}
-
-/**
- * One relay's answer, or null when it did not answer to the end: only an EOSE
- * makes it an answer; a timeout, a CLOSED, a refused connection or a stream
- * that ended without EOSE is no answer at all.
- */
-export async function readToEose(nostr: NPool, url: string, filters: NostrFilter[], timeoutMs: number): Promise<NostrEvent[] | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const events: NostrEvent[] = [];
-  try {
-    for await (const msg of nostr.relay(url).req(filters, { signal: controller.signal })) {
-      if (msg[0] === 'EVENT') events.push(msg[2]);
-      else if (msg[0] === 'EOSE') return events;
-      else if (msg[0] === 'CLOSED') return null;
-    }
-    return null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-    controller.abort();
-  }
 }
 
 /** The base's content as a JSON object, or null when it is not one (never replaced, then). */
