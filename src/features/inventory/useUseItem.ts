@@ -27,7 +27,7 @@ import { newestRevision } from '@/features/care/rename';
 import type { NPool } from '@nostrify/nostrify';
 import { ABSENCE_REQUIRED_RELAYS, BASE_RELAYS } from '@/config/relays';
 import { canAskRelays } from '@/features/companion/pool-relays';
-import { readCensus } from '@/lib/relay-census';
+import { readPlannedCensus } from '@/lib/relay-census';
 import { serializeBlobbiWrite } from '@/features/care/blobbi-writes';
 import { PublishUnconfirmedError } from '@/lib/relay-transport';
 import { useCallback, useRef, useState } from 'react';
@@ -128,7 +128,7 @@ export function useUseItem({ pubkey, known, updateCompanionEvent, invalidate }: 
         const pool: NPool = nostr;
         const networked: boolean = canAskRelays(pool);
         if (networked) {
-          const census = await readCensus(pool, [{ kinds: [KIND_BLOBBI_STATE], authors: [pubkey], '#d': [blobbiD] }], { required: ABSENCE_REQUIRED_RELAYS, timeoutMs: FRESH_TIMEOUT_MS });
+          const census = await readPlannedCensus(pool, [{ kinds: [KIND_BLOBBI_STATE], authors: [pubkey], '#d': [blobbiD] }], 'absence', { required: ABSENCE_REQUIRED_RELAYS }, FRESH_TIMEOUT_MS, { onlyRequired: true });
           if (!census.complete) throw new Error(t('world.items.error.incompleteRead'));
           const companion = newestRevision(census.events, pubkey, blobbiD);
           if (!companion) throw new Error(t('world.items.error.readLatest'));
@@ -294,7 +294,7 @@ async function readInventory(nostr: Nostr, pubkey: string, inventoryAddress: str
   const networked: boolean = canAskRelays(pool);
   if (!networked) return pool.query(filters, { signal: timeoutSignal(FRESH_TIMEOUT_MS) });
   // A relay that counts and did not answer may hold a spend: the balance is unknown, nothing is spent on a guess
-  const census = await readCensus(pool, filters, { required: ABSENCE_REQUIRED_RELAYS, others: BASE_RELAYS, timeoutMs: FRESH_TIMEOUT_MS });
+  const census = await readPlannedCensus(pool, filters, 'absence', { required: ABSENCE_REQUIRED_RELAYS, others: BASE_RELAYS }, FRESH_TIMEOUT_MS);
   if (!census.complete) throw new Error(t('world.items.error.incompleteRead'));
   return census.events;
 }
@@ -340,7 +340,7 @@ async function effectLanded(nostr: Nostr, effect: NostrEvent): Promise<boolean> 
   const pool: NPool = nostr;
   const networked: boolean = canAskRelays(pool);
   if (!networked) return (await pool.query([{ ids: [effect.id], limit: 1 }])).some((e) => e.id === effect.id);
-  const census = await readCensus(pool, [{ ids: [effect.id], limit: 1 }], { required: ABSENCE_REQUIRED_RELAYS, timeoutMs: FRESH_TIMEOUT_MS });
+  const census = await readPlannedCensus(pool, [{ ids: [effect.id], limit: 1 }], 'absence', { required: ABSENCE_REQUIRED_RELAYS }, FRESH_TIMEOUT_MS, { onlyRequired: true });
   if (census.events.some((e) => e.id === effect.id)) return true;
   // Not found, and not every relay that counts answered: it may be there; nothing is applied twice on a guess
   if (!census.complete) throw new Error(t('world.items.error.incompleteRead'));

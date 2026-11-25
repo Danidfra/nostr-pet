@@ -10,7 +10,7 @@ import type { NPool } from '@nostrify/nostrify';
 import { KIND_BLOBBI_STATE, type NostrEvent } from '@blobbi-kit/core';
 import { ABSENCE_REQUIRED_RELAYS, BASE_RELAYS } from '@/config/relays';
 import { canAskRelays } from '@/features/companion/pool-relays';
-import { readCensus } from '@/lib/relay-census';
+import { readPlannedCensus } from '@/lib/relay-census';
 import { t } from '@/i18n';
 import { serializeBlobbiWrite } from './blobbi-writes';
 import { usePublishAdapter } from './usePublishAdapter';
@@ -40,7 +40,7 @@ export function useRenameBlobbi({ pubkey, updateCompanionEvent }: { pubkey: stri
         const filter = { kinds: [KIND_BLOBBI_STATE], authors: [pubkey], '#d': [d] };
         let events: NostrEvent[];
         if (networked) {
-          const census = await readCensus(pool, [filter], { required: ABSENCE_REQUIRED_RELAYS, others: BASE_RELAYS, timeoutMs: RENAME_READ_TIMEOUT_MS });
+          const census = await readPlannedCensus(pool, [filter], 'absence', { required: ABSENCE_REQUIRED_RELAYS, others: BASE_RELAYS }, RENAME_READ_TIMEOUT_MS);
           // A relay that must answer did not: what it holds is unknown, so nothing is written over it
           if (!census.complete) throw new Error(t('home.rename.error.incomplete'));
           events = census.events;

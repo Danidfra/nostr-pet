@@ -98,4 +98,23 @@ describe('extra relays', () => {
     expect(network.relay(MINE).closed).toBe(true);
     expect([PRIMARY, DITTO, PRIMAL].map((u) => network.relay(u).closed)).toEqual([false, false, false]);
   });
+
+  it('plans a complete read by its own rules: its required set among the relays asked, never an extra', () => {
+    const nostr = pool();
+    nostr.setExtraRelays([{ url: MINE, read: true, write: false }]);
+    const state = nostr.censusPlan([{ kinds: [31124], authors: [PUBKEY] }], 'absence');
+    expect([...state.routes.keys()].sort()).toEqual([DITTO, MINE, PRIMAL, PRIMARY].sort());
+    expect(state.required.sort()).toEqual([DITTO, PRIMAL, PRIMARY].sort());
+    // A filter without kinds never reaches the primary; the others it reaches are required
+    const byId = nostr.censusPlan([{ ids: ['f'.repeat(64)] }], 'absence');
+    expect(byId.routes.has(PRIMARY)).toBe(false);
+    expect(byId.required.sort()).toEqual([DITTO, PRIMAL].sort());
+  });
+
+  it('when none of its required relays is asked, every fixed relay asked is required (as its careful read does)', () => {
+    const lone = createHomePool({ relays: ['wss://only.test'], hints: [], open: network.open, absenceRequired: ['wss://elsewhere.test'] });
+    lone.setExtraRelays([{ url: MINE, read: true, write: false }]);
+    expect(lone.censusPlan([{ kinds: [31124] }], 'absence').required).toEqual(['wss://only.test']);
+  });
 });
+

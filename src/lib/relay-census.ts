@@ -45,3 +45,30 @@ export async function readCensus(nostr: NPool, filters: NostrFilter[], { require
     events: answers.flatMap((a) => a.events ?? []),
   };
 }
+
+/** A pool that can plan a complete read (`HomePool.censusPlan`). */
+export interface CensusPlanner {
+  censusPlan(filters: NostrFilter[], set: 'absence' | 'profile'): { routes: Map<string, NostrFilter[]>; required: string[] };
+}
+
+export function canPlanCensus(nostr: unknown): nostr is NPool & CensusPlanner {
+  return !!nostr && typeof (nostr as CensusPlanner).censusPlan === 'function';
+}
+
+/**
+ * A complete read planned by the pool: each relay asked with exactly the filters it is routed (a relay never
+ * gets a kind it does not hold), the pool's required relays for `set` must each answer to the end. A pool that
+ * cannot plan (not the home's) is read on `fallback`. `onlyRequired`: ask the required relays alone, for a
+ * decision that must rest on them only (what a write builds on, whether a write landed where it counts).
+ */
+export async function readPlannedCensus(nostr: NPool, filters: NostrFilter[], set: 'absence' | 'profile', fallback: { required: readonly string[]; others?: readonly string[] }, timeoutMs: number, { onlyRequired = false }: { onlyRequired?: boolean } = {}): Promise<Census> {
+  if (!canPlanCensus(nostr)) return readCensus(nostr, filters, { required: fallback.required, others: onlyRequired ? [] : fallback.others, timeoutMs });
+  const { routes, required } = nostr.censusPlan(filters, set);
+  const asked = [...routes].filter(([url]) => !onlyRequired || required.includes(url));
+  const answers = await Promise.all(asked.map(async ([url, routed]) => ({ url, events: await readToEose(nostr, url, routed, timeoutMs) })));
+  return {
+    complete: answers.every((a) => a.events !== null || !required.includes(a.url)),
+    missing: answers.filter((a) => a.events === null && required.includes(a.url)).map((a) => a.url),
+    events: answers.flatMap((a) => a.events ?? []),
+  };
+}

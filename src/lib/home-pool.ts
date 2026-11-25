@@ -108,6 +108,13 @@ export interface HomePoolControls {
   setExtraRelays(extras: readonly ExtraRelay[]): void;
   /** The browser is online again: every connection's next retry is a short one. */
   connectivityRestored(): void;
+  /**
+   * A complete read's plan, by the same rules as the pool's own careful read: which relays these filters go to
+   * (with the filters each gets) and which of them must answer to the end: the pool's required set for `set`
+   * among them, or, when none of those is asked, every fixed relay asked. The player's extra relays are asked,
+   * never required.
+   */
+  censusPlan(filters: NostrFilter[], set: 'absence' | 'profile'): { routes: Map<string, NostrFilter[]>; required: string[] };
 }
 
 /** What the pool tells whoever keeps track of deliveries and gaps (`relay-sync.ts`). */
@@ -189,6 +196,8 @@ interface HomePoolConfig {
   confirmWith: (kind: number) => readonly string[] | null;
   /** Each connection's reconnection schedule (`relay-backoff.ts`), by relay. */
   backoffs: Map<string, JitteredBackoff>;
+  /** Normalized: the relays that must answer a complete read, by set. */
+  counted: { absence: readonly string[]; profile: readonly string[] };
   /** Replace the extra relays in the routes; returns the URLs no route uses any more. */
   applyExtras: (extras: readonly ExtraRelay[]) => string[];
   now: () => number;
@@ -244,6 +253,14 @@ class HomePool extends NPool implements HomePoolControls {
       this.replacedAt.set(url, now);
       this.closeRelay(url);
     }
+  }
+
+  censusPlan(filters: NostrFilter[], set: 'absence' | 'profile'): { routes: Map<string, NostrFilter[]>; required: string[] } {
+    const routes = routeReadFilters(filters, this.cfg.policy);
+    const asked = [...routes.keys()];
+    const extras = new Set(this.cfg.policy.extraReads ?? []);
+    const named = asked.filter((url) => this.cfg.counted[set].includes(url));
+    return { routes, required: named.length > 0 ? named : asked.filter((url) => !extras.has(url)) };
   }
 
   setExtraRelays(extras: readonly ExtraRelay[]): void {
@@ -580,6 +597,7 @@ export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HI
       eventRoutes,
       confirmWith,
       backoffs,
+      counted,
       applyExtras,
       now: () => Date.now(),
       probe: diagnostics?.probe,

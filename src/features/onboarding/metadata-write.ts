@@ -26,7 +26,7 @@
  * (NIP-39 identities and the like), with this app's `client` tag.
  */
 import type { NostrEvent, NPool } from '@nostrify/nostrify';
-import { readToEose } from '@/lib/relay-census';
+import { readPlannedCensus } from '@/lib/relay-census';
 import { BASE_RELAYS, PROFILE_REQUIRED_RELAYS } from '@/config/relays';
 import type { ProfileFormInput } from './profile-plan';
 
@@ -56,17 +56,11 @@ export async function readMetadataCensus(
   pubkey: string,
   { required = PROFILE_REQUIRED_RELAYS, others = BASE_RELAYS, timeoutMs = METADATA_READ_TIMEOUT_MS }: { required?: readonly string[]; others?: readonly string[]; timeoutMs?: number } = {},
 ): Promise<MetadataCensus> {
-  const urls = [...new Set([...required, ...others])];
-  const answers = await Promise.all(
-    urls.map(async (url) => {
-      const answer = await readToEose(nostr, url, [{ kinds: [0], authors: [pubkey], limit: 1 }], timeoutMs);
-      return { url, ok: answer !== null, events: answer ?? [] };
-    }),
-  );
+  // Planned by the pool when it can (its own profile relays, among those asked); these lists otherwise
+  const census = await readPlannedCensus(nostr, [{ kinds: [0], authors: [pubkey], limit: 1 }], 'profile', { required, others }, timeoutMs);
   let newest: NostrEvent | null = null;
-  for (const answer of answers) for (const event of answer.events) if (event.kind === 0 && event.pubkey === pubkey) newest = newerMetadata(newest, event);
-  const missing = answers.filter((a) => !a.ok && required.includes(a.url)).map((a) => a.url);
-  return { complete: missing.length === 0, missing, newest };
+  for (const event of census.events) if (event.kind === 0 && event.pubkey === pubkey) newest = newerMetadata(newest, event);
+  return { complete: census.complete, missing: census.missing, newest };
 }
 
 /** The base's content as a JSON object, or null when it is not one (never replaced, then). */
