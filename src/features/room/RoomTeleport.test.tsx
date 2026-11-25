@@ -8,6 +8,7 @@
  * ever published.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -91,6 +92,8 @@ const panel = async () => {
   return screen.getByTestId('teleport-dev');
 };
 const wait = (ms: number) => act(() => new Promise((r) => setTimeout(r, ms)));
+/** How late a journey may end on a busy machine before the test calls it stuck. */
+const JOURNEY_SLACK_MS = 2_000;
 
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as unknown as HTMLCanvasElement['getContext'];
@@ -104,6 +107,10 @@ beforeEach(() => {
 });
 afterEach(() => localStorage.clear());
 
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
+
 describe('the Blobbi\'s journeys in the room', () => {
   it('leaves and comes back: drawn by the scene, nothing else happening meanwhile, away for real, then the same Blobbi', async () => {
     renderRoom();
@@ -116,15 +123,14 @@ describe('the Blobbi\'s journeys in the room', () => {
     expect(scene.state.journeys).toContain('depart');
     expect(screen.getByTestId('room-item-use')).toBeDisabled();
     expect(screen.getByRole('button', { name: /decorate this room/i })).toBeDisabled();
-    await wait(DEPART.total + 150);
-    expect(screen.getByTestId('teleport-dev')).toHaveAttribute('data-state', 'absent');
+    // Gone once the departure has played: waited for, not slept on (a busy machine runs the timers late)
+    await waitFor(() => expect(screen.getByTestId('teleport-dev')).toHaveAttribute('data-state', 'absent'), { timeout: DEPART.total + JOURNEY_SLACK_MS });
     // Away: not in the room at all
     expect(screen.queryByTestId('room-blobbi-anchor')).toBeNull();
     fireEvent.click(screen.getByTestId('teleport-dev-arrive'));
     expect(screen.getByTestId('teleport-dev')).toHaveAttribute('data-state', 'arriving');
     expect(scene.state.journeys[scene.state.journeys.length - 1]).toBe('arrive');
-    await wait(ARRIVE.total + 150);
-    expect(screen.getByTestId('teleport-dev')).toHaveAttribute('data-state', 'present');
+    await waitFor(() => expect(screen.getByTestId('teleport-dev')).toHaveAttribute('data-state', 'present'), { timeout: ARRIVE.total + JOURNEY_SLACK_MS });
     expect(screen.getByTestId('room-blobbi-anchor')).toBeInTheDocument();
     // The same Blobbi, the same items, nothing written anywhere
     expect(screen.getByTestId('room-header-name').textContent).toBe(name);
