@@ -75,7 +75,12 @@ import { buildReadRoutingPolicy, routeReadFilters, type ReadHint, type ReadRouti
 import { checkRelayTransport, PublishUnconfirmedError, RelayReadUnknownError, RelayTimeoutError, RelayTransportError, type TransportBlock } from './relay-transport';
 import { verdictOf, type RelayReadReport } from './relay-sync';
 import type { QueryProbe } from './relay-diagnostics';
-import { JitteredBackoff } from './relay-backoff';
+import { JitteredBackoff, RECONNECT_CAP_MS } from './relay-backoff';
+
+/** A connection whose next try is further away than this, when connectivity comes back, is replaced. */
+export const STUCK_WAIT_MS = RECONNECT_CAP_MS;
+/** A relay's connection is replaced at most this often. */
+export const REPLACE_EVERY_MS = 30_000;
 
 /** How long a read may go without any relay answering before it fails. */
 export const READ_TIMEOUT_MS = 15_000;
@@ -219,12 +224,26 @@ class HomePool extends NPool implements HomePoolControls {
     super(opts);
   }
 
+  /** When each relay's connection was last replaced (ms). */
+  private readonly replacedAt = new Map<string, number>();
+
   /**
-   * The browser is online again: every connection's next retry is a short one. Sockets are not reopened here
-   * (each reconnects on its own schedule, or when a read needs it), so nothing is opened twice.
+   * The browser is online again, or the page visible again: every connection's next retry is a short one, and a
+   * connection stuck in a long wait (one already scheduled cannot be cut short) is replaced: closed, so the next
+   * read or the subscription that wants it opens a fresh one at once. Never while a write to it is on its way
+   * (closing would cut it off), never twice within `REPLACE_EVERY_MS`, and never a second socket for one relay:
+   * the old connection is closed and dropped before anything can open the new one. Closing ends its
+   * subscriptions; their owners open them again (`world-travel-relays` follows again on its own).
    */
   connectivityRestored(): void {
-    for (const backoff of this.cfg.backoffs.values()) backoff.reset();
+    const now = this.cfg.now();
+    for (const [url, backoff] of [...this.cfg.backoffs]) {
+      const stuck = backoff.retries > 0 && backoff.current > STUCK_WAIT_MS;
+      backoff.reset();
+      if (!stuck || (this.writing.get(url) ?? 0) > 0 || now - (this.replacedAt.get(url) ?? -Infinity) < REPLACE_EVERY_MS) continue;
+      this.replacedAt.set(url, now);
+      this.closeRelay(url);
+    }
   }
 
   setExtraRelays(extras: readonly ExtraRelay[]): void {

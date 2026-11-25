@@ -97,11 +97,17 @@ export function NostrProvider({ children, relays = BASE_RELAYS, primary = relays
       pool.connectivityRestored();
     };
     const off = () => health.setOnline(false);
+    // The page visible again (a phone unlocked, the tab chosen): the same fast recovery as coming back online
+    const visible = () => {
+      if (!document.hidden) pool.connectivityRestored();
+    };
     window.addEventListener('online', on);
     window.addEventListener('offline', off);
+    document.addEventListener('visibilitychange', visible);
     return () => {
       window.removeEventListener('online', on);
       window.removeEventListener('offline', off);
+      document.removeEventListener('visibilitychange', visible);
     };
   }, [health, pool]);
 

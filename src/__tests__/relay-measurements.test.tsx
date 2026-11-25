@@ -178,8 +178,12 @@ describe('relay measurements', () => {
     table.partialPublication = { told, verdicts: diagnostics.snapshot().publications.map((p) => `${p.relay.replace('wss://', '').replace('.test', '')}=${p.verdict}`).join(' ') };
   });
 
-  it('a relay that never connects, over two hours: reconnection attempts and the longest wait', async () => {
+  it.each([
+    ['reconnection', false],
+    ['reconnectionHidden', true],
+  ] as const)('a relay that never connects, over two hours (%s): reconnection attempts and the longest wait', async (row, hidden) => {
     vi.useFakeTimers();
+    const hiddenSpy = hidden ? vi.spyOn(document, 'hidden', 'get').mockReturnValue(true) : null;
     const sockets: { url: string; closedAt: number | null }[] = [];
     vi.stubGlobal('WebSocket', failingSocketClass(sockets));
     const waits: number[] = [];
@@ -195,11 +199,12 @@ describe('relay measurements', () => {
     })();
     await vi.advanceTimersByTimeAsync(2 * 60 * 60_000);
     stop.abort();
+    hiddenSpy?.mockRestore();
     await down.close().catch(() => {});
     vi.unstubAllGlobals();
     await vi.advanceTimersByTimeAsync(10);
     await sub;
-    table.reconnection = { sockets: sockets.length, attemptsIn2h: waits.length, longestWaitS: Math.round(Math.max(...waits) / 1000), lastWaitS: Math.round(waits[waits.length - 1] / 1000) };
+    table[row] = { sockets: sockets.length, attemptsIn2h: waits.length, longestWaitS: Math.round(Math.max(...waits) / 1000), lastWaitS: Math.round(waits[waits.length - 1] / 1000) };
     expect(sockets.length).toBeGreaterThan(1);
   }, 30_000);
 });
