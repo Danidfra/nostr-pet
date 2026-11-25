@@ -7,9 +7,10 @@ export const relays = {
   intro: 'Relays are the servers that keep your Blobbi on Nostr. The Blobbi network is always used; you can add a few relays of your own. These settings stay on this device.',
   essential: {
     title: 'Blobbi network',
-    hint: 'Always on: your Blobbi is read and saved here, so these cannot be turned off.',
-    primary: 'Blobbi relay',
-    network: 'Network relay',
+    hint: 'The Blobbi network: always on. Your Blobbi is saved once one of the relays needed to save has it; the others help but are never waited for.',
+    primary: 'Blobbi relay · needed to save',
+    required: 'Network relay · needed to save',
+    default: 'Network relay · also used, never waited for',
   },
   extras: {
     title: 'Your relays',

@@ -10,9 +10,10 @@ export const relays: MessageShape<typeof source> = {
   intro: 'Relays são os servidores que guardam seu Blobbi no Nostr. A rede Blobbi é sempre usada; você pode adicionar alguns relays seus. Estas configurações ficam neste aparelho.',
   essential: {
     title: 'Rede Blobbi',
-    hint: 'Sempre ligados: seu Blobbi é lido e salvo aqui, por isso não dá para desligá-los.',
-    primary: 'Relay do Blobbi',
-    network: 'Relay da rede',
+    hint: 'A rede Blobbi: sempre ligada. Seu Blobbi fica salvo quando um dos relays necessários para salvar o recebe; os outros ajudam, mas nunca são esperados.',
+    primary: 'Relay do Blobbi · necessário para salvar',
+    required: 'Relay da rede · necessário para salvar',
+    default: 'Relay da rede · também usado, nunca esperado',
   },
   extras: {
     title: 'Seus relays',

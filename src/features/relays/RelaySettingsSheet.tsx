@@ -13,12 +13,13 @@ import { Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import { useRelayHealth } from '@/hooks/useRelayHealth';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { MAX_EXTRA_RELAYS, PRIMARY_RELAY, normalizeRelayUrl } from '@/config/relays';
+import { MAX_EXTRA_RELAYS } from '@/config/relays';
 import type { RelayMark } from '@/lib/relay-health';
 import { t } from '@/i18n';
 import {
   DEFAULT_RELAY_SETTINGS,
-  ESSENTIAL_RELAYS,
+  DEFAULT_RELAYS,
+  defaultRelayRole,
   addExtraRelay,
   parseRelayList,
   readRelaySettings,
@@ -101,12 +102,12 @@ export function RelaySettingsSheet({ open, onClose }: { open: boolean; onClose: 
     }
   };
 
-  const known = new Set([...ESSENTIAL_RELAYS, ...settings.extras.map((e) => e.url)]);
+  const known = new Set([...DEFAULT_RELAYS, ...settings.extras.map((e) => e.url)]);
   const offered = nip65.kind === 'loaded' ? nip65.relays.filter((r) => !known.has(r.url)) : [];
-  const connected = ESSENTIAL_RELAYS.filter((u) => essentialMark(u) === 'ok').length + settings.extras.filter((e) => extraMark(e) === 'ok').length;
+  const connected = DEFAULT_RELAYS.filter((u) => essentialMark(u) === 'ok').length + settings.extras.filter((e) => extraMark(e) === 'ok').length;
 
   return (
-    <GameOverlay open={open} onClose={onClose} title={t('relays.title')} subtitle={t('relays.tile.sub', { connected, total: ESSENTIAL_RELAYS.length + settings.extras.length })} testId="relay-settings" size="medium">
+    <GameOverlay open={open} onClose={onClose} title={t('relays.title')} subtitle={t('relays.tile.sub', { connected, total: DEFAULT_RELAYS.length + settings.extras.length })} testId="relay-settings" size="medium">
       <div className="menu">
         <p className="menu-section__hint">{t('relays.intro')}</p>
 
@@ -116,10 +117,10 @@ export function RelaySettingsSheet({ open, onClose }: { open: boolean; onClose: 
           </h3>
           <p className="menu-section__hint">{t('relays.essential.hint')}</p>
           <ul className="flex flex-col gap-1">
-            {ESSENTIAL_RELAYS.map((url) => (
+            {DEFAULT_RELAYS.map((url) => (
               <li key={url} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-foreground/5 px-3 py-2" data-testid={`relay-essential-${host(url)}`}>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{url === normalizeRelayUrl(PRIMARY_RELAY) ? t('relays.essential.primary') : t('relays.essential.network')}</span>
+                  <span className="block text-sm font-semibold">{t(`relays.essential.${defaultRelayRole(url)}`)}</span>
                   <span className="block break-all font-mono text-xs text-muted-foreground">{host(url)}</span>
                 </span>
                 <StatusDot mark={essentialMark(url)} />

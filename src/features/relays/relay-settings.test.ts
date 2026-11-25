@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { MAX_EXTRA_RELAYS } from '@/config/relays';
-import { DEFAULT_RELAY_SETTINGS, ESSENTIAL_RELAYS, RELAY_SETTINGS_KEY, addExtraRelay, parseRelayList, parseRelaySettings, readRelaySettings, removeExtraRelay, setExtraAccess, writeRelaySettings } from './relay-settings';
+import { DEFAULT_RELAY_SETTINGS, DEFAULT_RELAYS, RELAY_SETTINGS_KEY, addExtraRelay, parseRelayList, parseRelaySettings, readRelaySettings, removeExtraRelay, setExtraAccess, writeRelaySettings } from './relay-settings';
 
 afterEach(() => writeRelaySettings(DEFAULT_RELAY_SETTINGS));
 
 describe('relay settings', () => {
   it('the essential relays are the Blobbi relay and the network relays, normalized', () => {
-    expect(ESSENTIAL_RELAYS).toEqual(['wss://relay.blobbi.pet', 'wss://relay.ditto.pub', 'wss://relay.primal.net', 'wss://relay.nostr.band']);
+    expect(DEFAULT_RELAYS).toEqual(['wss://relay.blobbi.pet', 'wss://relay.ditto.pub', 'wss://relay.primal.net', 'wss://relay.nostr.band']);
   });
 
   it('adds a relay normalized, read-only, and refuses what is not one, an essential one, a duplicate or a sixth', () => {

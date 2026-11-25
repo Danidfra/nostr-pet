@@ -1,10 +1,11 @@
 /**
  * The player's relay settings: this device's choice, never published.
  *
- *   essential   the Blobbi network's relays (`PRIMARY_RELAY`, `BASE_RELAYS`):
- *               fixed, always used, shown with their status; reads that must
- *               be complete and writes that must be confirmed depend on
- *               them, so no setting can turn them off or remove them
+ *   default     the Blobbi network's relays (`PRIMARY_RELAY`, `BASE_RELAYS`):
+ *               fixed, always used, shown with their status. Three of them
+ *               are REQUIRED (`ABSENCE_REQUIRED_RELAYS`: complete reads and
+ *               saved writes depend on them); relay.nostr.band is a default
+ *               relay that nothing waits for. No setting turns any off
  *   extras      up to `MAX_EXTRA_RELAYS` relays the player adds (by hand, or
  *               picked from their NIP-65 list), each with read and write
  *               switches. A new extra is read-only: sending the player's
@@ -14,7 +15,7 @@
  * The NIP-65 relay list (kind 10002) is only ever read, to offer its relays;
  * it is never written or changed here.
  */
-import { BASE_RELAYS, MAX_EXTRA_RELAYS, PRIMARY_RELAY, normalizeRelayUrl } from '@/config/relays';
+import { ABSENCE_REQUIRED_RELAYS, BASE_RELAYS, MAX_EXTRA_RELAYS, PRIMARY_RELAY, normalizeRelayUrl } from '@/config/relays';
 
 export const RELAY_SETTINGS_KEY = 'blobbi:relays:v1';
 
@@ -34,11 +35,19 @@ export interface RelaySettings {
 
 export const DEFAULT_RELAY_SETTINGS: RelaySettings = { v: 1, extras: [] };
 
-/** The Blobbi network's relays, normalized, in the order they are shown. */
-export const ESSENTIAL_RELAYS: readonly string[] = [...new Set([PRIMARY_RELAY, ...BASE_RELAYS].map((u) => normalizeRelayUrl(u)).filter((u): u is string => u !== null))];
+/** The Blobbi network's default relays, normalized, in the order they are shown. */
+export const DEFAULT_RELAYS: readonly string[] = [...new Set([PRIMARY_RELAY, ...BASE_RELAYS].map((u) => normalizeRelayUrl(u)).filter((u): u is string => u !== null))];
 
-export function isEssentialRelay(url: string): boolean {
-  return ESSENTIAL_RELAYS.includes(url);
+const REQUIRED = new Set(ABSENCE_REQUIRED_RELAYS.map((u) => normalizeRelayUrl(u)).filter((u): u is string => u !== null));
+
+/** What a default relay is for: the Blobbi relay, one a complete read and a saved write need, or a default one nothing waits for. */
+export function defaultRelayRole(url: string): 'primary' | 'required' | 'default' {
+  if (url === normalizeRelayUrl(PRIMARY_RELAY)) return 'primary';
+  return REQUIRED.has(url) ? 'required' : 'default';
+}
+
+export function isDefaultRelay(url: string): boolean {
+  return DEFAULT_RELAYS.includes(url);
 }
 
 /** Stored settings, defensively: anything that is not a valid extra is dropped, never guessed. */
@@ -57,7 +66,7 @@ export function parseRelaySettings(raw: unknown): RelaySettings {
     if (!item || typeof item !== 'object') continue;
     const e = item as Record<string, unknown>;
     const url = normalizeRelayUrl(e.url);
-    if (!url || isEssentialRelay(url) || extras.some((x) => x.url === url)) continue;
+    if (!url || isDefaultRelay(url) || extras.some((x) => x.url === url)) continue;
     extras.push({ url, read: e.read === true, write: e.write === true, source: e.source === 'nip65' ? 'nip65' : 'manual' });
     if (extras.length >= MAX_EXTRA_RELAYS) break;
   }
@@ -71,7 +80,7 @@ export function addExtraRelay(settings: RelaySettings, input: string, source: Ex
   const trimmed = input.trim();
   const url = normalizeRelayUrl(/^[a-z]+:\/\//i.test(trimmed) ? trimmed : `wss://${trimmed}`);
   if (!url) return { ok: false, reason: 'invalid' };
-  if (isEssentialRelay(url)) return { ok: false, reason: 'essential' };
+  if (isDefaultRelay(url)) return { ok: false, reason: 'essential' };
   if (settings.extras.some((e) => e.url === url)) return { ok: false, reason: 'duplicate' };
   if (settings.extras.length >= MAX_EXTRA_RELAYS) return { ok: false, reason: 'full' };
   return { ok: true, url, settings: { v: 1, extras: [...settings.extras, { url, read: true, write: false, source }] } };

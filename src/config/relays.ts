@@ -1,6 +1,18 @@
 /**
  * Relays, as URLs the home can compare.
  *
+ * | set | relays | what depends on it |
+ * |---|---|---|
+ * | default (`PRIMARY_RELAY` + `BASE_RELAYS`) | blobbi, ditto, primal, nostr.band | every read and write goes there; fixed in the settings |
+ * | required for a complete Blobbi read (`ABSENCE_REQUIRED_RELAYS`) | blobbi, ditto, primal | "none exists" and the census before a rename |
+ * | required for a profile (`PROFILE_REQUIRED_RELAYS`) | ditto, primal | kind 11125 and kind 0 censuses |
+ * | counted acknowledgment (`confirmationRelaysFor`) | the two sets above | a Blobbi write / kind 0 is saved only once one of them accepted it |
+ * | player's extra relays (the relay settings) | up to `MAX_EXTRA_RELAYS` | read and/or written; never required, never counted |
+ * | issuer and game hints (`ECOSYSTEM_READ_HINTS`) | today one relay beyond the defaults (dreamith) | read only, for the filters they cover |
+ *
+ * relay.nostr.band is a default relay only: it is asked and written to, but
+ * no read waits for it and no write is saved on its word.
+ *
  * The standalone has four kinds of relay knowledge, and the first two are
  * configured here:
  *
@@ -123,12 +135,13 @@ export function syncDestinations(kind: number): readonly string[] {
 }
 
 /**
- * The most relays one read may fan out to: the primary, the application
- * relays and the player's extra read relays (`MAX_EXTRA_RELAYS`) are always
- * asked; the hints fill what is left. Hints are source-controlled constants,
- * so this is a ceiling, not a knob: it caps the damage of a mistaken table.
+ * The most relays one read may fan out to: the four default relays and the
+ * player's extra read relays (`MAX_EXTRA_RELAYS`) are always asked, and the
+ * hints fill what is left (today one relay, so 10 at most in practice). Hints
+ * are source-controlled constants, so this is a ceiling, not a knob: it caps
+ * the damage of a mistaken table.
  */
-export const MAX_RELAYS_PER_READ = 12;
+export const MAX_RELAYS_PER_READ = 10;
 /** How many extra relays a player may add in the relay settings. */
 export const MAX_EXTRA_RELAYS = 5;
 

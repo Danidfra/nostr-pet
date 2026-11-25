@@ -13,7 +13,7 @@ import { shortNpub } from '@/lib/format';
 import { AboutBlobbiSheet } from '@/features/onboarding/screens';
 import { RelaySettingsSheet } from '@/features/relays/RelaySettingsSheet';
 import { useRelayHealth } from '@/hooks/useRelayHealth';
-import { ESSENTIAL_RELAYS, readRelaySettings } from '@/features/relays/relay-settings';
+import { DEFAULT_RELAYS, readRelaySettings } from '@/features/relays/relay-settings';
 import { LOCALES, LOCALE_NAMES, changeLocale, getLocale, t, type Locale } from '@/i18n';
 import { hasUnsaved, pendingWrites, subscribePendingWrites, whenWritesSettle } from '@/lib/pending-writes';
 
@@ -82,7 +82,7 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
     setRelaysOpen(true);
   };
   const { health } = useRelayHealth();
-  const relayTotal = ESSENTIAL_RELAYS.length + readRelaySettings().extras.length;
+  const relayTotal = DEFAULT_RELAYS.length + readRelaySettings().extras.length;
   const relayConnected = [...Object.values(health.relays), ...Object.values(health.extras)].filter((m) => m === 'ok').length;
   const [aboutOpen, setAboutOpen] = useState(false);
   const openAbout = () => {
