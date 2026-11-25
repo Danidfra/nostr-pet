@@ -59,6 +59,7 @@ import { decideRead, eventAddress, matchesFilter, mergeRelayEvents, replacesEven
 import { buildReadRoutingPolicy, routeReadFilters, type ReadHint, type ReadRoutingPolicy } from './relay-routing';
 import { checkRelayTransport, RelayReadUnknownError, RelayTimeoutError, RelayTransportError, type TransportBlock } from './relay-transport';
 import { verdictOf, type RelayReadReport } from './relay-sync';
+import type { QueryProbe } from './relay-diagnostics';
 
 /** How long a read may go without any relay answering before it fails. */
 export const READ_TIMEOUT_MS = 15_000;
@@ -106,6 +107,8 @@ export interface HomePoolOptions {
   readTimeout?: number;
   /** Whether this page can reach relays at all; the browser is asked when omitted. */
   transport?: TransportBlock | null;
+  /** Development diagnostics (`relay-diagnostics.ts`): each relay the pool opens is wrapped, each query recorded. */
+  diagnostics?: { wrap: (relay: NRelay, url: string) => NRelay; probe: QueryProbe } | null;
 }
 
 type QueryOpts = Parameters<NPool['query']>[1];
@@ -124,6 +127,7 @@ interface HomePoolConfig {
   /** The write destinations of one event (also the pool's `eventRouter`). */
   eventRoutes: (event: NostrEvent) => string[];
   now: () => number;
+  probe?: QueryProbe;
 }
 
 interface RelayRead {
@@ -166,6 +170,8 @@ class HomePool extends NPool {
     // A Blobbi read: each relay answers for itself, and the answers are weighed (see the header)
     if (policy.primary && routes.has(policy.primary.url)) return this.readEach(filters, routes, opts?.signal);
 
+    const probe = this.cfg.probe;
+    const probeId = probe?.started('plain', filters, [...routes.keys()]);
     const outer = opts?.signal;
     const controller = new AbortController();
     const onOuterAbort = () => controller.abort();
@@ -180,7 +186,11 @@ class HomePool extends NPool {
       const events = await super.query(filters, { ...opts, signal: controller.signal });
       // The pool answers what it has when aborted; a deadline reached with the caller still waiting is a failure.
       if (timedOut && !outer?.aborted) throw new RelayTimeoutError(readTimeout);
+      if (probeId !== undefined) probe!.finished(probeId, { outcome: outer?.aborted ? 'aborted' : events.length ? 'answered' : 'empty', received: events.length, unique: events.length });
       return events;
+    } catch (error) {
+      if (probeId !== undefined) probe!.finished(probeId, { outcome: error instanceof RelayTimeoutError ? 'timeout' : 'error' });
+      throw error;
     } finally {
       clearTimeout(timer);
       outer?.removeEventListener('abort', onOuterAbort);
@@ -227,6 +237,18 @@ class HomePool extends NPool {
     const named = reads.filter((r) => absenceRequired.includes(r.relay)).map((r) => r.relay);
     const required = new Set(named.length > 0 ? named : reads.map((r) => r.relay));
     const asRelayFilters = filters as unknown as RelayFilter[];
+    const probe = this.cfg.probe;
+    const probeId = probe?.started('blobbi', filters, reads.map((r) => r.relay));
+    const probeEnd = (outcome: 'answered' | 'empty' | 'unknown' | 'timeout', unique: number) => {
+      if (probeId === undefined) return;
+      probe!.finished(probeId, {
+        outcome,
+        received: reads.reduce((n, r) => n + r.events.length, 0),
+        unique,
+        eose: reads.filter((r) => r.status === 'eose').map((r) => r.relay),
+        failed: reads.filter((r) => r.status === 'failed').map((r) => r.relay),
+      });
+    };
 
     return new Promise<NostrEvent[]>((resolve, reject) => {
       let answered = false;
@@ -263,9 +285,11 @@ class HomePool extends NPool {
               if (known.length > 0) events = mergeRelayEvents([...events, ...known]);
             }
             for (const event of events) this.remember(event);
+            probeEnd(events.length ? 'answered' : 'empty', events.length);
             resolve(events);
           } else if (decision.status === 'unknown') {
             answered = true;
+            probeEnd(decision.reason === 'no-relay-answered' ? 'timeout' : 'unknown', 0);
             reject(decision.reason === 'no-relay-answered' ? new RelayTimeoutError(Math.min(relayTimeout, readTimeout)) : new RelayReadUnknownError(reads.filter((r) => required.has(r.relay) && r.status !== 'eose').map((r) => r.relay)));
           }
         }
@@ -339,8 +363,9 @@ class HomePool extends NPool {
   }
 }
 
-export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HINTS, primary = null, absenceRequired = ABSENCE_REQUIRED_RELAYS, open, eoseTimeout, log, readTimeout = READ_TIMEOUT_MS, relayTimeout = RELAY_TIMEOUT_MS, transport, observer }: HomePoolOptions = {}): NPool {
-  const openRelay = open ?? ((url: string) => new NRelay1(url, log ? { log } : {}));
+export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HINTS, primary = null, absenceRequired = ABSENCE_REQUIRED_RELAYS, open, eoseTimeout, log, readTimeout = READ_TIMEOUT_MS, relayTimeout = RELAY_TIMEOUT_MS, transport, observer, diagnostics }: HomePoolOptions = {}): NPool {
+  const baseOpen = open ?? ((url: string) => new NRelay1(url, log ? { log } : {}));
+  const openRelay = diagnostics ? (url: string) => diagnostics.wrap(baseOpen(url), url) : baseOpen;
   const policy = buildReadRoutingPolicy({ appRelays: relays, hints, primary: primary ? { url: primary.url, kinds: primary.readKinds } : null });
   const writeRelays = [...policy.appRelays];
   // The primary first, for the kinds it accepts; a kind it would refuse is never sent to it
@@ -366,6 +391,7 @@ export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HI
       observer,
       eventRoutes,
       now: () => Date.now(),
+      probe: diagnostics?.probe,
     },
   );
 }

@@ -10,6 +10,8 @@ import { carryGate } from '@/lib/sync-consent';
 import { createRelayHealthStore, type RelayHealthStore } from '@/lib/relay-health';
 import { RelayHealthContext } from '@/hooks/useRelayHealth';
 import { checkRelayTransport } from '@/lib/relay-transport';
+import { createRelayDiagnostics } from '@/lib/relay-diagnostics';
+import { RelayDiagnosticsContext } from '@/hooks/useRelayDiagnostics';
 
 interface NostrProviderProps {
   children: ReactNode;
@@ -48,6 +50,8 @@ function browserStore(): SyncStore | null {
  */
 export function NostrProvider({ children, relays = BASE_RELAYS, primary = relays === BASE_RELAYS ? PRIMARY_RELAY : null }: NostrProviderProps) {
   const transport = useMemo(() => checkRelayTransport(), []);
+  // Development only: the relay diagnostics panel's store (`relay-diagnostics.ts`); production builds never create it
+  const diagnostics = useMemo(() => (import.meta.env.DEV ? createRelayDiagnostics() : null), []);
   // The primary is an application relay to the health store: when it fails, the home is degraded, never offline for it
   const health = useMemo(() => createRelayHealthStore(primary ? [primary, ...relays.filter((url) => url !== primary)] : relays, typeof navigator === 'undefined' ? true : navigator.onLine !== false, transport), [relays, primary, transport]);
   const { pool, sync } = useMemo(() => {
@@ -67,14 +71,18 @@ export function NostrProvider({ children, relays = BASE_RELAYS, primary = relays
       relays,
       primary: primary ? { url: primary, readKinds: PRIMARY_READ_KINDS, writeKinds: PRIMARY_KINDS } : null,
       transport,
-      log: (entry) => health.log(entry as unknown as Parameters<RelayHealthStore['log']>[0]),
+      log: (entry) => {
+        health.log(entry as unknown as Parameters<RelayHealthStore['log']>[0]);
+        diagnostics?.log(entry as unknown as Parameters<NonNullable<typeof diagnostics>['log']>[0]);
+      },
+      diagnostics: diagnostics ? { wrap: diagnostics.instrument, probe: diagnostics } : null,
       observer: {
         delivery: (event, result) => sync.noteResult(event, result),
         read: (filters, reports) => void sync.noteRead(filters, reports).catch(() => 0),
       },
     });
     return { pool: ref.pool, sync };
-  }, [relays, primary, health, transport]);
+  }, [relays, primary, health, transport, diagnostics]);
 
   useEffect(() => {
     const on = () => health.setOnline(true);
@@ -96,11 +104,13 @@ export function NostrProvider({ children, relays = BASE_RELAYS, primary = relays
   }, [pool]);
 
   return (
-    <RelayHealthContext.Provider value={health}>
-      <RelaySyncContext.Provider value={sync}>
-        <NostrContext.Provider value={{ nostr: pool }}>{children}</NostrContext.Provider>
-      </RelaySyncContext.Provider>
-    </RelayHealthContext.Provider>
+    <RelayDiagnosticsContext.Provider value={diagnostics}>
+      <RelayHealthContext.Provider value={health}>
+        <RelaySyncContext.Provider value={sync}>
+          <NostrContext.Provider value={{ nostr: pool }}>{children}</NostrContext.Provider>
+        </RelaySyncContext.Provider>
+      </RelayHealthContext.Provider>
+    </RelayDiagnosticsContext.Provider>
   );
 }
 
