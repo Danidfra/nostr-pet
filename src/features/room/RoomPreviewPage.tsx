@@ -1413,6 +1413,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         onClose={() => setItemsOpen(false)}
         inventory={care.inventory}
         blobbiName={blobbi.name}
+        openUse={care.openUseItem !== null}
+        openUseItem={care.openUseItem}
         onUse={(entry) => {
           setItemsOpen(false);
           const careEntry = ownedEntry(entry);

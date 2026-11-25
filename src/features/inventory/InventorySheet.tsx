@@ -16,6 +16,8 @@ interface InventorySheetProps {
   onUse: (entry: HomeInventoryItem) => void;
   /** An earlier use is waiting to be finished; the Use button says so. */
   openUse?: boolean;
+  /** That earlier use's item (its name): a line says it is still finishing. */
+  openUseItem?: string | null;
   /** A use is running right now. */
   busy?: boolean;
   /** Addresses currently worn (equipped on the Island), shown as such. */
@@ -34,7 +36,7 @@ const kindWord = (kind: HomeItem['kind']) => t(`world.inventory.kind.${kind}`);
  * whether THIS Blobbi can use it now. Equipping and trading stay on the
  * Island; the fast path for care is the strip above the verbs.
  */
-export function InventorySheet({ open, onClose, inventory, blobbiName, onUse, openUse = false, busy = false, worn }: InventorySheetProps) {
+export function InventorySheet({ open, onClose, inventory, blobbiName, onUse, openUse = false, openUseItem = null, busy = false, worn }: InventorySheetProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('all');
   useEffect(() => {
@@ -69,6 +71,11 @@ export function InventorySheet({ open, onClose, inventory, blobbiName, onUse, op
   return (
     <GameOverlay open={open} onClose={onClose} title={t('world.inventory.title')} testId="inventory-sheet" size="tall" subtitle={inventory.status === 'ready' ? <span data-testid="inventory-count">{total === 0 ? t('world.inventory.nothingYet') : tp('world.inventory.count', total, { name: blobbiName })}</span> : undefined} toolbar={tabs || undefined}>
       <div className="flex flex-col gap-4">
+        {openUseItem && (
+          <p role="status" className="mb-2 rounded-lg bg-amber-500/15 px-3 py-2 text-sm" data-testid="inventory-finishing">
+            {t('world.inventory.finishing', { item: openUseItem })}
+          </p>
+        )}
         {inventory.status === 'loading' && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="inventory-loading">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {t('world.inventory.looking')}

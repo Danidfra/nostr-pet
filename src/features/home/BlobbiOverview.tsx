@@ -1229,6 +1229,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             // An earlier use left unfinished is finished first (the ledger's resume), never bathed with
             onUse={(entry) => chooseOption(ownedEntry(entry))}
             openUse={useItem.hasOpenUse(blobbi.d)}
+            openUseItem={useItem.openUseItem(blobbi.d)}
             busy={useItem.isPending || useStarter.isPending || busyWithObject}
             worn={worn.wornAddresses}
           />

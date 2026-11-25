@@ -93,6 +93,8 @@ export interface RoomCare {
   busy: boolean;
   /** An owned use of this Blobbi's was begun and not finished (the spend ledger): the next owned use resumes it. */
   hasOpenUse: () => boolean;
+  /** The item an unfinished use was for (its name), or null. */
+  openUseItem: string | null;
   /**
    * Set an item down in the room for the Blobbi (`walking`); nothing is used. Null when it cannot be placed (a
    * write is out, the item is not usable, nowhere to put it). An item already waiting is replaced.
@@ -351,6 +353,7 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
     offer,
     busy: busy || restWalking,
     hasOpenUse: () => useItem.hasOpenUse(blobbi.d),
+    openUseItem: useItem.openUseItem(blobbi.d),
     place,
     begin,
     startEating,
