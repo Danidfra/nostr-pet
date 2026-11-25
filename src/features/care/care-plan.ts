@@ -67,6 +67,8 @@ export interface CareAvailability {
   action: CareAction;
   /** What the button says. Rest reads "Wake" for a sleeping Blobbi. */
   label: string;
+  /** Rest for a sleeping Blobbi wakes it: the button's meaning, apart from its words (never compare `label`). */
+  wakes?: boolean;
   available: boolean;
   /** Why not, in the player's words. */
   reason?: string;
@@ -101,7 +103,8 @@ export function availableCareActions(companion: BlobbiCompanion): CareAvailabili
   if (companion.state === 'hibernating') {
     list.push({ action: 'rest', label: careLabel('rest'), available: false, reason: stateReason('hibernating') });
   } else {
-    list.push({ action: 'rest', label: careLabel(companion.state === 'sleeping' ? 'wake' : 'rest'), available: true });
+    const wakes = companion.state === 'sleeping';
+    list.push({ action: 'rest', label: careLabel(wakes ? 'wake' : 'rest'), available: true, wakes });
   }
   return list;
 }

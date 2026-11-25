@@ -2,7 +2,6 @@ import { Backpack, Bath, Gamepad2, Loader2, Moon, Sun, Utensils, type LucideIcon
 import type { CareAction, CareAvailability } from '@/features/care';
 import type { CareVerb } from './care-model';
 import { t } from '@/i18n';
-import { careLabel } from './labels';
 
 const ICONS: Record<CareAction, LucideIcon> = { feed: Utensils, play: Gamepad2, clean: Bath, rest: Moon };
 const TINT: Record<CareAction, string> = { feed: 'verb--feed', play: 'verb--play', clean: 'verb--clean', rest: 'verb--rest' };
@@ -29,8 +28,8 @@ export function CareDock({ actions, selected, pendingAction, onSelect, onOpenIte
   const busy = pendingAction !== null;
   return (
     <div role="group" aria-label={t('home.care.dock')} className="verb-row" data-testid="care-dock">
-      {actions.map(({ action, label, available, reason }) => {
-        const Icon = action === 'rest' && label === careLabel('wake') ? Sun : ICONS[action];
+      {actions.map(({ action, label, available, reason, wakes }) => {
+        const Icon = action === 'rest' && wakes ? Sun : ICONS[action];
         const isPending = pendingAction === action;
         const off = disabled || busy || !available;
         const open = selected === action;
