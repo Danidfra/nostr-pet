@@ -13,7 +13,7 @@ describe('the reconnection schedule', () => {
   it('doubles from one second up to a ceiling that grows with how long the relay has been failing', () => {
     let now = 0;
     const b = new JitteredBackoff(1000, { now: () => now, random: () => 1, hidden: () => false });
-    expect(Array.from({ length: 7 }, () => b.next())).toEqual([1000, 2000, 4000, 8000, 16000, 30000, 30000]);
+    expect(Array.from({ length: 7 }, () => b.next())).toEqual([1000, 2000, 4000, 8000, 16000, RECONNECT_CAP_MS, RECONNECT_CAP_MS]);
     // Past five minutes the step keeps doubling, now up to two minutes
     now = 6 * 60_000;
     expect([b.next(), b.next(), b.next(), b.next()]).toEqual([32_000, 64_000, RECONNECT_CAP_MID_MS, RECONNECT_CAP_MID_MS]);
