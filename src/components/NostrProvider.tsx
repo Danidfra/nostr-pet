@@ -85,7 +85,11 @@ export function NostrProvider({ children, relays = BASE_RELAYS, primary = relays
   }, [relays, primary, health, transport, diagnostics]);
 
   useEffect(() => {
-    const on = () => health.setOnline(true);
+    const on = () => {
+      health.setOnline(true);
+      // Back online: every connection's next retry is a short one (`relay-backoff.ts`)
+      (pool as NPool & { connectivityRestored?: () => void }).connectivityRestored?.();
+    };
     const off = () => health.setOnline(false);
     window.addEventListener('online', on);
     window.addEventListener('offline', off);
@@ -93,7 +97,7 @@ export function NostrProvider({ children, relays = BASE_RELAYS, primary = relays
       window.removeEventListener('online', on);
       window.removeEventListener('offline', off);
     };
-  }, [health]);
+  }, [health, pool]);
 
   useEffect(() => {
     return () => {

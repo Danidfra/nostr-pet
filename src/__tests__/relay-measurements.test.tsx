@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { MemoryRouter } from 'react-router-dom';
-import { NRelay1, type NPool, type NostrEvent } from '@nostrify/nostrify';
+import type { NPool, NostrEvent } from '@nostrify/nostrify';
 import { poolWorldTravelRelays } from '@blobbi-kit/react';
 import type { ReactNode } from 'react';
 
@@ -26,6 +26,7 @@ import { PRIMARY_KINDS, PRIMARY_READ_KINDS } from '@/config/relays';
 import { useBlobbonautProfile } from '@/hooks/useBlobbonautProfile';
 import { PUBKEY, blobbiEvent } from '@/test/fixtures';
 import { fakeNetwork, type FakeNetwork } from '@/test/fake-relays';
+import { failingSocketClass } from '@/test/failing-socket';
 
 const currentUser = vi.hoisted(() => ({ user: undefined as { pubkey: string; signer: unknown } | undefined }));
 vi.mock('@/hooks/useCurrentUser', () => ({ useCurrentUser: () => ({ user: currentUser.user, users: currentUser.user ? [currentUser.user] : [] }) }));
@@ -179,47 +180,22 @@ describe('relay measurements', () => {
 
   it('a relay that never connects, over two hours: reconnection attempts and the longest wait', async () => {
     vi.useFakeTimers();
-    const sockets: FailingSocket[] = [];
-    class FailingSocket extends EventTarget {
-      static readonly CONNECTING = 0;
-      static readonly OPEN = 1;
-      static readonly CLOSING = 2;
-      static readonly CLOSED = 3;
-      readyState = 0;
-      binaryType = 'blob';
-      constructor(readonly url: string) {
-        super();
-        sockets.push(this);
-        setTimeout(() => {
-          this.readyState = 3;
-          this.dispatchEvent(new Event('error'));
-          this.dispatchEvent(new CloseEvent('close', { code: 1006 }));
-        }, 10);
-      }
-      send() {}
-      close() {
-        this.readyState = 3;
-      }
-    }
-    vi.stubGlobal('WebSocket', FailingSocket);
+    const sockets: { url: string; closedAt: number | null }[] = [];
+    vi.stubGlobal('WebSocket', failingSocketClass(sockets));
     const waits: number[] = [];
-    const relay = new NRelay1('wss://down.test', {
-      log: (entry) => {
-        diagnostics.log({ ...(entry as object), url: 'wss://down.test' } as Parameters<RelayDiagnostics['log']>[0]);
-        if (entry.ns === 'relay.ws.retry') waits.push((entry as unknown as { backoff: number }).backoff);
-      },
-    });
+    // The pool's own connections (its reconnection schedule included), on a socket that never opens
+    const down = createHomePool({ relays: ['wss://down.test'], hints: [], transport: null, log: (entry) => void (entry.ns === 'relay.ws.retry' && waits.push((entry as unknown as { backoff: number }).backoff)) });
     const stop = new AbortController();
     const sub = (async () => {
       try {
-        for await (const msg of relay.req([{ kinds: [31124] }], { signal: stop.signal })) void msg;
+        for await (const msg of down.relay('wss://down.test').req([{ kinds: [31124] }], { signal: stop.signal })) void msg;
       } catch {
         /* aborted */
       }
     })();
     await vi.advanceTimersByTimeAsync(2 * 60 * 60_000);
     stop.abort();
-    await relay.close().catch(() => {});
+    await down.close().catch(() => {});
     vi.unstubAllGlobals();
     await vi.advanceTimersByTimeAsync(10);
     await sub;

@@ -68,6 +68,7 @@ import { buildReadRoutingPolicy, routeReadFilters, type ReadHint, type ReadRouti
 import { checkRelayTransport, PublishUnconfirmedError, RelayReadUnknownError, RelayTimeoutError, RelayTransportError, type TransportBlock } from './relay-transport';
 import { verdictOf, type RelayReadReport } from './relay-sync';
 import type { QueryProbe } from './relay-diagnostics';
+import { JitteredBackoff } from './relay-backoff';
 
 /** How long a read may go without any relay answering before it fails. */
 export const READ_TIMEOUT_MS = 15_000;
@@ -159,6 +160,8 @@ interface HomePoolConfig {
   eventRoutes: (event: NostrEvent) => string[];
   /** Normalized: the relays whose acceptance saves a write of this kind, or null for the first acceptance anywhere. */
   confirmWith: (kind: number) => readonly string[] | null;
+  /** Each connection's reconnection schedule (`relay-backoff.ts`), by relay. */
+  backoffs: ReadonlyMap<string, JitteredBackoff>;
   now: () => number;
   probe?: QueryProbe;
 }
@@ -185,6 +188,14 @@ class HomePool extends NPool {
     private readonly cfg: HomePoolConfig,
   ) {
     super(opts);
+  }
+
+  /**
+   * The browser is online again: every connection's next retry is a short one. Sockets are not reopened here
+   * (each reconnects on its own schedule, or when a read needs it), so nothing is opened twice.
+   */
+  connectivityRestored(): void {
+    for (const backoff of this.cfg.backoffs.values()) backoff.reset();
   }
 
   private refuse(): void {
@@ -430,7 +441,15 @@ class HomePool extends NPool {
 }
 
 export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HINTS, primary = null, absenceRequired = ABSENCE_REQUIRED_RELAYS, profileRequired = PROFILE_REQUIRED_RELAYS, open, eoseTimeout, log, readTimeout = READ_TIMEOUT_MS, relayTimeout = RELAY_TIMEOUT_MS, transport, observer, diagnostics }: HomePoolOptions = {}): NPool {
-  const baseOpen = open ?? ((url: string) => new NRelay1(url, log ? { log } : {}));
+  const backoffs = new Map<string, JitteredBackoff>();
+  const baseOpen =
+    open ??
+    ((url: string) => {
+      // One schedule per connection, bounded and jittered (`relay-backoff.ts`), instead of NRelay1's unbounded default
+      const backoff = new JitteredBackoff();
+      backoffs.set(url, backoff);
+      return new NRelay1(url, { ...(log ? { log } : {}), backoff });
+    });
   const openRelay = diagnostics ? (url: string) => diagnostics.wrap(baseOpen(url), url) : baseOpen;
   const policy = buildReadRoutingPolicy({ appRelays: relays, hints, primary: primary ? { url: primary.url, kinds: primary.readKinds } : null });
   const writeRelays = [...policy.appRelays];
@@ -444,7 +463,7 @@ export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HI
     const set = confirmationRelaysFor(kind);
     return set ? counted[set] : null;
   };
-  return new HomePool(
+  const pool: HomePool = new HomePool(
     {
       open: openRelay,
       reqRouter(filters: NostrFilter[]) {
@@ -463,8 +482,10 @@ export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HI
       observer,
       eventRoutes,
       confirmWith,
+      backoffs,
       now: () => Date.now(),
       probe: diagnostics?.probe,
     },
   );
+  return pool;
 }
