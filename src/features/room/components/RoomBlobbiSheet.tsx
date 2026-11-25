@@ -10,6 +10,7 @@
  * the condition, with its own icon and the look in force named, and the
  * one-time guide can light it when the sheet opens.
  */
+import { RenamePencil } from '@/features/care-ui/RenameBlobbiDialog';
 import type { BlobbiCompanion, BlobbonautProfile } from '@blobbi-kit/core';
 import { Chip } from '@/features/home/shell/Chip';
 import { useEffect, useRef } from 'react';
@@ -45,6 +46,8 @@ interface RoomBlobbiSheetProps {
   onOpenJourney?: () => void;
   /** The Polaroid: a portrait of this Blobbi to keep or to send (src/features/photo). */
   onOpenPhoto?: () => void;
+  /** Rename this Blobbi (the pencil beside its name); absent where it cannot be renamed. */
+  onRename?: () => void;
   /** A guest's Blobbi (M14): the lifecycle runs on this device, and the panel says so. */
   guest?: boolean;
   /** Open the whole inventory (every item the player owns, usable here or not). */
@@ -99,7 +102,7 @@ function AppearanceCard({ blobbi, appearance, highlight, onSeen, reducedMotion }
   );
 }
 
-export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, onOpenItems, usableItemCount, onOpenJourney, onOpenPhoto, guest = false, appearance, highlightAppearance = false, onAppearanceSeen, reducedMotion = false }: RoomBlobbiSheetProps) {
+export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, onOpenItems, usableItemCount, onOpenJourney, onOpenPhoto, onRename, guest = false, appearance, highlightAppearance = false, onAppearanceSeen, reducedMotion = false }: RoomBlobbiSheetProps) {
   const portrait = (
     <span className="overlay-portrait" aria-hidden>
       <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`room-details-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
@@ -129,7 +132,7 @@ export function RoomBlobbiSheet({ open, onClose, blobbi, mood, statItems, profil
   );
 
   return (
-    <GameOverlay open={open} onClose={onClose} title={blobbi.name} testId="room-blobbi-sheet" lead={portrait} subtitle={chips} size="medium">
+    <GameOverlay open={open} onClose={onClose} title={blobbi.name} titleAction={onRename ? <RenamePencil name={blobbi.name} onClick={onRename} /> : undefined} testId="room-blobbi-sheet" lead={portrait} subtitle={chips} size="medium">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground" data-testid="room-mood-line">
           {t('room.sheet.mood', { name: blobbi.name, mood })}

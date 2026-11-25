@@ -83,6 +83,7 @@ import { useDailyXp } from '@/features/progression/useDailyXp';
 import { JourneySheet } from '@/features/journey/JourneySheet';
 import { PolaroidDoor } from '@/features/photo';
 import { holdUnsaved } from '@/lib/pending-writes';
+import { RenameBlobbiDialog } from '@/features/care-ui/RenameBlobbiDialog';
 import { ChapterToast } from '@/features/journey/ChapterToast';
 import type { ObjectiveAction } from '@/features/journey/journey';
 import type { LifecycleTask } from '@/features/lifecycle';
@@ -611,6 +612,8 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const [sheetOpen, setSheetOpen] = useState(false);
   // The Polaroid (src/features/photo): a portrait to keep or send; nothing is written, and the 3D scene is not read
   const [photoOpen, setPhotoOpen] = useState(false);
+  // Renaming the Blobbi (the pencil in its details): the very same Blobbi, only its name changes
+  const [renameOpen, setRenameOpen] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
   const statItems = useMemo<StatItem[]>(
     () => (projected ? getVisibleStats(blobbi.stage).map((stat) => ({ stat, value: projected.stats[stat], status: getStatStatus(blobbi.stage, stat, projected.stats[stat]) })) : []),
@@ -1126,7 +1129,7 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // A guest's room (M15): the same invitation to save as the 2D home's, by the shared rules, in a quiet moment of the
   // room (nothing in use or walking, no ceremony, nothing of the room's open, the Blobbi here and awake)
   const roomQuiet =
-    present && !bathing && !care.busy && care.offer === null && interactions.activity === null && !transitioning && !theater && !isSleeping && !decorator.editing && lifecycle.pending === null && !sheetOpen && !photoOpen && !menuOpen && !itemsOpen && !introOpen && !fridgeOpen && !statusOpen && !worldsOpen && !journeyOpen && !adoptOpen && departure.phase === 'idle';
+    present && !bathing && !care.busy && care.offer === null && interactions.activity === null && !transitioning && !theater && !isSleeping && !decorator.editing && lifecycle.pending === null && !sheetOpen && !photoOpen && !renameOpen && !menuOpen && !itemsOpen && !introOpen && !fridgeOpen && !statusOpen && !worldsOpen && !journeyOpen && !adoptOpen && departure.phase === 'idle';
   const saveInvite = useSaveInvite({ hatched: blobbi.stage !== 'egg', quiet: roomQuiet });
 
   return (
@@ -1396,8 +1399,14 @@ function BlobbiRoom({ blobbi, companions, profile, pubkey, onSelect, updateCompa
           endLookGuide();
           setPhotoOpen(true);
         }}
+        onRename={() => {
+          setSheetOpen(false);
+          endLookGuide();
+          setRenameOpen(true);
+        }}
         guest={guestActive}
       />
+      <RenameBlobbiDialog open={renameOpen} onClose={() => setRenameOpen(false)} blobbi={blobbi} pubkey={pubkey} updateCompanionEvent={updateCompanionEvent} onRenamed={(name) => care.notify(t('home.rename.saved', { name }))} />
       <PolaroidDoor open={photoOpen} onClose={() => setPhotoOpen(false)} blobbi={blobbi} stats={projected?.stats} eggCrack={isEgg ? lifecycle.view.eggCrack : undefined} accessories={isEgg ? undefined : worn.accessoriesFor('front')} />
       <InventorySheet
         open={itemsOpen}

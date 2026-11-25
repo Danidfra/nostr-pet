@@ -338,4 +338,23 @@ export const home: MessageShape<typeof source> = {
     bed: 'Camita',
     tub: 'Bañera',
   },
+  rename: {
+    title: 'Renombrar a {name}',
+    edit: 'Renombrar a {name}',
+    label: 'Nuevo nombre',
+    hint: 'Solo cambia el nombre: es el mismísimo Blobbi, con todo lo que tiene.',
+    counter: '{count}/{max}',
+    save: 'Guardar nombre',
+    cancel: 'Cancelar',
+    saving: 'Guardando…',
+    saved: 'Ahora se llama {name}.',
+    error: {
+      signIn: 'Inicia sesión o empieza a jugar para renombrar a tu Blobbi.',
+      empty: 'Ponle un nombre.',
+      'too-long': 'Un nombre puede tener hasta {max} caracteres.',
+      unchanged: 'Ese ya es su nombre.',
+      incomplete: 'No respondieron todos los relays, así que el nombre quedó como estaba. Inténtalo de nuevo en un momento.',
+      notFound: 'No se encontró a este Blobbi en los relays. Inténtalo de nuevo en un momento.',
+    },
+  },
 };

@@ -58,6 +58,7 @@ import { useJourney } from '@/features/journey/useJourney';
 import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
 import { JourneySheet } from '@/features/journey/JourneySheet';
 import { PolaroidDoor } from '@/features/photo';
+import { RenameBlobbiDialog } from '@/features/care-ui/RenameBlobbiDialog';
 import type { ObjectiveAction } from '@/features/journey/journey';
 import { WorldsSheet } from '@/features/worlds/WorldsSheet';
 import { WorldsButton } from '@/features/worlds/WorldsButton';
@@ -216,6 +217,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const [blobbiSheetOpen, setBlobbiSheetOpen] = useState(false);
   // The Polaroid (src/features/photo): a portrait to keep or send; nothing is written
   const [photoOpen, setPhotoOpen] = useState(false);
+  // Renaming the Blobbi (the pencil in its details): the very same Blobbi, only its name changes
+  const [renameOpen, setRenameOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
   const openItems = useCallback(() => setItemsOpen(true), []);
@@ -922,7 +925,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const guestUi = useGuestUi();
   const guestActive = guest.mode === 'active';
   const requestSave = guestUi.requestSave;
-  const homeQuiet = !busyWithObject && !theater && !inCeremony && pendingAction === null && !blobbiSheetOpen && !photoOpen && !menuOpen && !itemsOpen && !sleeping;
+  const homeQuiet = !busyWithObject && !theater && !inCeremony && pendingAction === null && !blobbiSheetOpen && !photoOpen && !renameOpen && !menuOpen && !itemsOpen && !sleeping;
   // The one switch between the two homes (M14.1), upper right; the first 3D asks first
   const modeSwitch = useModeSwitch();
   // The guest's status, by the name (M14.1): a word, and a short explanation on tap; "Saved to Nostr" once a save landed
@@ -1182,7 +1185,12 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               setBlobbiSheetOpen(false);
               setPhotoOpen(true);
             }}
+            onRename={() => {
+              setBlobbiSheetOpen(false);
+              setRenameOpen(true);
+            }}
           />
+          <RenameBlobbiDialog open={renameOpen} onClose={() => setRenameOpen(false)} blobbi={blobbi} pubkey={pubkey} updateCompanionEvent={updateCompanionEvent} onRenamed={(name) => setBathNotice(t('home.rename.saved', { name }))} />
           <PolaroidDoor open={photoOpen} onClose={() => setPhotoOpen(false)} blobbi={blobbi} stats={projected?.stats} eggCrack={isEgg ? eggCrack : undefined} accessories={isEgg ? undefined : worn.accessoriesFor('front')} />
           <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} />
           <JourneySheet open={journeyOpen} onClose={() => setJourneyOpen(false)} chapters={journeyBook.chapters} onAction={onJourneyAction} progress={{ xp: profile?.xp, level: journeyBook.level }} daily={daily} canAdoptMore={false} />

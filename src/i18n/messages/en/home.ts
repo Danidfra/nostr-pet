@@ -340,4 +340,23 @@ export const home = {
     bed: 'Pet Bed',
     tub: 'Bathtub',
   },
+  rename: {
+    title: 'Rename {name}',
+    edit: 'Rename {name}',
+    label: 'New name',
+    hint: 'Only the name changes: it is the very same Blobbi, with everything it has.',
+    counter: '{count}/{max}',
+    save: 'Save name',
+    cancel: 'Cancel',
+    saving: 'Saving…',
+    saved: 'Now called {name}.',
+    error: {
+      signIn: 'Sign in or start playing to rename your Blobbi.',
+      empty: 'Give it a name.',
+      'too-long': 'A name can have up to {max} characters.',
+      unchanged: 'That is already its name.',
+      incomplete: 'Not every relay answered, so the name was left as it is. Try again in a moment.',
+      notFound: 'This Blobbi could not be found on the relays. Try again in a moment.',
+    },
+  },
 };

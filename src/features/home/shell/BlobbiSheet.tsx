@@ -1,4 +1,5 @@
 import type { BlobbiCompanion, BlobbonautProfile } from '@blobbi-kit/core';
+import { RenamePencil } from '@/features/care-ui/RenameBlobbiDialog';
 import { Chip } from './Chip';
 import { ChevronRight, Map as MapIcon, Moon, Snowflake, Sparkles } from 'lucide-react';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
@@ -31,6 +32,8 @@ interface BlobbiSheetProps {
   onOpenJourney?: () => void;
   /** The Polaroid: a portrait of this Blobbi to keep or to send (src/features/photo). */
   onOpenPhoto?: () => void;
+  /** Rename this Blobbi (the pencil beside its name); absent where it cannot be renamed. */
+  onRename?: () => void;
   devForce?: (kind: CeremonyKind) => void;
   /** A guest's Blobbi (M14): evolving waits for a saved Blobbi; the panel says so instead of offering it. */
   guest?: boolean;
@@ -42,7 +45,7 @@ interface BlobbiSheetProps {
  * exact numbers, progression, the lifecycle missions, and the other
  * Blobbis. The home shows only what matters at a glance; this is the rest.
  */
-export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, devForce, guest = false, onOpenJourney, onOpenPhoto }: BlobbiSheetProps) {
+export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, companions, onSelect, lifecycle, ceremony, onCeremony, firstBlobbi, devForce, guest = false, onOpenJourney, onOpenPhoto, onRename }: BlobbiSheetProps) {
   const portrait = (
     <span className="overlay-portrait" aria-hidden>
       <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`details-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
@@ -72,7 +75,7 @@ export function BlobbiSheet({ open, onClose, blobbi, mood, statItems, profile, c
   );
 
   return (
-    <GameOverlay open={open} onClose={onClose} title={blobbi.name} testId="blobbi-sheet" lead={portrait} subtitle={chips} size="medium">
+    <GameOverlay open={open} onClose={onClose} title={blobbi.name} titleAction={onRename ? <RenamePencil name={blobbi.name} onClick={onRename} /> : undefined} testId="blobbi-sheet" lead={portrait} subtitle={chips} size="medium">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground" data-testid="mood-line">
           {t('home.sheet.moodLine', { name: blobbi.name, mood })}

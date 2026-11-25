@@ -13,6 +13,8 @@ interface GameOverlayProps {
   lead?: ReactNode;
   /** A line under the title. */
   subtitle?: ReactNode;
+  /** A small control right after the title (the pencil that renames a Blobbi). */
+  titleAction?: ReactNode;
   /** Sticky tabs or filters under the header, above the scrolling body. */
   toolbar?: ReactNode;
   /**
@@ -45,7 +47,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * closed. Two sheets can therefore never stand on top of each other, and
  * none is dismissed on another's behalf.
  */
-export function GameOverlay({ open, onClose, title, children, testId, lead, subtitle, toolbar, size = 'medium', className = '' }: GameOverlayProps) {
+export function GameOverlay({ open, onClose, title, children, testId, lead, subtitle, titleAction, toolbar, size = 'medium', className = '' }: GameOverlayProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -98,9 +100,12 @@ export function GameOverlay({ open, onClose, title, children, testId, lead, subt
         <header className="overlay-head">
           {lead && <div className="overlay-head__lead">{lead}</div>}
           <div className="overlay-head__text">
-            <h2 id={titleId} className="overlay-title">
-              {title}
-            </h2>
+            <div className="flex min-w-0 items-center gap-1">
+              <h2 id={titleId} className="overlay-title">
+                {title}
+              </h2>
+              {titleAction}
+            </div>
             {subtitle && <div className="overlay-subtitle">{subtitle}</div>}
           </div>
           <button ref={closeRef} type="button" onClick={onClose} className="overlay-close" aria-label={t('common.close')} data-testid={testId ? `${testId}-close` : undefined}>
