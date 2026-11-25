@@ -317,6 +317,7 @@ export const world = {
     night: { name: 'Always night', tagline: 'Lamplight and stars, whatever the Island clock says.' },
   },
   relay: {
+    unconfirmed: 'Saved only on a backup relay, so it is not confirmed yet. Check the connection and try again.',
     thisAddress: 'this address',
     insecure: 'This page is open over plain HTTP ({where}), which the browser treats as insecure, so it withholds part of Web Crypto and the relays cannot be reached. Open it over https://, or on localhost on this machine. A development fixture link (?fixture=) works here without an account.',
     noCrypto: 'This browser has no Web Crypto (crypto.getRandomValues and crypto.randomUUID), which the relays need. Use a current browser.',

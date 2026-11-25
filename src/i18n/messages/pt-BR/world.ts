@@ -317,6 +317,7 @@ export const world: MessageShape<typeof source> = {
     night: { name: 'Sempre noite', tagline: 'Luz de abajur e estrelas, não importa o relógio da Ilha.' },
   },
   relay: {
+    unconfirmed: 'Ficou salvo só num relay reserva, então ainda não está confirmado. Confira a conexão e tente de novo.',
     thisAddress: 'este endereço',
     insecure: 'Esta página está aberta por HTTP simples ({where}), que o navegador considera inseguro, então ele bloqueia parte do Web Crypto e os relays ficam fora de alcance. Abra por https://, ou em localhost nesta máquina. Um link de fixture de desenvolvimento (?fixture=) funciona aqui sem conta.',
     noCrypto: 'Este navegador não tem Web Crypto (crypto.getRandomValues e crypto.randomUUID), de que os relays precisam. Use um navegador atualizado.',

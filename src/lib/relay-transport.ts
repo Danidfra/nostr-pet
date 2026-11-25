@@ -96,3 +96,20 @@ export class RelayReadUnknownError extends Error {
     this.silent = silent;
   }
 }
+
+/**
+ * A write no relay that counts for it accepted (`confirmationRelaysFor`),
+ * though another one may hold it: not saved for the next read, and not
+ * certainly absent either. Ambiguous: a caller that keeps the signed bytes
+ * may offer the very same event again; one that re-plans builds on what the
+ * relays that count have, and supersedes it.
+ */
+export class PublishUnconfirmedError extends Error {
+  /** The relays that did accept it (none of which counts). */
+  readonly acceptedBy: readonly string[];
+  constructor(acceptedBy: readonly string[]) {
+    super(t('world.relay.unconfirmed'));
+    this.name = 'PublishUnconfirmedError';
+    this.acceptedBy = acceptedBy;
+  }
+}

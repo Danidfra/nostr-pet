@@ -45,19 +45,27 @@
  *    `RelayTimeoutError`, not in partial silence: an empty answer would read
  *    as "you own no Blobbi", which is not known.
  *
- * A WRITE goes to every destination at once and resolves when the first
- * accepts it, as before; what EACH destination said is handed to the
- * observer (`relay-sync.ts`), which is how a primary that refused or stayed
- * silent is noticed while the action stands on a secondary's word. So is
+ * A WRITE goes to every destination at once. For the kinds whose success
+ * the next read depends on (`confirmationRelaysFor`: state, profiles,
+ * spends, metadata) it resolves when one of the relays that count accepts
+ * it; acceptance by another relay alone ends in `PublishUnconfirmedError`
+ * (it may be there, it is not saved for the next read), and a refusal
+ * everywhere in the AggregateError it always was. Every other kind resolves
+ * at the first acceptance anywhere, as before. Only a counted acceptance
+ * makes the event this page's newest known revision. What EACH destination
+ * said is handed to the observer (`relay-sync.ts`), which is how a primary
+ * that refused or stayed silent is noticed while the action stands on a
+ * secondary's word, and the write's outcome once all have answered
+ * (`confirmed`, `partial`, `unconfirmed`, `rejected`). So is
  * every finished Blobbi read, relay by relay: an own event one relay holds
  * and another certainly lacks is carried over there, as it was signed.
  */
 import { NPool, NRelay1, type NostrEvent, type NostrFilter, type NRelay, type NRelay1Opts } from '@nostrify/nostrify';
-import { ABSENCE_REQUIRED_RELAYS, BASE_RELAYS, normalizeRelayUrl } from '@/config/relays';
+import { ABSENCE_REQUIRED_RELAYS, BASE_RELAYS, PROFILE_REQUIRED_RELAYS, confirmationRelaysFor, normalizeRelayUrl } from '@/config/relays';
 import { ECOSYSTEM_READ_HINTS } from '@/features/inventory/relay-hints';
 import { decideRead, eventAddress, matchesFilter, mergeRelayEvents, replacesEvent, type DeliveryResult, type RelayFilter } from './blobbi-relay-routing';
 import { buildReadRoutingPolicy, routeReadFilters, type ReadHint, type ReadRoutingPolicy } from './relay-routing';
-import { checkRelayTransport, RelayReadUnknownError, RelayTimeoutError, RelayTransportError, type TransportBlock } from './relay-transport';
+import { checkRelayTransport, PublishUnconfirmedError, RelayReadUnknownError, RelayTimeoutError, RelayTransportError, type TransportBlock } from './relay-transport';
 import { verdictOf, type RelayReadReport } from './relay-sync';
 import type { QueryProbe } from './relay-diagnostics';
 
@@ -80,6 +88,27 @@ export interface HomePoolObserver {
   delivery?(event: NostrEvent, result: DeliveryResult): void;
   /** A Blobbi read that has finished everywhere (or been given up on), relay by relay. */
   read?(filters: readonly RelayFilter[], reports: readonly RelayReadReport[]): void;
+  /** A write once every destination answered (or the write's time ran out). */
+  outcome?(event: NostrEvent, outcome: PublishOutcome): void;
+}
+
+/**
+ * How a write ended, once every destination answered:
+ *
+ *   confirmed     every relay that counts accepted it (or, for a plain kind, every destination)
+ *   partial       one that counts did, another that counts did not: saved, and owed to the rest (`relay-sync.ts`)
+ *   unconfirmed   none that counts did, another did: not saved for the next read
+ *   rejected      nobody did
+ */
+export type PublishOutcome = 'confirmed' | 'partial' | 'unconfirmed' | 'rejected';
+
+/** The outcome of a write from each destination's answer, given the relays that count (all of them for a plain kind). */
+export function classifyPublication(answers: readonly { relay: string; accepted: boolean }[], counted: readonly string[] | null): PublishOutcome {
+  const counts = (relay: string) => !counted || counted.includes(relay);
+  const countedAnswers = answers.filter((a) => counts(a.relay));
+  const countedAccepted = countedAnswers.filter((a) => a.accepted).length;
+  if (countedAccepted > 0) return countedAccepted === countedAnswers.length ? 'confirmed' : 'partial';
+  return answers.some((a) => a.accepted) ? 'unconfirmed' : 'rejected';
 }
 
 export interface HomePoolOptions {
@@ -90,8 +119,10 @@ export interface HomePoolOptions {
    * `PRIMARY_KINDS`); none when omitted: every read and write is then the application relays', as before.
    */
   primary?: { url: string; readKinds: readonly number[]; writeKinds: readonly number[] } | null;
-  /** The relays that must each reach EOSE before an empty Blobbi read is believed (`ABSENCE_REQUIRED_RELAYS`). */
+  /** The relays that must each reach EOSE before an empty Blobbi read is believed (`ABSENCE_REQUIRED_RELAYS`); one of them must accept a Blobbi write for it to be saved. */
   absenceRequired?: readonly string[];
+  /** The relays one of which must accept a kind 0 for it to be saved (`PROFILE_REQUIRED_RELAYS`). */
+  profileRequired?: readonly string[];
   /** A relay silent for this long in a Blobbi read has failed (`RELAY_TIMEOUT_MS`). */
   relayTimeout?: number;
   observer?: HomePoolObserver;
@@ -126,6 +157,8 @@ interface HomePoolConfig {
   observer?: HomePoolObserver;
   /** The write destinations of one event (also the pool's `eventRouter`). */
   eventRoutes: (event: NostrEvent) => string[];
+  /** Normalized: the relays whose acceptance saves a write of this kind, or null for the first acceptance anywhere. */
+  confirmWith: (kind: number) => readonly string[] | null;
   now: () => number;
   probe?: QueryProbe;
 }
@@ -204,7 +237,10 @@ class HomePool extends NPool {
     } catch {
       /* the observer's trouble is never the write's */
     }
-    if (result.verdict === 'accepted') this.remember(event);
+    // Only an acceptance that saves the write makes it this page's newest known revision: a revision only another
+    // relay took is not what the next read builds on, and a later write supersedes it
+    const counted = this.cfg.confirmWith(event.kind);
+    if (result.verdict === 'accepted' && (!counted || counted.includes(result.relay))) this.remember(event);
   }
 
   private remember(event: NostrEvent): void {
@@ -345,25 +381,55 @@ class HomePool extends NPool {
     if (!urls.length) return;
     const options = opts?.signal ? opts : { ...opts, signal: AbortSignal.timeout(WRITE_SETTLE_MS) };
     const note = (result: DeliveryResult) => this.noteDelivery(event, result);
-    // Every destination at once; the first acceptance is the write's (as `NPool.event`), and each verdict is noted
-    await Promise.any(
-      urls.map(async (relay) => {
+    // The relays that count for this kind among the destinations; none of them asked means every destination counts
+    const confirm = this.cfg.confirmWith(event.kind);
+    const counted = confirm ? urls.filter((url) => confirm.includes(url)) : null;
+    const counts = (relay: string) => !counted || counted.length === 0 || counted.includes(relay);
+    const answers: { relay: string; accepted: boolean }[] = [];
+    const errors: unknown[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      let saved = false;
+      const settle = () => {
+        if (answers.length < urls.length) return;
         try {
-          await this.relay(relay).event(event, options);
-        } catch (error) {
-          const { verdict, message } = verdictOf(error);
-          note({ relay, verdict, message });
-          // NIP-01: the relay already holds this very event
-          if (verdict === 'accepted') return;
-          throw error;
+          this.cfg.observer?.outcome?.(event, classifyPublication(answers, counted && counted.length ? counted : null));
+        } catch {
+          /* the observer's trouble is never the write's */
         }
-        note({ relay, verdict: 'accepted' });
-      }),
-    );
+        if (saved) return;
+        const acceptedBy = answers.filter((a) => a.accepted).map((a) => a.relay);
+        // Nobody took it: the refusals, as they always were. Only another relay did: it may be there, it is not saved
+        reject(acceptedBy.length === 0 ? new AggregateError(errors, 'All promises were rejected') : new PublishUnconfirmedError(acceptedBy));
+      };
+      // Every destination at once; each verdict is noted
+      for (const relay of urls) {
+        void (async () => {
+          let accepted = false;
+          try {
+            await this.relay(relay).event(event, options);
+            accepted = true;
+            note({ relay, verdict: 'accepted' });
+          } catch (error) {
+            const { verdict, message } = verdictOf(error);
+            note({ relay, verdict, message });
+            // NIP-01: the relay already holds this very event
+            if (verdict === 'accepted') accepted = true;
+            else errors.push(error);
+          }
+          answers.push({ relay, accepted });
+          if (accepted && counts(relay) && !saved) {
+            saved = true;
+            resolve();
+          }
+          settle();
+        })();
+      }
+    });
   }
 }
 
-export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HINTS, primary = null, absenceRequired = ABSENCE_REQUIRED_RELAYS, open, eoseTimeout, log, readTimeout = READ_TIMEOUT_MS, relayTimeout = RELAY_TIMEOUT_MS, transport, observer, diagnostics }: HomePoolOptions = {}): NPool {
+export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HINTS, primary = null, absenceRequired = ABSENCE_REQUIRED_RELAYS, profileRequired = PROFILE_REQUIRED_RELAYS, open, eoseTimeout, log, readTimeout = READ_TIMEOUT_MS, relayTimeout = RELAY_TIMEOUT_MS, transport, observer, diagnostics }: HomePoolOptions = {}): NPool {
   const baseOpen = open ?? ((url: string) => new NRelay1(url, log ? { log } : {}));
   const openRelay = diagnostics ? (url: string) => diagnostics.wrap(baseOpen(url), url) : baseOpen;
   const policy = buildReadRoutingPolicy({ appRelays: relays, hints, primary: primary ? { url: primary.url, kinds: primary.readKinds } : null });
@@ -372,6 +438,12 @@ export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HI
   const primaryWrites = policy.primary && primary ? { url: policy.primary.url, kinds: primary.writeKinds } : null;
   const eventRoutes = (event: NostrEvent) => (primaryWrites && primaryWrites.kinds.includes(event.kind) ? [primaryWrites.url, ...writeRelays] : writeRelays);
   const blocked = transport === undefined ? checkRelayTransport() : transport;
+  const normalized = (urls: readonly string[]) => urls.map((url) => normalizeRelayUrl(url)).filter((url): url is string => url !== null);
+  const counted = { absence: normalized(absenceRequired), profile: normalized(profileRequired) };
+  const confirmWith = (kind: number) => {
+    const set = confirmationRelaysFor(kind);
+    return set ? counted[set] : null;
+  };
   return new HomePool(
     {
       open: openRelay,
@@ -387,9 +459,10 @@ export function createHomePool({ relays = BASE_RELAYS, hints = ECOSYSTEM_READ_HI
       relayTimeout,
       grace: eoseTimeout ?? READ_GRACE_MS,
       policy,
-      absenceRequired: absenceRequired.map((url) => normalizeRelayUrl(url)).filter((url): url is string => url !== null),
+      absenceRequired: counted.absence,
       observer,
       eventRoutes,
+      confirmWith,
       now: () => Date.now(),
       probe: diagnostics?.probe,
     },

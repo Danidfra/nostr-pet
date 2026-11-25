@@ -84,6 +84,23 @@ export const PROFILE_WRITE_QUORUM = 1;
 export const ABSENCE_REQUIRED_RELAYS: readonly string[] = [PRIMARY_RELAY, ...PROFILE_REQUIRED_RELAYS];
 
 /**
+ * The writes whose success matters to what is read next (state, profiles,
+ * spends, metadata), and which relays count for them: such a write counts
+ * as saved only once one of those relays accepted it (the pool's own lists:
+ * `ABSENCE_REQUIRED_RELAYS` or `PROFILE_REQUIRED_RELAYS` in the app). The others (relay.nostr.band) still receive it, but
+ * their acceptance alone is "not confirmed": the next complete read would
+ * not see it. Every other kind (receipts, presence, NIP-46) keeps the plain
+ * rule, the first acceptance anywhere.
+ */
+export function confirmationRelaysFor(kind: number): 'absence' | 'profile' | null {
+  // Metadata lives on the application relays: the two every Blobbi app writes to (`PROFILE_REQUIRED_RELAYS`)
+  if (kind === 0) return 'profile';
+  // The Blobbi kinds: the relays whose answers a complete read needs (`ABSENCE_REQUIRED_RELAYS`)
+  if (kind === KIND_BLOBBI_STATE || kind === KIND_BLOBBONAUT_PROFILE || kind === KIND_GAME_INVENTORY_SPEND) return 'absence';
+  return null;
+}
+
+/**
  * The player's OWN persistent Blobbi events the home may carry, as they were
  * signed, from a relay that has them to a relay of the same flow that
  * certainly does not (`src/lib/relay-sync.ts`). Nothing by anyone else,

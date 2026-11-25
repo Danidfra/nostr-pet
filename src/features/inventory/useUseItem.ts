@@ -23,6 +23,7 @@
  *
  * What the player can be told, honestly, at each stop is in the errors.
  */
+import { PublishUnconfirmedError } from '@/lib/relay-transport';
 import { useCallback, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
@@ -89,6 +90,8 @@ export function isAmbiguousPublishError(error: unknown): boolean {
     const message = (e as { message?: string })?.message ?? '';
     return /abort|timeout|timed out/i.test(name) || /abort|timeout|timed out|closed|network/i.test(message);
   };
+  // Taken only by a relay that does not count: it may be there; the same bytes are offered again, never new ones
+  if (error instanceof PublishUnconfirmedError) return true;
   if (error instanceof AggregateError) {
     // A definite refusal from every relay is the only "not published"; one silent relay makes it ambiguous.
     return error.errors.length === 0 || error.errors.some(abortLike);
@@ -265,6 +268,8 @@ async function establish(publisher: HomePublisher, nostr: Nostr, event: NostrEve
     await publisher.broadcast(event);
     return 'established';
   } catch (error) {
+    // Found later on that same relay would prove nothing more: it stays a signed record, offered again as it is
+    if (error instanceof PublishUnconfirmedError) return 'unconfirmed';
     if (!isAmbiguousPublishError(error)) {
       const reason = error instanceof AggregateError ? (error.errors[0] as Error | undefined)?.message ?? 'refused' : error instanceof Error ? error.message : String(error);
       return { reason };
