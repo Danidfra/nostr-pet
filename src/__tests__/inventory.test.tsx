@@ -164,6 +164,12 @@ async function useItem(itemId: string) {
 
 /** A walk slow enough that a test can interrupt it. */
 const SLOW: Partial<SceneSettings> = { walkSpeed: 0.02, idleEnabled: false };
+/**
+ * A walk of about a second: long enough that the walk is still under way when the sheet has closed, even on a
+ * busy machine (the fast walk took tens of milliseconds, less than one poll of `waitFor`), short enough for the
+ * write to land within the test.
+ */
+const STEADY: Partial<SceneSettings> = { walkSpeed: 0.3, idleEnabled: false };
 
 beforeEach(() => {
   currentUser.user = { pubkey: PUBKEY, signer };
@@ -254,7 +260,7 @@ describe('Inventory: discovery and resolution', () => {
 
 describe('Inventory: using an item', () => {
   it('sets the item down, walks there, then spends once, republishes with the marker, and logs a receipt', async () => {
-    renderHome();
+    renderHome(STEADY);
     await ready();
     const offer = await useItem('blobbi:food:apple');
     expect(offer).toHaveAttribute('data-state', 'walking');
