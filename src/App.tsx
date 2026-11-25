@@ -24,6 +24,9 @@ const DEV_FIXTURES = import.meta.env.DEV && import.meta.env.VITE_BLOBBI_DEV_TOOL
 const DevFixture = DEV_FIXTURES ? lazy(() => import('@/dev/DevFixture')) : null;
 /** The Dev Lab page (`/dev`): the same fixture world with an engineering surface around it. Dev bundle only. */
 const DevLab = DEV_FIXTURES ? lazy(() => import('@/dev/DevLab')) : null;
+// Development builds only: the relay diagnostics panel over the real home, opened with `?relays` in the address
+const RelayDiagnosticsPanel = import.meta.env.DEV ? lazy(() => import('@/dev/RelayDiagnosticsPanel')) : null;
+const relayPanelRequested = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('relays');
 const DEV_LAB_PATH = '/dev';
 const devLabRequested = DEV_FIXTURES && typeof window !== 'undefined' && window.location.pathname.replace(/\/+$/, '') === DEV_LAB_PATH;
 /** Fixture mode: the Dev Lab page, or a `?fixture=` link. The query string (possibly empty) is what the dev module parses. */
@@ -98,6 +101,11 @@ export function App() {
                 <Transport>
                   <style>{BLOBBI_RENDERER_STYLESHEET}</style>
                   <FixtureRefusedNotice />
+                  {RelayDiagnosticsPanel && relayPanelRequested && !fixtureMode && (
+                    <Suspense fallback={null}>
+                      <RelayDiagnosticsPanel />
+                    </Suspense>
+                  )}
                   <BrowserRouter>
                     <AppRouter
                       devLab={
