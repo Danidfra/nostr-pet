@@ -12,6 +12,7 @@ import { RelayHealthContext } from '@/hooks/useRelayHealth';
 import { checkRelayTransport } from '@/lib/relay-transport';
 import { createRelayDiagnostics } from '@/lib/relay-diagnostics';
 import { RelayDiagnosticsContext } from '@/hooks/useRelayDiagnostics';
+import { extrasForPool, readRelaySettings, subscribeRelaySettings } from '@/features/relays/relay-settings';
 
 interface NostrProviderProps {
   children: ReactNode;
@@ -67,7 +68,7 @@ export function NostrProvider({ children, relays = BASE_RELAYS, primary = relays
       gate: carryGate,
       store: browserStore(),
     });
-    ref.pool = createHomePool({
+    const pool = createHomePool({
       relays,
       primary: primary ? { url: primary, readKinds: PRIMARY_READ_KINDS, writeKinds: PRIMARY_KINDS } : null,
       transport,
@@ -81,14 +82,19 @@ export function NostrProvider({ children, relays = BASE_RELAYS, primary = relays
         read: (filters, reports) => void sync.noteRead(filters, reports).catch(() => 0),
       },
     });
-    return { pool: ref.pool, sync };
+    ref.pool = pool;
+    // The player's extra relays (the relay settings), in the routes before the first read
+    const extras = extrasForPool(readRelaySettings());
+    pool.setExtraRelays(extras);
+    health.trackExtras?.(extras.filter((e) => e.read || e.write).map((e) => e.url));
+    return { pool, sync };
   }, [relays, primary, health, transport, diagnostics]);
 
   useEffect(() => {
     const on = () => {
       health.setOnline(true);
       // Back online: every connection's next retry is a short one (`relay-backoff.ts`)
-      (pool as NPool & { connectivityRestored?: () => void }).connectivityRestored?.();
+      pool.connectivityRestored();
     };
     const off = () => health.setOnline(false);
     window.addEventListener('online', on);
@@ -98,6 +104,17 @@ export function NostrProvider({ children, relays = BASE_RELAYS, primary = relays
       window.removeEventListener('offline', off);
     };
   }, [health, pool]);
+
+  // A change in the relay settings: the same pool, new routes; a relay taken out closes once its writes are done
+  useEffect(
+    () =>
+      subscribeRelaySettings(() => {
+        const extras = extrasForPool(readRelaySettings());
+        pool.setExtraRelays(extras);
+        health.trackExtras?.(extras.filter((e) => e.read || e.write).map((e) => e.url));
+      }),
+    [pool, health],
+  );
 
   useEffect(() => {
     return () => {

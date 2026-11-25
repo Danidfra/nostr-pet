@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
-import { Check, ChevronRight, HelpCircle, KeyRound, Moon, Music, Sparkles, Sun, Sunrise, UserRound, Volume2, VolumeX } from 'lucide-react';
+import { Check, ChevronRight, HelpCircle, KeyRound, Moon, Music, RadioTower, Sparkles, Sun, Sunrise, UserRound, Volume2, VolumeX } from 'lucide-react';
 import { deviceOnlyLine, noStorageLine, useGuestSnapshot, useGuestUi } from '@/features/guest';
 import { parseModernBlobbiEvent } from '@blobbi-kit/core';
 import { guestBlobbiEvent } from '@/features/guest/guest-world';
@@ -11,6 +11,9 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { shortNpub } from '@/lib/format';
 import { AboutBlobbiSheet } from '@/features/onboarding/screens';
+import { RelaySettingsSheet } from '@/features/relays/RelaySettingsSheet';
+import { useRelayHealth } from '@/hooks/useRelayHealth';
+import { ESSENTIAL_RELAYS, readRelaySettings } from '@/features/relays/relay-settings';
 import { LOCALES, LOCALE_NAMES, changeLocale, getLocale, t, type Locale } from '@/i18n';
 import { hasUnsaved, pendingWrites, subscribePendingWrites, whenWritesSettle } from '@/lib/pending-writes';
 
@@ -73,6 +76,14 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
     onClose();
     setAccountOpen(true);
   };
+  const [relaysOpen, setRelaysOpen] = useState(false);
+  const openRelays = () => {
+    onClose();
+    setRelaysOpen(true);
+  };
+  const { health } = useRelayHealth();
+  const relayTotal = ESSENTIAL_RELAYS.length + readRelaySettings().extras.length;
+  const relayConnected = [...Object.values(health.relays), ...Object.values(health.extras)].filter((m) => m === 'ok').length;
   const [aboutOpen, setAboutOpen] = useState(false);
   const openAbout = () => {
     onClose();
@@ -165,6 +176,22 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
             </button>
           </section>
 
+          <section className="menu-section" aria-labelledby="menu-relays">
+            <h3 id="menu-relays" className="menu-section__title">
+              {t('relays.title')}
+            </h3>
+            <button type="button" onClick={openRelays} data-testid="menu-relays" className="menu-tile">
+              <span className="menu-tile__icon">
+                <RadioTower className="h-6 w-6" aria-hidden />
+              </span>
+              <span className="menu-tile__text">
+                <span className="menu-tile__title">{t('relays.title')}</span>
+                <span className="menu-tile__sub">{t('relays.tile.sub', { connected: relayConnected, total: relayTotal })}</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
+            </button>
+          </section>
+
           <section className="menu-section" aria-labelledby="menu-language" data-testid="menu-language">
             <h3 id="menu-language" className="menu-section__title">
               {t('menu.language.title')}
@@ -225,6 +252,7 @@ export function MenuSheet({ open, onClose, inRoom = false, roomSettings }: MenuS
       </GameOverlay>
       {user && !guest && <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} />}
       <AboutBlobbiSheet open={aboutOpen} onClose={() => setAboutOpen(false)} testId="menu-about-sheet" />
+      <RelaySettingsSheet open={relaysOpen} onClose={() => setRelaysOpen(false)} />
     </>
   );
 }
