@@ -77,6 +77,12 @@ export const wayIn: MessageShape<typeof source> = {
     copyLink: 'Copiar link',
   },
   profile: {
+    refused: {
+      incomplete: 'Não conseguimos ler seu perfil atual em todos os relays, então nada foi alterado. Tente de novo daqui a pouco.',
+      malformed: 'Seu perfil atual não pôde ser lido com segurança, então ficou como estava. Edite-o no seu app de Nostr de sempre.',
+      'not-found': 'Seu perfil não foi encontrado nos relays que o jogo usa. Para não substituí-lo, edite-o no seu app de Nostr de sempre.',
+      stale: 'Seu perfil mudou em outro lugar enquanto isso, então nada foi enviado. Tente de novo.',
+    },
     intro: 'Seu perfil Nostr: aparece em todos os apps em que você entra com esta chave. Tudo aqui é opcional.',
     picture: 'Foto',
     uploading: 'Enviando…',

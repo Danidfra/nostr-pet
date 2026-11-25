@@ -74,6 +74,12 @@ export const wayIn = {
     copyLink: 'Copy link',
   },
   profile: {
+    refused: {
+      incomplete: 'We could not read your current profile from every relay, so nothing was changed. Try again in a moment.',
+      malformed: 'Your current profile could not be read safely, so it was left as it is. Edit it in your usual Nostr app.',
+      'not-found': 'Your profile was not found on the relays this game uses. To avoid replacing it, edit it in your usual Nostr app.',
+      stale: 'Your profile changed somewhere else meanwhile, so nothing was sent. Try again.',
+    },
     intro: 'Your Nostr profile: shared with every app you sign into with this key. Everything here is optional.',
     picture: 'Picture',
     uploading: 'Uploading…',

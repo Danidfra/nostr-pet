@@ -157,7 +157,7 @@ describe('relay measurements', () => {
     vi.useFakeTimers();
     const nostr = pool();
     const relays = poolWorldTravelRelays(nostr, [PRIMARY, DITTO]);
-    const stop = relays.subscribe([{ kinds: [31126], authors: [PUBKEY] }], () => {});
+    const stop = relays.subscribe!([{ kinds: [31126], authors: [PUBKEY] }], () => {});
     await vi.advanceTimersByTimeAsync(60_000);
     const reqsInAMinute = diagnostics.snapshot().totals.subscriptionsOpened;
     stop();
@@ -206,7 +206,7 @@ describe('relay measurements', () => {
     const relay = new NRelay1('wss://down.test', {
       log: (entry) => {
         diagnostics.log({ ...(entry as object), url: 'wss://down.test' } as Parameters<RelayDiagnostics['log']>[0]);
-        if (entry.ns === 'relay.ws.retry') waits.push((entry as { backoff: number }).backoff);
+        if (entry.ns === 'relay.ws.retry') waits.push((entry as unknown as { backoff: number }).backoff);
       },
     });
     const stop = new AbortController();

@@ -202,7 +202,7 @@ const PROFILE_STEPS: readonly ProfileStepId[] = ['name', 'picture', 'about'];
 function ProfileSteps({ doc, name, blobbi, reduced }: { doc: GuestDocument; name: string; blobbi: BlobbiCompanion | undefined; reduced: boolean }) {
   const guest = useGuest();
   const life = useCeremonyLife({ reduced });
-  const { publish, upload } = useProfileSetup(doc.identity.pubkey);
+  const { publish, upload } = useProfileSetup(doc.identity.pubkey, { allowCreate: true });
   const { mutateAsync } = publish;
   const [at, setAt] = useState(0);
   const [form, setForm] = useState<ProfileFormInput>({ name: '', about: '', picture: '' });
