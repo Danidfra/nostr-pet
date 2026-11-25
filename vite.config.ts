@@ -71,7 +71,5 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
-    // The room suites drive real timers (walks, lazy chunks): with every core busy they need more than the 5 s default
-    testTimeout: 15000,
   },
 });

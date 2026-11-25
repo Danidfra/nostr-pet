@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
-import { cleanup, configure } from '@testing-library/react';
+import { cleanup } from '@testing-library/react';
 import { setRoomArrivalEnabled } from '@/features/room/lib/room-arrival';
 import { setDailyXpEnabled } from '@/features/progression/daily-xp-switch';
 import { resetBlockingLayers } from '@/lib/blocking-layer';
@@ -15,10 +15,6 @@ setDailyXpEnabled(false);
 // World travel on Nostr (M16) is off unless switched on, as in a default build: suites meet the Blobbi home; the
 // Nostr travel suites force it on
 setTravelMode('off');
-
-// The room's chunks load lazily; on a loaded machine (the whole suite in parallel) that can take longer than the
-// library's 1 s default, and a `findBy` then fails on a room that is still loading. Wait a little longer for everything.
-configure({ asyncUtilTimeout: 4000 });
 
 // jsdom has no matchMedia; the theme provider and hover checks read it.
 Object.defineProperty(window, 'matchMedia', {
