@@ -1,6 +1,7 @@
 import { Backpack, Bath, Gamepad2, Loader2, Moon, Sun, Utensils, type LucideIcon } from 'lucide-react';
 import type { CareAction, CareAvailability } from '@/features/care';
 import type { CareVerb } from './care-model';
+import { t } from '@/i18n';
 
 const ICONS: Record<CareAction, LucideIcon> = { feed: Utensils, play: Gamepad2, clean: Bath, rest: Moon };
 const TINT: Record<CareAction, string> = { feed: 'verb--feed', play: 'verb--play', clean: 'verb--clean', rest: 'verb--rest' };
@@ -26,9 +27,9 @@ interface CareDockProps {
 export function CareDock({ actions, selected, pendingAction, onSelect, onOpenItems, itemCount, disabled = false }: CareDockProps) {
   const busy = pendingAction !== null;
   return (
-    <div role="group" aria-label="Care for your Blobbi" className="verb-row" data-testid="care-dock">
-      {actions.map(({ action, label, available, reason }) => {
-        const Icon = action === 'rest' && label === 'Wake' ? Sun : ICONS[action];
+    <div role="group" aria-label={t('home.care.dock')} className="verb-row" data-testid="care-dock">
+      {actions.map(({ action, label, available, reason, wakes }) => {
+        const Icon = action === 'rest' && wakes ? Sun : ICONS[action];
         const isPending = pendingAction === action;
         const off = disabled || busy || !available;
         const open = selected === action;
@@ -41,7 +42,7 @@ export function CareDock({ actions, selected, pendingAction, onSelect, onOpenIte
             aria-disabled={off}
             aria-busy={isPending}
             aria-expanded={open}
-            aria-label={available ? label : `${label}: ${reason}`}
+            aria-label={available ? label : t('home.care.unavailable', { verb: label, reason: reason ?? '' })}
             title={available ? label : reason}
             data-testid={`care-${action}`}
             data-open={open ? 'true' : 'false'}
@@ -55,7 +56,7 @@ export function CareDock({ actions, selected, pendingAction, onSelect, onOpenIte
         );
       })}
       <span className="verb-row__divider" aria-hidden />
-      <button type="button" onClick={onOpenItems} disabled={disabled} className={`verb verb--bag ${disabled ? 'verb--off' : ''}`} aria-label={itemCount > 0 ? `Items, ${itemCount} ready` : 'Items'} data-testid="action-items">
+      <button type="button" onClick={onOpenItems} disabled={disabled} className={`verb verb--bag ${disabled ? 'verb--off' : ''}`} aria-label={itemCount > 0 ? t('home.care.itemsReady', { count: itemCount }) : t('home.care.items')} data-testid="action-items">
         <span className="verb__disc">
           <Backpack className="h-5 w-5" aria-hidden />
           {itemCount > 0 && (
@@ -64,7 +65,7 @@ export function CareDock({ actions, selected, pendingAction, onSelect, onOpenIte
             </span>
           )}
         </span>
-        <span className="verb__label scene-text">Items</span>
+        <span className="verb__label scene-text">{t('home.care.items')}</span>
       </button>
     </div>
   );

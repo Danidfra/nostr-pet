@@ -14,6 +14,7 @@
  * this app, are where it lives. What this does not cover is said in the
  * final report rather than papered over.
  */
+import { t } from '@/i18n';
 
 const LOOKALIKES: Readonly<Record<string, string>> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i', '|': 'l', '+': 't' };
 
@@ -77,7 +78,9 @@ function wordsOf(normalized: string): string[] {
 export type PublicTextCheck = { ok: true } | { ok: false; reason: string };
 
 /** What the player is told: friendly, no quotation of the word, and the way out. */
-export const UNFRIENDLY_LINE = 'Let’s pick different words. Everyone can read a profile, so keep it friendly.';
+export function unfriendlyLine(): string {
+  return t('wayIn.profile.unfriendly');
+}
 
 /**
  * Whether a public text passes. A failure names no word back and shames
@@ -87,9 +90,9 @@ export const UNFRIENDLY_LINE = 'Let’s pick different words. Everyone can read 
 export function checkPublicText(text: string): PublicTextCheck {
   const normalized = normalizePublicText(text);
   const words = wordsOf(normalized);
-  if (words.some((w) => BLOCKED.has(w))) return { ok: false, reason: UNFRIENDLY_LINE };
+  if (words.some((w) => BLOCKED.has(w))) return { ok: false, reason: unfriendlyLine() };
   // Letters squeezed together: "f.u.c.k", "f u c k"; only the whole text, so nothing inside a longer word is read
   const squeezed = words.join('');
-  if (squeezed !== words[0] && BLOCKED.has(squeezed)) return { ok: false, reason: UNFRIENDLY_LINE };
+  if (squeezed !== words[0] && BLOCKED.has(squeezed)) return { ok: false, reason: unfriendlyLine() };
   return { ok: true };
 }

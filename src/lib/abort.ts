@@ -14,6 +14,14 @@ export function timeoutSignal(ms: number, parent?: AbortSignal): AbortSignal {
     if (parent.aborted) onParent();
     else parent.addEventListener('abort', onParent, { once: true });
   }
-  controller.signal.addEventListener('abort', () => clearTimeout(timer), { once: true });
+  // Done either way: the timer stops, and a long-lived parent no longer holds this signal
+  controller.signal.addEventListener(
+    'abort',
+    () => {
+      clearTimeout(timer);
+      parent?.removeEventListener('abort', onParent);
+    },
+    { once: true },
+  );
   return controller.signal;
 }

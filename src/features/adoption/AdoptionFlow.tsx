@@ -4,7 +4,9 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
-import { DEFAULT_EGG_NAME, NAME_MAX_LENGTH, newEggPreview, normalizeBlobbiName, previewCompanion, renamePreview, type EggPreview } from './adoption-plan';
+import { t, tp, type MessageKey } from '@/i18n';
+import { describeWriteError } from '@/lib/write-error';
+import { NAME_MAX_LENGTH, localizedDefaultEggName, newEggPreview, normalizeBlobbiName, previewCompanion, renamePreview, type EggPreview } from './adoption-plan';
 import { useAdoptEgg } from './useAdoptEgg';
 
 interface AdoptionFlowProps {
@@ -19,8 +21,11 @@ interface AdoptionFlowProps {
   guest?: boolean;
 }
 
-const STEP_COPY = { idle: '', checking: 'Checking your relays…', egg: 'Signing your egg…', profile: 'Noting it in your profile…' } as const;
-const GUEST_STEP_COPY = { idle: '', checking: 'Making room…', egg: 'Settling your egg in…', profile: 'Nearly there…' } as const;
+/** What the Adopt button says while a step is out; nothing while idle. A guest's egg is never signed or sent, and the words say so. */
+function stepCopy(step: 'idle' | 'checking' | 'egg' | 'profile', guest: boolean): string {
+  if (step === 'idle') return '';
+  return t(`wayIn.adopt.${guest ? 'guestSteps' : 'steps'}.${step}` as MessageKey);
+}
 
 /**
  * The egg, with a name, and one tap that signs two events. Straight away: no
@@ -36,7 +41,8 @@ const GUEST_STEP_COPY = { idle: '', checking: 'Making room…', egg: 'Settling y
  * a disabled Adopt, with nothing said).
  */
 export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refresh, additional = false, guest = false }: AdoptionFlowProps) {
-  const stepCopy = guest ? GUEST_STEP_COPY : STEP_COPY;
+  // The default name as shown here, in the page's language; a blank name is still published as DEFAULT_EGG_NAME
+  const eggName = localizedDefaultEggName();
   const [made, setMade] = useState<{ pubkey: string; preview: EggPreview | null }>(() => ({ pubkey, preview: safePreview(pubkey) }));
   if (made.pubkey !== pubkey) setMade({ pubkey, preview: safePreview(pubkey) });
   const preview = made.pubkey === pubkey ? made.preview : null;
@@ -44,7 +50,7 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
   const adoption = useAdoptEgg({ pubkey, suggestedName, updateCompanionEvent, refresh, additional });
 
   const name = normalizeBlobbiName(nameInput);
-  const companion = useMemo(() => (preview ? previewCompanion(renamePreview(preview, name.ok ? name.name : DEFAULT_EGG_NAME)) : null), [preview, name]);
+  const companion = useMemo(() => (preview ? previewCompanion(renamePreview(preview, name.ok && !name.isDefault ? name.name : eggName)) : null), [preview, name, eggName]);
   // The egg could not be made or drawn here: said so, with a way on (a new egg), never an Adopt over nothing
   const eggMissing = companion === null;
   // Adopt is offered only over an egg that is drawn, named and not already on its way
@@ -62,8 +68,8 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
   if (result?.kind === 'existing') {
     return (
       <div className="home-glass mx-auto w-full max-w-md space-y-3 rounded-3xl p-6 text-center" data-testid="adoption-existing" role="status">
-        <p className="text-lg font-semibold">You already have a Blobbi.</p>
-        <p className="text-sm text-muted-foreground">Bringing it home…</p>
+        <p className="text-lg font-semibold">{t('wayIn.adopt.existingTitle')}</p>
+        <p className="text-sm text-muted-foreground">{t('wayIn.adopt.bringing')}</p>
       </div>
     );
   }
@@ -71,30 +77,28 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
   if (result?.kind === 'limit') {
     return (
       <div className="welcome-card text-center" data-testid="adoption-limit" role="status">
-        <p className="welcome-card__title">Not quite yet</p>
-        <p className="text-sm text-muted-foreground">
-          Your Blobbonaut level allows {result.max} Blobbi{result.max === 1 ? '' : 's'}, and you have {result.count}. A new egg can join at the next unlock.
-        </p>
+        <p className="welcome-card__title">{t('wayIn.adopt.limitTitle')}</p>
+        <p className="text-sm text-muted-foreground">{tp('wayIn.adopt.limit', result.max, { owned: result.count })}</p>
       </div>
     );
   }
 
   return (
     <form onSubmit={submit} className="welcome-card adopt text-center" data-testid="adoption-egg" data-ready={canAdopt ? 'true' : 'false'} aria-busy={adoption.isPending}>
-      <h2 className="welcome-card__title">{additional ? 'A new egg' : 'Here is your egg'}</h2>
+      <h2 className="welcome-card__title">{additional ? t('wayIn.adopt.titleNew') : t('wayIn.adopt.title')}</h2>
       <AdoptionEgg companion={companion} d={companion ? preview?.d : undefined} pending={adoption.isPending} missing={eggMissing} onAnother={() => setMade({ pubkey, preview: safePreview(pubkey) })} />
       <p className="text-sm text-muted-foreground">
-        {guest ? `Nobody else has this one: its colours and shape are its own. Give it a name, or keep "${DEFAULT_EGG_NAME}" for now.` : `Nobody else has this one: its colours and shape come from your key. Give it a name, or keep "${DEFAULT_EGG_NAME}" for now.`}
+        {guest ? t('wayIn.adopt.uniqueGuest', { name: eggName }) : t('wayIn.adopt.unique', { name: eggName })}
       </p>
       <div className="text-left">
         <label htmlFor="egg-name" className="block text-sm font-medium">
-          Name
+          {t('wayIn.adopt.nameLabel')}
         </label>
         <input
           id="egg-name"
           value={nameInput}
           onChange={(e) => setNameInput(e.target.value)}
-          placeholder={DEFAULT_EGG_NAME}
+          placeholder={eggName}
           maxLength={NAME_MAX_LENGTH + 8}
           autoComplete="off"
           spellCheck={false}
@@ -110,26 +114,22 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
       </div>
       {adoption.error && (
         <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive" data-testid="adoption-error">
-          {adoption.error.message}
+          {describeWriteError(adoption.error)}
         </p>
       )}
       {result?.kind === 'adopted' && result.profileError && (
         <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm" data-testid="adoption-profile-warning">
-          Your egg is here. Its note in your profile did not save ({result.profileError}); choosing it later will fix that.
+          {t('wayIn.adopt.profileWarning', { error: result.profileError })}
         </p>
       )}
       <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <button type="submit" className="lifecycle-pill !animate-none" disabled={!canAdopt} data-testid="adoption-adopt">
           {adoption.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
-          {adoption.isPending ? stepCopy[adoption.step] || 'Adopting…' : adoption.error ? 'Try again' : 'Adopt'}
+          {adoption.isPending ? stepCopy(adoption.step, guest) || t('wayIn.adopt.adopting') : adoption.error ? t('common.retry') : t('wayIn.adopt.adopt')}
         </button>
       </div>
       <p className="text-[11px] text-muted-foreground" data-testid="adoption-footnote">
-        {guest
-          ? 'Your egg stays on this device for now: no account, no key, nothing sent anywhere. Whenever you like, you can save your Blobbi to take it further.'
-          : additional
-            ? 'Adopting saves the egg to your account (two signatures). This egg hatches once its incubation tasks are done: its details list them.'
-            : 'Adopting saves the egg to your account (two signatures). Then it is home, and ready to hatch under your taps.'}
+        {guest ? t('wayIn.adopt.footGuest') : additional ? t('wayIn.adopt.footAdditional') : t('wayIn.adopt.footFirst')}
       </p>
     </form>
   );
@@ -159,7 +159,7 @@ function AdoptionEgg({ companion, d, pending, missing, onAnother }: { companion:
               setWobble((w) => w + 1);
               play('poke');
             }}
-            aria-label="Your egg. Tap it."
+            aria-label={t('wayIn.adopt.eggLabel')}
             data-testid="adoption-egg-art"
           >
             <BlobbiRenderer visual={toBlobbiVisual(companion)} instanceId={`adopt-${companion.d}`} size="100%" eggCrack="none" transparent style={{ width: '100%', height: '100%' }} />
@@ -168,9 +168,9 @@ function AdoptionEgg({ companion, d, pending, missing, onAnother }: { companion:
       )}
       {missing && (
         <div className="adopt__missing" role="alert" data-testid="adoption-egg-missing">
-          <p>Your egg did not appear.</p>
+          <p>{t('wayIn.adopt.missing')}</p>
           <button type="button" className="onboard-btn onboard-btn--secondary !w-auto !px-4 !py-2 text-sm" onClick={onAnother} data-testid="adoption-egg-retry">
-            Try another egg
+            {t('wayIn.adopt.another')}
           </button>
         </div>
       )}

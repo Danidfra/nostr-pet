@@ -15,6 +15,7 @@
  * (device-local, never published). It changes lighting and surfaces only;
  * the Blobbi is drawn identically under every phase, which a test pins.
  */
+import { t } from '@/i18n';
 import type { IslandPhase } from './island-clock';
 
 export type Appearance = 'island' | 'day' | 'night';
@@ -211,9 +212,21 @@ export function isAppearance(value: unknown): value is Appearance {
   return typeof value === 'string' && (APPEARANCES as readonly string[]).includes(value);
 }
 
+/** One appearance's words, read in the page's language each time they are shown. */
+function appearanceCopy(id: Appearance): { readonly name: string; readonly tagline: string } {
+  return {
+    get name() {
+      return t(`world.appearance.${id}.name`);
+    },
+    get tagline() {
+      return t(`world.appearance.${id}.tagline`);
+    },
+  };
+}
+
 /** Copy for the appearance choice. */
-export const APPEARANCE_COPY: Record<Appearance, { name: string; tagline: string }> = {
-  island: { name: 'Island time', tagline: 'Dawn, day, sunset and night, on the same clock as the Island.' },
-  day: { name: 'Always day', tagline: 'Bright and warm, whatever the Island clock says.' },
-  night: { name: 'Always night', tagline: 'Lamplight and stars, whatever the Island clock says.' },
+export const APPEARANCE_COPY: Record<Appearance, { readonly name: string; readonly tagline: string }> = {
+  island: appearanceCopy('island'),
+  day: appearanceCopy('day'),
+  night: appearanceCopy('night'),
 };

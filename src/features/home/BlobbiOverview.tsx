@@ -16,7 +16,8 @@ import type { FeedbackResult } from './care-feedback-text';
 import { describeMood } from './mood';
 import { type CareChoice, type CareVerb } from './care-model';
 import { homeCareEntries, ownedEntry, type CareEntry } from '@/features/care-ui/care-entries';
-import { detectStreakIncrease, flameDays, type StreakChange } from './streak';
+import { flameDays } from './streak';
+import { useStreakMoment } from './useStreakMoment';
 import { useCareGiven } from '@/features/journey/care-receipts';
 import { HOME_SPACE, STAGE_OBJECTS, type StageObjectKind } from './space/home-space';
 import { FurnitureLayer, RoomBackdrop, approachSpot, surfaceBackground, type Placement } from './rooms';
@@ -56,20 +57,24 @@ import { GuestStatusPill, GuestStatusSheet, SavedPill } from '@/features/guest/G
 import { useJourney } from '@/features/journey/useJourney';
 import { useCompanionSwitchHold } from '@/features/companion/switch-hold';
 import { JourneySheet } from '@/features/journey/JourneySheet';
+import { PolaroidDoor } from '@/features/photo';
+import { RenameBlobbiDialog } from '@/features/care-ui/RenameBlobbiDialog';
 import type { ObjectiveAction } from '@/features/journey/journey';
 import { WorldsSheet } from '@/features/worlds/WorldsSheet';
 import { WorldsButton } from '@/features/worlds/WorldsButton';
 import { useWorldsAccess } from '@/features/worlds/useWorldsAccess';
 import { DepartureCard } from '@/features/worlds/DepartureCard';
-import { useWorldDeparture, type NavigateOutcome } from '@/features/worlds/useWorldDeparture';
-import type { World } from '@/features/worlds/worlds';
+import { useWorldDeparture } from '@/features/worlds/useWorldDeparture';
+import { useDepartureNavigation } from '@/features/worlds/useDepartureNavigation';
 import { usePresence } from '@/features/teleport/react/usePresence';
-import { travelStartsAway, useHomeTravel, useTravelStartsUnknown, useTravelStartsUnseen, type DepartureOutcome, type HomeTravel } from '@/features/presence/useHomeTravel';
+import { travelStartsAway, useHomeTravel, useTravelStartsUnknown, useTravelStartsUnseen } from '@/features/presence/useHomeTravel';
 import { WorldPresenceNote } from '@/features/presence/WorldPresenceNote';
 import { TravelCue } from '@/features/presence/TravelCue';
 import { TravelAnnouncer } from '@/features/presence/TravelAnnouncer';
 import type { LifecycleTask } from '@/features/lifecycle';
 import type { HealthLevel } from '@/lib/relay-health';
+import { t } from '@/i18n';
+import { describeWriteError } from '@/lib/write-error';
 
 interface BlobbiOverviewProps {
   blobbi: BlobbiCompanion;
@@ -103,15 +108,15 @@ const DEV_PREVIEW: StageObjectKind | null = DEV_LIFECYCLE_TOOLS && typeof window
 function hatchCaption(beat: HatchBeat, name: string): string {
   switch (beat) {
     case 'stirring':
-      return 'Something is stirring inside the egg…';
+      return t('home.hatch.stirring');
     case 'cracking':
-      return 'The shell is cracking…';
+      return t('home.hatch.cracking');
     case 'breaking':
-      return 'Almost there…';
+      return t('home.hatch.breaking');
     case 'hatching':
-      return `${name} is hatching!`;
+      return t('home.hatch.hatching', { name });
     case 'hatched':
-      return `${name} has hatched!`;
+      return t('home.hatch.hatched', { name });
   }
 }
 
@@ -211,6 +216,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
 
   // Sheets
   const [blobbiSheetOpen, setBlobbiSheetOpen] = useState(false);
+  // The Polaroid (src/features/photo): a portrait to keep or send; nothing is written
+  const [photoOpen, setPhotoOpen] = useState(false);
+  // Renaming the Blobbi (the pencil in its details): the very same Blobbi, only its name changes
+  const [renameOpen, setRenameOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
   const openItems = useCallback(() => setItemsOpen(true), []);
@@ -394,20 +403,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     play(soundForReveal(reveal.kind));
   }, [reveal, celebrate, play]);
 
-  // The streak: the home only notices the authoritative number going up
-  // between two versions of this Blobbi (a care write on a new day), never
-  // on load. A moment for it, bigger on the milestones.
-  const [streakMoment, setStreakMoment] = useState<StreakChange | null>(null);
-  const [streakBump, setStreakBump] = useState(0);
-  const streakRef = useRef(blobbi.careStreak);
-  useEffect(() => {
-    const change = detectStreakIncrease(streakRef.current, blobbi.careStreak);
-    streakRef.current = blobbi.careStreak;
-    if (!change) return;
-    setStreakBump((k) => k + 1);
-    setStreakMoment(change);
-  }, [blobbi.careStreak]);
-  const dismissStreakMoment = useCallback(() => setStreakMoment(null), []);
+  // The streak's moment (useStreakMoment): only an increase of the authoritative number, never a page load
+  const { moment: streakMoment, bump: streakBump, dismiss: dismissStreakMoment } = useStreakMoment(blobbi.careStreak);
 
   // The first Blobbi of the account (first-blobbi.ts): its egg hatches without
   // the missions. Decided from the collection, confirmed against the relays
@@ -430,7 +427,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     clearLifecycleError();
     // The first egg's shortcut (no missions) only once the relays confirm it is still the first; fails closed
     if (firstBlobbi.qualifies && !(await confirmFirstBlobbi())) {
-      setHatchError('Your egg could not be confirmed with the relays yet.');
+      setHatchError(t('home.hatch.notConfirmed'));
       return false;
     }
     return lifecycleHatch();
@@ -675,7 +672,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
         const started = choice.source === 'owned' ? startUse({ entry: choice.entry, blobbiD: liveBlobbi.current.d }) : startStarter({ entry: choice.entry, blobbiD: liveBlobbi.current.d });
         if (!started) {
           bathCommit.current = null;
-          resolve({ kind: 'failed', error: 'Another use is still finishing. Try again in a moment.' });
+          resolve({ kind: 'failed', error: t('home.notice.useFinishing') });
         }
       }),
     [resetUse, resetStarter, startUse, startStarter],
@@ -840,30 +837,8 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   // settles it home or away then, with no journey)
   const startsUnseen = useTravelStartsUnseen(pubkey, blobbi.d);
   const presence = usePresence({ initial: travels && (startsUnknown || startsUnseen || travelStartsAway(pubkey, blobbi.d)) ? 'absent' : 'present', reducedMotion: () => reducedMotionRef.current, onCue: (cue) => play(cue) });
-  // The move to the world chosen (`worldTravel.departTo`: one World Location signed and published from here) happens
-  // HERE, when the goodbye is over and the page is about to go: nothing is signed or published while Stay is still
-  // offered (`useWorldDeparture` calls `navigate` only at `gone`). One event per trip: once it was published
-  // (`leftRef` names the world), a try again after a navigation that did not happen only asks for the address again
-  const worldTravelRef = useRef<HomeTravel | null>(null);
-  const leftRef = useRef<string | null>(null);
-  const [departSigning, setDepartSigning] = useState(false);
-  const navigateAfterDeparture = useCallback(async (url: string, world: World): Promise<NavigateOutcome | void> => {
-    let left = leftRef.current === world.travelId;
-    const travel = worldTravelRef.current;
-    if (!left && travel) {
-      setDepartSigning(travel.signerPrompts);
-      try {
-        const outcome: DepartureOutcome = await travel.departTo(world.travelId);
-        left = outcome === 'moved' || outcome === 'already-there';
-      } finally {
-        setDepartSigning(false);
-      }
-    }
-    if (left) leftRef.current = world.travelId;
-    // No key travels, and nothing rides in the address: the other world asks for its own sign-in and reads the move
-    window.location.assign(url);
-    return left ? 'left' : undefined;
-  }, []);
+  // Leaving for another world: the move is published only once the goodbye is over (useDepartureNavigation)
+  const departNav = useDepartureNavigation();
   // Travel: the Blobbi says goodbye and dissolves (the teleport's own departure), then the page goes; the room's too
   const departure = useWorldDeparture({
     presence,
@@ -873,7 +848,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     clearFace: () => setDepartureFace(null),
     gesture: playBathGesture,
     play,
-    navigate: navigateAfterDeparture,
+    navigate: departNav.navigate,
   });
   const departing = departure.phase !== 'idle' && departure.phase !== 'failed';
   const [presenceJourney, setPresenceJourney] = useState<{ kind: 'enter' | 'leave'; place: string; key: number } | null>(null);
@@ -887,7 +862,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
     paused: departure.phase !== 'idle',
     onJourney: (kind, place) => setPresenceJourney((j) => ({ kind, place, key: (j?.key ?? 0) + 1 })),
   });
-  worldTravelRef.current = worldTravel;
+  departNav.travelRef.current = worldTravel;
   // A sleeper or an egg is always shown home, whatever the teleport was doing
   const presenceCancel = presence.cancel;
   useEffect(() => {
@@ -913,7 +888,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const lifecycleNext = lifecycle.view.next;
   const firstHatchReady = firstBlobbi.qualifies;
   const lifecycleReady = useMemo(
-    () => (lifecycleNext === 'hatch' || firstHatchReady ? { kind: 'hatch' as const, label: 'Hatch!' } : lifecycleNext === 'evolve' ? { kind: 'evolve' as const, label: 'Evolve!' } : null),
+    () => (lifecycleNext === 'hatch' || firstHatchReady ? { kind: 'hatch' as const, label: t('home.hatch.ready') } : lifecycleNext === 'evolve' ? { kind: 'evolve' as const, label: t('home.hatch.evolveReady') } : null),
     [lifecycleNext, firstHatchReady],
   );
   const ceremonyView = { phase: ceremony.phase, kind: ceremony.kind, error: ceremony.error, dismiss: ceremony.dismiss };
@@ -951,7 +926,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
   const guestUi = useGuestUi();
   const guestActive = guest.mode === 'active';
   const requestSave = guestUi.requestSave;
-  const homeQuiet = !busyWithObject && !theater && !inCeremony && pendingAction === null && !blobbiSheetOpen && !menuOpen && !itemsOpen && !sleeping;
+  const homeQuiet = !busyWithObject && !theater && !inCeremony && pendingAction === null && !blobbiSheetOpen && !photoOpen && !renameOpen && !menuOpen && !itemsOpen && !sleeping;
   // The one switch between the two homes (M14.1), upper right; the first 3D asks first
   const modeSwitch = useModeSwitch();
   // The guest's status, by the name (M14.1): a word, and a short explanation on tap; "Saved to Nostr" once a save landed
@@ -998,9 +973,9 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       scene={
         <HomeScene
           ref={sceneRef}
-          label={`${blobbi.name}'s home`}
+          label={t('home.scene.homeOf', { name: blobbi.name })}
           room="home"
-          floorLabel={sleeping ? `${blobbi.name} is asleep` : canWalk ? `Call ${blobbi.name} here` : `${blobbi.name} stays put`}
+          floorLabel={t(sleeping ? 'home.scene.asleep' : canWalk ? 'home.scene.callHere' : 'home.scene.staysPut', { name: blobbi.name })}
           onFloorTap={interactive && !bathing && !dose ? onFloorTap : undefined}
           pointerHandlers={scene.scenePointerHandlers}
           objects={
@@ -1028,12 +1003,12 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                       }}
                     >
                       <MapPin className="h-4 w-4" aria-hidden />
-                      Save to visit the Island
+                      {t('home.island.saveToVisit')}
                     </button>
                   ) : (
                     <a href={BLOBBI_ISLAND_URL} target="_blank" rel="noopener noreferrer" className="door-prompt lifecycle-pill !animate-none" data-testid="door-prompt" onClick={() => setDoorPrompt(false)}>
                       <MapPin className="h-4 w-4" aria-hidden />
-                      Go to the Island
+                      {t('home.island.goTo')}
                     </a>
                   ))
                 }
@@ -1050,10 +1025,10 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                     offer.phase === 'failed' && (
                       <div className="offer-prompt" data-testid="offer-prompt">
                         <button type="button" className="lifecycle-pill !animate-none !px-3 !py-1.5 !text-xs" onClick={() => offerItem(offer.choice)} data-testid="offer-retry">
-                          Try again
+                          {t('common.retry')}
                         </button>
                         <button type="button" className="home-glass rounded-full px-3 py-1.5 text-xs font-semibold" onClick={putAway} data-testid="offer-put-away">
-                          Put away
+                          {t('home.scene.putAway')}
                         </button>
                       </div>
                     )
@@ -1105,12 +1080,12 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                 )}
                 {itemError && offer?.phase === 'failed' && (
                   <p role="alert" className="home-glass rounded-xl px-3 py-2 text-center text-sm text-destructive" data-testid="item-error">
-                    {itemError.message}
+                    {describeWriteError(itemError)}
                   </p>
                 )}
                 {ceremony.phase === 'failed' && (
                   <p role="alert" className="home-glass rounded-xl px-3 py-2 text-center text-sm text-destructive" data-testid="ceremony-error">
-                    {(lifecycle.error ?? ceremony.error)?.message}{' '}
+                    {describeWriteError(lifecycle.error ?? ceremony.error)}{' '}
                     <button
                       type="button"
                       className="ml-1 text-xs font-semibold underline"
@@ -1119,7 +1094,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                         ceremony.dismiss();
                       }}
                     >
-                      Dismiss
+                      {t('home.scene.dismiss')}
                     </button>
                   </p>
                 )}
@@ -1177,12 +1152,12 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             <HatchTheater
               blobbi={blobbi}
               perform={performHatch}
-              error={hatchError ?? lifecycleErrorMessage}
+              error={hatchError ?? (lifecycle.error ? describeWriteError(lifecycle.error) : null)}
               reducedMotion={reducedMotion}
               play={play}
               onDone={endTheater}
               onRecover={refresh}
-              savingNote={guestActive ? 'Keeping the hatch on this device' : undefined}
+              savingNote={guestActive ? t('home.hatch.savingNote') : undefined}
             />
           )}
           <BlobbiSheet
@@ -1207,7 +1182,17 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               setBlobbiSheetOpen(false);
               setJourneyOpen(true);
             }}
+            onOpenPhoto={() => {
+              setBlobbiSheetOpen(false);
+              setPhotoOpen(true);
+            }}
+            onRename={() => {
+              setBlobbiSheetOpen(false);
+              setRenameOpen(true);
+            }}
           />
+          <RenameBlobbiDialog open={renameOpen} onClose={() => setRenameOpen(false)} blobbi={blobbi} pubkey={pubkey} updateCompanionEvent={updateCompanionEvent} onRenamed={(name) => setBathNotice(t('home.rename.saved', { name }))} />
+          <PolaroidDoor open={photoOpen} onClose={() => setPhotoOpen(false)} blobbi={blobbi} stats={projected?.stats} eggCrack={isEgg ? eggCrack : undefined} accessories={isEgg ? undefined : worn.accessoriesFor('front')} />
           <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} />
           <JourneySheet open={journeyOpen} onClose={() => setJourneyOpen(false)} chapters={journeyBook.chapters} onAction={onJourneyAction} progress={{ xp: profile?.xp, level: journeyBook.level }} daily={daily} canAdoptMore={false} />
           <WorldsSheet
@@ -1224,18 +1209,18 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
               // A write still out finishes here first: leaving mid-signature could lose it
               if (care.isPending || useItem.isPending || useStarter.isPending || inCeremony || theater || busyWithObject || !!dose) {
                 play('invalid');
-                setBathNotice('One moment: something is still being saved.');
+                setBathNotice(t('home.notice.stillSaving'));
                 return;
               }
-              // A new trip: nothing of it is published yet (the move happens in `navigateAfterDeparture`, once the
+              // A new trip: nothing of it is published yet (the move happens in `departNav.navigate`, once the
               // goodbye is over and Stay is no longer offered); the page goes after, whatever it came to
-              leftRef.current = null;
+              departNav.newTrip();
               // No key travels: the other world asks for its own sign-in; the page goes once the Blobbi has left
               if (!departure.go(world)) return;
               setWorldsOpen(false);
             }}
           />
-          {departure.phase !== 'idle' && departure.world && <DepartureCard phase={departure.phase} world={departure.world} name={blobbi.name} onStay={departure.cancel} onRetry={() => departure.go({ ...departure.world!, open: true })} onDismiss={departure.dismiss} left={departure.left} signing={departSigning} />}
+          {departure.phase !== 'idle' && departure.world && <DepartureCard phase={departure.phase} world={departure.world} name={blobbi.name} onStay={departure.cancel} onRetry={() => departure.go({ ...departure.world!, open: true })} onDismiss={departure.dismiss} left={departure.left} signing={departNav.signing} />}
           <GuestStatusSheet open={statusOpen && guestActive} onClose={() => setStatusOpen(false)} name={blobbi.name} onSave={requestSave} storageOk={guest.storageOk} />
           <InventorySheet
             open={itemsOpen}
@@ -1245,6 +1230,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             // An earlier use left unfinished is finished first (the ledger's resume), never bathed with
             onUse={(entry) => chooseOption(ownedEntry(entry))}
             openUse={useItem.hasOpenUse(blobbi.d)}
+            openUseItem={useItem.openUseItem(blobbi.d)}
             busy={useItem.isPending || useStarter.isPending || busyWithObject}
             worn={worn.wornAddresses}
           />
@@ -1252,11 +1238,4 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       }
     />
   );
-}
-
-/** Why a write failed, in a line that is never empty (an AggregateError from the relays says nothing itself). */
-function describeWriteError(error: Error): string {
-  if (error.message) return error.message;
-  const inner = error instanceof AggregateError ? (error.errors[0] as Error | undefined)?.message : undefined;
-  return inner || 'The relays did not accept it.';
 }

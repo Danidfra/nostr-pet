@@ -44,6 +44,7 @@
  * mutates nothing, so every rule above is a unit test.
  */
 import type { CancelReason } from '@/features/room/lib/room-interaction';
+import { t } from '@/i18n';
 import type { BathCue, BathCueKind, BathFrameStatus, FrameSource } from './bath-frame';
 import { stageAt, type RitualDef, type RitualStage, type RitualStageId } from './rituals';
 
@@ -517,11 +518,11 @@ export function guidanceFor(state: Pick<BathState, 'status' | 'ritual' | 'stageI
   if (stage) return stage.guidance(name);
   switch (state.status) {
     case 'committing':
-      return `All done! Saving ${name}'s care…`;
+      return t('room.bath.committing', { name });
     case 'done':
-      return `${name} is squeaky clean!`;
+      return t('room.bath.done', { name });
     case 'failed':
-      return `That could not be saved.`;
+      return t('room.bath.failed');
     default:
       return '';
   }
@@ -529,6 +530,6 @@ export function guidanceFor(state: Pick<BathState, 'status' | 'ritual' | 'stageI
 
 /** The tool's name for the bar: the lather's by the ritual's look (Soap, Shampoo). */
 export function toolLabel(tool: BathTool, style: RitualDef['style']): string {
-  if (tool === 'soap') return style === 'shampoo' ? 'Shampoo' : 'Soap';
-  return tool === 'shower' ? 'Shower' : 'Towel';
+  if (tool === 'soap') return style === 'shampoo' ? t('room.bath.tool.shampoo') : t('room.bath.tool.soap');
+  return tool === 'shower' ? t('room.bath.tool.shower') : t('room.bath.tool.towel');
 }

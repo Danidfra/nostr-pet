@@ -14,6 +14,7 @@
  */
 import { STAT_MAX } from '@blobbi-kit/core';
 import { GESTURES } from '../scene/gestures';
+import { t } from '@/i18n';
 
 export type MedicinePhase = 'dose' | 'wiggle' | 'relieved';
 
@@ -33,10 +34,5 @@ export const MEDICINE_FACE = { dose: 'worried', wiggle: 'worried', relieved: 're
 
 /** Why medicine cannot be given now, or null: its health already full. */
 export function medicineRefusal(name: string, health: number | undefined): string | null {
-  return health !== undefined && health >= STAT_MAX ? `${name} is feeling fine. No medicine needed!` : null;
-}
-
-/** How long before the write: the dose and the wiggle (a beat each under reduced motion). */
-export function beforeWriteMs(reducedMotion: boolean): number {
-  return reducedMotion ? MEDICINE_MOMENT.reducedMs * 2 : MEDICINE_MOMENT.doseMs + MEDICINE_MOMENT.wiggleMs;
+  return health !== undefined && health >= STAT_MAX ? t('home.notice.noMedicine', { name }) : null;
 }

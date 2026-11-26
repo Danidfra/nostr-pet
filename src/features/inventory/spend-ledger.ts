@@ -13,8 +13,12 @@
  * Statuses, in order:
  *   signed           recorded, not yet offered to a relay
  *   unconfirmed      offered, every relay silent, not found by id (offer again)
- *   established      at least one relay has it (or it was found by id)
- *   effect-pending   established, the 31124 write failed (apply again)
+ *   established      a relay that counts accepted it (or it was found by id);
+ *                    its effect waits until a complete read shows the spend
+ *                    applied (not rejected by a competing spend)
+ *   effect-pending   established and verified; the 31124 write did not land for
+ *                    certain (its signed bytes are in `effect`: found by id,
+ *                    it is applied; not found, a new effect is planned)
  *   applied          the 31124 carries `blobbi_op = spendId`; kept briefly so
  *                    the balance does not bounce before the relays serve the spend
  *
@@ -35,6 +39,12 @@ export interface SpendRecord {
   status: SpendStatus;
   /** The signed kind 1416, kept whole so a retry offers identical bytes. */
   event: NostrEvent;
+  /**
+   * The signed kind 31124 carrying this spend's effect, recorded BEFORE it is offered: on a resume it is looked
+   * up by id, so an effect that landed is never applied a second time, even when a later write (another app's
+   * item, say) has replaced the `blobbi_op` marker that names this spend.
+   */
+  effect?: NostrEvent;
   createdAt: number;
   updatedAt: number;
 }

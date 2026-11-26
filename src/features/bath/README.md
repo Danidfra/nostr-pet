@@ -15,10 +15,10 @@ commit ↘ failed → Try again (a tap) → commit (the same spend)
 any stage before the write, and failed → cancelled (Stop, a change of room, a teleport, decorating, the page going)
 ```
 
-## Contract (Agent A ↔ Agent B, M15 care refinement)
+## Contract
 
-The types are frozen; later changes are additive only, announced in
-`scratchpad/m15/CARE-HANDOFF.md` with a SHA.
+The bath logic and its visuals meet on these types. Change them additively:
+both sides, and their tests, depend on the names below.
 
 - **`rituals.ts`**: `RitualId` (`wash | soak | towel`), `RitualStyle`
   (`soap | shampoo | bubbles | towel`, the look only), `RitualPlace`

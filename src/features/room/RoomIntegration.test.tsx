@@ -7,6 +7,7 @@
  * art and for an egg; and none of it publishes.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -65,6 +66,10 @@ beforeEach(() => {
   localStorage.clear();
 });
 afterEach(() => localStorage.clear());
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('the room in the app', () => {
   it('the room is a choice: with nothing stored a player with a Blobbi opens in the 2D home; the menu takes them to the room and remembers it', async () => {

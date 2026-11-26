@@ -30,6 +30,7 @@
  * hold.
  */
 import type { LifecycleTask } from '@/features/lifecycle';
+import { t } from '@/i18n';
 
 export type ChapterId = 'beginning' | 'first-steps' | 'growing' | 'family';
 export type ObjectiveSource = 'nostr' | 'device';
@@ -109,26 +110,26 @@ export function buildJourney(f: JourneyFacts): Chapter[] {
   const careKnown = f.careGiven !== undefined;
 
   const beginning: Draft[] = [
-    { id: 'adopt', title: 'Adopt an egg', hint: 'Every Blobbi starts as an egg that is only yours.', done: owned >= 1, source: 'nostr' },
-    { id: 'hatch', title: 'Watch it hatch', hint: 'Your first egg is ready at once: tap it in its new home when you want to watch it hatch.', done: hatched >= 1, source: 'nostr' },
-    { id: 'cuddle', title: 'A first cuddle', hint: 'Stroke your Blobbi with a finger (or the mouse) and see how it likes it.', done: f.device.petted, source: 'device' },
+    { id: 'adopt', title: t('world.journey.objectives.adopt.title'), hint: t('world.journey.objectives.adopt.hint'), done: owned >= 1, source: 'nostr' },
+    { id: 'hatch', title: t('world.journey.objectives.hatch.title'), hint: t('world.journey.objectives.hatch.hint'), done: hatched >= 1, source: 'nostr' },
+    { id: 'cuddle', title: t('world.journey.objectives.cuddle.title'), hint: t('world.journey.objectives.cuddle.hint'), done: f.device.petted, source: 'device' },
   ];
 
   const days = f.careDays?.count ?? 0;
   const firstSteps: Draft[] = [
-    { id: 'feed', title: 'First meal', hint: 'In the kitchen, give it something to eat.', done: careKnown && cared('feed'), source: 'nostr', action: { kind: 'room', room: 'kitchen' } },
-    { id: 'play', title: 'Playtime', hint: 'In the living room, give it a toy. The ball is a favourite.', done: careKnown && cared('play'), source: 'nostr', action: { kind: 'room', room: 'home' } },
-    { id: 'clean', title: 'Bath time', hint: 'In the care room, a little soap goes a long way.', done: careKnown && cared('clean'), source: 'nostr', action: { kind: 'room', room: 'care' } },
-    { id: 'nap', title: 'Sweet dreams', hint: 'In the bedroom, tap the bed or Sleep. Wake it when it is rested.', done: f.device.napped, source: 'device', action: { kind: 'room', room: 'rest' } },
+    { id: 'feed', title: t('world.journey.objectives.feed.title'), hint: t('world.journey.objectives.feed.hint'), done: careKnown && cared('feed'), source: 'nostr', action: { kind: 'room', room: 'kitchen' } },
+    { id: 'play', title: t('world.journey.objectives.play.title'), hint: t('world.journey.objectives.play.hint'), done: careKnown && cared('play'), source: 'nostr', action: { kind: 'room', room: 'home' } },
+    { id: 'clean', title: t('world.journey.objectives.clean.title'), hint: t('world.journey.objectives.clean.hint'), done: careKnown && cared('clean'), source: 'nostr', action: { kind: 'room', room: 'care' } },
+    { id: 'nap', title: t('world.journey.objectives.nap.title'), hint: t('world.journey.objectives.nap.hint'), done: f.device.napped, source: 'device', action: { kind: 'room', room: 'rest' } },
     {
       id: 'two-days',
-      title: 'Two days together',
-      hint: 'Care for your Blobbi on two different days. They do not have to be in a row, and a day off never undoes it.',
+      title: t('world.journey.objectives.twoDays.title'),
+      hint: t('world.journey.objectives.twoDays.hint'),
       done: days >= CARE_DAYS_NEEDED,
       progress: { current: Math.min(CARE_DAYS_NEEDED, days), required: CARE_DAYS_NEEDED },
       source: 'nostr',
       // Cared for today and still a day short: nothing more to do today but come back
-      waitingFor: days < CARE_DAYS_NEEDED && f.careDays?.today ? 'Done for today! Any care on another day finishes it.' : undefined,
+      waitingFor: days < CARE_DAYS_NEEDED && f.careDays?.today ? t('world.journey.objectives.twoDays.waiting') : undefined,
     },
   ];
 
@@ -136,51 +137,51 @@ export function buildJourney(f: JourneyFacts): Chapter[] {
   const growing: Draft[] = [
     {
       id: 'start-growing',
-      title: 'Ready to grow',
-      hint: 'When your baby is ready, start its growing-up from its details (tap its name).',
+      title: t('world.journey.objectives.startGrowing.title'),
+      hint: t('world.journey.objectives.startGrowing.hint'),
       done: adults >= 1 || evolving,
       source: 'nostr',
       action: { kind: 'details' },
     },
     ...(evolving && adults === 0
-      ? f.evolveTasks.map<Draft>((t) => ({
-          id: `evolve:${t.id}`,
-          title: t.name,
-          hint: t.description,
-          done: t.completed,
-          progress: t.required > 1 ? { current: Math.min(t.current, t.required), required: t.required } : undefined,
+      ? f.evolveTasks.map<Draft>((task) => ({
+          id: `evolve:${task.id}`,
+          title: task.name,
+          hint: task.description,
+          done: task.completed,
+          progress: task.required > 1 ? { current: Math.min(task.current, task.required), required: task.required } : undefined,
           source: 'nostr',
-          action: t.link ? { kind: 'link', href: t.link.href, label: t.link.label } : undefined,
+          action: task.link ? { kind: 'link', href: task.link.href, label: task.link.label } : undefined,
         }))
       : []),
-    { id: 'grown', title: 'All grown up', hint: 'With every growing-up task done, evolve it from its details.', done: adults >= 1, source: 'nostr', action: { kind: 'details' } },
+    { id: 'grown', title: t('world.journey.objectives.grown.title'), hint: t('world.journey.objectives.grown.hint'), done: adults >= 1, source: 'nostr', action: { kind: 'details' } },
   ];
 
   const family: Draft[] = [
     {
       id: 'level',
-      title: `Blobbonaut level ${SECOND_BLOBBI_LEVEL}`,
-      hint: "XP comes from Today's missions (at the top of this page), here or in any Blobbi app that has them. Finishing a day's three pays their XP and a bonus.",
+      title: t('world.journey.objectives.level.title', { level: SECOND_BLOBBI_LEVEL }),
+      hint: t('world.journey.objectives.level.hint'),
       done: f.level >= SECOND_BLOBBI_LEVEL || owned >= 2,
       progress: { current: Math.min(f.xp ?? 0, SECOND_BLOBBI_XP), required: SECOND_BLOBBI_XP },
       source: 'nostr',
     },
     {
       id: 'second-egg',
-      title: 'A second egg',
-      hint: 'At level 5 a second Blobbi can join you. Its egg needs care before it hatches.',
+      title: t('world.journey.objectives.secondEgg.title'),
+      hint: t('world.journey.objectives.secondEgg.hint'),
       done: owned >= 2,
       source: 'nostr',
       action: f.maxBlobbis > owned ? { kind: 'adopt' } : undefined,
     },
-    { id: 'second-hatch', title: 'Hatch it', hint: 'A second egg hatches when its incubation tasks are done (its details list them).', done: hatched >= 2, source: 'nostr', action: { kind: 'details' } },
+    { id: 'second-hatch', title: t('world.journey.objectives.secondHatch.title'), hint: t('world.journey.objectives.secondHatch.hint'), done: hatched >= 2, source: 'nostr', action: { kind: 'details' } },
   ];
 
   const raw: (Omit<Chapter, 'status' | 'objectives'> & { objectives: Draft[] })[] = [
-    { id: 'beginning', number: 1, title: 'A New Beginning', story: 'An egg, a home, and the very first hello.', objectives: beginning, opens: 'Chapter 2: First Steps' },
-    { id: 'first-steps', number: 2, title: 'First Steps', story: 'Learn what makes your Blobbi happy.', objectives: firstSteps, opens: 'Chapter 3: Growing Together' },
-    { id: 'growing', number: 3, title: 'Growing Together', story: 'Help your baby grow into an adult.', objectives: growing, opens: 'Chapter 4: A Bigger Family' },
-    { id: 'family', number: 4, title: 'A Bigger Family', story: 'Make room for another Blobbi.', objectives: family, opens: 'A second Blobbi in your home' },
+    { id: 'beginning', number: 1, title: t('world.journey.chapters.beginning.title'), story: t('world.journey.chapters.beginning.story'), objectives: beginning, opens: t('world.journey.chapters.beginning.opens') },
+    { id: 'first-steps', number: 2, title: t('world.journey.chapters.firstSteps.title'), story: t('world.journey.chapters.firstSteps.story'), objectives: firstSteps, opens: t('world.journey.chapters.firstSteps.opens') },
+    { id: 'growing', number: 3, title: t('world.journey.chapters.growing.title'), story: t('world.journey.chapters.growing.story'), objectives: growing, opens: t('world.journey.chapters.growing.opens') },
+    { id: 'family', number: 4, title: t('world.journey.chapters.family.title'), story: t('world.journey.chapters.family.story'), objectives: family, opens: t('world.journey.chapters.family.opens') },
   ];
   // Chapters open in order; one is current; a chapter whose every canonical objective is done counts done whenever it is.
   // Device objectives (a cuddle, a nap) are shown and ticked but never hold a chapter back: another device, or a

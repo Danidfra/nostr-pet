@@ -52,5 +52,3 @@ export function createLocalLayoutStore(storage: StorageLike | null = safeStorage
     },
   };
 }
-
-export const localLayoutStore: LayoutStore = createLocalLayoutStore();

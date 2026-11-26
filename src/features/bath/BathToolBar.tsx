@@ -7,6 +7,7 @@
  */
 import { RotateCcw, Square } from 'lucide-react';
 import { ItemGlyph } from '@/features/inventory';
+import { t } from '@/i18n';
 import { toolLabel } from './bath-machine';
 import type { BathView } from './useBathSession';
 import { BathToolArt } from './BathTools';
@@ -31,7 +32,7 @@ export function BathToolBar({ view, onStop, onRetry, reducedMotion, variant = 'h
     <div
       className={`bath-bar bath-bar--${variant}`}
       role="group"
-      aria-label={`Bath with ${item.name}`}
+      aria-label={t('room.bath.bar', { item: item.name })}
       data-testid="bath-bar"
       data-status={status}
       data-stage={view.stageId ?? ''}
@@ -48,25 +49,25 @@ export function BathToolBar({ view, onStop, onRetry, reducedMotion, variant = 'h
           {guidance}
         </p>
         {showProgress && (
-          <div className="bath-bar__progress" role="progressbar" aria-label={`${label ?? item.name} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} data-testid="bath-progress">
+          <div className="bath-bar__progress" role="progressbar" aria-label={t('room.bath.progress', { what: label ?? item.name })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} data-testid="bath-progress">
             <span className="bath-bar__fill" style={{ width: `${Math.round(progress * 100)}%` }} />
           </div>
         )}
         {status === 'failed' && (
           <p className="bath-bar__error" role="alert" data-testid="bath-error">
-            {error || 'That did not work.'}
+            {error || t('room.bath.didNotWork')}
           </p>
         )}
       </div>
       <div className="bath-bar__actions">
         {status === 'failed' && (
           <button type="button" className="bath-bar__button bath-bar__button--retry" onClick={onRetry} data-testid="bath-retry">
-            <RotateCcw className="size-[1em]" aria-hidden /> Try again
+            <RotateCcw className="size-[1em]" aria-hidden /> {t('room.bath.tryAgain')}
           </button>
         )}
         {canStop && (
-          <button type="button" className="bath-bar__button bath-bar__button--stop" onClick={onStop} aria-label="Stop the bath" data-testid="bath-stop">
-            <Square className="size-[1em]" aria-hidden /> Stop
+          <button type="button" className="bath-bar__button bath-bar__button--stop" onClick={onStop} aria-label={t('room.bath.stopBath')} data-testid="bath-stop">
+            <Square className="size-[1em]" aria-hidden /> {t('room.bath.stop')}
           </button>
         )}
       </div>

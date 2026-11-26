@@ -11,7 +11,8 @@ import { NostrContext } from '@nostrify/react';
 import { NostrLoginProvider } from '@nostrify/react/login';
 import type { NPool } from '@nostrify/nostrify';
 import { SceneSettingsProvider } from '@/features/home/scene';
-import { CreateAccountScreen, KEY_HEADLINE } from './KeyScene';
+import { CreateAccountScreen } from './KeyScene';
+import { t } from '@/i18n';
 
 const nostrTools = vi.hoisted(() => ({ broken: false }));
 vi.mock('nostr-tools', async (importOriginal) => {
@@ -55,7 +56,7 @@ afterEach(() => {
 describe('the key, given', () => {
   it('the headline, the four facts before any action, and the key as text only', async () => {
     const { root } = await scene();
-    expect(within(root).getByRole('heading', { level: 2 })).toHaveTextContent(KEY_HEADLINE);
+    expect(within(root).getByRole('heading', { level: 2 })).toHaveTextContent(t('wayIn.key.headline'));
     const facts = within(root).getByRole('note', { name: 'About your secret key' });
     expect(within(facts).getAllByRole('listitem')).toHaveLength(4);
     const nsec = within(root).getByTestId('nsec-box').textContent!;
@@ -84,7 +85,7 @@ describe('the key, given', () => {
   it('reduced motion: the scene is still, the words the same', async () => {
     const { root } = await scene(true);
     expect(root).toHaveAttribute('data-reduced', 'true');
-    expect(within(root).getByRole('heading', { level: 2 })).toHaveTextContent(KEY_HEADLINE);
+    expect(within(root).getByRole('heading', { level: 2 })).toHaveTextContent(t('wayIn.key.headline'));
   });
 
   it('Back leaves the key behind', async () => {

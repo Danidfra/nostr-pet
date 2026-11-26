@@ -8,10 +8,14 @@ export interface FakeParam {
   setValueAtTime: (v: number, t: number) => void;
   linearRampToValueAtTime: (v: number, t: number) => void;
   exponentialRampToValueAtTime: (v: number, t: number) => void;
+  cancelScheduledValues: (t: number) => void;
+  value: number;
 }
 function param(): FakeParam {
   const p: FakeParam = {
     events: [],
+    value: 1,
+    cancelScheduledValues: (t) => void p.events.push(['cancel', 0, t]),
     setValueAtTime: (v, t) => void p.events.push(['set', v, t]),
     linearRampToValueAtTime: (v, t) => void p.events.push(['lin', v, t]),
     exponentialRampToValueAtTime: (v, t) => void p.events.push(['exp', v, t]),

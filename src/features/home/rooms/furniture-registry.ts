@@ -94,16 +94,3 @@ export function furnitureById(id: string): FurnitureDefinition | undefined {
 export function canPlaceInRoom(def: FurnitureDefinition, room: RoomId): boolean {
   return !def.allowedRooms || def.allowedRooms.includes(room);
 }
-
-export function furnitureForRoom(room: RoomId): FurnitureDefinition[] {
-  return FURNITURE.filter((def) => canPlaceInRoom(def, room));
-}
-
-export const FURNITURE_CATEGORY_LABEL: Record<FurnitureCategory, string> = {
-  furniture: 'Furniture',
-  decor: 'Shelves',
-  plants: 'Plants',
-  rugs: 'Rugs',
-  lights: 'Lights',
-  clocks: 'Clocks',
-};

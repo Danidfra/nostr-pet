@@ -21,8 +21,15 @@ function stripComments(text: string): string {
   return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 }
 
+/**
+ * The kit's own relay-routing module, carried verbatim until the kit release that contains it is installed (its
+ * header says so): it IS the shared kit's code, its table of the relay's kinds included, not a local duplicate.
+ */
+const VENDORED_FROM_KIT = ['lib/blobbi-relay-routing.ts'];
+
 const sources = walk(SRC)
   .filter((f) => /\.(ts|tsx|css)$/.test(f) && !f.endsWith('.test.ts') && !f.endsWith('.test.tsx') && !f.includes('/test/'))
+  .filter((f) => !VENDORED_FROM_KIT.includes(relative(SRC, f)))
   .map((f) => ({ path: relative(SRC, f), text: stripComments(readFileSync(f, 'utf8')) }));
 
 const FORBIDDEN: Array<{ pattern: RegExp; why: string }> = [

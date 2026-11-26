@@ -39,6 +39,7 @@ import type { InventorySource } from './sources';
 import { resolveStarterEntries, type StarterEntry } from './starter-catalog';
 import { OFFICIAL_ITEM_ISSUER } from './issuers';
 import { timeoutSignal } from '@/lib/abort';
+import { t } from '@/i18n';
 
 export const INVENTORY_QUERY_KEY = 'home-inventory';
 export const DEFINITIONS_QUERY_KEY = 'item-definitions';
@@ -188,7 +189,7 @@ export function useHomeInventory({ pubkey, blobbi }: UseHomeInventoryOptions): H
             quantity: entry.quantity,
             inventoryAddress: balance.inventory.address,
             source: balance.source,
-            usability: blobbi ? itemUsability(item, blobbi) : { ok: false, reason: 'No Blobbi to use it on.' },
+            usability: blobbi ? itemUsability(item, blobbi) : { ok: false, reason: t('world.items.reason.noBlobbi') },
             unverified: balance.resolution !== 'resolved',
           };
         })

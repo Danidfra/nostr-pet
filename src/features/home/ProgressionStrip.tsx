@@ -1,6 +1,7 @@
 import { xpProgress, xpToLevel, xpToNextLevel, type BlobbiCompanion, type BlobbonautProfile } from '@blobbi-kit/core';
 import { Flame, Sparkles, Star } from 'lucide-react';
 import { formatRelativeTime } from '@/lib/format';
+import { t, tp } from '@/i18n';
 
 interface ProgressionStripProps {
   blobbi: BlobbiCompanion;
@@ -21,26 +22,26 @@ export function ProgressionStrip({ blobbi, profile }: ProgressionStripProps) {
   return (
     <dl className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
       {blobbi.experience !== undefined && (
-        <div className="flex items-center gap-1.5" title="Blobbi experience">
+        <div className="flex items-center gap-1.5" title={t('home.progression.blobbiExperience')}>
           <Sparkles className="h-4 w-4 text-primary" aria-hidden />
-          <dt className="sr-only">Blobbi XP</dt>
+          <dt className="sr-only">{t('home.progression.blobbiXp')}</dt>
           <dd className="font-semibold" data-testid="blobbi-xp">
             {blobbi.experience}
-            <span className="ml-1 text-xs font-normal text-muted-foreground">XP</span>
+            <span className="ml-1 text-xs font-normal text-muted-foreground">{t('home.progression.xp')}</span>
           </dd>
         </div>
       )}
       {level !== undefined && (
-        <div className="flex items-center gap-2" title={toNext !== undefined && toNext > 0 ? `${toNext} XP to the next level` : 'Max level'}>
+        <div className="flex items-center gap-2" title={toNext !== undefined && toNext > 0 ? t('home.progression.toNext', { xp: toNext }) : t('home.progression.maxLevel')}>
           <Star className="h-4 w-4 text-amber-500" aria-hidden />
-          <dt className="sr-only">Blobbonaut level</dt>
+          <dt className="sr-only">{t('home.progression.level')}</dt>
           <dd className="flex items-center gap-2 font-semibold" data-testid="player-level">
             {level}
             {progress !== undefined && toNext !== undefined && toNext > 0 && (
               <span
                 className="block h-1.5 w-16 overflow-hidden rounded-full bg-foreground/10"
                 role="progressbar"
-                aria-label="Progress to next level"
+                aria-label={t('home.progression.progress')}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={progress}
@@ -52,17 +53,17 @@ export function ProgressionStrip({ blobbi, profile }: ProgressionStripProps) {
         </div>
       )}
       {blobbi.careStreak !== undefined && blobbi.careStreak > 0 && (
-        <div className="flex items-center gap-1.5" title="Care streak">
+        <div className="flex items-center gap-1.5" title={t('home.streak.title')}>
           <Flame className="h-4 w-4 text-orange-500" aria-hidden />
-          <dt className="sr-only">Care streak</dt>
+          <dt className="sr-only">{t('home.streak.title')}</dt>
           <dd className="font-semibold" data-testid="streak-badge">
             {blobbi.careStreak}
-            <span className="ml-1 text-xs font-normal text-muted-foreground">day{blobbi.careStreak === 1 ? '' : 's'}</span>
+            <span className="ml-1 text-xs font-normal text-muted-foreground">{tp('home.progression.days', blobbi.careStreak)}</span>
           </dd>
         </div>
       )}
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <dt>Last cared for</dt>
+        <dt>{t('home.progression.lastCared')}</dt>
         <dd data-testid="last-interaction">{formatRelativeTime(blobbi.lastInteraction)}</dd>
       </div>
     </dl>

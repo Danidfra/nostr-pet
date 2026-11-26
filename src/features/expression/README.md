@@ -38,5 +38,5 @@ Who uses it in the room:
 | `petting` | being stroked |
 | `playground` | the development panel |
 
-The extraction boundary toward blobbi-kit is described in
-`../teleport/KIT_EXTRACTION.md` §5.
+The extraction boundary toward blobbi-kit follows the teleport module's
+(see `../teleport/README.md`).

@@ -1,5 +1,6 @@
 import { Map as MapIcon } from 'lucide-react';
 import { BLOBBI_ISLAND_URL } from '@/config/ecosystem';
+import { t } from '@/i18n';
 
 interface EnterIslandButtonProps {
   variant?: 'primary' | 'secondary';
@@ -26,7 +27,7 @@ export function EnterIslandButton({ variant = 'primary' }: EnterIslandButtonProp
       data-testid="enter-island"
     >
       <MapIcon className="h-4 w-4" />
-      Enter Blobbi Island
+      {t('home.island.enter')}
     </a>
   );
 }

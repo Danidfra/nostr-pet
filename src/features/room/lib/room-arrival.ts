@@ -38,10 +38,6 @@ export function setRoomArrivalEnabled(on: boolean): void {
   enabled = on;
 }
 
-export function roomArrivalEnabled(): boolean {
-  return enabled;
-}
-
 export interface ArrivalFacts {
   stage: 'egg' | 'baby' | 'adult';
   sleeping: boolean;

@@ -16,6 +16,7 @@ import { usePublishAdapter } from '@/features/care';
 import { DITTO_URL } from '@/config/ecosystem';
 import { buildLifecycleView, type LifecycleView } from './lifecycle-view';
 import { withNewbornStats } from './newborn';
+import { t } from '@/i18n';
 
 export type LifecycleAction = 'start-incubation' | 'stop-incubation' | 'hatch' | 'start-evolution' | 'stop-evolution' | 'evolve';
 
@@ -101,11 +102,11 @@ export function useLifecycle({ blobbi, profile, pubkey, updateCompanionEvent, in
     async (action: LifecycleAction, go: () => Promise<unknown>): Promise<boolean> => {
       if (pending) return false;
       if (!pubkey) {
-        setError(new Error('Sign in first.'));
+        setError(new Error(t('home.lifecycle.error.signInFirst')));
         return false;
       }
       if (!profile) {
-        setError(new Error('Your Blobbonaut profile was not found on the relays, so the lifecycle cannot change yet.'));
+        setError(new Error(t('home.lifecycle.error.noProfile')));
         return false;
       }
       setPending(action);

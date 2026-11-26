@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { Home, RotateCcw } from 'lucide-react';
 import type { TravelPhase } from '@blobbi-kit/core';
+import { t } from '@/i18n';
 
 export interface WorldPresenceNoteProps {
   name: string;
@@ -36,18 +37,18 @@ export interface WorldPresenceNoteProps {
 const LINE_MS = 3_200;
 
 const FAILED: Record<string, (name: string) => string> = {
-  declined: (n) => `The signer did not approve calling ${n} home.`,
-  unreachable: () => "Couldn't reach the Blobbi relays.",
-  stale: (n) => `${n} moved again meanwhile.`,
-  'wrong-account': () => 'The account changed meanwhile.',
-  failed: (n) => `${n} couldn't come home just now.`,
+  declined: (name) => t('world.travel.failed.declined', { name }),
+  unreachable: () => t('world.travel.unreachable'),
+  stale: (name) => t('world.travel.failed.stale', { name }),
+  'wrong-account': () => t('world.travel.failed.wrongAccount'),
+  failed: (name) => t('world.travel.failed.failed', { name }),
 };
 
 export function WorldPresenceNote({ name, place, away, journey, onCallHome, nameOf, travel, playedThere, onRetry, unreachable = false, onRefresh }: WorldPresenceNoteProps) {
   const [line, setLine] = useState<string | null>(null);
   useEffect(() => {
     if (!journey) return;
-    setLine(journey.kind === 'leave' ? `${name} hopped over to ${nameOf(journey.place)}!` : `${name} is back home!`);
+    setLine(journey.kind === 'leave' ? t('world.travel.hopped', { name, place: nameOf(journey.place) }) : t('world.travel.back', { name }));
     const timer = setTimeout(() => setLine(null), LINE_MS);
     return () => clearTimeout(timer);
   }, [journey, name, nameOf]);
@@ -56,7 +57,7 @@ export function WorldPresenceNote({ name, place, away, journey, onCallHome, name
   if (phase === 'arriving') {
     return (
       <p className="world-presence-line home-glass" role="status" data-testid="world-presence-line" data-travel-phase="arriving">
-        {name} is on the way home…
+        {t('world.travel.arriving', { name })}
       </p>
     );
   }
@@ -66,28 +67,28 @@ export function WorldPresenceNote({ name, place, away, journey, onCallHome, name
     return (
       <div className="world-presence-note home-glass" role="status" data-testid="world-presence-away" data-place={place} data-travel-phase={phase} data-world-travel="explicit">
         <p className="text-sm font-semibold">
-          {playedThere === false ? `${name} was last in ${nameOf(place)}` : `${name} is playing in ${nameOf(place)}${playedThere ? ' right now' : ''}`}
+          {playedThere === false ? t('world.travel.lastIn', { name, place: nameOf(place) }) : playedThere ? t('world.travel.playingInNow', { name, place: nameOf(place) }) : t('world.travel.playingIn', { name, place: nameOf(place) })}
         </p>
         <p className="text-xs opacity-80" data-testid="world-presence-detail">
           {phase === 'signing'
-            ? `Approve in your signer to call ${name} home.`
+            ? t('world.travel.approve', { name })
             : working
-              ? `Calling ${name} home…`
+              ? t('world.travel.calling', { name })
               : failed
                 ? (FAILED[failed] ?? FAILED.failed)(name)
                 : unreachable
-                  ? `Couldn't reach the Blobbi relays: this is where ${name} was last seen.`
-                  : `Call ${name} home to bring it back here.`}
+                  ? t('world.travel.unreachableLastSeen', { name })
+                  : t('world.travel.callToBring', { name })}
         </p>
         {failed && onRetry ? (
           <button type="button" className="lifecycle-pill !animate-none !px-3 !py-1.5 !text-xs" onClick={onRetry} data-testid="world-travel-retry">
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-            Try again
+            {t('common.retry')}
           </button>
         ) : (
           <button type="button" className="lifecycle-pill !animate-none !px-3 !py-1.5 !text-xs" onClick={onCallHome} disabled={working} data-testid="world-presence-call-home">
             <Home className="h-3.5 w-3.5" aria-hidden />
-            Call {name} home
+            {t('world.travel.callHome', { name })}
           </button>
         )}
       </div>
@@ -98,11 +99,11 @@ export function WorldPresenceNote({ name, place, away, journey, onCallHome, name
     // Shown home by default (no relay answered, nothing kept here): said honestly, with a way to look again
     return (
       <p className="world-presence-line home-glass flex items-center gap-2" role="status" data-testid="world-travel-unreachable">
-        <span>Couldn't reach the Blobbi relays, so {name} is shown at home.</span>
+        <span>{t('world.travel.unreachableHome', { name })}</span>
         {onRefresh && (
           <button type="button" className="lifecycle-pill !animate-none !px-2.5 !py-1 !text-xs" onClick={onRefresh} data-testid="world-travel-refresh" data-world-travel="ignore">
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-            Look again
+            {t('world.travel.lookAgain')}
           </button>
         )}
       </p>

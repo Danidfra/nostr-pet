@@ -7,6 +7,7 @@
  * already built; leaving mid-scene lets the Blobbi go; nothing is published.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -131,6 +132,10 @@ afterEach(() => {
   localStorage.clear();
 });
 const go = (label: RegExp) => fireEvent.click(screen.getByRole('button', { name: new RegExp(`go to ${label.source}`, 'i') }));
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('changing rooms', () => {
   it('a first visit plays its scene: the room comes on screen part way, nothing else starts meanwhile, and the Blobbi is let go on the floor', async () => {

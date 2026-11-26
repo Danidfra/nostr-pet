@@ -1,8 +1,12 @@
+import { trackWrite } from '@/lib/pending-writes';
 import { useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import type { PublishAdapter, PublishEventTemplate } from '@blobbi-kit/react';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { carryGate } from '@/lib/sync-consent';
+import { t } from '@/i18n';
+import { stampAfter } from '@/lib/created-at';
 
 /** NIP-89 client name stamped on every event this app publishes. */
 export const CLIENT_NAME = 'Blobbi';
@@ -16,14 +20,19 @@ export function isReplaceableKind(kind: number): boolean {
 /**
  * Finish a kit event template into what the signer receives: the `client`
  * tag, and `published_at` preserved from `prev` (or set to `created_at` on a
- * first publish) for replaceable kinds. Pure, so the invariants are testable
- * without a signer.
+ * first publish) for replaceable kinds. A replaceable republish over `prev`
+ * is stamped after it within a bounded window (`stampAfter`, `lib/created-at`)
+ * unless the template chose its own: in the same second NIP-01 keeps the
+ * lower id, so two quick writes (two cares in a row) could otherwise leave
+ * the older state as the one relays keep. Pure, so the invariants are
+ * testable without a signer.
  */
 export function finalizeTemplate(template: PublishEventTemplate, now: number = Math.floor(Date.now() / 1000)) {
   const { prev, ...rest } = template;
   const tags = [...(rest.tags ?? [])];
   if (!tags.some(([name]) => name === 'client')) tags.push(['client', CLIENT_NAME]);
-  const created_at = rest.created_at ?? now;
+  const over = prev && prev.kind === rest.kind && isReplaceableKind(rest.kind) ? prev.created_at : undefined;
+  const created_at = rest.created_at ?? stampAfter(over, now);
   if (isReplaceableKind(rest.kind) && !tags.some(([name]) => name === 'published_at')) {
     const previous = prev?.tags.find(([name]) => name === 'published_at');
     tags.push(['published_at', previous ? previous[1] : String(created_at)]);
@@ -52,7 +61,7 @@ export const SIGN_TIMEOUT_MS = 45_000;
 
 export class SignTimeoutError extends Error {
   constructor() {
-    super('Your signer did not answer. Check it is open and approve Blobbi there, then try again.');
+    super(t('home.care.error.signTimeout'));
     this.name = 'SignTimeoutError';
   }
 }
@@ -79,25 +88,30 @@ export function usePublishAdapter(): HomePublisher {
 
   return useMemo<HomePublisher>(() => {
     const sign = async (template: PublishEventTemplate): Promise<NostrEvent> => {
-      if (!user) throw new Error('Sign in to do that.');
+      if (!user) throw new Error(t('home.care.error.signInToDoThat'));
       const unsigned = finalizeTemplate(template);
       const event = await withSignTimeout(user.signer.signEvent(unsigned));
       if (event.pubkey !== user.pubkey) {
-        throw new Error('The signer answered for a different account.');
+        throw new Error(t('home.care.error.wrongAccount'));
       }
+      // Signed in this visit, as the player's own act: offering it again to a relay that was silent is part of
+      // publishing it. Everything else is an existing event, copied nowhere unless the account said so
+      carryGate.markSigned(event.id);
       return event;
     };
-    const broadcast = async (event: NostrEvent): Promise<void> => {
-      await nostr.event(event, { signal: AbortSignal.timeout(PUBLISH_TIMEOUT_MS) });
-    };
+    const broadcast = (event: NostrEvent): Promise<void> => trackWrite(nostr.event(event, { signal: AbortSignal.timeout(PUBLISH_TIMEOUT_MS) }));
     return {
       sign,
       broadcast,
-      async publish(template) {
-        const event = await sign(template);
-        await broadcast(event);
-        return event;
-      },
+      // Pending from the signature on: a page left (a language switch) waits for the whole write
+      publish: (template) =>
+        trackWrite(
+          (async () => {
+            const event = await sign(template);
+            await broadcast(event);
+            return event;
+          })(),
+        ),
     };
   }, [nostr, user]);
 }

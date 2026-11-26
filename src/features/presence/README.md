@@ -38,8 +38,11 @@ With travel off, the same hook has no session: no relay read, no listener, no si
 
 - **Who.** Only a real login has a session: an nsec, an extension or a remote signer. A guest's Blobbi and a dev
   fixture's stay home.
-- **Relays.** The session reads and writes `BLOBBI_WORLD_TRAVEL_RELAYS`, which are `wss://relay.ditto.pub` and
-  `wss://relay.primal.net`, one relay at a time (`poolWorldTravelRelays` over the app's pool). It keeps a live
+- **Relays.** The session reads and writes `HOME_WORLD_TRAVEL_RELAYS` (`travel-relays.ts`): the primary relay
+  `wss://relay.blobbi.pet` first, then the kit's `BLOBBI_WORLD_TRAVEL_RELAYS`, `wss://relay.ditto.pub` and
+  `wss://relay.primal.net`, one relay at a time (`poolWorldTravelRelays` over the app's pool). The primary's EMPTY
+  answer counts only once one of the other two has answered the same question (`guardEmptyPrimary`): a new, empty
+  primary answering alone never reads as "this Blobbi never travelled". It keeps a live
   stream, resubscribes with backoff, and looks again every minute, when shown, and when back online.
 - **Load: four cases kept apart** (the kit's `snapshot.resolution` and `travelView`):
   - **cached**: this device kept the last signed location. It decides the first frame (`travelStartsAway`): the

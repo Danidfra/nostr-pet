@@ -16,6 +16,7 @@
  *    spend is resumed with the same signed event, never re-signed.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -229,6 +230,10 @@ afterEach(() => localStorage.clear());
 const awaitWalk = () => waitFor(() => expect(scene.state.walks).toHaveLength(1), { timeout: 2000 });
 const dish = () => scene.state.props.find((p) => p.kind === 'dish');
 const ball = () => scene.state.props.find((p) => p.kind === 'ball');
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('the room\'s items', () => {
   it('each room offers its own in Ditto\'s carousel: toys here, food and drink in the kitchen, soap and medicine in the care room; Sleep in the bedroom; owned items counted, starters free', async () => {

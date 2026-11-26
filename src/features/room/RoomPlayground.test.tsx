@@ -5,6 +5,7 @@
  * face by name, and each room transition to a chosen room.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -108,6 +109,10 @@ function watchFaces() {
   observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-expression'], childList: true });
   return { faces, stop: () => observer.disconnect() };
 }
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('the animation playground', () => {
   it('feeding: a dish appears, it notices (curious) and is eager, then bites (mouth open, then closed, eyes shut) take the food down, then glad; the dish goes; nothing written', async () => {

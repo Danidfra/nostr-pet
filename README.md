@@ -92,8 +92,8 @@ On this branch a Blobbi adopted here is born into the procedural generation
 `horns`, `ears`, `tail`) and its surface (`pattern`, `special_mark`,
 `belly`, `freckles`) explicitly, with `visual_algorithm`, and everything
 else about its looks derives from its `seed`. A V3 event carries no `size`
-and no `adult_type`. The representation is the kit's (see `ARCHITECTURE.md`, "Visual
-generation V3"); whether production adoption mints V3 is not decided yet.
+and no `adult_type`. The representation is the kit's (see `@blobbi-kit/core`'s visual
+generation V3); whether production adoption mints V3 is not decided yet.
 Blobbis born earlier (V1, with no marker, and V2) are read, drawn and
 republished exactly as before.
 
@@ -157,9 +157,8 @@ Two things to know:
   home darkens, each tap cracks the shell, the hatch is written, and only
   then the baby appears and is let go where the egg lay. The 3D room is the
   player's choice: menu → **Explore in 3D** (remembered on this device), and
-  back with the room menu's **2D home**; nothing stored means 2D. Launch findings and
-  blockers: `src/features/room/RELEASE_READINESS.md`.
-  Deployment: `DEPLOYMENT.md`; the manual launch run: `LAUNCH_TEST_PLAN.md`;
+  back with the room menu's **2D home**; nothing stored means 2D.
+  Deployment: `DEPLOYMENT.md`;
   worlds: `src/features/worlds/README.md`; the journey and progression:
   `src/features/journey/README.md`.
 - **Things in the room (M10, M10.1).** Food is a dish set down in front of
@@ -214,9 +213,12 @@ Two things to know:
     mkcert's docs say), then
     `BLOBBI_DEV_TLS_CERT=./192.168.1.4+1.pem BLOBBI_DEV_TLS_KEY=./192.168.1.4+1-key.pem npm run dev`
     and open `https://192.168.1.4:8080/`;
-  - **Tailscale** (`tailscale serve --bg 8080`): a `https://<mac>.<tailnet>.ts.net`
-    address with a publicly valid certificate, reachable from the phone on
-    the same tailnet, nothing installed on the phone.
+  - **Tailscale** (`tailscale serve --bg 8080`, undone with
+    `tailscale serve reset`): a `https://<mac>.<tailnet>.ts.net` address
+    with a publicly valid certificate, nothing to trust by hand. The phone
+    needs the Tailscale app, signed in to the same tailnet. The dev server
+    allows `*.ts.net` hosts for this (`server.allowedHosts` in
+    `vite.config.ts`); any other unknown host still gets a 403.
 
   Never put a self-signed or production certificate in the repo, and never
   work around the missing API with a weaker random source.

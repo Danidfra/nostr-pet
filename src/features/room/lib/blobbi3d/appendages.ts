@@ -199,9 +199,4 @@ export function buildAppendage3d(kind: AppendageKind, views: AppendageViews, fra
   return { group, spines, approximations };
 }
 
-/** Whether a prim's path is one the parsers know. */
-export function knownSpine(part: string): boolean {
-  return part in SPINES;
-}
-
 export type { Ellipse as AppendageEllipse };

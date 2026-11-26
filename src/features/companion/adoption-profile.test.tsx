@@ -15,7 +15,9 @@ import { useAdoptEgg } from '@/features/adoption/useAdoptEgg';
 import { newEggPreview, profileTemplate } from '@/features/adoption/adoption-plan';
 import { companionChoices } from './choice-store';
 import { companionSync } from './companion-sync';
+import { PROFILE_RELAYS } from './pool-relays';
 import { DITTO, PRIMAL, dOf, fakeNetwork, profileEvent, testAccount, type FakeNetwork, type TestAccount } from './test/fake-relays';
+import { MAX_STAMP_AHEAD_S } from '@/lib/created-at';
 
 const signedIn = vi.hoisted(() => ({ user: undefined as unknown }));
 vi.mock('@/hooks/useCurrentUser', () => ({ useCurrentUser: () => ({ user: signedIn.user, users: signedIn.user ? [signedIn.user] : [] }) }));
@@ -49,7 +51,8 @@ beforeEach(() => {
   companionSync.reset();
   acc = testAccount();
   signedIn.user = { pubkey: acc.pubkey, signer: { signEvent: async (t: never) => acc.sign(t), getPublicKey: async () => acc.pubkey } };
-  net = fakeNetwork();
+  // The relays of a profile as the home asks them: the primary relay first, then the application relays
+  net = fakeNetwork(PROFILE_RELAYS);
 });
 
 const newestOn = (net: FakeNetwork, url = DITTO) => net.relays.get(url)!.events.filter((e) => e.kind === 11125).sort((a, b) => b.created_at - a.created_at)[0];
@@ -155,8 +158,14 @@ describe("adoption's profile write", () => {
   });
 
   it('the replacement comes after the profile it replaces, even with a clock behind', () => {
-    const base = profileEvent(acc, { has: [], createdAt: S() + 900 });
+    const base = profileEvent(acc, { has: [], createdAt: S() + 500 });
     const t = profileTemplate({ ownerPubkey: acc.pubkey, profile: parseBlobbonautEvent(base)!, d: dOf(acc.pubkey, 2), suggestedName: 'X', now: S() });
     expect(t.created_at).toBe(base.created_at + 1);
+  });
+
+  it('never chases a profile stamped beyond the bound (a wrong clock elsewhere; a relay would refuse the chase)', () => {
+    const base = profileEvent(acc, { has: [], createdAt: S() + MAX_STAMP_AHEAD_S + 300 });
+    const t = profileTemplate({ ownerPubkey: acc.pubkey, profile: parseBlobbonautEvent(base)!, d: dOf(acc.pubkey, 2), suggestedName: 'X', now: S() });
+    expect(t.created_at).toBe(S());
   });
 });

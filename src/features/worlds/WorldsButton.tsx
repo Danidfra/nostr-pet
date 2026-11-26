@@ -12,7 +12,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Globe2, Lock } from 'lucide-react';
 import { LOOK_GUIDE_DOCK_MS } from '@/features/room/lib/look-guide';
-import { WORLDS_GUIDE_LINE } from './worlds-access';
+import { t } from '@/i18n';
+import { worldsGuideLine } from './worlds-access';
 import type { WorldsDoor } from './useWorldsAccess';
 
 interface WorldsButtonProps {
@@ -76,7 +77,7 @@ export function WorldsButton({ door, name, onOpen, onSave, variant, reducedMotio
     onSave();
   };
 
-  const label = locked ? `Worlds, locked: they open once ${name} is saved` : 'Worlds';
+  const label = locked ? t('world.worlds.button.lockedLabel', { name }) : t('world.worlds.title');
   const base = variant === 'hud' ? 'hud-icon-button' : 'room-header-back touch-hit';
   return (
     <span ref={slot} className="worlds-slot" data-testid="worlds-slot">
@@ -85,7 +86,7 @@ export function WorldsButton({ door, name, onOpen, onSave, variant, reducedMotio
         className={`${base} worlds-button ${locked ? 'worlds-button--locked' : ''} ${guide ? 'worlds-button--guide' : ''} ${guide && reducedMotion ? 'worlds-button--still' : ''}`}
         onClick={tap}
         aria-label={label}
-        title={locked ? 'Worlds (locked)' : 'Worlds'}
+        title={locked ? t('world.worlds.button.lockedTitle') : t('world.worlds.title')}
         aria-expanded={locked ? why : undefined}
         aria-describedby={locked && why ? 'worlds-locked-word' : undefined}
         data-testid="worlds-button"
@@ -103,12 +104,12 @@ export function WorldsButton({ door, name, onOpen, onSave, variant, reducedMotio
         <span className="look-guide look-guide--below worlds-word" role="status" id="worlds-locked-word" data-testid="worlds-locked-word" data-reduced="true">
           <span className="look-guide__bubble worlds-word__bubble">
             {access === 'saving' ? (
-              <span className="worlds-word__line">Worlds open as soon as {name} is saved.</span>
+              <span className="worlds-word__line">{t('world.worlds.button.savingWord', { name })}</span>
             ) : (
               <>
-                <span className="worlds-word__line">Worlds open once {name} is saved to an account.</span>
+                <span className="worlds-word__line">{t('world.worlds.button.lockedWord', { name })}</span>
                 <button type="button" className="worlds-word__save" onClick={save} data-testid="worlds-locked-save">
-                  Save {name}
+                  {t('world.worlds.button.save', { name })}
                 </button>
               </>
             )}
@@ -117,7 +118,7 @@ export function WorldsButton({ door, name, onOpen, onSave, variant, reducedMotio
       )}
       {guide && (
         <button type="button" className="look-guide look-guide--below" onClick={tap} data-testid="worlds-guide" data-reduced={reducedMotion ? 'true' : undefined}>
-          <span className="look-guide__bubble">{WORLDS_GUIDE_LINE}</span>
+          <span className="look-guide__bubble">{worldsGuideLine()}</span>
         </button>
       )}
     </span>

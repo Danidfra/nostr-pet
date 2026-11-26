@@ -3,6 +3,7 @@ import { depthScale } from '../scene/geometry';
 import { floorFromRoom, roomToCss } from '../space/room-space';
 import { furnitureById, type FurnitureDefinition } from './furniture-registry';
 import { placementZIndex, type Placement } from './layout-schema';
+import { t } from '@/i18n';
 
 export interface FurnitureLayerProps {
   placements: readonly Placement[];
@@ -42,7 +43,8 @@ function FurnitureLayerImpl({ placements, interactive = false, onUse, stateOf, d
         const usable = interactive && def.use && onUse;
         const clickable = usable || (editing && onSelect);
         const state = stateOf?.(placement, index);
-        const label = editing ? `${def.label}${state === 'selected' ? ', selected' : ''}` : def.use ? `${def.label}` : def.label;
+        const name = furnitureLabel(def);
+        const label = editing ? `${name}${state === 'selected' ? ', selected' : ''}` : name;
         const style = {
           left: css.left,
           top: css.top,
@@ -77,6 +79,16 @@ function FurnitureLayerImpl({ placements, interactive = false, onUse, stateOf, d
       })}
     </>
   );
+}
+
+/**
+ * A piece's name in the page's language: the bed and the tub the home brings out are translated; the
+ * registry's other pieces, never shown, keep their English labels.
+ */
+function furnitureLabel(def: { id: string; label: string }): string {
+  if (def.id === 'home:bed-pet') return t('home.furniture.bed');
+  if (def.id === 'home:tub') return t('home.furniture.tub');
+  return def.label;
 }
 
 /** Memoized: the room re-renders every animation frame while the Blobbi walks; the furniture does not change with it. */

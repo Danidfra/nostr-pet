@@ -9,6 +9,7 @@
  * here before the page goes. Nothing rides in a URL; no input moves the Blobbi.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -86,6 +87,7 @@ function blobbi(o: { stage?: string; state?: string } = {}): NostrEvent {
 // ─── Two in-memory relays at the travel urls ───
 
 const URLS = ['wss://relay.ditto.pub', 'wss://relay.primal.net'];
+const PRIMARY_RELAY = 'wss://relay.blobbi.pet';
 interface FakeRelay {
   stored: NostrEvent[];
   refuse: boolean;
@@ -269,7 +271,8 @@ beforeEach(() => {
   localStorage.clear();
   window.localStorage.setItem('blobbi:home:3d-intro:v1', 'seen');
   relays.clear();
-  for (const url of URLS) relays.set(url, { stored: [], refuse: false, readDelay: 0, readFails: false, readHangs: false, subs: new Set(), published: [] });
+  // The two travel relays the kit names, and the primary relay the home asks first (`travel-relays.ts`)
+  for (const url of [...URLS, PRIMARY_RELAY]) relays.set(url, { stored: [], refuse: false, readDelay: 0, readFails: false, readHangs: false, subs: new Set(), published: [] });
   base.all = [blobbi()];
   base.poolEvents = [];
   signing.refuse = false;
@@ -308,6 +311,10 @@ function hookWrapper() {
     </NostrLoginProvider>
   );
 }
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('the classic home, on Nostr', () => {
   it('away in Pixel at load: shown away first (no departure replayed), then opening the home brings it here with one World Location naming home, and the arrival plays', async () => {
@@ -510,9 +517,11 @@ describe('the classic home, on Nostr', () => {
     accept(relays.get(URLS[0])!, older);
     accept(relays.get(URLS[1])!, newer);
     renderAt('/');
+    // The page's own move (the kit may also have healed the lagging relay with the newer event: not a move). Waited
+    // for itself: `data-travel-here` is also "true" before any location is known, so it is no sign the move is out
+    await waitFor(() => expect(published()).toMatchObject({ world: 'blobbi-home', from: 'blobbi-pixel', prev: newer.id }), WAIT);
+    // Then here, once the kit has the move it published
     await waitFor(() => expect(status()).toHaveAttribute('data-travel-here', 'true'), WAIT);
-    // The page's own move (the kit may also have healed the lagging relay with the newer event: not a move)
-    expect(published()).toMatchObject({ world: 'blobbi-home', from: 'blobbi-pixel', prev: newer.id });
     expect(sent(31126).filter((id) => id !== newer.id)).toHaveLength(1);
     expect(status()).toHaveAttribute('data-travel-place', 'blobbi-home');
     // A forged event naming Pixel (a bad signature) changes nothing

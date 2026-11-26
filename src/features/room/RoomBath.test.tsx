@@ -19,6 +19,7 @@
  *    is consumed, the Blobbi is never left in the tub; Try again is a tap.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -227,6 +228,10 @@ beforeEach(async () => {
   event.mockClear();
 });
 afterEach(() => localStorage.clear());
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('the bath in the room', () => {
   it('a starter soap is a wash where the Blobbi stands: no walk, no tub, the scene handed the frame on the actor, one tool at a time, nothing written before the last stage, then one 31124 and its 1124, the shake and the celebration, and the room itself again', async () => {

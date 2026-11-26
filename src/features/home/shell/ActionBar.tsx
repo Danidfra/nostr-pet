@@ -8,8 +8,8 @@ import type { CeremonyKind } from '@/features/lifecycle';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { CareDock } from '../CareDock';
 import type { CareVerb } from '../care-model';
-
-const STAGE_WORD: Record<BlobbiCompanion['stage'], string> = { egg: 'Egg', baby: 'Baby', adult: 'Adult' };
+import { t } from '@/i18n';
+import { stageLabel, statWord } from '../labels';
 
 interface ActionBarProps {
   actions: readonly CareAvailability[];
@@ -34,8 +34,6 @@ interface ActionBarProps {
   onOpenBlobbi?: () => void;
 }
 
-const STAT_WORD: Record<StatItem['stat'], string> = { hunger: 'food', happiness: 'joy', hygiene: 'clean', energy: 'energy', health: 'health' };
-
 /**
  * The bottom of the screen, under the thumb: the lifecycle pill when a
  * moment is ready, the options for the chosen verb, then the four care
@@ -44,7 +42,7 @@ const STAT_WORD: Record<StatItem['stat'], string> = { hunger: 'food', happiness:
  */
 function ActionBarImpl({ actions, selected, pendingAction, onSelect, onOpenItems, itemCount, options, lifecycleReady, onLifecycle, disabled = false, floorBackground, blobbi, mood, statItems = [], onOpenBlobbi }: ActionBarProps) {
   return (
-    <nav className="hud-bottom" aria-label="Actions" data-testid="action-bar" style={floorBackground ? ({ '--dock-floor': floorBackground } as React.CSSProperties) : undefined}>
+    <nav className="hud-bottom" aria-label={t('home.hud.actions')} data-testid="action-bar" style={floorBackground ? ({ '--dock-floor': floorBackground } as React.CSSProperties) : undefined}>
       {lifecycleReady && onLifecycle && (
         <button type="button" className="lifecycle-pill" onClick={() => onLifecycle(lifecycleReady.kind)} disabled={disabled} data-testid={`action-${lifecycleReady.kind}`}>
           <Sparkles className="h-4 w-4" aria-hidden />
@@ -54,7 +52,7 @@ function ActionBarImpl({ actions, selected, pendingAction, onSelect, onOpenItems
       {options}
       <div className="dock-row">
         {blobbi && onOpenBlobbi && (
-          <button type="button" className="verb verb--blobbi blobbi-chip" onClick={onOpenBlobbi} data-testid="blobbi-chip" aria-label={`${blobbi.name}: ${STAGE_WORD[blobbi.stage]}${mood ? `, ${mood}` : ''}. Open details`}>
+          <button type="button" className="verb verb--blobbi blobbi-chip" onClick={onOpenBlobbi} data-testid="blobbi-chip" aria-label={mood ? t('home.hud.chipMood', { name: blobbi.name, stage: stageLabel(blobbi.stage), mood }) : t('home.hud.chip', { name: blobbi.name, stage: stageLabel(blobbi.stage) })}>
             <span className="verb__disc verb__disc--portrait" aria-hidden>
               <span className="dock-portrait">
                 <BlobbiRenderer visual={toBlobbiVisual(blobbi)} instanceId={`dock-${blobbi.d}`} size="100%" isSleeping={blobbi.state === 'sleeping'} transparent style={{ width: '100%', height: '100%' }} />
@@ -62,13 +60,13 @@ function ActionBarImpl({ actions, selected, pendingAction, onSelect, onOpenItems
             </span>
             <span className="verb__label scene-text">{blobbi.name.length > 9 ? 'Blobbi' : blobbi.name}</span>
             <span className="sr-only">
-              {STAGE_WORD[blobbi.stage]}
+              {stageLabel(blobbi.stage)}
               {mood ? ` · ${mood}` : ''}
             </span>
             {statItems.length > 0 && (
               <span className="cond-dots cond-dots--dock" aria-hidden data-testid="condition-dots">
                 {statItems.map((item) => (
-                  <span key={item.stat} className={`cond-dot cond-dot--${item.status}`} title={`${STAT_WORD[item.stat]} ${Math.round(item.value)}`} data-stat={item.stat} data-status={item.status} />
+                  <span key={item.stat} className={`cond-dot cond-dot--${item.status}`} title={t('home.stats.valueTitle', { stat: statWord(item.stat), value: Math.round(item.value) })} data-stat={item.stat} data-status={item.status} />
                 ))}
               </span>
             )}

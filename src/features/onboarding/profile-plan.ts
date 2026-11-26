@@ -1,13 +1,10 @@
 /**
- * The one kind 0 write of the onboarding, planned as data.
- *
- * The event is the standard NIP-01 metadata: the FRESH existing content is
- * kept (every field the player set elsewhere: nip05, lud16, banner…), and
- * only what the form touched is set. `display_name` follows `name` when the
- * player had none, as Ditto does for a new profile. Nothing secret is ever
- * part of a profile.
+ * The profile form of the kind 0 write: checked and prefilled here; how it
+ * is merged into the account's metadata, and when it may be written at all,
+ * is `metadata-write.ts`. Nothing secret is ever part of a profile.
  */
 import type { NostrMetadata } from '@nostrify/nostrify';
+import { t } from '@/i18n';
 
 export const PROFILE_NAME_MAX = 50;
 export const PROFILE_ABOUT_MAX = 300;
@@ -30,32 +27,18 @@ export function checkProfileForm(input: ProfileFormInput, { allowEmptyName = fal
   const name = input.name.trim().replace(/\s+/g, ' ');
   const about = input.about.trim();
   const picture = input.picture.trim();
-  if (name.length === 0 && !allowEmptyName) return { ok: false, reason: 'Pick a name, or skip this for now.' };
-  if (name.length > PROFILE_NAME_MAX) return { ok: false, reason: `Keep the name under ${PROFILE_NAME_MAX} characters.` };
-  if (about.length > PROFILE_ABOUT_MAX) return { ok: false, reason: `Keep the bio under ${PROFILE_ABOUT_MAX} characters.` };
+  if (name.length === 0 && !allowEmptyName) return { ok: false, reason: t('wayIn.profile.nameMissing') };
+  if (name.length > PROFILE_NAME_MAX) return { ok: false, reason: t('wayIn.profile.nameTooLong', { max: PROFILE_NAME_MAX }) };
+  if (about.length > PROFILE_ABOUT_MAX) return { ok: false, reason: t('wayIn.profile.bioTooLong', { max: PROFILE_ABOUT_MAX }) };
   if (picture) {
     try {
       const url = new URL(picture);
-      if (url.protocol !== 'https:' && url.protocol !== 'http:') return { ok: false, reason: 'The picture must be a web address.' };
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return { ok: false, reason: t('wayIn.profile.pictureUrl') };
     } catch {
-      return { ok: false, reason: 'The picture must be a web address.' };
+      return { ok: false, reason: t('wayIn.profile.pictureUrl') };
     }
   }
   return { ok: true, value: { name, about, picture } };
-}
-
-/** The kind 0 content: the existing metadata with the form applied. */
-export function mergeProfileMetadata(existing: NostrMetadata | undefined, form: ProfileFormInput): NostrMetadata {
-  const next: NostrMetadata = { ...(existing ?? {}) };
-  if (form.name) {
-    next.name = form.name;
-    if (!existing?.display_name || existing.display_name === existing.name) next.display_name = form.name;
-  }
-  if (form.about) next.about = form.about;
-  else delete next.about;
-  if (form.picture) next.picture = form.picture;
-  else if (!existing?.picture) delete next.picture;
-  return next;
 }
 
 /** The form prefilled from what the player already has. */

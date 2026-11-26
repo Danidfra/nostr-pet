@@ -4,13 +4,17 @@ import { createRoot } from 'react-dom/client';
 import { dropLegacyHandoff, dropLegacyHandoffStore } from './features/presence/world-travel-departure';
 import '@fontsource-variable/comfortaa';
 import App from './App';
+import { detectLocale, loadLocale } from './i18n';
 import './index.css';
 
 dropLegacyHandoff();
 dropLegacyHandoffStore();
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+// The language is chosen once, before the first render (`src/i18n/t.ts`); English needs no fetch
+void loadLocale(detectLocale()).then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+});

@@ -108,7 +108,7 @@ These are not guesses; they need someone with the hosting account or DNS.
 2. **Which domain is canonical.** Today the apex redirects to `www`. Keep it,
    or flip it, in the provider's domain settings and DNS.
 3. **Deploy this build** to a preview URL first; check the headers with
-   `curl -sI https://<preview>/room` and run `LAUNCH_TEST_PLAN.md` there.
+   `curl -sI https://<preview>/room` and play the way in there (welcome, egg, hatch, room).
 4. **Relays.** The defaults are in `src/config/relays.ts`. Confirm they are
    the ones the ecosystem wants for launch.
 5. **Production logging.** The kit (`@blobbi-kit/*`) logs query filters to
@@ -129,8 +129,8 @@ run from here.
    the build of `b7916dc`.
 3. Push the branch (not `production`) and open its **preview deployment**.
    On the preview: `curl -sI https://<preview>/`, `/room`,
-   `/assets/<a real file>`, `/assets/nope.js` (expect 404). Run
-   `LAUNCH_TEST_PLAN.md` sections 0 to 2 there on a real iPhone and on
+   `/assets/<a real file>`, `/assets/nope.js` (expect 404). Play
+   the way in and the first minutes there on a real iPhone and on
    desktop, with a fresh test identity (its events are real: use a
    throwaway key, never a player's).
 
@@ -139,7 +139,7 @@ run from here.
    same commit the preview built: no new commits in between).
 5. When Vercel reports the deployment ready: `curl -s https://www.blobbi.pet/
    | grep -o 'assets/index-[^"]*'` shows the noted name; the headers as in
-   step 3; one pass of `LAUNCH_TEST_PLAN.md` section 1 on a phone.
+   step 3; one pass of the way in on a phone.
 
 **Rollback**
 6. In Vercel, promote the noted previous deployment (Instant Rollback): the

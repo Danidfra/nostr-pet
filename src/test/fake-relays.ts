@@ -49,6 +49,8 @@ export class FakeRelay implements NRelay {
   mode: FakeRelayMode = 'ok';
   delayMs = 0;
   closed = false;
+  /** When set, `event()` is answered `OK false` with this message (`blocked: ...`, `rate-limited: ...`). */
+  refuseWith: string | null = null;
 
   constructor(readonly url: string) {}
 
@@ -70,6 +72,7 @@ export class FakeRelay implements NRelay {
   async event(event: NostrEvent): Promise<void> {
     if (this.mode === 'offline') throw new Error(`${this.url}: connection refused`);
     this.published.push(event);
+    if (this.refuseWith !== null) throw new Error(this.refuseWith);
     this.events.push(event);
   }
 

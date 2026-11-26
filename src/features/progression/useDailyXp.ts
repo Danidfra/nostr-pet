@@ -35,6 +35,8 @@ import { canAskRelays, poolProfileRelays } from '@/features/companion/pool-relay
 import { profileWriterFor, writeProfileSafely } from '@/features/companion/safe-profile-write';
 import { doableHere, paidFor, planDailyAward } from './daily-xp';
 import { dailyXpEnabled } from './daily-xp-switch';
+import { t } from '@/i18n';
+import { translatedOr } from '@/lib/translated';
 
 export type AwardState =
   | { kind: 'idle' }
@@ -67,7 +69,12 @@ export interface DailyXp {
   progress: { pending: boolean; status: DailyProgressStatus; save: () => void };
 }
 
-const NO_PROFILE = 'Your Blobbonaut profile could not be read from the relays.';
+const noProfile = () => t('world.today.error.noProfile');
+
+/** A kit mission in the page's language, by its id (English, or a mission no translation knows, keeps the kit's words). */
+function translatedMission<M extends { id: string; title: string; description: string }>(m: M): M {
+  return { ...m, title: translatedOr(`world.today.missions.${m.id}.title`, m.title), description: translatedOr(`world.today.missions.${m.id}.description`, m.description) };
+}
 
 /**
  * This device's storage for progress not saved yet (the kit's `StorageAdapter`): `localStorage`, every access
@@ -91,7 +98,7 @@ function deviceStorage(): StorageAdapter {
     },
     setItem: (key, value) => {
       const s = store();
-      if (!s) throw new Error('This device keeps no data for this page.');
+      if (!s) throw new Error(t('world.today.error.noStorage'));
       s.setItem(key, value);
     },
     removeItem: (key) => {
@@ -128,13 +135,13 @@ async function awardSafely(
       updateProfileEvent(out.event);
       return { kind: 'paid', xp };
     case 'skipped':
-      return out.reason === 'already-paid' ? { kind: 'already' } : out.reason === 'no-profile' ? { kind: 'failed', message: NO_PROFILE } : { kind: 'idle' };
+      return out.reason === 'already-paid' ? { kind: 'already' } : out.reason === 'no-profile' ? { kind: 'failed', message: noProfile() } : { kind: 'idle' };
     case 'no-profile':
-      return { kind: 'failed', message: NO_PROFILE };
+      return { kind: 'failed', message: noProfile() };
     case 'unsafe':
-      return { kind: 'failed', message: 'Not every relay answered, so nothing was saved. Try again in a moment.' };
+      return { kind: 'failed', message: t('world.today.error.notEveryRelay') };
     case 'stale':
-      return { kind: 'failed', message: 'Your profile changed while saving, so nothing was saved. Try again.' };
+      return { kind: 'failed', message: t('world.today.error.profileChanged') };
     case 'wrong-account':
       return { kind: 'idle' };
     case 'failed':
@@ -197,7 +204,7 @@ export function useDailyXp({ pubkey, companions, profile }: UseDailyXpOptions): 
         const fresh = await fetchFreshBlobbonautProfile(nostr, pubkey);
         const decision = planDailyAward(fresh ?? null, raw);
         if (decision.kind === 'already-paid') return { kind: 'already' };
-        if (decision.kind === 'no-profile') return { kind: 'failed', message: NO_PROFILE };
+        if (decision.kind === 'no-profile') return { kind: 'failed', message: noProfile() };
         if (decision.kind !== 'award') return { kind: 'idle' };
         const event = await publisher.publish(decision.template);
         updateProfileEvent(event);
@@ -209,7 +216,7 @@ export function useDailyXp({ pubkey, companions, profile }: UseDailyXpOptions): 
       job.then(forget, forget);
     }
     setAward({ kind: 'saving' });
-    job.then(setAward, (error: unknown) => setAward({ kind: 'failed', message: error instanceof Error ? error.message : 'The relays did not take it.' }));
+    job.then(setAward, (error: unknown) => setAward({ kind: 'failed', message: error instanceof Error ? error.message : t('world.today.error.notTaken') }));
   }, []);
 
   // Paid once the day's three are done; checked again whenever the day or the profile changes. A day the profile
@@ -238,7 +245,7 @@ export function useDailyXp({ pubkey, companions, profile }: UseDailyXpOptions): 
     }
     runAward();
   }, [available, allComplete, date, pubkey, alreadyPaid, runAward]);
-  const missions = useMemo<DailyMission[]>(() => daily.missions.map((m) => ({ ...m, here: doableHere(m.id) })), [daily.missions]);
+  const missions = useMemo<DailyMission[]>(() => daily.missions.map((m) => ({ ...translatedMission(m), here: doableHere(m.id) })), [daily.missions]);
   const { mutate: rerollMutate, isPending: swapping } = reroll;
   const swap = useCallback((missionId: string) => {
     if (stages.length === 0) return;

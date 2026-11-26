@@ -1,22 +1,62 @@
 /**
  * Relays, as URLs the home can compare.
  *
- * The standalone has three kinds of relay knowledge, and only the first is
+ * | set | relays | what depends on it |
+ * |---|---|---|
+ * | default (`PRIMARY_RELAY` + `BASE_RELAYS`) | blobbi, ditto, primal, nostr.band | every read and write goes there; fixed in the settings |
+ * | required for a complete Blobbi read (`ABSENCE_REQUIRED_RELAYS`) | blobbi, ditto, primal | "none exists" and the census before a rename |
+ * | required for a profile (`PROFILE_REQUIRED_RELAYS`) | ditto, primal | kind 11125 and kind 0 censuses |
+ * | counted acknowledgment (`confirmationRelaysFor`) | the two sets above | a Blobbi write / kind 0 is saved only once one of them accepted it |
+ * | player's extra relays (the relay settings) | up to `MAX_EXTRA_RELAYS` | read and/or written; never required, never counted |
+ * | issuer and game hints (`ECOSYSTEM_READ_HINTS`) | today one relay beyond the defaults (dreamith) | read only, for the filters they cover |
+ *
+ * relay.nostr.band is a default relay only: it is asked and written to, but
+ * no read waits for it and no write is saved on its word.
+ *
+ * The standalone has four kinds of relay knowledge, and the first two are
  * configured here:
  *
- *  1. **application relays** (`BASE_RELAYS`): where the home reads by default
- *     and the ONLY relays it ever publishes to;
- *  2. **trusted ecosystem read hints**: where the games that write the
+ *  1. **the primary relay** (`PRIMARY_RELAY`, `wss://relay.blobbi.pet`): the
+ *     Blobbi ecosystem's own relay, asked first and written first for the
+ *     kinds it accepts (`PRIMARY_KINDS`), and for nothing else;
+ *  2. **application relays** (`BASE_RELAYS`): the relays the home always
+ *     used, now the SECONDARIES of a Blobbi flow and still the only relays
+ *     of every other flow (kind 0, NIP-46 sign-in, themes);
+ *  3. **trusted ecosystem read hints**: where the games that write the
  *     player's inventories and equipment are known to publish them
  *     (`src/features/inventory/relay-hints.ts`);
- *  3. **issuer relays**: the relays each trusted item issuer's definitions
+ *  4. **issuer relays**: the relays each trusted item issuer's definitions
  *     are known to live on (`TrustedIssuer.relays`).
  *
  * Hints are read-only transport. They never widen the write set and they
  * never make an event trusted: trust is decided by signature (the relay
  * layer) and by the issuer/owner checks in `src/features/inventory`, exactly
- * as before. See `src/lib/relay-routing.ts` for how a read picks its relays.
+ * as before. See `src/lib/relay-routing.ts` for how a read picks its relays
+ * and `src/lib/home-pool.ts` for how several answers become one.
  */
+import { KIND_BLOBBI_INTERACTION, KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, KIND_BLOBBONAUT_PROFILE_LEGACY } from '@blobbi-kit/core';
+import { KIND_GAME_INVENTORY, KIND_GAME_INVENTORY_FOLD, KIND_GAME_INVENTORY_SPEND, KIND_GAME_ITEM_PLACEMENT } from '@nostr-games/inventory';
+import { BLOBBI_RELAY_KINDS, BLOBBI_RELAY_URL } from '@/lib/blobbi-relay-routing';
+
+/** The Blobbi relay: first for the Blobbi kinds, absent from every other flow. */
+export const PRIMARY_RELAY: string = BLOBBI_RELAY_URL;
+
+/**
+ * The kinds the primary relay is part of, for reads and for writes: what the
+ * relay has a write rule for, less
+ *
+ *  - kind 0: the relay takes it from its pilot write list only, so a new
+ *    player's name would be refused there; profile metadata keeps the
+ *    application relays it always had;
+ *  - kind 5: the home never deletes.
+ *
+ * NIP-46 (24133) and the Ditto theme kinds (36767, 3367, 16769) are not on
+ * the relay at all, so they never were candidates.
+ */
+export const PRIMARY_KINDS: readonly number[] = BLOBBI_RELAY_KINDS.filter((kind) => kind !== 0 && kind !== 5);
+/** Read with the primary as well: the legacy profile (31125) is on it, read-only. */
+export const PRIMARY_READ_KINDS: readonly number[] = [...PRIMARY_KINDS, KIND_BLOBBONAUT_PROFILE_LEGACY];
+
 export const BASE_RELAYS: readonly string[] = [
   'wss://relay.ditto.pub',
   'wss://relay.primal.net',
@@ -41,11 +81,69 @@ export const PROFILE_REQUIRED_RELAYS: readonly string[] = ['wss://relay.ditto.pu
 export const PROFILE_WRITE_QUORUM = 1;
 
 /**
- * The most relays one read may fan out to, application relays included.
- * Hints are source-controlled constants, so this is a ceiling, not a knob:
- * it caps the damage of a mistaken table, never a player's choice.
+ * "This account has none" (no Blobbi, no inventory, no profile to build on)
+ * is a fact only when EACH of these said so to the end. The primary is new
+ * and may be empty, so its word alone is never enough; the two relays every
+ * Blobbi app writes to may be a moment behind it, so theirs alone is not
+ * either. With one of them silent the state is UNKNOWN: the home keeps what
+ * it had or offers Try again, and never the adoption entry.
+ *
+ * Deliberately not the same list as `PROFILE_REQUIRED_RELAYS`: that one gates
+ * every profile WRITE, and a primary that is down must not stop those. This
+ * one only gates concluding ABSENCE, where waiting is the safe answer.
+ * relay.nostr.band is in neither: it is asked, and never waited for.
  */
-export const MAX_RELAYS_PER_READ = 8;
+export const ABSENCE_REQUIRED_RELAYS: readonly string[] = [PRIMARY_RELAY, ...PROFILE_REQUIRED_RELAYS];
+
+/**
+ * The writes whose success matters to what is read next (state, profiles,
+ * spends, metadata), and which relays count for them: such a write counts
+ * as saved only once one of those relays accepted it (the pool's own lists:
+ * `ABSENCE_REQUIRED_RELAYS` or `PROFILE_REQUIRED_RELAYS` in the app). The others (relay.nostr.band) still receive it, but
+ * their acceptance alone is "not confirmed": the next complete read would
+ * not see it. Every other kind (receipts, presence, NIP-46) keeps the plain
+ * rule, the first acceptance anywhere.
+ */
+export function confirmationRelaysFor(kind: number): 'absence' | 'profile' | null {
+  // Metadata lives on the application relays: the two every Blobbi app writes to (`PROFILE_REQUIRED_RELAYS`)
+  if (kind === 0) return 'profile';
+  // The Blobbi kinds: the relays whose answers a complete read needs (`ABSENCE_REQUIRED_RELAYS`)
+  if (kind === KIND_BLOBBI_STATE || kind === KIND_BLOBBONAUT_PROFILE || kind === KIND_GAME_INVENTORY_SPEND) return 'absence';
+  return null;
+}
+
+/**
+ * The player's OWN persistent Blobbi events the home may carry, as they were
+ * signed, from a relay that has them to a relay of the same flow that
+ * certainly does not (`src/lib/relay-sync.ts`). Nothing by anyone else,
+ * nothing ephemeral, private or expiring, and not the legacy profile.
+ */
+export const OWN_SYNC_KINDS: readonly number[] = [KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, KIND_BLOBBI_INTERACTION, KIND_GAME_INVENTORY, KIND_GAME_ITEM_PLACEMENT, KIND_GAME_INVENTORY_SPEND, KIND_GAME_INVENTORY_FOLD];
+
+/** What the home itself publishes to every application relay: those are destinations there too. */
+const HOME_WRITTEN_KINDS: readonly number[] = [KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, KIND_BLOBBI_INTERACTION, KIND_GAME_INVENTORY_SPEND];
+
+/**
+ * Where an own event of this kind belongs: the primary, and the secondaries
+ * of its flow. What the home writes goes wherever the home writes; an
+ * inventory, its folds and the equipment go where the games that write them
+ * do (relay.ditto.pub and relay.primal.net: `relay-hints.ts`), never further.
+ */
+export function syncDestinations(kind: number): readonly string[] {
+  if (!OWN_SYNC_KINDS.includes(kind)) return [];
+  return [PRIMARY_RELAY, ...(HOME_WRITTEN_KINDS.includes(kind) ? BASE_RELAYS : PROFILE_REQUIRED_RELAYS)];
+}
+
+/**
+ * The most relays one read may fan out to: the four default relays and the
+ * player's extra read relays (`MAX_EXTRA_RELAYS`) are always asked, and the
+ * hints fill what is left (today one relay, so 10 at most in practice). Hints
+ * are source-controlled constants, so this is a ceiling, not a knob: it caps
+ * the damage of a mistaken table.
+ */
+export const MAX_RELAYS_PER_READ = 10;
+/** How many extra relays a player may add in the relay settings. */
+export const MAX_EXTRA_RELAYS = 5;
 
 /**
  * One canonical spelling per relay, or `null` for anything that is not a
@@ -94,3 +192,10 @@ export function relaySet(lists: readonly (readonly unknown[])[], max = MAX_RELAY
   }
   return out;
 }
+
+/**
+ * Every relay an existing event of the player's could be copied to, once they turn copying on: what the account is
+ * SHOWN, and exactly what its answer covers (`src/lib/sync-consent.ts`). A relay added here later is not covered by
+ * an answer given before: the account is asked again.
+ */
+export const COPY_DESTINATIONS: readonly string[] = relaySet([OWN_SYNC_KINDS.flatMap((kind) => syncDestinations(kind))]);

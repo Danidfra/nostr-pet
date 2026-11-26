@@ -14,8 +14,10 @@ import type { BlobbiCompanion } from '@blobbi-kit/core';
 import { ArcBackground } from './ArcBackground';
 import { ConnectionChip } from '@/features/home/shell/ConnectionChip';
 import type { HealthLevel } from '@/lib/relay-health';
+import { t, tp } from '@/i18n';
+import { stageLabel } from '@/features/home/labels';
 
-const STAGE_WORD: Record<BlobbiCompanion['stage'], string> = { egg: 'Egg', baby: 'Baby', adult: 'Adult' };
+/** The stage, as one word after the name. */
 
 interface RoomHeaderProps {
   name: string;
@@ -39,18 +41,18 @@ export function RoomHeader({ name, stage, onOpenMenu, connection, streak, leadin
         {/* The name in the middle of the screen, whatever stands at the sides: absolute, so the sides never push it */}
         <p className="room-header-name" data-testid="room-header-name" aria-live="polite">
           <span className="room-header-name__text">{name}</span>
-          <span className="room-header-name__stage"> · {STAGE_WORD[stage]}</span>
+          <span className="room-header-name__stage"> · {stageLabel(stage)}</span>
         </p>
         <span className="flex shrink-0 items-center gap-[0.35em]">
           {connection && <ConnectionChip level={connection.level} online={connection.online} onRetry={connection.onRetry} />}
           {streak && streak.days > 0 && (
-            <span key={streak.bumpKey} className={`streak-pill ${streak.bumpKey > 0 ? 'streak-pill--bump' : ''}`} aria-label={`Care streak: ${streak.days} day${streak.days === 1 ? '' : 's'}`} title="Care streak" data-testid="room-streak-pill" data-days={streak.days}>
+            <span key={streak.bumpKey} className={`streak-pill ${streak.bumpKey > 0 ? 'streak-pill--bump' : ''}`} aria-label={tp('room.header.streakDays', streak.days)} title={t('room.header.streak')} data-testid="room-streak-pill" data-days={streak.days}>
               <Flame className="h-4 w-4" aria-hidden />
               <span className="streak-pill__days">{streak.days}</span>
             </span>
           )}
           {onOpenMenu ? (
-            <button type="button" onClick={onOpenMenu} className="room-header-back touch-hit" aria-label="Menu" title="Menu" data-testid="room-menu">
+            <button type="button" onClick={onOpenMenu} className="room-header-back touch-hit" aria-label={t('room.header.menu')} title={t('room.header.menu')} data-testid="room-menu">
               <Menu />
             </button>
           ) : (

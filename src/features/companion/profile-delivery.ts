@@ -10,6 +10,10 @@
  * relay that refused for good (`blocked:`, `invalid:`...) is no longer owed it. Each event gets `DELIVERY_MAX_TRIES`
  * rounds. Only the newest owed profile per account is kept (an older one is replaced, never sent after it).
  *
+ * AN OWED PROFILE FROM AN EARLIER VISIT IS AN EXISTING EVENT: it is sent to a relay only when the account turned
+ * copying on for that relay (`lib/sync-consent.ts`). One signed in this visit (the write the player just caused) is
+ * delivered as before. With no relay it may go to, the record is left exactly as it is: not sent, no try counted.
+ *
  * Record `blobbi:profile-delivery:v1` (public data only: signed events and relay urls). The page runs the rounds a
  * few seconds after it starts (only when something is owed), after a write, when the connection returns, then less
  * and less often (`profileDelivery`).
@@ -17,6 +21,7 @@
 import { KIND_BLOBBONAUT_PROFILE, type NostrEvent } from '@blobbi-kit/core';
 import { verifyEvent } from 'nostr-tools/pure';
 import { profileFilter, type ProfileRelays } from './profile-write';
+import { carryGate } from '@/lib/sync-consent';
 
 export const PROFILE_DELIVERY_KEY = 'blobbi:profile-delivery:v1';
 export const DELIVERY_MAX_TRIES = 8;
@@ -84,7 +89,12 @@ function topOf(events: readonly NostrEvent[], owner: string, verify: (e: NostrEv
  * One round for every owed profile: ask each relay, send the very same event where a relay answered without it (and
  * holds nothing newer), read back. Returns how many profiles are still owed somewhere (with tries left).
  */
-export async function deliverOwed(store: DeliveryStore, relays: ProfileRelays, opts: { timeoutMs?: number; sleep?: (ms: number) => Promise<void>; verify?: (e: NostrEvent) => boolean } = {}): Promise<number> {
+export async function deliverOwed(
+  store: DeliveryStore,
+  relays: ProfileRelays,
+  opts: { timeoutMs?: number; sleep?: (ms: number) => Promise<void>; verify?: (e: NostrEvent) => boolean; /** Whether this event may be offered to this relay (the page: `carryGate.mayCarry`). */ mayCarry?: (event: NostrEvent, url: string) => boolean } = {},
+): Promise<number> {
+  const mayCarry = opts.mayCarry ?? (() => true);
   const timeoutMs = opts.timeoutMs ?? 8_000;
   const verify = opts.verify ?? verifyEvent;
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
@@ -92,6 +102,9 @@ export async function deliverOwed(store: DeliveryStore, relays: ProfileRelays, o
   for (const [owner, rec] of Object.entries(readOwed(store))) {
     if (rec.event?.pubkey !== owner || rec.tries >= DELIVERY_MAX_TRIES) continue;
     const ours = rec.event;
+    // The relays this event may be offered to; none: nothing is read, sent or counted for it
+    const allowed = relays.urls.filter((url) => mayCarry(ours, url));
+    if (allowed.length === 0) continue;
     const ask = async () => {
       const byRelay = new Map<string, NostrEvent | null | undefined>(); // undefined: did not answer
       await Promise.all(
@@ -121,7 +134,7 @@ export async function deliverOwed(store: DeliveryStore, relays: ProfileRelays, o
     }
     const holds = (url: string) => seen.get(url)?.id === ours.id;
     // Only relays that answered without it: an unanswered relay is not sent blindly (it is tried next round)
-    const to = relays.urls.filter((url) => seen.get(url) !== undefined && !holds(url) && !refused.includes(url));
+    const to = allowed.filter((url) => seen.get(url) !== undefined && !holds(url) && !refused.includes(url));
     if (to.length) {
       await Promise.all(
         to.map(async (url) => {
@@ -139,7 +152,7 @@ export async function deliverOwed(store: DeliveryStore, relays: ProfileRelays, o
         continue;
       }
     }
-    const owedTo = relays.urls.filter((url) => !holds(url) && !refused.includes(url));
+    const owedTo = allowed.filter((url) => !holds(url) && !refused.includes(url));
     const tries = rec.tries + 1;
     keep(owedTo.length ? { event: ours, tries, refused } : null);
     if (owedTo.length && tries < DELIVERY_MAX_TRIES) left++;
@@ -176,7 +189,7 @@ function schedule(restart: boolean): void {
     timer = null;
     if (running || !relaysNow) return;
     running = true;
-    void deliverOwed(store, relaysNow)
+    void deliverOwed(store, relaysNow, { mayCarry: (event, url) => carryGate.mayCarry(event, url) })
       .catch(() => 1)
       .then((left) => {
         running = false;
@@ -192,6 +205,8 @@ export const profileDelivery = {
     if (!listening && typeof window !== 'undefined') {
       listening = true;
       window.addEventListener('online', () => schedule(true));
+      // The account turned copying on (or off): what is owed is looked at again
+      carryGate.subscribe(() => schedule(true));
     }
     schedule(true);
   },

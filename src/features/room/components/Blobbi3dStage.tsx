@@ -12,6 +12,7 @@
 import { Component, useEffect, useRef, useState, type CSSProperties, type ErrorInfo, type ReactNode } from 'react';
 import type { BlobbiGenome, BlobbiMotion } from '@blobbi-kit/renderer/procedural';
 
+import { t } from '@/i18n';
 import { webglAvailable } from '../hooks/useRoomScene';
 import { buildBlobbiModel } from '../lib/blobbi3d/model';
 import { morphologyOf, type Blobbi3dStage as Stage3d } from '../lib/blobbi3d/identity';
@@ -40,11 +41,7 @@ export interface Blobbi3dStageProps {
 type Status = 'loading' | 'ready' | 'unavailable' | 'lost';
 
 /** What a stage that cannot draw says, by why. */
-const NOTES: Record<'unavailable' | 'lost' | 'failed', string> = {
-  unavailable: 'No WebGL here: the 3D Blobbi cannot be drawn.',
-  lost: 'The 3D preview stopped on this device.',
-  failed: 'The 3D preview could not start on this device.',
-};
+const stageNote = (why: 'unavailable' | 'lost' | 'failed') => t(`room.stageNote.${why}`);
 
 export function Blobbi3dStage(props: Blobbi3dStageProps) {
   const { size = 240, testId = 'blobbi-3d-stage' } = props;
@@ -85,7 +82,7 @@ class StageBoundary extends Component<BoundaryProps, { failed: boolean }> {
   }
 
   render() {
-    if (this.state.failed) return <StageNote size={this.props.size} testId={this.props.testId} label={this.props.label} status="failed" note={NOTES.failed} />;
+    if (this.state.failed) return <StageNote size={this.props.size} testId={this.props.testId} label={this.props.label} status="failed" note={stageNote('failed')} />;
     return this.props.children;
   }
 }
@@ -158,13 +155,13 @@ function StageView3d({ genome, stage, view, motion, sleeping = false, figurine =
   };
 
   const box: CSSProperties = { width: size, height: size };
-  if (status === 'lost') return <StageNote size={size} testId={testId} label={label} status="lost" note={NOTES.lost} />;
+  if (status === 'lost') return <StageNote size={size} testId={testId} label={label} status="lost" note={stageNote('lost')} />;
   return (
     <div className="relative shrink-0 rounded-2xl bg-white/40" style={box} data-testid={testId} data-stage={status} data-view={view} data-motion={motion} data-seed={genome.seed} data-tracking={trackPointer ? 'pointer' : 'rest'} aria-label={label} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}>
       {status !== 'unavailable' && <div ref={hostRef} style={box} />}
       {status === 'unavailable' && (
         <p className="flex h-full items-center justify-center p-4 text-center text-xs text-foreground/70" role="status">
-          {NOTES.unavailable}
+          {stageNote('unavailable')}
         </p>
       )}
     </div>

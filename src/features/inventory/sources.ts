@@ -6,6 +6,7 @@
  * game, and the only thing the home does to it is spend (kind 1416). So a
  * source is a label and a note, nothing more.
  */
+import { t } from '@/i18n';
 
 export interface InventorySource {
   /** The 31633 `d`. */
@@ -24,7 +25,7 @@ const KNOWN_SOURCES: Record<string, string> = {
 export function describeInventorySource(id: string): InventorySource {
   const label = KNOWN_SOURCES[id];
   if (label) return { id, label, known: true };
-  return { id, label: `Inventory “${id}”`, known: false };
+  return { id, label: t('world.inventory.sourceUnknown', { id }), known: false };
 }
 
 /** Sources in a stable order: known games first, then the rest by id. */

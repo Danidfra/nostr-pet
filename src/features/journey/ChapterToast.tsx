@@ -6,6 +6,7 @@
 import { useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 import type { BlobbiSoundId } from '@/features/sound/sounds';
+import { t } from '@/i18n';
 import type { Chapter } from './journey';
 
 export const CHAPTER_TOAST_MS = 5_500;
@@ -34,13 +35,11 @@ export function ChapterToast({ chapter, onDone, play, reducedMotion }: ChapterTo
     <div className={`chapter-toast ${reducedMotion ? 'chapter-toast--still' : ''}`} role="status" aria-live="polite" data-testid="chapter-toast" data-chapter={chapter.id}>
       <Sparkles className="chapter-toast__icon" aria-hidden />
       <span className="chapter-toast__text">
-        <span className="chapter-toast__title">
-          Chapter {chapter.number} complete: {chapter.title}
-        </span>
-        <span className="chapter-toast__opens">Next: {chapter.opens}</span>
+        <span className="chapter-toast__title">{t('world.journey.toastTitle', { number: chapter.number, title: chapter.title })}</span>
+        <span className="chapter-toast__opens">{t('world.journey.toastNext', { opens: chapter.opens })}</span>
       </span>
       <button type="button" className="chapter-toast__ok" onClick={onDone} data-testid="chapter-toast-ok">
-        Yay!
+        {t('world.journey.toastOk')}
       </button>
     </div>
   );

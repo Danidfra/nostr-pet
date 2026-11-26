@@ -8,11 +8,16 @@
  * says the same line twice in a row. Faces are the renderer's own parts.
  */
 import type { BlobbiExpression } from '@blobbi-kit/renderer';
+import { t } from '@/i18n';
 
 /** Scene 1: it notices you. */
-export const GREETING = 'Oh! You’re here!';
+export function greeting(): string {
+  return t('wayIn.welcome.greeting');
+}
 /** Scene 2: the invitation (the screen's heading). */
-export const INVITATION = 'A little friend is waiting for you.';
+export function invitation(): string {
+  return t('wayIn.welcome.invitation');
+}
 
 /** Its face at rest, glad you came. */
 export const AT_REST: BlobbiExpression = { eyes: 'open', mouth: 'smile', brows: 'neutral', blush: 'soft' };
@@ -23,7 +28,8 @@ export type HeroMove = 'shy-hop' | 'hop' | 'wiggle';
 
 export interface HeroReaction {
   face: BlobbiExpression;
-  line: string;
+  /** What it says, in the page's language (a getter: read when shown, never at import). */
+  readonly line: string;
   move: HeroMove;
   sound: 'poke' | 'happy' | 'chirp';
   /** How long the face and the line stay before it settles again. */
@@ -31,9 +37,33 @@ export interface HeroReaction {
 }
 
 export const REACTIONS: readonly HeroReaction[] = [
-  { face: { eyes: 'open', mouth: 'smile', brows: 'raised', blush: 'strong' }, line: 'Hehe… hi there!', move: 'shy-hop', sound: 'poke', ms: 1_900 },
-  { face: 'happy', line: 'That tickles!', move: 'hop', sound: 'happy', ms: 1_700 },
-  { face: 'excited', line: 'Again! Again!', move: 'wiggle', sound: 'chirp', ms: 1_800 },
+  {
+    face: { eyes: 'open', mouth: 'smile', brows: 'raised', blush: 'strong' },
+    get line() {
+      return t('wayIn.welcome.reactions.shy');
+    },
+    move: 'shy-hop',
+    sound: 'poke',
+    ms: 1_900,
+  },
+  {
+    face: 'happy',
+    get line() {
+      return t('wayIn.welcome.reactions.tickles');
+    },
+    move: 'hop',
+    sound: 'happy',
+    ms: 1_700,
+  },
+  {
+    face: 'excited',
+    get line() {
+      return t('wayIn.welcome.reactions.again');
+    },
+    move: 'wiggle',
+    sound: 'chirp',
+    ms: 1_800,
+  },
 ];
 
 /** The reaction to the n-th tap (0-based), in turn. */

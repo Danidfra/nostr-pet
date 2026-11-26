@@ -6,6 +6,7 @@
  * and using it publishes nothing and writes nothing to localStorage.
  */
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -58,6 +59,10 @@ beforeEach(() => {
 function storageKeys(): string[] {
   return Object.keys(localStorage).filter((k) => k !== 'test:login').sort();
 }
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('the /room/3d-lab route', () => {
   it('is gated like /room: a dev build only, lazily, and the router never imports the dev tools', () => {

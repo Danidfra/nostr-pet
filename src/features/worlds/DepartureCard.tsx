@@ -6,6 +6,7 @@
  * it says that instead, and offers Dismiss rather than anything that would
  * read as undoing the trip.
  */
+import { t } from '@/i18n';
 import type { DeparturePhase } from './useWorldDeparture';
 import type { World } from './worlds';
 
@@ -27,13 +28,13 @@ export function DepartureCard({ phase, world, name, onStay, onRetry, signing = f
   const failed = phase === 'failed';
   const text = failed
     ? left
-      ? `${name} has left for ${world.name}, but it did not open.`
-      : `${world.name} did not open. ${name} is back home.`
+      ? t('world.worlds.departure.failedLeft', { name, world: world.name })
+      : t('world.worlds.departure.failed', { name, world: world.name })
     : phase === 'gone'
       ? signing
-        ? `Approve the trip in your signer so ${name} comes along…`
-        : `Opening ${world.name}…`
-      : `${name} is off to ${world.name}…`;
+        ? t('world.worlds.departure.signing', { name })
+        : t('world.worlds.departure.opening', { world: world.name })
+      : t('world.worlds.departure.leaving', { name, world: world.name });
   return (
     <div className={`departure-card ${failed ? 'departure-card--failed' : ''}`} role={failed ? 'alert' : 'status'} aria-live="polite" data-testid="departure-card" data-phase={phase}>
       <span className="departure-card__sky" style={{ background: `linear-gradient(135deg, ${world.colors[0]}, ${world.colors[1]})` }} aria-hidden />
@@ -41,17 +42,17 @@ export function DepartureCard({ phase, world, name, onStay, onRetry, signing = f
       <span className="departure-card__actions">
         {failed && (
           <button type="button" className="departure-card__btn departure-card__btn--go" onClick={onRetry} data-testid="departure-retry">
-            Try again
+            {t('common.retry')}
           </button>
         )}
         {failed && left ? (
           <button type="button" className="departure-card__btn" onClick={onDismiss ?? onStay} data-testid="departure-dismiss">
-            Dismiss
+            {t('world.worlds.departure.dismiss')}
           </button>
         ) : (
           phase !== 'gone' && (
             <button type="button" className="departure-card__btn" onClick={onStay} data-testid="departure-stay">
-              {failed ? 'OK' : 'Stay'}
+              {failed ? t('world.worlds.departure.ok') : t('world.worlds.departure.stay')}
             </button>
           )
         )}

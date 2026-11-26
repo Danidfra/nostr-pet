@@ -29,12 +29,11 @@ import { ArrowLeft, Check, Copy, Download, Egg, KeyRound, PenLine } from 'lucide
 import { useReducedMotion } from '@/features/home/scene/SceneSettings';
 import { useSound } from '@/features/sound';
 import { useLoginActions } from '@/hooks/useLoginActions';
+import { t, tRich } from '@/i18n';
 import { createNewAccount, downloadNsecBackup, nsecBackupFilename, type NewAccount } from './new-account';
 
 /** How the player chose to keep the key; null until they chose. */
 export type KeyKeeping = 'copy' | 'download' | 'written';
-
-export const KEY_HEADLINE = 'A little key, just for you.';
 
 export function CreateAccountScreen({ onBack }: { onBack: () => void }) {
   const login = useLoginActions();
@@ -43,7 +42,7 @@ export function CreateAccountScreen({ onBack }: { onBack: () => void }) {
     try {
       return { account: createNewAccount() };
     } catch {
-      return { error: 'This browser cannot make a secure key here. Open Blobbi over https in an up-to-date browser, or sign in with an account you already have.' };
+      return { error: t('wayIn.key.unsupported') };
     }
   });
   if ('error' in made) {
@@ -59,7 +58,7 @@ export function CreateAccountScreen({ onBack }: { onBack: () => void }) {
 }
 
 /** The darkened world, the light, the motes, the way back: the stage the key is given on. */
-export function KeyStage({ onBack, headline = KEY_HEADLINE, intro, children }: { onBack: () => void; headline?: string; intro?: ReactNode; children: ReactNode }) {
+export function KeyStage({ onBack, headline, intro, children }: { onBack: () => void; headline?: string; intro?: ReactNode; children: ReactNode }) {
   const reduced = useReducedMotion();
   return (
     <section className="keyscene" data-testid="onboarding-create-account" data-reduced={reduced ? 'true' : undefined} aria-labelledby="key-title">
@@ -72,7 +71,7 @@ export function KeyStage({ onBack, headline = KEY_HEADLINE, intro, children }: {
       <div className="keyscene__scroll">
         <button type="button" onClick={onBack} className="keyscene__back" data-testid="onboarding-back">
           <ArrowLeft className="h-4 w-4" aria-hidden />
-          Back
+          {t('common.back')}
         </button>
         <div className="keyscene__body">
           <div className="keyscene__key" aria-hidden>
@@ -80,7 +79,7 @@ export function KeyStage({ onBack, headline = KEY_HEADLINE, intro, children }: {
             <KeyRound className="keyscene__icon" strokeWidth={1.8} />
           </div>
           <h2 id="key-title" className="keyscene__title">
-            {headline}
+            {headline ?? t('wayIn.key.headline')}
           </h2>
           {intro}
           {children}
@@ -110,7 +109,7 @@ export interface KeyGiftProps {
  * Blobbi (the key reserved when its egg was made): the words differ, the
  * facts, the backup and the acknowledgement never do.
  */
-export function KeyGift({ account, onBack, signIn, continueLabel = 'Continue to my egg!', headline, intro, aside = 'You can see your key again later in the menu, under Account.' }: KeyGiftProps) {
+export function KeyGift({ account, onBack, signIn, continueLabel, headline, intro, aside }: KeyGiftProps) {
   const { play } = useSound();
   const [kept, setKept] = useState<KeyKeeping | null>(null);
   const [copied, setCopied] = useState(false);
@@ -132,23 +131,23 @@ export function KeyGift({ account, onBack, signIn, continueLabel = 'Continue to 
       await navigator.clipboard.writeText(account.nsec);
       setKept('copy');
       setCopied(true);
-      setNote('Copied. Paste it into your password manager now, then copy something else: the clipboard is no place to leave it.');
+      setNote(t('wayIn.key.noteCopied'));
       play('chirp');
     } catch {
-      setNote('Copying is not available here. Select the key above and copy it, or download the file.');
+      setNote(t('wayIn.key.noteNoCopy'));
     }
   };
   const download = () => {
     if (downloadNsecBackup(account.nsec)) {
       setKept('download');
       // The page can only ask: whether the file was saved is the browser's (and the player's) to say
-      setNote(`Your browser was asked to save ${nsecBackupFilename(account.nsec)}. Check that it is in your downloads before you go on.`);
+      setNote(t('wayIn.key.noteDownloaded', { file: nsecBackupFilename(account.nsec) }));
       play('chirp');
-    } else setNote('Downloads are not available here. Copy the key instead.');
+    } else setNote(t('wayIn.key.noteNoDownload'));
   };
   const written = () => {
     setKept('written');
-    setNote('Write every character exactly, and keep the paper somewhere safe and private.');
+    setNote(t('wayIn.key.noteWritten'));
   };
   const finish = () => {
     if (!kept || !confirmed || continued.current) return;
@@ -157,37 +156,35 @@ export function KeyGift({ account, onBack, signIn, continueLabel = 'Continue to 
       signIn(account.nsec);
     } catch (err) {
       continued.current = false;
-      setError(err instanceof Error ? err.message : 'Could not sign in with the new key.');
+      setError(err instanceof Error ? err.message : t('wayIn.key.signInFailed'));
     }
   };
 
   return (
     <KeyStage onBack={onBack} headline={headline} intro={intro}>
-      <ul className="keyscene__facts" role="note" aria-label="About your secret key" data-testid="key-warning">
-        <li>
-          This is your <strong>secret key</strong>: your account, instead of a password.
-        </li>
-        <li>Anyone who gets it can open your account. Never share it.</li>
-        <li>If you lose it, you can lose your Blobbi for good.</li>
-        <li>Blobbi cannot recover it for you.</li>
+      <ul className="keyscene__facts" role="note" aria-label={t('wayIn.key.factsLabel')} data-testid="key-warning">
+        <li>{tRich('wayIn.key.factKey', { secretKey: <strong>{t('wayIn.key.secretKey')}</strong> })}</li>
+        <li>{t('wayIn.key.factShare')}</li>
+        <li>{t('wayIn.key.factLose')}</li>
+        <li>{t('wayIn.key.factRecover')}</li>
       </ul>
-      <code className="keyscene__nsec" data-testid="nsec-box" aria-label="Your secret key">
+      <code className="keyscene__nsec" data-testid="nsec-box" aria-label={t('wayIn.key.nsecLabel')}>
         {account.nsec}
       </code>
       <div className="keyscene__ways">
         <button type="button" className="onboard-btn onboard-btn--secondary keyscene__way" onClick={copy} data-testid="nsec-copy" data-done={kept === 'copy' ? 'true' : undefined}>
           {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
-          {copied ? 'Copied' : 'Copy key'}
+          {copied ? t('wayIn.key.copied') : t('wayIn.key.copy')}
         </button>
         <button type="button" className="onboard-btn onboard-btn--secondary keyscene__way" onClick={download} data-testid="nsec-download" data-done={kept === 'download' ? 'true' : undefined}>
           <Download className="h-4 w-4" aria-hidden />
-          Download backup file
+          {t('wayIn.key.downloadBackup')}
         </button>
       </div>
       {kept === null && (
         <button type="button" className="keyscene__quiet" onClick={written} data-testid="nsec-written">
           <PenLine className="h-3.5 w-3.5" aria-hidden />
-          I’ll write it down instead
+          {t('wayIn.key.writeInstead')}
         </button>
       )}
       <p className="keyscene__note" role="status" data-testid="nsec-note">
@@ -197,13 +194,13 @@ export function KeyGift({ account, onBack, signIn, continueLabel = 'Continue to 
         <div className="keyscene__confirm" data-testid="key-confirm" ref={confirmRef}>
           <label className="keyscene__check">
             <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} data-testid="key-saved" />
-            <span>I saved my secret key somewhere safe.</span>
+            <span>{t('wayIn.key.confirm')}</span>
           </label>
           <button type="button" className="onboard-btn onboard-btn--primary" onClick={finish} disabled={!confirmed} data-testid="onboarding-continue">
             <Egg className="h-4 w-4" aria-hidden />
-            {continueLabel}
+            {continueLabel ?? t('wayIn.key.continue')}
           </button>
-          <p className="keyscene__aside">{aside}</p>
+          <p className="keyscene__aside">{aside ?? t('wayIn.key.aside')}</p>
         </div>
       )}
       {error && (

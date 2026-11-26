@@ -36,6 +36,8 @@ export interface RelayHealth {
   level: HealthLevel;
   online: boolean;
   relays: Record<string, RelayMark>;
+  /** The player's extra relays (the relay settings), followed apart: they never change `level`. */
+  extras: Record<string, RelayMark>;
   /**
    * Why no relay can be reached from this page at all, or null: decided
    * once from the browser's APIs (`relay-transport.ts`), before any socket;
@@ -61,6 +63,8 @@ export interface RelayHealthStore {
   setOnline: (online: boolean) => void;
   /** The user asked to try again: forget past failures. */
   reset: () => void;
+  /** Follow these extra relays (the relay settings); marks of relays no longer listed are dropped. */
+  trackExtras?: (urls: readonly string[]) => void;
 }
 
 export function resolveHealthLevel(online: boolean, relays: Record<string, RelayMark>): HealthLevel {
@@ -74,11 +78,12 @@ export function resolveHealthLevel(online: boolean, relays: Record<string, Relay
 
 export function createRelayHealthStore(appRelays: readonly string[], initialOnline = true, blocked: TransportBlock | null = null): RelayHealthStore {
   const relays: Record<string, RelayMark> = Object.fromEntries(appRelays.map((u) => [u, 'unknown' as RelayMark]));
+  let extras: Record<string, RelayMark> = {};
   let online = initialOnline;
-  let snapshot: RelayHealth = { level: resolveHealthLevel(online, relays), online, relays: { ...relays }, blocked };
+  let snapshot: RelayHealth = { level: resolveHealthLevel(online, relays), online, relays: { ...relays }, extras: {}, blocked };
   const listeners = new Set<() => void>();
   const publish = () => {
-    snapshot = { level: resolveHealthLevel(online, relays), online, relays: { ...relays }, blocked };
+    snapshot = { level: resolveHealthLevel(online, relays), online, relays: { ...relays }, extras: { ...extras }, blocked };
     for (const l of listeners) l();
   };
   return {
@@ -89,12 +94,17 @@ export function createRelayHealthStore(appRelays: readonly string[], initialOnli
     },
     log: (entry) => {
       const url = entry.url;
-      if (!url || !(url in relays)) return;
+      const marks = url && url in relays ? relays : url && url in extras ? extras : null;
+      if (!url || !marks) return;
       let next: RelayMark | null = null;
       if (entry.ns === 'relay.ws.state' && entry.state === 'open') next = 'ok';
       else if (entry.ns === 'relay.ws.retry' || entry.ns === 'relay.ws.error') next = 'failing';
-      if (next === null || relays[url] === next) return;
-      relays[url] = next;
+      if (next === null || marks[url] === next) return;
+      marks[url] = next;
+      publish();
+    },
+    trackExtras: (urls) => {
+      extras = Object.fromEntries(urls.filter((u) => !(u in relays)).map((u) => [u, extras[u] ?? 'unknown']));
       publish();
     },
     setOnline: (value) => {
@@ -104,6 +114,7 @@ export function createRelayHealthStore(appRelays: readonly string[], initialOnli
     },
     reset: () => {
       for (const url of Object.keys(relays)) relays[url] = 'unknown';
+      for (const url of Object.keys(extras)) extras[url] = 'unknown';
       publish();
     },
   };

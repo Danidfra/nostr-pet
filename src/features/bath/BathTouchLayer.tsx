@@ -14,6 +14,7 @@
  * cell at a time (pressing it down as they go), Space lifts it.
  */
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { t } from '@/i18n';
 import { BATH_RULES, isHandStage, type BathPoint } from './bath-machine';
 import type { BathInput, BathView } from './useBathSession';
 import { BathEffects2D } from './BathEffects2D';
@@ -164,7 +165,7 @@ export function BathTouchLayer({ view, input, draw = true, reducedMotion, name, 
         data-draw={draw ? 'true' : 'false'}
         data-room-drag=""
         role="application"
-        aria-label={tool ? `Care for ${name}: drag the ${tool} over ${name}. Arrow keys carry it too.` : `${name} in the bath`}
+        aria-label={tool ? t(`room.bath.touch.${tool}`, { name }) : t('room.bath.inTheBath', { name })}
         aria-roledescription="bath"
         tabIndex={rubbing ? 0 : -1}
         onPointerDown={rubbing ? onPointerDown : undefined}

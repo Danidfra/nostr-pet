@@ -17,6 +17,7 @@ import { useContext, useEffect, useState } from 'react';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import { ExistingAccountScreen } from '@/features/onboarding/screens';
 import { useHomeBlobbi } from '@/hooks/useHomeBlobbi';
+import { t } from '@/i18n';
 import { SaveCeremony } from './SaveCeremony';
 import { GuestConflictSheet, GuestRemoveSheet } from './GuestConflictSheet';
 import { useFinishSave } from './useFinishSave';
@@ -54,7 +55,7 @@ function GuestLayersInner() {
               )}
               {conflict && guest.doc && guest.loginPubkey && removing && <GuestRemoveSheet open doc={guest.doc} onCancel={() => setRemoving(false)} onRemove={() => guest.removeFromDevice()} />}
               {signInOpen && (
-                <GameOverlay open onClose={closeSignIn} title="Welcome back" testId="guest-sign-in" size="tall">
+                <GameOverlay open onClose={closeSignIn} title={t('wayIn.signIn.title')} testId="guest-sign-in" size="tall">
                   <ExistingAccountScreen plain />
                 </GameOverlay>
               )}

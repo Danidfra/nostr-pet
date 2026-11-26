@@ -18,6 +18,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -160,6 +161,10 @@ function nothingLeaked(doc: StoredGuestDocument) {
     for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain(doc.identity.nsec);
   }
 }
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('M15: one blocking layer at a time', () => {
   it("the word about a guest Blobbi and the room's first-visit introduction come one after the other, never together", async () => {

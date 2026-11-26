@@ -40,7 +40,11 @@ export function useLoginActions() {
      * NIP-46, client-initiated (`nostrconnect://`): the app makes an
      * ephemeral client key and a random secret, shows them as a QR or a
      * deep link, and waits on the application relays for the signer to
-     * answer. The ephemeral key lives in memory for the handshake only;
+     * answer. The application relays only (`BASE_RELAYS`), never the primary
+     * Blobbi relay: it refuses kind 24133, so a signer that connected to it
+     * alone could never answer, and the sign-in must not depend on it (the
+     * pool routes a 24133 request and reply to the application relays for
+     * the same reason). The ephemeral key lives in memory for the handshake only;
      * the URI carries the client's PUBLIC key and the secret, by the
      * protocol's design, never any user key. `signal` cancels the wait.
      */

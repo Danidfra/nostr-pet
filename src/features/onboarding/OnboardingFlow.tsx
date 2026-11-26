@@ -1,6 +1,7 @@
 import type { NostrEvent } from '@blobbi-kit/core';
 import { AdoptionFlow } from '@/features/adoption';
 import { useAuthor } from '@/hooks/useAuthor';
+import { t } from '@/i18n';
 import { resolveOnboardingStep, type OnboardingStep } from './onboarding-steps';
 import { ExistingAccountScreen, WelcomeScreen } from './screens';
 import { CreateAccountScreen } from './KeyScene';
@@ -57,11 +58,11 @@ export function OnboardingFlow({ session, pubkey, hasBlobbi, updateCompanionEven
     case 'existing':
       return <ExistingAccountScreen onBack={() => choose(null)} />;
     case 'loading':
-      return <StagePanel line="Just a moment…">{loading}</StagePanel>;
+      return <StagePanel line={t('wayIn.guide.moment')}>{loading}</StagePanel>;
     case 'adopt':
       // The egg in the same world: the guide who welcomed you points at it
       return pubkey ? (
-        <StagePanel line="Look! Your very own egg!">
+        <StagePanel line={t('wayIn.guide.egg')}>
           <AdoptionFlow pubkey={pubkey} suggestedName={author.data?.metadata?.name || author.data?.metadata?.display_name || undefined} updateCompanionEvent={updateCompanionEvent} refresh={refresh} guest={guest} />
         </StagePanel>
       ) : null;

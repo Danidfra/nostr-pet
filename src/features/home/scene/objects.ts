@@ -1,4 +1,5 @@
 import type { FloorPoint } from './geometry';
+import { t } from '@/i18n';
 
 /**
  * Where things are in the home, and what they are.
@@ -52,18 +53,19 @@ export const OFFER_SPOT: FloorPoint = { x: 0.36, y: 0.7 };
 export const OFFER_APPROACH: FloorPoint = { x: 0.47, y: 0.66 };
 
 export const SCENE_OBJECTS: readonly SceneObjectDef[] = [
-  { id: 'door', kind: 'furniture', label: 'Door to Blobbi Island', position: DOOR_POSITION, approach: DOOR_APPROACH, width: 0.26, wall: true },
+  {
+    id: 'door',
+    kind: 'furniture',
+    // A getter: the label is read when the door is drawn, in the page's language
+    get label() {
+      return t('home.island.door');
+    },
+    position: DOOR_POSITION,
+    approach: DOOR_APPROACH,
+    width: 0.26,
+    wall: true,
+  },
 ];
-
-/**
- * The definition for an item set down in the room. Items are not in the
- * static table: one exists only while it is offered, and its label is the
- * item's own name. Same shape as furniture, so the view and the depth
- * ordering need not know the difference.
- */
-export function offeredItemObject(name: string): SceneObjectDef {
-  return { id: 'offer', kind: 'item', label: name, position: OFFER_SPOT, approach: OFFER_APPROACH, width: 0.11 };
-}
 
 /** An item lying at a spot of the player's choosing (a toy set down); the Blobbi stands beside it. */
 export function itemObjectAt(id: SceneObjectId, name: string, position: FloorPoint, approach: FloorPoint, testId?: string): SceneObjectDef {

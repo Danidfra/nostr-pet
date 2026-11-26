@@ -1,6 +1,8 @@
 import type { BlobbiState, BlobbiStats } from '@blobbi-kit/core';
 import type { CareAction } from '@/features/care';
 import type { ItemAction } from '@/features/inventory/item-model';
+import { t } from '@/i18n';
+import { statWord } from './labels';
 
 /** What the feedback layer needs from a care result or an item use. */
 export interface FeedbackResult {
@@ -13,25 +15,16 @@ export interface FeedbackResult {
   itemName?: string;
 }
 
-export const STAT_WORD: Record<keyof BlobbiStats, string> = {
-  hunger: 'food',
-  happiness: 'joy',
-  hygiene: 'clean',
-  energy: 'energy',
-  health: 'health',
-};
-
 /** What a care result did, as words, for the live region. */
 export function describeCareResult(result: FeedbackResult): string {
+  const { name, itemName } = result;
   if (result.action === 'rest') {
-    return result.nextState === 'sleeping' ? `${result.name} is resting now.` : `${result.name} woke up.`;
+    return result.nextState === 'sleeping' ? t('home.feedback.resting', { name }) : t('home.feedback.wokeUp', { name });
   }
-  const verbs: Record<Exclude<FeedbackResult['action'], 'rest'>, string> = { feed: 'Fed', play: 'Played with', clean: 'Cleaned', medicine: 'Treated', boost: 'Boosted' };
   const changes = Object.entries(result.statsChanged)
-    .map(([stat, delta]) => `${delta > 0 ? '+' : ''}${delta} ${STAT_WORD[stat as keyof BlobbiStats]}`)
+    .map(([stat, delta]) => t('home.feedback.change', { delta: `${delta > 0 ? '+' : ''}${delta}`, stat: statWord(stat as keyof BlobbiStats) }))
     .join(', ');
-  const xp = result.xpGained > 0 ? `+${result.xpGained} XP` : '';
-  const what = result.itemName ? `${verbs[result.action]} ${result.name} with ${result.itemName}.` : `${verbs[result.action]} ${result.name}.`;
+  const xp = result.xpGained > 0 ? t('home.feedback.xp', { xp: result.xpGained }) : '';
+  const what = itemName ? t(`home.feedback.didWith.${result.action}`, { name, item: itemName }) : t(`home.feedback.did.${result.action}`, { name });
   return [what, changes, xp].filter(Boolean).join(' ');
 }
-

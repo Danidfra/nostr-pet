@@ -42,6 +42,7 @@ import type { FeedbackResult } from '@/features/home/care-feedback-text';
 import { MIN_USE_MS, reactionForCare } from '@/features/home/scene/reactions';
 import type { CareChoice } from '@/features/home/care-model';
 import type { RoomId } from '@/features/home/rooms/rooms';
+import { t } from '@/i18n';
 import type { RoomNavigation } from './useRoomNavigation';
 import type { RoomCareEntry, DropPlan } from '../lib/room-care';
 
@@ -92,6 +93,8 @@ export interface RoomCare {
   busy: boolean;
   /** An owned use of this Blobbi's was begun and not finished (the spend ledger): the next owned use resumes it. */
   hasOpenUse: () => boolean;
+  /** The item an unfinished use was for (its name), or null. */
+  openUseItem: string | null;
   /**
    * Set an item down in the room for the Blobbi (`walking`); nothing is used. Null when it cannot be placed (a
    * write is out, the item is not usable, nowhere to put it). An item already waiting is replaced.
@@ -197,14 +200,14 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
   const begin = useCallback(
     (key: number): Promise<UseOutcome> => {
       const current = offerRef.current;
-      if (!current || current.key !== key) return Promise.resolve({ kind: 'failed', error: 'That item is no longer here.' });
+      if (!current || current.key !== key) return Promise.resolve({ kind: 'failed', error: t('room.care.itemGone') });
       return new Promise<UseOutcome>((resolve) => {
         outcomes.current.set(key, resolve);
         setOffer({ ...current, phase: 'using', usingSince: Date.now(), error: undefined });
         const request = { blobbiD: liveBlobbi.current.d };
         const started = current.choice.source === 'owned' ? startOwned({ ...request, entry: current.choice.entry }) : startStarter({ ...request, entry: current.choice.entry });
         if (!started) {
-          const error = 'Another use is still finishing. Try again in a moment.';
+          const error = t('room.care.stillFinishing');
           setOffer((o) => (o && o.key === key ? { ...o, phase: 'failed', error } : o));
           settleOutcome(key, { kind: 'failed', error });
         }
@@ -350,6 +353,7 @@ export function useRoomCare({ blobbi, pubkey, updateCompanionEvent, refresh, nav
     offer,
     busy: busy || restWalking,
     hasOpenUse: () => useItem.hasOpenUse(blobbi.d),
+    openUseItem: useItem.openUseItem(blobbi.d),
     place,
     begin,
     startEating,

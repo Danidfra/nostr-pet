@@ -12,6 +12,7 @@
  * between the homes remembers itself, and the first 3D asks first.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -35,7 +36,7 @@ import { finalizeTemplate } from '@/features/care/usePublishAdapter';
 import { NEWBORN_STATS } from '@/features/lifecycle/newborn';
 import { TAPS_TO_HATCH, TAP_SETTLE_MS } from '@/features/room/lib/hatch-theater';
 import { EXPERIENCE_STORAGE_KEY, ROOM_INTRO_STORAGE_KEY } from '@/lib/home-experience';
-import { GUEST_STATUS_LINE, SAVED_STATUS_LINE } from '@/features/guest/GuestStatus';
+import { t } from '@/i18n';
 import { createEvolveMissions } from '@blobbi-kit/react';
 import { chooseCare } from '@/test/care-ui';
 
@@ -129,6 +130,10 @@ beforeEach(() => {
   HTMLAnchorElement.prototype.click = () => {};
 });
 afterEach(() => cleanup());
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('M14.1: the account buttons from the 3D room', () => {
   it('Save my Blobbi in the room\'s menu opens the ceremony over the room, the Blobbi still there; Maybe later closes it and nothing changed', async () => {
@@ -296,7 +301,7 @@ describe('M14.1: the guest\'s status', () => {
     renderApp('/');
     await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
     const pill = screen.getByTestId('guest-status');
-    expect(pill).toHaveTextContent(GUEST_STATUS_LINE);
+    expect(pill).toHaveTextContent(t('wayIn.guest.status.pill'));
     expect(screen.queryByTestId('guest-status-sheet')).toBeNull();
     await userEvent.click(pill);
     const sheet = await screen.findByTestId('guest-status-sheet');
@@ -343,7 +348,7 @@ describe('M14.1: the guest\'s status', () => {
     await userEvent.click(await screen.findByTestId('save-done', {}, { timeout: 15000 }));
     await screen.findByTestId('blobbi-actor', {}, { timeout: 8000 });
     expect(screen.queryByTestId('guest-status')).toBeNull();
-    expect(await screen.findByTestId('saved-status')).toHaveTextContent(SAVED_STATUS_LINE);
+    expect(await screen.findByTestId('saved-status')).toHaveTextContent(t('wayIn.guest.status.saved'));
     expect(screen.queryByTestId('connection-chip')).toBeNull();
     expect(relay.published.filter((e) => e.kind === KIND_BLOBBI_STATE)).toHaveLength(1);
   }, 60_000);

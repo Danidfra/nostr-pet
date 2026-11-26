@@ -2,9 +2,9 @@ import { memo, useEffect, useState } from 'react';
 import { ItemCarousel } from '@/features/care-ui/ItemCarousel';
 import { entryGroup, type CareEntry } from '@/features/care-ui/care-entries';
 import type { CareVerb } from '../care-model';
-
-/** The verbs' words; `clean` is "Care" (its hygiene items and its medicine together, M15 care refinement). */
-const VERB_WORD: Record<CareVerb, string> = { feed: 'Feed', play: 'Play', clean: 'Care', rest: 'Rest' };
+import { t } from '@/i18n';
+// The verbs' words are `careLabel`'s; `clean` is "Care" (its hygiene items and its medicine together, M15 care refinement)
+import { careLabel } from '../labels';
 
 interface CareOptionsProps {
   verb: CareVerb;
@@ -37,11 +37,11 @@ function CareOptionsImpl({ verb, entries, focusedKey, onFocus, onChoose, disable
   const grouped = entries.some((e) => entryGroup(e) === 'hygiene') && entries.some((e) => entryGroup(e) === 'health');
   const inHealth = grouped && !!focused && entryGroup(focused) === 'health';
   return (
-    <div className="care-options" role="group" aria-label={`${VERB_WORD[verb]}: choose an item`} data-testid="care-options" data-verb={verb} data-float="true">
+    <div className="care-options" role="group" aria-label={t('home.care.chooseItem', { verb: careLabel(verb) })} data-testid="care-options" data-verb={verb} data-float="true">
       {inHealth && (
         <p className="care-options__group scene-text" data-testid="care-group" data-group="health" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5em', margin: '0 0 0.15em', fontSize: '0.7em', fontWeight: 600, letterSpacing: '0.04em', opacity: 0.8 }}>
           <span aria-hidden style={{ height: 1, width: '2.5em', background: 'currentColor', opacity: 0.45 }} />
-          Health
+          {t('home.care.healthGroup')}
           <span aria-hidden style={{ height: 1, width: '2.5em', background: 'currentColor', opacity: 0.45 }} />
         </p>
       )}
@@ -51,7 +51,7 @@ function CareOptionsImpl({ verb, entries, focusedKey, onFocus, onChoose, disable
           focusedKey={focusedKey}
           onFocus={onFocus}
           onUse={onChoose}
-          onBlocked={(entry) => setBlocked(entry.reason ?? 'Not right now.')}
+          onBlocked={(entry) => setBlocked(entry.reason ?? t('home.care.reason.notRightNow'))}
           disabled={disabled}
           idPrefix="care-item"
         />

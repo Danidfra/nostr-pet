@@ -19,13 +19,16 @@
  * not on the next visit, not after a reload, not when the introduction is
  * asked back by unticking "Don't show this again".
  */
+import { t } from '@/i18n';
 import type { BlobbiAppearance } from './blobbi-appearance';
 
 /** Whether the one-time guide was shown on this browser. Namespaced like the room's other keys. */
 export const LOOK_GUIDE_STORAGE_KEY = 'blobbi:room:look-guide:v1';
 
 /** The bubble by the dock's Blobbi button. */
-export const LOOK_GUIDE_LINE = 'Want to try another look?';
+export function lookGuideLine(): string {
+  return t('room.look.guideLine');
+}
 
 /** How long the dock's bubble waits for a tap before it fades on its own. */
 export const LOOK_GUIDE_DOCK_MS = 14_000;
@@ -35,12 +38,20 @@ export const LOOK_GUIDE_SHEET_MS = 3_200;
 
 /** The two looks, as the player reads them everywhere: the introduction, the card, the chip. */
 export const LOOK_OPTIONS: readonly { value: BlobbiAppearance; title: string; detail: string }[] = [
-  { value: '2d', title: 'Classic', detail: 'The familiar drawing, here in the 3D room' },
-  { value: '3d', title: '3D Model', detail: 'The whole Blobbi in 3D, experimental' },
+  {
+    value: '2d',
+    get title() { return t('room.look.classic'); },
+    get detail() { return t('room.look.classicDetail'); },
+  },
+  {
+    value: '3d',
+    get title() { return t('room.look.model'); },
+    get detail() { return t('room.look.modelDetail'); },
+  },
 ];
 
 export function lookTitle(appearance: BlobbiAppearance): string {
-  return LOOK_OPTIONS.find((o) => o.value === appearance)?.title ?? 'Classic';
+  return LOOK_OPTIONS.find((o) => o.value === appearance)?.title ?? t('room.look.classic');
 }
 
 /** Which look the room draws: 3D only where this Blobbi has a model. */
@@ -50,9 +61,9 @@ export function shownLook(appearance: BlobbiAppearance, unavailable3d: string | 
 
 /** Why the introduction's 3D card shows a line instead of the model (an egg, V1/V2 art, no WebGL). */
 export function previewNote3d(blobbi: { name: string; stage: string }, unavailable3d: string | null, webgl: boolean): string | null {
-  if (blobbi.stage === 'egg') return `The 3D model is ready once ${blobbi.name} hatches.`;
+  if (blobbi.stage === 'egg') return t('room.look.readyOnceHatched', { name: blobbi.name });
   if (unavailable3d) return unavailable3d;
-  if (!webgl) return 'This browser cannot draw 3D, so the room shows the drawing.';
+  if (!webgl) return t('room.look.noWebgl');
   return null;
 }
 

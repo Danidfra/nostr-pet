@@ -7,6 +7,7 @@
  * would, and nowhere else.
  */
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { t } from '@/i18n';
 
 interface State {
   error: Error | null;
@@ -30,13 +31,13 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, State> 
       <div className="app-crash" role="alert" data-testid="app-crash">
         <div className="welcome-card app-crash__card">
           <img src="/blobbilogo.svg" alt="Blobbi" className="welcome-card__logo" width={120} height={40} />
-          <h1 className="welcome-card__title">Oops, something tripped</h1>
-          <p className="welcome-card__lead">Your Blobbi is fine: nothing was changed. Reloading the page usually helps.</p>
+          <h1 className="welcome-card__title">{t('wayIn.pages.crashTitle')}</h1>
+          <p className="welcome-card__lead">{t('wayIn.pages.crashLead')}</p>
           <button type="button" className="onboard-btn onboard-btn--primary" onClick={() => window.location.reload()} data-testid="app-crash-reload">
-            Reload
+            {t('wayIn.pages.reload')}
           </button>
           <details className="welcome-card__more">
-            <summary>Details</summary>
+            <summary>{t('wayIn.pages.details')}</summary>
             <p className="break-words font-mono text-xs" data-testid="app-crash-message">
               {error.message || String(error)}
             </p>

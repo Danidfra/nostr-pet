@@ -1,9 +1,11 @@
+import { t } from '@/i18n';
+
 /**
  * What shows while the room's code loads (the router's fallback): the game
  * frame, a soft pulse and a word, never a blank screen. In the main bundle,
  * so it imports nothing of the room's (no three.js).
  */
-export function RoomLoading({ text = 'Opening your room…' }: { text?: string }) {
+export function RoomLoading({ text = t('room.loading') }: { text?: string }) {
   return (
     <div className="game-shell" data-testid="room-loading">
       <div className="game-frame">

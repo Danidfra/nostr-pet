@@ -10,6 +10,7 @@ import { OnboardingFlow, useOnboardingSession } from '@/features/onboarding';
 import { useRelayHealth } from '@/hooks/useRelayHealth';
 import { ROOM_PATH, cameFromRoom, readExperience } from '@/lib/home-experience';
 import { useGuestScene } from '@/features/guest/useGuestScene';
+import { t } from '@/i18n';
 
 /**
  * The one screen. The ready state hands everything to `BlobbiOverview`;
@@ -82,7 +83,7 @@ export default function Home({ classic = false }: { classic?: boolean } = {}) {
       hasBlobbi={home.status === 'empty' ? false : home.status === 'ready' ? true : undefined}
       updateCompanionEvent={home.updateCompanionEvent}
       refresh={home.refresh}
-      loading={<p className="scene-text text-center text-sm text-foreground/80">One moment…</p>}
+      loading={<p className="scene-text text-center text-sm text-foreground/80">{t('wayIn.pages.oneMoment')}</p>}
       onPlayAsGuest={playAsGuest}
       guest={guestActive}
     />
@@ -108,7 +109,7 @@ export default function Home({ classic = false }: { classic?: boolean } = {}) {
 function WelcomeTop({ onOpenMenu }: { onOpenMenu: () => void }) {
   return (
     <header className="welcome-top" data-testid="hud-top">
-      <button type="button" className="hud-icon-button" onClick={onOpenMenu} aria-label="Menu" data-testid="menu-button">
+      <button type="button" className="hud-icon-button" onClick={onOpenMenu} aria-label={t('menu.title')} data-testid="menu-button">
         <Menu className="h-5 w-5" aria-hidden />
       </button>
     </header>

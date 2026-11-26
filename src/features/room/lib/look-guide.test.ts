@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOOK_GUIDE_DOCK_MS, LOOK_GUIDE_LINE, LOOK_GUIDE_SHEET_MS, LOOK_GUIDE_STORAGE_KEY, LOOK_OPTIONS, guideAfterIntro, guideOnSheetOpen, lookTitle, previewNote3d, readLookGuideShown, shownLook, writeLookGuideShown } from './look-guide';
+import { LOOK_GUIDE_DOCK_MS, LOOK_GUIDE_SHEET_MS, LOOK_GUIDE_STORAGE_KEY, LOOK_OPTIONS, guideAfterIntro, guideOnSheetOpen, lookGuideLine, lookTitle, previewNote3d, readLookGuideShown, shownLook, writeLookGuideShown } from './look-guide';
 
 describe('finding the Blobbi\'s look (M14.3)', () => {
   it('the two looks are Classic and 3D Model, the second said to be experimental, and the words have no semicolon', () => {
@@ -9,7 +9,7 @@ describe('finding the Blobbi\'s look (M14.3)', () => {
     ]);
     expect(LOOK_OPTIONS[1].detail).toMatch(/experimental/);
     for (const o of LOOK_OPTIONS) expect(o.detail).not.toContain(';');
-    expect(LOOK_GUIDE_LINE).toBe('Want to try another look?');
+    expect(lookGuideLine()).toBe('Want to try another look?');
     expect(lookTitle('2d')).toBe('Classic');
     expect(lookTitle('3d')).toBe('3D Model');
   });

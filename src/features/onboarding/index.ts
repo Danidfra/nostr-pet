@@ -8,6 +8,6 @@ export { resolveOnboardingStep } from './onboarding-steps';
 export type { OnboardingStep, OnboardingFacts } from './onboarding-steps';
 export { createNewAccount, isNsec, readNsecFromText, nsecBackupFilename, downloadNsecBackup, npubForNsec, NSEC_BACKUP_MIME } from './new-account';
 export type { NewAccount } from './new-account';
-export { checkProfileForm, mergeProfileMetadata, profileFormFrom, PROFILE_NAME_MAX, PROFILE_ABOUT_MAX } from './profile-plan';
+export { checkProfileForm, profileFormFrom, PROFILE_NAME_MAX, PROFILE_ABOUT_MAX } from './profile-plan';
 export type { ProfileFormInput } from './profile-plan';
 export { useProfileSetup } from './useProfileSetup';

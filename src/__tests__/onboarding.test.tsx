@@ -361,6 +361,9 @@ describe('A signer app (NIP-46, nostrconnect://)', () => {
     const uri = screen.getByTestId('signer-app-open').getAttribute('href')!;
     expect(uri.startsWith(`nostrconnect://${params.clientPubkey}?`)).toBe(true);
     expect(uri).toContain('relay=wss%3A%2F%2Frelay.ditto.pub');
+    // The primary Blobbi relay refuses NIP-46 (kind 24133): a signer is never sent there, and the sign-in never waits on it
+    expect(uri).not.toContain('relay.blobbi.pet');
+    expect(params.relays).toEqual(['wss://relay.ditto.pub', 'wss://relay.primal.net', 'wss://relay.nostr.band']);
     expect(uri).toContain(`secret=${params.secret}`);
     expect(uri).toContain('name=Blobbi');
     const secretHex = Array.from(params.clientSecretKey, (b) => b.toString(16).padStart(2, '0')).join('');

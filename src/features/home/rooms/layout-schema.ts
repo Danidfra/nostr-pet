@@ -97,17 +97,6 @@ export function parseRoomLayouts(input: unknown): RoomLayouts | undefined {
   return out;
 }
 
-/** A layout with every placement legal (defaults and editor drafts go through this too). */
-export function normalizeRoomPlacements(placements: readonly Placement[], room: RoomId): Placement[] {
-  const out: Placement[] = [];
-  for (const p of placements) {
-    if (out.length >= MAX_FURNITURE_PER_ROOM) break;
-    const n = normalizePlacement(p, room);
-    if (n) out.push(n);
-  }
-  return out;
-}
-
 /** Paint order for a placement: back on the wall, floor interleaved with the actor by depth, front over everything on the floor. */
 export function placementZIndex(placement: Placement, def: FurnitureDefinition): number {
   const order = def.renderOrder ?? 0;

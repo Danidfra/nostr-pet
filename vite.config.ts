@@ -50,8 +50,10 @@ function worldTravelGuard(): Plugin {
 }
 
 export default defineConfig({
-  // "::" binds every interface (IPv6 any, with IPv4 on macOS), so a phone on the same Wi-Fi can open the Mac's address
-  server: { host: "::", port: 8080, https: devTls() },
+  // "::" binds every interface (IPv6 any, with IPv4 on macOS), so a phone on the same Wi-Fi can open the Mac's address.
+  // Vite answers 403 to a Host it does not know; `tailscale serve` (README "Testing on a phone") forwards the
+  // tailnet name (<mac>.<tailnet>.ts.net), so those names are allowed. Only the dev and preview servers read this; a deployed build never does.
+  server: { host: "::", port: 8080, https: devTls(), allowedHosts: [".ts.net"] },
   plugins: [react(), contentSecurityPolicy(), worldTravelGuard()],
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
   build: {

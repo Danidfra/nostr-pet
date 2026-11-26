@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { KIND_BLOBBI_STATE, KIND_BLOBBONAUT_PROFILE, KIND_BLOBBI_INTERACTION } from '@blobbi-kit/core';
 import { blobbiEvent } from '@/test/fixtures';
 import { CLIENT_NAME, finalizeTemplate, isReplaceableKind } from './usePublishAdapter';
+import { MAX_STAMP_AHEAD_S } from '@/lib/created-at';
 
 describe('finalizeTemplate', () => {
   it('stamps the client tag once and keeps a caller-provided one', () => {
@@ -12,11 +13,43 @@ describe('finalizeTemplate', () => {
   });
 
   it('preserves published_at from prev on a replaceable republish', () => {
-    const prev = blobbiEvent('0000000001', { extra: [['published_at', '123']] });
+    const prev = blobbiEvent('0000000001', { createdAt: 100, extra: [['published_at', '123']] });
     const out = finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500);
     expect(out.tags).toContainEqual(['published_at', '123']);
     expect(out.created_at).toBe(500);
     expect('prev' in out).toBe(false);
+  });
+
+  it('stamps a replaceable republish strictly after the event it replaces, even within the same second', () => {
+    const prev = blobbiEvent('0000000001', { createdAt: 500 });
+    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500).created_at).toBe(501);
+    // A device clock a little behind the last write still writes after it
+    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 470).created_at).toBe(501);
+    // Beyond the bound (over ten minutes behind), the clock is used: prev is not chased
+    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500 - 1000).created_at).toBe(500 - 1000);
+    // Time has moved on: the clock decides
+    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 900).created_at).toBe(900);
+  });
+
+  it('never follows a prev stamped far in the future (a wrong clock elsewhere)', () => {
+    const prev = blobbiEvent('0000000001', { createdAt: 500 + 3600 });
+    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500).created_at).toBe(500);
+  });
+
+  it('keeps rapid republishes, each over the last, within the bound of the clock', () => {
+    let prev = blobbiEvent('0000000001', { createdAt: 500 });
+    for (let i = 0; i < 1000; i++) {
+      const out = finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [['d', 'x']], prev }, 500);
+      expect(out.created_at - 500).toBeLessThanOrEqual(MAX_STAMP_AHEAD_S);
+      prev = { ...prev, created_at: out.created_at };
+    }
+  });
+
+  it('keeps a created_at the template chose, and bumps only over the same replaceable kind', () => {
+    const prev = blobbiEvent('0000000001', { createdAt: 500 });
+    expect(finalizeTemplate({ kind: KIND_BLOBBI_STATE, tags: [], created_at: 450, prev }, 500).created_at).toBe(450);
+    expect(finalizeTemplate({ kind: KIND_BLOBBI_INTERACTION, tags: [], prev }, 500).created_at).toBe(500);
+    expect(finalizeTemplate({ kind: KIND_BLOBBONAUT_PROFILE, tags: [], prev }, 500).created_at).toBe(500);
   });
 
   it('sets published_at to created_at on a first publish of a replaceable kind', () => {

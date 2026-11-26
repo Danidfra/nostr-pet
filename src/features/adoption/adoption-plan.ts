@@ -54,6 +54,8 @@ import {
   type NostrEvent,
 } from '@blobbi-kit/core';
 import { createHatchMissions, type PublishEventTemplate } from '@blobbi-kit/react';
+import { t } from '@/i18n';
+import { stampAfter } from '@/lib/created-at';
 
 /**
  * THE CREATION RULE OF THIS APP: which visual generation a Blobbi adopted
@@ -73,16 +75,31 @@ export function adoptionEggOptions(generation: BlobbiVisualGeneration = ADOPTION
   return { visualGeneration: generation };
 }
 
-/** The name the egg carries until the player picks one. */
+/**
+ * The name an egg is published with when the player leaves the name blank.
+ * Persistent data, so the same in every language: what is written to Nostr
+ * never depends on the page's language.
+ */
 export const DEFAULT_EGG_NAME = 'Egg';
+
+/**
+ * The default name as the adoption screen shows it, in the page's language
+ * ("Egg", "Ovo", "Huevo"). Only for display before the egg is published,
+ * where a blank name is known to be the default: once published, a stored
+ * "Egg" cannot be told apart from a name the player typed, so it is shown as
+ * stored.
+ */
+export function localizedDefaultEggName(): string {
+  return t('wayIn.adopt.defaultName');
+}
 export const NAME_MAX_LENGTH = 24;
 
 /** A name a Blobbi may carry: trimmed, printable, short. Empty means the default. */
-export function normalizeBlobbiName(raw: string): { ok: true; name: string } | { ok: false; reason: string } {
+export function normalizeBlobbiName(raw: string): { ok: true; name: string; isDefault: boolean } | { ok: false; reason: string } {
   const name = raw.replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/\s+/g, ' ').trim();
-  if (name.length === 0) return { ok: true, name: DEFAULT_EGG_NAME };
-  if (name.length > NAME_MAX_LENGTH) return { ok: false, reason: `Keep it under ${NAME_MAX_LENGTH} characters.` };
-  return { ok: true, name };
+  if (name.length === 0) return { ok: true, name: DEFAULT_EGG_NAME, isDefault: true };
+  if (name.length > NAME_MAX_LENGTH) return { ok: false, reason: t('wayIn.adopt.nameTooLong', { max: NAME_MAX_LENGTH }) };
+  return { ok: true, name, isDefault: false };
 }
 
 export interface EggPreview {
@@ -144,8 +161,8 @@ export function profileTemplate({ ownerPubkey, profile, d, suggestedName, now }:
   const has = mergeHasForAdoption(profile.has, profile.has, d);
   const withoutCurrent = profile.allTags.filter(([name]) => name !== 'current_companion');
   const tags = updateBlobbonautTags(withoutCurrent, { has, current_companion: d });
-  // After the profile it replaces, even when this device's clock is behind (an older one would lose on every relay)
-  const created_at = now !== undefined ? Math.max(now, profile.event.created_at + 1) : undefined;
+  // After the profile it replaces, even when this device's clock is a little behind (an older one would lose on every relay); never chasing a far-future one
+  const created_at = now !== undefined ? stampAfter(profile.event.created_at, now) : undefined;
   return { kind: KIND_BLOBBONAUT_PROFILE, tags, content: profile.content, prev: profile.event, ...(created_at !== undefined ? { created_at } : {}) };
 }
 

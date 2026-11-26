@@ -12,6 +12,7 @@ import type { BlobbiPresentation } from './presentation';
 import { EXPRESSIONS, type ExpressionName } from '@/features/expression/faces';
 import { TeleportFrame2D } from '@/features/teleport/react/TeleportFrame2D';
 import type { Journey } from '@/features/teleport/presence';
+import { t } from '@/i18n';
 
 /** A hatch ceremony's beat, as the actor draws it (the ceremony decides it; see `useLifecycleCeremony`). */
 export interface ActorHatch {
@@ -185,7 +186,7 @@ export const BlobbiActor = forwardRef<HTMLDivElement, BlobbiActorProps>(function
           className={`scene-actor__box ${happyKey > 0 ? 'animate-blobbi-happy' : ''}`}
           onClick={onPoke}
           disabled={!onPoke || absent || !!journey}
-          aria-label={tapLabel ?? `Poke ${blobbi.name}`}
+          aria-label={tapLabel ?? t('home.scene.poke', { name: blobbi.name })}
           data-testid="blobbi-poke"
         >
           {/* A journey to or from another Blobbi app is drawn around the kit's drawing, never in it (as in the room) */}

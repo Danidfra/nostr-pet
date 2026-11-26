@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
-import { LOOKING_SAID_AFTER_MS, TravelAnnouncer, travelAnnouncement } from './TravelAnnouncer';
+import { TravelAnnouncer } from './TravelAnnouncer';
+import { LOOKING_SAID_AFTER_MS, travelAnnouncement } from './travel-announcement';
 
 const wait = (ms: number) => act(() => new Promise((r) => setTimeout(r, ms)));
 

@@ -18,17 +18,18 @@ import { ProfileForm } from '@/features/onboarding/screens';
 import { useProfileSetup } from '@/features/onboarding/useProfileSetup';
 import { travelMode } from '@/features/presence/travel-mode';
 import { setActivePresence, useActivePresenceChoice, usePresenceStatus } from '@/features/presence/active-presence-choice';
+import { useCopyChoice } from '@/hooks/useRelaySync';
+import { t } from '@/i18n';
 
 interface AccountSheetProps {
   open: boolean;
   onClose: () => void;
 }
 
-const SIGNED_IN_LINE: Record<string, string> = {
-  extension: 'Signed in with a browser extension. Your key stays with it.',
-  bunker: 'Signed in with a remote signer. Your key stays with it.',
-  nsec: 'Signed in with a secret key kept on this device.',
-};
+/** How the player is signed in, in a line; nothing for a way the sheet does not describe. */
+function signedInLine(loginType: string | null | undefined): string {
+  return loginType === 'extension' || loginType === 'bunker' || loginType === 'nsec' ? t(`home.account.signedIn.${loginType}`) : '';
+}
 
 export function AccountSheet({ open, onClose }: AccountSheetProps) {
   const { user, metadata } = useCurrentUser();
@@ -39,7 +40,7 @@ export function AccountSheet({ open, onClose }: AccountSheetProps) {
     <GameOverlay
       open={open}
       onClose={onClose}
-      title="Account"
+      title={t('home.account.title')}
       testId="account-sheet"
       size="tall"
       lead={metadata?.picture ? <img src={metadata.picture} alt="" className="overlay-portrait object-cover" /> : <span aria-hidden className="overlay-portrait bg-gradient-to-br from-purple-400 to-pink-400" />}
@@ -56,34 +57,35 @@ export function AccountSheet({ open, onClose }: AccountSheetProps) {
     >
       <div className="menu" data-testid="account">
         <p className="text-xs text-muted-foreground" data-testid="login-type">
-          {(loginType && SIGNED_IN_LINE[loginType]) ?? ''}
+          {signedInLine(loginType)}
         </p>
         <section className="menu-section" aria-labelledby="account-profile" data-testid="profile-section">
           <h3 id="account-profile" className="menu-section__title">
-            Your profile
+            {t('home.account.profile')}
           </h3>
           <MenuProfile pubkey={user.pubkey} metadata={metadata} />
         </section>
         {sessionNsec && (
           <section className="menu-section" aria-labelledby="account-key" data-testid="key-backup-section">
             <h3 id="account-key" className="menu-section__title">
-              Back up your secret key
+              {t('home.account.backup')}
             </h3>
-            <p className="text-xs text-muted-foreground">This key is the account. Anyone with it controls it; without it there is no way back in. Keep a copy where only you can reach it.</p>
+            <p className="text-xs text-muted-foreground">{t('home.account.backupHint')}</p>
             <KeyBackup nsec={sessionNsec} />
           </section>
         )}
         {travelMode() === 'nostr' && loginType && loginType !== 'guest' && <ActivePresenceToggle pubkey={user.pubkey} prompts={loginType !== 'nsec'} />}
+        {loginType && loginType !== 'guest' && <RelayCopyToggle pubkey={user.pubkey} />}
         <section className="menu-section" aria-labelledby="account-session">
           <h3 id="account-session" className="menu-section__title">
-            Session
+            {t('home.account.session')}
           </h3>
           <button type="button" onClick={logout} className="onboard-btn onboard-btn--secondary" data-testid="sign-out">
             <LogOut className="h-4 w-4" aria-hidden />
-            Sign out
+            {t('home.account.signOut')}
           </button>
           <a href={DITTO_BLOBBI_URL} target="_blank" rel="noopener noreferrer" className="block text-center text-xs text-muted-foreground underline-offset-2 hover:underline">
-            Adopt or manage Blobbis on Ditto
+            {t('home.account.ditto')}
           </a>
         </section>
       </div>
@@ -91,11 +93,19 @@ export function AccountSheet({ open, onClose }: AccountSheetProps) {
   );
 }
 
-const PRESENCE_STATUS_LINE: Record<string, string> = {
-  'paused-prompting': 'Paused: your signer asks each time, so Blobbi stopped asking. Allow these notes in your signer, then turn this on again.',
-  declined: 'Paused: your signer said no. Turn this on again to try once more.',
-  unavailable: 'Not available with this sign-in.',
-};
+/** Why Active Presence is paused, in a line; null for a status that says nothing. */
+function presenceStatusLine(status: string): string | null {
+  switch (status) {
+    case 'paused-prompting':
+      return t('home.account.presence.status.pausedPrompting');
+    case 'declined':
+      return t('home.account.presence.status.declined');
+    case 'unavailable':
+      return t('home.account.presence.status.unavailable');
+    default:
+      return null;
+  }
+}
 
 /**
  * Active Presence (M16): off unless the player turns it on. With it on, while they play here the home signs a short
@@ -109,19 +119,53 @@ function ActivePresenceToggle({ pubkey, prompts }: { pubkey: string; prompts: bo
   return (
     <section className="menu-section" aria-labelledby="account-presence" data-testid="active-presence-section" data-world-travel="ignore">
       <h3 id="account-presence" className="menu-section__title">
-        Other Blobbi worlds
+        {t('home.account.presence.title')}
       </h3>
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" checked={on} onChange={(e) => setActivePresence(pubkey, e.target.checked)} data-testid="active-presence-toggle" className="mt-1" />
-        <span>Let my other Blobbi worlds know when I'm playing here</span>
+        <span>{t('home.account.presence.toggle')}</span>
       </label>
       <p className="text-xs text-muted-foreground">
-        While you play, Blobbi signs a short note that lasts two minutes, at most once a minute. It never moves your Blobbi.
-        {prompts ? ' If your signer asks you each time, Blobbi stops asking until you turn this on again.' : ''}
+        {t('home.account.presence.hint')}
+        {prompts ? t('home.account.presence.hintPrompts') : ''}
       </p>
-      {on && status && PRESENCE_STATUS_LINE[status] && (
+      {on && status && presenceStatusLine(status) && (
         <p className="text-xs text-muted-foreground" data-testid="active-presence-status" data-status={status}>
-          {PRESENCE_STATUS_LINE[status]}
+          {presenceStatusLine(status)}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Copying what the player ALREADY has to the relays that lack it: off unless they turn it on here, for exactly the
+ * relays listed (`lib/sync-consent.ts`). Off, the home only reads: opening it sends nothing. New things the player
+ * does are saved to the relays either way. Nothing is signed by this: the copies are the events as they were signed.
+ */
+function RelayCopyToggle({ pubkey }: { pubkey: string }) {
+  const copy = useCopyChoice(pubkey);
+  return (
+    <section className="menu-section" aria-labelledby="account-relay-copy" data-testid="relay-copy-section">
+      <h3 id="account-relay-copy" className="menu-section__title">
+        {t('home.account.relayCopy.title')}
+      </h3>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" checked={copy.on && !copy.stale} onChange={(e) => copy.set(e.target.checked)} data-testid="relay-copy-toggle" className="mt-1" />
+        <span>{t('home.account.relayCopy.toggle')}</span>
+      </label>
+      <p className="text-xs text-muted-foreground">
+        {t('home.account.relayCopy.hint')}
+      </p>
+      <ul className="text-xs text-muted-foreground" data-testid="relay-copy-destinations">
+        {copy.destinations.map((url) => (
+          <li key={url}>{url.replace(/^wss:\/\//, '')}</li>
+        ))}
+      </ul>
+      <p className="text-xs text-muted-foreground">{t('home.account.relayCopy.eitherWay')}</p>
+      {copy.stale && (
+        <p className="text-xs text-muted-foreground" data-testid="relay-copy-stale">
+          {t('home.account.relayCopy.stale')}
         </p>
       )}
     </section>

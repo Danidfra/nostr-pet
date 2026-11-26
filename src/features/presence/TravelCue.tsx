@@ -16,6 +16,7 @@
  * status could never be heard. Screen readers hear `TravelAnnouncer` instead.
  */
 import type { CSSProperties } from 'react';
+import { t } from '@/i18n';
 
 export interface TravelCueProps {
   kind: 'looking' | 'coming';
@@ -40,7 +41,7 @@ export function TravelCue({ kind, name, tint }: TravelCueProps) {
       <span className="travel-cue__mote" aria-hidden />
       {kind === 'looking' && (
         <span className="travel-cue__label home-glass" aria-hidden>
-          Looking for {name}…
+          {t('world.travel.looking', { name })}
         </span>
       )}
     </div>

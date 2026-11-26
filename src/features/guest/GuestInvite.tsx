@@ -8,6 +8,7 @@
  * countdown, no warning, no second ask in the same visit.
  */
 import { Heart, Sparkles } from 'lucide-react';
+import { t } from '@/i18n';
 import { inviteLine } from './guest-session';
 
 interface GuestInviteProps {
@@ -21,7 +22,7 @@ interface GuestInviteProps {
 
 export function GuestInvite({ name, onSave, onLater, onNever, reducedMotion }: GuestInviteProps) {
   return (
-    <section className="guest-invite home-glass" role="dialog" aria-label="Save your Blobbi" data-testid="guest-invite" data-reduced={reducedMotion ? 'true' : undefined}>
+    <section className="guest-invite home-glass" role="dialog" aria-label={t('wayIn.guest.invite.label')} data-testid="guest-invite" data-reduced={reducedMotion ? 'true' : undefined}>
       <span className="guest-invite__heart" aria-hidden>
         <Heart className="h-4 w-4" />
       </span>
@@ -29,14 +30,14 @@ export function GuestInvite({ name, onSave, onLater, onNever, reducedMotion }: G
       <div className="guest-invite__actions">
         <button type="button" className="onboard-btn onboard-btn--primary guest-invite__save" onClick={onSave} data-testid="guest-invite-save">
           <Sparkles className="h-4 w-4" aria-hidden />
-          Save {name}
+          {t('wayIn.guest.invite.save', { name })}
         </button>
         <button type="button" className="guest-invite__later" onClick={onLater} data-testid="guest-invite-later">
-          Maybe later
+          {t('wayIn.guest.invite.later')}
         </button>
       </div>
       <button type="button" className="guest-invite__later guest-invite__never" onClick={onNever} data-testid="guest-invite-never">
-        Don’t ask again
+        {t('wayIn.guest.invite.never')}
       </button>
     </section>
   );

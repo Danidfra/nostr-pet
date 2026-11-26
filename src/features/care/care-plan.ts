@@ -40,6 +40,8 @@ import {
   type NostrEvent,
 } from '@blobbi-kit/core';
 import { applyXPGain, calculateInventoryActionXP, getStreakTagUpdates, type PublishEventTemplate } from '@blobbi-kit/react';
+import { t } from '@/i18n';
+import { careLabel } from '@/features/home/labels';
 
 export type CareAction = 'feed' | 'play' | 'clean' | 'rest';
 export type CareInteraction = Exclude<CareAction, 'rest'>;
@@ -65,21 +67,20 @@ export interface CareAvailability {
   action: CareAction;
   /** What the button says. Rest reads "Wake" for a sleeping Blobbi. */
   label: string;
+  /** Rest for a sleeping Blobbi wakes it: the button's meaning, apart from its words (never compare `label`). */
+  wakes?: boolean;
   available: boolean;
   /** Why not, in the player's words. */
   reason?: string;
 }
 
-const STATE_REASON: Record<Exclude<BlobbiState, 'active'>, string> = {
-  sleeping: 'Sleeping right now. Wake up first.',
-  hibernating: 'Hibernating. Nothing to do here for now.',
-};
+/** Why nothing can be done while the Blobbi is not awake, in the player's words. */
+function stateReason(state: Exclude<BlobbiState, 'active'>): string {
+  return t(`home.care.reason.${state}`);
+}
 
-/**
- * The verbs' words. `clean` reads "Care" (M15 care refinement): it offers the hygiene items and the medicine together;
- * the id stays `clean` (the action, the test hooks, the events), and the status panel's hygiene stat keeps "Clean".
- */
-const VERB_LABEL: Record<CareInteraction, string> = { feed: 'Feed', play: 'Play', clean: 'Care' };
+// The verbs' words are `careLabel`'s. `clean` reads "Care" (M15 care refinement): it offers the hygiene items and the
+// medicine together; the id stays `clean` (the action, the test hooks, the events), and the hygiene stat keeps "Clean".
 
 /** Which care actions make sense for this Blobbi, and why the others do not. */
 export function availableCareActions(companion: BlobbiCompanion): CareAvailability[] {
@@ -88,21 +89,22 @@ export function availableCareActions(companion: BlobbiCompanion): CareAvailabili
 
   const list: CareAvailability[] = interactions.map((action) => {
     if (companion.stage === 'egg' && !EGG_CARE.has(action)) {
-      return { action, label: VERB_LABEL[action], available: false, reason: 'Not until it hatches.' };
+      return { action, label: careLabel(action), available: false, reason: t('home.care.reason.notUntilHatched') };
     }
     if (!visible.has(CARE_PRIMARY_STAT[action])) {
-      return { action, label: VERB_LABEL[action], available: false, reason: 'Not at this stage.' };
+      return { action, label: careLabel(action), available: false, reason: t('home.care.reason.notAtThisStage') };
     }
     if (companion.state !== 'active') {
-      return { action, label: VERB_LABEL[action], available: false, reason: STATE_REASON[companion.state] };
+      return { action, label: careLabel(action), available: false, reason: stateReason(companion.state) };
     }
-    return { action, label: VERB_LABEL[action], available: true };
+    return { action, label: careLabel(action), available: true };
   });
 
   if (companion.state === 'hibernating') {
-    list.push({ action: 'rest', label: 'Rest', available: false, reason: STATE_REASON.hibernating });
+    list.push({ action: 'rest', label: careLabel('rest'), available: false, reason: stateReason('hibernating') });
   } else {
-    list.push({ action: 'rest', label: companion.state === 'sleeping' ? 'Wake' : 'Rest', available: true });
+    const wakes = companion.state === 'sleeping';
+    list.push({ action: 'rest', label: careLabel(wakes ? 'wake' : 'rest'), available: true, wakes });
   }
   return list;
 }
@@ -185,7 +187,7 @@ export function planCareInteraction(companion: BlobbiCompanion, action: CareInte
 
 /** Rest or wake: decay under the current regime, then flip the activity state. */
 export function planRestToggle(companion: BlobbiCompanion, now: number): CarePlan {
-  if (companion.state === 'hibernating') throw new Error(STATE_REASON.hibernating);
+  if (companion.state === 'hibernating') throw new Error(stateReason('hibernating'));
   const nextState: BlobbiState = companion.state === 'sleeping' ? 'active' : 'sleeping';
   if (!BLOBBI_ACTIVITY_STATES.includes(nextState)) throw new Error(`Unknown state ${nextState}`);
 

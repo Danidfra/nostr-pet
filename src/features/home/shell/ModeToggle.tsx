@@ -11,14 +11,15 @@
  * (`useModeSwitch`, its own file).
  */
 import type { HomeExperience } from '@/lib/home-experience';
+import { t } from '@/i18n';
 
 export function ModeToggle({ mode, onChoose, className = '' }: { mode: HomeExperience; onChoose: (next: HomeExperience) => void; className?: string }) {
   return (
-    <div className={`mode-toggle ${className}`} role="radiogroup" aria-label="Home view" data-testid="mode-toggle" data-mode={mode}>
-      <button type="button" role="radio" aria-checked={mode === 'classic'} className={`mode-toggle__option ${mode === 'classic' ? 'mode-toggle__option--on' : ''}`} onClick={() => onChoose('classic')} data-testid="mode-2d" aria-label="2D home">
+    <div className={`mode-toggle ${className}`} role="radiogroup" aria-label={t('home.hud.view')} data-testid="mode-toggle" data-mode={mode}>
+      <button type="button" role="radio" aria-checked={mode === 'classic'} className={`mode-toggle__option ${mode === 'classic' ? 'mode-toggle__option--on' : ''}`} onClick={() => onChoose('classic')} data-testid="mode-2d" aria-label={t('home.hud.view2d')}>
         2D
       </button>
-      <button type="button" role="radio" aria-checked={mode === 'room'} className={`mode-toggle__option ${mode === 'room' ? 'mode-toggle__option--on' : ''}`} onClick={() => onChoose('room')} data-testid="mode-3d" aria-label="3D room, beta">
+      <button type="button" role="radio" aria-checked={mode === 'room'} className={`mode-toggle__option ${mode === 'room' ? 'mode-toggle__option--on' : ''}`} onClick={() => onChoose('room')} data-testid="mode-3d" aria-label={t('home.hud.view3d')}>
         3D<span className="mode-toggle__beta" aria-hidden>β</span>
       </button>
     </div>

@@ -15,25 +15,24 @@
  */
 import { Check, Smartphone } from 'lucide-react';
 import { GameOverlay } from '@/features/home/shell/GameOverlay';
+import { t } from '@/i18n';
 import { deviceOnlyLine, noStorageLine } from './guest-session';
 
-export const GUEST_STATUS_LINE = 'On this device';
-export const SAVED_STATUS_LINE = 'Saved';
 
 export function GuestStatusPill({ onOpen }: { onOpen: () => void }) {
   return (
-    <button type="button" className="status-pill status-pill--guest" onClick={onOpen} data-testid="guest-status" aria-label="Your Blobbi lives only on this device. Learn what that means">
+    <button type="button" className="status-pill status-pill--guest" onClick={onOpen} data-testid="guest-status" aria-label={t('wayIn.guest.status.pillLabel')}>
       <Smartphone aria-hidden />
-      <span>{GUEST_STATUS_LINE}</span>
+      <span>{t('wayIn.guest.status.pill')}</span>
     </button>
   );
 }
 
 export function SavedPill() {
   return (
-    <span className="status-pill status-pill--saved" role="status" data-testid="saved-status" title="Your Blobbi has a connected home now">
+    <span className="status-pill status-pill--saved" role="status" data-testid="saved-status" title={t('wayIn.guest.status.savedTitle')}>
       <Check aria-hidden />
-      <span>{SAVED_STATUS_LINE}</span>
+      <span>{t('wayIn.guest.status.saved')}</span>
     </span>
   );
 }
@@ -49,17 +48,17 @@ interface GuestStatusSheetProps {
 
 export function GuestStatusSheet({ open, onClose, name, onSave, storageOk }: GuestStatusSheetProps) {
   return (
-    <GameOverlay open={open} onClose={onClose} title={`${name}’s little world`} testId="guest-status-sheet" size="medium">
+    <GameOverlay open={open} onClose={onClose} title={t('wayIn.guest.status.sheetTitle', { name })} testId="guest-status-sheet" size="medium">
       <div className="guest-status" data-testid="guest-status-text">
-        <p className="guest-status__lead">{name} is still exploring this little world.</p>
+        <p className="guest-status__lead">{t('wayIn.guest.status.lead', { name })}</p>
         <p className="guest-status__line">{storageOk ? deviceOnlyLine(name) : noStorageLine(name)}</p>
-        <p className="guest-status__line">Give {name} a connected home to visit from other devices and explore new worlds together.</p>
+        <p className="guest-status__line">{t('wayIn.guest.status.connected', { name })}</p>
         <details className="guest-status__more">
-          <summary>Good to know</summary>
-          <ul className="guest-status__points" aria-label="Good to know">
-            <li>{storageOk ? `Clearing this browser’s data, or losing this device, can erase ${name}.` : `Closing this window will erase ${name}.`}</li>
-            <li>You can keep playing here without saving for as long as you like.</li>
-            <li>Saving gives you a little key. Keep it safe and {name} stays yours. Nothing else can bring it back.</li>
+          <summary>{t('wayIn.guest.status.goodToKnow')}</summary>
+          <ul className="guest-status__points" aria-label={t('wayIn.guest.status.goodToKnow')}>
+            <li>{storageOk ? t('wayIn.guest.status.eraseDevice', { name }) : t('wayIn.guest.status.eraseWindow', { name })}</li>
+            <li>{t('wayIn.guest.status.keepPlaying')}</li>
+            <li>{t('wayIn.guest.status.keyLine', { name })}</li>
           </ul>
         </details>
         <div className="guest-status__actions">
@@ -72,10 +71,10 @@ export function GuestStatusSheet({ open, onClose, name, onSave, storageOk }: Gue
             }}
             data-testid="guest-status-save"
           >
-            Save {name}
+            {t('wayIn.guest.status.save', { name })}
           </button>
           <button type="button" className="onboard-btn onboard-btn--secondary" onClick={onClose} data-testid="guest-status-later">
-            Maybe later
+            {t('wayIn.guest.status.later')}
           </button>
         </div>
       </div>

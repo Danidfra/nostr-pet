@@ -1,0 +1,51 @@
+# Checks every push and pull request. It builds and tests only: nothing is
+# deployed or published from here (Vercel deploys on its own integration).
+name: CI
+
+on:
+  push:
+    branches: [production, 'feat/**', 'fix/**', 'security/**']
+  pull_request:
+
+# Read-only by default; no job needs more.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # Third-party actions are pinned to full commit SHAs (the tag is the comment)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.x
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npx vitest run
+      - run: npm run build
+      # Dev diagnostics must never reach a production bundle
+      - run: if grep -rl 'eose-abort' dist; then echo 'dev diagnostics in the bundle' >&2; exit 1; fi
+      # Runtime dependencies with a high or critical advisory fail the run
+      - run: npm audit --omit=dev --audit-level=high
+
+  dependency-review:
+    # Only a pull request has a base to compare against; it reads the diff, no secrets
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
+        with:
+          fail-on-severity: high

@@ -6,6 +6,7 @@
  */
 import { isRoomMemoryKey } from '@/features/room/lib/room-memory';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -55,6 +56,10 @@ beforeEach(() => {
   relay.published = [];
   currentUser.user = undefined;
 });
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('the /room preview', () => {
   it('is served in every build, and sends a signed-out visitor to the welcome at the root', async () => {

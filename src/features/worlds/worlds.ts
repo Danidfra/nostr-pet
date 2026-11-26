@@ -17,6 +17,7 @@
  */
 import { WORLD_PIXEL } from '@blobbi-kit/core';
 import { BLOBBI_ISLAND_URL } from '@/config/ecosystem';
+import { t } from '@/i18n';
 
 /** The World ids the kit's World Travel protocol uses for the worlds the home is not (`WORLD_HOME` is this one). */
 export const WORLD_ISLAND = 'blobbi-island';
@@ -30,7 +31,7 @@ export interface World {
   /** The World id the kit's World Travel protocol uses for the same place (a trip there names it). */
   travelId: string;
   name: string;
-  /** One line: what you do there. */
+  /** One line: what you do there, in the page's language. */
   tagline: string;
   /** The checked address, or null for a world that is not open yet. */
   url: string | null;
@@ -45,11 +46,11 @@ export const worldIconPath = (travelId: string) => `/icons/worlds/${travelId}.pn
 
 export const WORLDS_CHECKED_ON = '2026-10-18';
 
-const DEFINED: readonly World[] = [
-  { id: 'island', travelId: WORLD_ISLAND, name: 'Blobbi Island', tagline: 'Explore the island and meet other Blobbis.', url: BLOBBI_ISLAND_URL, colors: ['#7dd3fc', '#fde68a'], icon: worldIconPath(WORLD_ISLAND) },
-  { id: 'rumble', travelId: WORLD_RUMBLE, name: 'Blobbi Rumble', tagline: 'A playful arena for friendly matches.', url: 'https://rumble.blobbi.pet/', colors: ['#fca5a5', '#fdba74'], icon: worldIconPath(WORLD_RUMBLE) },
-  { id: 'farm', travelId: WORLD_FARM, name: 'Nostr Farm', tagline: 'Grow crops and gather produce.', url: 'https://farm.blobbi.pet/', colors: ['#86efac', '#bef264'], icon: worldIconPath(WORLD_FARM) },
-  { id: 'pixel', travelId: WORLD_PIXEL, name: 'Blobbi Pixel', tagline: 'A pixel adventure with your Blobbi.', url: 'https://pixel.blobbi.pet/', colors: ['#c4b5fd', '#f9a8d4'], icon: worldIconPath(WORLD_PIXEL) },
+const DEFINED: readonly Omit<World, 'tagline'>[] = [
+  { id: 'island', travelId: WORLD_ISLAND, name: 'Blobbi Island', url: BLOBBI_ISLAND_URL, colors: ['#7dd3fc', '#fde68a'], icon: worldIconPath(WORLD_ISLAND) },
+  { id: 'rumble', travelId: WORLD_RUMBLE, name: 'Blobbi Rumble', url: 'https://rumble.blobbi.pet/', colors: ['#fca5a5', '#fdba74'], icon: worldIconPath(WORLD_RUMBLE) },
+  { id: 'farm', travelId: WORLD_FARM, name: 'Nostr Farm', url: 'https://farm.blobbi.pet/', colors: ['#86efac', '#bef264'], icon: worldIconPath(WORLD_FARM) },
+  { id: 'pixel', travelId: WORLD_PIXEL, name: 'Blobbi Pixel', url: 'https://pixel.blobbi.pet/', colors: ['#c4b5fd', '#f9a8d4'], icon: worldIconPath(WORLD_PIXEL) },
 ];
 
 /** An address a world may be opened at: absolute https (http only on localhost, for development), no credentials. */
@@ -67,7 +68,7 @@ export function isTravelUrl(candidate: string | null | undefined): candidate is 
 
 /** Every world, each with whether it can be travelled to now. */
 export function worlds(): readonly (World & { open: boolean })[] {
-  return DEFINED.map((w) => ({ ...w, open: isTravelUrl(w.url) }));
+  return DEFINED.map((w) => ({ ...w, tagline: t(`world.worlds.tagline.${w.id}`), open: isTravelUrl(w.url) }));
 }
 
 export function worldById(id: WorldId): (World & { open: boolean }) | undefined {

@@ -16,6 +16,7 @@
  * and nothing about the Blobbi is lost or published.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRELOAD_TIMEOUT_MS, preloadRoom } from '@/test/preload-room';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NostrContext } from '@nostrify/react';
@@ -198,6 +199,10 @@ function runFrames() {
   rafs = [];
   for (const cb of due) cb(performance.now());
 }
+
+
+// The room's chunk compiled once, outside every test's own waits (`preload-room.ts`)
+beforeAll(preloadRoom, PRELOAD_TIMEOUT_MS);
 
 describe('the stage on a phone: nothing drawn once disposed or lost', () => {
   it('a disposed stage asked to draw again (the preview\'s cleanup after its dispose) does not touch the dead context', () => {
