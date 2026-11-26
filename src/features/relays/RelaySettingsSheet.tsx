@@ -46,7 +46,7 @@ function StatusDot({ mark }: { mark: RelayMark | 'idle' }) {
 
 function Switch({ on, label, onChange, testId }: { on: boolean; label: string; onChange: (on: boolean) => void; testId: string }) {
   return (
-    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)} data-testid={testId} className="inline-flex min-h-10 items-center gap-2 rounded-full px-2 text-sm">
+    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)} data-testid={testId} className="inline-flex min-h-11 items-center gap-2 rounded-full px-2 text-sm">
       <span className="menu-switch" aria-hidden data-on={on ? 'true' : 'false'} />
       {label}
     </button>
@@ -160,7 +160,7 @@ export function RelaySettingsSheet({ open, onClose }: { open: boolean; onClose: 
                       <div className="mt-2 flex flex-wrap gap-2">
                         <button
                           type="button"
-                          className="menu-tile menu-tile--on min-h-10 px-3 py-1 text-sm"
+                          className="menu-tile menu-tile--on min-h-11 px-3 py-1 text-sm"
                           onClick={() => {
                             writeRelaySettings(setExtraAccess(readRelaySettings(), e.url, { write: true }));
                             setConfirming(null);
@@ -169,7 +169,7 @@ export function RelaySettingsSheet({ open, onClose }: { open: boolean; onClose: 
                         >
                           {t('relays.confirmWrite.allow')}
                         </button>
-                        <button type="button" className="menu-tile min-h-10 px-3 py-1 text-sm" onClick={() => setConfirming(null)} data-testid="relay-confirm-cancel">
+                        <button type="button" className="menu-tile min-h-11 px-3 py-1 text-sm" onClick={() => setConfirming(null)} data-testid="relay-confirm-cancel">
                           {t('relays.confirmWrite.cancel')}
                         </button>
                       </div>
@@ -196,7 +196,7 @@ export function RelaySettingsSheet({ open, onClose }: { open: boolean; onClose: 
               className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-2 text-base"
               data-testid="relay-add-input"
             />
-            <button type="submit" disabled={!input.trim() || settings.extras.length >= MAX_EXTRA_RELAYS} className="menu-tile min-h-10 shrink-0 px-3 py-1" data-testid="relay-add">
+            <button type="submit" disabled={!input.trim() || settings.extras.length >= MAX_EXTRA_RELAYS} className="menu-tile min-h-11 shrink-0 px-3 py-1" data-testid="relay-add">
               <Plus className="h-4 w-4" aria-hidden />
               {t('relays.add.button')}
             </button>
@@ -216,7 +216,7 @@ export function RelaySettingsSheet({ open, onClose }: { open: boolean; onClose: 
             <p className="menu-section__hint">{t('relays.nip65.hint')}</p>
             {nip65.kind === 'idle' || nip65.kind === 'failed' ? (
               <>
-                <button type="button" onClick={() => void findRelayList()} className="menu-tile min-h-10 px-3 py-1 text-sm" data-testid="relay-nip65-find">
+                <button type="button" onClick={() => void findRelayList()} className="menu-tile min-h-11 px-3 py-1 text-sm" data-testid="relay-nip65-find">
                   {t('relays.nip65.button')}
                 </button>
                 {nip65.kind === 'failed' && (
@@ -256,7 +256,7 @@ export function RelaySettingsSheet({ open, onClose }: { open: boolean; onClose: 
               setConfirming(null);
               setNote({ tone: 'ok', text: t('relays.restore.done') });
             }}
-            className="menu-tile min-h-10 px-3 py-1 text-sm"
+            className="menu-tile min-h-11 px-3 py-1 text-sm"
             data-testid="relay-restore"
           >
             <RotateCcw className="h-4 w-4" aria-hidden />
