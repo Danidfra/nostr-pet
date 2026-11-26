@@ -83,7 +83,11 @@ export function GameOverlay({ open, onClose, title, children, testId, lead, subt
     }
     const first = items[0];
     const last = items[items.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
+    // Focus on the panel itself (a tap on its blank space) or nowhere listed: Tab enters at either end, never behind
+    if (!items.includes(document.activeElement as HTMLElement)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {

@@ -56,6 +56,23 @@ describe('GameOverlay', () => {
     expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
   });
 
+  it('never lets Tab or Shift+Tab leave from the panel itself (a tap on its blank space)', async () => {
+    // jsdom has no layout: every element is laid out here, as in a browser
+    const offsetParent = vi.spyOn(HTMLElement.prototype, 'offsetParent', 'get').mockReturnValue(document.body);
+    try {
+      render(<Harness open onClose={() => {}} />);
+      const dialog = screen.getByRole('dialog');
+      dialog.focus();
+      await userEvent.keyboard('{Shift>}{Tab}{/Shift}');
+      expect(document.activeElement).toBe(screen.getByRole('link', { name: 'second' }));
+      dialog.focus();
+      await userEvent.keyboard('{Tab}');
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' }));
+    } finally {
+      offsetParent.mockRestore();
+    }
+  });
+
   it('is a game screen, not a drawer: one root over everything, a fixed header with the close control first, a scrolling body', () => {
     render(<Harness open onClose={() => {}} />);
     const root = screen.getByTestId('sheet');
