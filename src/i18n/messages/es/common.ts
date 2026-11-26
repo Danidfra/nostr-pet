@@ -8,7 +8,7 @@ export const common: MessageShape<typeof source> = {
   cancel: 'Cancelar',
   save: 'Guardar',
   done: 'Listo',
-  retry: 'Reintentar',
+  retry: 'Intentar de nuevo',
   loading: 'Cargando…',
   phase: {
     dawn: 'amanecer',
