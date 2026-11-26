@@ -74,6 +74,7 @@ import { TravelAnnouncer } from '@/features/presence/TravelAnnouncer';
 import type { LifecycleTask } from '@/features/lifecycle';
 import type { HealthLevel } from '@/lib/relay-health';
 import { t } from '@/i18n';
+import { describeWriteError } from '@/lib/write-error';
 
 interface BlobbiOverviewProps {
   blobbi: BlobbiCompanion;
@@ -1079,12 +1080,12 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
                 )}
                 {itemError && offer?.phase === 'failed' && (
                   <p role="alert" className="home-glass rounded-xl px-3 py-2 text-center text-sm text-destructive" data-testid="item-error">
-                    {itemError.message}
+                    {describeWriteError(itemError)}
                   </p>
                 )}
                 {ceremony.phase === 'failed' && (
                   <p role="alert" className="home-glass rounded-xl px-3 py-2 text-center text-sm text-destructive" data-testid="ceremony-error">
-                    {(lifecycle.error ?? ceremony.error)?.message}{' '}
+                    {describeWriteError(lifecycle.error ?? ceremony.error)}{' '}
                     <button
                       type="button"
                       className="ml-1 text-xs font-semibold underline"
@@ -1151,7 +1152,7 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
             <HatchTheater
               blobbi={blobbi}
               perform={performHatch}
-              error={hatchError ?? lifecycleErrorMessage}
+              error={hatchError ?? (lifecycle.error ? describeWriteError(lifecycle.error) : null)}
               reducedMotion={reducedMotion}
               play={play}
               onDone={endTheater}
@@ -1237,11 +1238,4 @@ function BlobbiHome({ blobbi, companions, profile, pubkey, onSelect, updateCompa
       }
     />
   );
-}
-
-/** Why a write failed, in a line that is never empty (an AggregateError from the relays says nothing itself). */
-function describeWriteError(error: Error): string {
-  if (error.message) return error.message;
-  const inner = error instanceof AggregateError ? (error.errors[0] as Error | undefined)?.message : undefined;
-  return inner || t('home.notice.notAccepted');
 }

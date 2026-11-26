@@ -2,6 +2,7 @@ import type { BlobbiStats } from '@blobbi-kit/core';
 import { describeCareResult, type FeedbackResult } from './care-feedback-text';
 import { statWord } from './labels';
 import { t } from '@/i18n';
+import { describeWriteError } from '@/lib/write-error';
 
 interface CareFeedbackProps {
   result: FeedbackResult | undefined;
@@ -58,7 +59,7 @@ export function CareError({ error }: { error: Error | null }) {
   if (!error) return null;
   return (
     <p role="alert" className="mx-auto max-w-sm rounded-xl border border-destructive/40 bg-card/90 px-3 py-2 text-center text-sm text-destructive" data-testid="care-error">
-      {error.message}
+      {describeWriteError(error)}
     </p>
   );
 }

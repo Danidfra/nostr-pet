@@ -34,6 +34,7 @@ import { cx } from '../lib/cx';
 import { ROOM_ACTION_SLOT, ROOM_BOTTOM_BAR_CLASS, ROOM_CONTROL_SURFACE } from '../lib/room-ui';
 import { lookGuideLine } from '../lib/look-guide';
 import { t } from '@/i18n';
+import { describeWriteError } from '@/lib/write-error';
 
 /** A bar's layout: a button each side (or an empty slot) and the carousel between. Ditto's, verbatim. */
 function BarLayout({ left, center, right }: { left?: ReactNode; center?: ReactNode; right?: ReactNode }) {
@@ -213,7 +214,7 @@ export function RoomCareCards({ offer, onRetry, onPutAway, error, notice }: { of
       {failed && <RoomOfferFailure offer={failed} onRetry={onRetry} onPutAway={onPutAway} />}
       {error && (
         <p role="alert" className={cx('rounded-2xl px-3 py-2 text-center text-[0.8em] text-destructive', ROOM_CONTROL_SURFACE)} data-testid="care-error">
-          {error.message}
+          {describeWriteError(error)}
         </p>
       )}
       {notice && (

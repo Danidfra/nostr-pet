@@ -5,6 +5,7 @@ import { BlobbiRenderer } from '@blobbi-kit/renderer';
 import type { NostrEvent } from '@blobbi-kit/core';
 import { toBlobbiVisual } from '@/lib/blobbi-visual';
 import { t, tp, type MessageKey } from '@/i18n';
+import { describeWriteError } from '@/lib/write-error';
 import { NAME_MAX_LENGTH, localizedDefaultEggName, newEggPreview, normalizeBlobbiName, previewCompanion, renamePreview, type EggPreview } from './adoption-plan';
 import { useAdoptEgg } from './useAdoptEgg';
 
@@ -113,7 +114,7 @@ export function AdoptionFlow({ pubkey, suggestedName, updateCompanionEvent, refr
       </div>
       {adoption.error && (
         <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive" data-testid="adoption-error">
-          {adoption.error.message}
+          {describeWriteError(adoption.error)}
         </p>
       )}
       {result?.kind === 'adopted' && result.profileError && (

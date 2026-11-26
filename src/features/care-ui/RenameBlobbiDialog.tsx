@@ -11,6 +11,7 @@ import { GameOverlay } from '@/features/home/shell/GameOverlay';
 import { NAME_MAX_LENGTH } from '@/features/adoption/adoption-plan';
 import { useRenameBlobbi } from '@/features/care/useRenameBlobbi';
 import { t } from '@/i18n';
+import { describeWriteError } from '@/lib/write-error';
 
 /** The pencil beside the Blobbi's name in its details. */
 export function RenamePencil({ name, onClick }: { name: string; onClick: () => void }) {
@@ -82,7 +83,7 @@ export function RenameBlobbiDialog({ open, onClose, blobbi, pubkey, updateCompan
         </p>
         {rename.isError && (
           <p role="alert" className="text-sm text-rose-700 dark:text-rose-300" data-testid="rename-error">
-            {rename.error.message}
+            {describeWriteError(rename.error)}
           </p>
         )}
         <div className="flex flex-wrap gap-2">
