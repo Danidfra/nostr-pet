@@ -10,6 +10,7 @@ export const common: MessageShape<typeof source> = {
   done: 'Pronto',
   retry: 'Tentar de novo',
   loading: 'Carregando…',
+  documentTitle: 'Blobbi - O lar do seu Blobbi',
   phase: {
     dawn: 'amanhecer',
     day: 'dia',

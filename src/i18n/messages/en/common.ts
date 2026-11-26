@@ -7,6 +7,8 @@ export const common = {
   done: 'Done',
   retry: 'Try again',
   loading: 'Loading…',
+  /** The page's title: the browser tab, a bookmark, a shared link. */
+  documentTitle: 'Blobbi - The home of your Blobbi',
   phase: {
     dawn: 'dawn',
     day: 'day',

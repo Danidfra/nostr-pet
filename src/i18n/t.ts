@@ -20,15 +20,18 @@ const loaders: Record<Exclude<Locale, 'en'>, () => Promise<Messages>> = {
   es: () => import('./messages/es').then((m) => m.es),
 };
 
-function applyDocumentLanguage(locale: Locale): void {
-  if (typeof document !== 'undefined') document.documentElement.lang = locale;
+function applyDocumentLanguage(locale: Locale, messages: Messages): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = locale;
+  // The tab, a bookmark and a shared link name the page in its own language
+  document.title = messages.common.documentTitle || en.common.documentTitle;
 }
 
 /** Use these messages for this page load (tests may call it with a language's messages directly). */
 export function setMessages(locale: Locale, messages: Messages): void {
   currentLocale = locale;
   currentMessages = messages;
-  applyDocumentLanguage(locale);
+  applyDocumentLanguage(locale, messages);
 }
 
 /** Load a language's messages before the first render. A language that fails to load leaves the page in English. */

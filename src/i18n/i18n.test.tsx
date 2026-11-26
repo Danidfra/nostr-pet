@@ -69,6 +69,15 @@ describe('messages', () => {
     expect(t('menu.title')).toBe('Menu');
   });
 
+  it('names the page in its language: the tab, a bookmark, a shared link', () => {
+    setMessages('es', es);
+    expect(document.title).toBe(es.common.documentTitle);
+    setMessages('pt-BR', ptBR);
+    expect(document.title).toBe(ptBR.common.documentTitle);
+    setMessages('en', en);
+    expect(document.title).toBe('Blobbi - The home of your Blobbi');
+  });
+
   it('writes numbers the language’s way', () => {
     setMessages('pt-BR', ptBR);
     expect(formatNumber(1234.5)).toBe('1.234,5');
